@@ -113,6 +113,8 @@
     }
     onAction(name, el, ev) {
       if (name === 'tab') return this.setUI({ tab: el.dataset.t, sel: null });
+      // Tannhjulet åpner hele rom-tilpasningen (msh-rom-card) når den finnes, ellers kortets egen.
+      if (name === 'customize' && M.roomCustomize && M.roomCustomize(M.roomArea(this), el.dataset.section)) return;
       return super.onAction(name, el, ev);
     }
     afterRender() {

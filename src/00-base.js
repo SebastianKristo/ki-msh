@@ -617,7 +617,7 @@
       this._ui = {};
       this._raf = 0;
       this.shadowRoot.addEventListener('click', (e) => this._onClick(e));
-      this.shadowRoot.addEventListener('pointerdown', (e) => this._onDown(e));
+      this.shadowRoot.addEventListener('pointerdown', (e) => this._onDown(e), true); // capture: virker også under guardDrag
       this.shadowRoot.addEventListener('pointerup', () => this._cancelHold());
       this.shadowRoot.addEventListener('pointercancel', () => this._cancelHold());
       this.shadowRoot.addEventListener('pointermove', (e) => { if (this._hold && (Math.abs(e.clientX - this._hx) > 8 || Math.abs(e.clientY - this._hy) > 8)) this._cancelHold(); });

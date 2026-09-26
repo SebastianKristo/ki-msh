@@ -1,0 +1,7 @@
+[
+  { "name": "Rom · stue (KI Rom)", "hash": "#stue", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
+  { "name": "Rom · soverom (HA-registre)", "hash": "#soverom", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
+  { "name": "Rom · kjokken (apparat)", "hash": "#kjokken", "cards": [ { "type": "custom:msh-rom-card", "sections": ["dev", "lys"], "gap": 18 } ] },
+  { "name": "Rom · tomt rom", "hash": "#bod", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
+  { "name": "Rom · ukjent config", "cards": [ { "type": "custom:msh-rom-card" } ] }
+]
