@@ -558,7 +558,7 @@
       let faces = people, row2 = [];
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
       const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: 68, bs: 30 })).join('') : faces.map((p, k) => face(p, k)).join('');
-      const empty = !P.all.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
+      const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
       return `<header class="hd">
         <div class="top">
@@ -587,7 +587,6 @@
       }
       return super.onAction(name, el, ev);
     }
-    onHold(id) { return undefined; }
     _serverMenu(anchor) {
       if (this._srv) { this._srv.close(); return; }
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
@@ -674,7 +673,7 @@
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
       if ((this.config.mode || 'familie') === 'stor') {
         const col = this.shadowRoot.querySelector('.lc');
-        if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver(() => { this._gFit = null; this.update(); }); this._ro.observe(col); }
+        if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._roW) return; this._roW = w; this._gFit = null; this.update(); }); this._ro.observe(col); }
         requestAnimationFrame(() => {
           const sp = this.shadowRoot.querySelector('.ttl .tx'), cl = this.shadowRoot.querySelector('.lc');
           if (!sp || !cl) return;

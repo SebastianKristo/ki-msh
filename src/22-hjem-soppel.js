@@ -33,7 +33,7 @@
           <div class="nw"><span class="n num" data-key="n${n == null ? 'x' : n}">${n == null ? '–' : n}</span>${anim ? `<span class="bin">${M.icon('delete', 26)}</span>` : ''}</div>
           <div class="tx">
             <div class="l1">${esc(label)}</div>
-            ${type ? `<div class="l2">${esc(type)}</div>` : !id ? `<button class="pick press" data-act="customize">${M.icon('mdi:plus', 18)}Velg sensor</button>` : ''}
+            ${type ? `<div class="l2">${esc(type)}</div>` : !st ? `<button class="pick press" data-act="customize">${M.icon('mdi:plus', 18)}Velg sensor</button>` : ''}
           </div>
         </section>`;
     }

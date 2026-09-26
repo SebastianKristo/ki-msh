@@ -21,7 +21,7 @@
     let cur = out;
     ks.forEach((k, i) => {
       if (i === ks.length - 1) { if (v === undefined || v === '' || v === null) delete cur[k]; else cur[k] = v; }
-      else { cur[k] = { ...(cur[k] || {}) }; cur = cur[k]; }
+      else { cur[k] = Array.isArray(cur[k]) ? [...cur[k]] : { ...(cur[k] || {}) }; cur = cur[k]; }
     });
     return out;
   };
