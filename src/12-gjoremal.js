@@ -136,7 +136,7 @@
 
     onAction(name, el, ev) {
       const h = this.hass, lists = this._lists(), tab = lists.includes(this.ui.tab) ? this.ui.tab : lists[0];
-      const it = el.dataset.uid && this._items ? this._items.find((x) => x.uid === el.dataset.uid) : null;
+      const it = el.dataset.uid && this._items && el.dataset.uid.indexOf('__new') !== 0 ? this._items.find((x) => x.uid === el.dataset.uid) : null; // nye (optimistiske) venter på uid fra HA
       switch (name) {
         case 'tab': return this.setUI({ tab: el.dataset.id });
         case 'filter': return this.setUI({ filter: el.dataset.v });
