@@ -50,7 +50,8 @@ cards:
 | Skjerm | Hash | Kort (i rekkefølge) | Design |
 |---|---|---|---|
 | Navbar | – | `msh-navbar-card` | Hjem v2 (`<nav>`) |
-| Hjem | – | `msh-hjem-header-card`, `msh-prosa-card`, `msh-hjem-faner-card`, `msh-soppel-card`, `msh-hjem-gjoremal-card` | Hjem v2 |
+| Hjem | – | `msh-hjem-card` (container, full bredde – tegner griden og oppretter delkortene under `cards.header/prosa/faner/soppel/strom/gjoremal`, hvert med `type` + `card_id`; `layout_mode`, `zoom`, `breakout`, `order`, `hidden`). Delkortene virker også alene: `msh-hjem-header-card`, `msh-prosa-card`, `msh-hjem-faner-card`, `msh-soppel-card`, `msh-strompris-card`, `msh-hjem-gjoremal-card` | Hjem v2 |
+| Strømpris | – (trykk → `#strom`) | `msh-strompris-card` (nåpris, søyler per time i dag/i morgen, billigste time, dra for å se time; `overrides.price`/`watt`, `day`, `price_high`/`price_mid`, `popup_hash`) | Hjem v2 strøm-data + ki-strompris-card |
 | Romkort | – | `msh-romkort-card` (også brukt inni fanene) | Romkort |
 | Rom | `#<area_id>` | `msh-rom-klima-card` (alltid først), `msh-rom-card` | Rom v4 |
 | Basseng | `#basseng` | `msh-basseng-hero-card`, `msh-basseng-card` | Basseng v3 |
@@ -74,7 +75,7 @@ personen fra `#person-<slug>`. Alle config-nøkler finnes i GUI-editoren; se [`d
 | Popup | Kilde |
 |---|---|
 | Rom | KI Rom `sensor.<rom>_oversikt` (lys, media, brytere, vifter, klima, gardiner, sensorer, scener, skript, temperatur, fukt) → ellers entiteter i området |
-| Hjem | `person.*`, første `weather.*`, `sensor.hele_huset_effekt`/`_lys`, `alarm_control_panel.*`, `lock.*`, `calendar.*`, `todo.*`, nordpool/tibber |
+| Hjem | `person.*`, første `weather.*`, `sensor.hele_huset_effekt`/`_lys`, `alarm_control_panel.*`, `lock.*`, `calendar.*`, `todo.*`; strømpris = `MSH.priceSensor` (plattform nordpool → tibber → energi_data_service, kun sensorer med enhet …/kWh eller timesprislister; aldri kostnad/energi) – samme sensor i prosa og strømpriskortet |
 | Basseng | område «Basseng»/`pool`: temperatur, pumpe, varmepumpe, pH/klor, tak, lys, spreder, klorkalender |
 | Vanning | område «Hage», OpenSprinkler, `valve.*`, vann-brytere, jordfuktighet, vanningskalender |
 | Klima | alle `climate.*` + `fan.*` per område, effekt/timegrense/pris, varmtvann |

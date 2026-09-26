@@ -6,17 +6,24 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const PAL = [C.green, C.blue, C.yellow, C.orange, C.pink, C.red, C.purple, C.lightBlue];
+  // Standard romfarge: temapaletten i rekkefølge etter rommets indeks (M.areas), med mindre config sier noe annet.
+  const PAL = [C.orange, C.blue, C.green, C.purple, C.pink, C.yellow, C.red, C.lime, C.lightBlue, C.brown];
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 
   /* ------------------------------------------------------------ romdata */
-  // Stabil standardfarge per rom (hash av area_id → temapalett).
-  M.romColor = M.romColor || function (area) {
+  // Standardfarge per rom: temapalett (oransje, blå, grønn, lilla, rosa, gul, rød, lime …) etter rommets indeks i
+  // M.areas(hass). Uten hass (eller ukjent rom): stabil hash av area_id.
+  M.romColor = function (area, hass) {
+    const list = hass ? M.areas(hass) : [];
+    const i = list.findIndex((a) => a.id === area);
+    if (i >= 0) return PAL[i % PAL.length];
     let h = 0;
     String(area || '').split('').forEach((c) => { h = (h * 31 + c.charCodeAt(0)) >>> 0; });
     return PAL[h % PAL.length];
   };
+  // Romfarge fra config: look.col / look.color (rooms.<id>.color) → romColor.
+  M.romCol = function (hass, area, look) { look = look || {}; return M.color(look.col || look.color, M.romColor(area, hass)); };
   const autoOf = (hass, area) => {
     if (M.roomAuto) return M.roomAuto(hass, area);
     const ov = M.kiRom(hass, area, 'oversikt'), A = (ov && ov.attributes) || {}, first = (a) => M.ids(a)[0] || null;
@@ -34,11 +41,17 @@
     if (!hass || !area || !hass.areas || !hass.areas[area]) return null;
     const A = hass.areas[area], F = A.floor_id && hass.floors ? hass.floors[A.floor_id] : null;
     const au = autoOf(hass, area), OA = au.A || {}, ov = cfg.overrides || {}, look = cfg.look || {};
-    const tempId = ov.temperatur || au.temp, humId = ov.fuktighet || au.hum, thermo = ov.termostat || au.thermo;
+    // Klima via M.roomClimate (30-rom-klima.js): KI Rom-attributtene temperatur/fuktighet kan være tall, entity_id eller liste.
+    // Overstyring: overrides.temperature|humidity|climate (nye) eller temperatur|fuktighet|termostat (gamle).
+    const RC = M.roomClimate ? M.roomClimate(hass, area, { overrides: ov, include: cfg.include }) : null;
+    const tempId = RC ? RC.temp.id : (ov.temperature || ov.temperatur || au.temp);
+    const humId = RC ? RC.hum.id : (ov.humidity || ov.fuktighet || au.hum);
+    const thermo = RC ? RC.climate : (ov.climate || ov.termostat || au.thermo);
+    const val = (x, id) => { if (id) { const n = card.n(id); return n != null ? n : (x && x.v != null ? x.v : null); } return x && x.v != null ? Number(x.v) : null; };
     const lights = (au.lights || []).filter((id) => hass.states[id]);
     const media = (OA.media ? M.ids(OA.media) : M.all(hass, 'media_player', (s, id) => M.areaOf(hass, id) === area)).filter((id) => hass.states[id]);
     const doors = M.all(hass, 'binary_sensor', (s, id) => ['door', 'garage_door', 'opening'].includes(s.attributes.device_class) && M.areaOf(hass, id) === area);
-    const ts = card.s(thermo), temp = card.n(tempId), hum = card.n(humId);
+    const ts = card.s(thermo), temp = RC ? val(RC.temp, tempId) : card.n(tempId), hum = RC ? val(RC.hum, humId) : card.n(humId);
     const lightsOn = lights.filter((id) => { const s = card.s(id); return s && s.state === 'on'; }).length;
     const mediaOn = media.filter((id) => { const s = card.s(id); return s && s.state === 'playing'; }).length;
     const set = ts && M.isNum(ts.attributes.temperature) ? Number(ts.attributes.temperature) : null;
@@ -49,7 +62,7 @@
     const fs = F ? M.slug(F.name) + ' ' + M.slug(F.floor_id) : '';
     const outdoor = F ? fs.split(' ').some((x) => OUT_RX.test(x)) : OUT_RX.test(area) || OUT_RX.test(M.slug(A.name));
     return {
-      id: area, name: look.name || A.name || area, icon: look.icon || A.icon || OA.ikon || 'mdi:texture-box', col: M.color(look.color, M.romColor(area)),
+      id: area, name: look.name || A.name || area, icon: look.icon || A.icon || OA.ikon || 'mdi:texture-box', col: M.romCol(hass, area, look),
       temp, hum, tempId, humId, thermo: ts ? thermo : null, set, step: ts ? Number(ts.attributes.target_temp_step) || 0.5 : 0.5, heating,
       lights, lightsOn, media, mediaOn, doors, doorOpen, wattId, watt: card.n(wattId), floor: A.floor_id || null, floorName: F ? F.name : null, level: F ? F.level : null,
       outdoor, hash: cfg.hash || '#' + area, ent: (ts && thermo) || tempId || lights[0] || null,
@@ -62,11 +75,8 @@
   const NUMB = ['temp', 'hum', 'price', 'watt', 'lightsN', 'entNum'];
   const BDOM = { entState: null, entNum: 'sensor', door: 'binary_sensor', temp: 'sensor', hum: 'sensor', light: 'light', unlocked: 'lock', ent: null, alarmOff: 'alarm_control_panel' };
   M.romBadgeDefaults = (r) => [...(r && r.doors && r.doors.length ? [{ type: 'door', text: 'Døren er åpen' }] : []), ...(r && !r.outdoor ? [{ type: 'hum', op: '>', val: 60, text: 'Høy luftfuktighet' }, { type: 'temp', op: '>', val: 25, text: 'Høy temperatur' }] : [])];
-  M.hjemPriceId = M.hjemPriceId || function (hass) {
-    if (!hass) return null;
-    return M.byPlatform(hass, 'nordpool', 'sensor')[0] || M.byPlatform(hass, 'tibber', 'sensor')[0]
-      || Object.keys(hass.states).find((id) => id.startsWith('sensor.') && /(nok|kr|øre|ore)\s*\/\s*kwh/i.test(hass.states[id].attributes.unit_of_measurement || '')) || null;
-  };
+  // Strømpris-sensor: samme valg som prosa og strømpriskortet (M.priceSensor i 26-hjem-strompris.js).
+  M.hjemPriceId = function (hass) { return hass && M.priceSensor ? M.priceSensor(hass, {}) : null; };
   M.romBadgeHit = function (card, x, r) {
     const hass = card.hass, num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? null : n; };
     const cmp = (v, op, t) => { if (v == null || t == null) return false; return op === '<' ? v < t : op === '=' ? v === t : op === '!=' ? v !== t : v > t; };
@@ -127,7 +137,13 @@
   };
 
   /* ------------------------------------------------------------ render */
-  const deg = (v, d = 1) => (v == null ? '–' : M.nf(v, d));
+  // Temperatur: «23°» ved hel grad, ellers én desimal med komma («22,5°»). Fukt: heltall.
+  const deg = (v, d = 1) => {
+    if (v == null || isNaN(v)) return '–';
+    if (d === 0) return M.nf(v, 0);
+    const r = Math.round(Number(v) * 10) / 10;
+    return M.nf(r, r % 1 ? 1 : 0);
+  };
   const setTxt = (v) => (v == null ? '–' : M.nf(v, v % 1 ? 1 : 0));
   const bang = (alert) => (alert ? `<span class="rk-bang" title="${esc(alert)}">!</span>` : '');
   const lightBtn = (r, cls, alert) => `<button class="${cls}" data-act="rk-light" data-area="${esc(r.id)}" title="Lys" style="background:${r.lightsOn ? r.col : 'var(--gray200,#3a3a3a)'};color:${r.lightsOn ? 'var(--gray000,#232323)' : 'var(--gray600,#7f7f7f)'}">${M.icon(r.icon, 24)}${bang(alert)}</button>`;
@@ -155,7 +171,8 @@
     }
     // graf (Romkort.dc.html)
     const cfg = o.cfg || {}, ui = o.ui || {}, g = o.graph || { t: [], h: [] };
-    const lit = r.lightsOn > 0, hc = r.heating ? C.red : lit ? C.yellow : C.blue;
+    const lit = r.lightsOn > 0, hc = r.heating ? C.red : lit ? C.yellow : r.col;
+    const cc = r.heating ? C.red : lit ? C.yellow : C.blue; // termostat-chip: blå i ro (CLAUDE.md), glyf/partikler i romfarge
     const ser0 = { t: g.t && g.t.length ? g.t.slice() : r.temp != null ? Array(25).fill(r.temp) : [], h: g.h && g.h.length ? g.h.slice() : r.hum != null ? Array(25).fill(r.hum) : [] };
     if (r.temp != null && ser0.t.length) ser0.t[ser0.t.length - 1] = r.temp;
     if (r.hum != null && ser0.h.length) ser0.h[ser0.h.length - 1] = r.hum;
@@ -185,7 +202,7 @@
       </div>
       <span class="rk-glyph" style="color:${hc};filter:drop-shadow(0 0 14px ${M.alpha(hc, 0.7)})">${M.icon(glyph, 30)}</span>
       <button class="rk-gear" data-act="customize" title="Tilpass">${M.icon('settings', 22)}${bang(alert)}</button>
-      <div class="rk-top"><span class="rk-gn ell">${esc(r.name)}</span><span class="rk-chip" style="background:${M.alpha(hc, 0.18)};color:${hc}">${M.icon(chipIcon, 14)}${esc(chipText)}</span></div>
+      <div class="rk-top"><span class="rk-gn ell">${esc(r.name)}</span><span class="rk-chip" style="background:${M.alpha(cc, 0.18)};color:${cc}">${M.icon(chipIcon, 14)}${esc(chipText)}</span></div>
       <div class="rk-vals">
         <div class="rk-line">
           <button class="rk-tb" data-act="rk-gt" data-t="t" style="color:${isT ? 'var(--white,#fafafa)' : 'var(--gray600,#7f7f7f)'}"><span class="rk-gbig num">${deg(tv)}</span><span class="rk-deg">°</span></button>
@@ -198,7 +215,7 @@
 
   M.romkortCSS = `
     .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
-    .rk-car{flex:none;width:100%;height:220px}
+    .rk-car{flex:none;width:100%;height:220px;border-radius:36px}
     .rk-car,.rk-big{container-type:inline-size}
     @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}}
     .rk-name{position:absolute;left:18px;top:18px;right:70px;font-size:15px;font-weight:500;line-height:1.3}
@@ -241,7 +258,7 @@
     .rk-deg{font-size:24px;font-weight:300}
     .rk-hb{display:flex;align-items:baseline;gap:1px;height:26px;padding:0 9px;border-radius:13px;transition:background .25s,color .25s}
     .rk-hv{font-size:17px;font-weight:400}
-    .rk-pc{font-size:12px}
+    .rk-pc{font-size:12px;color:var(--gray700,#979797)}
     .rk-when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
   `;
 
@@ -294,12 +311,12 @@
           ] },
           { type: 'section', id: 'look', label: 'Ikon og farge', icon: 'mdi:palette', fields: [
             { type: 'icon', name: 'icon', label: 'Ikon', auto: () => (r ? r.icon : '') },
-            { type: 'color', name: 'color', label: 'Romfarge (ikon når lys er på)', auto: () => (c.area ? M.romColor(c.area) : '') },
+            { type: 'color', name: 'color', label: 'Romfarge (ikon når lys er på)', auto: () => (c.area ? M.romColor(c.area, hass) : '') },
           ] },
           { type: 'overrides', label: 'Bytt sensor/termostat', fields: [
-            { name: 'temperatur', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: (h, cc) => au(h, cc).temp },
-            { name: 'fuktighet', label: 'Luftfuktighet', domain: 'sensor', device_class: 'humidity', auto: (h, cc) => au(h, cc).hum },
-            { name: 'termostat', label: 'Termostat', domain: 'climate', auto: (h, cc) => au(h, cc).thermo },
+            { name: 'temperature', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: (h, cc) => (cc.overrides || {}).temperatur || au(h, cc).temp },
+            { name: 'humidity', label: 'Luftfuktighet', domain: 'sensor', device_class: 'humidity', auto: (h, cc) => (cc.overrides || {}).fuktighet || au(h, cc).hum },
+            { name: 'climate', label: 'Termostat', domain: 'climate', auto: (h, cc) => (cc.overrides || {}).termostat || au(h, cc).thermo },
           ] },
           { type: 'section', id: 'badges', label: 'Varsler på rommet', icon: 'mdi:alert-circle-outline', fields: M.romBadgeFields(hass, c, 'badges_own', 'badges', r) },
           { type: 'section', id: 'graf', label: 'Graf (variant graf)', icon: 'mdi:chart-line', fields: [

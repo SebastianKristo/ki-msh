@@ -14,23 +14,48 @@ views:
     type: sections
     max_columns: 3
     sections:
-      # ---------------------------------------------------------------- navbar (egen seksjon)
+      # ---------------------------------------------------------------- Hjem (ett kort, full bredde)
+      # msh-hjem-card tegner hele Hjem-griden selv (mobil: én kolonne maks 420 px, marg 18/20/120 og 22 px mellom
+      # blokkene; bred ≥1000 px: 2 kolonner, ≥1500 px: 3 kolonner + zoom) og måler margene mot dashbordflaten.
+      # Hvert delkort konfigureres under cards.<navn> – behold type + card_id, så delkortets egen «Tilpass» lagrer hit.
+      - type: grid
+        column_span: 3          # = max_columns → seksjonen dekker hele bredden
+        cards:
+          - type: custom:msh-hjem-card
+            card_id: hjem
+            layout_mode: auto     # auto | mobil | stor
+            # hidden: [strom]     # skjul blokker · order: [header, prosa, faner, soppel, strom, gjoremal] (mobil)
+            cards:
+              header:
+                type: custom:msh-hjem-header-card
+                card_id: hjem_header
+              prosa:
+                type: custom:msh-prosa-card
+                card_id: hjem_prosa
+              faner:
+                type: custom:msh-hjem-faner-card
+                card_id: hjem_faner
+                # rooms: { stue: { color: 'var(--orange)', temperature: sensor.stue_temp_2 } }
+              soppel:
+                type: custom:msh-soppel-card
+                card_id: hjem_soppel
+                popup_hash: '#soppel'
+                # sensor: sensor.dager_til_tomming   # auto hvis tomt
+              strom:
+                type: custom:msh-strompris-card
+                card_id: hjem_strom
+                popup_hash: '#strom'
+                # overrides: { price: sensor.nordpool_kwh_no1_nok_3_10_025 }   # auto: nordpool/tibber/energi_data_service
+              gjoremal:
+                type: custom:msh-hjem-gjoremal-card
+                card_id: hjem_gjoremal
+
+      # ---------------------------------------------------------------- navbar (egen seksjon, fast plassert)
       - type: grid
         cards:
           - type: custom:msh-navbar-card
             bar: [vanning, media, klima, basseng, ruter]
             more: [gjoremal]
-
-      # ---------------------------------------------------------------- Hjem
-      - type: grid
-        cards:
-          - type: custom:msh-hjem-header-card
-          - type: custom:msh-prosa-card
-          - type: custom:msh-hjem-faner-card
-          - type: custom:msh-soppel-card
-            popup_hash: '#soppel'
-            # sensor: sensor.dager_til_tomming   # auto hvis tomt
-          - type: custom:msh-hjem-gjoremal-card
 
       # ---------------------------------------------------------------- popups
       - type: grid

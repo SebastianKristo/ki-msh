@@ -1,9 +1,14 @@
 /* msh-navbar-card · Navbar. Kilde: Hjem v2.dc.html (<nav>, «Mer»-meny, «Tilpass navbar», navbar-badges) + glass-drag.js.
- * Eget kort UTENFOR alle popups (egen seksjon i grid). Selve navbaren portales til document.body (position: fixed kan
- * ellers bli relativ til en forelder med transform/containment) og plasseres mot dashbordflaten – aldri vinduet:
- *   mobil  = bunn, sentrert i dashbordflaten, maks 392 px
+ * Eget kort UTENFOR alle popups (egen seksjon i grid). Navbaren eies av kortinstansen og finnes KUN i dashbordet kortet
+ * ligger i: portal-elementet er et barn av selve kortet (slottes inn i kortets shadow DOM), så det følger kortet inn og
+ * ut av dashbordet. Har en forelder transform/containment (position: fixed ville blitt relativ til den), legges portalen
+ * i document.body i stedet – fortsatt eid av kortet og fjernet straks kortet kobles fra eller brukeren navigerer til et
+ * annet dashbord / en annen HA-side (location.pathname sjekkes mot dashbordets url_path). Ingen globale observere.
+ * Plasseres mot dashbordflaten – aldri vinduet:
+ *   mobil  = bunn (8 px over bunnen / safe area), sentrert i dashbordflaten, bredde min(flate − 28, 392), høyde 68
  *   bred   = vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren), zoom opptil 1,8×
- * Knapper åpner Bubble Card-popups via hash; aktiv knapp markeres når hashen er åpen.
+ * Knapper åpner Bubble Card-popups via hash. Åpen popup (location.hash = knappens hash) markeres med en prikk under
+ * ikonet (standard: #232323, liquid glass: rosa + mørk glass-pille som følger valgt fane).
  * Merker (røde prikker) med vilkår: entitet + operator (Over/Under/Er/Er ikke) + verdi.
  * Config (alt redigeres i «Tilpass navbar» = kortets egen editor = HA GUI-editor):
  *   bar: [id…]  more: [id…]  hidden: [id…]
@@ -143,7 +148,7 @@
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:max(8px, calc(env(safe-area-inset-bottom, 0px) - 10px))}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
     nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
@@ -154,13 +159,16 @@
     nav.nb .gl2{position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(255,255,255,0.08),inset 0 0 0 0.5px rgba(255,255,255,0.18);pointer-events:none}
     nav.nb .ind{position:absolute;border-radius:999px;pointer-events:none;transition:left .5s cubic-bezier(.34,1.4,.64,1),top .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),opacity .25s}
     nav.nb.glass .ind{background:rgba(18,18,20,0.62);box-shadow:inset 0 2px 6px rgba(0,0,0,0.45),inset 0 -1px 0 rgba(255,255,255,0.06),inset 0 0 0 0.5px rgba(255,255,255,0.05);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-    nav.nb.white .ind{background:rgba(35,35,35,0.09)}
+    nav.nb.white .ind{display:none}
     nav.nb .it{position:relative;z-index:1;min-width:0;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),color .25s}
     nav.nb .it:active{transform:scale(.84)}
     nav.nb.row .it{flex:1 1 0}
     nav.nb.rail .it{flex:none}
     nav.nb.glass .it ha-icon{filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))}
     nav.nb .nm{white-space:nowrap;line-height:1.15}
+    nav.nb .od{position:absolute;left:calc(50% - 2.5px);bottom:4px;width:5px;height:5px;border-radius:3px;background:var(--gray000,#232323);pointer-events:none;z-index:2;transform:scale(0);transition:transform .3s cubic-bezier(.34,1.8,.64,1)}
+    nav.nb.glass .od{background:${C.pink}}
+    nav.nb .it.open .od{transform:scale(1)}
     nav.nb .dot{position:absolute;left:calc(50% + 5px);top:calc(50% - 16px);width:11px;height:11px;border-radius:6px;background:var(--red,#f28073);pointer-events:none;z-index:2}
   `;
   const PORTAL_CSS = `
@@ -213,6 +221,7 @@
       };
       window.addEventListener('hashchange', this._onHashNav);
       window.addEventListener('location-changed', this._onHashNav);
+      window.addEventListener('popstate', this._onHashNav);
       window.addEventListener('resize', this._onResize);
       window.addEventListener('scroll', this._onScroll, { passive: true });
     }
@@ -220,16 +229,54 @@
       super.disconnectedCallback();
       window.removeEventListener('hashchange', this._onHashNav);
       window.removeEventListener('location-changed', this._onHashNav);
+      window.removeEventListener('popstate', this._onHashNav);
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
-      if (this._portal) { this._portal.remove(); this._portal = null; }
-      this._reserve(null);
+      this._hidePortal();
+      this._dEl = null;
     }
 
-    // Dashbordflaten: M.dashRect() i HA; ellers kortets øverste forelder (test/utenfor HA).
+    // Fjern portalen og gi dashbordet tilbake paddingen (kort frakoblet / annet dashbord / annen HA-side).
+    _hidePortal() {
+      if (this._portal) { this._portal.remove(); this._portal = null; }
+      this._reserve(null);
+      if (this.ui.menu) this._ui = { ...this._ui, menu: false };
+    }
+
+    // Dashbordets url_path (første path-segment), låst første gang kortet er koblet til i dashbordet sitt.
+    _pathOk() {
+      const path = location.pathname || '/';
+      if (!this._dashPath) {
+        const pu = this._hass && this._hass.panelUrl;
+        const seg = pu && (path === '/' + pu || path.indexOf('/' + pu + '/') === 0) ? pu : path.split('/')[1] || '';
+        this._dashPath = '/' + seg;
+      }
+      const d = this._dashPath;
+      return d === '/' || path === d || path.indexOf(d + '/') === 0;
+    }
+    // Vises kun når kortet er koblet til, synlig og brukeren står i kortets dashbord.
+    _active() {
+      return this.isConnected && this._pathOk() && this.getClientRects().length > 0;
+    }
+
+    // Dashbord-elementet kortet faktisk ligger i (host-kjeden opp fra kortet, aldri et globalt oppslag):
+    // hui-root #view / hui-view-container → ha-panel-lovelace; utenfor HA (test): øverste forelder under <body>.
+    _findDash() {
+      let n = this.parentNode || this.host, top = null, panel = null;
+      for (let i = 0; n && i < 120; i++) {
+        if (n === document.body || n === document.documentElement) break;
+        if (n.nodeType === 1) {
+          if (n.id === 'view' || n.tagName === 'HUI-VIEW-CONTAINER') return n;
+          if (n.tagName === 'HA-PANEL-LOVELACE') { panel = n; break; }
+          top = n;
+        }
+        n = n.parentNode || n.host;
+      }
+      return panel || top;
+    }
     _dash() {
-      if (!this._dEl || !this._dEl.isConnected) this._dEl = M.dashEl(this);
+      if (!this._dEl || !this._dEl.isConnected) { this._reserve(null); this._dEl = this._findDash(); }
       const el = this._dEl;
       if (el && window.ResizeObserver && this._roEl !== el) {
         if (this._ro) this._ro.disconnect();
@@ -237,7 +284,30 @@
         this._ro.observe(el);
         this._roEl = el;
       }
-      return document.querySelector('home-assistant') ? M.dashRect() : M.rectOf(el);
+      return M.rectOf(el);
+    }
+    // Kan position: fixed ligge inni kortet? Nei hvis en forelder (flat tree) lager ny containing block.
+    _fixedSafe() {
+      const chain = [];
+      const hc = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+      if (hc) chain.push(hc);
+      let n = this;
+      for (let i = 0; n && i < 120; i++) {
+        if (n.nodeType === 1) chain.push(n);
+        if (n === document.body) break;
+        n = n.assignedSlot || n.parentNode || n.host;
+      }
+      for (const el of chain) {
+        const cs = getComputedStyle(el);
+        if ((cs.transform && cs.transform !== 'none') || (cs.perspective && cs.perspective !== 'none') || (cs.filter && cs.filter !== 'none')) return false;
+        const bf = cs.backdropFilter || cs.webkitBackdropFilter;
+        if (bf && bf !== 'none') return false;
+        if (/paint|layout|strict|content/.test(cs.contain || '')) return false;
+        if (/transform|filter|perspective/.test(cs.willChange || '')) return false;
+        if (cs.containerType && cs.containerType !== 'normal') return false;
+        if (cs.contentVisibility && cs.contentVisibility !== 'visible') return false;
+      }
+      return true;
     }
     _wide(w) {
       const p = this.config.layout || 'auto';
@@ -267,6 +337,7 @@
       const h = location.hash;
       let act = h ? items.findIndex((it) => it.hash && it.hash === h) : -1;
       if (act < 0 && h && moreIds.some((id) => hashOf(N, id) === h)) act = items.length - 1;
+      const open = act; // knappen hvis popup er åpen (prikk under ikonet)
       if (act < 0 && this.ui.menu) act = items.length - 1;
       // strekk-animasjon når aktiv flytter seg
       if (act !== this._lastAct) {
@@ -280,7 +351,7 @@
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
       else if (rail) style = `left:${geo.left + 20}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
-      else style = `left:${geo.left + geo.width / 2}px;bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
+      else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
       const ind = rail
@@ -289,9 +360,10 @@
       const btns = items.map((it, i) => {
         const on = i === act;
         const col = glass ? (on ? C.pink : '#fafafa') : 'var(--gray000,#232323)';
-        return `<button class="it" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
+        return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
           ${M.icon(it.icon, rail ? 28 : 27)}
           ${names ? `<span class="nm" style="font-size:${glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}">${esc(it.label)}</span>` : ''}
+          <span class="od"></span>
           ${it.badge ? '<span class="dot"></span>' : ''}
         </button>`;
       }).join('');
@@ -333,8 +405,9 @@
         const n = N.bar.filter((id) => !N.hidden.has(id)).length;
         return `<div class="pv"><div class="pvh">${M.icon('mdi:dock-bottom', 18)}<span>Navbar · ${n} knapper + Mer · ${rail ? 'rail til venstre' : 'bunn'} (flytende utenfor redigering)</span></div>${this._navHtml(N, { ...geo, rail: false }, true)}</div>`;
       }
+      if (!this._active()) { this._hidePortal(); return ''; }
       this._renderPortal(N, geo);
-      return '';
+      return '<slot name="nav"></slot>';
     }
 
     _renderPortal(N, geo) {
@@ -342,20 +415,24 @@
         const p = document.createElement('div');
         p.className = 'msh-navbar-portal';
         p.attachShadow({ mode: 'open' });
+        p.slot = 'nav';
         const sr = p.shadowRoot;
         sr.addEventListener('click', (e) => {
           const path = e.composedPath();
           let el = null;
           for (const n of path) { if (n === sr) break; if (n.matches && n.matches('[data-act]')) { el = n; break; } }
           if (!el) return;
+          e.stopPropagation(); // ikke la kortets egen klikk-lytter (portalen er slottet inn i kortet) håndtere det én gang til
           const h = el.getAttribute('data-haptic');
           if (h !== 'off') M.haptic(h || 'light');
           this.onAction(el.dataset.act, el, e);
         });
-        document.body.appendChild(p);
         this._portal = p;
         this._pFirst = true;
       }
+      // Helst inni kortet (følger dashbordet); document.body kun når en forelder ødelegger position: fixed.
+      const parent = this._fixedSafe() ? this : document.body;
+      if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
       const html = `<style>${PORTAL_CSS}</style>${this._navHtml(N, geo, false)}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
       if (this._pFirst) { this._portal.shadowRoot.innerHTML = html; this._pFirst = false; } else M.morph(this._portal.shadowRoot, html);
       const nav = this._portal.shadowRoot.querySelector('[data-nav]');
