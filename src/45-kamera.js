@@ -21,7 +21,11 @@
     if (!hass) return [];
     let ids = M.applyLists(cfg, 'kameraer', M.all(hass, 'camera'));
     if (cfg.area) ids = ids.filter((id) => M.areaOf(hass, id) === cfg.area);
-    return ids.filter((id) => hass.states[id]);
+    // standardrekkefølge: per område (etasje/navn), deretter navn
+    const aIdx = {};
+    M.areas(hass).forEach((a, i) => { aIdx[a.id] = i; });
+    const ai = (id) => { const a = M.areaOf(hass, id); return a ? (aIdx[a] != null ? aIdx[a] : 98) : 99; };
+    return ids.filter((id) => hass.states[id]).sort((a, b) => ai(a) - ai(b) || camName(hass, cfg, a).localeCompare(camName(hass, cfg, b), 'nb'));
   };
   const camName = (hass, cfg, id) => { const c = ccfg(cfg, id), e = M.regEntry(hass, id); return c.name || (e && e.name) || strip(M.name(hass, id)) || obj(id); };
   const camModel = (hass, id) => { const d = devOf(hass, id), dv = d && hass.devices && hass.devices[d]; return (dv && dv.model) || ''; };
@@ -31,7 +35,7 @@
   };
   const autoLight = (hass, id) => sameDevice(hass, id, 'light')[0] || sameDevice(hass, id, 'switch').find((x) => /flood|light|lys|spot|lamp/i.test(x)) || null;
   const autoSiren = (hass, id) => sameDevice(hass, id, 'siren')[0] || sameDevice(hass, id, 'switch').find((x) => /siren|sirene|alarm/i.test(x)) || null;
-  const EVK = [[/person|people/, 'person', 'Person'], [/vehicle|car|bil\b/, 'directions_car', 'Bil'], [/animal|pet|dog|cat|dyr|hund|katt/, 'pets', 'Dyr'], [/package|pakke/, 'package_2', 'Pakke'], [/doorbell|ring/, 'notifications', 'Ringeklokke'], [/motion|occupancy|bevegelse/, 'directions_walk', 'Bevegelse'], [/sound|audio|lyd/, 'graphic_eq', 'Lyd']];
+  const EVK = [[/person|people/, 'person', 'Person'], [/vehicle|car|bil\b|kjoretoy|kjøretøy/, 'directions_car', 'Bil'], [/animal|pet|dog|cat|dyr|hund|katt/, 'pets', 'Dyr'], [/package|pakke/, 'package_2', 'Pakke'], [/doorbell|ring/, 'notifications', 'Ringeklokke'], [/motion|occupancy|bevegelse/, 'directions_walk', 'Bevegelse'], [/sound|audio|lyd/, 'graphic_eq', 'Lyd']];
   const evKind = (id, s) => {
     const a = s.attributes || {}, hay = [a.device_class, a.event_type, id].filter(Boolean).join(' ').toLowerCase();
     for (const [re, icon, label] of EVK) if (re.test(hay)) return { icon, label };
@@ -114,10 +118,11 @@
       this._bad = this._bad || new Set();
       return `<img class="${cls} ${this._bad.has(key) ? 'bad' : ''}" data-bk="${esc(key)}" data-key="img-${esc(key)}" src="${esc(src)}" alt="" draggable="false">`;
     }
-    _badge(s, solid) {
+    _badge(s, solid, compact) {
       const st = s ? s.state : 'unavailable';
       const B = st === 'recording' ? ['OPPTAK', C.red] : st === 'streaming' ? ['DIREKTE', C.green] : M.unavailable(s) ? ['FRAKOBLET', 'var(--gray600,#7f7f7f)'] : null;
       if (!B) return '';
+      if (compact) return `<span class="bdg cp" title="${B[0]}"><i style="background:${B[1]}"></i></span>`;
       return solid ? `<span class="bdg solid" style="background:${B[1]}"><i></i>${B[0]}</span>` : `<span class="bdg"><i style="background:${B[1]}"></i>${B[0]}</span>`;
     }
 
@@ -196,7 +201,7 @@
         const [cs, rs] = span(i), s = this.s(id), model = cs > 1 || cols === 1 ? camModel(h, id) : '';
         return `<div class="tile" data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
           <span class="ph">${M.icon(camIcon(h, cfg, id), 28)}</span>${this._imgTag(id, this._img(id))}
-          <span class="shade"></span>${this._badge(s, false)}
+          <span class="shade"></span>${this._badge(s, false, cols > 2)}
           <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('open_in_full', 20)}</button>
           <span class="tn ell">${esc(camName(h, cfg, id))}</span>${model ? `<span class="tm">${esc(model)}</span>` : ''}
         </div>`;
@@ -222,7 +227,8 @@
     }
     _eventList(vis) {
       const h = this.hass, cfg = this.config;
-      const ev = vis.flatMap((id) => this._events(id)).sort((a, b) => b.ts - a.ts).slice(0, 30);
+      const seen = new Set();
+      const ev = vis.flatMap((id) => this._events(id)).filter((e) => !seen.has(e.id) && seen.add(e.id)).sort((a, b) => b.ts - a.ts).slice(0, 30);
       if (!ev.length) return '<div class="none">Ingen hendelser siste døgn</div>';
       return ev.map((e) => `<button class="evr" data-act="view" data-v="${esc(e.cam)}" data-ent="${esc(e.id)}" data-key="${esc(e.id)}">
         <span class="th"><span class="ph">${M.icon(e.icon, 22)}</span>${this._imgTag('t:' + e.cam, this._img(e.cam))}</span>
@@ -402,6 +408,7 @@
         .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none}
         .bdg{position:absolute;left:12px;top:12px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:0.04em;pointer-events:none}
         .bdg i{width:7px;height:7px;border-radius:4px;flex:none}
+        .bdg.cp{padding:0;width:26px;justify-content:center}
         .bdg.solid{left:14px;top:14px;height:28px;padding:0 12px 0 10px;border-radius:14px;font-weight:700;letter-spacing:0}
         .bdg.solid i{width:8px;height:8px;background:#fff}
         .full{position:absolute;right:10px;top:10px;width:36px;height:36px;border-radius:18px;background:rgba(20,20,20,0.55);display:grid;place-items:center}

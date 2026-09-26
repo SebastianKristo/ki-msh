@@ -110,12 +110,15 @@
     const off = !s || ['off', 'standby', 'unavailable', 'unknown'].includes(s.state);
     const run = !!s && s.state === 'playing';
     const tv = p.kind === 'tv';
-    const app = a.app_name || a.source || '';
+    const app = tv ? (a.app_name || a.source || '') : (a.media_channel || a.source || a.app_name || '');
     const st = appStyle(app);
     let title, artist;
     if (off) { title = s && s.state === 'unavailable' ? 'Utilgjengelig' : 'Av'; artist = p.name; }
     else if (tv) { title = a.media_title || app || (s.state === 'idle' ? 'Hjem' : '–'); artist = [a.media_series_title, a.media_channel, a.media_artist].filter(Boolean).join(' · ') || (a.media_title ? app : '') || p.name; }
-    else { title = a.media_title || a.source || (s.state === 'idle' ? 'Klar' : '–'); artist = [a.media_artist, a.media_channel || a.media_album_name].filter(Boolean).join(' · ') || a.source || p.name; }
+    else {
+      title = a.media_title ? (a.media_artist ? `${a.media_artist} – ${a.media_title}` : a.media_title) : (a.source || (s.state === 'idle' ? 'Klar' : '–'));
+      artist = a.media_channel || a.media_album_name || a.source || p.name;
+    }
     const pic0 = a.entity_picture_local || a.entity_picture || '';
     const pic = pic0 ? (pic0[0] === '/' && hass.hassUrl ? hass.hassUrl(pic0) : pic0) : '';
     const icon = p.pc.icon || a.icon || (tv ? 'tv' : a.device_class === 'receiver' ? 'speaker' : /radio/i.test(p.id + p.name) ? 'radio' : 'speaker');

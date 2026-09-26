@@ -1,0 +1,5 @@
+[
+  { "name": "Vær", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-hero-card" }, { "type": "custom:msh-vaer-card" } ] },
+  { "name": "Vær · graf og egen rekkefølge", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "show_graph": true, "sections": ["hours", "graph", "tiles", "days"], "hidden_tiles": ["uv"], "hours": 6, "days": 3 } ] },
+  { "name": "Vær · tom", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-hero-card", "overrides": { "weather": "weather.finnes_ikke" }, "exclude": ["sensor.pollen_bjork_oslo_today", "sensor.pollen_gress_oslo_today", "sensor.pollen_burot_oslo_today"] }, { "type": "custom:msh-vaer-card", "overrides": { "weather": "weather.finnes_ikke" } } ] }
+]

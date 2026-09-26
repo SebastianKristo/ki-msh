@@ -359,8 +359,8 @@
           <div class="st"><b class="num">${k.free != null ? nf(k.free, 2) : '–'}</b><span>kW ledig</span></div>
           <div class="st"><b class="num">${k.minLeft} min</b><span>igjen av timen</span></div>
         </div>
-        ${!A.power ? `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg effektmåler</button>` : ''}
-        ${awayId ? `<button class="away press" data-act="away" data-id="${esc(awayId)}" data-haptic="success" style="background:${away ? M.alpha(B, 0.22) : 'var(--gray200,#3a3a3a)'};color:${away ? '#e6eef8' : 'var(--gray800,#afafaf)'}">${M.icon(away ? 'luggage' : 'home', 16)}${away ? 'Borte · bortemodus på' : 'Hjemme · normal komfort'}</button>`
+        ${!this.s(A.power) ? `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg effektmåler</button>` : ''}
+        ${aw ? `<button class="away press" data-act="away" data-id="${esc(awayId)}" data-haptic="success" style="background:${away ? M.alpha(B, 0.22) : 'var(--gray200,#3a3a3a)'};color:${away ? '#e6eef8' : 'var(--gray800,#afafaf)'}">${M.icon(away ? 'luggage' : 'home', 16)}${away ? 'Borte · bortemodus på' : 'Hjemme · normal komfort'}</button>`
           : `<button class="away press" data-act="customize" data-section="overrides" style="background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf)">${M.icon('home', 16)}Hjemme · velg bortemodus</button>`}
       </section>`;
     }
@@ -482,6 +482,7 @@
     _segs(id) {
       const s = this.s(id), pts = ((this._raw && this._raw[id]) || []).slice();
       const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+      if (s && !pts.length) pts.push({ t: Math.max(d0.getTime(), new Date(s.last_changed).getTime() || 0), s: s.state });
       if (s) pts.push({ t: Date.now(), s: s.state });
       const on = (x) => x && x !== 'off' && x !== 'unavailable' && x !== 'unknown' && x !== 'idle';
       const out = []; let st = null;
@@ -526,7 +527,7 @@
       const en = this._en || { hours: [], pts: [] };
       let out = '';
       // Siste 12 timer
-      if (!A.power) out += `<section class="sec">${hdr('Siste 12 timer', '–')}${M.emptyState('Fant ingen effektmåler', 'overrides').replace('class="empty"', 'class="empty in"')}</section>`;
+      if (!this.s(A.power)) out += `<section class="sec">${hdr('Siste 12 timer', '–')}${M.emptyState('Fant ingen effektmåler', 'overrides').replace('class="empty"', 'class="empty in"')}</section>`;
       else {
         const h0 = hourStart(), H = [];
         for (let i = 11; i >= 0; i--) { const t = h0 - i * 3600000; const p = en.hours.find((x) => x.t === t); H.push({ t, v: i === 0 ? K.used : p ? p.v : null }); }
@@ -556,9 +557,9 @@
       // Varmtvann
       const hs = this.s(A.heater), lg = this.s(A.legio);
       const rows = [];
-      if (hs) { const on = hs.state !== 'off' && !M.unavailable(hs); const act = hs.attributes.current_operation || hs.state; rows.push({ k: on ? (A.heater.startsWith('water_heater.') ? cap(lbl(PRESET, act)) : 'På') : 'Står stille', id: A.heater, act: 'more', dot: on ? OR : C.ctrl, sub: hs.attributes.current_temperature != null ? `Nå ${nf(hs.attributes.current_temperature, 0)}°${hs.attributes.temperature != null ? ` · mål ${nf(hs.attributes.temperature, 0)}°` : ''}` : `Endret ${M.relTime(hs.last_changed)}`, v: M.name(this.hass, A.heater) }); }
+      if (hs) { const on = hs.state !== 'off' && !M.unavailable(hs); const act = hs.attributes.current_operation || hs.state; rows.push({ k: M.name(this.hass, A.heater), id: A.heater, act: 'more', dot: on ? OR : C.ctrl, sub: hs.attributes.current_temperature != null ? `Nå ${nf(hs.attributes.current_temperature, 0)}°${hs.attributes.temperature != null ? ` · mål ${nf(hs.attributes.temperature, 0)}°` : ''}` : `Endret ${M.relTime(hs.last_changed)}`, v: on ? (A.heater.startsWith('water_heater.') ? lbl(PRESET, act) : 'På') : 'Står stille', pill: 1 }); }
       if (lg) { const L = this._legio(lg); rows.push({ k: `Legionella: ${L.ok ? 'Sikret' : 'Forfalt'}`, id: A.legio, act: 'more', dot: L.ok ? G : R, sub: L.sub }); }
-      out += xcard({ icon: 'water_heater', title: 'Varmtvann', meta: hs ? (hs.state === 'off' ? 'Av' : M.fmtState(this.hass, A.heater)) : '–', rows, body: rows.length ? '' : M.emptyState('Fant ingen bereder', 'overrides').replace('class="empty"', 'class="empty in"') });
+      out += xcard({ icon: 'water_heater', title: 'Varmtvann', meta: hs ? (hs.state === 'off' ? 'står stille' : 'i drift') : '–', rows, body: rows.length ? '' : M.emptyState('Fant ingen bereder', 'overrides').replace('class="empty"', 'class="empty in"') });
       // Bortemodus
       const awayId = A.modes.find((id) => /borte|away/.test(hay(this.hass, id))) || null, aw = this.s(awayId);
       const cl = A.zones.filter((id) => id.startsWith('climate.')).map((id) => this.s(id)).filter(Boolean);

@@ -1,0 +1,6 @@
+[
+  { "name": "Media", "hash": "#media", "cards": [ { "type": "custom:msh-media-hero-card" }, { "type": "custom:msh-media-card" } ] },
+  { "name": "Media · musikk", "hash": "#media", "cards": [ { "type": "custom:msh-media-hero-card" }, { "type": "custom:msh-media-card", "hidden_tabs": ["tv"] } ] },
+  { "name": "Media · knapper", "hash": "#media", "cards": [ { "type": "custom:msh-media-card", "tab_order": ["tv", "musikk"], "players": { "stue_tv": { "volume": "buttons", "watch": ["sensor.stue_temperatur"] } } } ] },
+  { "name": "Media · tom", "hash": "#media", "cards": [ { "type": "custom:msh-media-hero-card", "area": "finnes_ikke" }, { "type": "custom:msh-media-card", "area": "finnes_ikke" } ] }
+]

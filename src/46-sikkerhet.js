@@ -138,13 +138,13 @@
         const bg = col || (armed ? M.alpha(mode.color, 0.55) : 'var(--gray300, #404040)');
         return `<div class="bar" data-key="${esc(x ? x.id : 'p' + i)}" title="${esc(x ? `${x.room} · ${x.name}` : '')}" style="transform:rotate(${deg.toFixed(2)}deg) translateY(-110px);background:${bg};box-shadow:${col ? `0 0 14px ${M.alpha(col, 0.7)}` : 'none'}"></div>`;
       }).join('');
-      const since = al && !M.unavailable(al) ? `${armed ? 'Aktivert' : 'Avslått'} ${when(new Date(al.last_changed).getTime())}` : a.alarm ? 'Utilgjengelig' : 'Ingen alarm valgt';
+      const since = al && !M.unavailable(al) ? `${armed ? 'Aktivert' : 'Avslått'} ${when(new Date(al.last_changed).getTime())}` : al ? 'Utilgjengelig' : a.alarm ? 'Fant ikke alarmen' : 'Ingen alarm valgt';
       const core = armed ? `background:radial-gradient(circle at 50% 35%, ${M.alpha(mode.color, 0.16)}, var(--gray200, #3a3a3a) 70%)` : '';
       return `
         <section class="hero">
           <div class="ring ${c.show_ring === false ? 'noring' : ''}">
             ${ring}
-            <button class="core" data-act="core" ${a.alarm ? `data-ent="${esc(a.alarm)}"` : ''} style="${core}">
+            <button class="core" data-act="core" ${al ? `data-ent="${esc(a.alarm)}"` : ''} style="${core}">
               ${M.icon(mode ? mode.icon : 'mdi:shield-off-outline', 30, `color:${mode ? mode.color : 'var(--gray600, #7f7f7f)'}`)}
               <div class="ml">${esc(mode ? mode.label : '–')}</div>
               <div class="ms">${esc(since)}</div>
@@ -159,7 +159,7 @@
     onAction(name, el, ev) {
       if (name === 'core') {
         const a = M.sikAuto(this.hass, this.config);
-        return a.alarm ? M.moreInfo(this, a.alarm) : this.customize('overrides');
+        return a.alarm && this.hass.states[a.alarm] ? M.moreInfo(this, a.alarm) : this.customize('overrides');
       }
       return super.onAction(name, el, ev);
     }
@@ -298,8 +298,8 @@
       const { alerts } = summary(S);
       const shownAlerts = alerts.filter((x) => dis[x.id] !== x.st.last_changed);
       const hold = this._hold;
-      const hint = hold ? `Hold for å sette ${MODES.find((m) => m[0] === hold.k)[1].toLowerCase()}…` : !a.alarm ? 'Ingen alarm valgt' : c.code_for === 'aldri' ? 'Hold inne for å bytte modus' : c.code_for === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus · krever kode';
-      const codeNeeded = !!a.alarm && c.code_for !== 'aldri' && !(al && al.attributes.code_format == null);
+      const hint = hold ? `Hold for å sette ${MODES.find((m) => m[0] === hold.k)[1].toLowerCase()}…` : !al ? 'Ingen alarm valgt' : c.code_for === 'aldri' ? 'Hold inne for å bytte modus' : c.code_for === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus · krever kode';
+      const codeNeeded = !!al && c.code_for !== 'aldri' && !(al && al.attributes.code_format == null);
 
       const sec = {};
       sec.modes = `
@@ -313,7 +313,7 @@
             </button>`;
           }).join('')}</div>
           <div class="hint">${codeNeeded ? M.icon('dialpad', 13) : ''}<span class="ht">${esc(hint)}</span></div>
-          ${a.alarm ? '' : M.emptyState('Fant ingen alarm_control_panel', 'overrides')}
+          ${al ? '' : M.emptyState(a.alarm ? `Fant ikke ${a.alarm}` : 'Fant ingen alarm_control_panel', 'overrides')}
         </section>`;
       sec.alerts = c.show_alerts !== false && shownAlerts.length ? `
         <section class="sec">

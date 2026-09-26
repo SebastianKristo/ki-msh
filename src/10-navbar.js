@@ -7,7 +7,7 @@
  * Merker (røde prikker) med vilkår: entitet + operator (Over/Under/Er/Er ikke) + verdi.
  * Config (alt redigeres i «Tilpass navbar» = kortets egen editor = HA GUI-editor):
  *   bar: [id…]  more: [id…]  hidden: [id…]
- *   buttons: { id: { icon, label, hash, custom, action, service } }   (overstyring av innebygde + egne knapper)
+ *   buttons: { id: { icon, label, hash, custom, action, service, entity } }   (overstyring av innebygde + egne knapper)
  *   badges:  { id: [{ entity, op: '>'|'<'|'='|'!=', value, text }] }
  *   show_names, menu_names, shrink, width (kompakt|std|full), style (white|glass), layout (auto|mobil|stor),
  *   reserve_space, toasts, admin_tools
@@ -22,6 +22,7 @@
   // Popups i prosjektet (mål for egne knapper)
   const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['basseng', 'pool', 'Basseng'], ['ruter', 'tram', 'Ruter']];
   const ACTS = [['', 'block', 'Ingen'], ['lock_toggle', 'key', 'Veksle dørlås'], ['lock', 'lock', 'Lås dør'], ['unlock', 'lock_open', 'Lås opp'], ['alarm_toggle', 'shield', 'Veksle alarm'], ['alarm_on', 'shield', 'Armer alarm'], ['alarm_off', 'remove_moderator', 'Slå av alarm'], ['lights_on', 'lightbulb', 'Alle lys på'], ['lights_off', 'light_off', 'Alle lys av'], ['garage_toggle', 'garage', 'Veksle garasjeport'], ['tv_toggle', 'tv', 'Veksle TV'], ['vac_toggle', 'robot_2', 'Pause/start støvsuger'], ['service', 'terminal', 'Egendefinert tjeneste']];
+  const ACT_DOM = { lock_toggle: 'lock', lock: 'lock', unlock: 'lock', alarm_toggle: 'alarm_control_panel', alarm_on: 'alarm_control_panel', alarm_off: 'alarm_control_panel', garage_toggle: 'cover', tv_toggle: 'media_player', vac_toggle: 'vacuum' };
   const OPS = [['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const ICON_SUG = ['star', 'bolt', 'power', 'electrical_services', 'sprinkler', 'water_drop', 'music_note', 'speaker', 'electric_car', 'directions_car', 'view_week', 'dns', 'settings', 'tune', 'home', 'lightbulb', 'thermostat', 'bedtime', 'movie', 'garage', 'door_front', 'wb_sunny', 'favorite'];
 
@@ -426,7 +427,7 @@
     // Handlinger for egne knapper (autokonfig: første lås/alarm/garasjeport/TV/støvsuger).
     _run(b) {
       const h = this.hass, a = b.action || '', toast = (t) => { if (this.config.toasts !== false) M.toast(t); };
-      const first = (dom, f) => M.all(h, dom, f)[0] || null;
+      const first = (dom, f) => (b.entity && String(b.entity).indexOf(dom + '.') === 0 ? b.entity : M.all(h, dom, f)[0] || null);
       if (a.indexOf('lock') === 0 || a === 'unlock') {
         const id = first('lock'); if (!id) return toast('Fant ingen dørlås');
         const locked = (h.states[id] || {}).state === 'locked';
@@ -628,7 +629,8 @@
             <span class="hint">Prikken vises når minst ett vilkår slår til.</span>
           </div>
           ${isC ? `<div class="fl"><span class="cap">Når du trykker · handling</span><select class="s44" data-nbf="action" data-id="${esc(id)}">${acts.map(([k, l]) => `<option value="${esc(k)}" ${String(b.action || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-            ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}</div>` : ''}
+            ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}
+            ${ACT_DOM[b.action] ? `<span class="cap">Entitet · ${b.entity ? esc(M.name(h, b.entity)) + ' (' + esc(b.entity) + ')' : 'auto: ' + esc(M.all(h, ACT_DOM[b.action])[0] || 'fant ingen')}</span>${this._search({ type: 'entity', domain: ACT_DOM[b.action] }, 'nbbe_' + id, 'nbbent', id, b.entity ? 'Bytt …' : 'Velg ' + ACT_DOM[b.action] + ' …')}${b.entity ? `<button class="rsb" data-a="nbbclr" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Bruk auto</button>` : ''}` : ''}</div>` : ''}
           <div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>
           ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Tilbakestill til ${esc(base[1])}</button>`}
         </div>`;
@@ -676,6 +678,8 @@
         case 'nbrdel': { const R = rulesOf(d.id); R.splice(Number(d.i), 1); return this._rules(d.id, R); }
         case 'nbrop': { const R = rulesOf(d.id); if (!R[d.i]) return; R[d.i].op = d.v; return this._rules(d.id, R); }
         case 'nbent': { const [id, i] = String(d.name).split('|'); const R = rulesOf(id); if (!R[i]) return; R[i].entity = d.v; this._menu = null; this._q = {}; return this._rules(id, R); }
+        case 'nbbent': this._menu = null; this._q = {}; return this._btn(d.name, { entity: d.v });
+        case 'nbbclr': return this._btn(d.id, { entity: undefined });
         case 'nbtog': return this._set(d.k, d.v === '1');
         case 'nbw': return this._set('width', d.v);
         case 'nbstyle': return this._set('style', d.v);
@@ -685,6 +689,11 @@
     }
     _change(e) {
       const t = e.target;
+      if (t.dataset && t.dataset.search && t.dataset.act === 'nbbent') {
+        const v = t.value.trim();
+        if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) { this._q = {}; this._menu = null; this._btn(t.dataset.name, { entity: v }); }
+        return;
+      }
       if (t.dataset && t.dataset.search && t.dataset.act === 'nbent') {
         const v = t.value.trim();
         if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) {
