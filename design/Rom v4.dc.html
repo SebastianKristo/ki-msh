@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 181 115)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-hscroll]::-webkit-scrollbar{display:none}
+@keyframes drift{0%{transform:translate(0,0);opacity:0}20%{opacity:.9}100%{transform:translate(18px,-110px);opacity:0}}
+@keyframes breathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes rist{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-1px,-1px) rotate(-7deg)}40%{transform:translate(1px,0) rotate(6deg)}60%{transform:translate(-1px,1px) rotate(-5deg)}80%{transform:translate(1px,-1px) rotate(4deg)}}
+@keyframes puls{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes spinn{to{transform:rotate(360deg)}}
+</style>
+<script src="./more-info.js"></script>
+<script src="./glass-drag.js"></script>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="{{ rootStyle }}">
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px">
+    <span style="{{ headIcon }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">{{ icon }}</span></span>
+    <div style="flex:1;font-size:26px;font-weight:500;letter-spacing:-0.02em">{{ name }}</div>
+    <button style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+  </header>
+
+  <sc-if value="{{ hasHero }}" hint-placeholder-val="{{ true }}"><div style="{{ ord.hero }}">
+  <section style="{{ heroCard }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:84px">
+      <svg viewBox="0 0 300 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+        <polyline points="{{ gArea }}" style="{{ gFill }}"></polyline>
+        <polyline points="{{ gLine }}" fill="none" style="{{ gStroke }}" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+      </svg>
+      <div style="{{ gCursor }}"></div>
+      <div onPointerDown="{{ gScrub }}" onPointerMove="{{ gScrubMove }}" onPointerLeave="{{ gScrubEnd }}" style="position:absolute;inset:0;touch-action:none;cursor:crosshair"></div>
+    </div>
+    <button onClick="{{ openEdit }}" title="Tilpass rommet" style="position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center" style-active="transform:scale(0.92)"><span class="ms" style="font-size:22px;color:#fafafa">settings</span></button>
+    <div style="position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#afafaf">{{ name }}</span>
+      <span style="{{ heroChip }}"><span class="ms" style="font-size:14px;font-variation-settings:'FILL' 1">{{ heroChipIcon }}</span>{{ heroChipText }}</span>
+    </div>
+    <div style="position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap">
+        <button onClick="{{ showT }}" style="{{ tBtn }}"><span style="font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">{{ tVal }}</span><span style="font-size:24px;font-weight:300">°</span></button>
+        <button onClick="{{ showH }}" style="{{ hBtn }}"><span style="font-size:17px;font-weight:400;font-variant-numeric:tabular-nums">{{ hVal }}</span><span style="font-size:12px">%</span></button>
+      </div>
+      <span style="font-size:12px;color:#7f7f7f;white-space:nowrap">{{ gWhen }}</span>
+    </div>
+  </section></div></sc-if>
+
+  <sc-if value="{{ hasCurtain }}" hint-placeholder-val="{{ false }}"><div style="{{ ord.curtain }}">
+    <section style="border-radius:33px;background:#3a3a3a">
+      <div style="display:flex;align-items:center;gap:14px;height:66px;padding:0 14px 0 22px">
+        <span style="font-size:15px;font-weight:500;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">{{ cover0.name }}</span>
+        <div onPointerDown="{{ cover0.down }}" onPointerMove="{{ cover0.move }}" onPointerUp="{{ cover0.up }}" style="position:relative;flex:1;height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+          <span style="position:absolute;left:0;right:0;height:8px;border-radius:4px;background:#282828"></span>
+          <span style="{{ cover0.fill }}"></span>
+          <span style="{{ cover0.knob }}"></span>
+        </div>
+        <span style="font-size:15px;min-width:40px;text-align:right;font-variant-numeric:tabular-nums">{{ cover0.pct }}%</span>
+        <sc-if value="{{ coverMulti }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleCovers }}" style="width:36px;height:36px;display:grid;place-items:center"><span class="ms" style="{{ coverChev }}">expand_more</span></button></sc-if>
+      </div>
+      <sc-if value="{{ coverOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:4px 12px 16px">
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+            <sc-for list="{{ coverPresets }}" as="p" hint-placeholder-count="5"><button onClick="{{ p.go }}" style="height:40px;border-radius:20px;background:#2a2a2a;font-size:14px" style-active="transform:scale(0.95)">{{ p.label }}</button></sc-for>
+          </div>
+          <sc-for list="{{ coverRest }}" as="cv" hint-placeholder-count="1">
+            <div style="display:flex;align-items:center;gap:14px;padding:0 6px 0 10px">
+              <span style="font-size:14px;font-weight:500;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">{{ cv.name }}</span>
+              <div onPointerDown="{{ cv.down }}" onPointerMove="{{ cv.move }}" onPointerUp="{{ cv.up }}" style="position:relative;flex:1;height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+          <span style="position:absolute;left:0;right:0;height:8px;border-radius:4px;background:#282828"></span>
+          <span style="{{ cv.fill }}"></span>
+          <span style="{{ cv.knob }}"></span>
+        </div>
+              <span style="font-size:14px;min-width:40px;text-align:right;font-variant-numeric:tabular-nums">{{ cv.pct }}%</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section></div>
+  </sc-if>
+
+  <sc-if value="{{ hasScenes }}" hint-placeholder-val="{{ true }}"><div style="{{ ord.scenes }}">
+  <section data-hscroll="1" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px">
+    <sc-for list="{{ scenes }}" as="c" hint-placeholder-count="6">
+      <button onClick="{{ c.go }}" style="{{ c.tile }}" style-active="transform:scale(0.95)">
+        <span class="ms" style="{{ c.iconStyle }}">{{ c.icon }}</span>
+        <span style="{{ c.labelStyle }}">{{ c.label }}</span>
+      </button>
+    </sc-for>
+  </section></div></sc-if>
+  <sc-if value="{{ hasLights }}" hint-placeholder-val="{{ true }}"><div style="{{ ord.lys }}">
+  <section style="border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <button onClick="{{ ac.lys.go }}" style="width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left">
+      <span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">floor_lamp</span>
+      <span style="flex:1;font-size:16px;font-weight:500">Lys</span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ lightSum }}</span>
+      <span class="ms" style="{{ ac.lys.chev }}">expand_more</span>
+    </button>
+    <sc-if value="{{ ac.lys.open }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 8px 8px">
+        <div style="display:flex;flex-direction:column;gap:10px;padding:0 8px 6px">
+          <sc-for list="{{ lights }}" as="l" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:12px"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">lightbulb</span><span style="flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.name }}</span><span style="font-size:12px;color:#979797;font-variant-numeric:tabular-nums">{{ l.pct }}</span></div>
+              <sc-if value="{{ l.isDim }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div onPointerDown="{{ l.down }}" onPointerMove="{{ l.move }}" onPointerUp="{{ l.up }}" data-ent-domain="light" data-ent-name="{{ l.name }}" style="{{ l.sl }}"><span style="{{ l.slFill }}"></span><span style="{{ l.slHandle }}"></span><span style="{{ l.slTrack }}"></span></div>
+                  <sc-if value="{{ l.canX }}" hint-placeholder-val="{{ false }}"><button onClick="{{ l.xToggle }}" style="width:36px;height:40px;display:grid;place-items:center;flex:none;color:#afafaf"><span class="ms" style="{{ l.chev }}">expand_more</span></button></sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ l.isOnOff }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ l.onoff }}" style="{{ l.swBar }}"><span style="{{ l.swFill }}"><span class="ms" style="font-size:18px;color:#e8c9a8">power_settings_new</span></span><span style="{{ l.swDot }}"></span></button>
+              </sc-if>
+              <sc-if value="{{ l.xOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:6px;padding-left:11px">
+                  <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#7f7f7f">{{ l.xLabel }}</span><span style="font-size:12px;color:#afafaf;font-variant-numeric:tabular-nums">{{ l.xVal }}</span></div>
+                  <div onPointerDown="{{ l.xDown }}" onPointerMove="{{ l.xMove }}" onPointerUp="{{ l.xUp }}" style="{{ l.xBar }}"><span style="{{ l.xKnob }}"></span></div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </section></div>
+  </sc-if>
+  <sc-if value="{{ hasDevices }}" hint-placeholder-val="{{ true }}"><div style="{{ ord.dev }}">
+  <section style="border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <button onClick="{{ ac.dev.go }}" style="width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left">
+      <span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">radio</span>
+      <span style="flex:1;font-size:16px;font-weight:500">Enheter</span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ devSum }}</span>
+      <span class="ms" style="{{ ac.dev.chev }}">expand_more</span>
+    </button>
+    <sc-if value="{{ ac.dev.open }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 8px 8px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ devices }}" as="d" hint-placeholder-count="2">
+            <button onClick="{{ d.toggle }}" data-ent-domain="switch" data-ent-name="{{ d.name }}" style="{{ d.pill }}" style-active="transform:scale(0.98)">
+              <span style="{{ d.iconWrap }}"><span class="ms" style="{{ d.iconStyle }}">{{ d.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left">
+                <span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</span>
+                <span style="{{ d.subStyle }}">{{ d.sub }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </section></div>
+  </sc-if>
+  <sc-if value="{{ hasSet }}" hint-placeholder-val="{{ false }}"><div style="{{ ord.klima }}">
+  <section style="border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <button onClick="{{ ac.klima.go }}" style="width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left">
+      <span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">thermostat</span>
+      <span style="flex:1;font-size:16px;font-weight:500">Klima</span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ modeShort }}</span>
+      <span class="ms" style="{{ ac.klima.chev }}">expand_more</span>
+    </button>
+    <sc-if value="{{ ac.klima.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px">
+        <div data-snap="1" onScroll="{{ climSw.onScroll }}" style="width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:26px">
+          <sc-for list="{{ climCards }}" as="k" hint-placeholder-count="1">
+            <div style="{{ k.card }}">
+              <div style="position:absolute;left:20px;top:18px;right:84px;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.name }}</span><span style="font-size:13px;color:#7f7f7f">{{ k.sub }}</span></div>
+              <div style="position:absolute;left:20px;bottom:18px;display:flex;align-items:baseline;gap:4px;white-space:nowrap"><span style="font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">{{ k.temp }}°</span><span style="font-size:13px;color:#979797">{{ k.hum }}%</span></div>
+              <div style="{{ k.ctl }}">
+                <button onClick="{{ k.up }}" style="width:64px;height:44px;display:grid;place-items:center;color:inherit" style-active="transform:scale(0.9)"><span class="ms" style="font-size:24px">expand_less</span></button>
+                <span style="font-size:17px;font-weight:500;font-variant-numeric:tabular-nums">{{ k.set }}°</span>
+                <button onClick="{{ k.down }}" style="width:64px;height:44px;display:grid;place-items:center;color:inherit" style-active="transform:scale(0.9)"><span class="ms" style="font-size:24px">expand_more</span></button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;height:14px;align-items:center"><sc-for list="{{ climSw.dots }}" as="d" hint-placeholder-count="0"><span style="{{ d }}"></span></sc-for></div>
+      </div>
+    </sc-if>
+  </section></div>
+  </sc-if>
+  <sc-if value="{{ hasMedia }}" hint-placeholder-val="{{ false }}"><div style="{{ ord.media }}">
+  <section style="border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <button onClick="{{ ac.media.go }}" style="width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left">
+      <span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">speaker</span>
+      <span style="flex:1;font-size:16px;font-weight:500">Media</span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ mediaSum }}</span>
+      <span class="ms" style="{{ ac.media.chev }}">expand_more</span>
+    </button>
+    <sc-if value="{{ ac.media.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px">
+        <div data-snap="1" onScroll="{{ mediaSw.onScroll }}" style="width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:26px">
+          <sc-for list="{{ media }}" as="m" hint-placeholder-count="1">
+            <div style="display:flex;flex-direction:column;flex:none;width:100%;scroll-snap-align:start">
+              <div style="position:relative;padding:20px 20px 16px;border-radius:26px;background:#2a2a2a">
+                <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:#afafaf">{{ m.title }}</span><span style="font-size:17px;font-weight:500">{{ m.state }}</span></span>
+                <span style="position:absolute;right:8px;top:8px;width:60px;height:60px;border-radius:30px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:28px;font-variation-settings:'FILL' 1">speaker</span></span>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px">
+                  <button onClick="{{ m.power }}" style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:22px">power_settings_new</span></button>
+                  <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_previous</span></button>
+                  <button onClick="{{ m.play }}" style="width:64px;height:64px;border-radius:32px;background:#404040;display:grid;place-items:center" style-active="transform:scale(0.94)"><span class="ms" style="font-size:32px;font-variation-settings:'FILL' 1">{{ m.playIcon }}</span></button>
+                  <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_next</span></button>
+                  <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px">more_horiz</span></button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:16px 12px 6px 20px">
+                <span style="font-size:14px;font-weight:500">Volum</span>
+                <div onPointerDown="{{ m.down }}" onPointerMove="{{ m.move }}" onPointerUp="{{ m.up }}" style="position:relative;flex:1;height:24px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+                  <span style="position:absolute;left:0;right:0;height:8px;border-radius:4px;background:#282828"></span>
+                  <span style="{{ m.fill }}"></span>
+                  <span style="{{ m.knob }}"></span>
+                </div>
+                <span style="font-size:14px;min-width:36px;text-align:right;font-variant-numeric:tabular-nums">{{ m.volPct }}%</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;height:14px;align-items:center"><sc-for list="{{ mediaSw.dots }}" as="d" hint-placeholder-count="0"><span style="{{ d }}"></span></sc-for></div>
+      </div>
+    </sc-if>
+  </section></div>
+  </sc-if>
+  <sc-if value="{{ hasSensors }}" hint-placeholder-val="{{ true }}"><div style="{{ ord.sens }}">
+  <section style="border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <button onClick="{{ ac.sens.go }}" style="width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left">
+      <span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">directions_walk</span>
+      <span style="flex:1;font-size:16px;font-weight:500">Sensorer</span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ sensSum }}</span>
+      <span class="ms" style="{{ ac.sens.chev }}">expand_more</span>
+    </button>
+    <sc-if value="{{ ac.sens.open }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 8px 8px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ sensors }}" as="z" hint-placeholder-count="2">
+            <div style="{{ z.pill }}">
+              <span style="{{ z.iconWrap }}"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">{{ z.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.name }}</span>
+                <span style="{{ z.subStyle }}">{{ z.state }}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </section></div>
+  </sc-if>
+  <sc-if value="{{ ed.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ ed.close }}" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.5)"></div>
+    <div style="position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:61;width:100%;max-width:440px;max-height:calc(100vh - 60px);overflow-y:auto;scrollbar-width:none;box-sizing:border-box;padding:20px 14px calc(140px + env(safe-area-inset-bottom));border-radius:34px 34px 0 0;background:#3a3a3a;box-shadow:0 -20px 50px rgba(0,0,0,0.5);display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 4px 6px">
+        <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:600">Tilpass {{ name }}</span><span style="font-size:12px;color:#979797">Gjelder bare dette rommet</span></span>
+        <button onClick="{{ ed.reset }}" style="height:40px;padding:0 14px;border-radius:20px;background:#404040;font-size:14px;font-weight:500">Nullstill</button>
+        <button onClick="{{ ed.close }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600">Ferdig</button>
+      </div>
+      <button onClick="{{ ed.acc.space.go }}" style="{{ ed.acc.space.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.space.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.space.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.space.meta }}</span><span class="ms" style="{{ ed.acc.space.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.space.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:#404040">
+        <sc-for list="{{ ed.spacing }}" as="g" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500"><span class="ms" style="font-size:20px;color:#afafaf">{{ g.icon }}</span>{{ g.label }}</span><span style="font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums">{{ g.shown }} px</span></div>
+            <input type="range" min="{{ g.min }}" max="{{ g.max }}" step="2" value="{{ g.val }}" onChange="{{ g.set }}" style="width:100%;accent-color:rgb(242 133 201)"></input>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ g.presets }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      <button onClick="{{ ed.acc.secs.go }}" style="{{ ed.acc.secs.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.secs.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.secs.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.secs.meta }}</span><span class="ms" style="{{ ed.acc.secs.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.secs.open }}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{ ed.secs }}" as="r" hint-placeholder-count="5">
+        <div style="{{ r.row }}">
+          <span class="ms" style="font-size:22px;width:26px;flex:none;font-variation-settings:'FILL' 1">{{ r.icon }}</span>
+          <span style="flex:1;min-width:0;font-size:15px;font-weight:500">{{ r.label }}</span>
+          <button onClick="{{ r.up }}" style="{{ r.upStyle }}"><span class="ms" style="font-size:20px">expand_less</span></button>
+          <button onClick="{{ r.down }}" style="{{ r.downStyle }}"><span class="ms" style="font-size:20px">expand_more</span></button>
+          <button onClick="{{ r.eye }}" style="width:36px;height:36px;border-radius:18px;background:#282828;display:grid;place-items:center"><span class="ms" style="{{ r.eyeStyle }}">{{ r.eyeIcon }}</span></button>
+        </div>
+      </sc-for>
+      </sc-if>
+      <button onClick="{{ ed.acc.lys.go }}" style="{{ ed.acc.lys.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.lys.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.lys.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.lys.meta }}</span><span class="ms" style="{{ ed.acc.lys.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.lys.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
+        <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.lys.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.lys.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
+        <span style="font-size:12px;color:#979797;padding:4px 0 2px">Type · velg «Kun av/på» for å tvinge en dimbar lampe til bryter</span>
+        <sc-for list="{{ ed.acc.lys.types }}" as="lt" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ lt.name }}</span><span style="font-size:11px;color:#7f7f7f">{{ lt.auto }}</span></span>
+            <select value="{{ lt.value }}" onChange="{{ lt.set }}" style="height:38px;max-width:170px;border-radius:12px;border:0;outline:none;padding:0 10px;background:#282828;color:#fafafa;font:inherit;font-size:13px;color-scheme:dark"><sc-for list="{{ lt.opts }}" as="o" hint-placeholder-count="5"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+          </div>
+        </sc-for>
+        <span style="font-size:12px;color:#979797;padding:10px 0 2px;border-top:1px solid rgba(255,255,255,0.06)">Synlighet</span>
+        <sc-for list="{{ ed.acc.lys.items }}" as="e" hint-placeholder-count="4">
+          <button onClick="{{ e.go }}" style="{{ e.row }}">
+            <span class="ms" style="font-size:20px;width:24px;flex:none;font-variation-settings:'FILL' 1">{{ e.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span><span style="font-size:11px;color:#979797">{{ e.kind }}</span></span>
+            <span style="{{ e.track }}"><span style="{{ e.knob }}"></span></span>
+          </button>
+        </sc-for>
+
+        <span style="font-size:12px;color:#979797;padding:12px 0 4px;border-top:1px solid rgba(255,255,255,0.06)">Legg til entitet · utover autokonfig</span>
+        <sc-for list="{{ ed.acc.lys.add.added }}" as="x" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add_circle</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.id }} · lagt til</span></span><button onClick="{{ x.rm }}" title="Fjern" style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#f28073"><span class="ms" style="font-size:20px">remove_circle</span></button></div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#282828;margin-top:4px"><span class="ms" style="font-size:20px;color:#7f7f7f">search</span><input value="{{ ed.acc.lys.add.q }}" onChange="{{ ed.acc.lys.add.setQ }}" placeholder="{{ ed.acc.lys.add.ph }}" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:14px"></div>
+        <sc-if value="{{ ed.acc.lys.add.typed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ed.acc.lys.add.addTyped }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 6px;border-radius:12px;text-align:left;font-size:14px"><span class="ms" style="font-size:20px;color:#66d19e">add</span>{{ ed.acc.lys.add.typedLabel }}</button></sc-if>
+        <div style="display:flex;flex-direction:column;padding-bottom:8px">
+          <sc-for list="{{ ed.acc.lys.add.res }}" as="o" hint-placeholder-count="3">
+            <button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border-radius:12px;text-align:left"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f">{{ o.id }}</span></span></button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+      <button onClick="{{ ed.acc.dev.go }}" style="{{ ed.acc.dev.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.dev.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.dev.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.dev.meta }}</span><span class="ms" style="{{ ed.acc.dev.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.dev.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
+        <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.dev.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.dev.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
+        <sc-for list="{{ ed.acc.dev.items }}" as="e" hint-placeholder-count="4">
+          <button onClick="{{ e.go }}" style="{{ e.row }}">
+            <span class="ms" style="font-size:20px;width:24px;flex:none;font-variation-settings:'FILL' 1">{{ e.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span><span style="font-size:11px;color:#979797">{{ e.kind }}</span></span>
+            <span style="{{ e.track }}"><span style="{{ e.knob }}"></span></span>
+          </button>
+        </sc-for>
+
+        <span style="font-size:12px;color:#979797;padding:12px 0 4px;border-top:1px solid rgba(255,255,255,0.06)">Legg til entitet · utover autokonfig</span>
+        <sc-for list="{{ ed.acc.dev.add.added }}" as="x" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add_circle</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.id }} · lagt til</span></span><button onClick="{{ x.rm }}" title="Fjern" style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#f28073"><span class="ms" style="font-size:20px">remove_circle</span></button></div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#282828;margin-top:4px"><span class="ms" style="font-size:20px;color:#7f7f7f">search</span><input value="{{ ed.acc.dev.add.q }}" onChange="{{ ed.acc.dev.add.setQ }}" placeholder="{{ ed.acc.dev.add.ph }}" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:14px"></div>
+        <sc-if value="{{ ed.acc.dev.add.typed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ed.acc.dev.add.addTyped }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 6px;border-radius:12px;text-align:left;font-size:14px"><span class="ms" style="font-size:20px;color:#66d19e">add</span>{{ ed.acc.dev.add.typedLabel }}</button></sc-if>
+        <div style="display:flex;flex-direction:column;padding-bottom:8px">
+          <sc-for list="{{ ed.acc.dev.add.res }}" as="o" hint-placeholder-count="3">
+            <button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border-radius:12px;text-align:left"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f">{{ o.id }}</span></span></button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+      <button onClick="{{ ed.acc.sens.go }}" style="{{ ed.acc.sens.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.sens.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.sens.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.sens.meta }}</span><span class="ms" style="{{ ed.acc.sens.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.sens.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
+        <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.sens.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.sens.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
+        <sc-for list="{{ ed.acc.sens.items }}" as="e" hint-placeholder-count="3">
+          <button onClick="{{ e.go }}" style="{{ e.row }}">
+            <span class="ms" style="font-size:20px;width:24px;flex:none;font-variation-settings:'FILL' 1">{{ e.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span><span style="font-size:11px;color:#979797">{{ e.kind }}</span></span>
+            <span style="{{ e.track }}"><span style="{{ e.knob }}"></span></span>
+          </button>
+        </sc-for>
+        <span style="font-size:12px;color:#979797;padding:12px 0 4px;border-top:1px solid rgba(255,255,255,0.06)">Legg til entitet · utover autokonfig</span>
+        <sc-for list="{{ ed.acc.sens.add.added }}" as="x" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add_circle</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.id }} · lagt til</span></span><button onClick="{{ x.rm }}" title="Fjern" style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#f28073"><span class="ms" style="font-size:20px">remove_circle</span></button></div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#282828;margin-top:4px"><span class="ms" style="font-size:20px;color:#7f7f7f">search</span><input value="{{ ed.acc.sens.add.q }}" onChange="{{ ed.acc.sens.add.setQ }}" placeholder="{{ ed.acc.sens.add.ph }}" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:14px"></div>
+        <sc-if value="{{ ed.acc.sens.add.typed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ed.acc.sens.add.addTyped }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 6px;border-radius:12px;text-align:left;font-size:14px"><span class="ms" style="font-size:20px;color:#66d19e">add</span>{{ ed.acc.sens.add.typedLabel }}</button></sc-if>
+        <div style="display:flex;flex-direction:column;padding-bottom:8px">
+          <sc-for list="{{ ed.acc.sens.add.res }}" as="o" hint-placeholder-count="3">
+            <button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border-radius:12px;text-align:left"><span class="ms" style="font-size:20px;color:#66d19e;flex:none">add</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f">{{ o.id }}</span></span></button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+      <button onClick="{{ ed.acc.klima.go }}" style="{{ ed.acc.klima.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.klima.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.klima.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.klima.meta }}</span><span class="ms" style="{{ ed.acc.klima.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.klima.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#404040">
+        <sc-for list="{{ ed.picks }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:12px;color:#979797">{{ p.label }}</span>
+            <button onClick="{{ p.toggle }}" style="{{ p.btn }}"><span class="ms" style="font-size:20px;color:#afafaf;flex:none">{{ p.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.id }}</span></span><span class="ms" style="{{ p.chev }}">expand_more</span></button>
+            <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828">
+                <div style="display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border-radius:14px;background:#3a3a3a"><span class="ms" style="font-size:20px;color:#7f7f7f">search</span><input value="{{ p.q }}" onChange="{{ p.setQ }}" placeholder="Søk i Home Assistant, f.eks. stue temp" style="flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:14px"></input></div>
+                <sc-if value="{{ p.canCustom }}" hint-placeholder-val="{{ false }}"><button onClick="{{ p.useCustom }}" style="height:44px;padding:0 12px;border-radius:12px;display:flex;align-items:center;gap:10px;background:rgb(242 133 201 / 0.15);color:#fafafa;font-size:13px;text-align:left"><span class="ms" style="font-size:20px;color:rgb(242 133 201)">add_link</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bruk «{{ p.q }}»</span></button></sc-if>
+                <div style="display:flex;flex-direction:column;max-height:260px;overflow-y:auto;scrollbar-width:none">
+                  <sc-for list="{{ p.results }}" as="o" hint-placeholder-count="5">
+                    <button onClick="{{ o.go }}" style="{{ o.row }}"><span class="ms" style="font-size:20px;width:24px;flex:none;color:#afafaf;font-variation-settings:'FILL' 1">{{ o.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.id }}</span></span><span style="font-size:12px;color:#979797;white-space:nowrap;font-variant-numeric:tabular-nums">{{ o.state }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ p.none }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#7f7f7f;padding:10px 6px">Ingen treff. Du kan bruke teksten som entity-ID over.</span></sc-if>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:18px;background:#282828">
+          <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Graf i toppkortet</span>
+          <sc-for list="{{ ed.graphCols }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:#979797">{{ r.label }}</span><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ r.opts }}" as="o" hint-placeholder-count="8"><button onClick="{{ o.go }}" title="{{ o.v }}" style="{{ o.style }}"></button></sc-for></div></div>
+          </sc-for>
+          <sc-for list="{{ ed.graphSegs }}" as="g" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:12px"><span style="flex:1;font-size:14px;font-weight:500">{{ g.label }}</span><div data-glass-drag="x" style="display:flex;gap:2px;padding:3px;border-radius:17px;background:#404040"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:18px;background:#282828">
+          <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Klima-kort</span>
+          <sc-for list="{{ ed.klimaLook }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:#979797">{{ r.label }}</span><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ r.opts }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.go }}" title="{{ o.v }}" style="{{ o.style }}"></button></sc-for></div></div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:12px"><span style="flex:1;font-size:14px;font-weight:500">Knapp</span><div data-glass-drag="x" style="display:flex;gap:2px;padding:3px;border-radius:17px;background:#404040"><sc-for list="{{ ed.klimaBtn }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div>
+          <button onClick="{{ ed.klimaMode.go }}" style="display:flex;align-items:center;gap:12px;text-align:left;width:100%"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Farg etter modus</span><span style="font-size:12px;color:#979797">Rød ved oppvarming, blå ved kjøling</span></span><span style="{{ ed.klimaMode.track }}"><span style="{{ ed.klimaMode.knob }}"></span></span></button>
+        </div>
+        <sc-for list="{{ ed.extra }}" as="x" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 12px;border-radius:14px;background:#282828">
+            <span class="ms" style="font-size:20px">thermostat</span>
+            <span style="flex:1;font-size:14px">{{ x.label }}</span>
+            <button onClick="{{ x.remove }}" style="width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:rgb(242 128 115)"><span class="ms" style="font-size:20px">remove_circle</span></button>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ ed.addOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="height:34px;padding:0 12px 0 8px;border-radius:17px;background:#545454;display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap"><span class="ms" style="font-size:18px">add</span>{{ o.l }}</button></sc-for>
+        </div>
+      </div>
+      </sc-if>
+      <button onClick="{{ ed.acc.ovr.go }}" style="{{ ed.acc.ovr.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.ovr.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.ovr.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.ovr.meta }}</span><span class="ms" style="{{ ed.acc.ovr.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.ovr.open }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
+        <span style="font-size:11px;color:#7f7f7f;line-height:1.5;padding:8px 0 4px">Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === 'på' ? '#7fd6a0' : '#404040' ]]]</span>
+        <sc-for list="{{ ed.acc.ovr.items }}" as="e" hint-placeholder-count="4">
+          <button onClick="{{ e.go }}" style="{{ e.row }}">
+            <span class="ms" style="font-size:20px;width:24px;flex:none;font-variation-settings:'FILL' 1">{{ e.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span><span style="font-size:11px;color:#979797">{{ e.kind }}</span></span>
+            <span class="ms" style="font-size:20px;color:#979797">edit</span>
+          </button>
+          <sc-if value="{{ e.open }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;padding:12px;margin-bottom:8px;border-radius:18px;background:#3a3a3a">
+              <sc-for list="{{ e.fields }}" as="f" hint-placeholder-count="6">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <span style="font-size:12px;color:#979797">{{ f.label }}</span>
+                  <input value="{{ f.val }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:13px;min-width:0"></input>
+                  <sc-if value="{{ f.canPick }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.pick }}" style="align-self:flex-start;height:32px;padding:0 12px;border-radius:16px;background:#282828;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#c7c7c7"><span class="ms" style="font-size:16px">{{ f.pickIcon }}</span>{{ f.pickLabel }}</button></sc-if>
+                  <sc-if value="{{ f.isCol }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:2px"><sc-for list="{{ f.sw }}" as="o" hint-placeholder-count="9"><button onClick="{{ o.go }}" style="{{ o.style }}"></button></sc-for></div></sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ e.reset }}" style="height:40px;border-radius:20px;background:#404040;font-size:13px;font-weight:500">Tilbakestill kortet</button>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1400},&quot;roomId&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;stue&quot;,&quot;pult&quot;,&quot;kjokken&quot;,&quot;bad&quot;,&quot;sov&quot;,&quot;kontor&quot;],&quot;default&quot;:&quot;stue&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Stue&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;icon&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;col&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;temp&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:22.8,&quot;tsType&quot;:&quot;number&quot;},&quot;hum&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:50,&quot;tsType&quot;:&quot;number&quot;}}">
+const C = { amber: 'rgb(242 181 115)', green: 'rgb(102 209 158)', yellow: 'rgb(242 210 111)', blue: 'rgb(115 185 242)', pink: 'rgb(242 133 201)', red: 'rgb(242 128 115)' };
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const nf = (n, d = 1) => n.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+const DATA = {
+  stue: { curtain: 99, lights: ['Grønn sofalampe','Peislampe','Skjenklampe','Sofabord','Spisebord','Stålampe','Stålampe hjørne','Stålampe piano','Taklist'],
+    devices: [['Spisebord','power',true,0],['Piano','power',true,0],['Server rack','dns',true,198],['Takstikkontakt','outlet',false,0],['TV','tv',true,0]],
+    climate: [['Oljefyr', 0, 21], ['Varmepumpe', 420, 22]], media: ['RN602-stue', 'Stue TV'],
+    sensors: [['Tilstede','sensor_occupied','Stille'],['Tilstede sone 1','sensor_occupied','Stille'],['G6 Turret bevegelse','videocam','Stille'],['Verandadør','door_front','Lukket'],['Lysnivå','light_mode','0,0 lx']] },
+  pult: { lights: ['Pultlampe','LED-list'], devices: [['PC','desktop_windows',true,95],['Skjermer','monitor',true,42],['Lader','power',false,0]], climate: [], media: [], sensors: [['Tilstede','sensor_occupied','Noen her']] },
+  kjokken: { lights: ['Tak','Benk','Vindu'], devices: [['Brødrister','power',true,820],['Kaffetrakter','power',true,1150],['Vannkoker','power',false,0],['Kjøleskap','power',true,85],['Fryseskap','power',true,12],['Oppvaskmaskin','power',true,1780],['Mikrobølgeovn','power',false,0],['Platetopp','power',false,0],['Komfyr','power',true,2]], climate: [['Gulvvarme', 0, 22]], media: ['Kjøkkenhøyttaler'], sensors: [['Bevegelse','directions_walk','Stille'],['Vindu','window','Lukket']] },
+  bad: { lights: ['Tak','Speil'], devices: [['Håndklevarmer','dry_cleaning',true,60],['VVB','power',true,1980]], climate: [['Gulvvarme', 850, 26]], media: [], sensors: [['Bevegelse','directions_walk','Stille'],['Fukt','humidity_percentage','62 %']] },
+  sov: { curtain: 0, lights: ['Tak','Nattbord venstre','Nattbord høyre'], devices: [['Lader','power',false,0]], climate: [['Panelovn', 0, 18]], media: [], sensors: [['Vindu','window','Lukket']] },
+  vask: { lights: ['Tak'], devices: [['Vaskemaskin','power',true,1950],['Tørketrommel','power',false,0],['Varmtvannsbereder','power',true,2000]], climate: [], media: [], sensors: [['Vannlekkasje','water_damage','Tørt']] },
+  kontor: { lights: ['Tak','Pultlampe'], devices: [['PC','desktop_windows',true,110]], climate: [], media: [], sensors: [['Vindu','window','Lukket']] },
+};
+const slug = n => n.toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+const PROF = [
+  [/br(ø|o)drister|toaster/, 'Brødrister', 'breakfast_dining', 'rgb(242 128 115)', 'Rister', 10, 800, 'rist'],
+  [/kaffe/, 'Kaffetrakter', 'coffee_maker', 'rgb(242 181 115)', 'Trakter kaffe', 10, 1100, 'puls'],
+  [/vannkoker|kettle/, 'Vannkoker', 'emoji_food_beverage', 'rgb(115 185 242)', 'Koker vann', 10, 2000, 'rist'],
+  [/kj(ø|o)leskap|fridge/, 'Kjøleskap', 'kitchen', 'rgb(115 185 242)', 'Kjøler', 30, 80, 'puls'],
+  [/fryse/, 'Fryseskap', 'severe_cold', 'rgb(115 185 242)', 'Fryser', 30, 90, 'puls'],
+  [/t(ø|o)rketrommel|dryer/, 'Tørketrommel', 'dry_cleaning', 'rgb(173 153 230)', 'Tørker', 10, 2200, 'spinn'],
+  [/vaskemaskin|washer/, 'Vaskemaskin', 'local_laundry_service', 'rgb(115 185 242)', 'Vasker', 10, 2000, 'spinn'],
+  [/oppvask|dishwasher/, 'Oppvaskmaskin', 'dishwasher_gen', 'rgb(102 209 158)', 'Vasker opp', 10, 1800, 'puls'],
+  [/mikro/, 'Mikrobølgeovn', 'microwave', 'rgb(242 181 115)', 'Varmer', 10, 900, 'puls'],
+  [/platetopp|induksjon|cooktop/, 'Platetopp', 'skillet', 'rgb(242 128 115)', 'Koker', 10, 2400, 'puls'],
+  [/komfyr|stekeovn|ovn\b|oven/, 'Komfyr', 'oven_gen', 'rgb(242 181 115)', 'Steker', 10, 2500, 'puls'],
+  [/h(å|a)ndkle|towel/, 'Håndklevarmer', 'heat', 'rgb(242 181 115)', 'Varmer håndklær', 10, 60, 'puls'],
+  [/varmtvann|bereder|\bvvb\b/, 'Varmtvannsbereder', 'shower', 'rgb(242 181 115)', 'Varmer vann', 50, 2000, 'puls']];
+const profOf = name => { const n = name.toLowerCase(); const p = PROF.find(x => x[0].test(n)); return p ? { type: p[1], icon: p[2], col: p[3], verb: p[4], thr: p[5], def: p[6], anim: p[7] } : null; };
+const LT_AUTO = n => { const x = n.toLowerCase(); return /led|list|stripe|hue|rgb/.test(x) ? 'color' : /tak|matbord|spisebord/.test(x) ? 'ct' : /nattbord|vinkel|spot|stikk|vindu|ute|julelys/.test(x) ? 'onoff' : 'dim'; };
+const LT_NAMES = [['', 'Auto'], ['dim', 'Dimbar'], ['ct', 'Dimbar + temperatur'], ['color', 'Dimbar + farge'], ['onoff', 'Kun av/på']];
+const SCENES = [['max','Maks lys','light_mode'],['komfort','Komfort','weekend'],['middag','Middag','restaurant'],['tv','TV-kveld','tv'],['dim','Dempet','brightness_4'],['av','Alt av','dark_mode']];
+const sceneLevel = (k, i, name) => ({ max: 100, komfort: [60, 45, 0, 50, 40, 70, 0, 55, 30][i % 9], middag: /spise/i.test(name) ? 85 : i % 2 ? 25 : 0, tv: i % 3 === 0 ? 15 : 0, dim: 30, av: 0 })[k];
+const quiet = st => /Stille|Lukket|lx|%/.test(st);
+const MIN = 15, MAX = 28;
+const SECS = [['hero', 'Toppkort · temperatur', 'thermostat_auto'], ['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
+const THERMO = [['', 'Standard fra rommet'], ['climate.oljefyr_stue', 'Oljefyr stue'], ['climate.varmepumpe', 'Varmepumpe'], ['climate.gulvvarme_kjokken', 'Gulvvarme kjøkken'], ['climate.panelovn_sov', 'Panelovn soverom']];
+const HA_ENTS = (() => { const R = [['stue','Stue'],['kjokken','Kjøkken'],['gang','Gang'],['bad','Bad'],['bad_2','Bad 2. et'],['soverom','Soverom'],['cybele','Cybele soverom'],['rune','Rune soverom'],['kontor','Rune kontor'],['allrom','Allrom'],['vaskerom','Vaskerom'],['kjeller','Kjeller'],['garasje','Garasje'],['ute','Ute']], out = [];
+  R.forEach(([id, n], i) => { out.push(['sensor.' + id + '_temperature', n + ' temperatur', 'thermometer', (19 + (i * 7) % 6 + 0.4).toFixed(1).replace('.', ',') + ' °C']); out.push(['sensor.' + id + '_humidity', n + ' luftfuktighet', 'humidity_percentage', (38 + (i * 11) % 30) + ' %']); if (i < 10) out.push(['climate.' + id, n + ' termostat', 'thermostat', 'heat · ' + (18 + i % 5) + '°']); });
+  return [...out, ['climate.oljefyr_stue','Oljefyr stue','heat','heat · 21°'], ['climate.varmepumpe','Varmepumpe NIBE','heat_pump','heat · 22°'], ['climate.gulvvarme_kjokken','Gulvvarme kjøkken','heat','heat · 22°'], ['climate.panelovn_soverom','Panelovn soverom','heat','off'], ['sensor.aqara_temp','Aqara temperatur','thermometer','22,4 °C'], ['sensor.aqara_humidity','Aqara luftfuktighet','humidity_percentage','47 %'], ['sensor.tilstede_temp','Tilstedesensor temp','sensor_occupied','22,9 °C'], ['sensor.nibe_bt50_room_temp','NIBE BT50 romtemp','heat_pump','21,6 °C'], ['sensor.netatmo_indoor_temperature','Netatmo inne temperatur','thermometer','22,1 °C'], ['sensor.netatmo_indoor_humidity','Netatmo inne fukt','humidity_percentage','44 %'], ['sensor.netatmo_co2','Netatmo CO₂','co2','612 ppm'], ['weather.hjem','Vær hjemme','partly_cloudy_day','overskyet'], ['fan.ventilasjon','Ventilasjon','mode_fan','on'], ['switch.varmekabel_bad','Varmekabel bad','heat','on'], ['input_number.stue_maltemp','Stue måltemperatur','tune','21']]; })();
+const TSENS = [['', 'Standard fra rommet'], ['sensor.aqara_temp', 'Aqara temperatur'], ['sensor.tilstede_temp', 'Tilstedesensor temp'], ['sensor.termostat_temp', 'Termostatens sensor']];
+const HSENS = [['', 'Standard fra rommet'], ['sensor.aqara_fukt', 'Aqara fukt'], ['sensor.luftrenser_fukt', 'Luftrenser fukt']];
+const CFG0 = { order: SECS.map(x => x[0]), hidden: {}, hideEnt: {}, thermo: '', tsens: '', hsens: '', extra: [], addEnt: { lys: [], dev: [], sens: [] } };
+const ADD_CAND = { lys: [['light.gang_tak', 'Gang tak'], ['light.trapp_led', 'Trapp LED'], ['light.utebelysning', 'Utebelysning'], ['light.kjokken_spot_1', 'Kjøkken spot 1'], ['light.kjokken_spot_2', 'Kjøkken spot 2'], ['light.vinduslampe', 'Vinduslampe']],
+  dev: [['switch.avfukter', 'Avfukter'], ['switch.luftrenser', 'Luftrenser'], ['switch.julelys', 'Julelys'], ['switch.varmekabel', 'Varmekabel'], ['switch.billader', 'Billader']],
+  sens: [['binary_sensor.vindu_kjokken', 'Vindu kjøkken'], ['binary_sensor.roykvarsler_gang', 'Røykvarsler gang'], ['binary_sensor.bevegelse_trapp', 'Bevegelse trapp'], ['binary_sensor.vannlekkasje', 'Vannlekkasje']] };
+const addName = (k, e) => (ADD_CAND[k].find(x => x[0] === e) || [e, (e.split('.')[1] || e).replace(/_/g, ' ')])[1];
+class Component extends DCLogic {
+  state = this.init();
+  init() {
+    const id = this.props?.roomId || 'stue', d = DATA[id] || DATA.stue, cfg = this.loadCfg(id), AE = cfg.addEnt || {};
+    return { id, scene: null, curtain: d.curtain ?? null, lights: [...d.lights.map(n => ({ name: n, v: 0, ct: 3500, hue: 30 })), ...(AE.lys || []).map(e => ({ name: addName('lys', e), v: 0, ct: 3500, hue: 30, eid: e }))], devices: [...d.devices.map(([name, icon, on, w]) => ({ name, icon, on, w })), ...(AE.dev || []).map(e => ({ name: addName('dev', e), icon: 'power', on: false, w: 0, eid: e }))],
+      climate: d.climate.map(([name, w, set], i) => ({ name, w, set, t: (this.props?.temp ?? 22.8) + (i ? -0.6 : 0), h: (this.props?.hum ?? 50) + (i ? 3 : 0) })), media: d.media.map(name => ({ name, playing: false, vol: 20 })), sensors: [...d.sensors, ...(AE.sens || []).map(e => [addName('sens', e), 'sensors', 'Stille', e])], cfg, edOpen: false,
+      covers: d.curtain == null ? [] : id === 'sov' ? [{ name: 'Seng rullegardin', v: 0 }, { name: 'Rullegardin', v: 0 }] : [{ name: 'Gardiner', v: d.curtain }, { name: 'Gardin vindu', v: d.curtain }], coverOpen: false };
+  }
+  componentDidUpdate(pp) { if (pp.roomId !== this.props.roomId) this.setState(this.init()); }
+  loadCfg(id) { try { const c = JSON.parse(localStorage.getItem('rom-cfg-' + id) || 'null'); if (c) return { ...CFG0, ...c, order: (() => { const o = (c.order || []).filter(k => CFG0.order.includes(k)); CFG0.order.forEach((k, i) => { if (!o.includes(k)) o.splice(Math.min(i, o.length), 0, k); }); return o; })() }; } catch (e) {} return { ...CFG0 }; }
+  setCfg(p) { const c = { ...this.state.cfg, ...p }; try { localStorage.setItem('rom-cfg-' + this.state.id, JSON.stringify(c)); } catch (e) {} this.setState({ cfg: c }); }
+  addEnt(k, e) { const c = this.state.cfg, A = { lys: [], dev: [], sens: [], ...(c.addEnt || {}) }; if (!e || A[k].includes(e)) return; this.setCfg({ addEnt: { ...A, [k]: [...A[k], e] } }); const n = addName(k, e);
+    this.setState(s => ({ addQ: { ...(s.addQ || {}), [k]: '' }, ...(k === 'lys' ? { lights: [...s.lights, { name: n, v: 0, ct: 3500, hue: 30, eid: e }] } : k === 'dev' ? { devices: [...s.devices, { name: n, icon: 'power', on: false, w: 0, eid: e }] } : { sensors: [...s.sensors, [n, 'sensors', 'Stille', e]] }) })); }
+  remEnt(k, e) { const c = this.state.cfg, A = { lys: [], dev: [], sens: [], ...(c.addEnt || {}) }; this.setCfg({ addEnt: { ...A, [k]: A[k].filter(x => x !== e) } }); window.haptic && window.haptic('warning');
+    this.setState(s => k === 'lys' ? { lights: s.lights.filter(x => x.eid !== e) } : k === 'dev' ? { devices: s.devices.filter(x => x.eid !== e) } : { sensors: s.sensors.filter(x => x[3] !== e) }); }
+  renderVals() {
+    const o = this.renderVals0(), s = this.state, c = s.cfg, H = c.hidden;
+    const gap = c.gap ?? 8, pT = c.padT ?? 20, pB = c.padB ?? 40;
+    o.rootStyle = { boxSizing: 'border-box', width: '100%', maxWidth: 420, minHeight: '100vh', margin: '0 auto', background: '#282828', padding: `${pT}px 14px ${pB}px`, display: 'flex', flexDirection: 'column', gap };
+    o.spacingVals = [['gap', 'Mellom seksjonene', 'height', gap, 48, [['Tett', 4], ['Standard', 8], ['Luftig', 18]]], ['padT', 'Fra popup-headeren til første kort', 'vertical_align_top', pT, 120, [['Inntil', -4], ['Tett', 6], ['Standard', 20], ['Luftig', 44]], -4, 4], ['padB', 'Luft i bunnen', 'vertical_align_bottom', pB, 160, [['Ingen', 0], ['Standard', 40], ['Stor', 96]]]].map(([key, label, icon, val, max, pr, min = 0, off = 0]) => ({ label, icon, val, max, min, shown: val + off,
+      set: e => this.setCfg({ [key]: +e.target.value }),
+      presets: pr.map(([l, v]) => ({ label: l, go: () => this.setCfg({ [key]: v }), style: { height: 30, padding: '0 12px', borderRadius: 15, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: val === v ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#545454', color: val === v ? '#3a3a3a' : '#fafafa' } })) }));
+    const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? 'rgb(102 209 158)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: on ? '#3a3a3a' : '#c7c7c7', transition: 'left .2s' } });
+    const swp = (key, n) => ({ onScroll: e => { const el = e.currentTarget, i = Math.round(el.scrollLeft / el.clientWidth); if (i !== (this.state[key] || 0)) this.setState({ [key]: i }); }, dots: n > 1 ? Array.from({ length: n }, (_, i) => ({ width: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, height: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, borderRadius: 6, background: (i === Math.min(s[key] || 0, n - 1)) ? '#7f7f7f' : '#545454', transition: 'background .2s' })) : [] });
+    const updC = (i, dv) => this.setState(st => ({ climate: st.climate.map((x, j) => j === i ? { ...x, set: Math.max(MIN, Math.min(MAX, x.set + dv)) } : x) }));
+    const nfx = (v, d) => v.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+    o.climCards = [...s.climate.map((k, i) => ({ name: k.name, sub: `${k.w} W`, temp: nfx(k.t, 0), hum: nfx(k.h, 0), set: nfx(k.set, Number.isInteger(k.set) ? 0 : 1), up: () => updC(i, 0.5), down: () => updC(i, -0.5) })),
+      ...c.extra.map(v => { const sv = (s.extraSet || {})[v] ?? 21, nm = (THERMO.find(t => t[0] === v) || HA_ENTS.find(t => t[0] === v) || [v, v])[1], set = d => this.setState(st => ({ extraSet: { ...(st.extraSet || {}), [v]: Math.max(MIN, Math.min(MAX, sv + d)) } }));
+        return { name: nm, sub: v, temp: nfx(o.temp ? parseFloat(String(o.temp).replace(',', '.')) : 22, 0), hum: o.hum, set: nfx(sv, Number.isInteger(sv) ? 0 : 1), up: () => set(0.5), down: () => set(-0.5) }; })];
+    { const K = { bg: '#2a2a2a', ring: 'rgba(255,255,255,0.22)', btn: 'outline', mode: false, ...(c.klimaLook || {}) }, DEFR = 'rgba(255,255,255,0.22)', num = v => parseFloat(String(v).replace(',', '.'));
+      o.climCards = o.climCards.map(k => { const t = num(k.temp), sp = num(k.set), mc = sp > t + 0.2 ? 'rgb(242 128 115)' : sp < t - 0.2 ? 'rgb(115 185 242)' : null, fill = K.btn === 'fill';
+        const mcol = mc || '#7f7f7f', seed = (k.name || '').length, pts = Array.from({ length: 24 }, (_, i) => t - 1.2 + Math.sin(i / 3.2 + seed) * 0.8 + Math.sin(i / 1.3 + seed * 2) * 0.25 + (i / 23) * 0.6);
+        const mn = Math.min(...pts), mx = Math.max(...pts), xy = pts.map((v, i) => [(i / 23 * 100).toFixed(1), (36 - (v - mn) / ((mx - mn) || 1) * 22).toFixed(1)]);
+        const gline = 'M' + xy.map(p => p.join(' ')).join(' L'), gc = K.mode && mc ? mc : K.graph, gOff = gc === 'none';
+        return { ...k, gLine: gOff ? '' : gline, gArea: gOff ? '' : gline + ' L100 40 L0 40 Z', gCol: gOff ? 'transparent' : gc, gFill: gOff ? 'transparent' : String(gc).replace(')', ' / 0.16)'), modeIcon: mc === 'rgb(242 128 115)' ? 'local_fire_department' : mc ? 'ac_unit' : 'thermostat',
+          modeWrap: { width: 22, height: 22, borderRadius: 11, flex: 'none', display: 'grid', placeItems: 'center', background: mcol, color: '#282828' }, card: { position: 'relative', flex: 'none', width: '100%', height: 155, boxSizing: 'border-box', scrollSnapAlign: 'start', borderRadius: 26, background: K.mode && mc ? `linear-gradient(135deg, ${mc.replace(')', ' / 0.24)')}, ${K.bg} 72%)` : K.bg, transition: 'background .4s' },
+          ctl: { position: 'absolute', right: 10, top: 10, bottom: 10, width: 64, borderRadius: 32, boxShadow: fill ? 'none' : `inset 0 0 0 1px ${K.ring}`, background: fill ? K.ring : 'transparent', color: fill && K.ring !== DEFR ? '#282828' : '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', boxSizing: 'border-box' } }; });
+      { o._kEd = {}; const setK = p => this.setCfg({ klimaLook: { ...K, ...p } }), swc = (v, on, go) => ({ v, go, style: { width: 32, height: 32, borderRadius: 16, background: v, boxShadow: on ? '0 0 0 3px #282828, 0 0 0 5px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } });
+        o._kEd.klimaLook = [{ label: 'Bakgrunn', opts: ['#2a2a2a', '#282828', '#404040', 'rgb(62 44 54)', 'rgb(40 52 64)', 'rgb(42 58 50)', 'rgb(64 56 38)'].map(v => swc(v, K.bg === v, () => setK({ bg: v }))) },
+          { label: 'Knappfarge', opts: [DEFR, 'rgb(242 133 201)', 'rgb(242 128 115)', 'rgb(242 181 115)', 'rgb(242 210 111)', 'rgb(102 209 158)', 'rgb(115 185 242)', 'rgb(173 153 230)'].map(v => swc(v, K.ring === v, () => setK({ ring: v }))) }];
+        { const GL = { t: C.amber, h: C.blue, fill: 0.2, w: 2, ...(c.graphLook || {}) }, setG = p => this.setCfg({ graphLook: { ...GL, ...p } }), PAL = [C.amber, C.pink, C.red, C.yellow, C.green, C.blue, 'rgb(173 153 230)', '#fafafa'];
+          o._kEd.graphCols = [['t', 'Linje · temperatur'], ['h', 'Linje · fukt']].map(([k, label]) => ({ label, opts: PAL.map(v => swc(v, GL[k] === v, () => setG({ [k]: v }))) }))
+            .concat([{ label: 'Fyll under linjen', opts: [{ v: 'Samme som linjen', go: () => setG({ area: 'line' }), style: { width: 32, height: 32, borderRadius: 16, background: 'conic-gradient(' + C.amber + ' 0 50%, ' + C.blue + ' 0)', boxShadow: !GL.area || GL.area === 'line' ? '0 0 0 3px #282828, 0 0 0 5px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } }].concat(PAL.map(v => swc(v, GL.area === v, () => setG({ area: v })))) }]);
+          const seg = (label, key, opts) => ({ label, opts: opts.map(([l, v]) => ({ label: l, go: () => setG({ [key]: v }), style: { height: 34, padding: '0 12px', borderRadius: 14, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: GL[key] === v ? PINK : 'transparent', color: GL[key] === v ? '#5a3a48' : '#afafaf' } })) });
+          o._kEd.graphSegs = [seg('Fyll', 'fill', [['Av', 0], ['Svak', 0.2], ['Sterk', 0.4]]), seg('Linje', 'w', [['Tynn', 1.5], ['Normal', 2], ['Tykk', 3]])]; }
+        o._kEd.klimaBtn = [['outline', 'Kontur'], ['fill', 'Fylt']].map(([v, label]) => ({ label, go: () => setK({ btn: v }), style: { height: 34, padding: '0 14px', borderRadius: 14, fontSize: 13, fontWeight: 500, background: K.btn === v ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: K.btn === v ? '#5a3a48' : '#afafaf' } }));
+        o._kEd.klimaMode = { go: () => setK({ mode: !K.mode }), track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: K.mode ? 'rgb(242 133 201)' : '#404040', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: K.mode ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } }; } }
+    o.climSw = swp('climIdx', o.climCards.length); o.mediaSw = swp('mediaIdx', (o.media || []).length);
+    { const OV = c.ovr || {};
+      const tpl = (v, ctx) => { if (v == null || String(v).trim() === '') return null; const t = String(v).trim(); if (t.indexOf('[[[') === 0 && t.slice(-3) === ']]]') { try { const r = new Function('state', 'entity', 'w', 'name', t.slice(3, -3))(ctx.state, ctx, ctx.w, ctx.name); return r == null ? null : String(r); } catch (e) { return '⚠ feil i kode'; } } return t.replace(/\{(\w+)\}/g, (m, k) => ctx[k] ?? m); };
+      const apply = (it, key, ctx, subKey) => { const ov = OV[key]; if (!ov) return it; const g = f => tpl(ov[f], ctx), n = { ...it };
+        const nm = g('name'), lb = g('label'), ic = g('icon'), icc = g('iconCol'), bg = g('bg'), cell = g('cell');
+        if (nm) n.name = nm; if (lb) n[subKey] = lb; if (ic) n.icon = ic;
+        if (bg) n.pill = { ...it.pill, background: bg }; if (cell || icc) n.iconWrap = { ...it.iconWrap, ...(cell ? { background: cell } : {}), ...(icc ? { color: icc } : {}) }; return n; };
+      o.devices = o.devices.map(d => { const src = s.devices.find(x => x.name === d.name) || {}; return apply(d, 'd:' + d.name, { state: src.on ? 'på' : 'av', on: !!src.on, w: src.w || 0, name: d.name }, 'sub'); });
+      o.sensors = (o.sensors || []).map(z => apply(z, 's:' + z.name, { state: z.state, name: z.name, w: 0 }, 'state')); }
+    o.lights = o.lights.map((l, i) => { const L = s.lights[i] || {}, T = (c.ltype || {})[L.name] || LT_AUTO(L.name), on = L.v > 0, open = !!(s.lxOpen || {})[L.name] && (T === 'ct' || T === 'color');
+      const upd = f => this.setState(st => ({ scene: null, lights: st.lights.map((x, j) => j === i ? { ...x, ...f } : x) }));
+      const xd = this.drag(v => upd(T === 'ct' ? { ct: Math.round(2200 + v * 43) } : { hue: Math.round(v * 3.6) }), () => {});
+      const xv = T === 'ct' ? ((L.ct ?? 3500) - 2200) / 43 : (L.hue ?? 30) / 3.6, hc = T === 'color' ? `hsl(${L.hue ?? 30} 90% 65%)` : '#ffcf9e';
+      return { ...l, isDim: T !== 'onoff', isOnOff: T === 'onoff', canX: T === 'ct' || T === 'color', xOpen: open, pct: T === 'onoff' ? (on ? 'På' : 'Av') : l.pct,
+        xToggle: () => this.setState(st => ({ lxOpen: { ...(st.lxOpen || {}), [L.name]: !open } })), chev: { fontSize: 22, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
+        barFill: T === 'color' && on ? { ...l.barFill, background: `linear-gradient(90deg, hsl(${L.hue ?? 30} 55% 40%), hsl(${L.hue ?? 30} 85% 62%))` } : T === 'ct' && on ? { ...l.barFill, background: `linear-gradient(90deg, #a07c5c, ${(L.ct ?? 3500) > 4500 ? '#e9e4dc' : '#f0c08a'})` } : l.barFill,
+        onoff: () => upd({ v: on ? 0 : 100 }),
+        sl: { flex: 1, minWidth: 0, height: 40, display: 'flex', alignItems: 'center', gap: 6, touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
+        slFill: { flex: `${L.v} 1 0`, height: 34, borderRadius: '14px 5px 5px 14px', display: L.v > 0 ? 'block' : 'none', background: T === 'color' ? `hsl(${L.hue ?? 30} 85% 72%)` : T === 'ct' && (L.ct ?? 3500) > 4500 ? '#f3ebe0' : '#ffc896', transition: this.d?.moved ? 'none' : 'flex-grow .3s' },
+        slHandle: { width: 4, height: 40, borderRadius: 2, flex: 'none', background: '#b08a68' },
+        slTrack: { flex: `${100 - L.v} 1 0`, height: 34, borderRadius: '5px 14px 14px 5px', display: L.v < 100 ? 'block' : 'none', background: '#6b5b50', transition: this.d?.moved ? 'none' : 'flex-grow .3s' },
+        offLine: { width: 4, alignSelf: 'stretch', borderRadius: 2, background: '#b08a68', flex: 'none', display: on ? 'none' : 'block' },
+        handle: { display: on ? 'block' : 'none', position: 'absolute', top: 9, bottom: 9, width: 3, borderRadius: 2, left: `max(10px, calc(${L.v}% - 12px))`, background: 'rgba(255,255,255,0.75)', transition: this.d?.moved ? 'none' : 'left .3s', pointerEvents: 'none' },
+        swBar: { position: 'relative', height: 48, width: '100%', borderRadius: 24, background: '#695b51', display: 'flex', alignItems: 'center', padding: 4, boxSizing: 'border-box', cursor: 'pointer' },
+        swFill: { height: 40, width: '52%', borderRadius: 20, display: 'flex', alignItems: 'center', paddingLeft: 14, boxSizing: 'border-box', background: on ? 'linear-gradient(90deg, #b8875a, #e0b27e)' : '#8e7563', transform: on ? 'translateX(92%)' : 'none', transition: 'transform .35s cubic-bezier(.34,1.4,.64,1), background .25s' },
+        swDot: { position: 'absolute', right: on ? 'auto' : 18, left: on ? 18 : 'auto', top: 20, width: 8, height: 8, borderRadius: 4, background: '#e8c9a8', opacity: 0.8 },
+        xLabel: T === 'ct' ? 'Temperatur' : 'Farge', xVal: T === 'ct' ? `${L.ct ?? 3500} K` : `${L.hue ?? 30}°`, xDown: xd.down, xMove: xd.move, xUp: xd.up,
+        xBar: { position: 'relative', height: 28, borderRadius: 14, touchAction: 'none', cursor: 'pointer', background: T === 'ct' ? 'linear-gradient(90deg, #ff9f45, #ffd9a8, #fff6ea, #d6e6ff)' : 'linear-gradient(90deg, hsl(0 85% 60%), hsl(60 85% 60%), hsl(120 70% 55%), hsl(180 70% 55%), hsl(240 75% 65%), hsl(300 75% 62%), hsl(360 85% 60%))' },
+        xKnob: { position: 'absolute', top: -3, left: `calc(${Math.max(0, Math.min(100, xv))}% - 17px)`, width: 34, height: 34, borderRadius: 17, background: hc, boxShadow: '0 0 0 3px #fafafa, 0 2px 8px rgba(0,0,0,0.4)', pointerEvents: 'none' } }; });
+    o.lights = o.lights.filter(l => !c.hideEnt['l:' + l.name]); o.devices = o.devices.filter(d => !c.hideEnt['d:' + d.name]); o.sensors = o.sensors.filter(z => !c.hideEnt['s:' + z.name]);
+    o.hasScenes = !H.scenes; o.hasHero = !H.hero; o.hasLights = o.hasLights && !H.lys && o.lights.length > 0; o.hasDevices = o.hasDevices && !H.dev && o.devices.length > 0;
+    o.hasSet = (o.hasSet || !!c.thermo) && !H.klima; o.hasMedia = o.hasMedia && !H.media; o.hasSensors = o.hasSensors && !H.sens && o.sensors.length > 0;
+    if (c.thermo) { o.setLabel = (THERMO.find(t => t[0] === c.thermo) || HA_ENTS.find(t => t[0] === c.thermo) || [0, c.thermo])[1]; if (o.setVal === '') o.setVal = 21; }
+    if (c.extra.length) o.modeShort = `${o.modeShort ? o.modeShort + ' · ' : ''}+${c.extra.length}`;
+    const cvs = s.covers || [];
+    const setCv = (i, v) => this.setState(st => ({ covers: st.covers.map((x, j) => j === i ? { ...x, v } : x) }));
+    const cRow = i => { const x = cvs[i], dd = this.drag(v => setCv(i, v), () => setCv(i, x.v > 0 ? 0 : 100)), mv = this.d?.moved;
+      return { name: x.name, pct: x.v, down: dd.down, move: dd.move, up: dd.up,
+        fill: { position: 'absolute', left: 0, height: 8, borderRadius: 4, width: `${x.v}%`, background: 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', transition: mv ? 'none' : 'width .3s' },
+        knob: { position: 'absolute', left: `calc(${x.v}% - 11px)`, width: 22, height: 22, borderRadius: 11, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.4)', transition: mv ? 'none' : 'left .3s' } }; };
+    o.hasCurtain = cvs.length > 0 && !H.curtain;
+    o.cover0 = cvs.length ? cRow(0) : {}; o.coverRest = cvs.slice(1).map((_, i) => cRow(i + 1));
+    o.coverMulti = cvs.length > 1; o.coverOpen = cvs.length > 1 && !!s.coverOpen;
+    o.toggleCovers = () => this.setState({ coverOpen: !s.coverOpen });
+    o.coverChev = { fontSize: 24, transform: s.coverOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' };
+    o.coverPresets = [0, 25, 50, 75, 100].map(v => ({ label: `${v}%`, go: () => this.setState(st => ({ covers: st.covers.map(x => ({ ...x, v })) })) }));
+    o.ord = Object.fromEntries(c.order.map((k, i) => [k, { order: i + 1, display: 'flex', flexDirection: 'column' }]));
+    o.openEdit = () => this.setState({ edOpen: true });
+    const btn = on => ({ width: 36, height: 36, borderRadius: 18, display: 'grid', placeItems: 'center', background: on ? '#282828' : 'transparent', color: on ? '#fafafa' : '#545454', pointerEvents: on ? 'auto' : 'none' });
+    const pick = (label, key, opts) => { const pref = key === 'thermo' ? 'climate.' : key === 'hsens' ? 'humid' : 'temp', open = s.pickOpen === key, q = (s.pickQ || '').trim().toLowerCase(), v = c[key] || '';
+      const known = HA_ENTS.find(x => x[0] === v), std = opts.find(x => x[0] === v);
+      const words = q.split(/\s+/).filter(Boolean), score = x => (x[0].includes(pref) ? 0 : 1);
+      const res = [['', 'Standard fra rommet', 'restart_alt', ''], ...HA_ENTS.filter(x => words.every(w => (x[0] + ' ' + x[1]).toLowerCase().includes(w))).sort((a1, b1) => score(a1) - score(b1))].slice(0, q ? 60 : 30);
+      return { label, open, name: v ? (known ? known[1] : std ? std[1] : v) : 'Standard fra rommet', id: v || 'Automatisk', icon: known ? known[2] : v ? 'link' : 'restart_alt',
+        toggle: () => this.setState({ pickOpen: open ? null : key, pickQ: '' }), q: s.pickQ || '', setQ: e => this.setState({ pickQ: e.target.value }),
+        canCustom: open && q.length > 2 && !HA_ENTS.some(x => x[0] === q), useCustom: () => { this.setCfg({ [key]: (s.pickQ || '').trim() }); this.setState({ pickOpen: null, pickQ: '' }); },
+        none: open && res.length <= 1 && !!q,
+        btn: { height: 52, padding: '0 12px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, background: '#282828', boxShadow: open ? 'inset 0 0 0 1.5px rgb(242 133 201)' : 'none' },
+        chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
+        results: open ? res.map(([id, n, ic, st]) => ({ id: id || 'Automatisk', name: n, icon: ic, state: st, go: () => { this.setCfg({ [key]: id }); this.setState({ pickOpen: null, pickQ: '' }); },
+          row: { minHeight: 52, padding: '6px 8px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10, flex: 'none', background: id === v ? 'rgba(255,255,255,0.08)' : 'transparent' } })) : [] }; };
+    o.ed = { spacing: o.spacingVals, open: !!s.edOpen, close: () => this.setState({ edOpen: false }), reset: () => { try { localStorage.removeItem('rom-cfg-' + s.id); } catch (e) {} this.setState({ cfg: { ...CFG0 } }); },
+      secs: c.order.map((k, i) => { const [, label, icon] = SECS.find(x => x[0] === k), hid = !!H[k];
+        const move = d => { const n = [...c.order], j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; this.setCfg({ order: n }); };
+        return { label, icon, up: () => move(-1), down: () => move(1), upStyle: btn(i > 0), downStyle: btn(i < c.order.length - 1),
+          eye: () => this.setCfg({ hidden: { ...H, [k]: !hid } }), eyeIcon: hid ? 'visibility_off' : 'visibility', eyeStyle: { fontSize: 20, color: hid ? '#696969' : '#fafafa' },
+          row: { display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 10px 0 16px', borderRadius: 28, background: '#404040', opacity: hid ? 0.55 : 1 } }; }),
+      ents: [...s.lights.map(l => ['l:' + l.name, l.name, 'lightbulb', 'Lys']), ...s.devices.map(d => { const P = profOf(d.name); return ['d:' + d.name, d.name, P ? P.icon : d.icon, 'Enhet']; })].map(([key, name, icon, kind], i) => { const on = !c.hideEnt[key]; return { name, icon, kind: on ? kind : `${kind} · skjult`, ...sw(on),
+        go: () => this.setCfg({ hideEnt: { ...c.hideEnt, [key]: on } }), row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', opacity: on ? 1 : 0.6 } }; }),
+      picks: [pick('Termostat', 'thermo', THERMO), pick('Temperatursensor', 'tsens', TSENS), pick('Fuktsensor', 'hsens', HSENS)],
+      extra: c.extra.map((v, i) => ({ label: (THERMO.find(t => t[0] === v) || HA_ENTS.find(t => t[0] === v) || [v, v])[1], remove: () => this.setCfg({ extra: c.extra.filter((_, j) => j !== i) }) })),
+      addOpts: [...THERMO.slice(1), ...HA_ENTS.filter(x => x[0].indexOf('climate.') === 0 && !THERMO.some(t => t[0] === x[0])).slice(0, 4)].filter(([v]) => v !== c.thermo && !c.extra.includes(v)).map(([v, l]) => ({ l, go: () => this.setCfg({ extra: [...c.extra, v] }) })) };
+    { const A = s.edAcc || {}, E = o.ed.ents, grp = kind => E.filter(e => e.kind === kind).map((e, i) => ({ ...e, row: { ...e.row, borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' } }));
+      const keysOf = kind => [...(kind === 'Lys' ? s.lights.map(l => 'l:' + l.name) : s.devices.map(d => 'd:' + d.name))];
+      const bulk = (kind, hide) => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(keysOf(kind).map(k => [k, hide])) } });
+      const acc = (k, title, icon, meta, extra) => { const open = !!A[k]; return { title, icon, meta, open, go: () => this.setState(st => ({ edAcc: { ...(st.edAcc || {}), [k]: !open } })),
+        head: { display: 'flex', alignItems: 'center', gap: 12, height: 56, padding: '0 14px 0 16px', borderRadius: 28, background: open ? '#404040' : '#2a2a2a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)', marginTop: 4 },
+        chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' }, ...extra }; };
+      const vis = kind => { const it = grp(kind), on = it.filter(e => !c.hideEnt[(kind === 'Lys' ? 'l:' : 'd:') + e.name]).length; return `${on} av ${it.length} vises`; };
+      const addUI = k => { const q = (s.addQ || {})[k] || '', ql = q.trim().toLowerCase(), A = (c.addEnt || {})[k] || [], pre = { lys: 'light.', dev: 'switch.', sens: 'binary_sensor.' }[k];
+        const typed = /^[a-z_]+\.[a-z0-9_]+$/.test(ql) && !A.includes(ql) && !ADD_CAND[k].some(x => x[0] === ql);
+        return { q, ph: 'Søk eller skriv ' + pre + '…', setQ: e => { const v = e.target.value; this.setState(st => ({ addQ: { ...(st.addQ || {}), [k]: v } })); },
+          added: A.map(e => ({ id: e, name: addName(k, e), rm: () => this.remEnt(k, e) })),
+          res: ADD_CAND[k].filter(([e, n]) => !A.includes(e) && (!ql || (e + ' ' + n).toLowerCase().includes(ql))).slice(0, 6).map(([e, n]) => ({ id: e, name: n, go: () => this.addEnt(k, e) })),
+          typed, typedLabel: 'Legg til «' + ql + '»', addTyped: () => this.addEnt(k, ql) }; };
+      const sensItems = s.sensors.map((z, i) => { const key = 's:' + z[0], on = !c.hideEnt[key]; return { name: z[0], icon: z[1], kind: on ? 'Sensor' : 'Sensor · skjult', ...sw(on), go: () => this.setCfg({ hideEnt: { ...c.hideEnt, [key]: on } }), row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', opacity: on ? 1 : 0.6 } }; });
+      Object.assign(o.ed, o._kEd || {});
+      o.ed.acc = { space: acc('space', 'Mellomrom', 'space_bar', `${c.gap ?? 18} px mellom`),
+        secs: acc('secs', 'Seksjoner', 'view_agenda', `${c.order.filter(k => !H[k]).length} av ${c.order.length} vises`),
+        lys: acc('lys', 'Lys', 'lightbulb', vis('Lys'), { types: s.lights.map(l => { const cur = (c.ltype || {})[l.name] || ''; return { name: l.name, auto: 'Auto: ' + (LT_NAMES.find(x => x[0] === LT_AUTO(l.name)) || [])[1], value: cur, opts: LT_NAMES.map(([v, lb]) => ({ v, l: lb })), set: e => { const n = { ...(c.ltype || {}) }; if (e.target.value) n[l.name] = e.target.value; else delete n[l.name]; this.setCfg({ ltype: n }); } }; }), items: grp('Lys'), allOn: () => bulk('Lys', false), allOff: () => bulk('Lys', true), add: addUI('lys') }),
+        dev: acc('dev', 'Enheter', 'power', vis('Enhet'), { items: grp('Enhet'), allOn: () => bulk('Enhet', false), allOff: () => bulk('Enhet', true), add: addUI('dev') }),
+        sens: acc('sensadd', 'Sensorer', 'sensors', `${sensItems.filter(e => e.kind === 'Sensor').length} av ${sensItems.length} vises`, { items: sensItems, add: addUI('sens'), allOn: () => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(s.sensors.map(z => ['s:' + z[0], false])) } }), allOff: () => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(s.sensors.map(z => ['s:' + z[0], true])) } }) }),
+        ovr: acc('ovr', 'Utseende på kort', 'palette', `${Object.keys(c.ovr || {}).length} overstyrt`, { items: [...s.devices.map(d => ['d:' + d.name, d.name, d.icon, 'Enhet', d.on ? 'på' : 'av']), ...s.sensors.map(z => ['s:' + z[0], z[0], z[1], 'Sensor', z[2]])].map(([key, name, icon, kind, st], i) => { const open = s.ovrSel === key, ov = (c.ovr || {})[key] || {}, setF = (f, v) => { const n = { ...ov, [f]: v }; Object.keys(n).forEach(x => { if (n[x] === '') delete n[x]; }); const all = { ...(c.ovr || {}) }; if (Object.keys(n).length) all[key] = n; else delete all[key]; this.setCfg({ ovr: all }); };
+          const SW = ['#404040', '#282828', PINK, C.green, C.blue, C.yellow, C.amber, C.red, '#fafafa'];
+          return { name, icon, kind: `${kind} · ${st}${Object.keys(ov).length ? ' · overstyrt' : ''}`, open, go: () => this.setState({ ovrSel: open ? null : key }),
+            row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', width: '100%' },
+            reset: () => { const all = { ...(c.ovr || {}) }; delete all[key]; this.setCfg({ ovr: all }); },
+            fields: open ? [['name', 'Navn', name, false], ['label', 'Label', kind === 'Enhet' ? 'På · {w} W' : '{state}', false], ['icon', 'Ikon', icon, false], ['iconCol', 'Ikonfarge', '#282828', true], ['bg', 'Bakgrunn', '#404040', true], ['cell', 'Ikoncelle', '#282828', true]].map(([f, label, ph, isCol]) => ({ label, ph, val: ov[f] || '', set: e => setF(f, e.target.value), isCol, canPick: isCol || f === 'icon', pickLabel: isCol ? 'Tema- og HA-farger' : 'Alle ikoner · mdi, phu …', pickIcon: isCol ? 'palette' : 'apps', pick: () => window.HAPick && (isCol ? HAPick.color({ value: ov[f] || '', onPick: (c, t) => setF(f, t) }) : HAPick.icon({ value: ov[f] || '', onPick: v => setF(f, v) })),
+              sw: isCol ? SW.map(col => ({ go: () => setF(f, col), style: { width: 28, height: 28, borderRadius: 14, flex: 'none', background: col, boxShadow: ov[f] === col ? '0 0 0 2px #404040, 0 0 0 4px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } })) : [] })) : [] }; }) }),
+        klima: acc('klima', 'Klima-kort', 'thermostat', c.thermo ? ((HA_ENTS.find(t => t[0] === c.thermo) || THERMO.find(t => t[0] === c.thermo) || [0, c.thermo])[1]) : 'Standard') }; }
+    return o;
+  }
+  setLight(i, v) { this.setState(s => ({ scene: null, lights: s.lights.map((x, j) => j === i ? { ...x, v } : x) })); }
+  drag(onSet, onTap) {
+    return {
+      down: e => { e.currentTarget.setPointerCapture?.(e.pointerId); this.d = { x: e.clientX, moved: false }; },
+      move: e => { if (!this.d) return; if (Math.abs(e.clientX - this.d.x) > 5) this.d.moved = true; if (this.d.moved) { const r = e.currentTarget.getBoundingClientRect(); onSet(Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100)); } },
+      up: () => { if (this.d && !this.d.moved) onTap(); this.d = null; },
+    };
+  }
+  renderVals0() {
+    const s = this.state, p = this.props;
+    const col = p.col || C.green, temp = p.temp ?? 22.8, hum = p.hum ?? 50;
+    const k = s.climate[0], set = k ? k.set : null, heating = k && k.set > temp;
+    const rawT = Array.from({ length: 25 }, (_, i) => Math.sin((i + 3) / 24 * Math.PI * 2) * 1.1 + Math.sin(i * 1.7) * 0.2);
+    const temps = rawT.map(t => t - rawT[24] + temp);
+    const mn = Math.min(...temps), mx = Math.max(...temps);
+    const line = temps.map((t, i) => `${i ? 'L' : 'M'}${(i / 24 * 384).toFixed(1)},${(56 - (t - mn) / (mx - mn || 1) * 48).toFixed(1)}`).join(' ');
+    const on = s.lights.filter(l => l.v > 0).length, watt = s.devices.filter(d => d.on).reduce((t, d) => t + d.w, 0) + (k ? k.w : 0);
+    const frac = set != null ? (set - MIN) / (MAX - MIN) : (temp - MIN) / (MAX - MIN);
+    const dcol = heating ? C.red : set != null ? C.blue : C.amber;
+    const ang = -135 + frac * 270;
+    const mask = 'radial-gradient(circle, transparent 90px, #000 91px)';
+    const m = s.media[0];
+    const tile = (icon, label, sub, c, act, go, fillPct) => ({ icon, label, sub, go,
+      style: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10, height: 66, padding: '0 12px 0 8px', borderRadius: 33, background: '#3a3a3a', boxShadow: act ? `inset 0 0 0 1px ${a(c, 0.35)}` : 'none', transition: 'box-shadow .3s, transform .2s' },
+      fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${fillPct ?? (act ? 100 : 0)}%`, background: a(c, 0.16), transition: 'width .5s cubic-bezier(.34,1.2,.64,1)' },
+      iconWrap: { position: 'relative', width: 50, height: 50, borderRadius: 25, flex: 'none', display: 'grid', placeItems: 'center', background: act ? c : '#404040', color: act ? '#282828' : '#979797', transition: 'background .3s' },
+      subStyle: { fontSize: 12, color: act ? '#c7c7c7' : '#7f7f7f', whiteSpace: 'nowrap' } });
+    const cv = s.curtain ?? 0;
+    const tiles = [
+      tile('lightbulb', 'Lys', on ? `${on} av ${s.lights.length} på` : 'Alle av', C.yellow, on > 0, () => this.setState(st => ({ scene: null, lights: st.lights.map(l => ({ ...l, v: on ? 0 : 70 })) }))),
+      s.curtain != null ? tile('curtains', 'Gardiner', cv ? `${cv} % åpen` : 'Lukket', C.pink, cv > 0, () => this.setState({ curtain: cv >= 100 ? 0 : cv >= 50 ? 100 : 50 }), cv) : tile('bolt', 'Strøm', `${watt} W nå`, C.amber, watt > 0, () => {}),
+      m ? tile('speaker', 'Media', m.playing ? 'Spiller' : 'Pauset', C.green, m.playing, () => this.setState(st => ({ media: st.media.map((x, j) => j ? x : { ...x, playing: !x.playing }) }))) : tile('sensor_occupied', 'Tilstede', s.sensors.some(z => /sensor_occupied/.test(z[1]) && !quiet(z[2])) ? 'Noen her' : 'Tomt', C.blue, s.sensors.some(z => !quiet(z[2])), () => {}),
+      s.curtain != null ? tile('bolt', 'Strøm', `${watt} W nå`, C.amber, watt > 0, () => {}) : tile('water_drop', 'Fukt', `${nf(hum, 0)} %`, C.blue, false, () => {}),
+    ];
+    const act = s.sensors.filter(z => !quiet(z[2])).length;
+    const win = s.sensors.find(z => /door_front|window/.test(z[1]));
+    return {
+      name: p.name || 'Stue', icon: p.icon || 'weekend',
+      headIcon: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: col, color: '#282828' },
+      glow: { position: 'absolute', left: '50%', top: 20, width: 260, height: 260, marginLeft: -130, borderRadius: '50%', background: `radial-gradient(circle, ${a(dcol, 0.22)}, transparent 65%)`, transition: 'background .6s', pointerEvents: 'none' },
+      dialTrack: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'conic-gradient(from -135deg, #404040 0 270deg, transparent 270deg)', WebkitMask: mask, mask },
+      dialFill: { position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(from -135deg, ${a(dcol, 0.35)} 0, ${dcol} ${frac * 270}deg, transparent ${frac * 270}deg)`, WebkitMask: mask, mask, transition: 'background .5s' },
+      dialKnob: { position: 'absolute', left: '50%', top: '50%', width: 22, height: 22, margin: -11, borderRadius: 11, background: '#fafafa', boxShadow: `0 0 0 4px ${a(dcol, 0.35)}, 0 2px 6px rgba(0,0,0,0.4)`, transform: `rotate(${ang}deg) translateY(-94px)`, transition: 'transform .5s cubic-bezier(.34,1.4,.64,1)' },
+      modeLabel: heating ? `Varmer · ${k.w} W` : set != null ? 'Holder temperaturen' : '',
+      modeTag: { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: dcol },
+      temp: nf(temp), setLabel: set != null ? k.name : '', hum: nf(hum, 0),
+      humBar: { display: 'block', width: `${hum}%`, height: '100%', borderRadius: 3, background: hum > 60 ? C.amber : C.blue },
+      climIcon: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: heating ? C.red : '#404040', color: heating ? '#282828' : '#979797', transition: 'background .3s' },
+      hasSet: set != null, setVal: set ?? '', dec: () => this.setState(st => ({ climate: st.climate.map((x, j) => j ? x : { ...x, set: Math.max(MIN, x.set - 0.5) }) })), inc: () => this.setState(st => ({ climate: st.climate.map((x, j) => j ? x : { ...x, set: Math.min(MAX, x.set + 0.5) }) })),
+      chips: [['water_drop', `${nf(hum, 0)} % fukt`, false], ...(win ? [[win[1], `${win[0]} ${win[2].toLowerCase()}`, !quiet(win[2])]] : []), ['bolt', `${watt} W`, watt > 0]].map(([icon, t, hot]) => ({ icon, t, style: { height: 30, padding: '0 11px', borderRadius: 15, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, background: hot ? a(C.amber, 0.18) : '#3a3a3a', color: hot ? C.amber : '#afafaf', whiteSpace: 'nowrap' } })),
+      tiles,
+      scenes: SCENES.map(([key, label, icon]) => { const on = false; return { label, icon,
+        go: () => this.setState(st => ({ scene: null, lights: st.lights.map((l, i) => ({ ...l, v: sceneLevel(key, i, l.name) })) })),
+        tile: { flex: 'none', width: 100, height: 100, borderRadius: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: on ? PINK : '#3a3a3a', color: on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' },
+        iconStyle: { fontSize: 26, fontVariationSettings: "'FILL' 1" },
+        labelStyle: { fontSize: 14, fontWeight: 400, whiteSpace: 'nowrap' } }; }),
+      hasLights: s.lights.length > 0, lightSum: `${on} på - ${s.lights.length - on} av`,
+      lights: s.lights.map((l, i) => ({ name: l.name, pct: `${l.v}%`,
+        bar: { position: 'relative', flex: 1, height: 40, borderRadius: 20, overflow: 'hidden', background: '#545454', touchAction: 'none', cursor: 'pointer' },
+        barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${l.v}%`, background: 'linear-gradient(90deg, #a07c5c, #d8b07e)', transition: this.d?.moved ? 'none' : 'width .3s' }, val: l.v ? `${l.v} %` : 'Av', ...this.drag(v => this.setLight(i, v), () => this.setLight(i, l.v ? 0 : 70)),
+        pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px 0 6px', borderRadius: 28, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
+        fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${l.v}%`, background: `linear-gradient(90deg, ${a(C.yellow, 0.18)}, ${a(C.yellow, 0.42)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
+        iconWrap: { position: 'relative', width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: l.v ? C.yellow : '#404040', color: l.v ? '#282828' : '#696969', transition: 'background .25s' },
+        valStyle: { fontSize: 11, color: l.v ? '#c7c7c7' : '#696969', fontVariantNumeric: 'tabular-nums' } })),
+      hasDevices: s.devices.length > 0, watt,
+      devices: s.devices.map((d, i) => { const P = profOf(d.name), act = P && d.on && d.w > P.thr, ent = 'sensor.' + slug(d.name) + '_effekt';
+        const base = { name: d.name, icon: d.icon, sub: d.on ? `På · ${d.w} W` : 'Av', ent,
+        toggle: () => this.setState(st => ({ devices: st.devices.map((x, j) => j === i ? { ...x, on: !x.on, w: !x.on && P && x.w <= P.thr ? P.def : x.w } : x) })),
+        iconStyle: { fontSize: 24, width: 24, height: 24, overflow: 'hidden', lineHeight: 1, fontVariationSettings: "'FILL' 1", display: 'inline-block' },
+        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: d.on ? PINK : '#404040', color: d.on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' },
+        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: d.on ? 'rgba(42,23,32,0.12)' : '#282828', color: d.on ? '#3a3a3a' : '#afafaf', transition: 'background .25s' },
+        subStyle: { fontSize: 12, color: d.on ? 'rgba(42,23,32,0.75)' : '#979797' } };
+        if (!P) return base;
+        return { ...base, icon: P.icon, sub: act ? `${P.verb} · ${d.w.toLocaleString('nb-NO')} W` : d.on ? (d.w > 0 ? `Hviler · ${d.w} W` : 'På · 0 W') : 'Av',
+          pill: { ...base.pill, background: act ? P.col : '#404040', color: act ? '#1f1f1f' : '#fafafa', boxShadow: 'none' },
+          iconWrap: { ...base.iconWrap, background: act ? 'rgba(0,0,0,0.12)' : '#282828', color: act ? '#1f1f1f' : P.col },
+          iconStyle: { ...base.iconStyle, animation: act ? `${P.anim} ${P.anim === 'spinn' ? '1.6s linear' : P.anim === 'rist' ? '.5s ease-in-out' : '1.4s ease-in-out'} infinite` : 'none' },
+          subStyle: { fontSize: 12, fontWeight: act ? 600 : 400, color: act ? 'rgba(31,31,31,0.8)' : '#979797' } }; }),
+      media: s.media.map((x, i) => { const upd = f => this.setState(st => ({ media: st.media.map((y, j) => j === i ? { ...y, ...f(y) } : y) }));
+        return { title: x.name, state: x.playing ? 'Spiller' : 'Av', volPct: x.vol, power: () => upd(y => ({ playing: false })),
+          knob: { position: 'absolute', left: `calc(${x.vol}% - 11px)`, width: 22, height: 22, borderRadius: 11, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.4)' }, sub: x.playing ? `Spiller · Spotify · ${x.vol} %` : `Pauset · ${x.vol} %`, playIcon: x.playing ? 'pause' : 'play_arrow', play: () => upd(y => ({ playing: !y.playing })),
+          ...this.drag(v => upd(() => ({ vol: v })), () => {}),
+          card: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 10px', borderRadius: 36, background: x.playing ? `linear-gradient(90deg, ${a(C.green, 0.16)}, #3a3a3a)` : '#3a3a3a', transition: 'background .4s' },
+          art: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: x.playing ? C.green : '#404040', color: x.playing ? '#282828' : '#979797' },
+          fill: { position: 'absolute', left: 0, height: 8, width: `${x.vol}%`, borderRadius: 4, background: 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' } }; }),
+      hasSensors: s.sensors.length > 0, sensSum: `${act} aktiv - ${s.sensors.length - act} stille`,
+      devSum: `${watt} W`, modeShort: heating ? 'Varmer' : set != null ? `${nf(set)}°` : '',
+      hasMedia: s.media.length > 0, mediaSum: `${s.media.filter(x => x.playing).length} spiller - ${s.media.filter(x => !x.playing).length} av`,
+      ac: Object.fromEntries(['lys', 'dev', 'klima', 'media', 'sens'].map(k => { const o = !!(s.acc || {})[k]; return [k, { open: o, go: () => this.setState(st => ({ acc: { ...(st.acc || {}), [k]: !o } })), chev: { fontSize: 24, transform: o ? 'rotate(180deg)' : 'none', transition: 'transform .2s' } }]; })),
+      hasCurtain: s.curtain != null, curtainName: 'Rullegardin', curtainPct: s.curtain ?? 0,
+      ...(() => { const dd = this.drag(v => this.setState({ curtain: v }), () => this.setState({ curtain: (s.curtain ?? 0) > 0 ? 0 : 100 })); return { cDown: dd.down, cMove: dd.move, cUp: dd.up }; })(),
+      cFill: { position: 'absolute', left: 0, height: 8, borderRadius: 4, width: `${s.curtain ?? 0}%`, background: 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', transition: this.d?.moved ? 'none' : 'width .3s' },
+      cKnob: { position: 'absolute', left: `calc(${s.curtain ?? 0}% - 11px)`, width: 22, height: 22, borderRadius: 11, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.4)', transition: this.d?.moved ? 'none' : 'left .3s' },
+      sensors: s.sensors.map(([name, icon, st], i) => { const hot = !quiet(st); return { name, icon, state: st,
+        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: hot ? 'rgb(102 209 158)' : '#404040', color: hot ? '#3a3a3a' : '#fafafa' },
+        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: hot ? 'rgba(0,0,0,0.1)' : '#282828' },
+        subStyle: { fontSize: 12, color: hot ? 'rgba(31,42,36,0.75)' : '#979797' },
+        stateStyle: { fontSize: 12, fontWeight: 500, padding: '4px 9px', borderRadius: 10, whiteSpace: 'nowrap', background: hot ? a(C.blue, 0.16) : '#3a3a3a', color: hot ? '#fafafa' : '#7f7f7f' } }; }),
+      tempRange: `${nf(mn)}–${nf(mx)}°`,
+      ...(() => {
+        const lit = on > 0, hc = heating ? C.red : lit ? C.yellow : C.blue;
+        const rawH = temps.map((t, i) => -(t - mn) * 2.2 + Math.sin(i * 1.3) * 1.2), hums = rawH.map(v => v - rawH[24] + hum);
+        const GL = { t: C.amber, h: C.blue, fill: 0.2, w: 2, ...((s.cfg || {}).graphLook || {}) }, isT = (s.gTab || 't') === 't', ser = isT ? temps : hums, gc = isT ? GL.t : GL.h;
+        const lo = Math.floor(Math.min(...ser) - (isT ? 0.3 : 2)), hi = Math.ceil(Math.max(...ser) + (isT ? 0.3 : 2));
+        const X = i => (i / 24 * 300).toFixed(1), Y = v => (92 - (v - lo) / (hi - lo) * 72).toFixed(1);
+        const pts = ser.map((v, i) => `${X(i)},${Y(v)}`).join(' '), sel = s.gSel ?? 24;
+        const pos = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(24, Math.round((e.clientX - r.left) / r.width * 24))); };
+        const seg = (k, label) => ({ label, go: () => this.setState({ gTab: k, gSel: null }), style: { height: 38, padding: '0 18px', borderRadius: 19, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: (s.gTab || 't') === k ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: (s.gTab || 't') === k ? '#3a3a3a' : '#afafaf' } });
+        return {
+          heroCard: { position: 'relative', height: 184, borderRadius: 28, overflow: 'hidden', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .8s',
+            background: '#3a3a3a' },
+          heroMotes: [[12,0],[24,1.4],[36,0.6],[48,2.2],[60,0.9],[70,1.8],[80,0.3],[30,2.8],[54,3.3],[18,2]].map(([x, d], i) => ({ position: 'absolute', left: `${x}%`, bottom: -4, width: i % 3 ? 2 : 3, height: i % 3 ? 2 : 3, borderRadius: 2, background: hc, boxShadow: `0 0 6px ${hc}`, animation: `drift ${(heating ? 3 : 6) + (i % 3) * 0.8}s linear ${d}s infinite` })),
+          heroGlyph: heating ? 'heat' : lit ? 'lightbulb' : 'air',
+          heroIcon: { position: 'absolute', right: 74, top: 22, fontSize: 30, color: hc, fontVariationSettings: "'FILL' 1", filter: `drop-shadow(0 0 14px ${a(hc, 0.7)})` },
+          heroChip: { height: 26, padding: '0 10px 0 8px', borderRadius: 13, display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', background: a(hc, 0.18), color: hc },
+          heroChipIcon: heating ? 'local_fire_department' : lit ? 'lightbulb' : 'check', heroChipText: heating ? `Varmer til ${nf(set)}°` : set != null ? `Holder ${nf(set)}°` : lit ? `${on} lys på` : 'Alt er rolig',
+          humFill: { display: 'block', height: `${hum}%`, background: hum > 60 ? a(C.amber, 0.55) : a(C.blue, 0.55), transition: 'height .6s' },
+          gTabs: [seg('t', 'Temperatur'), seg('h', 'Fukt')],
+          gTitle: isT ? 'Temperatur siste døgn · °C' : 'Luftfuktighet siste døgn · %',
+          gHint: `${sel === 24 ? 'Nå' : `−${24 - sel} t`} · ${nf(ser[sel], isT ? 1 : 0)}${isT ? '°' : ' %'}`,
+          gTicks: [0, 1, 2, 3].map(j => ({ label: nf(hi - (hi - lo) * j / 3, isT ? 1 : 0), line: { position: 'absolute', left: 0, right: 0, top: `${j / 3 * 100}%`, borderTop: j === 3 ? '1px solid #404040' : '1px dashed #545454' } })),
+          gLine: pts, gArea: `0,100 ${pts} 300,100`, gStroke: { stroke: gc, strokeWidth: GL.w }, gFill: { fill: a(GL.area && GL.area !== 'line' ? GL.area : gc, GL.fill), stroke: 'none' },
+          showT: () => this.setState({ gTab: 't' }), showH: () => this.setState({ gTab: 'h' }),
+          tVal: nf(temps[sel]), hVal: nf(hums[sel], 0),
+          tBtn: { display: 'flex', alignItems: 'flex-start', color: isT ? '#fafafa' : '#7f7f7f', transition: 'color .25s' },
+          hBtn: { display: 'flex', alignItems: 'baseline', gap: 1, height: 26, padding: '0 9px', borderRadius: 13, background: isT ? 'transparent' : a(C.blue, 0.2), color: isT ? '#afafaf' : '#fafafa', transition: 'background .25s, color .25s' },
+          gWhen: sel === 24 ? `Nå · ${isT ? `${nf(mn)}–${nf(mx)}°` : `${nf(Math.min(...hums), 0)}–${nf(Math.max(...hums), 0)} %`} siste døgn` : `−${24 - sel} t`,
+          gCursor: { position: 'absolute', top: 0, bottom: 0, left: `${sel / 24 * 100}%`, borderLeft: `1px dashed ${a(gc, 0.6)}`, pointerEvents: 'none' },
+          gDot: { position: 'absolute', left: -6, top: `calc(${Y(ser[sel])}% - 5px)`, width: 10, height: 10, borderRadius: 5, background: '#fafafa', boxShadow: `0 0 0 3px ${a(gc, 0.5)}` },
+          gScrub: e => this.setState({ gSel: pos(e) }), gScrubMove: e => { if (e.buttons || e.pointerType === 'mouse') this.setState({ gSel: pos(e) }); }, gScrubEnd: () => this.setState({ gSel: null }),
+        };
+      })(),
+    };
+  }
+}
+</script>
+</body>
+</html>

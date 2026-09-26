@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 181 115)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="position:relative;box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px">
+
+  <sc-if value="{{ isMain }}" hint-placeholder-val="{{ true }}">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Sikkerhet</div>
+    <span style="font-size:11px;color:#696969;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%">{{ alarmEnt }}</span>
+  </header>
+
+  <sc-if value="{{ showRing }}" hint-placeholder-val="{{ true }}">
+  <section style="display:flex;flex-direction:column;align-items:center;gap:20px">
+    <div style="position:relative;width:260px;height:260px">
+      <sc-for list="{{ ring }}" as="r" hint-placeholder-count="16"><div title="{{ r.title }}" style="{{ r.style }}"></div></sc-for>
+      <div style="{{ core }}">
+        <span class="ms" style="{{ coreIcon }}">{{ modeIcon }}</span>
+        <div style="font-size:26px;font-weight:500;letter-spacing:-0.02em">{{ modeLabel }}</div>
+        <div style="font-size:12px;color:#7f7f7f">{{ modeSince }}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center">
+      <div style="font-size:24px;font-weight:500;letter-spacing:-0.015em;text-wrap:balance">{{ headline }}</div>
+      <div style="font-size:14px;color:#7f7f7f">{{ subline }}</div>
+    </div>
+  </section>
+  </sc-if>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:5px;border-radius:22px;background:#3a3a3a">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="4">
+        <button onPointerDown="{{ m.down }}" onPointerUp="{{ m.cancel }}" onPointerLeave="{{ m.cancel }}" style="{{ m.style }}">
+          <div style="{{ m.fill }}"></div>
+          <span class="ms" style="{{ m.iconStyle }}">{{ m.icon }}</span>
+          <span style="position:relative;font-size:12px;font-weight:500">{{ m.label }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:#696969;text-align:center"><sc-if value="{{ codeNeeded }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:13px">dialpad</span></sc-if>{{ holdHint }}</div>
+  </section>
+
+  <sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}">
+    <section style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgb(242 181 115);padding:0 4px">Krever oppmerksomhet</div>
+      <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="1">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:20px;background:rgb(242 181 115 / 0.12);box-shadow:inset 0 0 0 1px rgb(242 181 115 / 0.35)">
+          <span class="ms" style="font-size:22px;color:rgb(242 181 115)">{{ a.icon }}</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:15px;font-weight:500">{{ a.text }}</div>
+            <div style="font-size:12px;color:#afafaf">{{ a.room }}</div>
+          </div>
+          <button onClick="{{ a.fix }}" style="height:36px;padding:0 14px;border-radius:18px;background:rgb(242 181 115);color:#282828;font-size:13px;font-weight:600;white-space:nowrap">{{ a.action }}</button>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <section style="display:flex;flex-direction:column;gap:2px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 8px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Rom</div>
+      <div style="font-size:12px;color:#696969;white-space:nowrap">{{ sensorCount }}</div>
+    </div>
+    <sc-for list="{{ rooms }}" as="room" hint-placeholder-count="8">
+      <div style="{{ room.rowStyle }}">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding-top:7px">
+          <span style="{{ room.dot }}"></span>
+          <span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ room.name }}</span>
+        </div>
+        <div style="flex:none;max-width:62%;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+          <sc-for list="{{ room.sensors }}" as="s" hint-placeholder-count="1"><button onClick="{{ s.tap }}" data-ent="{{ s.ent }}" style="{{ s.style }}"><span class="ms" style="{{ s.iconStyle }}">{{ s.icon }}</span>{{ s.label }}</button></sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <sc-if value="{{ showLog }}" hint-placeholder-val="{{ true }}">
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Siste hendelser</div>
+    <div style="display:flex;flex-direction:column;padding-left:4px">
+      <sc-for list="{{ log }}" as="e" hint-placeholder-count="4">
+        <div style="display:flex;gap:14px;align-items:stretch">
+          <div style="display:flex;flex-direction:column;align-items:center;width:10px;flex:none"><span style="{{ e.dot }}"></span><span style="{{ e.line }}"></span></div>
+          <div style="flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px">
+            <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:14px">{{ e.text }}</div><div style="font-size:12px;color:#7f7f7f">{{ e.who }}</div></div>
+            <div style="font-size:12px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ e.time }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  </sc-if>
+
+  <sc-if value="{{ ownBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openEdit }}" style="width:100%;height:52px;border-radius:26px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:20px">tune</span>Tilpass oppsett</button></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="font-size:22px;font-weight:600;letter-spacing:-0.02em">Tilpass sikkerhet</span>
+      <button onClick="{{ closeEdit }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600">Ferdig</button>
+    </div>
+
+    <section style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Alarm</span>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#282828"><span class="ms" style="font-size:20px;color:rgb(242 181 115);font-variation-settings:'FILL' 1">shield</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:11px;color:#7f7f7f">Alarmpanel</span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ alarmEnt }}</span></span></div>
+      <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:#282828"><span class="ms" style="font-size:18px;color:#7f7f7f">search</span><input value="{{ alarmQ }}" onChange="{{ setAlarmQ }}" placeholder="Søk alarm_control_panel …" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:13px"></input></div>
+      <sc-if value="{{ hasAlarmSug }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ alarmSug }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="min-height:36px;padding:4px 10px;border-radius:10px;text-align:left;font-size:12px;color:#c7c7c7;background:#282828;display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:16px;color:#7f7f7f">shield</span>{{ o.id }}</button></sc-for></div></sc-if>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Kode</span>
+      <sc-for list="{{ codeSegs }}" as="g" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">{{ g.label }}</span><div style="display:flex;gap:2px;padding:3px;border-radius:17px;background:#282828;align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div>
+      </sc-for>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">Testkode i designet</span><input value="{{ code }}" onChange="{{ setCode }}" inputmode="numeric" maxlength="{{ codeLen }}" style="height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:15px;letter-spacing:0.3em;font-variant-numeric:tabular-nums"></input><span style="font-size:11px;color:#7f7f7f;line-height:1.4">I Home Assistant sendes koden du taster med alarm_control_panel.alarm_disarm / alarm_arm_* – den lagres ikke i dashbordet.</span></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+      <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Sensorer</span><span style="font-size:12px;color:#696969">{{ sensorCount }}</span></div>
+      <sc-for list="{{ edGroups }}" as="g" hint-placeholder-count="4">
+        <button onClick="{{ g.toggle }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 4px;width:100%"><span class="ms" style="{{ g.chev }}">chevron_right</span><span style="flex:1;text-align:left;font-size:14px;font-weight:600">{{ g.room }}</span><span style="font-size:12px;color:#7f7f7f">{{ g.count }}</span></button>
+        <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:6px;padding-left:6px">
+            <sc-for list="{{ g.items }}" as="x" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:10px;padding:8px 8px 8px 10px;border-radius:16px;background:#282828">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="ms" style="font-size:20px;color:#c7c7c7;width:22px;flex:none">{{ x.icon }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.ent }}</span></span>
+                  <button onClick="{{ x.edit }}" title="Rediger" style="width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center"><span class="ms" style="{{ x.editStyle }}">edit</span></button>
+                  <button onClick="{{ x.del }}" title="Fjern" style="width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:rgb(242 128 115 / 0.16);color:rgb(242 128 115)"><span class="ms" style="font-size:18px">delete</span></button>
+                </div>
+                <sc-if value="{{ x.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:0 2px 4px">
+                    <input value="{{ x.name }}" onChange="{{ x.setName }}" placeholder="Navn" style="height:38px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#3a3a3a;color:#fafafa;font:inherit;font-size:13px"></input>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ x.types }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:16px">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div>
+                    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#979797;flex:none">Rom</span><input value="{{ x.room }}" onChange="{{ x.setRoom }}" list="sik-rooms" style="flex:1;min-width:0;height:36px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#3a3a3a;color:#fafafa;font:inherit;font-size:13px"></input></div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-for>
+      <datalist id="sik-rooms"><sc-for list="{{ roomNames }}" as="rn" hint-placeholder-count="0"><option value="{{ rn }}"></option></sc-for></datalist>
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">
+        <span style="font-size:13px;font-weight:500">Legg til entitet</span>
+        <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:#282828"><span class="ms" style="font-size:18px;color:#7f7f7f">search</span><input value="{{ addQ }}" onChange="{{ setAddQ }}" placeholder="binary_sensor, lock …" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:13px"></input></div>
+        <sc-for list="{{ addSug }}" as="o" hint-placeholder-count="3">
+          <button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 10px;border-radius:12px;background:#282828;text-align:left;width:100%">
+            <span class="ms" style="font-size:18px;color:#afafaf">{{ o.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.id }}</span><span style="font-size:11px;color:#7f7f7f">{{ o.guess }}</span></span>
+            <span class="ms" style="font-size:20px;color:rgb(242 133 201)">add_circle</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ hasAddAll }}" hint-placeholder-val="{{ false }}"><button onClick="{{ addAll }}" style="height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)"><span class="ms" style="font-size:18px">auto_awesome</span>{{ addAllLabel }}</button></sc-if>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;padding:4px 14px;border-radius:24px;background:#3a3a3a">
+      <sc-if value="{{ hasSections }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openSections }}" style="display:flex;align-items:center;gap:12px;min-height:60px;width:100%"><span style="flex:1;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:14px;font-weight:500">Rekkefølge på seksjoner</span><span style="font-size:12px;color:#979797">Flytt eller skjul deler av popupen</span></span><span class="ms" style="font-size:22px;color:#979797">chevron_right</span></button></sc-if>
+      <sc-for list="{{ viewToggles }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.go }}" style="{{ t.row }}"><span style="flex:1;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:14px;font-weight:500">{{ t.label }}</span><span style="font-size:12px;color:#979797">{{ t.sub }}</span></span><span style="{{ t.track }}"><span style="{{ t.knob }}"></span></span></button>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ padOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ pad.close }}" style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:16px 16px calc(116px + env(safe-area-inset-bottom));background:rgba(10,10,12,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)">
+      <div onClick="{{ pad.stop }}" style="position:relative;width:100%;max-width:360px;max-height:100%;overflow-y:auto;scrollbar-width:none;box-sizing:border-box;padding:22px 20px 20px;border-radius:34px;background:#3a3a3a;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:0 20px 50px rgba(0,0,0,0.55)">
+        <button onClick="{{ pad.close }}" title="Lukk" style="position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:20px;background:#404040;display:grid;place-items:center;color:#c7c7c7"><span class="ms" style="font-size:22px">close</span></button>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+          <span style="{{ pad.iconWrap }}"><span class="ms" style="font-size:28px;font-variation-settings:'FILL' 1">{{ pad.icon }}</span></span>
+          <span style="font-size:20px;font-weight:600">{{ pad.title }}</span>
+          <span style="{{ pad.msgStyle }}">{{ pad.msg }}</span>
+        </div>
+        <div style="{{ pad.dotsRow }}"><sc-for list="{{ pad.dots }}" as="d" hint-placeholder-count="4"><span style="{{ d }}"></span></sc-for></div>
+        <div style="display:grid;grid-template-columns:repeat(3,68px);gap:10px 20px">
+          <sc-for list="{{ pad.keys }}" as="k" hint-placeholder-count="12">
+            <button onClick="{{ k.go }}" title="{{ k.title }}" style="{{ k.style }}" style-active="transform:scale(0.92);background:#545454"><sc-if value="{{ k.isIcon }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:26px">{{ k.label }}</span></sc-if><sc-if value="{{ k.isNum }}" hint-placeholder-val="{{ true }}"><span style="font-size:30px;font-weight:400;font-variant-numeric:tabular-nums">{{ k.label }}</span></sc-if></button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1300}}">
+const C = { amber: 'rgb(242 181 115)', green: 'rgb(102 209 158)', blue: 'rgb(115 185 242)', red: 'rgb(242 128 115)', mute: '#7f7f7f' };
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const MODES = [['av','Av','remove_moderator','#c7c7c7'],['hjemme','Hjemme','home',C.green],['borte','Borte','shield_lock',C.amber],['natt','Natt','bedtime',C.blue]];
+const TYPES = [['door', 'Dør', 'door_front'], ['window', 'Vindu', 'window'], ['lock', 'Lås', 'lock'], ['motion', 'Bevegelse', 'directions_walk'], ['presence', 'Tilstede', 'person']];
+const DEF_S = [['s1','Inngang','door','Dør',false,null,'binary_sensor.inngang_dor'],['s2','Inngang','lock','Dørlås',false,40,'lock.inngangsdor'],['s3','Inngang','motion','Trapp',false,null,'binary_sensor.trapp_bevegelse'],
+  ['s4','Veranda','door','Dør',false,null,'binary_sensor.veranda_dor'],['s5','Stue','motion','Bevegelse',true,null,'binary_sensor.stue_bevegelse'],['s6','Stue','presence','Tilstede',false,null,'binary_sensor.stue_tilstede'],
+  ['s7','Kjøkken','window','Vindu',false,null,'binary_sensor.kjokken_vindu'],['s8','Bad','motion','Bevegelse',false,null,'binary_sensor.bad_bevegelse'],['s9','Mellomgang','motion','Bevegelse',false,null,'binary_sensor.mellomgang_bevegelse'],
+  ['s10','Cybele soverom','window','Vindu',true,null,'binary_sensor.cybele_soverom_vindu'],['s11','Rune kontor','window','Vindu',false,null,'binary_sensor.rune_kontor_vindu'],['s12','Rune soverom','window','Vindu',false,null,'binary_sensor.rune_soverom_vindu'],
+  ['s13','Soverom venstre','window','Vindu',false,null,'binary_sensor.soverom_venstre_vindu'],['s14','Soverom høyre','window','Vindu',false,null,'binary_sensor.soverom_hoyre_vindu'],['s15','Bod','lock','Boddør',false,88,'lock.bod']]
+  .map(([id, room, type, name, on, bat, ent]) => ({ id, room, type, name, on, bat, ent }));
+const ALL_ENTS = ['binary_sensor.garasje_port', 'binary_sensor.garasje_dor', 'binary_sensor.kjeller_vindu', 'binary_sensor.kjeller_dor', 'binary_sensor.loft_luke', 'binary_sensor.gang_bevegelse', 'binary_sensor.kjokken_bevegelse', 'binary_sensor.stue_vindu', 'binary_sensor.bad_vindu', 'binary_sensor.kontor_tilstede', 'binary_sensor.soverom_tilstede', 'binary_sensor.terrasse_dor', 'lock.terrassedor', 'lock.garasje', 'lock.kjeller', ...DEF_S.map(x => x.ent)];
+const ALARMS = ['alarm_control_panel.hjem', 'alarm_control_panel.alarmo', 'alarm_control_panel.verisure', 'alarm_control_panel.hytta'];
+const ROOMW = [['inngang', 'Inngang'], ['veranda', 'Veranda'], ['terrasse', 'Terrasse'], ['stue', 'Stue'], ['kjokken', 'Kjøkken'], ['bad', 'Bad'], ['mellomgang', 'Mellomgang'], ['gang', 'Gang'], ['bod', 'Bod'], ['garasje', 'Garasje'], ['kjeller', 'Kjeller'], ['loft', 'Loft'], ['kontor', 'Kontor'], ['soverom', 'Soverom']];
+const guess = e => { const n = e.split('.')[1] || e, type = e.indexOf('lock.') === 0 ? 'lock' : /vindu|window/.test(n) ? 'window' : /bevegelse|motion/.test(n) ? 'motion' : /tilstede|presence|occupancy/.test(n) ? 'presence' : 'door';
+  const r = ROOMW.find(([k]) => n.includes(k)), room = r ? r[1] : 'Annet', name = type === 'lock' ? 'Lås' : /port/.test(n) ? 'Port' : /luke/.test(n) ? 'Luke' : TYPES.find(t => t[0] === type)[1]; return { type, room, name }; };
+const LS = 'sik-cfg';
+class Component extends DCLogic {
+  state = { mode: 'borte', since: '12:40', hold: null, prog: 0, view: 'main', pad: null, entry: '', err: false, edSel: null, grpOpen: {}, addQ: '', alarmQ: '',
+    log: [['Cybele soverom åpnet','Vindussensor','13:02','alert'],['Alarm satt til Borte','Rune · app','12:40','mode'],['Inngang låst','Automatisk','12:39','ok'],['Bevegelse i stue','Sensor','12:31','motion']] };
+  cfg() { if (this._c === undefined) { try { this._c = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { this._c = null; } }
+    return { alarm: 'alarm_control_panel.hjem', codeFor: 'alle', codeLen: 4, code: '1234', showRing: true, showLog: true, showAlerts: true, sensors: DEF_S, ...(this.state.cfgS || this._c || {}) }; }
+  setCfg(p) { const n = { ...this.cfg(), ...p }; try { localStorage.setItem(LS, JSON.stringify(n)); } catch (e) {} this._c = n; this.setState({ cfgS: n }); }
+  setSens(f) { this.setCfg({ sensors: f(this.cfg().sensors) }); }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); clearTimeout(this.et); }
+  componentDidUpdate(pp) { if ((this.props.editReq || 0) !== (pp.editReq || 0) && this.props.editReq) this.setState({ view: 'edit' }); }
+  flip(id) { this.setSens(L => L.map(x => x.id === id ? { ...x, on: !x.on } : x)); }
+  needCode(k) { const f = this.cfg().codeFor; return f === 'alle' || (f === 'av' && k === 'av'); }
+  apply(k) { const time = new Date().toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' }), label = MODES.find(m => m[0] === k)[1];
+    this.setState(s => ({ mode: k, since: time, hold: null, prog: 0, pad: null, entry: '', log: [[k === 'av' ? 'Alarm slått av' : `Alarm satt til ${label}`, 'Deg · iPad' + (this.needCode(k) ? ' · kode' : ''), time, 'mode'], ...s.log].slice(0, 5) })); }
+  startHold(k) {
+    if (k === this.state.mode) return;
+    const t0 = performance.now();
+    const step = () => { const p = Math.min(1, (performance.now() - t0) / 900); this.setState({ hold: k, prog: p });
+      if (p < 1) this.raf = requestAnimationFrame(step); else if (this.needCode(k)) this.setState({ hold: null, prog: 0, pad: k, entry: '', err: false }); else this.apply(k); };
+    this.raf = requestAnimationFrame(step);
+  }
+  cancelHold() { cancelAnimationFrame(this.raf); if (this.state.hold) this.setState({ hold: null, prog: 0 }); }
+  press(d) { const s = this.state, c = this.cfg(); if (s.err) return; const e = (s.entry + d).slice(0, c.codeLen); this.setState({ entry: e });
+    if (e.length === c.codeLen) setTimeout(() => { if (e === String(c.code).slice(0, c.codeLen)) this.apply(this.state.pad); else { this.setState({ err: true }); this.et = setTimeout(() => this.setState({ err: false, entry: '' }), 900); } }, 120); }
+  isAlert(x) { return (x.type === 'door' || x.type === 'window' || x.type === 'lock') && x.on; }
+  renderVals() {
+    const s = this.state, c = this.cfg(), S = c.sensors;
+    const cur = MODES.find(m => m[0] === s.mode), armed = s.mode !== 'av';
+    const alerts = S.filter(x => this.isAlert(x)), motion = S.filter(x => (x.type === 'motion' || x.type === 'presence') && x.on), n = S.length;
+    const icon = x => ({ door: x.on ? 'door_open' : 'door_front', window: x.on ? 'sensor_window' : 'window', lock: x.on ? 'lock_open' : 'lock', motion: x.on ? 'directions_run' : 'directions_walk', presence: 'person' })[x.type] || 'sensors';
+    const label = x => ({ door: x.on ? 'Åpen' : x.name, window: x.on ? 'Åpent' : x.name, lock: x.on ? `${x.name} ulåst` : x.name, motion: x.on ? 'Bevegelse nå' : x.name, presence: x.on ? 'Noen her' : x.name })[x.type] || x.name;
+    const colorOf = x => this.isAlert(x) ? C.amber : x.on ? C.blue : null;
+    const roomsOrder = [...new Set(S.map(x => x.room))];
+    const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`, words = { door: ['dør', 'dører'], window: ['vindu', 'vinduer'], lock: ['lås', 'låser'] };
+    const headline = alerts.length ? `${[...new Set(alerts.map(x => x.type))].map(t => plural(alerts.filter(x => x.type === t).length, ...words[t])).join(' og ')} ${alerts.every(x => x.type === 'lock') ? 'er ulåst' : 'er åpen'}` : 'Alt er lukket og låst';
+    const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? 'rgb(242 133 201)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } });
+    const segS = on => ({ height: 32, padding: '0 12px', borderRadius: 14, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf' });
+    const pm = s.pad ? MODES.find(m => m[0] === s.pad) : null;
+    const aq = s.alarmQ.toLowerCase().trim(), q = s.addQ.toLowerCase().trim(), have = new Set(S.map(x => x.ent)), cand = [...new Set(ALL_ENTS)].filter(e => !have.has(e));
+    const sug = cand.filter(e => !q || e.includes(q)).slice(0, q ? 8 : 4);
+    const add = e => { const g = guess(e); this.setSens(L => [...L, { id: 's' + Date.now() + Math.random().toString(36).slice(2, 5), ent: e, on: false, bat: e.indexOf('lock.') === 0 ? 100 : null, ...g }]); this.setState({ addQ: '' }); };
+    return {
+      isMain: s.view === 'main', isEdit: s.view === 'edit', ownBtn: !this.props.embedded, hasSections: typeof this.props.onSections === 'function', openSections: () => { this.setState({ view: 'main' }); this.props.onSections(); }, openEdit: () => this.setState({ view: 'edit' }), closeEdit: () => this.setState({ view: 'main', edSel: null }),
+      alarmEnt: c.alarm, showRing: c.showRing, showLog: c.showLog,
+      ring: S.map((x, i) => { const col = colorOf(x), deg = (360 / Math.max(n, 1)) * i;
+        return { title: `${x.room} · ${x.name}`, style: { position: 'absolute', left: 'calc(50% - 4px)', top: 'calc(50% - 16px)', width: 8, height: 32, borderRadius: 4, transform: `rotate(${deg}deg) translateY(-110px)`, background: col || (armed ? a(cur[3], 0.55) : '#404040'), boxShadow: col ? `0 0 14px ${a(col, 0.7)}` : 'none', transition: 'background .4s, box-shadow .4s' } }; }),
+      core: { position: 'absolute', inset: 44, borderRadius: '50%', background: armed ? `radial-gradient(circle at 50% 35%, ${a(cur[3], 0.16)}, #3a3a3a 70%)` : '#3a3a3a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background .4s' },
+      coreIcon: { fontSize: 30, color: cur[3], fontVariationSettings: "'FILL' 1" },
+      modeIcon: cur[2], modeLabel: cur[1], modeSince: armed ? `Aktivert ${s.since}` : `Avslått ${s.since}`, headline,
+      subline: `${motion.length ? plural(motion.length, 'sensor', 'sensorer') + ' registrerer bevegelse' : 'Ingen bevegelse'} · ${n - alerts.length - motion.length} i ro`,
+      codeNeeded: c.codeFor !== 'aldri',
+      holdHint: s.hold ? `Hold for å sette ${MODES.find(m => m[0] === s.hold)[1].toLowerCase()}…` : c.codeFor === 'alle' ? 'Hold inne for å bytte modus · krever kode' : c.codeFor === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus',
+      modes: MODES.map(([k, l, ic, col]) => { const act = s.mode === k, holding = s.hold === k;
+        return { label: l, icon: ic, down: () => this.startHold(k), cancel: () => this.cancelHold(),
+          style: { position: 'relative', overflow: 'hidden', height: 64, borderRadius: 17, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, background: act ? a(col, 0.18) : 'transparent', boxShadow: act ? `inset 0 0 0 1px ${a(col, 0.45)}` : 'none', color: act ? '#fafafa' : '#979797', touchAction: 'none', userSelect: 'none', transition: 'background .25s' },
+          fill: { position: 'absolute', left: 0, bottom: 0, top: 0, width: `${holding ? s.prog * 100 : 0}%`, background: a(col, 0.28) },
+          iconStyle: { position: 'relative', fontSize: 21, color: act || holding ? col : '#979797', fontVariationSettings: `'FILL' ${act ? 1 : 0}` } }; }),
+      hasAlerts: c.showAlerts && alerts.length > 0,
+      alerts: alerts.map(x => ({ icon: icon(x), text: x.type === 'lock' ? `${x.name} er ulåst` : `${x.name} er ${x.type === 'window' ? 'åpent' : 'åpen'}`, room: x.room, action: x.type === 'lock' ? 'Lås' : 'Merk lukket', fix: () => this.flip(x.id) })),
+      sensorCount: `${n} sensorer`,
+      rooms: roomsOrder.map((room, i) => { const list = S.filter(x => x.room === room), al = list.some(x => this.isAlert(x)), mv = list.some(x => x.on && !this.isAlert(x));
+        return { name: room, rowStyle: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 4px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' },
+          dot: { width: 7, height: 7, borderRadius: 4, flex: 'none', background: al ? C.amber : mv ? C.blue : '#545454' },
+          sensors: list.map(x => { const col = colorOf(x); return { icon: icon(x), ent: x.ent, tap: () => this.flip(x.id), label: x.type === 'lock' && !x.on && x.bat != null ? `${x.name} · ${x.bat} %` : label(x),
+            style: { height: 32, padding: '0 11px 0 8px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: col ? a(col, 0.16) : '#3a3a3a', color: col ? '#fafafa' : '#afafaf', boxShadow: col ? `inset 0 0 0 1px ${a(col, 0.4)}` : 'inset 0 0 0 1px rgba(255,255,255,0.04)', transition: 'background .2s' },
+            iconStyle: { fontSize: 16, color: col || '#7f7f7f' } }; }) }; }),
+      log: s.log.map(([text, who, time, kind], i, arr) => { const col = kind === 'alert' ? C.amber : kind === 'motion' ? C.blue : kind === 'mode' ? '#fafafa' : C.green;
+        return { text, who, time, dot: { width: 9, height: 9, borderRadius: 5, marginTop: 5, background: col, flex: 'none' }, line: { flex: 1, width: 1, background: i < arr.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent', marginTop: 4 } }; }),
+      padOpen: !!pm,
+      pad: pm ? { icon: pm[2], title: s.pad === 'av' ? 'Slå av alarmen' : `Sett alarm til ${pm[1].toLowerCase()}`, msg: s.err ? 'Feil kode – prøv igjen' : `Skriv inn ${c.codeLen}-sifret kode`,
+        msgStyle: { fontSize: 13, color: s.err ? C.red : '#979797', fontWeight: s.err ? 600 : 400 },
+        iconWrap: { width: 56, height: 56, borderRadius: 28, display: 'grid', placeItems: 'center', background: a(pm[3].indexOf('rgb') === 0 ? pm[3] : 'rgb(189 187 182)', 0.2), color: pm[3] },
+        dotsRow: { display: 'flex', gap: 16, height: 16, alignItems: 'center', transform: s.err ? 'translateX(6px)' : 'none', transition: s.err ? 'transform .08s cubic-bezier(.36,.07,.19,.97)' : 'transform .2s' },
+        dots: Array.from({ length: c.codeLen }, (_, i) => ({ width: 14, height: 14, borderRadius: 7, boxSizing: 'border-box', background: s.err ? C.red : i < s.entry.length ? '#fafafa' : 'transparent', boxShadow: s.err ? 'none' : 'inset 0 0 0 1.5px #7f7f7f', transition: 'background .12s' })),
+        close: () => this.setState({ pad: null, entry: '', err: false }), stop: e => e.stopPropagation(),
+        keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'close', '0', 'backspace'].map(k => { const ic = k === 'close' || k === 'backspace';
+          return { label: k, isIcon: ic, isNum: !ic, title: k === 'close' ? 'Avbryt' : k === 'backspace' ? 'Slett' : k,
+            go: () => k === 'close' ? this.setState({ pad: null, entry: '', err: false }) : k === 'backspace' ? this.setState(st => ({ entry: st.entry.slice(0, -1) })) : this.press(k),
+            style: { width: 68, height: 68, borderRadius: 34, display: 'grid', placeItems: 'center', background: ic ? 'transparent' : '#404040', color: ic ? '#afafaf' : '#fafafa', transition: 'transform .1s, background .1s' } }; }) } : {},
+      alarmQ: s.alarmQ, setAlarmQ: e => this.setState({ alarmQ: e.target.value }), hasAlarmSug: true,
+      alarmSug: ALARMS.filter(x => x !== c.alarm && (!aq || x.includes(aq))).map(id => ({ id, go: () => { this.setCfg({ alarm: id }); this.setState({ alarmQ: '' }); } })),
+      codeSegs: [{ label: 'Krev kode', opts: [['alle', 'Alle endringer'], ['av', 'Bare for å slå av'], ['aldri', 'Aldri']].map(([v, l]) => ({ label: l, go: () => this.setCfg({ codeFor: v }), style: segS(c.codeFor === v) })) },
+        { label: 'Kodelengde', opts: [[4, '4 siffer'], [6, '6 siffer']].map(([v, l]) => ({ label: l, go: () => this.setCfg({ codeLen: v, code: String(c.code).padEnd(v, '0').slice(0, v) }), style: segS(c.codeLen === v) })) }],
+      code: c.code, codeLen: c.codeLen, setCode: e => this.setCfg({ code: e.target.value.replace(/\D/g, '').slice(0, c.codeLen) }),
+      roomNames: roomsOrder,
+      edGroups: roomsOrder.map(room => { const list = S.filter(x => x.room === room), open = !!s.grpOpen[room];
+        return { room, count: `${list.length}`, open, toggle: () => this.setState(st => ({ grpOpen: { ...st.grpOpen, [room]: !open } })),
+          chev: { fontSize: 20, color: '#979797', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .2s' },
+          items: list.map(x => { const op = s.edSel === x.id, up = p => this.setSens(L => L.map(y => y.id === x.id ? { ...y, ...p } : y));
+            return { icon: icon({ ...x, on: false }), name: x.name, ent: x.ent || '–', room: x.room, open: op, edit: () => this.setState({ edSel: op ? null : x.id }),
+              editStyle: { fontSize: 18, color: op ? 'rgb(242 133 201)' : '#afafaf' }, del: () => this.setSens(L => L.filter(y => y.id !== x.id)),
+              setName: e => up({ name: e.target.value }), setRoom: e => { const v = e.target.value; up({ room: v || 'Annet' }); if (v) this.setState(st => ({ grpOpen: { ...st.grpOpen, [v]: true }, edSel: x.id })); },
+              types: TYPES.map(([t, l, ic]) => ({ label: l, icon: ic, go: () => up({ type: t }), style: { height: 32, padding: '0 10px 0 8px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, background: x.type === t ? PINK : '#3a3a3a', color: x.type === t ? '#3a3a3a' : '#c7c7c7' } })) }; }) }; }),
+      addQ: s.addQ, setAddQ: e => this.setState({ addQ: e.target.value }),
+      addSug: sug.map(e => { const g = guess(e); return { id: e, icon: TYPES.find(t => t[0] === g.type)[2], guess: `Auto: ${TYPES.find(t => t[0] === g.type)[1]} · ${g.room}`, go: () => add(e) }; }),
+      hasAddAll: cand.length > 0, addAllLabel: `Auto-legg til alle nye (${cand.length})`, addAll: () => { const now = Date.now(); this.setSens(L => [...L, ...cand.map((e, i) => ({ id: 's' + now + '_' + i, ent: e, on: false, bat: e.indexOf('lock.') === 0 ? 100 : null, ...guess(e) }))]); },
+      viewToggles: [['showRing', 'Sensorring', 'Stor ring med alle sensorer'], ['showAlerts', 'Varsler', '«Krever oppmerksomhet» øverst'], ['showLog', 'Siste hendelser', 'Logg nederst']].map(([k, l, sub], i) => ({ label: l, sub, go: () => this.setCfg({ [k]: !c[k] }), ...sw(c[k]),
+        row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%' } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

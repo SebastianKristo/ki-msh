@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0f0f10;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 181 115)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-hscroll]::-webkit-scrollbar{display:none}
+@keyframes drift{0%{transform:translate(0,0);opacity:0}20%{opacity:.9}100%{transform:translate(18px,-110px);opacity:0}}
+@keyframes breathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+</style>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;margin:0 auto;background:#141416;padding:14px;display:flex;flex-direction:column;gap:18px">
+  <section style="{{ heroCard }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:84px">
+      <svg viewBox="0 0 300 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+        <polyline points="{{ gArea }}" style="{{ gFill }}"></polyline>
+        <polyline points="{{ gLine }}" fill="none" style="{{ gStroke }}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+      </svg>
+      <div style="{{ gCursor }}"><span style="{{ gDot }}"></span></div>
+      <div onPointerDown="{{ gScrub }}" onPointerMove="{{ gScrubMove }}" onPointerLeave="{{ gScrubEnd }}" style="position:absolute;inset:0;touch-action:none;cursor:crosshair"></div>
+    </div>
+    <span class="ms" style="{{ heroIcon }}">{{ heroGlyph }}</span>
+    <button style="position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center" style-active="transform:scale(0.92)"><span class="ms" style="font-size:22px;color:#fafafa">settings</span></button>
+    <div style="position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#afafaf">{{ name }}</span>
+      <span style="{{ heroChip }}"><span class="ms" style="font-size:14px;font-variation-settings:'FILL' 1">{{ heroChipIcon }}</span>{{ heroChipText }}</span>
+    </div>
+    <div style="position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap">
+        <button onClick="{{ showT }}" style="{{ tBtn }}"><span style="font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">{{ tVal }}</span><span style="font-size:24px;font-weight:300">°</span></button>
+        <button onClick="{{ showH }}" style="{{ hBtn }}"><span style="font-size:17px;font-weight:400;font-variant-numeric:tabular-nums">{{ hVal }}</span><span style="font-size:12px">%</span></button>
+      </div>
+      <span style="font-size:12px;color:#7f7f7f;white-space:nowrap">{{ gWhen }}</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:212},&quot;roomId&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;stue&quot;,&quot;pult&quot;,&quot;kjokken&quot;,&quot;bad&quot;,&quot;sov&quot;,&quot;kontor&quot;],&quot;default&quot;:&quot;stue&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Stue&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;icon&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;col&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;temp&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:22.8,&quot;tsType&quot;:&quot;number&quot;},&quot;hum&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:50,&quot;tsType&quot;:&quot;number&quot;}}">
+const C = { amber: 'rgb(242 181 115)', green: 'rgb(102 209 158)', yellow: 'rgb(242 210 111)', blue: 'rgb(115 185 242)', pink: 'rgb(242 133 201)', red: 'rgb(242 128 115)' };
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const nf = (n, d = 1) => n.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+const DATA = {
+  stue: { curtain: 99, lights: ['Grønn sofalampe','Peislampe','Skjenklampe','Sofabord','Spisebord','Stålampe','Stålampe hjørne','Stålampe piano','Taklist'],
+    devices: [['Spisebord','power',true,0],['Piano','power',true,0],['Server rack','dns',true,198],['Takstikkontakt','outlet',false,0],['TV','tv',true,0]],
+    climate: [['Oljefyr', 0, 21]], media: ['RN602-stue'],
+    sensors: [['Tilstede','sensor_occupied','Stille'],['Tilstede sone 1','sensor_occupied','Stille'],['G6 Turret bevegelse','videocam','Stille'],['Verandadør','door_front','Lukket'],['Lysnivå','light_mode','0,0 lx']] },
+  pult: { lights: ['Pultlampe','LED-list'], devices: [['PC','desktop_windows',true,95],['Skjermer','monitor',true,42],['Lader','power',false,0]], climate: [], media: [], sensors: [['Tilstede','sensor_occupied','Noen her']] },
+  kjokken: { lights: ['Tak','Benk','Vindu'], devices: [['Kaffemaskin','coffee_maker',false,0],['Fryseskap','kitchen',true,90],['Oppvask','dishwasher_gen',false,0]], climate: [['Gulvvarme', 0, 22]], media: ['Kjøkkenhøyttaler'], sensors: [['Bevegelse','directions_walk','Stille'],['Vindu','window','Lukket']] },
+  bad: { lights: ['Tak','Speil'], devices: [['Håndklevarmer','dry_cleaning',true,60]], climate: [['Gulvvarme', 850, 26]], media: [], sensors: [['Bevegelse','directions_walk','Stille'],['Fukt','humidity_percentage','62 %']] },
+  sov: { curtain: 0, lights: ['Tak','Nattbord venstre','Nattbord høyre'], devices: [['Lader','power',false,0]], climate: [['Panelovn', 0, 18]], media: [], sensors: [['Vindu','window','Lukket']] },
+  kontor: { lights: ['Tak','Pultlampe'], devices: [['PC','desktop_windows',true,110]], climate: [], media: [], sensors: [['Vindu','window','Lukket']] },
+};
+const SCENES = [['max','Maks','light_mode'],['komfort','Komfort','weekend'],['middag','Middag','restaurant'],['tv','TV-kveld','tv'],['dim','Dempet','brightness_4'],['av','Alt av','dark_mode']];
+const sceneLevel = (k, i, name) => ({ max: 100, komfort: [60, 45, 0, 50, 40, 70, 0, 55, 30][i % 9], middag: /spise/i.test(name) ? 85 : i % 2 ? 25 : 0, tv: i % 3 === 0 ? 15 : 0, dim: 30, av: 0 })[k];
+const quiet = st => /Stille|Lukket|lx|%/.test(st);
+const MIN = 15, MAX = 28;
+class Component extends DCLogic {
+  state = this.init();
+  init() {
+    const id = this.props?.roomId || 'stue', d = DATA[id] || DATA.stue;
+    return { id, scene: null, curtain: d.curtain ?? null, lights: d.lights.map(n => ({ name: n, v: 0 })), devices: d.devices.map(([name, icon, on, w]) => ({ name, icon, on, w })),
+      climate: d.climate.map(([name, w, set]) => ({ name, w, set })), media: d.media.map(name => ({ name, playing: false, vol: 20 })), sensors: d.sensors };
+  }
+  componentDidUpdate(pp) { if (pp.roomId !== this.props.roomId) this.setState(this.init()); }
+  setLight(i, v) { this.setState(s => ({ scene: null, lights: s.lights.map((x, j) => j === i ? { ...x, v } : x) })); }
+  drag(onSet, onTap) {
+    return {
+      down: e => { e.currentTarget.setPointerCapture?.(e.pointerId); this.d = { x: e.clientX, moved: false }; },
+      move: e => { if (!this.d) return; if (Math.abs(e.clientX - this.d.x) > 5) this.d.moved = true; if (this.d.moved) { const r = e.currentTarget.getBoundingClientRect(); onSet(Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100)); } },
+      up: () => { if (this.d && !this.d.moved) onTap(); this.d = null; },
+    };
+  }
+  renderVals() {
+    const s = this.state, p = this.props;
+    const col = p.col || C.green, temp = p.temp ?? 22.8, hum = p.hum ?? 50;
+    const k = s.climate[0], set = k ? k.set : null, heating = k && k.set > temp;
+    const rawT = Array.from({ length: 25 }, (_, i) => Math.sin((i + 3) / 24 * Math.PI * 2) * 1.1 + Math.sin(i * 1.7) * 0.2);
+    const temps = rawT.map(t => t - rawT[24] + temp);
+    const mn = Math.min(...temps), mx = Math.max(...temps);
+    const line = temps.map((t, i) => `${i ? 'L' : 'M'}${(i / 24 * 384).toFixed(1)},${(56 - (t - mn) / (mx - mn || 1) * 48).toFixed(1)}`).join(' ');
+    const on = s.lights.filter(l => l.v > 0).length, watt = s.devices.filter(d => d.on).reduce((t, d) => t + d.w, 0) + (k ? k.w : 0);
+    const frac = set != null ? (set - MIN) / (MAX - MIN) : (temp - MIN) / (MAX - MIN);
+    const dcol = heating ? C.red : set != null ? C.blue : C.amber;
+    const ang = -135 + frac * 270;
+    const mask = 'radial-gradient(circle, transparent 90px, #000 91px)';
+    const m = s.media[0];
+    const tile = (icon, label, sub, c, act, go, fillPct) => ({ icon, label, sub, go,
+      style: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10, height: 66, padding: '0 12px 0 8px', borderRadius: 33, background: '#232323', boxShadow: act ? `inset 0 0 0 1px ${a(c, 0.35)}` : 'none', transition: 'box-shadow .3s, transform .2s' },
+      fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${fillPct ?? (act ? 100 : 0)}%`, background: a(c, 0.16), transition: 'width .5s cubic-bezier(.34,1.2,.64,1)' },
+      iconWrap: { position: 'relative', width: 50, height: 50, borderRadius: 25, flex: 'none', display: 'grid', placeItems: 'center', background: act ? c : '#2a2a2d', color: act ? '#141416' : '#979797', transition: 'background .3s' },
+      subStyle: { fontSize: 12, color: act ? '#c7c7c7' : '#7f7f7f', whiteSpace: 'nowrap' } });
+    const cv = s.curtain ?? 0;
+    const tiles = [
+      tile('lightbulb', 'Lys', on ? `${on} av ${s.lights.length} på` : 'Alle av', C.yellow, on > 0, () => this.setState(st => ({ scene: null, lights: st.lights.map(l => ({ ...l, v: on ? 0 : 70 })) }))),
+      s.curtain != null ? tile('curtains', 'Gardiner', cv ? `${cv} % åpen` : 'Lukket', C.pink, cv > 0, () => this.setState({ curtain: cv >= 100 ? 0 : cv >= 50 ? 100 : 50 }), cv) : tile('bolt', 'Strøm', `${watt} W nå`, C.amber, watt > 0, () => {}),
+      m ? tile('speaker', 'Media', m.playing ? 'Spiller' : 'Pauset', C.green, m.playing, () => this.setState(st => ({ media: st.media.map((x, j) => j ? x : { ...x, playing: !x.playing }) }))) : tile('sensor_occupied', 'Tilstede', s.sensors.some(z => /sensor_occupied/.test(z[1]) && !quiet(z[2])) ? 'Noen her' : 'Tomt', C.blue, s.sensors.some(z => !quiet(z[2])), () => {}),
+      s.curtain != null ? tile('bolt', 'Strøm', `${watt} W nå`, C.amber, watt > 0, () => {}) : tile('water_drop', 'Fukt', `${nf(hum, 0)} %`, C.blue, false, () => {}),
+    ];
+    const act = s.sensors.filter(z => !quiet(z[2])).length;
+    const win = s.sensors.find(z => /door_front|window/.test(z[1]));
+    return {
+      name: p.name || 'Stue', icon: p.icon || 'weekend',
+      headIcon: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: col, color: '#141416' },
+      glow: { position: 'absolute', left: '50%', top: 20, width: 260, height: 260, marginLeft: -130, borderRadius: '50%', background: `radial-gradient(circle, ${a(dcol, 0.22)}, transparent 65%)`, transition: 'background .6s', pointerEvents: 'none' },
+      dialTrack: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'conic-gradient(from -135deg, #2a2a2d 0 270deg, transparent 270deg)', WebkitMask: mask, mask },
+      dialFill: { position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(from -135deg, ${a(dcol, 0.35)} 0, ${dcol} ${frac * 270}deg, transparent ${frac * 270}deg)`, WebkitMask: mask, mask, transition: 'background .5s' },
+      dialKnob: { position: 'absolute', left: '50%', top: '50%', width: 22, height: 22, margin: -11, borderRadius: 11, background: '#fafafa', boxShadow: `0 0 0 4px ${a(dcol, 0.35)}, 0 2px 6px rgba(0,0,0,0.4)`, transform: `rotate(${ang}deg) translateY(-94px)`, transition: 'transform .5s cubic-bezier(.34,1.4,.64,1)' },
+      modeLabel: heating ? `Varmer · ${k.w} W` : set != null ? 'Holder temperaturen' : '',
+      modeTag: { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: dcol },
+      temp: nf(temp), setLabel: set != null ? k.name : '', hum: nf(hum, 0),
+      humBar: { display: 'block', width: `${hum}%`, height: '100%', borderRadius: 3, background: hum > 60 ? C.amber : C.blue },
+      climIcon: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: heating ? C.red : '#2a2a2d', color: heating ? '#141416' : '#979797', transition: 'background .3s' },
+      hasSet: set != null, setVal: set ?? '', dec: () => this.setState(st => ({ climate: st.climate.map((x, j) => j ? x : { ...x, set: Math.max(MIN, x.set - 0.5) }) })), inc: () => this.setState(st => ({ climate: st.climate.map((x, j) => j ? x : { ...x, set: Math.min(MAX, x.set + 0.5) }) })),
+      chips: [['water_drop', `${nf(hum, 0)} % fukt`, false], ...(win ? [[win[1], `${win[0]} ${win[2].toLowerCase()}`, !quiet(win[2])]] : []), ['bolt', `${watt} W`, watt > 0]].map(([icon, t, hot]) => ({ icon, t, style: { height: 30, padding: '0 11px', borderRadius: 15, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, background: hot ? a(C.amber, 0.18) : '#2a2a2a', color: hot ? C.amber : '#afafaf', whiteSpace: 'nowrap' } })),
+      tiles,
+      scenes: SCENES.map(([key, label, icon]) => { const on = s.scene === key; return { label, icon,
+        go: () => this.setState(st => ({ scene: key, lights: st.lights.map((l, i) => ({ ...l, v: sceneLevel(key, i, l.name) })) })),
+        bubble: { width: 58, height: 58, borderRadius: 29, display: 'grid', placeItems: 'center', background: on ? PINK : '#232323', color: on ? '#2a1720' : '#afafaf', boxShadow: on ? '0 6px 18px rgba(240,140,190,0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transform: on ? 'scale(1.06)' : 'scale(1)', transition: 'transform .35s cubic-bezier(.34,1.8,.64,1), background .25s' },
+        iconStyle: { fontSize: 24, fontVariationSettings: `'FILL' ${on ? 1 : 0}` },
+        labelStyle: { fontSize: 11, fontWeight: 500, color: on ? '#fafafa' : '#7f7f7f', whiteSpace: 'nowrap' } }; }),
+      hasLights: s.lights.length > 0, lightSum: `${on} på · dra for å dimme`,
+      lights: s.lights.map((l, i) => ({ name: l.name, val: l.v ? `${l.v} %` : 'Av', ...this.drag(v => this.setLight(i, v), () => this.setLight(i, l.v ? 0 : 70)),
+        pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px 0 6px', borderRadius: 28, background: '#232323', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
+        fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${l.v}%`, background: `linear-gradient(90deg, ${a(C.yellow, 0.18)}, ${a(C.yellow, 0.42)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
+        iconWrap: { position: 'relative', width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: l.v ? C.yellow : '#2a2a2d', color: l.v ? '#141416' : '#696969', transition: 'background .25s' },
+        valStyle: { fontSize: 11, color: l.v ? '#c7c7c7' : '#696969', fontVariantNumeric: 'tabular-nums' } })),
+      hasDevices: s.devices.length > 0, watt,
+      devices: s.devices.map((d, i) => ({ name: d.name, icon: d.icon, sub: d.on ? (d.w ? `${d.w} W` : 'På') : 'Av',
+        toggle: () => this.setState(st => ({ devices: st.devices.map((x, j) => j === i ? { ...x, on: !x.on } : x) })),
+        pill: { display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px 0 6px', borderRadius: 28, background: d.on ? a(C.amber, 0.12) : '#232323', transition: 'background .25s, transform .2s' },
+        iconWrap: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: d.on ? C.amber : '#2a2a2d', color: d.on ? '#141416' : '#696969', transition: 'background .25s' },
+        subStyle: { fontSize: 11, color: d.on ? '#c7c7c7' : '#696969' } })),
+      media: s.media.map((x, i) => { const upd = f => this.setState(st => ({ media: st.media.map((y, j) => j === i ? { ...y, ...f(y) } : y) }));
+        return { title: x.name, sub: x.playing ? `Spiller · Spotify · ${x.vol} %` : `Pauset · ${x.vol} %`, playIcon: x.playing ? 'pause' : 'play_arrow', play: () => upd(y => ({ playing: !y.playing })),
+          ...this.drag(v => upd(() => ({ vol: v })), () => {}),
+          card: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 10px', borderRadius: 36, background: x.playing ? `linear-gradient(90deg, ${a(C.green, 0.16)}, #232323)` : '#232323', transition: 'background .4s' },
+          art: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: x.playing ? C.green : '#2a2a2d', color: x.playing ? '#141416' : '#979797' },
+          fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${x.vol}%`, borderRadius: 3, background: '#fafafa' } }; }),
+      hasSensors: s.sensors.length > 0, sensSum: `${act} aktiv`,
+      sensors: s.sensors.map(([name, icon, st], i) => { const hot = !quiet(st); return { name, icon, state: st,
+        row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' },
+        iconStyle: { fontSize: 18, color: hot ? C.blue : '#696969' },
+        stateStyle: { fontSize: 12, fontWeight: 500, padding: '4px 9px', borderRadius: 10, whiteSpace: 'nowrap', background: hot ? a(C.blue, 0.16) : '#2a2a2a', color: hot ? '#fafafa' : '#7f7f7f' } }; }),
+      tempRange: `${nf(mn)}–${nf(mx)}°`,
+      ...(() => {
+        const lit = on > 0, hc = heating ? C.red : lit ? C.yellow : C.blue;
+        const rawH = temps.map((t, i) => -(t - mn) * 2.2 + Math.sin(i * 1.3) * 1.2), hums = rawH.map(v => v - rawH[24] + hum);
+        const isT = (s.gTab || 't') === 't', ser = isT ? temps : hums, gc = isT ? C.amber : C.blue;
+        const lo = Math.floor(Math.min(...ser) - (isT ? 0.3 : 2)), hi = Math.ceil(Math.max(...ser) + (isT ? 0.3 : 2));
+        const X = i => (i / 24 * 300).toFixed(1), Y = v => (92 - (v - lo) / (hi - lo) * 72).toFixed(1);
+        const pts = ser.map((v, i) => `${X(i)},${Y(v)}`).join(' '), sel = s.gSel ?? 24;
+        const pos = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(24, Math.round((e.clientX - r.left) / r.width * 24))); };
+        const seg = (k, label) => ({ label, go: () => this.setState({ gTab: k, gSel: null }), style: { height: 38, padding: '0 18px', borderRadius: 19, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: (s.gTab || 't') === k ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: (s.gTab || 't') === k ? '#2a1720' : '#afafaf' } });
+        return {
+          heroCard: { position: 'relative', height: 184, borderRadius: 28, overflow: 'hidden', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .8s',
+            background: '#232323' },
+          heroMotes: [[12,0],[24,1.4],[36,0.6],[48,2.2],[60,0.9],[70,1.8],[80,0.3],[30,2.8],[54,3.3],[18,2]].map(([x, d], i) => ({ position: 'absolute', left: `${x}%`, bottom: -4, width: i % 3 ? 2 : 3, height: i % 3 ? 2 : 3, borderRadius: 2, background: hc, boxShadow: `0 0 6px ${hc}`, animation: `drift ${(heating ? 3 : 6) + (i % 3) * 0.8}s linear ${d}s infinite` })),
+          heroGlyph: heating ? 'heat' : lit ? 'lightbulb' : 'air',
+          heroIcon: { position: 'absolute', right: 74, top: 22, fontSize: 30, color: hc, fontVariationSettings: "'FILL' 1", filter: `drop-shadow(0 0 14px ${a(hc, 0.7)})` },
+          heroChip: { height: 26, padding: '0 10px 0 8px', borderRadius: 13, display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', background: a(hc, 0.18), color: hc },
+          heroChipIcon: heating ? 'local_fire_department' : lit ? 'lightbulb' : 'check', heroChipText: heating ? `Varmer til ${nf(set)}°` : set != null ? `Holder ${nf(set)}°` : lit ? `${on} lys på` : 'Alt er rolig',
+          humFill: { display: 'block', height: `${hum}%`, background: hum > 60 ? a(C.amber, 0.55) : a(C.blue, 0.55), transition: 'height .6s' },
+          gTabs: [seg('t', 'Temperatur'), seg('h', 'Fukt')],
+          gTitle: isT ? 'Temperatur siste døgn · °C' : 'Luftfuktighet siste døgn · %',
+          gHint: `${sel === 24 ? 'Nå' : `−${24 - sel} t`} · ${nf(ser[sel], isT ? 1 : 0)}${isT ? '°' : ' %'}`,
+          gTicks: [0, 1, 2, 3].map(j => ({ label: nf(hi - (hi - lo) * j / 3, isT ? 1 : 0), line: { position: 'absolute', left: 0, right: 0, top: `${j / 3 * 100}%`, borderTop: j === 3 ? '1px solid #3a3a3a' : '1px dashed #2e2e32' } })),
+          gLine: pts, gArea: `0,100 ${pts} 300,100`, gStroke: { stroke: gc }, gFill: { fill: a(gc, 0.2), stroke: 'none' },
+          showT: () => this.setState({ gTab: 't' }), showH: () => this.setState({ gTab: 'h' }),
+          tVal: nf(temps[sel]), hVal: nf(hums[sel], 0),
+          tBtn: { display: 'flex', alignItems: 'flex-start', color: isT ? '#fafafa' : '#7f7f7f', transition: 'color .25s' },
+          hBtn: { display: 'flex', alignItems: 'baseline', gap: 1, height: 26, padding: '0 9px', borderRadius: 13, background: isT ? 'transparent' : a(C.blue, 0.2), color: isT ? '#afafaf' : '#fafafa', transition: 'background .25s, color .25s' },
+          gWhen: sel === 24 ? `Nå · ${isT ? `${nf(mn)}–${nf(mx)}°` : `${nf(Math.min(...hums), 0)}–${nf(Math.max(...hums), 0)} %`} siste døgn` : `−${24 - sel} t`,
+          gCursor: { position: 'absolute', top: 0, bottom: 0, left: `${sel / 24 * 100}%`, borderLeft: `1px dashed ${a(gc, 0.6)}`, pointerEvents: 'none' },
+          gDot: { position: 'absolute', left: -6, top: `calc(${Y(ser[sel])}% - 5px)`, width: 10, height: 10, borderRadius: 5, background: '#fafafa', boxShadow: `0 0 0 3px ${a(gc, 0.5)}` },
+          gScrub: e => this.setState({ gSel: pos(e) }), gScrubMove: e => { if (e.buttons || e.pointerType === 'mouse') this.setState({ gSel: pos(e) }); }, gScrubEnd: () => this.setState({ gSel: null }),
+        };
+      })(),
+    };
+  }
+}
+</script>
+</body>
+</html>

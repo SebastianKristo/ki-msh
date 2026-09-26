@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(102 209 158)}
+button,input{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input{cursor:text;outline:none}
+input::placeholder{color:#696969}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 18px 40px;display:flex;flex-direction:column;gap:20px">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Gjøremål</div>
+    <button style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+    <div style="font-size:24px;font-weight:500;letter-spacing:-0.015em">{{ headline }}</div>
+    <div style="font-size:14px;color:#7f7f7f">{{ subline }}</div>
+    <div style="height:6px;border-radius:3px;background:#3a3a3a;overflow:hidden;margin-top:8px"><div style="{{ progress }}"></div></div>
+  </section>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:20px;background:#3a3a3a">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span></button></sc-for>
+  </div>
+
+  <form onSubmit="{{ add }}" style="display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;border-radius:26px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+    <span class="ms" style="font-size:20px;color:#696969">add</span>
+    <input value="{{ draft }}" onChange="{{ setDraft }}" placeholder="Ny oppgave" style="flex:1;min-width:0;height:100%;font-size:14px"></input>
+    <button type="button" onClick="{{ cyclePrio }}" style="{{ draftPrio.style }}">{{ draftPrio.label }}</button>
+  </form>
+
+  <div style="display:flex;gap:6px">
+    <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button></sc-for>
+  </div>
+
+  <section style="display:flex;flex-direction:column">
+    <sc-for list="{{ items }}" as="i" hint-placeholder-count="4">
+      <div style="{{ i.row }}">
+        <button onClick="{{ i.toggle }}" style="{{ i.box }}"><span class="ms" style="{{ i.check }}">check</span></button>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+          <span style="{{ i.textStyle }}">{{ i.text }}</span>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span style="{{ i.prio }}">{{ i.prioLabel }}</span>
+            <span style="font-size:11px;color:#696969">{{ i.meta }}</span>
+          </div>
+        </div>
+        <button onClick="{{ i.remove }}" title="Slett" style="width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#696969;flex:none"><span class="ms" style="font-size:18px">close</span></button>
+      </div>
+    </sc-for>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:30px 0;text-align:center;font-size:14px;color:#696969">Ingen oppgaver her</div>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1000}}">
+const PR = { h: ['Høy', 'rgb(242 128 115)'], m: ['Medium', 'rgb(242 181 115)'], l: ['Lav', 'rgb(115 185 242)'] };
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const GREEN = 'rgb(102 209 158)';
+let uid = 100;
+class Component extends DCLogic {
+  state = { tab: 'store', filter: 'open', draft: '', prio: 'm',
+    items: [
+      [1,'store','Ki-energi: legg til expand under menyer for servere, panelovner og gulvvarme','m',false,'Sebastian'],
+      [2,'store','VVB må ordnes, står bare på i 50 min','h',false,'Rune'],
+      [3,'store','Legg til innstillinger for autolås','m',false,'Sebastian'],
+      [4,'store','Få lagt til qBittorrent-nedlasting i Framover','l',false,'Sebastian'],
+      [5,'pers','Bytt filter i ventilasjon','m',false,'Rune'],[6,'pers','Vann plantene','l',true,'Cybele'],[7,'pers','Skift batteri i dørlås','h',false,'Sebastian'],[8,'pers','Tøm oppvaskmaskin','l',true,'Cybele'],
+    ].map(([id, list, text, prio, done, who]) => ({ id, list, text, prio, done, who })) };
+  upd(id, f) { this.setState(s => ({ items: s.items.map(x => x.id === id ? { ...x, ...f(x) } : x) })); }
+  renderVals() {
+    const s = this.state;
+    const inList = s.items.filter(x => x.list === s.tab);
+    const done = inList.filter(x => x.done).length;
+    const order = { h: 0, m: 1, l: 2 };
+    const shown = inList.filter(x => s.filter === 'all' || (s.filter === 'open' ? !x.done : s.filter === 'done' ? x.done : x.prio === 'h' && !x.done)).sort((p, q) => (p.done - q.done) || (order[p.prio] - order[q.prio]));
+    const tag = (p, full) => ({ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: a(PR[p][1], full ? 0.9 : 0.18), color: full ? '#282828' : PR[p][1], whiteSpace: 'nowrap' });
+    return {
+      headline: inList.length - done ? `${inList.length - done} gjenstår` : 'Alt er gjort',
+      subline: `${inList.length} oppgaver · ${done} fullført`,
+      progress: { width: `${inList.length ? done / inList.length * 100 : 0}%`, height: '100%', borderRadius: 3, background: GREEN, transition: 'width .4s' },
+      tabs: [['store', 'Store oppgaver'], ['pers', 'Personlig']].map(([k, label]) => { const act = s.tab === k, n = s.items.filter(x => x.list === k && !x.done).length; return { label, count: n, go: () => this.setState({ tab: k }),
+        style: { height: 40, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 500, background: act ? PINK : 'transparent', color: act ? '#3a3a3a' : '#979797' },
+        countStyle: { minWidth: 20, height: 20, borderRadius: 10, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600, background: act ? 'rgba(42,23,32,0.14)' : '#404040' } }; }),
+      draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }),
+      cyclePrio: () => this.setState({ prio: { l: 'm', m: 'h', h: 'l' }[s.prio] }),
+      draftPrio: { label: PR[s.prio][0], style: { ...tag(s.prio), height: 32, padding: '0 12px', borderRadius: 16, fontSize: 12 } },
+      add: e => { e.preventDefault(); const t = s.draft.trim(); if (!t) return; this.setState({ draft: '', filter: 'open', items: [{ id: ++uid, list: s.tab, text: t, prio: s.prio, done: false, who: 'Sebastian' }, ...s.items] }); },
+      filters: [['open', 'Åpne'], ['high', 'Høy'], ['done', 'Fullført'], ['all', 'Alle']].map(([k, label]) => ({ label, go: () => this.setState({ filter: k }), style: { height: 32, padding: '0 13px', borderRadius: 16, fontSize: 12, fontWeight: 500, background: s.filter === k ? '#fafafa' : '#3a3a3a', color: s.filter === k ? '#282828' : '#afafaf' } })),
+      empty: !shown.length,
+      items: shown.map((x, i) => ({ text: x.text, prioLabel: PR[x.prio][0], prio: tag(x.prio), meta: x.done ? `Fullført · ${x.who}` : x.who,
+        toggle: () => this.upd(x.id, y => ({ done: !y.done })), remove: () => this.setState(st => ({ items: st.items.filter(y => y.id !== x.id) })),
+        row: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 4px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', opacity: x.done ? 0.55 : 1, transition: 'opacity .2s' },
+        box: { width: 26, height: 26, borderRadius: 9, flex: 'none', marginTop: 1, display: 'grid', placeItems: 'center', background: x.done ? GREEN : 'transparent', boxShadow: x.done ? 'none' : 'inset 0 0 0 1.5px #545454', transition: 'background .2s' },
+        check: { fontSize: 18, color: '#282828', opacity: x.done ? 1 : 0, fontVariationSettings: "'wght' 600" },
+        textStyle: { fontSize: 14, lineHeight: 1.4, textWrap: 'pretty', textDecoration: x.done ? 'line-through' : 'none' } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

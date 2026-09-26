@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+[data-snap]::-webkit-scrollbar{display:none}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+@keyframes wx-spin{to{transform:rotate(360deg)}}
+@keyframes wx-glow{0%,100%{filter:drop-shadow(0 0 14px rgb(242 210 111 / .3))}50%{filter:drop-shadow(0 0 32px rgb(242 210 111 / .65))}}
+@keyframes wx-drift{0%,100%{transform:translateX(-4px)}50%{transform:translateX(4px)}}
+@keyframes wx-bob{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
+@keyframes wx-sway{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+@keyframes wx-flash{0%,86%,100%{opacity:1}88%{opacity:.25}90%{opacity:1}92%{opacity:.35}94%{opacity:1}}
+@keyframes wx-fade{0%,100%{opacity:.5;transform:translateX(-5px)}50%{opacity:1;transform:translateX(5px)}}
+@keyframes wx-rain{0%{transform:translateY(-30px) rotate(12deg);opacity:0}10%{opacity:.85}100%{transform:translateY(260px) rotate(12deg);opacity:0}}
+@keyframes wx-snow{0%{transform:translate(0,-20px);opacity:0}10%{opacity:1}50%{transform:translate(14px,120px)}100%{transform:translate(-8px,260px);opacity:0}}
+@keyframes wx-fog{0%{transform:translateX(-25%)}100%{transform:translateX(25%)}}
+@keyframes wx-bolt{0%,84%,100%{opacity:0}85%,88%{opacity:.55}86%{opacity:.1}}
+@keyframes wx-ray{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.7;transform:scale(1.12)}}
+@keyframes wx-wind{0%{transform:translateX(-120%);opacity:0}20%{opacity:.7}100%{transform:translateX(320%);opacity:0}}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 14px 40px;display:flex;flex-direction:column;gap:12px">
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px">
+    <span style="width:40px;height:40px;border-radius:20px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">partly_cloudy_day</span></span>
+    <div style="flex:1;font-size:26px;font-weight:500;letter-spacing:-0.02em">Været</div>
+  </header>
+
+  <div style="{{ ord.hero }}">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div data-snap="1" onScroll="{{ heroScroll }}" style="width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:28px">
+      <div style="flex:none;width:100%;box-sizing:border-box;scroll-snap-align:start;position:relative;min-height:190px;padding:22px 24px;border-radius:28px;background:#3a3a3a;display:flex;flex-direction:column;justify-content:space-between">
+        <div style="position:absolute;inset:0;overflow:hidden;border-radius:28px;pointer-events:none"><sc-for list="{{ heroFx }}" as="p" hint-placeholder-count="0"><span style="{{ p }}"></span></sc-for></div>
+        <span style="position:relative;font-size:14px;color:#c7c7c7">Været nå · {{ place }}</span>
+        <span style="position:relative;display:flex;align-items:flex-end;gap:6px"><span style="font-size:64px;font-weight:300;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">{{ now.temp }}°</span><span style="font-size:15px;color:#afafaf;padding-bottom:6px">{{ now.feels }}°</span></span>
+        <span style="position:relative;display:flex;gap:14px;font-size:14px;color:#c7c7c7;white-space:nowrap"><span>{{ now.cond }}</span><span>{{ now.wind }}</span><span>{{ now.rain }}</span></span>
+        <span style="position:absolute;right:20px;top:50%;transform:translateY(-50%);line-height:0"><span class="ms" style="{{ heroIcon.style }}">{{ heroIcon.icon }}</span></span>
+      </div>
+      <div style="flex:none;width:100%;box-sizing:border-box;scroll-snap-align:start;min-height:190px;padding:20px 16px 16px;border-radius:28px;background:#3a3a3a;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:14px;color:#c7c7c7;padding:0 8px">Andre varsler</span>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ extras }}" as="x" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:#404040;min-width:0">
+              <span class="ms" style="{{ x.iconStyle }}">{{ x.icon }}</span>
+              <span style="font-size:12px;color:#c7c7c7;text-align:center;line-height:1.25;padding:0 4px">{{ x.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:none;width:100%;box-sizing:border-box;scroll-snap-align:start;min-height:190px;padding:20px 16px 16px;border-radius:28px;background:#3a3a3a;display:flex;flex-direction:column;gap:12px">
+        <span style="display:flex;justify-content:space-between;align-items:baseline;padding:0 8px"><span style="font-size:14px;color:#c7c7c7">Pollen i dag</span><span style="font-size:11px;color:#7f7f7f">NAAF</span></span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ pollenMini }}" as="p" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:#404040;min-width:0">
+              <span class="ms" style="{{ p.iconStyle }}">{{ p.icon }}</span>
+              <span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span><span style="{{ p.levelStyle }}">{{ p.level }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;height:14px;align-items:center"><sc-for list="{{ heroDots }}" as="d" hint-placeholder-count="2"><span style="{{ d }}"></span></sc-for></div>
+  </div>
+  </div>
+  <div style="{{ ord.alerts }}">
+  <sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}">
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 6px">
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#979797"><span class="ms" style="font-size:16px">warning</span>Farevarsler · {{ alertSum }}</span>
+      <span style="display:flex"><sc-for list="{{ alertChips }}" as="c" hint-placeholder-count="3"><span style="{{ c.wrap }}"><span class="ms" style="font-size:15px;font-variation-settings:'FILL' 1">{{ c.icon }}</span></span></sc-for></span>
+    </div>
+    <sc-for list="{{ alerts }}" as="w" hint-placeholder-count="2">
+      <button onClick="{{ w.toggle }}" style="{{ w.card }}">
+        <span style="display:flex;align-items:flex-start;gap:12px;width:100%">
+          <span style="{{ w.iconWrap }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">{{ w.icon }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left">
+            <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="{{ w.badge }}">{{ w.levelName }}</span><span style="{{ w.statusStyle }}">{{ w.status }}</span></span>
+            <span style="font-size:14px;font-weight:600;line-height:1.3">{{ w.title }}</span>
+            <span style="font-size:12px;color:#979797">{{ w.when }}</span>
+          </span>
+          <span class="ms" style="{{ w.chev }}">expand_more</span>
+        </span>
+        <sc-if value="{{ w.open }}" hint-placeholder-val="{{ false }}">
+          <span style="display:flex;flex-direction:column;gap:10px;width:100%;padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.06);text-align:left">
+            <span style="font-size:13px;color:#e1e1e1;line-height:1.45;text-wrap:pretty">{{ w.text }}</span>
+            <sc-for list="{{ w.blocks }}" as="b" hint-placeholder-count="2"><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:11px;color:#7f7f7f">{{ b.l }}</span><span style="font-size:13px;color:#c7c7c7;line-height:1.45;text-wrap:pretty">{{ b.v }}</span></span></sc-for>
+            <span style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:#7f7f7f"><span>{{ w.source }}</span><span style="display:flex;align-items:center;gap:4px;color:#afafaf">Åpne kart<span class="ms" style="font-size:14px">open_in_new</span></span></span>
+          </span>
+        </sc-if>
+      </button>
+    </sc-for>
+  </section>
+  </sc-if>
+  </div>
+  <div style="{{ ord.hours }}">
+  <div data-snap="1" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px">
+    <sc-for list="{{ hours }}" as="h" hint-placeholder-count="6">
+      <div style="{{ h.box }}">
+        <span style="font-size:13px;color:#afafaf">{{ h.t }}</span>
+        <span class="ms" style="{{ h.iconStyle }}">{{ h.icon }}</span>
+        <span style="font-size:24px;font-weight:300;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ h.temp }}°</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:#979797"><span>{{ h.wind }}</span><span>{{ h.rain }}</span></span>
+      </div>
+    </sc-for>
+  </div>
+  </div>
+  <div style="{{ ord.days }}">
+  <sc-for list="{{ days }}" as="d" hint-placeholder-count="5">
+    <button onClick="{{ d.toggle }}" style="{{ d.card }}">
+      <span style="display:flex;align-items:center;width:100%">
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;text-align:left">
+          <span style="font-size:14px;color:#c7c7c7">{{ d.day }}</span>
+          <span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">{{ d.hi }}°</span><span style="font-size:15px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ d.lo }}°</span></span>
+          <span style="display:flex;gap:12px;font-size:13px;color:#c7c7c7"><span>{{ d.cond }}</span><span>{{ d.rain }}</span></span>
+        </span>
+        <span class="ms" style="{{ d.iconStyle }}">{{ d.icon }}</span>
+      </span>
+      <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+        <span style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;padding-top:14px;margin-top:14px;border-top:1px solid rgba(255,255,255,0.06)">
+          <sc-for list="{{ d.more }}" as="m" hint-placeholder-count="3"><span style="display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:11px;color:#7f7f7f">{{ m.l }}</span><span style="font-size:14px;font-weight:500">{{ m.v }}</span></span></sc-for>
+        </span>
+      </sc-if>
+    </button>
+  </sc-for>
+  </div>
+  <div style="{{ ord.tiles }}">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+    <div style="{{ tord.sky }}"><section style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:28px;background:#3a3a3a;min-height:150px;box-sizing:border-box">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797"><span class="ms" style="font-size:16px">cloud</span>Skydekke</span>
+      <span style="font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1">18 %</span>
+      <span style="font-size:12px;color:#c7c7c7">Lettskyet</span>
+      <div style="position:relative;height:6px;border-radius:3px;background:#404040;margin-top:auto"><span style="position:absolute;left:0;top:0;bottom:0;width:18%;border-radius:3px;background:#c7c7c7"></span></div>
+    </section></div>
+    <div style="{{ tord.wind }}"><section style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;aspect-ratio:1;border-radius:50%;background:#3a3a3a;box-shadow:inset 0 0 0 10px #2a2a2a">
+      <span style="{{ wind.arrow }}"><span class="ms" style="font-size:22px;color:rgb(115 185 242);font-variation-settings:'FILL' 1">navigation</span></span>
+      <span style="font-size:12px;color:#979797">Vind</span>
+      <span style="font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1">7,8</span>
+      <span style="font-size:12px;color:#c7c7c7">m/s · SV</span>
+    </section></div>
+    <div style="{{ tord.gust }}"><section style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;aspect-ratio:1;border-radius:50%;background:rgb(173 153 230 / 0.16);box-shadow:inset 0 0 0 1px rgb(173 153 230 / 0.35)">
+      <span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#c7c7c7"><span class="ms" style="font-size:16px;color:rgb(173 153 230)">storm</span>Vindkast</span>
+      <span style="font-size:36px;font-weight:300;letter-spacing:-0.03em;line-height:1">11,4</span>
+      <span style="font-size:12px;color:#c7c7c7">m/s</span>
+    </section></div>
+    <div style="{{ tord.sun }}"><section style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797"><span class="ms" style="font-size:16px">wb_twilight</span>Sol opp og ned</span>
+      <div style="position:relative;height:56px;overflow:hidden">
+        <span style="position:absolute;left:4px;right:4px;top:6px;height:100px;border-radius:50%;border:1.5px dashed #545454;box-sizing:border-box"></span>
+        <span style="{{ sun.dot }}"></span>
+        <span style="position:absolute;left:0;right:0;bottom:0;height:1px;background:#545454"></span>
+      </div>
+      <span style="display:flex;justify-content:space-between;font-size:12px;color:#c7c7c7"><span>↑ 06:30</span><span>↓ 19:44</span></span>
+      <span style="font-size:11px;color:#7f7f7f">Solhøyde 18°</span>
+    </section></div>
+    <div style="{{ tord.hum }}"><section style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:28px;background:#3a3a3a;min-height:150px;box-sizing:border-box">
+      <span style="position:absolute;left:0;right:0;bottom:0;height:82%;background:linear-gradient(180deg, rgb(115 185 242 / 0.22), rgb(115 185 242 / 0.08))"></span>
+      <span style="position:relative;display:flex;align-items:center;gap:6px;font-size:12px;color:#c7c7c7"><span class="ms" style="font-size:16px;color:rgb(115 185 242);font-variation-settings:'FILL' 1">humidity_percentage</span>Fukt</span>
+      <span style="position:relative;font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1">82 %</span>
+      <span style="position:relative;font-size:12px;color:#c7c7c7;margin-top:auto">Duggpunkt 11,6°</span>
+    </section></div>
+    <div style="{{ tord.uv }}"><section style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;aspect-ratio:1;border-radius:36%;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)">
+      <span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#979797"><span class="ms" style="font-size:16px;color:rgb(242 210 111);font-variation-settings:'FILL' 1">light_mode</span>UV-indeks</span>
+      <span style="font-size:40px;font-weight:300;line-height:1">0,8</span>
+      <span style="font-size:12px;font-weight:600;color:rgb(102 209 158)">Svært lav</span>
+    </section></div>
+    <div style="{{ tord.press }}"><section style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;aspect-ratio:1;border-radius:50%;background:#3a3a3a">
+      <span style="{{ pressRing }}"></span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#979797"><span class="ms" style="font-size:16px">compress</span>Trykk</span>
+      <span style="font-size:32px;font-weight:300;letter-spacing:-0.03em;line-height:1">1008</span>
+      <span style="font-size:12px;color:#c7c7c7">hPa</span>
+    </section></div>
+    <div style="{{ tord.rain }}"><section style="display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797"><span class="ms" style="font-size:16px;color:rgb(115 185 242);font-variation-settings:'FILL' 1">water_drop</span>Nedbør</span>
+      <span style="font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1">{{ rain24 }}<span style="font-size:14px;color:#979797"> mm</span></span>
+      <span style="font-size:12px;color:#c7c7c7;margin-top:auto">Neste 24 timer</span>
+    </section></div>
+  </div>
+  </div>
+  <div style="{{ ord.moon }}">
+  <section style="display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:#3a3a3a">
+    <div style="position:relative;width:56px;height:56px;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden;box-shadow:0 0 30px rgba(233,228,214,0.18)"><div style="position:absolute;top:0;bottom:0;left:0;width:50%;background:#16161a;box-shadow:6px 0 14px rgba(0,0,0,0.5)"></div></div>
+    <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#979797">Månefase</span><span style="font-size:16px;font-weight:500">{{ moonName }}</span></span>
+  </section>
+  </div>
+  <button onClick="{{ ed.openIt }}" style="order:100;height:52px;border-radius:26px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500" style-active="transform:scale(0.98)"><span class="ms" style="font-size:20px">tune</span>Tilpass været</button>
+  <sc-if value="{{ ed.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ ed.close }}" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.5)"></div>
+    <div style="position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:61;width:100%;max-width:440px;max-height:calc(100vh - 60px);overflow-y:auto;scrollbar-width:none;box-sizing:border-box;padding:20px 14px 40px;border-radius:34px 34px 0 0;background:#3a3a3a;box-shadow:0 -20px 50px rgba(0,0,0,0.5);display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 4px 6px">
+        <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:600">Tilpass været</span><span style="font-size:12px;color:#979797">Dra for å flytte · øyet skjuler</span></span>
+        <button onClick="{{ ed.reset }}" style="height:40px;padding:0 14px;border-radius:20px;background:#404040;font-size:14px;font-weight:500">Nullstill</button>
+        <button onClick="{{ ed.close }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#5a3a48;font-size:14px;font-weight:600">Ferdig</button>
+      </div>
+      <span style="font-size:13px;color:#979797;padding:4px 6px 0">Forhåndsvis vær</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ ed.wx }}" as="o" hint-placeholder-count="9"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:16px;font-variation-settings:'FILL' 1">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div>
+      <span style="font-size:13px;color:#979797;padding:10px 6px 0">Seksjoner</span>
+      <sc-for list="{{ ed.secs }}" as="r" hint-placeholder-count="6">
+        <div draggable="true" onDragStart="{{ r.dragStart }}" onDragOver="{{ r.dragOver }}" onDrop="{{ r.drop }}" onDragEnd="{{ r.dragEnd }}" style="{{ r.row }}">
+          <span class="ms" style="font-size:20px;color:#7f7f7f;cursor:grab">drag_indicator</span>
+          <span class="ms" style="font-size:20px;width:24px;flex:none;font-variation-settings:'FILL' 1">{{ r.icon }}</span>
+          <span style="flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.label }}</span>
+          <div style="display:flex;flex:none;border-radius:18px;background:#282828;padding:2px">
+            <button onClick="{{ r.up }}" style="{{ r.upStyle }}"><span class="ms" style="font-size:20px">expand_less</span></button>
+            <button onClick="{{ r.down }}" style="{{ r.downStyle }}"><span class="ms" style="font-size:20px">expand_more</span></button>
+          </div>
+          <button onClick="{{ r.eye }}" style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center"><span class="ms" style="{{ r.eyeStyle }}">{{ r.eyeIcon }}</span></button>
+        </div>
+      </sc-for>
+      <span style="font-size:13px;color:#979797;padding:10px 6px 0">Detaljkort</span>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:10px;border-radius:24px;background:#282828">
+        <sc-for list="{{ ed.tiles }}" as="g" hint-placeholder-count="8">
+          <div draggable="true" onDragStart="{{ g.dragStart }}" onDragOver="{{ g.dragOver }}" onDrop="{{ g.drop }}" onDragEnd="{{ g.dragEnd }}" style="{{ g.style }}">
+            <span class="ms" style="font-size:18px;flex:none;color:#afafaf;font-variation-settings:'FILL' 1">{{ g.icon }}</span>
+            <span style="flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.label }}</span>
+            <button onClick="{{ g.eye }}" style="width:30px;height:30px;border-radius:15px;flex:none;display:grid;place-items:center"><span class="ms" style="{{ g.eyeStyle }}">{{ g.eyeIcon }}</span></button>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:12px;color:#7f7f7f;padding:4px 6px 0">Dra kortene for å bytte rekkefølge i rutenettet. På mobil kan du bruke pilene for seksjoner.</span>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1800}}">
+const SUNY = 'rgb(242 210 111)', CLOUD = '#c7c7c7', MOON = '#979797', RAIN = 'rgb(115 185 242)';
+const IC = { fog: ['foggy', CLOUD], snow: ['weather_snowy', '#fafafa'], sleet: ['weather_mix', '#cfe3f5'], thunder: ['thunderstorm', SUNY], sun: ['clear_day', SUNY], moon: ['bedtime', MOON], cloud: ['cloud', CLOUD], part: ['partly_cloudy_day', SUNY], rain: ['rainy', RAIN], partn: ['partly_cloudy_night', MOON] };
+const HOURS = [['Nå', 'sun', 16.2, 0], ['17', 'part', 15.3, 0], ['18', 'part', 15.0, 0], ['19', 'moon', 14.6, 0], ['20', 'partn', 14.5, 0], ['21', 'partn', 14.1, 0], ['22', 'cloud', 13.8, 0.1], ['23', 'rain', 13.4, 0.4], ['00', 'rain', 13.1, 0.6], ['01', 'cloud', 12.9, 0], ['02', 'fog', 12.6, 0], ['03', 'fog', 12.4, 0]];
+const DAYS = [['I dag', 'sun', 17, 10, 0], ['Søndag', 'cloud', 16, 10, 0], ['Mandag', 'rain', 16, 10, 1.2], ['Tirsdag', 'part', 17, 11, 0], ['Onsdag', 'sun', 19, 11, 0], ['Torsdag', 'part', 18, 12, 0], ['Fredag', 'rain', 14, 9, 4.8]];
+const f1 = v => v.toLocaleString('nb-NO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const DAYS2 = [['Søndag', 'cloud', 15.9, 10.2, 'Overskyet', 0, 6, 82], ['Mandag', 'rain', 15.5, 9.8, 'Regnbyger', 1.2, 8, 88], ['Tirsdag', 'part', 17.3, 10.9, 'Delvis skyet', 0, 5, 74], ['Onsdag', 'sun', 19.1, 11.4, 'Sol', 0, 3, 61], ['Torsdag', 'part', 18.2, 12.0, 'Lettskyet', 0, 4, 66], ['Fredag', 'thunder', 14.4, 9.1, 'Torden', 4.8, 9, 91], ['Lørdag', 'sleet', 6.9, 1.7, 'Sludd', 2.3, 6, 84]];
+const WIND = [7.8, 7.1, 7.0, 7.1, 6.8, 6.2, 5.9, 5.4, 5.0, 4.6, 4.4, 4.1];
+const WX = { sun: ['clear_day', 'Sol', 'rgb(242 210 111)'], part: ['partly_cloudy_day', 'Delvis skyet', 'rgb(242 210 111)'], cloud: ['cloud', 'Overskyet', '#c7c7c7'], rain: ['rainy', 'Regn', 'rgb(115 185 242)'], sleet: ['weather_mix', 'Sludd', '#cfe3f5'], snow: ['weather_snowy', 'Snø', '#fafafa'], fog: ['foggy', 'Tåke', '#c7c7c7'], thunder: ['thunderstorm', 'Torden', 'rgb(242 210 111)'], wind: ['air', 'Kraftig vind', 'rgb(115 185 242)'] };
+const WXANIM = { clear_day: 'wx-spin 24s linear infinite, wx-glow 4s ease-in-out infinite', partly_cloudy_day: 'wx-drift 5s ease-in-out infinite', partly_cloudy_night: 'wx-drift 6s ease-in-out infinite', cloud: 'wx-drift 6s ease-in-out infinite', rainy: 'wx-bob 1.1s ease-in-out infinite', weather_mix: 'wx-sway 2.6s ease-in-out infinite', weather_snowy: 'wx-sway 3.4s ease-in-out infinite', foggy: 'wx-fade 4s ease-in-out infinite', thunderstorm: 'wx-flash 3.2s linear infinite', air: 'wx-drift 1.6s ease-in-out infinite', bedtime: 'wx-bob 5s ease-in-out infinite' };
+const wxa = icon => ({ display: 'inline-block', animation: WXANIM[icon] || 'none' });
+const heroFxOf = k => { const P = [], rnd = i => ((i * 37) % 100);
+  const drops = (n, col, dur) => { for (let i = 0; i < n; i++) P.push({ position: 'absolute', left: rnd(i) + '%', top: 0, width: 2, height: 16, borderRadius: 1, background: col, animation: `wx-rain ${dur + (i % 5) * 0.12}s linear ${-((i * 0.17) % 1.2)}s infinite` }); };
+  const flakes = (n, dur) => { for (let i = 0; i < n; i++) { const sz = 4 + (i % 3) * 2; P.push({ position: 'absolute', left: rnd(i) + '%', top: 0, width: sz, height: sz, borderRadius: sz / 2, background: 'rgba(250,250,250,0.85)', animation: `wx-snow ${dur + (i % 4) * 0.9}s linear ${-((i * 0.6) % 5)}s infinite` }); } };
+  if (k === 'rain' || k === 'thunder') drops(26, 'rgb(115 185 242 / 0.55)', 0.7);
+  if (k === 'sleet') { drops(14, 'rgb(115 185 242 / 0.5)', 0.8); flakes(12, 3.4); }
+  if (k === 'snow') flakes(28, 4.2);
+  if (k === 'fog') [18, 62, 108, 150].forEach((y, i) => P.push({ position: 'absolute', left: '-30%', top: y, width: '160%', height: 36, borderRadius: 18, background: 'linear-gradient(90deg, transparent, rgba(220,220,220,0.16), rgba(220,220,220,0.22), transparent)', filter: 'blur(6px)', animation: `wx-fog ${7 + i * 1.5}s ease-in-out ${-i * 2}s infinite alternate` }));
+  if (k === 'thunder') P.push({ position: 'absolute', inset: 0, background: 'rgba(255,255,240,0.5)', animation: 'wx-bolt 4.5s linear infinite' });
+  if (k === 'sun') P.push({ position: 'absolute', right: -60, top: -60, width: 300, height: 300, borderRadius: 150, background: 'radial-gradient(circle, rgb(242 210 111 / 0.28), transparent 65%)', animation: 'wx-ray 5s ease-in-out infinite' });
+  if (k === 'part' || k === 'cloud') [[-10, 20, 220], [40, 90, 260]].forEach(([x, y, w], i) => P.push({ position: 'absolute', left: x + '%', top: y, width: w, height: 70, borderRadius: 35, background: `rgba(255,255,255,${k === 'cloud' ? 0.07 : 0.05})`, filter: 'blur(10px)', animation: `wx-drift ${8 + i * 3}s ease-in-out infinite` }));
+  if (k === 'wind') for (let i = 0; i < 7; i++) P.push({ position: 'absolute', left: 0, top: 20 + i * 24, width: 90 + (i % 3) * 40, height: 2, borderRadius: 1, background: 'linear-gradient(90deg, transparent, rgba(220,230,245,0.45), transparent)', animation: `wx-wind ${1.4 + (i % 4) * 0.3}s linear ${-i * 0.4}s infinite` });
+  return P; };
+const VSECS = [['hero', 'Toppkort', 'view_carousel'], ['alerts', 'Farevarsler', 'warning'], ['hours', 'Time for time', 'schedule'], ['days', 'Dagskort', 'calendar_month'], ['tiles', 'Detaljkort', 'grid_view'], ['moon', 'Månefase', 'bedtime']];
+const VTILES = [['sky', 'Skydekke', 'cloud'], ['wind', 'Vind', 'air'], ['gust', 'Vindkast', 'storm'], ['sun', 'Sol opp og ned', 'wb_twilight'], ['hum', 'Fukt', 'humidity_percentage'], ['uv', 'UV-indeks', 'light_mode'], ['press', 'Trykk', 'compress'], ['rain', 'Nedbør', 'water_drop']];
+class Component extends DCLogic {
+  state = { hero: 0, open: null, alertOpen: null, wx: 'sun' };
+  alertVals() {
+    const s = this.state, LV = { 1: ['Grønt', 'rgb(102 209 158)'], 2: ['Gult', 'rgb(242 210 111)'], 3: ['Oransje', 'rgb(242 181 115)'], 4: ['Rødt', 'rgb(242 128 115)'], 5: ['Svart', '#fafafa'] };
+    const TY = { wind: 'air', rain: 'rainy', snow: 'weather_snowy', flood: 'flood', landslide: 'landslide', avalanche: 'ac_unit', forestfire: 'local_fire_department', coast: 'waves', ice: 'severe_cold', thunder: 'thunderstorm' };
+    const A = [
+      { id: 'm1', type: 'wind', src: 'Met.no', ent: 'sensor.norway_alerts_metalerts_stromstad', level: 2, status: 'Pågår', title: 'Gult farevarsel · Kraftige vindkast', from: 'søn 18:00', to: 'man 08:00', text: 'Vindkast opp mot 20 m/s langs kysten.', blocks: [['Råd', 'Sikre løse gjenstander. Vær forsiktig langs kysten og i fjellet.'], ['Konsekvenser', 'Løse gjenstander kan blåse vekk. Mindre skader på bygninger mulig.'], ['Område', 'Østfold, Oslofjorden']] },
+      { id: 'n1', type: 'flood', src: 'NVE · Varsom', ent: 'sensor.norway_alerts_flood_ostfold', level: 2, status: 'Ventet', title: 'Gult flomvarsel · Halden og Aremark', from: 'man 06:00', to: 'tir 23:59', text: 'Mye regn kan gi stor vannføring i mindre elver og bekker.', blocks: [['Råd', 'Hold stikkrenner og sluk åpne. Unngå å ferdes nær elver.'], ['Konsekvenser', 'Oversvømmelse av veier og lavtliggende områder.'], ['Kommuner', 'Halden, Aremark, Marker']] },
+      { id: 'n2', type: 'landslide', src: 'NVE · Varsom', ent: 'sensor.norway_alerts_landslide_ostfold', level: 1, status: 'Ingen fare', title: 'Jord- og flomskredfare · lav', from: 'i dag', to: 'i morgen', text: 'Generelt trygge forhold.', blocks: [] }];
+    const act = A.filter(x => x.level > 1).sort((a, b) => b.level - a.level);
+    return {
+      hasAlerts: act.length > 0, alertSum: `${act.filter(x => x.status === 'Pågår').length} pågår · ${act.filter(x => x.status === 'Ventet').length} ventet`,
+      alertChips: act.map((x, i) => ({ icon: TY[x.type], wrap: { width: 28, height: 28, borderRadius: 14, display: 'grid', placeItems: 'center', background: LV[x.level][1], color: '#282828', marginLeft: i ? -7 : 0, boxShadow: '0 0 0 2px #282828', zIndex: 10 - i } })),
+      alerts: act.map(x => { const c = LV[x.level][1], open = s.alertOpen === x.id; return { title: x.title, icon: TY[x.type], levelName: `${LV[x.level][0]} nivå`, status: x.status, when: `${x.from} – ${x.to}`, text: x.text, open,
+        blocks: x.blocks.map(([l, v]) => ({ l, v })), source: `${x.src} · ${x.ent}`, toggle: () => this.setState({ alertOpen: open ? null : x.id }),
+        card: { display: 'flex', flexDirection: 'column', padding: '14px 16px', borderRadius: 24, width: '100%', boxSizing: 'border-box', background: c.replace(')', ' / 0.12)'), boxShadow: `inset 0 0 0 1px ${c.replace(')', ' / 0.35)')}` },
+        iconWrap: { width: 42, height: 42, borderRadius: 21, flex: 'none', display: 'grid', placeItems: 'center', background: c, color: '#282828' },
+        badge: { fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: c.replace(')', ' / 0.22)'), color: c },
+        statusStyle: { fontSize: 11, color: x.status === 'Pågår' ? '#fafafa' : '#979797' },
+        chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flex: 'none' } }; }) };
+  }
+  vcfg() { if (this._vc === undefined) { try { this._vc = JSON.parse(localStorage.getItem('vaer-cfg-v1') || 'null'); } catch (e) { this._vc = null; } } const c = this.state.vc || this._vc || {};
+    const merge = (o, all) => [...(o || []).filter(k => all.includes(k)), ...all.filter(k => !(o || []).includes(k))];
+    return { order: merge(c.order, VSECS.map(x => x[0])), tiles: merge(c.tiles, VTILES.map(x => x[0])), hidden: c.hidden || {}, tileHidden: c.tileHidden || {} }; }
+  setVcfg(p) { const n = { ...this.vcfg(), ...p }; try { localStorage.setItem('vaer-cfg-v1', JSON.stringify(n)); } catch (e) {} this._vc = n; this.setState({ vc: n }); }
+  layoutVals() {
+    const s = this.state, c = this.vcfg(), over = s.vOver;
+    const mv = (arr, a, b) => { const o = arr.filter(x => x !== a), j = b ? o.indexOf(b) : -1; j < 0 ? o.push(a) : o.splice(j, 0, a); return o; };
+    const dnd = (type, id) => ({ dragStart: e => { this._vd = { type, id }; try { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; } catch (x) {} },
+      dragOver: e => { e.preventDefault(); if (this.state.vOver !== id) this.setState({ vOver: id }); },
+      drop: e => { e.preventDefault(); const d = this._vd; this._vd = null; this.setState({ vOver: null }); if (!d || d.type !== type || d.id === id) return; this.setVcfg(type === 'sec' ? { order: mv(c.order, d.id, id) } : { tiles: mv(c.tiles, d.id, id) }); },
+      dragEnd: () => { this._vd = null; this.setState({ vOver: null }); } });
+    const sq = on => ({ width: 32, height: 32, borderRadius: 16, display: 'grid', placeItems: 'center', color: '#fafafa', opacity: on ? 1 : 0.2, pointerEvents: on ? 'auto' : 'none' });
+    const swap = (arr, i, d) => { const o = [...arr], j = i + d; if (j < 0 || j >= o.length) return arr; [o[i], o[j]] = [o[j], o[i]]; return o; };
+    return {
+      ord: Object.fromEntries(c.order.map((k, i) => [k, { order: i, display: c.hidden[k] ? 'none' : 'flex', flexDirection: 'column', gap: 12 }])),
+      tord: Object.fromEntries(c.tiles.map((k, i) => [k, { order: i, display: c.tileHidden[k] ? 'none' : 'block', minWidth: 0 }])),
+      ed: { open: !!s.vEd, openIt: () => this.setState({ vEd: true }), close: () => this.setState({ vEd: false }), reset: () => { try { localStorage.removeItem('vaer-cfg-v1'); } catch (e) {} this._vc = null; this.setState({ vc: null }); },
+        secs: c.order.map((k, i) => { const [, label, icon] = VSECS.find(x => x[0] === k), hid = !!c.hidden[k]; return { label, icon, ...dnd('sec', k),
+          up: () => this.setVcfg({ order: swap(c.order, i, -1) }), down: () => this.setVcfg({ order: swap(c.order, i, 1) }), upStyle: sq(i > 0), downStyle: sq(i < c.order.length - 1),
+          eye: () => this.setVcfg({ hidden: { ...c.hidden, [k]: !hid } }), eyeIcon: hid ? 'visibility_off' : 'visibility', eyeStyle: { fontSize: 20, color: hid ? '#696969' : '#afafaf' },
+          row: { display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 6px 0 10px', borderRadius: 28, background: '#404040', opacity: hid ? 0.5 : 1, boxShadow: over === k ? 'inset 0 3px 0 rgb(242 133 201)' : 'none', cursor: 'grab' } }; }),
+        tiles: c.tiles.map(k => { const [, label, icon] = VTILES.find(x => x[0] === k), hid = !!c.tileHidden[k]; return { label, icon, ...dnd('tile', k),
+          eye: () => this.setVcfg({ tileHidden: { ...c.tileHidden, [k]: !hid } }), eyeIcon: hid ? 'visibility_off' : 'visibility', eyeStyle: { fontSize: 18, color: hid ? '#696969' : '#afafaf' },
+          style: { display: 'flex', alignItems: 'center', gap: 8, height: 48, padding: '0 4px 0 12px', borderRadius: 16, background: '#404040', opacity: hid ? 0.5 : 1, boxShadow: over === k ? 'inset 0 0 0 2px rgb(242 133 201)' : 'none', cursor: 'grab' } }; }) } };
+  }
+  renderVals() {
+    const s = this.state;
+    const tMin = Math.min(...HOURS.map(h => h[2])), tMax = Math.max(...HOURS.map(h => h[2]));
+    const lo = Math.min(...DAYS.map(d => d[3])), hi = Math.max(...DAYS.map(d => d[2]));
+    const sunFrac = (16 * 60 - 390) / (1184 - 390), ang = Math.PI * (1 - sunFrac);
+    const PM = { Ingen: '#7f7f7f', Beskjeden: 'rgb(102 209 158)', Moderat: 'rgb(242 210 111)', Kraftig: 'rgb(242 181 115)', Ekstrem: 'rgb(242 128 115)' };
+    const pollenMini = [['Hassel', 'nature', 'Ingen'], ['Or', 'forest', 'Ingen'], ['Salix', 'spa', 'Ingen'], ['Bjørk', 'park', 'Ingen'], ['Gress', 'grass', 'Beskjeden'], ['Burot', 'eco', 'Moderat']].map(([name, icon, level]) => ({ name, icon, level,
+      iconStyle: { fontSize: 20, color: PM[level], fontVariationSettings: "'FILL' 1", flex: 'none' }, levelStyle: { fontSize: 10, color: PM[level] } }));
+    const out = { ...this.alertVals(), ...this.layoutVals(), pollenMini, moonName: 'Første kvarter', rain24: f1(HOURS.reduce((t, h) => t + h[3], 0) + 0.3),
+      place: 'Strømstad', now: { cond: 'Sol', temp: f1(16.2), feels: 'H 17° · L 10', wind: '7,8 m/s SV', rain: '0 mm' },
+      heroScroll: e => { const el = e.currentTarget, n = Math.round(el.scrollLeft / el.clientWidth); if (n !== this.state.hero) this.setState({ hero: n }); },
+      heroDots: [0, 1, 2].map(i => ({ width: (i === s.hero) ? 12 : 10, height: (i === s.hero) ? 12 : 10, borderRadius: 6, background: (i === s.hero) ? '#7f7f7f' : '#545454', transition: 'background .2s' })),
+      extras: [['wb_twilight', '06:30', 'rgb(242 181 115)'], ['wb_twilight', '19:44', 'rgb(242 133 201)'], ['bedtime', 'Første kvarter', MOON], ['light_mode', 'UV svært lav (0,8)', SUNY]].map(([icon, label, c], i) => ({ icon, label, iconStyle: { fontSize: 30, color: c, fontVariationSettings: "'FILL' 1", transform: i === 1 ? 'scaleY(-1)' : 'none' } })),
+      hours: HOURS.map(([t, k, temp, r], i) => ({ t: i ? t + ':00' : 'Nå', temp: f1(temp), wind: `${f1(WIND[i] || 4)} m/s`,
+        box: { flex: 'none', width: 92, height: 172, boxSizing: 'border-box', borderRadius: 24, background: i === 0 ? '#404040' : '#3a3a3a', boxShadow: i === 0 ? 'inset 0 0 0 1px rgba(255,255,255,0.08)' : 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }, icon: IC[k][0], rain: `${f1(r)} mm`, iconStyle: { fontSize: 30, color: IC[k][1], fontVariationSettings: "'FILL' 1" },
+        dot: { position: 'absolute', left: '50%', top: `${(1 - (temp - tMin) / (tMax - tMin || 1)) * 32}px`, width: 8, height: 8, marginLeft: -4, borderRadius: 4, background: i ? SUNY : '#fafafa', boxShadow: i ? 'none' : '0 0 0 3px rgb(242 210 111 / 0.4)' },
+        rainStyle: { fontSize: 10, color: RAIN, height: 12 }, tStyle: { fontSize: 12, color: i ? '#979797' : '#fafafa', fontWeight: i ? 400 : 600 } })),
+      days: DAYS2.map(([day, k, hi, lo, cond, r, w, hum]) => { const open = s.open === day; return { day, hi: f1(hi), lo: f1(lo), cond, rain: `${f1(r)} mm`, icon: IC[k][0], iconStyle: { fontSize: 64, color: IC[k][1], fontVariationSettings: "'FILL' 1", flex: 'none' }, open,
+        toggle: () => this.setState({ open: open ? null : day }), more: [{ l: 'Vind', v: `${w} m/s` }, { l: 'Lavest', v: `${f1(lo)}°` }, { l: 'Nedbør', v: `${f1(r)} mm` }],
+        card: { display: 'flex', flexDirection: 'column', padding: '18px 24px', borderRadius: 28, background: '#3a3a3a', width: '100%', boxSizing: 'border-box' } }; }),
+      daysOld: DAYS.map(([day, k, h, l, r], i) => ({ day, icon: IC[k][0], hi: h, lo: l, rain: r ? `${f1(r)} mm` : '',
+        row: { display: 'flex', alignItems: 'center', gap: 10, height: 48, borderTop: '1px solid rgba(255,255,255,0.05)' },
+        iconStyle: { fontSize: 22, width: 24, color: IC[k][1], fontVariationSettings: "'FILL' 1" }, rainStyle: { width: 46, fontSize: 11, color: RAIN, whiteSpace: 'nowrap' },
+        range: { position: 'absolute', top: 0, bottom: 0, left: `${(l - lo) / (hi - lo) * 100}%`, width: `${(h - l) / (hi - lo) * 100}%`, borderRadius: 3, background: `linear-gradient(90deg, ${RAIN}, ${SUNY})` } })),
+      wind: { arrow: { position: 'absolute', top: 12, left: '50%', marginLeft: -11, transform: 'rotate(45deg)', transformOrigin: 'center' } },
+      sun: { dot: { position: 'absolute', left: `calc(${50 + Math.cos(ang) * 46}% - 9px)`, top: `${6 + 50 - Math.sin(ang) * 50 - 9}px`, width: 18, height: 18, borderRadius: 9, background: SUNY, boxShadow: '0 0 16px rgb(242 210 111 / 0.6)' } },
+      pressRing: (() => { const deg = (1008 - 960) / (1060 - 960) * 270, m = 'radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px))'; return { position: 'absolute', inset: 6, borderRadius: '50%', background: `conic-gradient(from 225deg, ${RAIN} 0 ${deg}deg, #404040 ${deg}deg 270deg, transparent 270deg)`, WebkitMask: m, mask: m, pointerEvents: 'none' }; })(),
+      pollenMeta: 'NAAF · Østfold · oppdatert 14:00',
+      pollenLegend: [['Beskjeden', 'rgb(102 209 158)'], ['Moderat', 'rgb(242 210 111)'], ['Kraftig', 'rgb(242 181 115)'], ['Ekstrem', 'rgb(242 128 115)']].map(([t, c]) => ({ t, dot: { width: 8, height: 8, borderRadius: 4, background: c } })),
+      pollen: (() => { const ST = { none: ['Ingen', '#404040'], low: ['Beskjeden', 'rgb(102 209 158)'], moderate: ['Moderat', 'rgb(242 210 111)'], severe: ['Kraftig', 'rgb(242 181 115)'], extreme: ['Ekstrem', 'rgb(242 128 115)'] }, L = Object.values(ST), IDX = Object.keys(ST);
+        return [['Hassel', 'hazel', 'nature', ['none', 'none']], ['Or', 'alder', 'forest', ['none', 'none']], ['Salix', 'salix', 'spa', ['none', 'none']], ['Bjørk', 'birch', 'park', ['none', 'none']], ['Gress', 'grass', 'grass', ['low', 'low']], ['Burot', 'mugwort', 'eco', ['moderate', 'low']]].map(([name, key, icon, st], i) => { const d = st.map(x => IDX.indexOf(x)); return { name, icon, level: L[d[0]][0], ent: `sensor.pollen_${key}_stromstad_today`,
+          row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' },
+          days: d.map((v, k) => ({ width: 10, height: 10, borderRadius: 5, background: L[v][1], opacity: k ? 0.7 : 1 })),
+          chip: { minWidth: 58, textAlign: 'center', fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 9, background: d[0] ? L[d[0]][1].replace(')', ' / 0.18)') : '#404040', color: d[0] ? L[d[0]][1] : '#7f7f7f' } }; }); })(),
+    };
+    const W = WX[s.wx] || WX.sun;
+    out.now = { ...out.now, cond: W[1] };
+    out.heroIcon = { icon: W[0], style: { fontSize: 120, color: W[2], fontVariationSettings: "'FILL' 1", ...wxa(W[0]), filter: s.wx === 'sun' ? undefined : `drop-shadow(0 0 20px ${W[2].startsWith('#') ? 'rgba(255,255,255,0.15)' : W[2].replace(')', ' / 0.3)')})` } };
+    out.heroFx = heroFxOf(s.wx);
+    out.hours = out.hours.map(h => ({ ...h, iconStyle: { ...h.iconStyle, ...wxa(h.icon) } }));
+    out.days = out.days.map(d => ({ ...d, iconStyle: { ...d.iconStyle, ...wxa(d.icon) } }));
+    out.extras = out.extras.map(x => ({ ...x, iconStyle: { ...x.iconStyle, ...wxa(x.icon === 'light_mode' ? 'clear_day' : x.icon) } }));
+    out.ed = { ...out.ed, wx: Object.entries(WX).map(([k, [icon, label]]) => ({ icon, label, go: () => this.setState({ wx: k }), style: { height: 34, padding: '0 12px 0 9px', borderRadius: 17, display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: s.wx === k ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#404040', color: s.wx === k ? '#5a3a48' : '#fafafa' } })) };
+    return out;
+  }
+}
+</script>
+</body>
+</html>

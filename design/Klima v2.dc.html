@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-hscroll]::-webkit-scrollbar{display:none}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 14px 40px;display:flex;flex-direction:column;gap:16px">
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px">
+    <span style="width:40px;height:40px;border-radius:20px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">thermostat</span></span>
+    <div style="flex:1;font-size:26px;font-weight:500;letter-spacing:-0.02em">Klima</div>
+    <button style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+  </header>
+
+  <section style="position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 16px 16px;border-radius:32px;background:#3a3a3a;overflow:hidden">
+    <div style="{{ glow }}"></div>
+    <div style="position:relative;width:250px;height:136px">
+      <div style="position:absolute;inset:0;overflow:hidden"><div style="{{ arcTrack }}"></div><div style="{{ arcFill }}"></div></div>
+      <div style="position:absolute;left:-20px;right:-20px;bottom:6px;display:flex;flex-direction:column;align-items:center;gap:0">
+        <span style="{{ statusTag }}">{{ status }}</span>
+        <span style="font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap">{{ nowKw }}<span style="font-size:15px;color:#7f7f7f;letter-spacing:0"> kW</span></span>
+        <span style="font-size:12px;color:#7f7f7f;white-space:nowrap">av {{ limit }} kW tillatt</span>
+      </div>
+    </div>
+    <div style="position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%">
+      <sc-for list="{{ heroStats }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:18px;background:#3a3a3a"><span style="font-size:17px;font-weight:600;font-variant-numeric:tabular-nums">{{ s.v }}</span><span style="font-size:10px;color:#7f7f7f">{{ s.k }}</span></div>
+      </sc-for>
+    </div>
+    <button onClick="{{ toggleAway }}" style="{{ awayPill }}"><span class="ms" style="font-size:16px;font-variation-settings:'FILL' 1">{{ awayIcon }}</span>{{ awayLabel }}</button>
+  </section>
+
+  <section data-hscroll="1" style="display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:2px 18px">
+    <sc-for list="{{ modes }}" as="m" hint-placeholder-count="5">
+      <button onClick="{{ m.go }}" style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:66px">
+        <span style="{{ m.bubble }}"><span class="ms" style="{{ m.iconStyle }}">{{ m.icon }}</span></span>
+        <span style="{{ m.labelStyle }}">{{ m.label }}</span>
+      </button>
+    </sc-for>
+  </section>
+
+  <nav style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7"><button onPointerDown="{{ t.odown }}" onPointerMove="{{ t.omove }}" onPointerUp="{{ t.oup }}" onPointerCancel="{{ t.oup }}" onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="{{ t.iconStyle }}">{{ t.icon }}</span><span style="font-size:9.5px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span></button></sc-for>
+  </nav>
+
+  <sc-if value="{{ is.ov }}" hint-placeholder-val="{{ true }}">
+    <section style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:500">Siste 12 timer</span><span style="font-size:12px;color:#7f7f7f">grense 5,50 kWh</span></div>
+      <div style="position:relative;display:flex;align-items:flex-end;gap:4px;height:96px">
+        <span style="position:absolute;left:0;right:0;bottom:88px;border-top:1px dashed #545454"></span>
+        <sc-for list="{{ hist }}" as="b" hint-placeholder-count="12"><span style="{{ b }}"></span></sc-for>
+      </div>
+      <div style="display:flex;gap:4px"><sc-for list="{{ histLabels }}" as="x" hint-placeholder-count="12"><span style="flex:1;text-align:center;font-size:9px;color:#696969;font-variant-numeric:tabular-nums">{{ x }}</span></sc-for></div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:500">Forventet effekt</span><span style="font-size:12px;color:#7f7f7f">ingen topp i sikte</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+        <sc-for list="{{ forecast }}" as="f" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:18px;background:#3a3a3a">
+            <span style="position:relative;width:8px;height:44px;border-radius:4px;background:#3a3a3a;overflow:hidden"><span style="{{ f.bar }}"></span></span>
+            <span style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">{{ f.v }}</span>
+            <span style="font-size:10px;color:#7f7f7f">{{ f.k }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;padding:0 6px"><span style="font-size:15px;font-weight:500">Leggetid</span><span style="font-size:12px;color:#7f7f7f">trykk når noen legger seg</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <sc-for list="{{ bed }}" as="b" hint-placeholder-count="2">
+          <button onClick="{{ b.go }}" style="{{ b.pill }}" style-active="transform:scale(0.97)">
+            <span style="{{ b.iconWrap }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">bed</span></span>
+            <span style="display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500">{{ b.name }}</span><span style="font-size:11px;opacity:0.7">{{ b.sub }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ is.so }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ hasZone }}" hint-placeholder-val="{{ false }}">
+      <section style="display:flex;flex-direction:column;gap:14px;padding:16px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="{{ zone.iconWrap }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">{{ zone.icon }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">{{ zone.name }}</span><span style="font-size:12px;color:#7f7f7f;text-wrap:pretty">{{ zone.sub }}</span></span>
+          <button onClick="{{ zone.close }}" style="width:36px;height:36px;border-radius:18px;background:#3a3a3a;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:18px">close</span></button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-radius:30px;background:#3a3a3a">
+          <button onClick="{{ zone.dec }}" style="width:48px;height:48px;border-radius:24px;background:#3a3a3a;display:grid;place-items:center" style-active="transform:scale(0.92)"><span class="ms" style="font-size:22px">remove</span></button>
+          <span style="display:flex;flex-direction:column;align-items:center"><span style="font-size:30px;font-weight:300;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">{{ zone.set }}°</span><span style="font-size:11px;color:#7f7f7f">{{ zone.setSub }}</span></span>
+          <button onClick="{{ zone.inc }}" style="width:48px;height:48px;border-radius:24px;background:#3a3a3a;display:grid;place-items:center" style-active="transform:scale(0.92)"><span class="ms" style="font-size:22px">add</span></button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <sc-for list="{{ zone.durs }}" as="d" hint-placeholder-count="3"><button onClick="{{ d.go }}" style="{{ d.style }}">{{ d.t }}</button></sc-for>
+        </div>
+        <button onClick="{{ zone.toggleAi }}" style="display:flex;align-items:center;gap:12px;text-align:left">
+          <span class="ms" style="font-size:20px;color:#979797">smart_toy</span>
+          <span style="flex:1;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">KI styrer sonen</span><span style="font-size:11px;color:#7f7f7f">Av = motoren rører den ikke</span></span>
+          <span style="{{ zone.track }}"><span style="{{ zone.knob }}"></span></span>
+        </button>
+      </section>
+    </sc-if>
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <sc-for list="{{ zones }}" as="z" hint-placeholder-count="9">
+        <button onClick="{{ z.go }}" style="{{ z.card }}" style-active="transform:scale(0.97)">
+          <span style="display:flex;justify-content:space-between;align-items:center;width:100%">
+            <span style="{{ z.iconWrap }}"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ z.icon }}</span></span>
+            <span style="{{ z.tag }}">{{ z.tagT }}</span>
+          </span>
+          <span style="font-size:26px;font-weight:300;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">{{ z.temp }}°</span>
+          <span style="display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0;width:100%"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.name }}</span><span style="font-size:11px;color:#7f7f7f">{{ z.goal }}</span></span>
+        </button>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ is.en }}" hint-placeholder-val="{{ false }}">
+    <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:500">Dynamisk grense</span><span style="font-size:12px;color:#7f7f7f">neste trinn ved 5 kW</span></div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:40px;font-weight:300;letter-spacing:-0.04em">5,50</span><span style="font-size:14px;color:#7f7f7f">kWh denne timen</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        <sc-for list="{{ enStats }}" as="s" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:18px;background:#3a3a3a"><span style="font-size:16px;font-weight:600;font-variant-numeric:tabular-nums">{{ s.v }}</span><span style="font-size:10px;color:#7f7f7f;text-align:center">{{ s.k }}</span></div></sc-for>
+      </div>
+      <div style="font-size:12px;color:#7f7f7f;text-wrap:pretty">Økonomisk rom (5,64 kWh) er over den absolutte grensen, så 5,50 kWh gjelder. Topp tre denne måneden: 3,99 / 3,87 / 3,64 kWh.</div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:500">KI sparer</span><span style="font-size:12px;color:#7f7f7f">103,7 kWh flyttet</span></div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:40px;font-weight:300;letter-spacing:-0.04em">47</span><span style="font-size:14px;color:#7f7f7f">kr spart i september</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ savings }}" as="x" hint-placeholder-count="5">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;justify-content:space-between;font-size:13px"><span style="display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:17px;color:#979797">{{ x.icon }}</span>{{ x.k }}</span><span style="font-weight:600;font-variant-numeric:tabular-nums">{{ x.v }}</span></div>
+            <div style="height:8px;border-radius:4px;background:#3a3a3a;overflow:hidden"><div style="{{ x.bar }}"></div></div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    <section style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+      <sc-for list="{{ month }}" as="s" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:20px;background:#3a3a3a"><span style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums">{{ s.v }}</span><span style="font-size:10px;color:#7f7f7f">{{ s.k }}</span></div></sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ is.vb }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:26px;background:#3a3a3a">
+      <sc-for list="{{ waterSeg }}" as="x" hint-placeholder-count="2"><button onClick="{{ x.go }}" style="{{ x.style }}"><span class="ms" style="font-size:19px">{{ x.icon }}</span>{{ x.label }}</button></sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isBer }}" hint-placeholder-val="{{ false }}">
+    <section style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="position:relative;width:96px;height:96px;flex:none">
+        <div style="{{ legRing }}"></div>
+        <div style="position:absolute;inset:10px;border-radius:50%;background:#3a3a3a;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="ms" style="font-size:22px;color:rgb(102 209 158);font-variation-settings:'FILL' 1">verified_user</span><span style="font-size:10px;color:#7f7f7f">0,4 / 3 d</span></div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgb(102 209 158)">Legionella sikret</span>
+        <span style="font-size:16px;font-weight:600">Bereder står stille</span>
+        <span style="font-size:12px;color:#7f7f7f;text-wrap:pretty">Ferdig for i natt. Neste vindu åpner kl. 00:00. Frist man 28. sep 12:36.</span>
+      </div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:500">Prisstyring</span><span style="font-size:12px;color:#7f7f7f">grønn = bereder kjører</span></div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:70px"><sc-for list="{{ price }}" as="b" hint-placeholder-count="24"><span style="{{ b }}"></span></sc-for></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#696969;font-variant-numeric:tabular-nums"><span>21</span><span>03</span><span>09</span><span>15</span><span>20</span></div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ water }}" as="w" hint-placeholder-count="3">
+        <button onClick="{{ w.go }}" style="{{ w.pill }}">
+          <span style="{{ w.iconWrap }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ w.icon }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500">{{ w.k }}</span><span style="font-size:11px;color:#7f7f7f">{{ w.sub }}</span></span>
+          <span style="{{ w.track }}"><span style="{{ w.knob }}"></span></span>
+        </button>
+      </sc-for>
+    </section>
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <sc-for list="{{ waterBtns }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.go }}" style="{{ b.style }}" style-active="transform:scale(0.97)"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ b.icon }}</span>{{ b.label }}</button></sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ is.ta }}" hint-placeholder-val="{{ false }}">
+    <section style="display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="font-size:15px;font-weight:500;padding-bottom:6px">Slik tenker motoren nå</div>
+      <sc-for list="{{ think }}" as="r" hint-placeholder-count="5">
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px">{{ r.k }}</span><span style="font-size:11px;color:#696969">{{ r.sub }}</span></span>
+          <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">{{ r.v }}</span>
+        </div>
+      </sc-for>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:0;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between;padding-bottom:10px"><span style="font-size:15px;font-weight:500">Beslutningslogg</span><span style="font-size:12px;color:#7f7f7f">40 oppføringer</span></div>
+      <sc-for list="{{ log }}" as="l" hint-placeholder-count="5">
+        <div style="display:flex;gap:12px">
+          <span style="display:flex;flex-direction:column;align-items:center;width:12px;flex:none"><span style="{{ l.dot }}"></span><span style="{{ l.line }}"></span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-bottom:14px">
+            <span style="display:flex;gap:8px;align-items:baseline"><span style="font-size:12px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ l.t }}</span><span style="font-size:13px;font-weight:500">{{ l.title }}</span></span>
+            <span style="font-size:11px;color:#7f7f7f;text-wrap:pretty">{{ l.sub }}</span>
+          </span>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+  <sc-if value="{{ is.op }}" hint-placeholder-val="{{ false }}">
+    <section style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:15px;font-weight:500;padding:0 6px">Motor og vann</div>
+      <sc-for list="{{ setup }}" as="w" hint-placeholder-count="6">
+        <button onClick="{{ w.go }}" style="{{ w.pill }}">
+          <span style="{{ w.iconWrap }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ w.icon }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14px;font-weight:500">{{ w.k }}</span><span style="font-size:11px;color:#7f7f7f">{{ w.sub }}</span></span>
+          <span style="{{ w.track }}"><span style="{{ w.knob }}"></span></span>
+        </button>
+      </sc-for>
+    </section>
+  </sc-if>
+  <sc-for list="{{ extra }}" as="c" hint-placeholder-count="0">
+    <section style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:#3a3a3a">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:18px;color:#979797">{{ c.icon }}</span>{{ c.title }}</span>
+        <span style="font-size:12px;color:#7f7f7f;text-align:right">{{ c.meta }}</span>
+      </div>
+      <sc-if value="{{ c.hasStats }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ c.grid }}"><sc-for list="{{ c.stats }}" as="s" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 4px;border-radius:18px;background:#3a3a3a;text-align:center"><span style="font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">{{ s.v }}</span><span style="font-size:10px;color:#7f7f7f">{{ s.k }}</span></div></sc-for></div>
+      </sc-if>
+      <sc-if value="{{ c.hasLine }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ c.lines }}" as="l" hint-placeholder-count="1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:72px;flex:none;font-size:11px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.name }}</span>
+            <div style="position:relative;flex:1;height:22px;border-radius:8px;background:#3a3a3a;overflow:hidden">
+              <sc-for list="{{ l.segs }}" as="g" hint-placeholder-count="1"><span style="{{ g.style }}">{{ g.t }}</span></sc-for>
+              <span style="{{ c.nowLine }}"></span>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display:flex;justify-content:space-between;padding-left:80px;font-size:9px;color:#696969;font-variant-numeric:tabular-nums"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+      </sc-if>
+      <sc-if value="{{ c.hasBars }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-end;gap:2px;height:80px"><sc-for list="{{ c.bars }}" as="b" hint-placeholder-count="18"><span style="{{ b }}"></span></sc-for></div>
+      </sc-if>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="0">
+          <button onClick="{{ r.go }}" style="{{ r.row }}">
+            <span style="{{ r.dot }}"></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left">
+              <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:500">{{ r.k }}<span style="{{ r.chip }}">{{ r.chipT }}</span></span>
+              <span style="{{ r.subStyle }}">{{ r.sub }}</span>
+            </span>
+            <span style="{{ r.vStyle }}">{{ r.v }}</span>
+            <span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span>
+          </button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ c.hasNote }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;line-height:1.5;color:#7f7f7f;text-wrap:pretty">{{ c.note }}</div></sc-if>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1200}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const P = 'rgb(242 133 201)', G = 'rgb(102 209 158)', A = 'rgb(242 181 115)', R = 'rgb(242 128 115)', B = 'rgb(115 185 242)';
+const al = (c, o) => c.replace(')', ` / ${o})`);
+const nf = (n, d = 2) => n.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+const ZONES = [
+  ['bad', 'Bad gulvvarme', 22.1, 22, 'Helgesenking av bad', 'floor_lamp', 'gulv'],
+  ['cyb', 'Cybele panelovn', 21.8, 19, 'Vindu åpent, holder likevel varmen', 'heat', 'panel'],
+  ['kjp', 'Kjøkken panelovn', 22.0, 19, 'Helgemodus, på måltemperatur', 'heat', 'panel'],
+  ['kjg', 'Kjøkken gulvvarme', 24.0, 19, 'Helgesenking av gulvvarme', 'floor', 'gulv'],
+  ['seb', 'Sebastian panelovn', 22.1, 19, 'Helgemodus, på måltemperatur', 'heat', 'panel'],
+  ['stu', 'Stue', 23.2, 19, 'Helgemodus, på måltemperatur', 'weekend', 'panel'],
+  ['trp', 'Trappegang', 23.0, 19, 'Helgemodus, på måltemperatur', 'stairs', 'panel'],
+  ['do', 'Do gulvvarme', 21.5, null, 'Manuell i klimakortet', 'floor', 'gulv'],
+  ['vg', 'Vaskegang gulvvarme', 24.0, null, 'Manuell i klimakortet', 'floor', 'gulv'],
+];
+const H12 = [2.2, 1.3, 1.1, 1.8, 0.7, 0.6, 0.7, 0.8, 0.7, 0.8, 0.6, 0.3];
+const PRICE = [0.4, 0.62, 0.7, 0.66, 0.66, 0.6, 0.62, 0.64, 0.66, 0.6, 0.56, 0.5, 0.3, 0.2, 0.18, 0.2, 0.3, 0.6, 0.64, 0.66, 0.6, 0.58, 0.5, 0.46];
+const TABORD = (comp, key, list) => {
+  const LK = 'tab-order:' + key; let ord = null; try { ord = JSON.parse(localStorage.getItem(LK) || 'null'); } catch (e) {}
+  const st = comp.state.__tdrag; let L = list.map((t, i) => ({ t, k: String(t.label ?? i) }));
+  if (ord) L.sort((a, b) => { const ia = ord.indexOf(a.k), ib = ord.indexOf(b.k); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); });
+  const keys = L.map(x => x.k), mine = st && st.key === key;
+  const begin = (el, k, x0) => { const sib = [...el.parentElement.children].filter(c => c.tagName === el.tagName), rects = sib.map(c => c.getBoundingClientRect()), i = sib.indexOf(el);
+    window.__tabReorder = true; if (navigator.vibrate) navigator.vibrate(10); comp.setState({ __tdrag: { key, k, dx: 0 } });
+    const mv = e => { e.preventDefault(); e.stopPropagation(); comp.setState({ __tdrag: { key, k, dx: e.clientX - x0 } }); };
+    const fin = e => { window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', fin, true); window.removeEventListener('pointercancel', fin, true);
+      e.stopPropagation(); setTimeout(() => { window.__tabReorder = false; }, 60);
+      if (e.type === 'pointerup') { const r0 = rects[Math.max(0, i)] || rects[0], cx = r0.left + r0.width / 2 + (e.clientX - x0); let j = rects.findIndex(r => cx >= r.left && cx <= r.right); if (j < 0) j = cx < rects[0].left ? 0 : rects.length - 1;
+        const a2 = keys.filter(x => x !== k); a2.splice(j, 0, k); try { localStorage.setItem(LK, JSON.stringify(a2)); } catch (x) {} }
+      comp._tEat = true; setTimeout(() => { comp._tEat = false; }, 350); comp.setState({ __tdrag: null }); };
+    window.addEventListener('pointermove', mv, { capture: true, passive: false }); window.addEventListener('pointerup', fin, true); window.addEventListener('pointercancel', fin, true); };
+  return L.map(({ t, k }) => { const d = mine && st.k === k;
+    return { ...t,
+      odown: e => { const el = e.currentTarget, x0 = e.clientX, y0 = e.clientY; clearTimeout(comp._tHold); comp._tXY = [x0, y0]; comp._tHold = setTimeout(() => begin(el, k, x0), 380); },
+      omove: e => { const p = comp._tXY; if (p && Math.hypot(e.clientX - p[0], e.clientY - p[1]) > 8) clearTimeout(comp._tHold); },
+      oup: () => clearTimeout(comp._tHold),
+      ...(t.go ? { go: e => { if (comp._tEat) return; t.go(e); } } : {}),
+      style: d ? { ...t.style, position: 'relative', zIndex: 5, transform: `translateX(${st.dx}px) scale(1.06)`, boxShadow: '0 8px 20px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgb(242 133 201)', transition: 'none', touchAction: 'none', WebkitTouchCallout: 'none', userSelect: 'none' }
+        : mine ? { ...t.style, opacity: 0.65, transition: 'opacity .2s' } : { ...t.style, WebkitTouchCallout: 'none', userSelect: 'none' } }; });
+};
+class Component extends DCLogic {
+  state = { tab: 'ov', modes: { borte: true, sommer: false, hjem: false, ferie: false, alle: true }, bed: {}, zone: null, set: {}, ai: {}, dur: {}, tg: { bryter: false, vvbPris: true, legio: true, handkl: true, motor: true, adaptiv: true, varsel: true, dyrere: false }, boost: false, water: 'ber', xt: { hkBryter: false, hkKi: true, glemt1: true, glemt2: true, vFrost: true, vHelg: true, vHjem: true, vSommer: true, vVv: true, vHk: false, sporTor: false, sporFre: true, vvbAlltid: false } };
+  xtog = k => () => this.setState(s => ({ xt: { ...s.xt, [k]: !s.xt[k] } }));
+  extraVals() {
+    const s = this.state, X = s.xt;
+    const chipS = c => ({ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 7, background: al(c, 0.18), color: c, whiteSpace: 'nowrap' });
+    const row = (k, o = {}, i = 0) => { const on = o.tog ? X[o.tog] : null; return { k, sub: o.sub || '', v: o.v || '', chipT: o.chip ? o.chip[0] : '', go: o.tog ? this.xtog(o.tog) : undefined,
+      row: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', width: '100%', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: o.tog ? 'pointer' : 'default' },
+      dot: { display: o.dot ? 'block' : 'none', width: 7, height: 7, borderRadius: 4, flex: 'none', background: o.dot || 'transparent' },
+      chip: o.chip ? chipS(o.chip[1]) : { display: 'none' },
+      subStyle: { display: o.sub ? 'block' : 'none', fontSize: 11, color: '#7f7f7f', textWrap: 'pretty' },
+      vStyle: { display: o.v ? 'block' : 'none', fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', padding: o.pill ? '6px 11px' : 0, borderRadius: 12, background: o.pill ? '#3a3a3a' : 'transparent' },
+      track: { display: on == null ? 'none' : 'block', position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? P : '#404040', transition: 'background .2s' },
+      knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } }; };
+    const card = (icon, title, meta, o = {}) => ({ icon, title, meta, rows: (o.rows || []).map(([k, x], i) => row(k, x, i)),
+      hasStats: !!o.stats, stats: (o.stats || []).map(([v, k]) => ({ v, k })), grid: { display: 'grid', gridTemplateColumns: `repeat(${(o.stats || []).length === 4 ? 4 : 3},1fr)`, gap: 6 },
+      hasNote: !!o.note, note: o.note || '',
+      hasBars: !!o.bars, bars: (o.bars || []).map(v => ({ flex: 1, height: `${Math.max(3, v / 2.7 * 100)}%`, borderRadius: 3, background: v > 1.5 ? A : al(A, 0.5) })),
+      hasLine: !!o.lines, nowLine: { position: 'absolute', top: 0, bottom: 0, left: `${21.4 / 24 * 100}%`, width: 2, background: '#fafafa' },
+      lines: (o.lines || []).map(([name, segs]) => ({ name, segs: segs.map(([a0, b0, t, c]) => ({ t, style: { position: 'absolute', top: 2, bottom: 2, left: `${a0 / 24 * 100}%`, width: `${(b0 - a0) / 24 * 100}%`, borderRadius: 6, background: al(c, 0.55), color: '#fafafa', fontSize: 9, fontWeight: 600, display: 'flex', alignItems: 'center', paddingLeft: 5, overflow: 'hidden', whiteSpace: 'nowrap', boxSizing: 'border-box' } })) })) });
+    const E = {
+      ov: [card('water_heater', 'Varmtvann', 'Ferdig for i natt', { rows: [['Står stille', { dot: '#545454', sub: 'Neste vindu åpner kl. 00:00.', v: '0 W' }], ['Legionella: Sikret', { dot: G, sub: 'Sist sikret i morgen 12:36 · frist man 28. sep' }]] }),
+        card('luggage', 'Bortemodus', 'slår seg på automatisk', { stats: [['6 t', 'før auto'], ['19°', 'panelovn'], ['19°', 'gulv'], ['22°', 'bad']] })],
+      so: [],
+      en: [card('ssid_chart', 'Effekt siste 6 timer', 'uregulert mot styrt', { bars: [0.1, 2.5, 0.2, 0.9, 0.7, 0.6, 0.8, 0.1, 0.9, 0.1, 0.1, 0.8, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5], note: 'Oransje = styrt varme. Nå 0,54 + 0,05 kW.' }),
+        card('rule', 'Grenser', '', { rows: [['Absolutt timegrense', { v: '5,50 kWh', pill: 1 }], ['Ønsket trinn: snitt under', { v: '5,0 kW', pill: 1 }], ['Reserve mot neste trinn', { v: '0,30 kWh', pill: 1 }], ['Laveste timegrense', { v: '3,0 kWh', pill: 1 }], ['Reserve uregulert', { v: '0,35 kWh', pill: 1 }], ['Maks senking gulvvarme', { v: '3,0 °C', pill: 1 }], ['Maks senking panelovn', { v: '2,0 °C', pill: 1 }], ['Komfortvekt', { v: '60', pill: 1 }]] })],
+      vb: s.water === 'bad' ? [
+        card('dry_cleaning', 'Håndklevarmer', X.hkBryter ? 'På' : 'Av', { rows: [['Står av', { dot: '#545454', sub: 'Av. Neste vindu kl. 05:30.', v: X.hkBryter ? '45 W' : '0 W' }], ['Bryteren nå', { sub: 'Manuell bruk slås av etter maks på-tid', tog: 'hkBryter' }], ['KI styrer håndklevarmeren', { sub: 'Av = står på konstant', tog: 'hkKi' }]] }),
+        card('savings', 'KI sparer', '13 kr denne måneden', { stats: [['0,60', 'kWh spart i dag'], ['13 kr', 'spart denne mnd'], ['293 kr', 'per år med dagens vinduer']], note: 'Mot å la den stå på hele døgnet: 45 W × 15,3 t av i dag. Effekten læres fra målingen.' }),
+        card('shower', 'Dusjvinduer', '05:30–11:15 · 19:00–22:00', { lines: [['Håndklevarmer', [[5.5, 11.25, 'Morgen 05:30–11:15', G], [19, 22, 'Kveld 19–22', G]]]] }),
+        card('floor', 'Bad gulvvarme', '22,1° · mål 22°', { rows: [['Helgesenking', { dot: G, sub: 'Rommet er på måltemperatur', v: '0 W' }]] }),
+      ] : [],
+      ta: [card('checklist', 'Vurdering per sone', 'sortert som motoren prioriterer', { rows: ZONES.map(([, n, , g, sub]) => [n, { dot: g == null ? '#545454' : G, chip: g == null ? ['Manuell', '#979797'] : ['Normal', G], sub, v: '0,00 kW' }]).concat([['Varmtvannsbereder', { dot: '#545454', chip: ['Av', '#979797'], sub: 'Styres av varmtvannsdelen', v: '0,00 kW' }]]) }),
+        card('timer', 'Innlærte tidskonstanter', 'treghet · oppvarming', { rows: [['Bad gulvvarme', { sub: '2281 målinger', v: '2,7 t · 6,7 °C/t' }], ['Sebastian panelovn', { sub: '1234 målinger', v: '3,5 t · 2,7 °C/t' }], ['Trappegang', { sub: '936 målinger', v: '6,2 t · 2,2 °C/t' }], ['Cybele panelovn', { sub: '321 målinger', v: '6,3 t · 1,7 °C/t' }], ['Kjøkken panelovn', { sub: '786 målinger', v: '6,0 t · 1,5 °C/t' }], ['Kjøkken gulvvarme', { sub: '56 målinger', v: '2,0 t · 11,9 °C/t' }], ['Stue', { sub: '416 målinger', v: '7,5 t · 1,2 °C/t' }], ['Vaskegang gulvvarme', { sub: '24 målinger', v: '2,0 t · 1,2 °C/t' }]], note: 'Tidskonstanten er hvor lenge rommet holder på overtemperaturen. Lang konstant betyr at nattsenking sjelden lønner seg.' })],
+      op: [card('lightbulb', 'Lys', '0 kr spart denne måneden', { rows: [['Glemt · Rune soverom', { chip: ['glemt lys', G], sub: 'Lyset er av', tog: 'glemt1' }], ['Glemt · Vaskegang', { chip: ['glemt lys', G], sub: 'Lyset er av', tog: 'glemt2' }]] }),
+        card('notifications', 'Varslinger', '', { rows: [['Effektgrense', { sub: 'Når en time ender over grensen', tog: 'vFrost' }], ['Helg', { sub: 'Fredags- og søndagsspørsmål', tog: 'vHelg' }], ['Hjemkomst', { sub: 'Når oppvarming starter', tog: 'vHjem' }], ['Sommermodus', { sub: 'Når den slås av/på automatisk', tog: 'vSommer' }], ['Varmtvann', { sub: 'Feil og forfalt legionella varsles alltid', tog: 'vVv' }], ['Håndklevarmer', { sub: 'Sikkerhetsavstenging', tog: 'vHk' }]] }),
+        card('schedule', 'Tider', 'døgnet i huset', { lines: [['Huset', [[6.5, 22.5, 'Dag 06:30–22:30', G]]], ['Cybele', [[5.5, 19, 'Våken 05:30–19:00', 'rgb(173 153 230)']]], ['Sebastian', [[7, 23, 'Våken 07:00–23:00', B]]], ['Stue', [[23, 24, '', A]]]] }),
+        card('wb_twilight', 'Dag og natt', '06:30–22:30', { rows: [['Dag starter', { v: '06:30', pill: 1 }], ['Natt starter', { v: '22:30', pill: 1 }], ['Nattsenk kun under', { v: '19 °C', pill: 1 }]] }),
+        card('person', 'Cybele', '05:30–19:00', { rows: [['Opp', { v: '05:30', pill: 1 }], ['Legger seg', { v: '19:00', pill: 1 }], ['Borte fra', { v: '08:00', pill: 1 }], ['Hjemme igjen', { v: '15:00', pill: 1 }]] }),
+        card('person', 'Sebastian', '07:00–23:00', { rows: [['Vekking', { v: '07:00', pill: 1 }], ['Vekking helg', { v: '09:30', pill: 1 }], ['Legger seg', { v: '23:00', pill: 1 }]] }),
+        card('weekend', 'Stue og vindu', '', { rows: [['Stue reduksjon fra', { v: '23:00', pill: 1 }], ['Stue reduksjon', { v: '1,5 °C', pill: 1 }], ['Vindu: vent før senking', { v: '3 min', pill: 1 }], ['Vindu: hold temperatur', { v: '17,0 °C', pill: 1 }]] })],
+      av: [card('palette', 'Terskler for fargesonene', 'prosent av tillatt effekt', { rows: [['Gul fra', { dot: A, v: '75 %', pill: 1 }], ['Oransje fra', { dot: 'rgb(242 181 115)', v: '88 %', pill: 1 }], ['Rød fra', { dot: R, v: '97 %', pill: 1 }]], note: 'Motoren senker først når den ikke får plass i budsjettet. Fargene styrer varsling og hvor tidlig varmtvannet må vike, ikke selve utkoblingen.' }),
+        card('query_stats', 'Prognose og reserver', 'usikkert grunnlag', { stats: [['0,62', 'forventet (kWh)'], ['+0,47', 'usikkerhet (kWh)'], ['0,30', 'strategisk reserve']], rows: [['Fast reserve (fallback)', { v: '0,35 kWh', pill: 1 }], ['Margin minimum', { v: '0,00 kWh', pill: 1 }], ['Margin maksimum', { v: '1,50 kWh', pill: 1 }], ['Minste grunnlag', { v: '8 obs', pill: 1 }], ['Reserve frokost', { v: '0,7 kW', pill: 1 }], ['Reserve middag', { v: '1,0 kW', pill: 1 }], ['Frokost', { v: '06:30–08:30', pill: 1 }], ['Middag', { v: '15:30–19:00', pill: 1 }]], note: '278 av timene ble påvirket av motorens egne tiltak eller holdt utenfor. Grunnlaget mangler de vanskelige timene, så marginen holdes minst på fast nivå.' }),
+        card('event_repeat', 'Moduser og unntak', '', { rows: [['Helgetemperatur', { v: '19,0 °C', pill: 1 }], ['Helg gulvvarme', { v: '19,0 °C', pill: 1 }], ['Helg bad', { v: '22,0 °C', pill: 1 }], ['Sommertemperatur', { v: '17,0 °C', pill: 1 }], ['Sommer fra måned', { v: '6', pill: 1 }], ['Sommer til måned', { v: '8', pill: 1 }], ['Sommer når ute over', { v: '25 °C', pill: 1 }], ['Helg auto etter', { v: '6 t borte', pill: 1 }]] }),
+        card('forum', 'Helgevarsler', 'torsdag, fredag og søndag', { lines: [['Torsdag', [[16, 17, 'Spør 16:00', B]]], ['Fredag', [[10, 11, 'Spør 10:00', B]]], ['Søndag', [[8, 11, 'Svarfrist', A], [11, 14, 'Oppvarm.', G]]]], rows: [['Spør torsdag', { v: '16:00', tog: 'sporTor' }], ['Spør fredag', { v: '10:00', tog: 'sporFre' }], ['Forventet hjemkomst', { v: '14:00', pill: 1 }], ['Venter på svar', { dot: '#545454', v: 'Nei' }]] })],
+    };
+    return E[s.tab] || [];
+  }
+  tog = k => () => this.setState(s => ({ tg: { ...s.tg, [k]: !s.tg[k] } }));
+  __tabWrap(v) { if (v && Array.isArray(v.tabs)) v.tabs = TABORD(this, 'klima', v.tabs); return v; }
+  renderVals() { return this.__tabWrap(this.__rv()); }
+  __rv() {
+    const s = this.state, now = 0.57, lim = 5.5, frac = now / lim, away = s.modes.borte;
+    const col = frac > 0.97 ? R : frac > 0.75 ? A : G;
+    const mask = 'radial-gradient(circle at 50% 100%, transparent 98px, #000 99px, #000 124px, transparent 125px)';
+    const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? P : '#404040', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } });
+    const pillRow = (k, icon, label, sub, c) => { const on = s.tg[k], w = sw(on); return { k: label, sub, icon, go: this.tog(k), ...w,
+      pill: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 62, padding: '6px 14px 6px 6px', borderRadius: 31, background: '#3a3a3a', width: '100%', boxSizing: 'border-box' },
+      iconWrap: { width: 50, height: 50, borderRadius: 25, flex: 'none', display: 'grid', placeItems: 'center', background: on ? c : '#404040', color: on ? '#282828' : '#7f7f7f', transition: 'background .25s' } }; };
+    const T = [['ov', 'Oversikt', 'dashboard'], ['so', 'Soner', 'roofing'], ['en', 'Energi', 'bolt'], ['vb', 'Vann og bad', 'water_heater'], ['ta', 'Tanker', 'psychology'], ['op', 'Oppsett', 'tune'], ['av', 'Avansert', 'build']];
+    const z = ZONES.find(x => x[0] === s.zone);
+    let zone = {};
+    if (z) { const [id, name, t, goal, sub, icon] = z, set = s.set[id] ?? goal ?? 22, ai = s.ai[id] ?? goal != null, w = sw(ai), dur = s.dur[id];
+      zone = { name, sub: goal == null ? sub : `${sub} · nå ${nf(t, 1)}°`, icon, set: nf(set, 1), setSub: dur ? `overstyrt i ${dur}` : goal == null ? 'manuelt settpunkt' : `mål fra motoren ${goal}°`,
+        iconWrap: { width: 48, height: 48, borderRadius: 24, flex: 'none', display: 'grid', placeItems: 'center', background: goal == null ? '#404040' : G, color: goal == null ? '#979797' : '#282828' },
+        close: () => this.setState({ zone: null }),
+        dec: () => this.setState(st => ({ set: { ...st.set, [id]: set - 0.5 } })), inc: () => this.setState(st => ({ set: { ...st.set, [id]: set + 0.5 } })),
+        durs: ['1 t', '2 t', '6 t'].map(t => ({ t, go: () => this.setState(st => ({ dur: { ...st.dur, [id]: st.dur[id] === t ? null : t } })), style: { flex: 1, height: 38, borderRadius: 19, fontSize: 13, fontWeight: 500, background: dur === t ? PINK : '#3a3a3a', color: dur === t ? '#3a3a3a' : '#afafaf' } })),
+        toggleAi: () => this.setState(st => ({ ai: { ...st.ai, [id]: !ai } })), ...w }; }
+    const modeB = (k, icon, label) => { const on = s.modes[k]; return { icon, label, go: () => this.setState(st => ({ modes: { ...st.modes, [k]: !st.modes[k] } })),
+      bubble: { width: 58, height: 58, borderRadius: 29, display: 'grid', placeItems: 'center', background: on ? PINK : '#3a3a3a', color: on ? '#3a3a3a' : '#afafaf', boxShadow: on ? '0 6px 18px rgba(240,140,190,0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transform: on ? 'scale(1.06)' : 'scale(1)', transition: 'transform .35s cubic-bezier(.34,1.8,.64,1), background .25s' },
+      iconStyle: { fontSize: 24, fontVariationSettings: `'FILL' ${on ? 1 : 0}` }, labelStyle: { fontSize: 11, fontWeight: 500, color: on ? '#fafafa' : '#7f7f7f', whiteSpace: 'nowrap' } }; };
+    const LOG = [['21:00', 'God margin', 'Bruker 0,94 kW av 5,50 kW tillatt.', G], ['20:59', 'Senker bad gulvvarme', 'Til 19,0 °C for å holde timen under 5,50 kWh.', A], ['18:50', 'Helgemodus aktivert', 'Automatisk etter 6 t fravær.', B], ['17:59', 'Senker bad og kjøkken', 'Holder timen under 5,50 kWh.', A], ['17:54', 'God margin', 'Bruker 1,45 kW av 5,50 kW tillatt.', G]];
+    return {
+      glow: { position: 'absolute', left: '50%', top: -40, width: 320, height: 240, marginLeft: -160, borderRadius: '50%', background: `radial-gradient(closest-side, ${al(col, 0.2)}, transparent)`, pointerEvents: 'none' },
+      arcTrack: { position: 'absolute', left: 0, top: 0, width: 250, height: 250, borderRadius: '50%', background: 'conic-gradient(from -90deg, #404040 0 180deg, transparent 180deg)', WebkitMask: 'radial-gradient(circle, transparent 98px, #000 99px)', mask: 'radial-gradient(circle, transparent 98px, #000 99px)' },
+      arcFill: { position: 'absolute', left: 0, top: 0, width: 250, height: 250, borderRadius: '50%', background: `conic-gradient(from -90deg, ${col} 0 ${Math.max(4, frac * 180)}deg, transparent 0)`, WebkitMask: 'radial-gradient(circle, transparent 98px, #000 99px)', mask: 'radial-gradient(circle, transparent 98px, #000 99px)', filter: `drop-shadow(0 0 8px ${al(col, 0.6)})` },
+      status: 'God margin', statusTag: { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: col },
+      nowKw: nf(now), limit: nf(lim),
+      heroStats: [['5,19', 'kWh igjen'], ['4,08', 'kW ledig'], ['33 min', 'igjen av timen']].map(([v, k]) => ({ v, k })),
+      awayIcon: away ? 'luggage' : 'home', awayLabel: away ? 'Borte · helgemodus' : 'Hjemme · normal komfort',
+      toggleAway: () => this.setState(st => ({ modes: { ...st.modes, borte: !st.modes.borte } })),
+      awayPill: { position: 'relative', height: 36, padding: '0 14px', borderRadius: 18, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: away ? al(B, 0.22) : '#3a3a3a', color: away ? '#e6eef8' : '#afafaf', transition: 'background .3s' },
+      modes: [modeB('borte', 'luggage', 'Borte'), modeB('alle', 'logout', 'Alle borte'), modeB('hjem', 'home', 'Hjemkomst'), modeB('sommer', 'light_mode', 'Sommer'), modeB('ferie', 'school', 'Seb. ferie')],
+      tabs: T.map(([k, label, icon]) => { const act = s.tab === k; return { label, icon, go: () => this.setState({ tab: k }),
+        style: { height: 54, borderRadius: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, background: act ? PINK : 'transparent', color: act ? '#3a3a3a' : '#979797', transition: 'background .25s' },
+        iconStyle: { fontSize: 20, fontVariationSettings: `'FILL' ${act ? 1 : 0}` } }; }),
+      is: Object.fromEntries(T.map(([k]) => [k, s.tab === k])), extra: this.extraVals(), isBer: s.tab === 'vb' && s.water === 'ber',
+      waterSeg: [['ber', 'Bereder', 'water_heater'], ['bad', 'Bad', 'bathtub']].map(([k, label, icon]) => ({ label, icon, go: () => this.setState({ water: k }), style: { height: 48, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 500, background: s.water === k ? PINK : 'transparent', color: s.water === k ? '#3a3a3a' : '#979797', transition: 'background .25s' } })),
+      hist: H12.map((v, i) => ({ flex: 1, height: Math.max(3, v / 5.5 * 88), borderRadius: 6, background: i === 11 ? G : v > 5.5 ? R : '#404040' })),
+      histLabels: H12.map((_, i) => String(10 + i)),
+      forecast: [['0,6', '15 min'], ['0,6', '30 min'], ['0,7', '1 t'], ['0,7', '2 t']].map(([v, k]) => ({ v, k, bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: `${parseFloat(v.replace(',', '.')) / 5.5 * 100 + 6}%`, background: G, borderRadius: 4 } })),
+      bed: ['Cybele', 'Sebastian'].map(n => { const on = s.bed[n]; return { name: n, sub: on ? 'Nattsenking aktiv' : 'Panelovn', go: () => this.setState(st => ({ bed: { ...st.bed, [n]: !on } })),
+        pill: { display: 'flex', alignItems: 'center', gap: 10, height: 62, padding: '0 12px 0 6px', borderRadius: 31, background: on ? PINK : '#3a3a3a', color: on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' },
+        iconWrap: { width: 50, height: 50, borderRadius: 25, flex: 'none', display: 'grid', placeItems: 'center', background: on ? 'rgba(42,23,32,0.12)' : '#404040' } }; }),
+      hasZone: !!z, zone,
+      zones: ZONES.map(([id, name, t, goal, , icon]) => { const act = s.zone === id, man = goal == null, over = s.dur[id];
+        return { name, icon, temp: nf(t, 1), goal: man ? 'Manuell' : `mål ${s.set[id] ?? goal}°`, tagT: over ? over : man ? 'Manuell' : (s.ai[id] ?? true) ? 'KI' : 'Av', go: () => this.setState({ zone: act ? null : id }),
+          card: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 26, background: act ? al(G, 0.12) : '#3a3a3a', boxShadow: act ? `inset 0 0 0 1px ${al(G, 0.45)}` : 'none', transition: 'background .25s, transform .2s' },
+          iconWrap: { width: 38, height: 38, borderRadius: 19, display: 'grid', placeItems: 'center', background: man ? '#404040' : al(G, 0.2), color: man ? '#7f7f7f' : G },
+          tag: { fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: over ? al(P, 0.2) : '#3a3a3a', color: over ? P : '#979797' } }; }),
+      enStats: [['2,99', 'døgnmaks kl. 00'], ['3,83', 'snitt topp 3'], ['0,62', 'forventet nå']].map(([v, k]) => ({ v, k })),
+      savings: [['thermostat', 'Varmestyring', 15], ['water_heater', 'Bereder', 13], ['dry_cleaning', 'Håndklevarmer', 14], ['curtains', 'Gardiner', 5], ['lightbulb', 'Lys', 0]].map(([icon, k, v]) => ({ icon, k, v: `${v} kr`, bar: { width: `${v / 15 * 100}%`, height: '100%', borderRadius: 4, background: G } })),
+      month: [['0', 'unngåtte topper'], ['641', 'utkoblinger'], ['51,66', 'kWh flyttet'], ['15', 'kr spart (est.)'], ['8', 'kr nettleie'], ['263,5', '°Ct komfortavvik']].map(([v, k]) => ({ v, k })),
+      legRing: { position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${G} 0 ${0.4 / 3 * 360}deg, #404040 0)`, WebkitMask: 'radial-gradient(circle, transparent 37px, #000 38px)', mask: 'radial-gradient(circle, transparent 37px, #000 38px)' },
+      price: PRICE.map((v, i) => ({ flex: 1, height: `${v / 0.72 * 100}%`, borderRadius: 3, background: (i >= 3 && i <= 8) || s.boost && i === 0 ? G : '#404040', transition: 'background .3s' })),
+      water: [pillRow('bryter', 'power', 'Bryteren nå', 'Av · vindu 00:00–05:00', A), pillRow('vvbPris', 'savings', 'VVB prisstyring', 'Velger de billigste timene', G), pillRow('legio', 'coronavirus', 'Legionellasikring', 'Kan ikke blokkeres av sparing', G)],
+      waterBtns: [['bolt', 'Boost nå', () => this.setState({ boost: !s.boost }), s.boost], ['sync', 'Tving syklus', () => {}, false]].map(([icon, label, go, on]) => ({ icon, label, go, style: { height: 52, borderRadius: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 600, background: on ? PINK : '#3a3a3a', color: on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' } })),
+      think: [['Grensen denne timen', 'Økonomisk rom over absolutt grense', '5,50 kWh'], ['Brukt så langt', 'Fra energimåler', '0,31 kWh'], ['Tillatt snitt resten av timen', '33 minutter igjen', '5,50 kW'], ['Uregulert last nå', 'Om en time: 0,72 kW', '0,57 kW'], ['Ledig til varme', 'Etter reserver og prioriterte laster', '4,08 kW']].map(([k, sub, v]) => ({ k, sub, v })),
+      log: LOG.map(([t, title, sub, c], i) => ({ t, title, sub, dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4, background: c, boxShadow: `0 0 0 3px ${al(c, 0.2)}`, flex: 'none' }, line: { flex: 1, width: 2, background: i === LOG.length - 1 ? 'transparent' : '#404040', marginTop: 4 } })),
+      setup: [pillRow('motor', 'heat', 'Motoren styrer ovnene', 'Skriver settpunkt til soner på KI', G), pillRow('adaptiv', 'query_stats', 'Adaptiv reserve', 'Lærer usikkerhetsmargin per time', B), pillRow('handkl', 'dry_cleaning', 'Styr håndklevarmer', 'Dusjvinduer og sikkerhetsavstenging', A), pillRow('dyrere', 'trending_up', 'Tillat dyrere trinn', 'Komfort foran fastledd', R), pillRow('varsel', 'notifications', 'Varsel ved effektgrense', 'Når en time ender over grensen', P)],
+    };
+  }
+}
+</script>
+</body>
+</html>

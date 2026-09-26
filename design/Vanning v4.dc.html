@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0f0f10;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(115 185 242)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+@keyframes spray{0%{transform:rotate(var(--a)) translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:rotate(var(--a)) translateY(-70px) scale(1);opacity:0}}
+@keyframes sway{0%,100%{transform:rotate(var(--r))}50%{transform:rotate(calc(var(--r) + 4deg))}}
+</style>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:540px;min-height:100vh;margin:0 auto;background:#232323;padding:22px 18px 28px;display:flex;flex-direction:column;gap:16px">
+
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px">
+    <div style="width:40px;height:40px;border-radius:20px;background:#e9e7e2;color:#232323;display:grid;place-items:center"><span class="ms" style="font-size:22px">sprinkler</span></div>
+    <div style="flex:1;font-size:28px;font-weight:500;letter-spacing:-0.02em">Vanning</div>
+    <button title="Lukk" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center"><span class="ms" style="font-size:24px">close</span></button>
+  </header>
+
+  <section style="position:relative;height:210px;border-radius:26px;overflow:hidden;background:linear-gradient(180deg,#1b2740 0%,#22324c 50%,#2a3d57 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+    <div style="position:absolute;left:-15%;right:-15%;top:46%;height:120%;border-radius:50% 50% 0 0 / 22% 22% 0 0;background:#24452f"></div>
+    <div style="position:absolute;left:-10%;right:-25%;top:54%;height:120%;border-radius:45% 55% 0 0 / 20% 20% 0 0;background:#2c5638"></div>
+    <div style="position:absolute;left:8%;top:72%;width:28%;height:28px;border-radius:50%;background:#5b4a31;opacity:0.85"></div>
+    <div style="position:absolute;left:40%;top:80%;width:24%;height:24px;border-radius:50%;background:#5b4a31;opacity:0.85"></div>
+    <sc-for list="{{ grass }}" as="g" hint-placeholder-count="36"><span style="{{ g }}"></span></sc-for>
+    <sc-for list="{{ flowers }}" as="f" hint-placeholder-count="3">
+      <div style="{{ f.wrap }}"><span style="{{ f.head }}"></span><span style="width:2px;height:16px;background:#4f9c5c;border-radius:1px"></span></div>
+    </sc-for>
+    <div style="position:absolute;right:17%;top:38%;display:flex;flex-direction:column;align-items:center">
+      <div style="position:relative;width:24px;height:24px;border-radius:12px;background:#eef3f7;display:grid;place-items:center;box-shadow:{{ headGlow }};z-index:1">
+        <span style="width:10px;height:10px;border-radius:5px;background:rgb(115 185 242)"></span>
+        {{ spray }}
+      </div>
+      <div style="width:12px;height:58px;margin-top:-4px;border-radius:0 0 6px 6px;background:linear-gradient(90deg,#c9d6e2,#eef3f7 60%,#b7c6d4)"></div>
+      <div style="width:64px;height:14px;margin-top:-8px;border-radius:50%;background:rgba(10,20,15,0.45)"></div>
+    </div>
+    <div style="position:absolute;left:20px;right:72px;top:18px;display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:19px;font-weight:600;letter-spacing:-0.01em">{{ headline }}</div>
+      <div style="font-size:13px;color:#c8d0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ subline }}</div>
+    </div>
+    <button title="Innstillinger" style="position:absolute;right:14px;top:14px;width:40px;height:40px;border-radius:20px;background:rgba(15,20,30,0.7);display:grid;place-items:center"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">settings</span></button>
+    <div style="position:absolute;left:20px;right:20px;bottom:16px;display:flex;align-items:center;gap:14px">
+      <div style="flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);overflow:hidden"><div style="{{ heroBar }}"></div></div>
+      <div style="font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums">{{ heroLabel }}</div>
+    </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <sc-for list="{{ controls }}" as="c" hint-placeholder-count="4">
+      <button onClick="{{ c.go }}" style="{{ c.style }}">
+        <span class="ms" style="{{ c.iconStyle }}">{{ c.icon }}</span>
+        <span style="font-size:13px;font-weight:600;white-space:nowrap">{{ c.label }}</span>
+      </button>
+    </sc-for>
+  </section>
+
+  <nav style="display:grid;grid-template-columns:repeat(5,1fr);padding:4px;border-radius:18px;background:#2a2a2a;gap:2px;position:sticky;top:8px;z-index:2;box-shadow:0 8px 20px rgba(0,0,0,0.35)">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="{{ t.iconStyle }}">{{ t.icon }}</span>{{ t.label }}</button>
+    </sc-for>
+  </nav>
+
+  <!-- NÅ -->
+  <sc-if value="{{ isNow }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;overflow:hidden;background:#2a2a2a;border-radius:24px;padding:18px;box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.45);display:flex;flex-direction:column;gap:14px">
+        <div style="{{ runFill }}"></div>
+        <div style="position:relative;display:flex;align-items:flex-start;gap:12px">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:12px;color:rgb(115 185 242)">Vanner nå</div>
+            <div style="font-size:18px;font-weight:500">{{ runName }}</div>
+            <div style="font-size:12px;color:#979797">{{ runSub }}</div>
+          </div>
+          <div style="font-size:40px;font-weight:300;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;line-height:1">{{ runLeft }}</div>
+        </div>
+        <div style="position:relative;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums">{{ runLiters }}</div>
+          <button onClick="{{ stopAll }}" style="height:36px;padding:0 14px 0 10px;border-radius:18px;background:rgb(115 185 242);color:#141416;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">stop</span>Stopp</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+          <div style="font-size:12px;color:#7f7f7f">Neste vanning</div>
+          <div style="font-size:15px;font-weight:500;white-space:nowrap">{{ next.when }}</div>
+        </div>
+        <div style="font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:0.9;font-variant-numeric:tabular-nums">{{ next.time }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ next.items }}" as="i" hint-placeholder-count="1">
+          <div style="{{ i.row }}">
+            <span style="{{ i.iconWrap }}"><span class="ms" style="font-size:17px">{{ i.icon }}</span></span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</div>
+              <div style="font-size:12px;color:#7f7f7f">{{ i.kind }}</div>
+            </div>
+            <div style="font-size:12px;color:#979797;white-space:nowrap;font-variant-numeric:tabular-nums">{{ i.amount }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onClick="{{ next.run }}" style="flex:1;height:44px;border-radius:16px;background:#1f1f21;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">play_arrow</span>Kjør nå</button>
+        <button onClick="{{ next.skip }}" style="flex:1;height:44px;border-radius:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;color:#afafaf"><span class="ms" style="font-size:20px">skip_next</span>{{ next.skipLabel }}</button>
+      </div>
+    </div>
+
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:16px 18px 14px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;white-space:nowrap">
+        <div style="font-size:12px;color:#7f7f7f">Neste 7 dager</div>
+        <div style="font-size:12px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ weekAheadTotal }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:96px">
+        <sc-for list="{{ weekAhead }}" as="w" hint-placeholder-count="7">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">
+            <div style="{{ w.bar }}"></div>
+            <div style="{{ w.lbl }}">{{ w.d }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#7f7f7f"><span class="ms" style="font-size:16px;color:rgb(242 210 111)">bolt</span>Strøm</div>
+        <div style="font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">{{ power }}</div>
+      </div>
+      <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#7f7f7f"><span class="ms" style="font-size:16px;color:rgb(115 185 242)">history</span>Sist vannet</div>
+        <div style="font-size:16px;font-weight:500">14. sep · 962 L</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- SONER -->
+  <sc-if value="{{ isZones }}" hint-placeholder-val="{{ false }}">
+    <sc-for list="{{ zoneGroups }}" as="g" hint-placeholder-count="4">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;white-space:nowrap;padding:0 4px">
+          <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ g.name }}</div>
+          <div style="font-size:12px;color:#696969">{{ g.meta }}</div>
+        </div>
+        <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:22px;padding:4px 12px 4px 14px">
+          <sc-for list="{{ g.zones }}" as="z" hint-placeholder-count="3">
+            <div style="{{ z.row }}">
+              <div style="{{ z.fill }}"></div>
+              <span style="{{ z.iconWrap }}"><span class="ms" style="font-size:18px">{{ z.icon }}</span></span>
+              <div style="position:relative;flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#7f7f7f;font-variant-numeric:tabular-nums">{{ z.code }}</span> {{ z.name }}</div>
+                <div style="{{ z.subStyle }}">{{ z.sub }}</div>
+              </div>
+              <button onClick="{{ z.toggle }}" style="{{ z.btn }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ z.btnIcon }}</span></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <button onClick="{{ toggleDisabled }}" style="height:48px;border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;color:#979797"><span class="ms" style="{{ disabledChev }}">expand_more</span>{{ disabledLabel }}</button>
+    <sc-if value="{{ showDisabled }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <sc-for list="{{ disabledZones }}" as="d" hint-placeholder-count="7">
+          <div style="height:32px;padding:0 12px;border-radius:16px;background:#232323;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:flex;align-items:center;font-size:12px;color:#696969;font-variant-numeric:tabular-nums">{{ d }}</div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- PROGRAMMER -->
+  <sc-if value="{{ isProg }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ programs }}" as="p" hint-placeholder-count="4">
+        <div style="{{ p.card }}">
+          <div style="display:flex;flex-direction:column;align-items:flex-start;width:64px;flex:none">
+            <div style="font-size:24px;font-weight:300;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1">{{ p.time }}</div>
+            <div style="font-size:11px;color:#7f7f7f;padding-top:4px;white-space:nowrap">{{ p.days }}</div>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+            <div style="font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</div>
+          </div>
+          <button onClick="{{ p.run }}" title="Kjør nå" style="width:38px;height:38px;border-radius:19px;background:#1f1f21;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">play_arrow</span></button>
+          <button onClick="{{ p.toggle }}" style="{{ p.track }}"><span style="{{ p.knob }}"></span></button>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Kommende vanninger</div>
+      <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:22px;padding:4px 16px">
+        <sc-for list="{{ agenda }}" as="d" hint-placeholder-count="4">
+          <div style="{{ d.block }}">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;white-space:nowrap;padding-bottom:6px">
+              <div style="font-size:14px;font-weight:500">{{ d.day }}</div>
+              <div style="font-size:12px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ d.total }}</div>
+            </div>
+            <sc-for list="{{ d.items }}" as="i" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:12px;padding:5px 0">
+                <div style="width:40px;flex:none;font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums">{{ i.time }}</div>
+                <span style="{{ i.dot }}"></span>
+                <div style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</div>
+                <div style="font-size:12px;color:#7f7f7f;white-space:nowrap;font-variant-numeric:tabular-nums">{{ i.amount }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- FORBRUK -->
+  <sc-if value="{{ isUse }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;padding:3px;border-radius:14px;background:#2a2a2a;gap:2px;align-self:flex-start">
+      <sc-for list="{{ periods }}" as="p" hint-placeholder-count="4">
+        <button onClick="{{ p.go }}" style="{{ p.style }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div style="flex:none;display:flex;flex-direction:column;gap:4px;white-space:nowrap">
+          <div style="font-size:12px;color:#7f7f7f">{{ use.label }}</div>
+          <div style="font-size:34px;font-weight:300;letter-spacing:-0.025em;font-variant-numeric:tabular-nums;line-height:1">{{ use.used }}<span style="font-size:15px;color:#7f7f7f"> L</span></div>
+        </div>
+        <div style="flex:none;display:flex;flex-direction:column;gap:4px;text-align:right;white-space:nowrap">
+          <div style="font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">{{ use.cost }}</div>
+          <div style="font-size:12px;color:#7f7f7f">{{ use.est }}</div>
+        </div>
+      </div>
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:#1f1f21;gap:2px">
+        <sc-for list="{{ use.stack }}" as="s" hint-placeholder-count="6"><span style="{{ s }}"></span></sc-for>
+      </div>
+    </div>
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:22px;padding:4px 16px">
+      <sc-for list="{{ use.rows }}" as="r" hint-placeholder-count="8">
+        <div style="{{ r.row }}">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px">
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#7f7f7f;font-variant-numeric:tabular-nums">{{ r.code }}</span> {{ r.name }}</span>
+              <span style="{{ r.valStyle }}">{{ r.val }}</span>
+            </div>
+            <div style="position:relative;height:4px;border-radius:2px;background:#1f1f21;overflow:hidden">
+              <div style="{{ r.estBar }}"></div>
+              <div style="{{ r.bar }}"></div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+      <div style="{{ use.footStyle }}">{{ use.foot }}</div>
+    </div>
+  </sc-if>
+
+  <!-- HISTORIKK -->
+  <sc-if value="{{ isHist }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <button onClick="{{ prevMonth }}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center"><span class="ms" style="font-size:22px">chevron_left</span></button>
+        <div style="font-size:15px;font-weight:500">{{ monthLabel }}</div>
+        <button onClick="{{ nextMonth }}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center"><span class="ms" style="font-size:22px">chevron_right</span></button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+        <sc-for list="{{ weekdays }}" as="w" hint-placeholder-count="7"><div style="text-align:center;font-size:11px;color:#696969;padding:4px 0">{{ w }}</div></sc-for>
+        <sc-for list="{{ calendar }}" as="c" hint-placeholder-count="42">
+          <button onClick="{{ c.pick }}" style="{{ c.cell }}">
+            <span style="{{ c.num }}">{{ c.n }}</span>
+            <span style="{{ c.mark }}"></span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:14px;font-size:11px;color:#7f7f7f;padding:0 6px">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:4px;background:#4d6a8a"></span>Vannet</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:4px;box-shadow:inset 0 0 0 1.5px rgb(102 209 158)"></span>Planlagt</span>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding:12px 6px 0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <div style="font-size:14px;font-weight:500">{{ dayDetail.title }}</div>
+          <div style="font-size:13px;color:#979797;white-space:nowrap">{{ dayDetail.meta }}</div>
+        </div>
+        <sc-for list="{{ dayDetail.items }}" as="i" hint-placeholder-count="0">
+          <div style="display:flex;gap:12px;font-size:12px;color:#979797"><span style="width:38px;font-variant-numeric:tabular-nums">{{ i.time }}</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</span><span style="white-space:nowrap">{{ i.amount }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="background:#2a2a2a;border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div style="flex:none;display:flex;flex-direction:column;gap:4px;white-space:nowrap">
+          <div style="font-size:12px;color:#7f7f7f">Siste 14 døgn</div>
+          <div style="font-size:34px;font-weight:300;letter-spacing:-0.025em;line-height:1">962<span style="font-size:15px;color:#7f7f7f"> L</span></div>
+        </div>
+        <div style="flex:none;display:flex;flex-direction:column;gap:4px;text-align:right;white-space:nowrap">
+          <div style="font-size:15px;font-weight:500">39,54 kr</div>
+          <div style="font-size:12px;color:#7f7f7f">1 av 14 døgn med vanning</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:4px;height:110px;align-items:end">
+        <sc-for list="{{ histBars }}" as="b" hint-placeholder-count="14"><div title="{{ b.title }}" style="{{ b.style }}"></div></sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#696969"><span>12. sep</span><span>I dag</span></div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:540,&quot;height&quot;:1200}}">
+const B = 'rgb(115 185 242)', AMBER = 'rgb(242 181 115)', GREEN = 'rgb(102 209 158)', RED = 'rgb(242 128 115)';
+const al = (c, o) => c.replace(')', ` / ${o})`);
+const SPEED = 30, RATE = 8, KR = 39.54 / 962;
+const TODAY = '2026-09-25';
+const ZONES = [
+  ['S01','Garasje/Roser','drypp',1,12],['S02','Lavendelbed','drypp',1,8],['S03','Garasje/Passasje','spreder',1,20],
+  ['S04','Bed v/støttemur','drypp',2,18],['S05','Plen nord','spreder',2,25],['S06','Hilliihekk','drypp',2,15],
+  ['S07','Ligusterhekk','drypp',3,15],['S08','Plen sør','spreder',3,25],['S09','Inngang/Rododendron','drypp',0,18],
+  ['HS','Hageslange','slange',0,10],
+].map(([id, name, type, box, min]) => ({ id, name, type, box, min, rate: type === 'slange' ? 8.04 : RATE }));
+const DISABLED = ['S10','S11','S12','S13','S14','S15','S16'];
+const SCHED = {
+  '2026-09-26': [['05:25','S08']],
+  '2026-09-28': [['05:00','S01'],['05:12','S03'],['05:32','S04'],['05:50','S06'],['06:05','S07'],['06:20','S09']],
+  '2026-09-29': [['05:25','S08']],
+  '2026-10-02': [['05:00','S01'],['05:12','S02'],['05:20','S03'],['05:40','S04'],['05:58','S06'],['06:13','S07'],['06:28','S09']],
+};
+const HIST = { '2026-09-14': 962 };
+const EST_TODAY = { S01: 96, S02: 64, S03: 160, S04: 144, S06: 120, S07: 120, S09: 144 };
+const MONTH_USED = { ...EST_TODAY, HS: 114 };
+const YEAR_USED = { S01: 610, S02: 402, S03: 1180, S04: 960, S05: 1450, S06: 790, S07: 820, S08: 2310, S09: 930, HS: 540 };
+const zById = id => ZONES.find(z => z.id === id);
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dt = s => new Date(s + 'T12:00:00');
+const kind = z => z.type === 'drypp' ? `Drypp${z.box ? ' B' + z.box : ''}` : z.type === 'spreder' ? `Spreder B${z.box}` : `${z.rate.toString().replace('.', ',')} L/min`;
+const icon = z => z.type === 'drypp' ? 'water_drop' : z.type === 'spreder' ? 'sprinkler' : 'water';
+const nf = n => Math.round(n).toLocaleString('nb-NO');
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const rnd = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
+const GRASS = Array.from({ length: 38 }, (_, i) => ({ position: 'absolute', left: `${3 + i * 2.55 + rnd(i, 1) * 1.5}%`, top: `${58 + rnd(i, 2) * 16}%`, width: 3, height: 14 + rnd(i, 3) * 12, borderRadius: 2, background: rnd(i, 4) > 0.5 ? '#5cb86c' : '#4ea560', opacity: 0.9, transformOrigin: 'bottom center', '--r': `${(rnd(i, 5) - 0.5) * 14}deg`, transform: `rotate(${(rnd(i, 5) - 0.5) * 14}deg)`, animation: `sway ${3 + rnd(i, 6) * 2}s ease-in-out ${rnd(i, 7) * -4}s infinite` }));
+const FLOWERS = [[15, 58, 'rgb(242 133 201)'], [22, 63, 'rgb(173 153 230)'], [47, 67, 'rgb(242 210 111)']].map(([l, t, c]) => ({ wrap: { position: 'absolute', left: `${l}%`, top: `${t}%`, display: 'flex', flexDirection: 'column', alignItems: 'center' }, head: { width: 13, height: 13, borderRadius: 7, background: c, boxShadow: `0 0 0 3px ${al(c, 0.25)}` } }));
+
+
+class Component extends DCLogic {
+  state = {
+    tab: 'now', system: true, rain: false, queue: [], running: null, left: 0, usedBy: {}, skipped: false,
+    showDisabled: false, period: 'dag', month: [2026, 8], sel: TODAY,
+    programs: [
+      { id: 1, name: 'Plen nord', time: '05:00', days: 'Hver dag', on: false, zones: ['S05'] },
+      { id: 2, name: 'Plen sør', time: '05:25', days: 'Hver dag', on: true, zones: ['S08'] },
+      { id: 3, name: 'Runde – mandag', time: '05:00', days: 'Mandag', on: true, zones: ['S01','S03','S04','S06','S07','S09'] },
+      { id: 4, name: 'Runde – torsdag', time: '05:00', days: 'Fredag', on: true, zones: ['S01','S02','S03','S04','S06','S07','S09'] },
+    ],
+  };
+  componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  start(ids) {
+    if (!this.state.system || !ids.length) return;
+    const [first, ...rest] = ids;
+    this.setState({ running: first, left: zById(first).min * 60, queue: rest });
+  }
+  stop() { this.setState({ running: null, left: 0, queue: [] }); }
+  tick() {
+    const s = this.state; if (!s.running) return;
+    const z = zById(s.running);
+    const step = Math.min(SPEED, s.left), left = s.left - step;
+    const usedBy = { ...s.usedBy, [z.id]: (s.usedBy[z.id] || 0) + z.rate * step / 60 };
+    if (left > 0) return this.setState({ left, usedBy });
+    const [nx, ...rest] = s.queue;
+    this.setState({ usedBy, running: nx || null, left: nx ? zById(nx).min * 60 : 0, queue: rest });
+  }
+  renderVals() {
+    const s = this.state;
+    const run = s.running && zById(s.running);
+    const usedToday = Object.values(s.usedBy).reduce((t, v) => t + v, 0);
+    const planned = 848;
+    const fmt = sec => `${Math.floor(sec / 60)}:${pad(Math.floor(sec % 60))}`;
+    const upcoming = Object.keys(SCHED).sort().filter(d => d > TODAY);
+    const nextDayIdx = s.skipped ? 1 : 0;
+    const nextDay = upcoming[nextDayIdx];
+    const nextItems = SCHED[nextDay];
+    const first = zById(nextItems[0][1]);
+    const dayName = d => { const diff = Math.round((dt(d) - dt(TODAY)) / 864e5); return diff === 1 ? 'I morgen' : cap(dt(d).toLocaleDateString('nb-NO', { weekday: 'long' })); };
+    const status = !s.system ? ['Anlegget er av', '#7f7f7f'] : run ? ['Vanner nå', B] : s.rain ? ['Regnpause 24 t', AMBER] : ['Klar', GREEN];
+    const headline = !s.system ? 'Vanning er slått av' : run ? `${run.name} vannes` : s.rain ? 'Vanning er satt på pause' : 'Hagen er tørr og klar';
+    const subline = run ? `${fmt(s.left)} igjen${s.queue.length ? ` · ${s.queue.length} soner i kø` : ''}` : `Neste: ${first.id} ${first.name} · ${kind(first)} · ${dayName(nextDay).toLowerCase()} ${nextItems[0][0]}${s.rain ? ' (utsettes)' : ''}`;
+    const ctrl = (icon, label, on, col, go, iconCol) => ({ icon, label, go,
+      style: { height: 68, borderRadius: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: on ? al(col, 0.16) : '#2a2a2a', boxShadow: on ? `inset 0 0 0 1px ${al(col, 0.45)}` : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s' },
+      iconStyle: { fontSize: 22, color: on ? col : iconCol || '#afafaf', fontVariationSettings: `'FILL' ${on ? 1 : 0}` } });
+    const ctrl3 = (ic, label, go, opts = {}) => ({ icon: ic, label, go,
+      style: { height: 76, borderRadius: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: opts.white ? '#fafafa' : opts.on ? al(opts.col, 0.18) : '#2a2a2a', color: opts.white ? '#232323' : '#fafafa', boxShadow: opts.on && !opts.white ? `inset 0 0 0 1px ${al(opts.col, 0.45)}` : 'none', transition: 'background .2s, color .2s' },
+      iconStyle: { fontSize: 24, color: opts.iconCol || (opts.on ? opts.col : 'inherit'), fontVariationSettings: `'FILL' ${opts.fill ? 1 : 0}` } });
+    const tabsDef = [['now','Nå','water_drop'],['zones','Soner','sprinkler'],['prog','Program','event_repeat'],['use','Forbruk','bar_chart'],['hist','Historikk','calendar_month']];
+
+    // zones
+    const zoneRow = (z, i) => {
+      const on = s.running === z.id, queued = s.queue.includes(z.id), total = z.min * 60;
+      return { code: z.id === 'HS' ? '' : z.id, name: z.name, icon: icon(z),
+        sub: on ? `Vanner · ${fmt(s.left)} igjen` : queued ? 'I kø' : `${kind(z)} · ${z.min} min · ca. ${nf(z.min * z.rate)} L`,
+        subStyle: { fontSize: 12, color: on ? B : queued ? '#afafaf' : '#7f7f7f', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        toggle: () => on ? this.setState(st => st.queue.length ? { running: st.queue[0], left: zById(st.queue[0]).min * 60, queue: st.queue.slice(1) } : { running: null, left: 0 }) : this.start([z.id]),
+        btnIcon: on ? 'stop' : 'play_arrow',
+        btn: { position: 'relative', width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? B : '#1f1f21', color: on ? '#141416' : s.system ? '#fafafa' : '#545454' },
+        iconWrap: { position: 'relative', width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', background: on ? B : '#3a4556', color: on ? '#141416' : 'rgb(115 185 242)' },
+        row: { position: 'relative', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' },
+        fill: { position: 'absolute', left: -14, top: 0, bottom: 0, width: on ? `calc(${(1 - s.left / total) * 100}% + 14px)` : 0, background: al(B, 0.1), transition: 'width 1s linear' } };
+    };
+    const groups = [1, 2, 3].map(b => ({ name: `Boks ${b}`, list: ZONES.filter(z => z.box === b) })).concat([{ name: 'Øvrige', list: ZONES.filter(z => !z.box) }]);
+
+    // programs & agenda
+    const agenda = upcoming.map((d, i) => {
+      const items = SCHED[d]; const tot = items.reduce((t, [, id]) => t + zById(id).min * RATE, 0);
+      return { day: `${dayName(d)} ${dt(d).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}`, total: `${items.length} ${items.length === 1 ? 'sone' : 'soner'} · ${nf(tot)} L`,
+        block: { padding: '12px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', opacity: s.skipped && i === 0 ? 0.4 : 1 },
+        items: items.map(([time, id]) => { const z = zById(id); return { time, name: `${z.id} ${z.name}`, amount: `${z.min} min · ${nf(z.min * RATE)} L`, dot: { width: 6, height: 6, borderRadius: 3, flex: 'none', background: z.type === 'spreder' ? B : al(B, 0.5) } }; }) };
+    });
+
+    // usage
+    const addLive = m => { const o = { ...m }; Object.entries(s.usedBy).forEach(([k, v]) => o[k] = (o[k] || 0) + v); return o; };
+    const monthEst = {}; upcoming.filter(d => d.startsWith('2026-09')).forEach(d => SCHED[d].forEach(([, id]) => monthEst[id] = (monthEst[id] || 0) + zById(id).min * RATE));
+    const P = {
+      dag: { label: 'Brukt i dag', used: addLive({}), est: EST_TODAY, estLabel: 'estimat i dag' },
+      uke: { label: 'Brukt denne uken', used: addLive({}), est: { S08: 200 }, estLabel: 'planlagt resten av uken' },
+      maned: { label: 'Brukt i september', used: addLive(MONTH_USED), est: monthEst, estLabel: 'planlagt resten av måneden' },
+      ar: { label: 'Brukt i 2026', used: addLive(YEAR_USED), est: {}, estLabel: 'sesongen 2026' },
+    }[s.period];
+    const usedSum = Object.values(P.used).reduce((t, v) => t + v, 0), estSum = Object.values(P.est).reduce((t, v) => t + v, 0);
+    const rowsAll = ZONES.map(z => ({ z, u: P.used[z.id] || 0, e: P.est[z.id] || 0 }));
+    const rows = rowsAll.filter(r => r.u || r.e).sort((a, b) => (b.u - a.u) || (b.e - a.e));
+    const idle = rowsAll.length - rows.length + DISABLED.length;
+    const maxR = Math.max(1, ...rows.map(r => Math.max(r.u, r.e)));
+
+    // calendar
+    const [y, m] = s.month;
+    const f1 = new Date(y, m, 1), off = (f1.getDay() + 6) % 7;
+    const cal = Array.from({ length: 42 }, (_, i) => new Date(y, m, 1 - off + i));
+    const selItems = SCHED[s.sel] || [];
+    const selD = dt(s.sel);
+    const hist14 = Array.from({ length: 14 }, (_, i) => { const d = new Date(2026, 8, 12 + i); return { k: iso(d), v: HIST[iso(d)] || 0 }; });
+
+    // week ahead
+    const wk = Array.from({ length: 7 }, (_, i) => { const d = new Date(2026, 8, 25 + i); const k = iso(d); const v = (SCHED[k] || []).reduce((t, [, id]) => t + zById(id).min * RATE, 0); return { k, v, d: i ? cap(d.toLocaleDateString('nb-NO', { weekday: 'short' }).replace('.', '')) : 'I dag' }; });
+    const wkMax = Math.max(...wk.map(w => w.v), 1);
+
+    const sprayEl = run ? React.createElement('span', { style: { position: 'absolute', left: 12, top: 12, width: 0, height: 0 } },
+      Array.from({ length: 14 }, (_, i) => React.createElement('span', { key: i, style: { position: 'absolute', left: -2, top: -2, width: 4, height: 4, borderRadius: 2, background: 'rgb(115 185 242)', '--a': `${-70 + (i % 7) * 23}deg`, animation: `spray 1.1s linear ${-(i * 0.08)}s infinite` } }))) : null;
+
+    const pct = Math.min(100, usedToday / planned * 100);
+    return {
+      grass: GRASS, flowers: FLOWERS, spray: sprayEl,
+      headGlow: run ? `0 0 24px ${al(B, 0.8)}` : '0 2px 6px rgba(0,0,0,0.3)',
+      heroBar: { width: `${pct}%`, height: '100%', borderRadius: 4, background: B, transition: 'width .6s' },
+      heroLabel: `${nf(usedToday)} L av ${nf(planned)} L i dag`,
+      statusTag: status[0],
+      statusTagStyle: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: status[1] },
+      statusDot: { width: 8, height: 8, borderRadius: 4, background: status[1], boxShadow: `0 0 10px ${status[1]}` },
+      headline, subline,
+      todayTicks: Array.from({ length: 48 }, (_, i) => ({ flex: 1, borderRadius: 2, background: i < Math.round(usedToday / planned * 48) ? B : '#1f1f21', transition: 'background .3s' })),
+      usedLabel: `${nf(usedToday)} L brukt i dag`, plannedLabel: `${nf(planned)} L planlagt`,
+      controls: [
+        ctrl3('stop_circle', 'Stopp alt', () => this.stop(), { iconCol: RED, fill: true }),
+        ctrl3('rainy', 'Regn 24t', () => this.setState({ rain: !s.rain }), { on: s.rain, col: AMBER, fill: s.rain }),
+        ctrl3('restart_alt', 'Nullstill', () => this.setState({ usedBy: {}, skipped: false })),
+        ctrl3('power_settings_new', s.system ? 'Anlegget på' : 'Anlegget av', () => this.setState({ system: !s.system, running: null, left: 0, queue: [] }), { white: s.system }),
+      ],
+      tabs: tabsDef.map(([k, label, ic]) => ({ label, icon: ic, go: () => this.setState({ tab: k }),
+        style: { height: 52, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, fontWeight: s.tab === k ? 600 : 500, background: s.tab === k ? PINK : 'transparent', color: s.tab === k ? '#2a1720' : '#979797', whiteSpace: 'nowrap' },
+        iconStyle: { fontSize: 20, color: 'inherit', fontVariationSettings: `'FILL' ${s.tab === k ? 1 : 0}` } })),
+      isNow: s.tab === 'now', isZones: s.tab === 'zones', isProg: s.tab === 'prog', isUse: s.tab === 'use', isHist: s.tab === 'hist',
+      isRunning: !!run, stopAll: () => this.stop(),
+      runName: run ? `${run.id === 'HS' ? '' : run.id + ' '}${run.name}` : '',
+      runSub: run ? `${kind(run)}${s.queue.length ? ` · neste: ${zById(s.queue[0]).name}` : ''}` : '',
+      runLeft: run ? fmt(s.left) : '', runLiters: run ? `${nf(s.usedBy[run.id] || 0)} av ca. ${nf(run.min * run.rate)} L` : '',
+      runFill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: run ? `${(1 - s.left / (run.min * 60)) * 100}%` : 0, background: `linear-gradient(90deg, ${al(B, 0.05)}, ${al(B, 0.16)})`, transition: 'width 1s linear' },
+      next: {
+        when: `${dayName(nextDay)} ${dt(nextDay).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}${s.rain ? ' · utsettes' : ''}`,
+        time: nextItems[0][0],
+        items: nextItems.slice(0, 3).map(([t, id], i) => { const z = zById(id); return { name: `${z.id} ${z.name}`, kind: `${t} · ${kind(z)}`, icon: icon(z), amount: `${z.min} min · ${nf(z.min * RATE)} L`, row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' }, iconWrap: { width: 34, height: 34, borderRadius: 17, flex: 'none', display: 'grid', placeItems: 'center', background: '#3a4556', color: 'rgb(115 185 242)' } }; }),
+        run: () => this.start(nextItems.map(([, id]) => id)),
+        skip: () => this.setState({ skipped: !s.skipped }),
+        skipLabel: s.skipped ? 'Angre hopp' : 'Hopp over',
+      },
+      weekAheadTotal: `${nf(wk.reduce((t, w) => t + w.v, 0))} L planlagt`,
+      weekAhead: wk.map((w, i) => ({ d: w.d,
+        bar: { width: '100%', maxWidth: 34, height: w.v ? `${Math.max(8, w.v / wkMax * 64)}px` : '4px', borderRadius: 8, background: w.v ? (s.skipped && w.k === upcoming[0] ? '#2e2e31' : al(B, i === 1 ? 0.9 : 0.45)) : '#1f1f21' },
+        lbl: { fontSize: 11, color: i ? '#7f7f7f' : '#fafafa', whiteSpace: 'nowrap' } })),
+      power: run ? '410 mA · ca. 10 W' : '0 mA · ca. 0 W',
+      zoneGroups: groups.map(g => ({ name: g.name, meta: `${g.list.length} ${g.list.length === 1 ? 'sone' : 'soner'}`, zones: g.list.map(zoneRow) })),
+      showDisabled: s.showDisabled, toggleDisabled: () => this.setState({ showDisabled: !s.showDisabled }),
+      disabledLabel: `${DISABLED.length} deaktiverte soner`,
+      disabledChev: { fontSize: 20, transform: s.showDisabled ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
+      disabledZones: DISABLED,
+      programs: s.programs.map(p => { const mins = p.zones.reduce((t, id) => t + zById(id).min, 0); return {
+        name: p.name, time: p.time, days: p.days,
+        sub: `${p.zones.length === 1 ? zById(p.zones[0]).id + ' ' + zById(p.zones[0]).name : p.zones.length + ' soner'} · ${mins} min · ca. ${nf(mins * RATE)} L`,
+        run: () => this.start(p.zones),
+        toggle: () => this.setState(st => ({ programs: st.programs.map(x => x.id === p.id ? { ...x, on: !x.on } : x) })),
+        card: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 16px', borderRadius: 20, background: '#2a2a2a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', opacity: p.on ? 1 : 0.55, transition: 'opacity .2s' },
+        track: { position: 'relative', width: 50, height: 30, borderRadius: 15, flex: 'none', background: p.on ? 'rgb(102 209 158)' : '#48474a', transition: 'background .2s' },
+        knob: { position: 'absolute', top: 3, left: p.on ? 23 : 3, width: 24, height: 24, borderRadius: 12, background: '#fafafa', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left .2s' } }; }),
+      agenda,
+      periods: [['dag','I dag'],['uke','Uke'],['maned','Måned'],['ar','År']].map(([k, label]) => ({ label, go: () => this.setState({ period: k }), style: { height: 32, padding: '0 14px', borderRadius: 11, fontSize: 13, fontWeight: 500, background: s.period === k ? '#fafafa' : 'transparent', color: s.period === k ? '#232323' : '#afafaf' } })),
+      use: {
+        label: P.label, used: nf(usedSum), cost: `${(usedSum * KR).toFixed(2).replace('.', ',')} kr`,
+        est: estSum ? `${nf(estSum)} L ${P.estLabel}` : P.estLabel,
+        stack: rows.filter(r => r.u).map((r, i) => ({ width: `${r.u / Math.max(usedSum, estSum) * 100}%`, background: al(B, 1 - i * 0.08) })).concat(estSum ? [{ width: `${estSum / Math.max(usedSum, estSum) * 100}%`, background: al(B, 0.18) }] : []),
+        rows: rows.map((r, i) => ({ code: r.z.id === 'HS' ? '' : r.z.id, name: r.z.name,
+          val: r.u ? `${nf(r.u)} L` : `ca. ${nf(r.e)} L`,
+          valStyle: { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: r.u ? '#fafafa' : '#7f7f7f' },
+          row: { display: 'flex', padding: '11px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' },
+          estBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${r.e / maxR * 100}%`, background: al(B, 0.22), borderRadius: 2 },
+          bar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${r.u / maxR * 100}%`, background: B, borderRadius: 2, transition: 'width .4s' } })),
+        foot: rows.length ? `${idle} soner uten forbruk` : 'Ingen forbruk i perioden',
+        footStyle: { padding: '12px 0', borderTop: rows.length ? '1px solid rgba(255,255,255,0.06)' : 'none', fontSize: 12, color: '#696969', textAlign: 'center' },
+      },
+      monthLabel: cap(f1.toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' })),
+      prevMonth: () => this.setState({ month: m === 0 ? [y - 1, 11] : [y, m - 1] }),
+      nextMonth: () => this.setState({ month: m === 11 ? [y + 1, 0] : [y, m + 1] }),
+      weekdays: ['M', 'T', 'O', 'T', 'F', 'L', 'S'],
+      calendar: cal.map(d => { const k = iso(d), inM = d.getMonth() === m, w = HIST[k], p = SCHED[k], sel = s.sel === k, today = k === TODAY;
+        return { n: d.getDate(), pick: () => this.setState({ sel: k }),
+          cell: { height: 46, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, background: sel ? '#333336' : 'transparent', boxShadow: today ? 'inset 0 0 0 1px rgba(255,255,255,0.35)' : 'none', opacity: inM ? 1 : 0.3 },
+          num: { width: 28, height: 28, borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 14, fontVariantNumeric: 'tabular-nums', background: w ? '#4d6a8a' : 'transparent', color: '#fafafa', fontWeight: w || today ? 600 : 400 },
+          mark: { width: 5, height: 5, borderRadius: 3, background: p && !w ? GREEN : 'transparent' } }; }),
+      dayDetail: {
+        title: cap(selD.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })),
+        meta: HIST[s.sel] ? `${nf(HIST[s.sel])} L vannet` : selItems.length ? `Planlagt · ${nf(selItems.reduce((t, [, id]) => t + zById(id).min * RATE, 0))} L` : 'Ingen vanning',
+        items: selItems.map(([time, id]) => { const z = zById(id); return { time, name: `${z.id} ${z.name}`, amount: `${z.min} min` }; }),
+      },
+      histBars: hist14.map((h, i) => ({ title: `${h.k}: ${h.v} L`, style: { height: h.v ? `${h.v / 962 * 100}%` : '4px', borderRadius: 6, background: h.v ? B : i === 13 ? '#3a3a3a' : '#1f1f21' } })),
+    };
+  }
+}
+</script>
+</body>
+</html>
