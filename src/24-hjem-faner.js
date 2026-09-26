@@ -172,7 +172,16 @@
     return f <= tl ? md >= f && md < tl : md >= f || md < tl;
   };
   const fakeCard = (hass, c) => ({ hass, config: c, s: (id) => (id && hass && hass.states[id]) || null, n: (id) => M.num(hass, id) });
-  const roomCfgOf = (c, area) => { const rc = get(c, 'rooms.' + area) || {}; return { overrides: { temperatur: rc.temperatur, fuktighet: rc.fuktighet, termostat: rc.termostat }, look: { icon: rc.icon, color: rc.color } }; };
+  // Rom-overstyring fra rooms.<id>: temperature|humidity|climate (nye) eller temperatur|fuktighet|termostat (gamle);
+  // farge fra rooms.<id>.color (eller col). Kun satte nøkler sendes videre (M.roomClimate slår sammen med rom-popupens config).
+  const roomCfgOf = (c, area) => {
+    const rc = get(c, 'rooms.' + area) || {}, ov = {};
+    const t = rc.temperature || rc.temperatur, h = rc.humidity || rc.fuktighet, k = rc.climate || rc.termostat;
+    if (t) ov.temperature = t;
+    if (h) ov.humidity = h;
+    if (k) ov.climate = k;
+    return { overrides: ov, look: { icon: rc.icon, color: rc.color || rc.col } };
+  };
 
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
@@ -265,12 +274,12 @@
           const r = romData(a.id), P = `rooms.${a.id}`, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
           fields.push({ type: 'section', id: 'rom-' + a.id, label: `Rom · ${a.name}`, icon: 'mdi:texture-box', fields: [
             { type: 'icon', name: P + '.icon', label: 'Ikon', auto: () => (r ? r.icon : a.icon || '') },
-            { type: 'color', name: P + '.color', label: 'Farge (ikon når lys er på)', auto: () => (M.romColor ? M.romColor(a.id) : '') },
+            { type: 'color', name: P + '.color', label: 'Farge (ikon når lys er på)', auto: () => (M.romColor ? M.romColor(a.id, hass) : '') },
             { type: 'select', name: P + '.size', label: 'Størrelse i kortliste', options: [['S', 'Liten'], ['M', 'Medium'], ['L', 'Stor']], default: r && (r.temp != null || r.thermo) ? 'M' : 'S' },
             { type: 'boolean', name: P + '.klima', label: 'Klima-knapp (+/−)', help: r && r.thermo ? 'Termostat: ' + r.thermo + ' · kun på medium/store kort og karusell' : 'Ingen termostat i rommet', default: !!(r && r.thermo) },
-            { type: 'entity', name: P + '.temperatur', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: () => au.temp || null },
-            { type: 'entity', name: P + '.fuktighet', label: 'Luftfuktighet', domain: 'sensor', device_class: 'humidity', auto: () => au.hum || null },
-            { type: 'entity', name: P + '.termostat', label: 'Termostat', domain: 'climate', auto: () => au.thermo || null },
+            { type: 'entity', name: P + '.temperature', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: () => get(c, P + '.temperatur') || au.temp || null },
+            { type: 'entity', name: P + '.humidity', label: 'Luftfuktighet', domain: 'sensor', device_class: 'humidity', auto: () => get(c, P + '.fuktighet') || au.hum || null },
+            { type: 'entity', name: P + '.climate', label: 'Termostat', domain: 'climate', auto: () => get(c, P + '.termostat') || au.thermo || null },
             ...(M.romBadgeFields ? M.romBadgeFields(hass, c, P + '.badges_own', P + '.badges', r) : []),
           ] });
         });
@@ -302,7 +311,8 @@
       const ha = !!document.querySelector('home-assistant');
       const vw = ha ? M.dashRect().width : ((this.parentElement && this.parentElement.getBoundingClientRect().width) || M.dashRect().width);
       const L = M.hjemLayout(c.layout_mode || 'auto', vw);
-      if (c.zoom === false) L.zoom = 1;
+      if (c.zoom === false || this.mshEmbedded) L.zoom = 1; // i msh-hjem-card zoomer containeren hele griden
+      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; }
       return L;
     }
 
@@ -523,12 +533,11 @@
         return { top: w ? a.friendly_name || 'Vær' : 'Vær', title: w && a.temperature != null ? `${M.nf(a.temperature, 1)}°` : '–', line1: w ? WX[w.state] || w.state : '–', line2: w ? [a.humidity != null ? `Fukt ${M.nf(a.humidity, 0)} %` : '', a.wind_speed != null ? `vind ${M.nf(a.wind_speed, 0)} ${a.wind_speed_unit || 'm/s'}` : ''].filter(Boolean).join(' · ') : '', hash: '#vaer' };
       }
       if (id === 'strom') {
-        const p = this.n(E.price), W = this.n(E.watt), ps = E.price ? s(E.price) : null;
+        this.n(E.price);
+        const p = M.priceNow ? M.priceNow(this.hass, E.price) : this.n(E.price), W = this.n(E.watt);
         let cheap = '';
-        const arr = ps && (ps.attributes.today || ps.attributes.raw_today);
-        if (Array.isArray(arr) && arr.length) {
-          const h0 = new Date().getHours();
-          const vals = arr.map((x, h) => [typeof x === 'object' && x ? Number(x.value ?? x.price) : Number(x), typeof x === 'object' && x && x.start ? new Date(x.start).getHours() : h]).filter(([v, h]) => !isNaN(v) && h > h0);
+        if (E.price && M.priceSeries) {
+          const h0 = new Date().getHours(), vals = M.priceSeries(this.hass, E.price).slice(0, 24).map((v, h) => [v, h]).filter(([v, h]) => v != null && h >= h0);
           if (vals.length) { const m = vals.reduce((a, b) => (b[0] < a[0] ? b : a)); cheap = `Billigst kl. ${pad2(m[1])} · ${M.nf(m[0], 2)} kr`; }
         }
         return { top: 'Strøm nå', title: p != null ? `${M.nf(p, 2)} kr` : '–', line1: W != null ? `${M.nf(W, 0)} W` : '–', line2: cheap, hash: '#strom' };

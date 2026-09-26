@@ -1,0 +1,5 @@
+[
+  { "name": "Strømpris · i dag", "cards": [ { "type": "custom:msh-strompris-card" } ] },
+  { "name": "Strømpris · i morgen", "cards": [ { "type": "custom:msh-strompris-card", "day": "tomorrow", "show_watt": false } ] },
+  { "name": "Strømpris · tom", "cards": [ { "type": "custom:msh-strompris-card", "overrides": { "price": "sensor.finnes_ikke", "watt": "sensor.finnes_ikke" } } ] }
+]

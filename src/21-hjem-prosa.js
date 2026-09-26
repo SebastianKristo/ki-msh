@@ -36,7 +36,8 @@
   const AUTO = {
     weather: (h) => M.all(h, 'weather')[0] || null,
     temp: () => null, // standard: temperaturen fra vær-entiteten
-    price: (h) => M.byPlatform(h, 'nordpool', 'sensor')[0] || M.byPlatform(h, 'tibber', 'sensor').find((id) => /pris|price/.test(id) || /\/kWh/i.test(h.states[id].attributes.unit_of_measurement || '')) || null,
+    // Samme sensor som strømpriskortet (M.priceSensor i 26-hjem-strompris.js): nåpris per kWh, aldri kostnad/energi.
+    price: (h) => (M.priceSensor ? M.priceSensor(h, {}) : null),
     watt: (h) => M.kiRomId(h, null, 'effekt') || null,
     lights: (h) => M.kiRomId(h, null, 'lys') || null,
     lock: (h) => M.all(h, 'lock')[0] || null,
@@ -67,7 +68,7 @@
     if (ts && M.isNum(ts.state)) S.temp = [`${nb(Number(ts.state), 1)}°`, Number(ts.state), null, E.temp];
     else if (w && w.attributes.temperature != null) S.temp = [`${nb(Number(w.attributes.temperature), 1)}°`, Number(w.attributes.temperature), null, E.weather];
     const p = E.price && rd(E.price);
-    if (p && M.isNum(p.state)) { const v = Number(p.state); S.price = [`${nb(v, 2)} kr`, v, lvlP(v), E.price]; }
+    if (p && M.isNum(p.state)) { const v = M.priceNow ? M.priceNow(h, E.price) : Number(p.state); S.price = [`${nb(v, 2)} kr`, v, lvlP(v), E.price]; }
     const wt = E.watt && rd(E.watt);
     if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${nb(v, 0)} W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
     const ls = E.lights && rd(E.lights);
