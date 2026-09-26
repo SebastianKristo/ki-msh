@@ -139,7 +139,7 @@
     o = o || {};
     const v = o.variant || 'karusell', alert = o.alert || '', kl = !!o.klima && r.thermo && r.set != null;
     if (v === 'karusell') {
-      return `<div class="rk rk-car" ${openAttrs(r, o.key)}>
+      return `<div class="rk rk-car ${kl ? 'kl' : ''}" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
         <div class="rk-tv"><span class="rk-t num">${deg(r.temp)}°</span><span class="rk-h">${deg(r.hum, 0)} %</span></div>${kl ? kv(r) : ''}</div>`;
     }
@@ -149,7 +149,7 @@
     }
     if (v === 'M' || v === 'L') {
       const h = v === 'L' ? 246 : kl ? 210 : 140;
-      return `<div class="rk rk-big" style="height:${h}px" ${openAttrs(r, o.key)}>
+      return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
         <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 44 : 40}px">${deg(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${deg(r.hum, 0)}%</span></div>${kl ? kv(r) : ''}</div>`;
     }
@@ -199,6 +199,8 @@
   M.romkortCSS = `
     .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
     .rk-car{flex:none;width:100%;height:220px}
+    .rk-car,.rk-big{container-type:inline-size}
+    @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}}
     .rk-name{position:absolute;left:18px;top:18px;right:70px;font-size:15px;font-weight:500;line-height:1.3}
     .rk-ic{position:absolute;right:6px;top:6px;width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
     .rk-ic:active{transform:scale(.92)}

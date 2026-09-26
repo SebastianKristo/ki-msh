@@ -105,8 +105,14 @@
     return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id) }));
   }
   // Rom som hører til fanen (før skjuling): etasjens rom + rom hentet fra andre etasjer.
+  function floorRank(hass) {
+    const fl = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0)), rk = {};
+    fl.forEach((f, i) => { rk[f.floor_id] = i; });
+    return rk;
+  }
   function baseRooms(hass, c, t) {
-    const areas = M.areas(hass);
+    const rk = floorRank(hass);
+    const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || a.name.localeCompare(b.name, 'nb'));
     let base = t.kind === 'floor' ? areas.filter((a) => a.floor === t.floor) : t.kind === 'andre' ? areas.filter((a) => !a.floor) : t.kind === 'custom' ? [] : areas;
     const add = Object.values(get(c, `layout.${t.id}.add`) || {}).filter(Boolean);
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
@@ -145,7 +151,7 @@
       ruter: o.ruter || first([...M.byPlatform(hass, 'entur_public_transport', 'sensor'), ...M.byPlatform(hass, 'entur', 'sensor')]),
       ruterSx: first(M.byPlatform(hass, 'entur_sx')),
       todo: o.todo || first(M.all(hass, 'todo')), todos: M.all(hass, 'todo'),
-      tv: o.tv || first(tvs.length ? tvs : M.all(hass, 'media_player', (s, id) => /(^|[_\s.-])tv($|[_\s-])/i.test(id + ' ' + (s.attributes.friendly_name || '')))),
+      tv: o.tv || (() => { const L = tvs.length ? tvs : M.all(hass, 'media_player', (s, id) => /(^|[_\s.-])tv($|[_\s-])/i.test(id + ' ' + (s.attributes.friendly_name || ''))); return L.find((id) => !['off', 'standby', 'unavailable', 'unknown'].includes(hass.states[id].state)) || first(L); })(),
       vacr: o.vacr || first(M.all(hass, 'vacuum')),
       dish: applFind(hass, 'dish', o.dish), wash: applFind(hass, 'wash', o.wash), dry: applFind(hass, 'dry', o.dry),
       weather: o.weather || first(M.all(hass, 'weather')), price: o.price || M.hjemPriceId(hass), watt: o.watt || M.kiRomId(hass, null, 'effekt'),
@@ -595,7 +601,7 @@
       const head = low ? `${low} ${low === 1 ? 'batteri' : 'batterier'} under ${lim} %` : `Alle batterier over ${lim} %`;
       const meta = `${show === 'lav' ? 'Viser lave' : 'Viser alle ' + B.list.length} · auto fra device_class battery`;
       if (!B.list.length) return M.emptyState('Fant ingen batterisensorer (device_class battery)', 'batterier');
-      return `<div class="bh"><span class="bh-t">${esc(head)}</span><span class="bh-m">${esc(meta)}</span></div>
+      return `<div class="bv"><div class="bh"><span class="bh-t">${esc(head)}</span><span class="bh-m">${esc(meta)}</span></div>
         <section class="bl">${list.length ? list.map((b, i) => {
           const col = b.bin ? C.red : b.pct < 15 ? C.red : b.pct < 30 ? C.orange : C.green, warn = b.bin || b.pct < 30;
           return `<div class="br" data-key="b-${esc(b.id)}" data-ent="${esc(b.id)}" data-act="more" data-id="${esc(b.id)}" style="${i ? '' : 'border-top:0'}">
@@ -603,7 +609,7 @@
             <span class="bn"><span class="bnn ell">${esc(b.name)}</span><span class="bnr ell">${esc([b.room, b.id].filter(Boolean).join(' · '))}</span></span>
             <span class="bb"><span style="width:${b.bin ? 100 : M.clamp(b.pct, 0, 100)}%;background:${col}"></span></span>
             <span class="bp num" style="color:${warn ? col : 'var(--white,#fafafa)'}">${b.bin ? 'Lavt' : M.nf(b.pct, 0) + ' %'}</span></div>`;
-        }).join('') : `<div class="br" style="border-top:0;color:var(--gray700,#979797);font-size:13px">Ingen batterier under ${lim} %</div>`}</section>`;
+        }).join('') : `<div class="br" style="border-top:0;color:var(--gray700,#979797);font-size:13px">Ingen batterier under ${lim} %</div>`}</section></div>`;
     }
 
     /* ---------- render */
@@ -765,9 +771,10 @@
         .ap-s{font-size:11px;color:var(--gray700,#979797);padding:2px 16px 10px}
         .ap-bar{position:relative;height:26px;background:repeating-linear-gradient(135deg, #5c5c5c 0 2px, transparent 2px 7px);flex:none}
         .ap-bar span{position:absolute;left:0;top:0;bottom:0;transition:width 1s linear}
-        .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 4px}
-        .bh-t{font-size:15px;font-weight:500}
-        .bh-m{font-size:12px;color:var(--gray500,#696969);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .bv{display:flex;flex-direction:column}
+        .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 4px 8px}
+        .bh-t{font-size:15px;font-weight:500;white-space:nowrap;flex:none}
+        .bh-m{font-size:12px;color:var(--gray500,#696969);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
         .bl{display:flex;flex-direction:column;padding:4px 16px;border-radius:24px;background:var(--gray100,#2f2f2f)}
         .br{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid rgba(255,255,255,0.05);cursor:pointer}
         .bn{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
