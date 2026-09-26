@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-hscroll]::-webkit-scrollbar{display:none}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:440px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 8px 40px;display:flex;flex-direction:column;gap:12px">
+  <header style="display:flex;align-items:center;gap:12px;padding:0 6px">
+    <span style="width:40px;height:40px;border-radius:20px;background:#e1e1e1;color:#282828;display:grid;place-items:center"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">videocam</span></span>
+    <span style="flex:1;font-size:28px;font-weight:500">Kamera</span>
+    <span style="font-size:14px;color:#979797">{{ count }}</span>
+  </header>
+
+  <div style="position:relative;display:flex;gap:8px;align-items:center">
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:28px;background:#3a3a3a">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.go }}" style="{{ m.style }}"><span class="ms" style="font-size:20px">{{ m.icon }}</span>{{ m.label }}</button></sc-for>
+    </div>
+    <button onClick="{{ toggleDrop }}" title="Visning" style="{{ dropBtn }}"><span class="ms" style="font-size:22px">tune</span></button>
+    <sc-if value="{{ dropOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ toggleDrop }}" style="position:fixed;inset:0;z-index:30"></div>
+      <div style="position:absolute;right:0;top:64px;z-index:31;width:230px;padding:8px;border-radius:22px;background:#404040;box-shadow:0 18px 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:12px;color:#979797;padding:4px 10px 6px">Visning</span>
+        <sc-for list="{{ dropItems }}" as="d" hint-placeholder-count="9">
+          <button onClick="{{ d.go }}" style="{{ d.style }}"><span class="ms" style="font-size:20px">{{ d.icon }}</span><span style="flex:1;text-align:left">{{ d.label }}</span><span class="ms" style="{{ d.check }}">check</span></button>
+        </sc-for>
+        <div style="height:1px;background:rgba(255,255,255,0.1);margin:4px 8px"></div>
+        <button onClick="{{ openEdit }}" style="height:44px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:14px;color:#afafaf"><span class="ms" style="font-size:20px">tune</span>Tilpass kameraer…</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}">
+    <div data-hscroll="1" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -8px;padding:0 8px">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6"><button onClick="{{ c.go }}" style="{{ c.style }}"><span class="ms" style="font-size:20px">{{ c.icon }}</span>{{ c.label }}</button></sc-for>
+    </div>
+
+    <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+      <div style="{{ gridStyle }}">
+        <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="6">
+          <div onClick="{{ t.open }}" style="{{ t.box }}">
+            <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ t.slot }}" shape="rect" placeholder="{{ t.ph }}" style="position:absolute;inset:0;width:100%;height:100%" hint-size="100%,100%"></x-import>
+            <span style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none"></span>
+            <span style="position:absolute;left:12px;top:12px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:0.04em;pointer-events:none"><span style="width:7px;height:7px;border-radius:4px;background:rgb(242 128 115)"></span>OPPTAK</span>
+            <button onClick="{{ t.open }}" style="position:absolute;right:10px;top:10px;width:36px;height:36px;border-radius:18px;background:rgba(20,20,20,0.55);display:grid;place-items:center"><span class="ms" style="font-size:20px">open_in_full</span></button>
+            <span style="position:absolute;left:14px;bottom:12px;font-size:16px;font-weight:500;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.5)">{{ t.name }}</span>
+            <span style="position:absolute;right:14px;bottom:12px;font-size:12px;color:rgba(255,255,255,0.8);pointer-events:none">{{ t.model }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSingle }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;height:300px;border-radius:30px;overflow:hidden;background:#3a3a3a">
+        <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ one.slot }}" shape="rect" placeholder="{{ one.ph }}" style="position:absolute;inset:0;width:100%;height:100%" hint-size="100%,100%"></x-import>
+        <span style="position:absolute;inset:0;background:linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55));pointer-events:none"></span>
+        <span style="position:absolute;left:14px;top:14px;height:28px;padding:0 12px 0 10px;border-radius:14px;background:rgb(242 128 115);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;pointer-events:none"><span style="width:8px;height:8px;border-radius:4px;background:#fff"></span>OPPTAK</span>
+        <span style="position:absolute;left:16px;bottom:14px;font-size:18px;font-weight:600;pointer-events:none">{{ one.name }}</span>
+        <span style="position:absolute;right:16px;bottom:14px;font-size:12px;color:rgba(255,255,255,0.7);pointer-events:none">{{ one.model }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4"><button onClick="{{ a.go }}" style="{{ a.style }}"><span class="ms" style="font-size:24px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+      </div>
+      <span style="font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#979797;padding:8px 8px 0">Siste hendelser</span>
+      <sc-for list="{{ oneEvents }}" as="e" hint-placeholder-count="0">
+        <div style="display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 8px;border-radius:30px;background:#3a3a3a">
+          <span style="width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">{{ e.icon }}</span></span>
+          <span style="flex:1;font-size:15px;font-weight:500">{{ e.label }}</span>
+          <span style="font-size:13px;color:#979797">{{ e.time }}</span>
+        </div>
+      </sc-for>
+      <sc-if value="{{ oneEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:30px 0;text-align:center;font-size:15px;color:#7f7f7f">Ingen hendelser</div></sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isEvents }}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{ events }}" as="e" hint-placeholder-count="4">
+        <button onClick="{{ e.go }}" style="display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:#3a3a3a;text-align:left">
+          <span style="position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:#404040"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ e.slot }}" shape="rect" placeholder="{{ e.cam }}" style="position:absolute;inset:0;width:100%;height:100%" hint-size="100%,100%"></x-import></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ e.label }}</span><span style="font-size:12px;color:#979797">{{ e.cam }} · {{ e.time }}</span></span>
+          <span class="ms" style="font-size:22px;color:#979797">play_circle</span>
+        </button>
+      </sc-for>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isFrigate }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <sc-for list="{{ fStats }}" as="f" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:24px;background:#3a3a3a"><span style="font-size:24px;font-weight:300">{{ f.v }}</span><span style="font-size:12px;color:#979797">{{ f.l }}</span></div></sc-for>
+    </div>
+    <sc-for list="{{ fEvents }}" as="e" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:#3a3a3a">
+        <span style="position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:#404040"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ e.slot }}" shape="rect" placeholder="{{ e.cam }}" style="position:absolute;inset:0;width:100%;height:100%" hint-size="100%,100%"></x-import></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px;font-size:15px;font-weight:500"><span class="ms" style="font-size:18px">{{ e.icon }}</span>{{ e.label }}</span><span style="font-size:12px;color:#979797">{{ e.cam }} · {{ e.time }} · {{ e.score }}</span></span>
+      </div>
+    </sc-for>
+  </sc-if>
+
+  <sc-if value="{{ ed.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ ed.close }}" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.55)"></div>
+    <div style="position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:61;width:100%;max-width:440px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:none;box-sizing:border-box;padding:16px 8px 24px;border-radius:34px 34px 0 0;background:#282828;box-shadow:0 -20px 50px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:0 4px">
+        <span style="width:48px;height:48px;border-radius:24px;background:#3a3a3a;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:24px">tune</span></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:18px;font-weight:500">Tilpass kameraer</span><span style="font-size:13px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">For Sebastian · følger brukeren</span></span>
+        <button onClick="{{ ed.close }}" style="width:48px;height:48px;border-radius:24px;background:#3a3a3a;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:#3a3a3a">
+        <div style="display:flex;justify-content:space-between;padding:0 4px"><span style="font-size:16px;font-weight:500">Visning</span><span style="font-size:14px;color:#979797">{{ ed.layoutName }}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <sc-for list="{{ ed.layouts }}" as="l" hint-placeholder-count="9"><button onClick="{{ l.go }}" style="{{ l.style }}"><span class="ms" style="font-size:22px">{{ l.icon }}</span>{{ l.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:14px 12px;border-radius:28px;background:#3a3a3a">
+        <div style="display:flex;justify-content:space-between;padding:0 4px 4px"><span style="font-size:16px;font-weight:500">Kameraer som vises</span><span style="font-size:14px;color:#979797">{{ ed.shown }}</span></div>
+        <sc-for list="{{ ed.cams }}" as="c" hint-placeholder-count="7">
+          <div style="{{ c.row }}">
+            <span style="position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:#404040"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ c.slot }}" shape="rect" placeholder="" style="position:absolute;inset:0;width:100%;height:100%" hint-size="100%,100%"></x-import></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ c.name }}</span><span style="font-size:11px;color:#979797;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.entity }}</span></span>
+            <button onClick="{{ c.eye }}" style="width:40px;height:40px;border-radius:20px;background:#404040;display:grid;place-items:center;flex:none"><span class="ms" style="{{ c.eyeStyle }}">{{ c.eyeIcon }}</span></button>
+            <button onClick="{{ c.up }}" style="{{ c.upStyle }}"><span class="ms" style="font-size:20px">arrow_upward</span></button>
+            <button onClick="{{ c.down }}" style="{{ c.downStyle }}"><span class="ms" style="font-size:20px">arrow_downward</span></button>
+          </div>
+        </sc-for>
+        <span style="font-size:12px;color:#7f7f7f;padding:4px 6px 0">Slipp et stillbilde på hvert kamera for å bytte forhåndsvisning.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onClick="{{ ed.reset }}" style="height:54px;border-radius:27px;background:#3a3a3a;font-size:15px;color:#979797">Nullstill</button>
+        <button onClick="{{ ed.close }}" style="height:54px;border-radius:27px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:15px;font-weight:600">Ferdig</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:1200}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const CAMS = [
+  ['inngang', 'Inngang', 'door_front', 'G4 Doorbell Pro', 'camera.ringeklokke_g4_pro_doorbell_high_resolution'],
+  ['veranda', 'Veranda', 'deck', 'G3 Flex', 'camera.veranda_plen_high_resolution_channel'],
+  ['plen', 'Plen Sør', 'grass', 'G3 Flex', 'camera.plen_sor_g3_flex_high_resolution'],
+  ['hage', 'Hage', 'yard', 'G5 Turret Ultra', 'camera.garasje_plen_g5_turret_ultra_high'],
+  ['passasje', 'Passasje', 'videocam', 'G5 Turret', 'camera.garasje_passasje_g5_turret_high'],
+  ['garasje', 'Garasje', 'garage', 'G4 Instant', 'camera.gardsplass_g4_instant_high_resolution'],
+  ['pakke', 'Pakke', 'package_2', 'G4 Doorbell Pro', 'camera.ringeklokke_g4_pro_doorbell_package'],
+];
+const LAYOUTS = [['mosaic', 'Mosaikk', 'dashboard'], ['main', 'Hovedkamera', 'space_dashboard'], ['grid', 'Rutenett', 'grid_view'], ['list', 'Liste', 'view_agenda'], ['masonry', 'Masonry', 'view_quilt'], ['overview', 'Oversikt', 'view_compact'], ['focus', 'Fokus', 'fullscreen'], ['2x2', '2×2', 'border_all'], ['3col', '3 kolonner', 'view_week']];
+const EVENTS = [['person', 'Person', 'inngang', '15:12', '92 %'], ['directions_car', 'Bil', 'garasje', '14:48', '88 %'], ['pets', 'Katt', 'hage', '13:05', '76 %'], ['person', 'Person', 'veranda', '11:40', '90 %'], ['package_2', 'Pakke levert', 'pakke', '10:22', '84 %']];
+class Component extends DCLogic {
+  state = { mode: 'live', view: 'alle', edOpen: false, cfg: this.load() };
+  load() { try { return JSON.parse(localStorage.getItem('kamera-cfg') || 'null') || { layout: 'mosaic', order: CAMS.map(c => c[0]), hidden: {} }; } catch (e) { return { layout: 'mosaic', order: CAMS.map(c => c[0]), hidden: {} }; } }
+  save(p) { const c = { ...this.state.cfg, ...p }; try { localStorage.setItem('kamera-cfg', JSON.stringify(c)); } catch (e) {} this.setState({ cfg: c }); }
+  renderVals() {
+    const s = this.state, c = s.cfg, byId = id => CAMS.find(x => x[0] === id);
+    const order = [...c.order.filter(byId), ...CAMS.map(x => x[0]).filter(id => !c.order.includes(id))];
+    const vis = order.filter(id => !c.hidden[id]);
+    const L = c.layout;
+    const span = i => { const n = vis.length;
+      if (L === 'mosaic') return i === 0 ? [1, 2, 2] : i < 5 ? [1, 1, 1] : [2, 1, 1];
+      if (L === 'main') return i === 0 ? [2, 1, 1.4] : [1, 1, 0.85];
+      if (L === 'list' || L === 'focus') return [1, 1, 1];
+      if (L === 'masonry') return [1, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 1.6 : 0.8];
+      if (L === 'overview' || L === '3col') return [1, 1, 0.7];
+      return [1, 1, 1]; };
+    const cols = L === 'list' || L === 'focus' ? 1 : L === 'overview' || L === '3col' ? 3 : 2;
+    const rowH = L === 'overview' || L === '3col' ? 110 : L === 'list' || L === 'focus' ? 220 : 120;
+    const list = L === '2x2' ? vis.slice(0, 4) : L === 'focus' ? vis.slice(0, 1) : vis;
+    const chip = (k, label, icon) => ({ label, icon, go: () => this.setState({ view: k }), style: { flex: 'none', height: 50, padding: '0 18px 0 14px', borderRadius: 25, display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 500, whiteSpace: 'nowrap', background: s.view === k ? PINK : '#3a3a3a', color: s.view === k ? '#3a3a3a' : '#afafaf' } });
+    const one = byId(s.view);
+    const btn = on => ({ width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? '#404040' : '#2c2c2c', color: on ? '#fafafa' : '#545454', pointerEvents: on ? 'auto' : 'none' });
+    return {
+      count: `${vis.length} kameraer`,
+      modes: [['live', 'Direkte', 'videocam'], ['frigate', 'Frigate', 'history']].map(([k, label, icon]) => ({ label, icon, go: () => this.setState({ mode: k }), style: { height: 48, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 16, fontWeight: 500, background: s.mode === k ? PINK : 'transparent', color: s.mode === k ? '#3a3a3a' : '#afafaf' } })),
+      openEdit: () => this.setState({ edOpen: true, dropOpen: false }), dropOpen: !!s.dropOpen, toggleDrop: () => this.setState({ dropOpen: !s.dropOpen }),
+      dropBtn: { width: 56, height: 56, borderRadius: 28, background: s.dropOpen ? '#404040' : '#3a3a3a', display: 'grid', placeItems: 'center', flex: 'none' },
+      dropItems: LAYOUTS.map(([k, label, icon]) => ({ label, icon, go: () => { this.save({ layout: k }); this.setState({ dropOpen: false, view: 'alle' }); }, style: { height: 42, padding: '0 10px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, background: L === k ? 'rgba(255,255,255,0.08)' : 'transparent' }, check: { fontSize: 18, color: 'rgb(242 133 201)', opacity: L === k ? 1 : 0 } })),
+      isLive: s.mode === 'live', isFrigate: s.mode === 'frigate',
+      chips: [chip('alle', 'Alle', 'grid_view'), chip('events', 'Hendelser', 'motion_play'), ...vis.map(id => { const x = byId(id); return chip(id, x[1], x[2]); })],
+      isGrid: s.view === 'alle', isSingle: !!one, isEvents: s.view === 'events',
+      gridStyle: { display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridAutoRows: rowH, gridAutoFlow: 'dense', gap: 8 },
+      tiles: list.map((id, i) => { const x = byId(id), [cs, rs] = span(i); return { name: x[1], model: cs > 1 || cols === 1 ? x[3] : '', slot: 'cam-' + id, ph: `Stillbilde: ${x[1]}`, open: () => this.setState({ view: id }),
+        box: { position: 'relative', gridColumn: `span ${Math.min(cs, cols)}`, gridRow: `span ${rs}`, borderRadius: 26, overflow: 'hidden', background: '#3a3a3a', cursor: 'pointer' } }; }),
+      one: one ? { name: one[1], model: one[3], slot: 'cam-' + one[0], ph: `Stillbilde: ${one[1]}` } : {},
+      actions: [['mic', 'Snakk', true], ['flashlight_on', 'Lys', false], ['campaign', 'Sirene', false], ['photo_camera', 'Bilde', true]].map(([icon, label, on]) => ({ icon, label, go: () => {}, style: { height: 96, borderRadius: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 500, background: '#3a3a3a', color: on ? '#fafafa' : '#696969' } })),
+      oneEvents: one ? EVENTS.filter(e => e[2] === one[0]).map(([icon, label, , time]) => ({ icon, label, time })) : [], oneEmpty: !!one && !EVENTS.some(e => e[2] === one[0]),
+      events: EVENTS.map(([icon, label, cam, time], i) => ({ icon, label, time, cam: byId(cam)[1], slot: 'ev-' + i, go: () => this.setState({ view: cam }) })),
+      fStats: [['12', 'Hendelser i dag'], ['5', 'Personer'], ['3', 'Biler']].map(([v, l]) => ({ v, l })),
+      fEvents: EVENTS.map(([icon, label, cam, time, score], i) => ({ icon, label, time, score, cam: byId(cam)[1], slot: 'ev-' + i })),
+      ed: { open: s.edOpen, close: () => this.setState({ edOpen: false }), reset: () => { try { localStorage.removeItem('kamera-cfg'); } catch (e) {} this.setState({ cfg: this.load() }); },
+        layoutName: (LAYOUTS.find(l => l[0] === L) || [])[1], shown: `${vis.length} av ${CAMS.length}`,
+        layouts: LAYOUTS.map(([k, label, icon]) => ({ label, icon, go: () => this.save({ layout: k }), style: { height: 88, borderRadius: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 500, background: L === k ? PINK : '#404040', color: L === k ? '#3a3a3a' : '#fafafa' } })),
+        cams: order.map((id, i) => { const x = byId(id), hid = !!c.hidden[id];
+          const move = d => { const o = [...order], j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; this.save({ order: o }); };
+          return { name: x[1], entity: x[4], slot: 'cam-' + id, eye: () => this.save({ hidden: { ...c.hidden, [id]: !hid } }), eyeIcon: hid ? 'visibility_off' : 'visibility', eyeStyle: { fontSize: 22, color: hid ? '#696969' : '#fafafa' },
+            up: () => move(-1), down: () => move(1), upStyle: btn(i > 0), downStyle: btn(i < order.length - 1),
+            row: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 24, background: '#2c2c2c', opacity: hid ? 0.55 : 1 } }; }) },
+    };
+  }
+}
+</script>
+</body>
+</html>

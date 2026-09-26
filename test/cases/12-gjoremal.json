@@ -1,0 +1,5 @@
+[
+  { "name": "Gjøremål", "hash": "#gjoremal", "cards": [{ "type": "custom:msh-gjoremal-card", "entities": ["todo.prosjekter", "todo.store_oppgaver", "todo.handleliste"] }] },
+  { "name": "Gjøremål auto", "hash": "#gjoremal", "cards": [{ "type": "custom:msh-gjoremal-card" }] },
+  { "name": "Gjøremål tom", "hash": "#gjoremal", "cards": [{ "type": "custom:msh-gjoremal-card", "entities": ["todo.finnes_ikke"] }] }
+]

@@ -1,0 +1,6 @@
+[
+  { "name": "Lys", "hash": "#lys", "cards": [ { "type": "custom:msh-lys-card" } ] },
+  { "name": "Lys · etasje", "hash": "#lys", "cards": [ { "type": "custom:msh-lys-card", "start_tab": "f:forste" } ] },
+  { "name": "Lys · på", "hash": "#lys", "cards": [ { "type": "custom:msh-lys-card", "start_tab": "on" } ] },
+  { "name": "Lys · tom", "hash": "#lys", "cards": [ { "type": "custom:msh-lys-card", "lamps": [ { "name": "Mangler", "entity": "light.mangler" } ], "overrides": { "lux": "sensor.mangler" }, "mode": "manuell" } ] }
+]

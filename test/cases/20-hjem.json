@@ -1,0 +1,28 @@
+[
+  { "name": "Hjem · header+prosa+søppel+gjøremål", "cards": [
+    { "type": "custom:msh-hjem-header-card" },
+    { "type": "custom:msh-prosa-card" },
+    { "type": "custom:msh-soppel-card", "type_sensor": "sensor.soppel_type" },
+    { "type": "custom:msh-hjem-gjoremal-card" }
+  ] },
+  { "name": "Hjem · header hjem-modus", "cards": [
+    { "type": "custom:msh-hjem-header-card", "mode": "hjem", "show_name": true, "show_place": true },
+    { "type": "custom:msh-hjem-header-card", "mode": "profil" },
+    { "type": "custom:msh-hjem-header-card", "mode": "stor" },
+    { "type": "custom:msh-hjem-header-card", "mode": "kompakt", "badge": "ring", "size": "L" }
+  ] },
+  { "name": "Hjem · prosa egendefinert", "cards": [
+    { "type": "custom:msh-prosa-card", "prose": [
+      { "id": "a", "pre": "Døra er", "src": "lock", "post": ".", "icon": "🔒", "color": "auto", "act": "lock_toggle" },
+      { "id": "b", "pre": "Alarmen er", "src": "alarm", "post": "og det er {stue.temp} i stua.", "color": "auto" },
+      { "id": "c", "pre": "Søppel hentes", "src": "trash", "post": ".", "icon": "🗑️", "link": "#soppel", "cop": "<", "csrc": "trash", "cval": "3" },
+      { "id": "d", "pre": "Skjult", "src": "text", "fmt": "tekst", "hidden": true }
+    ] }
+  ] },
+  { "name": "Hjem · tom config", "cards": [
+    { "type": "custom:msh-soppel-card", "sensor": "sensor.finnes_ikke" },
+    { "type": "custom:msh-hjem-gjoremal-card", "exclude": ["todo.handleliste", "todo.store_oppgaver"] },
+    { "type": "custom:msh-prosa-card", "prose": [] },
+    { "type": "custom:msh-hjem-header-card", "exclude": ["person.sebastian", "person.cybele", "person.rune"], "overrides": { "weather": "weather.finnes_ikke" }, "mode": "hjem" }
+  ] }
+]

@@ -1,0 +1,35 @@
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+const require = createRequire(import.meta.url);
+let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node22/lib/node_modules/playwright'); }
+execFileSync('node', ['build.mjs', resolve('test/.build/probe.js')]);
+const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text().slice(0, 200)); });
+await p.goto('file://' + resolve('test/harness-bubble.html'));
+await p.addScriptTag({ path: resolve('test/.build/probe.js') });
+await p.addScriptTag({ path: resolve('test/.vendor/bubble-card.js'), type: 'module' });
+await p.waitForTimeout(800);
+const r = await p.evaluate(async () => {
+  window.loadCardHelpers = async () => ({ createCardElement: (c) => { const el = document.createElement(c.type.replace('custom:', '')); el.setConfig(c); return el; } });
+  const hass = window.mockHass();
+  const bc = document.createElement('bubble-card');
+  bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#stue', name: 'Stue', icon: 'mdi:sofa', bg_color: '#282828', bg_opacity: 100, bg_blur: 0, cards: [{ type: 'custom:msh-rom-klima-card' }, { type: 'custom:msh-rom-card' }] });
+  bc.hass = hass;
+  document.getElementById('dash').appendChild(bc);
+  await new Promise((q) => setTimeout(q, 500));
+  location.hash = '#stue';
+  await new Promise((q) => setTimeout(q, 1200));
+  const all = [];
+  const walk = (root) => { root.querySelectorAll('*').forEach((e) => { all.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); };
+  walk(document);
+  const tags = [...new Set(all.map((e) => e.localName))].filter((t) => t.includes('bubble') || t.startsWith('msh'));
+  const cards = all.filter((e) => e.localName.startsWith('msh-')).map((e) => ({ t: e.localName, w: Math.round(e.getBoundingClientRect().width), h: Math.round(e.getBoundingClientRect().height), x: Math.round(e.getBoundingClientRect().left) }));
+  const pop = all.find((e) => e.classList && e.classList.contains('bubble-pop-up'));
+  return { tags, cards, pop: pop ? { cls: pop.className, rect: JSON.stringify(pop.getBoundingClientRect()) } : null };
+});
+console.log(JSON.stringify(r, null, 1));
+console.log(errs.slice(0, 10).join('\n'));
+await p.screenshot({ path: 'test/shots/bubble-probe.png' });
+await b.close();

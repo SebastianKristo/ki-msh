@@ -1,0 +1,5 @@
+[
+  { "name": "Sikkerhet", "hash": "#sikkerhet", "cards": [ { "type": "custom:msh-sikkerhet-hero-card" }, { "type": "custom:msh-sikkerhet-card" } ] },
+  { "name": "Sikkerhet · hovedkort", "hash": "#sikkerhet", "cards": [ { "type": "custom:msh-sikkerhet-card", "code_for": "av", "sensors": { "binary_sensor": { "soverom_vindu": { "name": "Vindu", "room": "Cybele soverom" } } } } ] },
+  { "name": "Sikkerhet · tom", "hash": "#sikkerhet", "cards": [ { "type": "custom:msh-sikkerhet-hero-card", "overrides": { "alarm": "alarm_control_panel.finnes_ikke" }, "exclude": ["lock.inngangsdor"] }, { "type": "custom:msh-sikkerhet-card", "overrides": { "alarm": "alarm_control_panel.finnes_ikke" }, "show_log": false } ] }
+]

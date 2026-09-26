@@ -1,0 +1,8 @@
+[
+  { "name": "Hjem-faner · Hjem (karusell)", "cards": [ { "type": "custom:msh-hjem-faner-card" } ] },
+  { "name": "Hjem-faner · 1. etg (kortliste)", "cards": [ { "type": "custom:msh-hjem-faner-card", "default_tab": "forste" } ] },
+  { "name": "Hjem-faner · Aktuelt", "cards": [ { "type": "custom:msh-hjem-faner-card", "default_tab": "aktuelt" } ] },
+  { "name": "Hjem-faner · Batterier", "cards": [ { "type": "custom:msh-hjem-faner-card", "default_tab": "batterier", "battery": { "show": "alle" } } ] },
+  { "name": "Hjem-faner · slides og egne varsler", "cards": [ { "type": "custom:msh-hjem-faner-card", "slides": { "hjem": { "L": { "vaer": true }, "R": { "strom": true, "trash": true } } }, "rooms": { "stue": { "badges_own": true, "badges": { "v01": { "type": "temp", "op": ">", "val": "20", "text": "Varmt i stua" } } } }, "tab_order": ["aktuelt", "hjem"] } ] },
+  { "name": "Hjem-faner · ukjent config", "cards": [ { "type": "custom:msh-hjem-faner-card", "default_tab": "finnes_ikke", "tab_hidden": ["hjem", "forste", "andre", "ute", "aktuelt", "batterier", "garasje"], "layout_mode": "mobil" } ] }
+]

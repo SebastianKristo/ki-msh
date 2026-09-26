@@ -1,0 +1,190 @@
+# KI MSH · eksempel på dashbord (Rå konfigurasjonsredigering → lim inn / tilpass)
+# Krever: Bubble Card (HACS), KI MSH (denne), temaet My SmartHome v3 (mørk), gjerne KI Rom-integrasjonen.
+# Visningen er et grid (type: sections) – aldri panel. Navbaren ligger i egen seksjon, utenfor alle popups.
+# Alle innholdskort autokonfigureres; bruk kortets editor (blyant / tannhjul) for overrides / exclude / include.
+#
+# Popup-mønster (Bubble Card 3.x, frittstående pop-up): innholdskortene ligger i popupens `cards:`
+# (= «Legg til kort» i Bubble Cards pop-up-editor). Toppkortet (hero) er alltid første kort.
+# Eldre Bubble Card (< 3.1): legg bubble-card pop-up + kortene i en vertical-stack i stedet.
+
+title: Hjem
+views:
+  - title: Hjem
+    path: hjem
+    type: sections
+    max_columns: 3
+    sections:
+      # ---------------------------------------------------------------- navbar (egen seksjon)
+      - type: grid
+        cards:
+          - type: custom:msh-navbar-card
+            bar: [vanning, media, klima, basseng, ruter]
+            more: [gjoremal]
+
+      # ---------------------------------------------------------------- Hjem
+      - type: grid
+        cards:
+          - type: custom:msh-hjem-header-card
+          - type: custom:msh-prosa-card
+          - type: custom:msh-hjem-faner-card
+          - type: custom:msh-soppel-card
+            popup_hash: '#soppel'
+            # sensor: sensor.dager_til_tomming   # auto hvis tomt
+          - type: custom:msh-hjem-gjoremal-card
+
+      # ---------------------------------------------------------------- popups
+      - type: grid
+        cards:
+          # Rom: én popup per område, hash = #<area_id>. Kortene henter rommet fra hashen (bytt til dine rom).
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#stue'
+            name: Stue
+            icon: mdi:sofa
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-rom-klima-card
+              - type: custom:msh-rom-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#kjokken'
+            name: Kjøkken
+            icon: mdi:countertop
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-rom-klima-card
+              - type: custom:msh-rom-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#basseng'
+            name: Basseng
+            icon: mdi:pool
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-basseng-hero-card
+              - type: custom:msh-basseng-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#ruter'
+            name: Ruter
+            icon: mdi:tram
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-ruter-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#klima'
+            name: Klima
+            icon: mdi:thermostat
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-klima-hero-card
+              - type: custom:msh-klima-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#media'
+            name: Media
+            icon: mdi:cast
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-media-hero-card
+              - type: custom:msh-media-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#vanning'
+            name: Vanning
+            icon: mdi:sprinkler
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-vanning-hero-card
+              - type: custom:msh-vanning-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#sikkerhet'
+            name: Sikkerhet
+            icon: mdi:shield-home
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-sikkerhet-hero-card
+              - type: custom:msh-sikkerhet-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#vaer'
+            name: Vær
+            icon: mdi:weather-partly-cloudy
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-vaer-hero-card
+              - type: custom:msh-vaer-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#lys'
+            name: Lys
+            icon: mdi:lightbulb-group
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-lys-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#kamera'
+            name: Kamera
+            icon: mdi:cctv
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-kamera-card
+
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#gjoremal'
+            name: Gjøremål
+            icon: mdi:format-list-checks
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-gjoremal-card
+
+          # Person: én popup per person, hash = #person-<object_id> (bytt til dine personer).
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#person-sebastian'
+            name: Sebastian
+            icon: mdi:account
+            bg_color: '#282828'
+            bg_opacity: 100
+            bg_blur: 0
+            cards:
+              - type: custom:msh-person-hero-card
+              - type: custom:msh-person-card

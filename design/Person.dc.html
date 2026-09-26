@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(115 185 242)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 18px 40px;display:flex;flex-direction:column;gap:22px">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Tilstedeværelse</div>
+    <button style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+  </header>
+
+  <section style="display:flex;flex-direction:column;align-items:center;gap:14px">
+    <div style="position:relative;width:132px;height:132px">
+      <div style="{{ halo }}"></div>
+      <div style="{{ avatar }}">{{ initial }}</div>
+      <span style="{{ zoneBadge }}"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ zone.icon }}</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center">
+      <div style="font-size:26px;font-weight:500;letter-spacing:-0.015em">{{ name }}</div>
+      <div style="{{ zoneLine }}"><span style="{{ zoneDot }}"></span>{{ zone.label }}</div>
+      <div style="font-size:13px;color:#7f7f7f">{{ zone.since }}</div>
+    </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    <sc-for list="{{ stats }}" as="t" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:18px;background:#3a3a3a">
+        <span class="ms" style="{{ t.iconStyle }}">{{ t.icon }}</span>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ t.v }}</span>
+          <span style="font-size:11px;color:#7f7f7f;white-space:nowrap">{{ t.label }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Søvn i natt</div>
+      <div style="font-size:12px;color:#696969;font-variant-numeric:tabular-nums">{{ sleep.window }}</div>
+    </div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 4px">
+      <div style="font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap">{{ sleep.h }}<span style="font-size:15px;color:#7f7f7f"> t </span>{{ sleep.m }}<span style="font-size:15px;color:#7f7f7f"> min</span></div>
+      <div style="{{ sleep.scoreStyle }}">{{ sleep.score }}</div>
+    </div>
+    <div style="display:flex;height:40px;border-radius:12px;overflow:hidden;gap:2px">
+      <sc-for list="{{ sleep.blocks }}" as="b" hint-placeholder-count="12"><span style="{{ b }}"></span></sc-for>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding:0 4px">
+      <sc-for list="{{ sleep.legend }}" as="l" hint-placeholder-count="4">
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797;white-space:nowrap"><span style="{{ l.dot }}"></span>{{ l.label }}<span style="color:#696969;font-variant-numeric:tabular-nums">{{ l.v }}</span></span>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:64px;align-items:end;padding-top:6px">
+      <sc-for list="{{ sleep.week }}" as="w" hint-placeholder-count="7">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end">
+          <div style="{{ w.bar }}"></div>
+          <span style="font-size:10px;color:#696969">{{ w.d }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Mobil</div>
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:#3a3a3a">
+      <span style="width:40px;height:40px;border-radius:20px;background:#404040;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">smartphone</span></span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <span style="font-size:14px;font-weight:500;white-space:nowrap">{{ phone.model }}</span>
+          <span style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">{{ phone.bat }} %</span>
+        </div>
+        <div style="height:5px;border-radius:3px;background:#404040;overflow:hidden"><div style="{{ phone.bar }}"></div></div>
+        <span style="font-size:12px;color:#7f7f7f">{{ phone.sub }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <sc-for list="{{ phone.chips }}" as="c" hint-placeholder-count="4">
+        <span style="height:30px;padding:0 11px 0 8px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:#3a3a3a;color:#afafaf;white-space:nowrap"><span class="ms" style="font-size:16px;color:#7f7f7f">{{ c.icon }}</span>{{ c.label }}</span>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Soner i dag</div>
+    <div style="display:flex;flex-direction:column;padding-left:4px">
+      <sc-for list="{{ log }}" as="e" hint-placeholder-count="4">
+        <div style="display:flex;gap:14px;align-items:stretch">
+          <div style="display:flex;flex-direction:column;align-items:center;width:10px;flex:none">
+            <span style="{{ e.dot }}"></span>
+            <span style="{{ e.line }}"></span>
+          </div>
+          <div style="flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="font-size:14px">{{ e.text }}</div>
+              <div style="font-size:12px;color:#7f7f7f">{{ e.sub }}</div>
+            </div>
+            <div style="font-size:12px;color:#7f7f7f;font-variant-numeric:tabular-nums">{{ e.time }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1300},&quot;personId&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sebastian&quot;,&quot;cybele&quot;,&quot;rune&quot;],&quot;default&quot;:&quot;sebastian&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const C = { green: 'rgb(102 209 158)', blue: 'rgb(115 185 242)', purple: 'rgb(173 153 230)', amber: 'rgb(242 181 115)', pink: 'rgb(242 133 201)' };
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const ZONES = { home: ['Hjemme', 'home', C.green], work: ['Jobb', 'work', C.blue], school: ['Skole', 'school', C.amber], away: ['Borte', 'logout', C.purple], cabin: ['Strømstad', 'cottage', C.amber] };
+const P = {
+  sebastian: { name: 'Sebastian', initial: 'S', bg: 'rgb(242 181 115)', zone: 'home', since: 'Hjemme siden 16:42', place: 'Strømstad',
+    phone: ['iPhone 16 Pro', 64, false, 'Wi-Fi · Hjemme'], steps: '8 412', dist: '0 km', sleep: [23.6, 7.2, 82], wk: [6.8, 7.4, 6.1, 7.9, 7.2, 8.4, 7.2],
+    log: [['Kom hjem', 'Strømstad', '16:42', 'home'], ['Forlot skolen', 'NTNU Gjøvik', '15:58', 'school'], ['Ankom skolen', 'NTNU Gjøvik', '08:12', 'school'], ['Forlot hjemmet', 'Strømstad', '07:40', 'away']] },
+  cybele: { name: 'Cybele', initial: 'C', bg: 'rgb(242 133 201)', zone: 'away', since: 'Borte siden 11:20 · Oslo', place: 'Oslo sentrum',
+    phone: ['iPhone 15', 38, false, 'Mobildata · 5G'], steps: '11 208', dist: '128 km', sleep: [23.0, 6.4, 71], wk: [7.1, 6.2, 6.8, 6.9, 5.8, 7.6, 6.4],
+    log: [['Ankom Oslo', 'Karl Johans gate', '13:05', 'away'], ['Forlot hjemmet', 'Strømstad', '11:20', 'away'], ['Våknet', 'Soverom', '06:24', 'home']] },
+  rune: { name: 'Rune', initial: 'R', bg: 'rgb(115 185 242)', zone: 'home', since: 'Hjemme siden 17:30', place: 'Strømstad',
+    phone: ['Pixel 9', 91, true, 'Lader · Wi-Fi'], steps: '5 930', dist: '46 km', sleep: [22.8, 7.8, 88], wk: [7.6, 8.0, 7.2, 7.4, 7.9, 8.1, 7.8],
+    log: [['Kom hjem', 'Strømstad', '17:30', 'home'], ['Forlot jobb', 'Kontoret', '16:52', 'work'], ['Ankom jobb', 'Kontoret', '08:05', 'work'], ['Forlot hjemmet', 'Strømstad', '07:35', 'away']] },
+};
+const STAGES = [['Våken', '#7f7f7f'], ['Lett', 'rgb(115 185 242)'], ['Dyp', 'rgb(173 153 230)'], ['REM', 'rgb(173 153 230)']];
+const SEQ = [1, 2, 2, 1, 3, 1, 2, 1, 3, 0, 1, 3, 1, 3, 0];
+const hm = x => { const h = Math.floor(x) % 24, m = Math.round((x % 1) * 60); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; };
+class Component extends DCLogic {
+  renderVals() {
+    const p = P[this.props.personId] || P.sebastian;
+    const [zl, zi, zc] = ZONES[p.zone];
+    const [bed, dur, score] = p.sleep;
+    const tot = {}; SEQ.forEach(k => tot[k] = (tot[k] || 0) + 1);
+    const wmax = Math.max(...p.wk);
+    const [model, bat, charging, net] = p.phone;
+    return {
+      name: p.name, initial: p.initial,
+      halo: { position: 'absolute', inset: -8, borderRadius: '50%', boxShadow: `0 0 0 2px ${a(zc, 0.55)}, 0 0 40px ${a(zc, 0.25)}` },
+      avatar: { width: 132, height: 132, borderRadius: 66, display: 'grid', placeItems: 'center', fontSize: 48, fontWeight: 600, background: p.bg, opacity: p.zone === 'away' ? 0.75 : 1 },
+      zoneBadge: { position: 'absolute', right: 0, bottom: 4, width: 38, height: 38, borderRadius: 19, display: 'grid', placeItems: 'center', background: '#404040', color: zc, boxShadow: '0 0 0 3px #282828' },
+      zone: { label: `${zl} · ${p.place}`, icon: zi, since: p.since },
+      zoneLine: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500, color: '#c7c7c7' },
+      zoneDot: { width: 8, height: 8, borderRadius: 4, background: zc, boxShadow: `0 0 10px ${zc}` },
+      stats: [['directions_walk', p.steps, 'skritt', C.green], ['route', p.dist, 'reist i dag', C.blue], ['bedtime', `${score}`, 'søvnscore', 'rgb(173 153 230)']].map(([icon, v, label, col]) => ({ icon, v, label, iconStyle: { fontSize: 20, color: col, fontVariationSettings: "'FILL' 1" } })),
+      sleep: { h: Math.floor(dur), m: Math.round((dur % 1) * 60), window: `${hm(bed)}–${hm(bed + dur + 0.3)}`, score: score >= 80 ? 'God natt' : score >= 70 ? 'Grei natt' : 'Urolig natt',
+        scoreStyle: { fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 10, background: a(score >= 80 ? C.green : C.amber, 0.16), color: score >= 80 ? C.green : C.amber, whiteSpace: 'nowrap' },
+        blocks: SEQ.map((k, i) => ({ flex: 1 + (i % 3) * 0.5, background: STAGES[k][1], opacity: k === 0 ? 0.5 : 1, alignSelf: 'flex-end', height: `${[35, 60, 100, 80][k]}%`, borderRadius: 4 })),
+        legend: STAGES.map(([label, c], k) => ({ label, v: `${Math.round((tot[k] || 0) / SEQ.length * dur * 60)} min`, dot: { width: 8, height: 8, borderRadius: 4, background: c } })),
+        week: p.wk.map((v, i) => ({ d: ['fr', 'lø', 'sø', 'ma', 'ti', 'on', 'i n'][i], bar: { width: '100%', maxWidth: 26, height: `${v / wmax * 100}%`, borderRadius: 6, background: i === 6 ? 'rgb(173 153 230)' : a('rgb(173 153 230)', 0.35) } })) },
+      phone: { model, bat, sub: net,
+        bar: { width: `${bat}%`, height: '100%', borderRadius: 3, background: bat < 20 ? 'rgb(242 128 115)' : charging ? C.green : '#fafafa' },
+        chips: [[charging ? 'battery_charging_full' : 'battery_5_bar', charging ? 'Lader' : 'På batteri'], [net.startsWith('Wi') ? 'wifi' : 'signal_cellular_alt', net.split(' · ')[0]], ['do_not_disturb_on', p.zone === 'home' ? 'Fokus av' : 'Jobb-fokus'], ['location_on', 'Posisjon deles']].map(([icon, label]) => ({ icon, label })) },
+      log: p.log.map(([text, sub, time, z], i, arr) => ({ text, sub, time, dot: { width: 9, height: 9, borderRadius: 5, marginTop: 5, background: ZONES[z][2], flex: 'none' }, line: { flex: 1, width: 1, background: i < arr.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent', marginTop: 4 } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

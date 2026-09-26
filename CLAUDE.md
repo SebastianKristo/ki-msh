@@ -1,0 +1,51 @@
+# Prosjektregler
+
+- Alle popups skal bruke Bubble Card-popups (bubble-card `pop-up`, åpnes via hash, f.eks. `#vanning`). Gjelder både eksisterende og nye popups.
+
+## Bubble Card-popups – implementasjonskrav (Claude Code)
+Designfilene (.dc.html) viser popup-*innholdet* i en egen ramme. I HA er det Bubble Card som eier rammen. Oversett slik:
+- **Struktur:** `type: custom:bubble-card`, `card_type: pop-up`, `hash: '#<id>'`. Innholdskortene legges inni popupen (Bubble Card-konfig → «Legg til kort»), ikke som egne dashbordkort.
+- **Header:** Bruk Bubble Cards egen popup-header (navn, ikon, lukk-knapp). Custom cards skal IKKE tegne sin egen header/lukk-knapp i tillegg.
+- **Header-/toppkortet i designet** (f.eks. klima-toppkortet med temp/fukt og graf i Rom, hero i Basseng/Klima/Media) er et eget innholdskort og SKAL være med som første kort under Bubble-headeren. Mangler en entitet: vis kortet med «–»/plassholder, aldri skjul det stille.
+- **Rom-popup · klima-toppkort (obligatorisk, alltid først):** eget custom card (f.eks. `room-climate-card`), kilde: `Rom v4.dc.html` seksjonen `hasHero`/`heroCard`. Spesifikasjon:
+  - Kort: høyde 184px, `border-radius: 28px`, bakgrunn `#3a3a3a`, `inset 0 0 0 1px rgba(255,255,255,0.05)`, `overflow: hidden`, full bredde.
+  - Øverst venstre (18px/18px): romnavn 13px `#afafaf` + termostat-chip (f.eks. «✓ Holder 21,0°», blå: tekst `#73b9f2` på blå-tonet bakgrunn, pill).
+  - Øverst høyre (16px/16px): 44×44 rund knapp `rgba(255,255,255,0.1)` med `settings`-ikon → åpner kortets tilpasning.
+  - Verdier (top 54px): temperatur 44px weight 300 + «°» 24px; luftfuktighet 17px + «%» 12px i `#979797`. Trykk på temp/fukt bytter hvilken graf som vises.
+  - Under: tidsetikett 12px `#7f7f7f` («nå» / «−1 t» ved scrubbing).
+  - Graf i bunnen (84px høy, kant til kant): linje i romfarge (default `#f2b573`), fylt område med samme farge og lav opasitet, stiplet vertikal markør for valgt punkt. Scrub med pekeren (touch-action: none) viser historisk verdi. Farge, linjetykkelse og fyll-opasitet konfigureres per rom.
+  - Data: `sensor.*_temperature`, `sensor.*_humidity`, `climate.*` (chip), historikk via `hass.callWS({type:'history/history_during_period'})` siste 24 t.
+  - Mangler sensor/historikk → vis kortet likevel med «–» og flat graf. Kortet skal ALDRI utelates.
+- **Bredde:** Alle kort fyller hele popup-bredden. `:host { display:block; width:100%; }`, ingen `max-width`, ingen `margin: 0 auto`, ingen ekstra sidepadding utover Bubble Cards egen. Implementer `getGridOptions() { return { columns: 'full' }; }` og `getCardSize()`. Popup-bredde styres kun i Bubble Card (`width_desktop`, `margin`).
+- **Bakgrunn:** Popupens bakgrunn (#282828) settes i Bubble Card (`bg_color`, `bg_opacity: 100`, `bg_blur: 0`). Custom cards har transparent rot-bakgrunn – ingen dobbel flate. `ha-card` får `background: none; box-shadow: none; border: none`.
+- **Mellomrom:** 8px mellom kort (standard, justerbart i kortets editor).
+- **Innhold:** Alle seksjoner i designet skal med (toppkort, gardiner, scener, akkordeoner osv.) i samme rekkefølge som designet – ikke forenkle bort deler.
+- **Sjekk før levering:** åpnes via hash, fyller bredden på mobil og PC, toppkort synlig, Bubble-header synlig, lukk/tilbake fungerer, haptic på trykk.
+- All implementasjon (når Claude Code bygger det i Home Assistant) skrives i JavaScript — custom cards/moduler i JS, ikke YAML-maler/Jinja der det kan unngås.
+- Adaptiv layout skal aldri forlate selve dashbordet: mål dashbord-containeren (ikke vinduet). Navbar, popups og bakgrunn skal holde seg innenfor dashbordområdet og aldri dekke Home Assistants egen sidebar — navbaren plasseres ytterst på dashbordflaten (til høyre for HA-sidebaren).
+- Haptisk feedback på de fleste interaksjoner (haptic.js, HA-eventet `haptic`).
+- Farger følger My SmartHome Theme v3 (mørk modus) og brukes som i dashbord-YAML-en.
+- Alle kort skal kunne redigeres med GUI-editor (UIX / HA visuell kort-editor) direkte i Bubble Card pop-up-konfigurasjonen («Legg til kort» / rediger kort i popupen), ikke bare via redigeringsmodus inne i selve kortet. Hvert custom card implementerer `static getConfigElement()` + `static getStubConfig()` med en editor som dekker de samme valgene som kortets egen tilpasningsmeny, og lagrer til kortets YAML-config (config er sannheten; localStorage kun som cache). Endringer i den ene editoren skal reflekteres i den andre.
+- Popup-nivåer (som i dashbordet): popup-bakgrunn #282828, kort/rader #3a3a3a, aktiv/utvidet/indre flate #404040. Dashbordets hovedbakgrunn #232323.
+- Ikoner og farger overalt: alle ikonvelgere støtter alle HA-ikonprefiks (mdi:, hass: og egne sett som phu:, hue:, fapro:, si: via `window.customIcons`/`customIconsets`, lister via `getIconList()`), rendret med `<ha-icon>`. Alle fargevelgere tilbyr temafarger (My SmartHome v3: `var(--red)`, `var(--gray200)` …) og HA-navngitte farger (`var(--red-color)` …) + egen hex; temafarger lagres som `var(--navn)` i config. Referanse: `ha-picker.js`. I HA-editorer: bruk `ha-icon-picker` / `ha-selector` (icon, ui_color) der det dekker behovet.
+- **Dashbord-oppsett:** Bygg visningen som grid (`type: sections` / grid-kort med kolonner), ALDRI `panel: true` / panel-visning. Kort plasseres i grid-kolonner; popups (Bubble Card) ligger i samme grid.
+- **Scener/skript** (f.eks. «Maks lys», «Komfort», «Middag», «TV-kveld» i Rom): er engangshandlinger – vis ALDRI aktiv-/på-tilstand. Alle fliser har samme hvile-utseende (#3a3a3a); trykk gir kun kort trykk-animasjon (scale) + haptic, ingen varig markering.
+## Kjente fallgruver – må håndteres (Claude Code)
+1. **position: fixed inni popups:** Bubble Card bruker `transform` på popupen → `fixed` blir relativt til popupen. Navbar, «Mer»-meny, tastatur (Tastatur/keypad) og andre overlegg skal derfor IKKE ligge inni popupens kort. Navbar = eget kort utenfor alle popups (egen seksjon i grid), eller portaler til `document.body`-nivå i dashbord-containeren. Overlegg inni popups (more-info, tastatur) portales ut av popupen og posisjoneres mot dashbord-containeren.
+2. **Gester vs. swipe-to-close:** Bubble Card lukker popupen ved å dra ned. Alle elementer med drag (graf-scrub, dimmere/slidere, swipe-kort, fane-omorganisering, liquid glass-drag) skal ha `touch-action: none` (horisontalt: `pan-y`) og kalle `stopPropagation()` på `pointerdown/touchstart/touchmove`, så popupen ikke lukkes eller scroller mens man drar. Test på touch (iPad/telefon).
+3. **Lagring av config fra kortets egen editor:** Skriv aldri hele Lovelace-configen blindt. Flyt: hent fersk config (`lovelace/config`), finn kortet via stabil `card_id` i kortets config, endre kun det kortet, lagre (`lovelace/config/save`). Er dashbordet i YAML-modus → vis melding «Rediger i YAML» og lagre kun i localStorage. Kortets egen editor og `getConfigElement()` bruker samme config-skjema.
+4. **Ingen eksempeldata i produksjon – autokonfig først:** Verdiene i designfilene er mock. Alt autokonfigureres fra HA-områder + KI Rom-integrasjonen (`sensor.<rom>_oversikt`, `_lys`, `_effekt` …) etter reglene i `entiteter.md`; brukeren overstyrer via `overrides` (bytt), `exclude` (fjern) og `include` (legg til) i kortets config – redigerbart både i kortets egen editor (som Rom v4) og GUI-editoren. Finnes ingenting → «–» + «Velg entitet», aldri mock-verdier, aldri hardkodede eller gjettede entitets-IDer.
+5. **Fonter i shadow DOM:** `@font-face` virker ikke inni shadow roots. Last Space Grotesk og ikonfont én gang på dokumentnivå (Lovelace-ressurs / `document.head`), ikke i kortets shadow DOM. Ikoner via `<ha-icon>` (se Ikon-rendering), ikke Material Symbols-tekst.
+6. **Temafarger med fallback:** Bruk alltid `var(--navn, #hex)`, f.eks. `var(--gray300, #404040)`, `var(--red, #f28073)`. Grå-verdiene er: gray000 #232323, gray100 #2f2f2f, gray200 #3a3a3a, gray300 #404040, gray400 #545454, gray500 #696969, gray600 #7f7f7f, gray700 #979797, gray800 #afafaf, gray900 #c7c7c7, gray1000 #e1e1e1 – verifiser mot temaet i HA.
+7. **Én haptic per trykk:** Bubble Card sender egen haptic på sine knapper. Custom cards sender `haptic`-eventet selv (via felles `haptic(type)`-hjelper), men ikke på Bubble Cards egne elementer. Aldri både global klikk-lytter og manuelle kall på samme element. Maks én haptic per 40 ms.
+8. **Historikk/graf-ytelse:** Hent historikk kun når popupen åpnes (lytt på hash), med `minimal_response: true`, `no_attributes: true`, kun nødvendige entiteter. Mellomlagre per entitet i 5 min; oppdater siste punkt fra live `hass`-state. Aldri polling i bakgrunnen for lukkede popups.
+9. **Bygg alt i én leveranse, men sjekk hver popup:** Start med felles hjelpere (renderIcon, haptic, farger, fonter, autokonfig) som alle kort bruker, bygg deretter alt. Før levering: kjør «Sjekk før levering» for HVER popup og list resultatet. Ikke forenkle bort seksjoner for å bli ferdig.
+
+- **Ikon-rendering (påkrevd):** Ikonnavn med prefiks (`mdi:pool`, `phu:…`, `hue:…`) skal ALLTID rendres med `<ha-icon icon="…">`, aldri som tekst i Material Symbols-fonten (gir «MDI:»-tekst). Én felles hjelper, f.eks. `renderIcon(name)`: har navnet «:» → `<ha-icon>`; ellers (designfilenes Material Symbols-navn som `weekend`) → map til tilsvarende `mdi:`-ikon. Ikonet skal ha fast størrelse (`--mdc-icon-size`) og aldri påvirke layouten rundt (tittel/tekst ved siden av).
+- **Kort som åpner eksterne popups** (f.eks. Søppel-kortet på Hjem): har `popup_hash` (f.eks. `#soppel`) og entitet(er) i config, redigerbart i begge editorene. Trykk setter `location.hash` → Bubble Card åpner popupen. Kortet vises alltid, også når popupen ikke er en del av dette prosjektet.
+
+## Kodebase (ki-msh)
+- `src/00-base.js` = felles hjelpere (`window.MSH`) + basekortet `MSH.Card`; `src/01-editor.js` = felles editor. Nye kort følger mønsteret i `src/30-rom-klima.js`.
+- Kortene heter `msh-…` (kollisjonsfritt mot ki-cards). Bygg: `npm run build` → `dist/ki-msh.js` (commit dist).
+- Test: `npm test` (smoke, alle kort) og `npm run checklist` («Sjekk før levering» per popup mot ekte Bubble Card → `docs/sjekkliste.md`). Nye kort: legg testcaser i `test/cases/` og mock-data i `test/mock/`.
+- Eksempel-dashbord: `examples/dashboard.yaml` (popupene der er det sjekklisten kjører).

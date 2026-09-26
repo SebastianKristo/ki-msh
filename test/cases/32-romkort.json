@@ -1,0 +1,5 @@
+[
+  { "name": "Romkort · stue (graf)", "cards": [ { "type": "custom:msh-romkort-card", "area": "stue" } ] },
+  { "name": "Romkort · varianter", "cards": [ { "type": "custom:msh-romkort-card", "area": "stue", "variant": "karusell" }, { "type": "custom:msh-romkort-card", "area": "bad", "variant": "L" }, { "type": "custom:msh-romkort-card", "area": "soverom", "variant": "M" }, { "type": "custom:msh-romkort-card", "area": "gang", "variant": "S" } ] },
+  { "name": "Romkort · ukjent rom", "cards": [ { "type": "custom:msh-romkort-card", "area": "finnes_ikke" } ] }
+]

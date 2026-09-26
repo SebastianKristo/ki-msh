@@ -1,0 +1,4 @@
+[
+  { "name": "Rom · stue (toppkort)", "hash": "#stue", "cards": [ { "type": "custom:msh-rom-klima-card" } ] },
+  { "name": "Rom · uten sensorer", "hash": "#hage", "cards": [ { "type": "custom:msh-rom-klima-card", "area": "gang" } ] }
+]

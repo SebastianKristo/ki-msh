@@ -1,0 +1,958 @@
+# Config-nøkler per kort
+
+Generert fra kortenes editor-skjema (`node test/docs.mjs`). Alle kort har i tillegg `card_id` (settes automatisk) og kan stå uten config – alt annet autokonfigureres.
+
+## `msh-navbar-card`
+
+Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm. Åpner popups via hash, merker med vilkår, «Mer»-meny og liquid glass.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `layout` | Oppsett (auto \| mobil \| stor) | Plassering og oppførsel |
+| `reserve_space` | Gi innholdet plass (padding i bunnen / til venstre) · boolean | Plassering og oppførsel |
+| `toasts` | Bekreftelsesmeldinger · boolean | Plassering og oppførsel |
+| `admin_tools` | Vis «Tilpass» i Mer-menyen · boolean | Plassering og oppførsel |
+
+## `msh-gjoremal-card`
+
+Alle todo.*-lister som faner: legg til, fullfør, slett, filtre og prioritet ([h]/[m]/[l] i beskrivelsen).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `entities` | Lister i rekkefølge (tomt = alle todo.*) · entities |  |
+| `exclude · include.{lister}` | skjul / legg til |  |
+| `filter` | Standardfilter (open \| high \| done \| all) | Visning |
+| `priority` | Prioritet Høy/Medium/Lav · boolean | Visning |
+| `show_who` | Vis beskrivelse («hvem») og frist · boolean | Visning |
+| `gap` | 4 / 8 / 18 px | Visning |
+
+## `msh-person-hero-card`
+
+Avatar (entity_picture), sone-glorie, sted og «siden». Første kort i #person-<id>.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `person` | Person · entity |  |
+| `name` | Navn |  |
+| `color` | Avatarfarge (uten bilde) · color |  |
+| `show_picture` | Vis bilde (entity_picture) · boolean |  |
+| `overrides.{location}` | bytt entitet |  |
+
+## `msh-person-card`
+
+Skritt, distanse, søvn, mobil (batteri/lading/nett) og soner i dag for én person. Legg msh-person-hero-card først.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `person` | Person · entity |  |
+| `sections · hidden_sections` | rekkefølge/synlighet: stats, sleep, mobil, zones |  |
+| `overrides.{battery, battery_state, charging, connection, ssid, steps, distance, focus, location, sleep_duration, sleep_score, sleep_start, sleep_awake, sleep_light, sleep_deep, sleep_rem}` | bytt entitet |  |
+| `gap` | 4 / 8 / 18 px |  |
+
+## `msh-hjem-header-card`
+
+Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hjem-visningen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `mode` | Oppsett (familie \| sted \| navn \| under \| kompakt \| hjem \| stor \| profil) · modes |  |
+| `g_font` | Maks tekst · range | Størrelser |
+| `g_avatar` | Bilder · range | Størrelser |
+| `g_badge` | Merke · range | Størrelser |
+| `g_gap` | Avstand · range | Størrelser |
+| `zones` | Soner med eget ikon og farge · rows | Soner |
+| `zone_away.icon` | Borte · annen sone – ikon · icon | Soner |
+| `zone_away.color` | Borte · annen sone – farge · color | Soner |
+| `greeting` | Hilsen | Hilsen |
+| `person_order · hidden_persons` | rekkefølge/synlighet: person.cybele, person.rune, person.sebastian |  |
+| `size` | Størrelse (S \| M \| L) | Bilder |
+| `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
+| `show_name` | Vis navn · boolean | Bilder |
+| `show_place` | Vis sted · Hjemme, sonen eller Borte under bildet · boolean | Bilder |
+| `ring_me` | Ring rundt meg · markerer bildet ditt · boolean | Bilder |
+| `weather_tap` | Trykk på været åpner Vær · gjelder «Hjem» og «Profil» · boolean | Bilder |
+| `weather_hash` | Vær-popup · hash | Bilder |
+| `person_tap` | Trykk på person (quick \| popup) | Bilder |
+| `servers` | Bytt sted – andre Home Assistant-installasjoner · rows | Steder (servermeny) |
+| `place_name` | Navn på dette stedet | Steder (servermeny) |
+| `overrides.{weather, kiosk, sover_cybele, hjemme_cybele, sover_rune, hjemme_rune, sover_sebastian, hjemme_sebastian}` | bytt entitet |  |
+| `exclude · include.{personer}` | skjul / legg til |  |
+
+## `msh-prosa-card`
+
+Setninger med live verdier i bobler (vær, strømpris, effekt, lys …) og handling per boble.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `prose` | Setninger · rows |  |
+| `overrides.{weather, temp, price, watt, lights, lock, alarm, trash, garage, tv, vacuum}` | bytt entitet |  |
+| `exclude · include.{kalendere, lister}` | skjul / legg til |  |
+| `price_high` | Strømpris rød over (kr) · number | Farger og popups |
+| `price_mid` | Strømpris gul over (kr) · number | Farger og popups |
+| `alarm_hash` | Alarm-popup (når kode kreves) · hash | Farger og popups |
+| `toasts` | Bekreftelsesmeldinger · boolean | Farger og popups |
+
+## `msh-soppel-card`
+
+Dager til neste søppeltømming. Trykk åpner søppel-popupen (#soppel).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `popup_hash` | Popup-hash · hash |  |
+| `sensor` | Sensor · dager til tømming · entity |  |
+| `type_sensor` | Sensor · type avfall (valgfri) · entity |  |
+| `title` | Tekst |  |
+| `animate` | Animasjon · boolean |  |
+
+## `msh-hjem-gjoremal-card`
+
+Gjøremål fra alle todo.*-lister med avkrysning. Trykk åpner #gjoremal.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `title` | Overskrift |  |
+| `popup_hash` | Popup-hash · hash |  |
+| `max_items` | Maks antall rader · number |  |
+| `show_completed` | Vis ferdige gjøremål · boolean |  |
+| `exclude · include.{lister}` | skjul / legg til |  |
+
+## `msh-hjem-faner-card`
+
+Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, snarveier, apparater og rom-varsler.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `tab_order · tab_hidden` | rekkefølge/synlighet: hjem, forste, andre, ute, uten_etasje, aktuelt, batterier |  |
+| `tab_labels.hjem` | Navn · Hjem | Faner |
+| `tab_labels.forste` | Navn · 1. etg | Faner |
+| `tab_labels.andre` | Navn · 2. etg | Faner |
+| `tab_labels.ute` | Navn · Ute | Faner |
+| `tab_labels.uten_etasje` | Navn · Andre rom | Faner |
+| `tab_labels.aktuelt` | Navn · Aktuelt | Faner |
+| `tab_labels.batterier` | Navn · Batterier | Faner |
+| `tab_views.hjem` | Visning · Hjem (karusell \| liste \| batterier) | Faner |
+| `tab_views.forste` | Visning · 1. etg (karusell \| liste \| batterier) | Faner |
+| `tab_views.andre` | Visning · 2. etg (karusell \| liste \| batterier) | Faner |
+| `tab_views.ute` | Visning · Ute (karusell \| liste \| batterier) | Faner |
+| `tab_views.uten_etasje` | Visning · Andre rom (karusell \| liste \| batterier) | Faner |
+| `tab_views.aktuelt` | Visning · Aktuelt (karusell \| liste \| batterier) | Faner |
+| `custom_tabs` | Egne faner | Faner |
+| `default_tab` | Startfane | Faner |
+| `tab_height` | Høyde (std \| lav \| mid \| hoy \| ekstra \| custom) | Faner |
+| `tab_width` | Bredde per fane (std \| kompakt \| full \| custom) | Faner |
+| `battery.limit` | Grense for lavt batteri (%) · number | Batterier |
+| `battery.show` | Liste (lav \| alle) | Batterier |
+| `battery.always` | Vis fanen alltid · boolean | Batterier |
+| `battery.cond` | Vis fanen når denne er på · entity | Batterier |
+| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: kjokken, stue, bad, soverom, basseng, garasje, bod, gang, hage | Rom og snarveier · Hjem |
+| `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Hjem |
+| `slides.hjem.L.cal` | Sveip-kort · venstre karusell · Kalender · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.L.vaer` | Sveip-kort · venstre karusell · Vær · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.vaer` | Sveip-kort · høyre karusell · Vær · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.L.strom` | Sveip-kort · venstre karusell · Strøm · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.strom` | Sveip-kort · høyre karusell · Strøm · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.L.trash` | Sveip-kort · venstre karusell · Søppel · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.trash` | Sveip-kort · høyre karusell · Søppel · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.lock.stack` | Dørlås · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.lock.fra` | Dørlås · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.lock.til` | Dørlås · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.garage.stack` | Garasjeport · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.garage.fra` | Garasjeport · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.garage.til` | Garasjeport · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.alarm.stack` | Alarm · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.alarm.fra` | Alarm · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.alarm.til` | Alarm · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.cam.stack` | Kamera · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.cam.fra` | Kamera · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.cam.til` | Kamera · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.ruter.stack` | Ruter · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.ruter.fra` | Ruter · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.ruter.til` | Ruter · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.todo.stack` | Gjøremål · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
+| `tiles.hjem.todo.fra` | Gjøremål · vis fra (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.todo.til` | Gjøremål · vis til (MM-DD) | Rom og snarveier · Hjem |
+| `tiles.hjem.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `tiles.hjem.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
+| `swipe.hjem.L-top` | Sveip alle snarveier · Venstre · over rom · boolean | Rom og snarveier · Hjem |
+| `swipe.hjem.R-bottom` | Sveip alle snarveier · Høyre · under rom · boolean | Rom og snarveier · Hjem |
+| `tile_order.hjem · tile_hidden.hjem` | rekkefølge/synlighet: lock, garage, alarm, cam, ruter, todo | Rom og snarveier · Hjem |
+| `layout.forste.order · layout.forste.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue | Rom og snarveier · 1. etg |
+| `layout.forste.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · 1. etg |
+| `layout.forste.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · 1. etg |
+| `layout.forste.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · 1. etg |
+| `layout.forste.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · 1. etg |
+| `layout.forste.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · 1. etg |
+| `tiles.forste.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tiles.forste.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `layout.andre.order · layout.andre.hidden` | rekkefølge/synlighet: bad, soverom | Rom og snarveier · 2. etg |
+| `layout.andre.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · 2. etg |
+| `layout.andre.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · 2. etg |
+| `layout.andre.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · 2. etg |
+| `tiles.andre.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tiles.andre.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `layout.ute.order · layout.ute.hidden` | rekkefølge/synlighet: basseng, hage | Rom og snarveier · Ute |
+| `layout.ute.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · Ute |
+| `layout.ute.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Ute |
+| `layout.ute.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Ute |
+| `tiles.ute.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tiles.ute.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `layout.uten_etasje.order · layout.uten_etasje.hidden` | rekkefølge/synlighet: garasje | Rom og snarveier · Andre rom |
+| `layout.uten_etasje.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · Andre rom |
+| `layout.uten_etasje.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `tiles.uten_etasje.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
+| `layout.aktuelt.order · layout.aktuelt.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue, bad, soverom, basseng, hage, garasje | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.dish.stack` | Oppvaskmaskin · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.dish.fra` | Oppvaskmaskin · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.dish.til` | Oppvaskmaskin · vis til (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.vacr.stack` | Støvsuger · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.vacr.fra` | Støvsuger · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.vacr.til` | Støvsuger · vis til (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.tv.stack` | TV · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.tv.fra` | TV · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.tv.til` | TV · vis til (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.wash.stack` | Vaskemaskin · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.wash.fra` | Vaskemaskin · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.wash.til` | Vaskemaskin · vis til (MM-DD) | Rom og snarveier · Aktuelt |
+| `tiles.aktuelt.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
+| `swipe.aktuelt.L-top` | Sveip alle snarveier · Venstre · over rom · boolean | Rom og snarveier · Aktuelt |
+| `swipe.aktuelt.R-top` | Sveip alle snarveier · Høyre · over rom · boolean | Rom og snarveier · Aktuelt |
+| `tile_order.aktuelt · tile_hidden.aktuelt` | rekkefølge/synlighet: dish, vacr, tv, wash | Rom og snarveier · Aktuelt |
+| `tap.lock.card_hash` | Dørlås · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.lock.icon` | Dørlås · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.garage.card_hash` | Garasjeport · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.garage.icon` | Garasjeport · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.alarm.card_hash` | Alarm · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.alarm.icon` | Alarm · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.cam.card_hash` | Kamera · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.cam.icon` | Kamera · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.ruter.card_hash` | Ruter · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.ruter.icon` | Ruter · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.todo.card_hash` | Gjøremål · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.todo.icon` | Gjøremål · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.dish.card_hash` | Oppvaskmaskin · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.dish.icon` | Oppvaskmaskin · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.vacr.card_hash` | Støvsuger · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.vacr.icon` | Støvsuger · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.tv.card_hash` | TV · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.tv.icon` | TV · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.wash.card_hash` | Vaskemaskin · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.wash.icon` | Vaskemaskin · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tap.jul.card_hash` | Jul · trykk på kortet åpner popup · hash | Snarveier · handlinger |
+| `tap.jul.icon` | Jul · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `overrides.{lock, garage, alarm, cam, ruter, todo, tv, vacr, dish, wash, dry, weather, price, watt, calendar, trash}` | bytt entitet |  |
+| `links.l01.title` | Ny snarvei · tittel | Egne snarveier |
+| `trash_hash` | Popup · hash | Sveip-kort · søppel |
+| `trash_type_sensor` | Type avfall (valgfri) · entity | Sveip-kort · søppel |
+| `rooms.basseng.icon` | Ikon · icon | Rom · Basseng |
+| `rooms.basseng.color` | Farge (ikon når lys er på) · color | Rom · Basseng |
+| `rooms.basseng.size` | Størrelse i kortliste (S \| M \| L) | Rom · Basseng |
+| `rooms.basseng.klima` | Klima-knapp (+/−) · boolean | Rom · Basseng |
+| `rooms.basseng.temperatur` | Temperatur · entity | Rom · Basseng |
+| `rooms.basseng.fuktighet` | Luftfuktighet · entity | Rom · Basseng |
+| `rooms.basseng.termostat` | Termostat · entity | Rom · Basseng |
+| `rooms.basseng.badges_own` | Egne varsel-vilkår · boolean | Rom · Basseng |
+| `rooms.hage.icon` | Ikon · icon | Rom · Hage |
+| `rooms.hage.color` | Farge (ikon når lys er på) · color | Rom · Hage |
+| `rooms.hage.size` | Størrelse i kortliste (S \| M \| L) | Rom · Hage |
+| `rooms.hage.klima` | Klima-knapp (+/−) · boolean | Rom · Hage |
+| `rooms.hage.temperatur` | Temperatur · entity | Rom · Hage |
+| `rooms.hage.fuktighet` | Luftfuktighet · entity | Rom · Hage |
+| `rooms.hage.termostat` | Termostat · entity | Rom · Hage |
+| `rooms.hage.badges_own` | Egne varsel-vilkår · boolean | Rom · Hage |
+| `rooms.bod.icon` | Ikon · icon | Rom · Bod |
+| `rooms.bod.color` | Farge (ikon når lys er på) · color | Rom · Bod |
+| `rooms.bod.size` | Størrelse i kortliste (S \| M \| L) | Rom · Bod |
+| `rooms.bod.klima` | Klima-knapp (+/−) · boolean | Rom · Bod |
+| `rooms.bod.temperatur` | Temperatur · entity | Rom · Bod |
+| `rooms.bod.fuktighet` | Luftfuktighet · entity | Rom · Bod |
+| `rooms.bod.termostat` | Termostat · entity | Rom · Bod |
+| `rooms.bod.badges_own` | Egne varsel-vilkår · boolean | Rom · Bod |
+| `rooms.gang.icon` | Ikon · icon | Rom · Gang |
+| `rooms.gang.color` | Farge (ikon når lys er på) · color | Rom · Gang |
+| `rooms.gang.size` | Størrelse i kortliste (S \| M \| L) | Rom · Gang |
+| `rooms.gang.klima` | Klima-knapp (+/−) · boolean | Rom · Gang |
+| `rooms.gang.temperatur` | Temperatur · entity | Rom · Gang |
+| `rooms.gang.fuktighet` | Luftfuktighet · entity | Rom · Gang |
+| `rooms.gang.termostat` | Termostat · entity | Rom · Gang |
+| `rooms.gang.badges_own` | Egne varsel-vilkår · boolean | Rom · Gang |
+| `rooms.kjokken.icon` | Ikon · icon | Rom · Kjøkken |
+| `rooms.kjokken.color` | Farge (ikon når lys er på) · color | Rom · Kjøkken |
+| `rooms.kjokken.size` | Størrelse i kortliste (S \| M \| L) | Rom · Kjøkken |
+| `rooms.kjokken.klima` | Klima-knapp (+/−) · boolean | Rom · Kjøkken |
+| `rooms.kjokken.temperatur` | Temperatur · entity | Rom · Kjøkken |
+| `rooms.kjokken.fuktighet` | Luftfuktighet · entity | Rom · Kjøkken |
+| `rooms.kjokken.termostat` | Termostat · entity | Rom · Kjøkken |
+| `rooms.kjokken.badges_own` | Egne varsel-vilkår · boolean | Rom · Kjøkken |
+| `rooms.stue.icon` | Ikon · icon | Rom · Stue |
+| `rooms.stue.color` | Farge (ikon når lys er på) · color | Rom · Stue |
+| `rooms.stue.size` | Størrelse i kortliste (S \| M \| L) | Rom · Stue |
+| `rooms.stue.klima` | Klima-knapp (+/−) · boolean | Rom · Stue |
+| `rooms.stue.temperatur` | Temperatur · entity | Rom · Stue |
+| `rooms.stue.fuktighet` | Luftfuktighet · entity | Rom · Stue |
+| `rooms.stue.termostat` | Termostat · entity | Rom · Stue |
+| `rooms.stue.badges_own` | Egne varsel-vilkår · boolean | Rom · Stue |
+| `rooms.bad.icon` | Ikon · icon | Rom · Bad |
+| `rooms.bad.color` | Farge (ikon når lys er på) · color | Rom · Bad |
+| `rooms.bad.size` | Størrelse i kortliste (S \| M \| L) | Rom · Bad |
+| `rooms.bad.klima` | Klima-knapp (+/−) · boolean | Rom · Bad |
+| `rooms.bad.temperatur` | Temperatur · entity | Rom · Bad |
+| `rooms.bad.fuktighet` | Luftfuktighet · entity | Rom · Bad |
+| `rooms.bad.termostat` | Termostat · entity | Rom · Bad |
+| `rooms.bad.badges_own` | Egne varsel-vilkår · boolean | Rom · Bad |
+| `rooms.soverom.icon` | Ikon · icon | Rom · Soverom |
+| `rooms.soverom.color` | Farge (ikon når lys er på) · color | Rom · Soverom |
+| `rooms.soverom.size` | Størrelse i kortliste (S \| M \| L) | Rom · Soverom |
+| `rooms.soverom.klima` | Klima-knapp (+/−) · boolean | Rom · Soverom |
+| `rooms.soverom.temperatur` | Temperatur · entity | Rom · Soverom |
+| `rooms.soverom.fuktighet` | Luftfuktighet · entity | Rom · Soverom |
+| `rooms.soverom.termostat` | Termostat · entity | Rom · Soverom |
+| `rooms.soverom.badges_own` | Egne varsel-vilkår · boolean | Rom · Soverom |
+| `rooms.garasje.icon` | Ikon · icon | Rom · Garasje |
+| `rooms.garasje.color` | Farge (ikon når lys er på) · color | Rom · Garasje |
+| `rooms.garasje.size` | Størrelse i kortliste (S \| M \| L) | Rom · Garasje |
+| `rooms.garasje.klima` | Klima-knapp (+/−) · boolean | Rom · Garasje |
+| `rooms.garasje.temperatur` | Temperatur · entity | Rom · Garasje |
+| `rooms.garasje.fuktighet` | Luftfuktighet · entity | Rom · Garasje |
+| `rooms.garasje.termostat` | Termostat · entity | Rom · Garasje |
+| `rooms.garasje.badges_own` | Egne varsel-vilkår · boolean | Rom · Garasje |
+| `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
+| `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
+| `toasts` | Bekreftelsesmeldinger (f.eks. «Dørlås låst opp») · boolean | Layout |
+
+## `msh-rom-klima-card`
+
+Temperatur, fukt, termostat-chip og 24 t-graf med scrubbing. Alltid første kort i rom-popupen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Rom (område) · area |  |
+| `name` | Navn |  |
+| `overrides.{temperatur, fuktighet, termostat}` | bytt entitet |  |
+| `graph_t` | Linje · temperatur (romfarge) · color | Graf |
+| `graph_h` | Linje · fukt · color | Graf |
+| `graph_fill` | Fyll (0 \| 0.2 \| 0.4) | Graf |
+| `graph_width` | Linje (1.5 \| 2 \| 3) | Graf |
+
+## `msh-rom-card`
+
+Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – autokonfig fra KI Rom / HA-områder.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Rom (område) · area |  |
+| `gap` | 4 / 8 / 18 px |  |
+| `sections · hidden_sections` | rekkefølge/synlighet: curtain, scenes, lys, dev, klima, media, sens |  |
+| `exclude · include.{}` | skjul / legg til |  |
+| `overrides.{termostat, fuktighet}` | bytt entitet |  |
+| `klima_bg` | Bakgrunn · color | Klima-kort |
+| `klima_ring` | Knappfarge · color | Klima-kort |
+| `klima_btn` | Knapp (outline \| fill) | Klima-kort |
+| `klima_mode` | Farg etter modus · boolean | Klima-kort |
+| `customize_button` | Vis «Tilpass rommet»-knapp nederst · boolean |  |
+
+## `msh-romkort-card`
+
+Romkort for Hjem: temperatur, fukt, lys, termostat og varsler. Trykk åpner Rom-popupen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Rom (område) · area | Rom |
+| `variant` | Variant (graf \| karusell \| L \| M \| S) | Rom |
+| `name` | Navn | Rom |
+| `hash` | Popup (hash) · hash | Rom |
+| `klima` | Klima-knapp (+/−) på kortet · boolean | Rom |
+| `icon` | Ikon · icon | Ikon og farge |
+| `color` | Romfarge (ikon når lys er på) · color | Ikon og farge |
+| `overrides.{temperatur, fuktighet, termostat}` | bytt entitet |  |
+| `badges_own` | Egne varsel-vilkår · boolean | Varsler på rommet |
+| `graph_t` | Linje · temperatur · color | Graf (variant graf) |
+| `graph_h` | Linje · fukt · color | Graf (variant graf) |
+| `background` | Bakgrunn · color | Graf (variant graf) |
+| `motes` | Svevende partikler (animasjon) · boolean | Graf (variant graf) |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+
+## `msh-basseng-hero-card`
+
+Basseng-hero med vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Første kort i #basseng.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Område · area |  |
+| `name` | Navn |  |
+| `overrides.{water, pump, heat, cover, light, target, turnover}` | bytt entitet |  |
+| `anim` | Animasjoner (bølger, bobler, vifte og varme) · boolean | Animasjon |
+| `chips` | Statusikoner (pumpe, varme, tak og lys i bildet) · boolean | Animasjon |
+| `vals.turnovers` | Omsetninger per døgn (mål) | Animasjon |
+
+## `msh-basseng-card`
+
+Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og spreder. Legg under msh-basseng-hero-card i #basseng.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Område · area |  |
+| `overrides.{water, ute, pump, heat, cover, light, spr, power, heat_power, ph, klor, target, turnover, pumped, savings, cost, mode, night, winter, heat_loss, solar, spr_duration, klor_calendar}` | bytt entitet |  |
+| `exclude · include.{flagg, personer}` | skjul / legg til |  |
+| `controls · hidden_controls` | rekkefølge/synlighet: light, pump, heat, cover, spr |  |
+| `tabs · hidden_tabs` | rekkefølge/synlighet: ov, heat, klor, spr |  |
+| `vals.profile` | Driftsprofil | Styring og verdier |
+| `vals.turnovers` | Omsetninger per døgn | Styring og verdier |
+| `vals.pulse` | Vedlikeholdspuls | Styring og verdier |
+| `vals.day_hours` | Dagtimer i planen | Styring og verdier |
+| `vals.price_ctrl` | Prisstyring · boolean | Styring og verdier |
+| `vals.heat_prio` | Varmeprioritet · boolean | Styring og verdier |
+| `vals.min_run` | Minste kjøretid | Styring og verdier |
+| `vals.base_load` | Basislast | Styring og verdier |
+| `vals.override` | Manuell overstyring varer | Styring og verdier |
+| `vals.ctrl_heat` | Styr varmepumpa · boolean | Styring og verdier |
+| `vals.ctrl_setpoint` | Styr settpunkt · boolean | Styring og verdier |
+| `vals.heat_from` | Varmevindu fra | Styring og verdier |
+| `vals.heat_to` | Varmevindu til | Styring og verdier |
+| `vals.away_drop` | Senking når ingen er hjemme | Styring og verdier |
+| `vals.solar` | Solvarme · boolean | Styring og verdier |
+| `vals.targets` | Hurtigvalg mål (°C) | Styring og verdier |
+| `vals.loss_open` | Varmetap uten tak | Styring og verdier |
+| `vals.loss_closed` | Varmetap med tak | Styring og verdier |
+| `vals.sun_through` | Sol gjennom taket | Styring og verdier |
+| `vals.klor_every` | Klortablett hver (dager) | Styring og verdier |
+| `vals.spr_every` | Start hver | Styring og verdier |
+| `vals.spr_max` | Maks per døgn | Styring og verdier |
+| `vals.spr_durs` | Varigheter (min) | Styring og verdier |
+| `vals.spr_frost` | Frostvakt · boolean | Styring og verdier |
+| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
+| `gap` | 4 / 8 / 18 px | Visning |
+
+## `msh-vanning-hero-card`
+
+Hage-scene med spreder, status, neste vanning og dagens forbruk. Første kort i #vanning.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Område · area |  |
+| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
+| `exclude · include.{soner, program}` | skjul / legg til |  |
+| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
+| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
+| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
+| `water_price` | Vannpris (kr per m³) · number | Vanning |
+| `rain_hours` | Regnpause (timer) · number | Vanning |
+| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
+| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
+| `group_by` | Grupper soner (area \| none) | Vanning |
+
+## `msh-vanning-card`
+
+Vanning-popup: kontroller, soner, programmer, forbruk og historikk (OpenSprinkler, valve/switch, kalender, vannmåler). Legg under msh-vanning-hero-card i #vanning.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Område · area |  |
+| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
+| `exclude · include.{soner, program}` | skjul / legg til |  |
+| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
+| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
+| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
+| `water_price` | Vannpris (kr per m³) · number | Vanning |
+| `rain_hours` | Regnpause (timer) · number | Vanning |
+| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
+| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
+| `group_by` | Grupper soner (area \| none) | Vanning |
+| `tabs · hidden_tabs` | rekkefølge/synlighet: now, zones, prog, use, hist |  |
+| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
+| `gap` | 4 / 8 / 18 px | Visning |
+
+## `msh-klima-hero-card`
+
+Effekt nå mot timegrensen (bue), kWh igjen, kW ledig og bortemodus. Første kort i Klima-popupen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `overrides.{effekt, forbruk, grense, borte}` | bytt entitet |  |
+| `limit` | Timegrense (kWh) uten entitet · number |  |
+| `terskel_gul` | Gul fra (%) · number | Terskler for fargesonene |
+| `terskel_oransje` | Oransje fra (%) · number | Terskler for fargesonene |
+| `terskel_rod` | Rød fra (%) · number | Terskler for fargesonene |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+
+## `msh-klima-card`
+
+Alle termostater og vifter gruppert per rom, moduser, energi mot timegrensen, varmtvann, logg og oppsett (7 faner).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{soner, moduser, leggetid, vann, oppsett, grenser, tider, verdier, sparing}` | skjul / legg til |  |
+| `overrides.{effekt, forbruk, grense, pris, bereder, legionella, handkle}` | bytt entitet |  |
+| `limit` | Timegrense (kWh) uten entitet · number |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: ov, so, en, vb, ta, op, av |  |
+| `start_tab` | Startfane (ov \| so \| en \| vb \| ta \| op \| av) |  |
+| `terskel_gul` | Gul fra (%) · number | Terskler for fargesonene |
+| `terskel_oransje` | Oransje fra (%) · number | Terskler for fargesonene |
+| `terskel_rod` | Rød fra (%) · number | Terskler for fargesonene |
+| `legionella_frist` | Legionella-frist (dager) · number | Avansert |
+| `platform` | Integrasjon for innstillinger | Avansert |
+| `gap` | 4 / 8 / 18 px |  |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+
+## `msh-lys-card`
+
+Utelys med tidslinje og styring, lys per etasje og rom med dimmere, og oversikt over lys som er på.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{lys, utelys}` | skjul / legg til |  |
+| `overrides.{lux, automatikk, modus, kveld_bryter, morgen_bryter}` | bytt entitet |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, on |  |
+| `start_tab` | Startfane (out \| f:forste \| f:andre \| on) |  |
+| `mode` | Styring (auto \| tid \| manuell) | Utelys · tider |
+| `on` | Tennes (HH:MM) | Utelys · tider |
+| `off` | Slukkes (HH:MM) | Utelys · tider |
+| `latest` | Slukk senest (HH:MM) | Utelys · tider |
+| `morning` | Morgen fra (HH:MM) | Utelys · tider |
+| `offset` | Forskyvning skumring (min) · number | Utelys · tider |
+| `lux_on` | Tenn under (lx) · number | Utelys · tider |
+| `lux_off` | Slukk over (lx) · number | Utelys · tider |
+| `kveld` | Kveld · tenn i skumringen · boolean | Utelys · tider |
+| `morgen` | Morgen · tenn før det lysner · boolean | Utelys · tider |
+| `gap` | 4 / 8 / 18 px |  |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+
+## `msh-media-hero-card`
+
+Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Media-popupen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
+| `exclude · include.{spillere}` | skjul / legg til |  |
+| `area` | Begrens til område · area |  |
+| `players.kjokken_radio.type` | Type (auto \| tv \| musikk \| skjul) | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.name` | Navn | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.icon` | Ikon · icon | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.shortcuts` | Snarveier (button/script/scene) · entities | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.chip_title` | Tittel over snarveier | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.hide_sources` | Skjul kilder (kommaseparert) | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.watch` | Statistikk (sensorer under omslaget) · entities | Kjøkken radio · Musikk · Kjøkken |
+| `players.rn602_stue.type` | Type (auto \| tv \| musikk \| skjul) | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.name` | Navn | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.icon` | Ikon · icon | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.shortcuts` | Snarveier (button/script/scene) · entities | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.chip_title` | Tittel over snarveier | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.hide_sources` | Skjul kilder (kommaseparert) | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.watch` | Statistikk (sensorer under omslaget) · entities | RN602 stue · Musikk · Stue |
+| `players.stue_sonos.type` | Type (auto \| tv \| musikk \| skjul) | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.name` | Navn | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.icon` | Ikon · icon | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.shortcuts` | Snarveier (button/script/scene) · entities | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.chip_title` | Tittel over snarveier | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.hide_sources` | Skjul kilder (kommaseparert) | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.watch` | Statistikk (sensorer under omslaget) · entities | Stue Sonos · Musikk · Stue |
+| `players.stue_tv.type` | Type (auto \| tv \| musikk \| skjul) | Stue TV · TV · Stue |
+| `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
+| `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
+| `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
+| `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
+| `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
+| `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
+| `players.stue_tv.watch` | Seertid (sensorer under omslaget) · entities | Stue TV · TV · Stue |
+| `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
+| `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
+| `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.watch` | Seertid (sensorer under omslaget) · entities | Soverom TV · TV · Soverom |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+
+## `msh-media-card`
+
+Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle media_player.*
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
+| `exclude · include.{spillere}` | skjul / legg til |  |
+| `area` | Begrens til område · area |  |
+| `players.kjokken_radio.type` | Type (auto \| tv \| musikk \| skjul) | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.name` | Navn | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.icon` | Ikon · icon | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.shortcuts` | Snarveier (button/script/scene) · entities | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.chip_title` | Tittel over snarveier | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.hide_sources` | Skjul kilder (kommaseparert) | Kjøkken radio · Musikk · Kjøkken |
+| `players.kjokken_radio.watch` | Statistikk (sensorer under omslaget) · entities | Kjøkken radio · Musikk · Kjøkken |
+| `players.rn602_stue.type` | Type (auto \| tv \| musikk \| skjul) | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.name` | Navn | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.icon` | Ikon · icon | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.shortcuts` | Snarveier (button/script/scene) · entities | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.chip_title` | Tittel over snarveier | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.hide_sources` | Skjul kilder (kommaseparert) | RN602 stue · Musikk · Stue |
+| `players.rn602_stue.watch` | Statistikk (sensorer under omslaget) · entities | RN602 stue · Musikk · Stue |
+| `players.stue_sonos.type` | Type (auto \| tv \| musikk \| skjul) | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.name` | Navn | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.icon` | Ikon · icon | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.shortcuts` | Snarveier (button/script/scene) · entities | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.chip_title` | Tittel over snarveier | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.hide_sources` | Skjul kilder (kommaseparert) | Stue Sonos · Musikk · Stue |
+| `players.stue_sonos.watch` | Statistikk (sensorer under omslaget) · entities | Stue Sonos · Musikk · Stue |
+| `players.stue_tv.type` | Type (auto \| tv \| musikk \| skjul) | Stue TV · TV · Stue |
+| `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
+| `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
+| `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
+| `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
+| `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
+| `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
+| `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
+| `players.stue_tv.watch` | Seertid (sensorer under omslaget) · entities | Stue TV · TV · Stue |
+| `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
+| `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
+| `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.watch` | Seertid (sensorer under omslaget) · entities | Soverom TV · TV · Soverom |
+| `toasts` | Bekreftelsesmeldinger · boolean |  |
+| `gap` | 4 / 8 / 18 px |  |
+
+## `msh-kamera-card`
+
+Alle camera.* med mosaikk/rutenett/liste, enkeltkamera, hendelser og Frigate. Stillbilder oppdateres kun mens popupen er åpen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `layout` | Oppsett (mosaic \| main \| grid \| list \| masonry \| overview \| focus \| 2x2 \| 3col) | Visning |
+| `mode` | Startmodus (live \| frigate) | Visning |
+| `view` | Startvisning (alle \| events) | Visning |
+| `refresh` | Oppdater stillbilder (sekunder) · number | Visning |
+| `frigate_instance` | Frigate-instans | Visning |
+| `area` | Begrens til område · area | Visning |
+| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
+| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.pakke, camera.veranda, camera.garasje, camera.innkjorsel |  |
+| `exclude · include.{kameraer}` | skjul / legg til |  |
+| `cameras.inngang.name` | Navn | Inngang |
+| `cameras.inngang.icon` | Ikon · icon | Inngang |
+| `cameras.inngang.light` | Lys · entity | Inngang |
+| `cameras.inngang.siren` | Sirene · entity | Inngang |
+| `cameras.inngang.talk` | Snakk (script/button) · entity | Inngang |
+| `cameras.pakke.name` | Navn | Pakke |
+| `cameras.pakke.icon` | Ikon · icon | Pakke |
+| `cameras.pakke.light` | Lys · entity | Pakke |
+| `cameras.pakke.siren` | Sirene · entity | Pakke |
+| `cameras.pakke.talk` | Snakk (script/button) · entity | Pakke |
+| `cameras.veranda.name` | Navn | Veranda |
+| `cameras.veranda.icon` | Ikon · icon | Veranda |
+| `cameras.veranda.light` | Lys · entity | Veranda |
+| `cameras.veranda.siren` | Sirene · entity | Veranda |
+| `cameras.veranda.talk` | Snakk (script/button) · entity | Veranda |
+| `cameras.garasje.name` | Navn | Garasje |
+| `cameras.garasje.icon` | Ikon · icon | Garasje |
+| `cameras.garasje.light` | Lys · entity | Garasje |
+| `cameras.garasje.siren` | Sirene · entity | Garasje |
+| `cameras.garasje.talk` | Snakk (script/button) · entity | Garasje |
+| `cameras.innkjorsel.name` | Navn | Innkjørsel |
+| `cameras.innkjorsel.icon` | Ikon · icon | Innkjørsel |
+| `cameras.innkjorsel.light` | Lys · entity | Innkjørsel |
+| `cameras.innkjorsel.siren` | Sirene · entity | Innkjørsel |
+| `cameras.innkjorsel.talk` | Snakk (script/button) · entity | Innkjørsel |
+| `gap` | 4 / 8 / 18 px |  |
+
+## `msh-sikkerhet-hero-card`
+
+Toppkort for #sikkerhet: sensorring, alarmmodus og status. Legges først i popupen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `overrides.{alarm}` | bytt entitet |  |
+| `exclude · include.{sensorer}` | skjul / legg til |  |
+| `sensors.binary_sensor.inngangsdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngangsdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngangsdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.kjokken_vindu.name` | Navn | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.kjokken_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.kjokken_vindu.room` | Rom | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.stue_vindu.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_vindu.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.soverom_vindu.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.soverom_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.soverom_vindu.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `show_ring` | Sensorring · stor ring med alle sensorer · boolean | Visning |
+
+## `msh-sikkerhet-card`
+
+Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste hendelser. #sikkerhet
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `overrides.{alarm}` | bytt entitet |  |
+| `code_for` | Krev kode (alle \| av \| aldri) | Kode |
+| `code_length` | Kodelengde (4 \| 6) | Kode |
+| `exclude · include.{sensorer}` | skjul / legg til |  |
+| `sensors.binary_sensor.inngangsdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngangsdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngangsdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_ytterdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.lock.inngangsdor.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.gang_bevegelse.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_bevegelse.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.name` | Navn | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.inngang_person.room` | Rom | Sensorer · navn, type og rom › Gang · 6 |
+| `sensors.binary_sensor.kjokken_vindu.name` | Navn | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.kjokken_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.kjokken_vindu.room` | Rom | Sensorer · navn, type og rom › Kjøkken · 1 |
+| `sensors.binary_sensor.stue_vindu.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_vindu.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_bevegelse.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.name` | Navn | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.stue_tilstede.room` | Rom | Sensorer · navn, type og rom › Stue · 3 |
+| `sensors.binary_sensor.soverom_vindu.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.soverom_vindu.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.soverom_vindu.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.vindu_soverom.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
+| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `sections · hidden_sections` | rekkefølge/synlighet: modes, alerts, rooms, log, edit |  |
+| `show_alerts` | Varsler · «Krever oppmerksomhet» øverst · boolean | Visning |
+| `show_log` | Siste hendelser · logg nederst · boolean | Visning |
+| `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
+| `gap` | 4 / 8 / 18 px |  |
+
+## `msh-ruter-card`
+
+Avvik (Entur SX) og avganger per stopp (Entur). #ruter
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{stopp, linjer}` | skjul / legg til |  |
+| `stop_order · exclude` | rekkefølge/synlighet: sensor.entur_bislett, sensor.entur_stoppested, sensor.entur_holbergs_plass |  |
+| `stops.entur_bislett.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_bislett.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_bislett.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_bislett.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_bislett.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_stoppested.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_stoppested.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_stoppested.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_stoppested.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_stoppested.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_holbergs_plass.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `stops.entur_holbergs_plass.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `stops.entur_holbergs_plass.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `stops.entur_holbergs_plass.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `stops.entur_holbergs_plass.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `overrides.{avvik}` | bytt entitet |  |
+| `show_disruptions` | Vis avvikskort · øverst i popupen · boolean | Visning |
+| `hide_zero` | Skjul når ingen avvik · boolean | Visning |
+| `planned` | Ta med planlagte avvik · boolean | Visning |
+| `walk` | Vis gangtid · teksten ved hvert stopp · boolean | Visning |
+| `realtime` | Vis sanntidsmerke · boolean | Visning |
+| `sort` | Sortering (liste \| tid) | Visning |
+| `gap` | 4 / 8 / 18 px |  |
+
+## `msh-vaer-hero-card`
+
+Været nå med animasjon, sol/måne/UV og pollen i en sveipbar karusell. Først i #vaer.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `name` | Stedsnavn |  |
+| `overrides.{weather, sol, mane}` | bytt entitet |  |
+| `exclude · include.{pollen}` | skjul / legg til |  |
+| `show_extras` | Side 2 · Andre varsler (sol, måne, UV) · boolean | Visning |
+| `show_pollen` | Side 3 · Pollen i dag · boolean | Visning |
+
+## `msh-vaer-card`
+
+Farevarsler, time for time, dagskort, detaljkort og månefase. Prognose abonneres kun mens #vaer er åpen.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `overrides.{weather, sol, mane}` | bytt entitet |  |
+| `sections · hidden_sections` | rekkefølge/synlighet: alerts, hours, graph, days, tiles, moon, edit |  |
+| `tiles · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain |  |
+| `hours` | Timer i «Time for time» · number | Prognose |
+| `days` | Antall dagskort · number | Prognose |
+| `show_graph` | Temperaturgraf med scrub (neste 24 t) · boolean | Prognose |
+| `exclude · include.{varsler}` | skjul / legg til |  |
+| `gap` | 4 / 8 / 18 px |  |
+
+## Tillegg: nøkler fra egne editorfelt
+
+Navbaren og Hjem-kortene har egne felttyper (lister av objekter) som tabellene over ikke viser fullt ut. De viktigste:
+
+```yaml
+type: custom:msh-navbar-card
+bar: [vanning, media, klima, basseng, ruter]   # knapper i baren
+more: [gjoremal]                               # knapper i «Mer»-menyen
+hidden: []
+buttons:                                       # egne knapper / overstyring av innebygde
+  egen_godnatt: { custom: true, icon: mdi:weather-night, label: Godnatt, action: service, service: script.godnatt }
+  vanning: { hash: '#vann' }
+badges:                                        # røde prikker med vilkår (op: > < = !=)
+  media: [{ entity: media_player.stue_tv, op: '=', value: playing, text: TV spiller }]
+show_names: false
+menu_names: true
+shrink: true
+width: std          # kompakt | std | full
+style: white        # white | glass
+layout: auto        # auto | mobil | stor
+reserve_space: true
+```
+
+```yaml
+type: custom:msh-hjem-header-card
+mode: familie       # familie | sted | navn | under | kompakt | hjem | stor | profil
+greeting: '👋 {name}!'
+zones: [{ zone: zone.jobb, icon: mdi:briefcase, color: 'var(--blue, #73b9f2)' }]
+servers: [{ name: Oslo, url: https://…, icon: mdi:office-building, color: 'var(--green, #66d19e)' }]
+person_tap: quick   # quick | popup (#person-<id>)
+```
+
+```yaml
+type: custom:msh-prosa-card
+prose:              # rader: tekst før, kilde (vær/temp/pris/watt/lys/hendelser/hjemme/lås/alarm/entitet …), tekst etter, handling, betingelse
+  - { pre: 'Det er', src: temp, post: 'ute', act: '', link: vaer }
+```
+
+```yaml
+type: custom:msh-hjem-faner-card
+tab_order: [hjem, forste, andre, aktuelt]
+tab_views: { forste: liste }          # karusell | liste | batterier
+rooms: { stue: { icon: mdi:sofa, color: 'var(--orange, #f2b573)', size: L } }
+battery: { limit: 20 }
+tiles: { aktuelt: { dish: { slot: L-top } } }
+```

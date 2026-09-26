@@ -1,0 +1,5 @@
+[
+  { "name": "Person", "hash": "#person-sebastian", "cards": [{ "type": "custom:msh-person-hero-card" }, { "type": "custom:msh-person-card" }] },
+  { "name": "Person uten mobil", "hash": "#person-cybele", "cards": [{ "type": "custom:msh-person-hero-card" }, { "type": "custom:msh-person-card" }] },
+  { "name": "Person ukjent", "hash": "#person-finnes_ikke", "cards": [{ "type": "custom:msh-person-hero-card" }, { "type": "custom:msh-person-card" }] }
+]
