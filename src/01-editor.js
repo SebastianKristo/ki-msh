@@ -83,7 +83,29 @@
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .small{font-size:12px;color:#979797}
     .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
-    ha-icon-picker{display:block}
+    ha-icon-picker,ha-selector{display:block}
+    .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
+    .sec>summary .meta+.chev{margin-left:8px}
+    /* entitetsvelger (Rom v4) */
+    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:#282828;text-align:left}
+    .pk .nm,.pr .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+    .pk b,.pr b{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pk i,.pr i{font-style:normal;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828}
+    .pks{height:42px;padding:0 14px;border-radius:14px;background:#3a3a3a;font-size:14px;width:100%}
+    .pls{max-height:260px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px}
+    .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
+    .pr.on{background:rgba(255,255,255,0.08)}
+    .pr .val{font-size:12px;color:#afafaf;white-space:nowrap;flex:none}
+    /* slider med snarvalg */
+    .rg .rv{font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
+    .rg input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;touch-action:pan-y;cursor:pointer}
+    .rg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#545454}
+    .rg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#545454}
+    .rg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    .rg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
+    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:#545454;color:#fafafa}
+    .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
   `;
 
   class MshEditor extends HTMLElement {
@@ -97,9 +119,11 @@
       this.shadowRoot.addEventListener('change', (e) => this._change(e));
       this.shadowRoot.addEventListener('focusin', (e) => { const t = e.target; if (t.dataset && t.dataset.search) { this._menu = t.dataset.search; this._render(); } });
       this.shadowRoot.addEventListener('toggle', (e) => { const d = e.target; if (d.dataset && d.dataset.sec != null) this._open[d.dataset.sec] = d.open; }, true);
+      // Slidere: ikke la Bubble Card lukke/scrolle popupen mens man drar
+      ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.target && e.target.type === 'range') e.stopPropagation(); }, { passive: true }));
       this.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.target;
-        if (t.dataset && t.dataset.name) { e.stopPropagation(); this._set(t.dataset.name, e.detail.value || undefined); }
+        if (t.dataset && t.dataset.name) { e.stopPropagation(); const v = e.detail.value; this._set(t.dataset.name, v === '' || v == null ? undefined : v); }
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
@@ -118,6 +142,7 @@
       c = clean(c);
       this._config = c;
       if (!this._inline) this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true }));
+      else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c } })); // kortet oppdateres live
       this._render();
     }
     _render() {
@@ -131,6 +156,13 @@
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
+      this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
+        p.hass = this._hass;
+        if (p.dataset.selector !== p.__selJson) { p.__selJson = p.dataset.selector; p.selector = JSON.parse(p.dataset.selector); }
+        p.label = p.dataset.label || ''; p.helper = p.dataset.helper || ''; p.required = false;
+        const raw = get(this._config, p.dataset.name), v = raw != null ? raw : (p.dataset.def !== undefined && p.dataset.def !== '' ? Number(p.dataset.def) : undefined);
+        if (p.value !== v) p.value = v;
+      });
       if (this.focusSection && !this._focused) {
         this._focused = true;
         const el = this.shadowRoot.querySelector(`[data-focus="${CSS.escape ? CSS.escape(this.focusSection) : this.focusSection}"]`);
@@ -146,7 +178,7 @@
       switch (f.type) {
         case 'section': {
           const open = this._open[key] != null ? this._open[key] : (f.open || (this.focusSection && f.id === this.focusSection));
-          return `<details class="sec" data-sec="${key}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${(f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('')}</div></details>`;
+          return `<details class="sec" data-sec="${key}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${(f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('')}</div></details>`;
         }
         case 'boolean': {
           const on = val != null ? !!val : !!f.default;
@@ -159,6 +191,17 @@
         case 'gap': {
           const cur = c.gap != null ? Number(c.gap) : 8;
           return `<div class="f"><label>Mellomrom</label><div class="chips">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
+        }
+        case 'range': {
+          const cur = val != null ? Number(val) : f.default;
+          if (!this._inline && customElements.get('ha-selector')) {
+            const sel = { number: { min: f.min, max: f.max, step: f.step || 1, mode: 'slider', unit_of_measurement: f.unit || 'px' } };
+            return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-def="${f.default != null ? f.default : ''}" data-selector="${esc(JSON.stringify(sel))}" data-label="${esc(f.label || '')}" data-helper="${esc(f.help || (f.default != null ? 'Standard ' + f.default + ' ' + (f.unit || 'px') : ''))}"></ha-selector></div>`;
+          }
+          const pills = (f.presets || []).map(([v, l]) => `<button class="pill ${Number(v) === cur ? 'on' : ''}" data-a="sel" data-num="1" data-name="${esc(f.name)}" data-v="${v}">${esc(l)}</button>`).join('');
+          return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:#afafaf') : ''}<span style="flex:1;font-size:13px">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
+            <input type="range" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${cur != null ? cur : f.min}">
+            ${pills ? `<div class="chips">${pills}</div>` : ''}${help}</div>`;
         }
         case 'number':
           return `<div class="f">${lab}<input class="inp" type="number" data-name="${esc(f.name)}" data-num="1" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || f.default || '')}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>${help}</div>`;
@@ -175,6 +218,11 @@
           return this._entity(f, f.name, val, auto, key);
         case 'entities': {
           const list = Array.isArray(val) ? val : [];
+          if (f.addLabel) {
+            const open = this._menu === key;
+            return `<div class="f">${lab}${list.map((id, i) => this._entRow(id, `<button class="ib" data-a="rmlist" data-name="${esc(f.name)}" data-i="${i}" title="Fjern">${M.icon('mdi:minus-circle-outline', 20)}</button>`)).join('')}
+              ${open ? this._pickList(f, f.name, null, null, key, 'addlist') : `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon('mdi:plus', 20)}<span class="nm"><b>${esc(f.addLabel)}</b></span></button>`}${help}</div>`;
+          }
           return `<div class="f">${lab}${list.map((id, i) => this._entRow(id, `<button class="ib" data-a="rmlist" data-name="${esc(f.name)}" data-i="${i}" title="Fjern">${M.icon('mdi:close', 18)}</button>`)).join('')}${this._search(f, key, 'addlist', f.name)}${help}</div>`;
         }
         case 'overrides':
@@ -214,9 +262,37 @@
     _entity(f, name, val, auto, key) {
       const lab = f.label ? `<label>${esc(f.label)}</label>` : '';
       const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
-      const cur = val ? (f.type === 'area' ? `<div class="ent">${M.icon('mdi:texture-box', 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.areaName(this._hass, val))}</b><i>${esc(val)}</i></span><button class="ib" data-a="clear" data-name="${esc(name)}" title="Tilbake til auto">${M.icon('mdi:close', 18)}</button></div>`
-        : this._entRow(val, `<button class="ib" data-a="clear" data-name="${esc(name)}" title="Tilbake til auto">${M.icon('mdi:close', 18)}</button>`)) : '';
-      return `<div class="f">${lab}${cur}${this._search(f, key, 'setent', name, val ? 'Bytt …' : auto ? 'Auto: ' + auto : 'Velg entitet …')}${help}</div>`;
+      if (f.type === 'area') {
+        const cur = val ? `<div class="ent">${M.icon('mdi:texture-box', 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.areaName(this._hass, val))}</b><i>${esc(val)}</i></span><button class="ib" data-a="clear" data-name="${esc(name)}" title="Tilbake til auto">${M.icon('mdi:close', 18)}</button></div>` : '';
+        return `<div class="f">${lab}${cur}${this._search(f, key, 'setent', name, val ? 'Bytt …' : auto ? 'Auto: ' + auto : 'Velg område …')}${help}</div>`;
+      }
+      // HA GUI-editor: ha-selector (entity) med «Automatisk»-hjelpetekst
+      if (!this._inline && customElements.get('ha-selector')) {
+        const ent = {};
+        if (f.domain) ent.domain = f.domain;
+        if (f.device_class) ent.device_class = f.device_class;
+        return `<div class="f"><ha-selector data-name="${esc(name)}" data-nomorph data-selector="${esc(JSON.stringify({ entity: ent }))}" data-label="${esc(f.label || '')}" data-helper="${esc(val ? '' : 'Automatisk' + (auto ? ' · ' + auto : ' · fant ingen'))}"></ha-selector></div>`;
+      }
+      // Egen velger (Rom v4): knapp → inline liste med søk, «Automatisk» først
+      const h = this._hass, s = val ? h.states[val] : null;
+      const btn = val
+        ? `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon(M.domainIcon(val, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || val : val)}</b><i>${esc(val)}${s ? '' : ' · finnes ikke'}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`
+        : `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>Automatisk</b><i>${esc(auto || 'fant ingen')}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`;
+      return `<div class="f">${lab}${this._menu === key ? this._pickList(f, name, val, auto, key, 'setent') : btn}${help}</div>`;
+    }
+    _pickList(f, name, val, auto, key, act) {
+      const h = this._hass, c = this._config, q = (this._q[key] || '').trim();
+      const area = (typeof f.area === 'function' ? f.area(h, c) : f.area) || this.areaCtx || c.area || null;
+      const doms = f.domains || (f.domain ? [].concat(f.domain) : null), dcs = f.device_class ? [].concat(f.device_class) : null, ql = q.toLowerCase();
+      const ids = Object.keys(h.states).filter((id) => (!doms || doms.includes(id.split('.')[0])) && (!dcs || dcs.includes(h.states[id].attributes.device_class)))
+        .filter((id) => !ql || (id + ' ' + (h.states[id].attributes.friendly_name || '')).toLowerCase().includes(ql));
+      const inArea = (id) => (area && M.areaOf(h, id) === area ? 0 : 1);
+      ids.sort((x, y) => inArea(x) - inArea(y) || x.localeCompare(y));
+      const row = (id) => { const s = h.states[id]; return `<button class="pr ${id === val ? 'on' : ''}" data-a="${act}" data-name="${esc(name)}" data-v="${esc(id)}" data-key="${esc(id)}">${M.icon(M.domainIcon(id, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s.attributes.friendly_name || id)}</b><i>${esc(id)}</i></span><span class="val">${esc(M.fmtState(h, id))}</span></button>`; };
+      const useIt = /^[a-z_]+\.[a-z0-9_]+$/.test(q) && !ids.includes(q) ? `<button class="pr" data-a="${act}" data-name="${esc(name)}" data-v="${esc(q)}">${M.icon('mdi:keyboard-return', 22, 'color:#afafaf')}<span class="nm"><b>Bruk «${esc(q)}»</b></span></button>` : '';
+      const autoRow = act === 'setent' ? `<button class="pr ${val ? '' : 'on'}" data-a="clear" data-name="${esc(name)}">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>Automatisk</b><i>${esc(auto || 'fant ingen')}</i></span></button>` : '';
+      return `<div class="pl"><input class="pks" data-search="${key}" data-act="${act}" data-name="${esc(name)}" value="${esc(this._q[key] || '')}" placeholder="Søk eller skriv entity_id …" autocomplete="off">
+        <div class="pls">${autoRow}${useIt}${ids.slice(0, 80).map(row).join('') || (useIt ? '' : '<div class="small" style="padding:8px">Ingen treff</div>')}</div></div>`;
     }
     _color(f, val, auto) {
       const cur = val || '';
@@ -261,8 +337,9 @@
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
       if (!b) { if (!e.composedPath().some((n) => n.dataset && n.dataset.search)) { if (this._menu) { this._menu = null; this._render(); } } return; }
       const d = b.dataset, c = this._config;
-      M.haptic('light');
+      M.haptic(['setent', 'clear', 'addlist'].includes(d.a) && this._menu ? 'selection' : 'light');
       switch (d.a) {
+        case 'pkopen': this._menu = this._menu === d.k ? null : d.k; this._q = {}; this._render(); { const i = this.shadowRoot.querySelector(`[data-search="${d.k}"]`); if (i) i.focus(); } return;
         case 'bool': return this._set(d.name, d.v === '1');
         case 'sel': return this._set(d.name, d.num === '1' ? Number(d.v) : d.v);
         case 'clear': this._menu = null; return this._set(d.name, undefined);
@@ -283,6 +360,7 @@
     }
     _input(e) {
       const t = e.target;
+      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { M.haptic('selection'); this._set(t.dataset.name, v); } return; }
       if (t.dataset.search) { this._q[t.dataset.search] = t.value; this._menu = t.dataset.search; this._render(); }
     }
     _change(e) {

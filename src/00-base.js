@@ -307,6 +307,7 @@
   /* ------------------------------------------------------------ historikk */
   // Kun når popupen åpnes, minimal_response + no_attributes, cache 5 min per entitet.
   const HCACHE = new Map();
+  MSH.historyForget = function (id) { [...HCACHE.keys()].forEach((k) => { if (k.startsWith(id + '|')) HCACHE.delete(k); }); };
   MSH.history = async function (hass, ids, hours = 24) {
     ids = (ids || []).filter((id) => id && hass && hass.states[id]);
     const now = Date.now(), out = {}, need = [];
@@ -369,6 +370,19 @@
     }
     return null;
   };
+  // Bubble Card-popupens innholdscontainer (for mellomrom/padding og kant-til-kant-rader).
+  MSH.popupContainer = function (el) {
+    let n = el;
+    for (let i = 0; n && i < 60; i++) {
+      if (n.classList && n.classList.contains('bubble-pop-up-container')) return n;
+      n = n.parentNode || n.host;
+    }
+    return null;
+  };
+  MSH.popupPad = function (el) {
+    const c = MSH.popupContainer(el);
+    return c ? parseFloat(getComputedStyle(c).paddingLeft) || 0 : 0;
+  };
   MSH.isPopupOpen = function (el) {
     const h = MSH.popupHash(el);
     return !h || location.hash === h;
@@ -420,12 +434,17 @@
       ${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
+    // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
+    ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
     const close = () => {
+      if (api.closed) return;
+      api.closed = true;
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
       setTimeout(() => host.remove(), 250);
       onClose && onClose();
+      api.onClosed && api.onClosed();
     };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     const hash0 = location.hash;
@@ -435,7 +454,8 @@
     window.addEventListener('hashchange', onHash);
     document.body.appendChild(host);
     requestAnimationFrame(() => host.classList.add('on'));
-    return { host, root: sr, body: sr.querySelector('.body'), close };
+    const api = { host, root: sr, body: sr.querySelector('.body'), close };
+    return api;
   };
 
   // Bekreftelsesmelding: 44 px pill, #e1e1e1 / #232323, top 106 px, sentrert i dashbordflaten, 2,2 s.
@@ -774,12 +794,17 @@
       ed.focusSection = focus || null;
       ed.hass = this._hass;
       ed.setConfig(this._rawConfig || this._config);
+      const orig = this._rawConfig || this._config;
+      let saved = false;
+      ed.addEventListener('msh-change', (ev) => this.setConfig(ev.detail.config)); // live
       ed.addEventListener('msh-save', async (ev) => {
-        const res = await MSH.saveCardConfig(this._hass, this._rawConfig || this._config, ev.detail.config);
+        saved = true;
+        const res = await MSH.saveCardConfig(this._hass, orig, ev.detail.config);
         this.setConfig(res.config);
         ov.close();
       });
-      ed.addEventListener('msh-cancel', () => ov.close());
+      ed.addEventListener('msh-cancel', () => { this.setConfig(orig); saved = true; ov.close(); });
+      ov.onClosed = () => { if (!saved) this.setConfig(orig); };
       ov.body.appendChild(ed);
     }
     getCardSize() { return this.cardSize || 3; }

@@ -65,7 +65,9 @@
     const objs = (arr) => (Array.isArray(arr) ? arr : []).map((x) => (typeof x === 'string' ? { entity: x } : x || {})).filter((x) => x.entity);
     const a = out.auto;
     a.gardiner = has('gardiner') ? M.ids(A.gardiner) : reg('cover');
-    a.scener = has('scener', 'skript') ? [...M.ids(A.scener), ...M.ids(A.skript)] : reg(['scene', 'script']);
+    // Scener først, så skript. KI Rom først; tomt/mangler → scene.*/script.* med område = rommet.
+    const kiSc = has('scener', 'skript') ? [...M.ids(A.scener), ...M.ids(A.skript)].filter((id) => /^(scene|script)\./.test(id) && hass.states[id]) : [];
+    a.scener = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
     a.lys = has('lys') ? M.ids(A.lys) : reg('light');
     if (has('brytere', 'vifter')) {
       const d = [...objs(A.brytere), ...objs(A.vifter)];
@@ -81,8 +83,9 @@
       M.ids(A.lysniva).forEach((id) => { if (!a.sensorer.includes(id)) { a.sensorer.push(id); out.cls[id] = 'illuminance'; } });
     } else a.sensorer = [...reg('binary_sensor'), ...reg('sensor', (s) => s.attributes.device_class === 'illuminance')];
     LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, a[k]); });
-    const th = cfg.overrides && cfg.overrides.termostat;
+    const th = cfg.overrides && (cfg.overrides.climate || cfg.overrides.termostat);
     if (th) out.lists.klima = [th, ...out.lists.klima.filter((x) => x !== th)];
+    (((cfg.include || {}).climate) || []).forEach((id) => { if (!out.lists.klima.includes(id)) out.lists.klima.push(id); });
     [...out.lists.enheter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
     return out;
   };
@@ -117,28 +120,32 @@
       const area = c.area || area0;
       const L = h && area ? M.roomLists(h, area, c) : null;
       const out = [
-        { type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' },
-        { type: 'gap' },
+        { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
+          { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: 20, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+          { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: 40, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']] },
+        ] },
+        ...(area0 ? [] : [{ type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' }]),
+        { type: 'section', id: 'klima', label: 'Klima', icon: 'mdi:thermostat', meta: (hh, cc) => { const ar = cc.area || area0; const rc = ar && hh ? M.roomClimate(hh, ar, cc) : null; return rc && rc.climate ? M.name(hh, rc.climate) : 'Automatisk'; }, fields: [
+          { type: 'entity', name: 'overrides.climate', label: 'Termostat', domain: 'climate', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; return ar ? M.roomAuto(hh, ar).thermo : null; } },
+          { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.temp || (a.tempVal != null ? `KI Rom · ${M.nf(a.tempVal, 1)}°` : null); } },
+          { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.hum || (a.humVal != null ? `KI Rom · ${M.nf(a.humVal, 0)} %` : null); } },
+          { type: 'entities', name: 'include.climate', label: 'Ekstra termostater', domain: 'climate', addLabel: '+ Legg til termostat', area: (hh, cc) => cc.area || area0 },
+          { type: 'color', name: 'klima_bg', label: 'Klima-kort · bakgrunn', auto: () => '#2a2a2a' },
+          { type: 'color', name: 'klima_ring', label: 'Klima-kort · knappfarge', auto: () => 'rgba(255,255,255,0.22)' },
+          { type: 'select', name: 'klima_btn', label: 'Klima-kort · knapp', options: [['outline', 'Kontur'], ['fill', 'Fylt']], default: 'outline' },
+          { type: 'boolean', name: 'klima_mode', label: 'Farg etter modus', help: 'Rød ved oppvarming, blå ved kjøling' },
+        ] },
         { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner', options: SECS.map((s) => [s[0], s[1]]) },
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
-      out.push({ type: 'overrides', label: 'Bytt termostat/sensor', fields: [
-        { name: 'termostat', label: 'Termostat (første klima-kort)', domain: 'climate', auto: (hh, cc) => { const ar = cc.area || area0; return ar ? M.roomLists(hh, ar, {}).auto.klima[0] || null : null; } },
-        { name: 'fuktighet', label: 'Luftfuktighet (klima-kort)', domain: 'sensor', device_class: 'humidity', auto: (hh, cc) => { const ar = cc.area || area0; return ar && M.roomAuto ? M.roomAuto(hh, ar).hum : null; } },
-      ] });
       if (L && L.lists.lys.length) {
         out.push({ type: 'section', id: 'lys', label: 'Lys · type', icon: 'mdi:lightbulb', fields: [
           { type: 'info', label: 'Velg «Kun av/på» for å tvinge en dimbar lampe til bryter' },
           ...L.lists.lys.map((id) => ({ type: 'select', name: 'light_types.' + obj(id), label: M.name(h, id), help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(h.states[id])) || [])[1], options: LT_NAMES })),
         ] });
       }
-      out.push({ type: 'section', id: 'klima', label: 'Klima-kort', icon: 'mdi:thermostat', fields: [
-        { type: 'color', name: 'klima_bg', label: 'Bakgrunn', auto: () => '#2a2a2a' },
-        { type: 'color', name: 'klima_ring', label: 'Knappfarge', auto: () => 'rgba(255,255,255,0.22)' },
-        { type: 'select', name: 'klima_btn', label: 'Knapp', options: [['outline', 'Kontur'], ['fill', 'Fylt']], default: 'outline' },
-        { type: 'boolean', name: 'klima_mode', label: 'Farg etter modus', help: 'Rød ved oppvarming, blå ved kjøling' },
-      ] });
       if (L) {
         const items = [...L.lists.enheter.map((id) => [id, 'Enhet']), ...L.lists.sensorer.map((id) => [id, 'Sensor'])];
         if (items.length) {
@@ -188,13 +195,19 @@
       ed.inline = true;
       ed.focusSection = focus || null;
       ed.hass = this.hass;
-      ed.setConfig(this._rawConfig || this.config);
+      ed.areaCtx = area;
+      const orig = this._rawConfig || this.config;
+      let done = false;
+      ed.setConfig(orig);
+      ed.addEventListener('msh-change', (ev) => this.setConfig(ev.detail.config)); // live i popupen
       ed.addEventListener('msh-save', async (ev) => {
-        const res = await M.saveCardConfig(this.hass, this._rawConfig || this.config, ev.detail.config);
+        done = true;
+        const res = await M.saveCardConfig(this.hass, orig, ev.detail.config);
         this.setConfig(res.config);
         ov.close();
       });
-      ed.addEventListener('msh-cancel', () => ov.close());
+      ed.addEventListener('msh-cancel', () => { done = true; this.setConfig(orig); ov.close(); });
+      ov.onClosed = () => { if (!done) this.setConfig(orig); };
       ov.body.appendChild(ed);
     }
 
@@ -278,8 +291,8 @@
       return `<section class="scn noscroll" data-hs="1" data-key="sec-scenes">${ids.map((id) => {
         const s = this.s(id), nm = this._nm(id), lk = this._look(id);
         const auto = (SCENE_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1];
-        const icon = lk.icon || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text-play' : 'auto_awesome');
-        return `<button class="sc" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
+        const icon = lk.icon || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
+        return `<button class="sc" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
       }).join('')}</section>`;
     }
 
@@ -385,8 +398,10 @@
       let body = '';
       if (open) {
         const bg = M.color(c.klima_bg, '#2a2a2a'), ringDef = 'rgba(255,255,255,0.22)', ring = M.color(c.klima_ring, ringDef), fill = c.klima_btn === 'fill';
-        const ra = M.roomAuto ? M.roomAuto(this.hass, this._area) : {};
-        const humId = M.pick(c, 'fuktighet', ra.hum), roomHum = this.n(humId), roomT = this.n(M.pick(c, 'temperatur', ra.temp));
+        const rc = M.roomClimate(this.hass, this._area, c);
+        if (rc.hum.id) this.s(rc.hum.id);
+        if (rc.temp.id) this.s(rc.temp.id);
+        const roomHum = rc.hum.v, roomT = rc.temp.v;
         const idx = Math.min(this.ui.kIdx || 0, ids.length - 1);
         const cards = ids.map((id) => {
           const s = this.s(id), a = (s && s.attributes) || {};
@@ -564,8 +579,47 @@
       });
       el.addEventListener('pointercancel', () => { st = null; this._drag = null; this.update(); });
     }
+    setConfig(c) {
+      super.setConfig(c);
+      this._spaced = false;
+      if (this._area) M.setRoomCfg(this._area, this._roomCfg());
+      this._applySpacing();
+    }
+    _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom }; }
+    onOpen() { this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
+    // Mellomrom i popupen: gap mellom kortene (Bubble-containerens gap), pad_top = avstand fra
+    // Bubble-headeren til første kort (negativ = inntil), pad_bottom = luft under siste kort.
+    _applySpacing() {
+      const cont = M.popupContainer(this);
+      if (!cont) return;
+      const c = this.config;
+      const gap = c.gap != null ? Number(c.gap) : 8, top = c.pad_top != null ? Number(c.pad_top) : 20, bot = c.pad_bottom != null ? Number(c.pad_bottom) : 40;
+      // Bubble legger kortene i .bubble-cards-container (grid) inni .bubble-pop-up-container – sett gap på begge.
+      const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
+      for (let n = this; n && n !== cont; n = n.parentNode || n.host) if (n.classList && n.classList.contains('bubble-cards-container') && !grids.includes(n)) grids.push(n);
+      grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
+      const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
+      if (!cards.length) return;
+      const first = cards[0], last = cards[cards.length - 1];
+      cards.forEach((e) => { if (e.__mshPadT) { e.style.marginTop = ''; e.__mshPadT = false; } if (e.__mshPadB) { e.style.paddingBottom = ''; e.__mshPadB = false; } });
+      last.style.paddingBottom = bot + 'px'; last.__mshPadB = true;
+      // mål faktisk avstand fra headeren og juster første kort
+      const root = cont.getRootNode && cont.getRootNode();
+      const hdr = root && root.querySelector && root.querySelector('.bubble-header-container');
+      const fr = first.getBoundingClientRect();
+      if (hdr && fr.height) {
+        const natural = fr.top - hdr.getBoundingClientRect().bottom;
+        first.style.marginTop = (top - natural) + 'px';
+      } else first.style.marginTop = (top - 20) + 'px';
+      first.__mshPadT = true;
+    }
     afterRender() {
       const R = this.shadowRoot;
+      const area = M.roomArea(this);
+      if (area && (this._pubArea !== area || this._pubCfg !== this._rawConfig)) { this._pubArea = area; this._pubCfg = this._rawConfig; M.setRoomCfg(area, this._roomCfg()); }
+      const edge = M.popupPad(this);
+      if (edge && this.style.getPropertyValue('--msh-edge') !== edge + 'px') this.style.setProperty('--msh-edge', edge + 'px');
+      if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
       R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x pan-y'); });
       R.querySelectorAll('[data-car]').forEach((el) => {
@@ -604,7 +658,8 @@
         .cvn2{font-size:14px;font-weight:500;max-width:100px;flex:none}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
-        .scn{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
+        .scn{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0 calc(-1 * var(--msh-edge, 0px));padding:0 var(--msh-edge, 0px);scrollbar-width:none}
+        .scn::-webkit-scrollbar{display:none}
         .sc{flex:none;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
         .scl{font-size:14px;font-weight:400;max-width:100%}

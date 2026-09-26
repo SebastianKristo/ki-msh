@@ -12,15 +12,64 @@
     const h = M.popupHash(card);
     return h ? h.replace(/^#/, '') : null;
   };
+  // KI Rom-attributter kan være tall (verdi), entity_id-streng eller liste (strenger / {entity}).
+  // Returnerer { id, v }: id = første entitet med numerisk state, ellers v = tallet fra attributtet.
+  M.attrEnt = function (hass, raw) {
+    if (raw == null || raw === '') return { id: null, v: null };
+    if (typeof raw === 'number') return { id: null, v: raw };
+    if (typeof raw === 'string') {
+      if (/^[a-z_]+\.[a-z0-9_]+$/.test(raw)) return { id: raw, v: M.num(hass, raw) };
+      return M.isNum(raw) ? { id: null, v: Number(raw) } : { id: null, v: null };
+    }
+    if (Array.isArray(raw)) {
+      const ids = M.ids(raw);
+      const hit = ids.find((id) => M.num(hass, id) != null) || ids.find((id) => hass.states[id]) || null;
+      if (hit) return { id: hit, v: M.num(hass, hit) };
+      const n = raw.find((x) => typeof x === 'number');
+      return { id: null, v: n != null ? n : null };
+    }
+    if (typeof raw === 'object' && raw.entity) return M.attrEnt(hass, raw.entity);
+    return { id: null, v: null };
+  };
+  const firstNum = (hass, ids) => ids.find((id) => M.num(hass, id) != null) || ids[0] || null;
   M.roomAuto = function (hass, area) {
-    const ov = M.kiRom(hass, area, 'oversikt');
+    let ov = M.kiRom(hass, area, 'oversikt');
+    if (!ov && hass && hass.areas && hass.areas[area]) { const g = hass.states[`sensor.${M.slug(hass.areas[area].name)}_oversikt`]; if (g && g.attributes.integrasjon === 'ki_rom') ov = g; }
     const A = (ov && ov.attributes) || {};
-    const first = (arr) => M.ids(arr)[0] || null;
-    const temp = first(A.temperatur) || M.byClass(hass, 'sensor', 'temperature', area)[0] || null;
-    const hum = first(A.fuktighet) || M.byClass(hass, 'sensor', 'humidity', area)[0] || null;
-    const thermo = first(A.klima) || M.all(hass, 'climate', (s, id) => M.areaOf(hass, id) === area)[0] || null;
+    const t = M.attrEnt(hass, A.temperatur), h = M.attrEnt(hass, A.fuktighet);
+    const temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
+    const hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    const climates = A.klima ? M.ids(A.klima).filter((id) => id.startsWith('climate.')) : [];
+    const areaClim = M.all(hass, 'climate', (s, id) => M.areaOf(hass, id) === area);
+    const thermo = climates[0] || areaClim[0] || null;
     const lights = A.lys ? M.ids(A.lys) : M.all(hass, 'light', (s, id) => M.areaOf(hass, id) === area);
-    return { ov, A, temp, hum, thermo, lights };
+    return { ov, A, temp, hum, tempVal: t.id ? null : t.v, humVal: h.id ? null : h.v, thermo, climates: [...new Set([...climates, ...areaClim])], lights };
+  };
+  // Romkonfig publisert av msh-rom-card («Tilpass rom»), så toppkort/romkort bruker samme overstyringer.
+  M.roomCfgs = M.roomCfgs || {};
+  M.setRoomCfg = function (area, cfg) {
+    if (!area) return;
+    const prev = JSON.stringify(M.roomCfgs[area] || null);
+    M.roomCfgs[area] = cfg;
+    if (prev !== JSON.stringify(cfg)) window.dispatchEvent(new CustomEvent('msh-room-config', { detail: { area } }));
+  };
+  // Klima-oppslag for et rom med overstyring. Nøkler: overrides.temperature|humidity|climate
+  // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].
+  M.roomClimate = function (hass, area, cfg) {
+    const a = area ? M.roomAuto(hass, area) : { climates: [] };
+    const rc = (area && M.roomCfgs[area]) || {};
+    const o = { ...((rc && rc.overrides) || {}), ...((cfg && cfg.overrides) || {}) };
+    const tId = o.temperature || o.temperatur || a.temp || null, hId = o.humidity || o.fuktighet || a.hum || null;
+    const clim = o.climate || o.termostat || a.thermo || null;
+    const inc = [...(((rc.include || {}).climate) || []), ...((((cfg || {}).include || {}).climate) || [])];
+    return {
+      area, auto: a,
+      temp: { id: tId, v: tId ? M.num(hass, tId) : a.tempVal },
+      hum: { id: hId, v: hId ? M.num(hass, hId) : a.humVal },
+      climate: clim,
+      climates: [...new Set([clim, ...inc].filter(Boolean))],
+      lights: a.lights || [],
+    };
   };
 
   class RomKlima extends M.Card {
@@ -30,11 +79,13 @@
       return [
         { type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' },
         { type: 'text', name: 'name', label: 'Navn', auto: (h, c) => M.areaName(h, c.area) },
-        { type: 'overrides', label: 'Bytt sensor/termostat', fields: [
-          { name: 'temperatur', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: (h, c) => c.area && M.roomAuto(h, c.area).temp },
-          { name: 'fuktighet', label: 'Luftfuktighet', domain: 'sensor', device_class: 'humidity', auto: (h, c) => c.area && M.roomAuto(h, c.area).hum },
-          { name: 'termostat', label: 'Termostat (chip)', domain: 'climate', auto: (h, c) => c.area && M.roomAuto(h, c.area).thermo },
+        { type: 'section', id: 'klima', label: 'Klima', icon: 'mdi:thermostat', open: true, fields: [
+          { type: 'info', label: 'Tomt = Automatisk. Samme valg som «Tilpass rom» → Klima (verdiene der gjelder når feltene her er tomme).' },
+          { type: 'entity', name: 'overrides.climate', label: 'Termostat', domain: 'climate', area: (h, c) => c.area, auto: (h, c) => (c.area ? M.roomClimate(h, c.area, {}).climate : null) },
+          { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (h, c) => c.area, auto: (h, c) => (c.area ? M.roomClimate(h, c.area, {}).temp.id : null) },
+          { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (h, c) => c.area, auto: (h, c) => (c.area ? M.roomClimate(h, c.area, {}).hum.id : null) },
         ] },
+        { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
         { type: 'section', label: 'Graf', icon: 'mdi:chart-line', fields: [
           { type: 'color', name: 'graph_t', label: 'Linje · temperatur (romfarge)' },
           { type: 'color', name: 'graph_h', label: 'Linje · fukt' },
@@ -44,28 +95,60 @@
       ];
     }
     get cardSize() { return 4; }
-    onOpen() { this._loadHist(); }
+    constructor() {
+      super();
+      this._onRoomCfg = (ev) => { if (ev.detail && ev.detail.area === M.roomArea(this)) this.update(); };
+    }
+    connectedCallback() { super.connectedCallback(); window.addEventListener('msh-room-config', this._onRoomCfg); }
+    disconnectedCallback() { super.disconnectedCallback(); window.removeEventListener('msh-room-config', this._onRoomCfg); }
+    onOpen() { this._loadHist(); this._headerIcon(); }
     async _loadHist() {
       const e = this._ents();
-      if (!e.temp && !e.hum) return;
+      const key = (e.temp || '') + '|' + (e.hum || '');
+      // byttet sensor → tøm cachen for den gamle og hent ny historikk
+      if (this._histKey && this._histKey !== key) { this._histKey.split('|').filter(Boolean).forEach((id) => M.historyForget(id)); this._hist = null; }
+      this._histKey = key;
+      if (!e.temp && !e.hum) { this._hist = null; this.update(); return; }
       const h = await M.history(this.hass, [e.temp, e.hum].filter(Boolean), 24);
+      if (this._histKey !== key) return;
       this._hist = { t: e.temp ? M.sample(h[e.temp], 25) : [], h: e.hum ? M.sample(h[e.hum], 25) : [] };
       this.update();
     }
     _ents() {
-      const area = M.roomArea(this), a = area ? M.roomAuto(this.hass, area) : {};
-      return { area, temp: M.pick(this.config, 'temperatur', a.temp), hum: M.pick(this.config, 'fuktighet', a.hum), thermo: M.pick(this.config, 'termostat', a.thermo), lights: a.lights || [] };
+      const area = M.roomArea(this), rc = M.roomClimate(this.hass, area, this.config);
+      return { area, temp: rc.temp.id, hum: rc.hum.id, tVal: rc.temp.v, hVal: rc.hum.v, thermo: rc.climate, lights: rc.lights || [] };
+    }
+    // Popup-headerens ikon = rommets ikon (HA-område → KI Rom «ikon»).
+    _headerIcon() {
+      if (this.config.header_icon === false) return;
+      const area = M.roomArea(this); if (!area) return;
+      const au = M.roomAuto(this.hass, area);
+      const icon = (this.hass.areas && this.hass.areas[area] && this.hass.areas[area].icon) || (au.A && au.A.ikon) || null;
+      const cont = M.popupContainer(this), root = cont && cont.getRootNode && cont.getRootNode();
+      const hi = root && root.querySelector && (root.querySelector('.bubble-header-container .bubble-icon') || root.querySelector('.bubble-header-container ha-icon'));
+      if (icon && hi && hi.getAttribute('icon') !== icon) { hi.setAttribute('icon', icon); hi.icon = icon; }
     }
     render() {
       const c = this.config, e = this._ents(), ui = this.ui;
       const name = c.name || (e.area ? M.areaName(this.hass, e.area) : '–');
-      const tNow = this.n(e.temp), hNow = this.n(e.hum), th = this.s(e.thermo);
+      if (e.temp) this.s(e.temp);
+      if (e.hum) this.s(e.hum);
+      const tNow = e.tVal, hNow = e.hVal, th = this.s(e.thermo);
+      if (this.isOpen && this._histKey != null && this._histKey !== (e.temp || '') + '|' + (e.hum || '')) setTimeout(() => this._loadHist(), 0);
       const on = e.lights.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length;
       const set = th && th.attributes.temperature != null ? Number(th.attributes.temperature) : null;
       const heating = !!th && (th.attributes.hvac_action === 'heating' || (th.attributes.hvac_action == null && th.state === 'heat' && tNow != null && set != null && tNow < set));
-      const hc = heating ? C.red : on > 0 ? C.yellow : C.blue;
-      const chipIcon = heating ? 'mdi:fire' : on > 0 ? 'mdi:lightbulb' : 'mdi:check';
-      const chipText = heating ? `Varmer til ${M.nf(set, 1)}°` : set != null ? `Holder ${M.nf(set, 1)}°` : on > 0 ? `${on} lys på` : 'Alt er rolig';
+      // Termostat-chip når rommet har climate.* (blå «✓ Holder 21,0°», rød ved oppvarming); lys-chip kun uten termostat.
+      let hc, chipIcon, chipText;
+      if (th) {
+        hc = heating ? C.red : C.blue;
+        chipIcon = heating ? 'mdi:fire' : 'mdi:check';
+        chipText = heating ? `Varmer til ${M.nf(set, 1)}°` : set != null ? `Holder ${M.nf(set, 1)}°` : (th.state === 'off' ? 'Termostat av' : M.fmtState(this.hass, e.thermo));
+      } else {
+        hc = on > 0 ? C.yellow : C.blue;
+        chipIcon = on > 0 ? 'mdi:lightbulb' : 'mdi:check';
+        chipText = on > 0 ? `${on} lys på` : 'Alt er rolig';
+      }
       // serier: historikk (25 punkter) + live siste punkt; flat graf når data mangler
       const hist = this._hist || { t: [], h: [] };
       const ser0 = { t: hist.t.length ? hist.t.slice() : (tNow != null ? Array(25).fill(tNow) : []), h: hist.h.length ? hist.h.slice() : (hNow != null ? Array(25).fill(hNow) : []) };
@@ -104,7 +187,7 @@
           </div>
           <div class="vals">
             <div class="line">
-              <button class="t" data-act="tab" data-t="t" style="color:${isT ? '#fafafa' : '#7f7f7f'}"><span class="big num">${tv != null ? M.nf(tv, 1) : '–'}</span><span class="deg">°</span></button>
+              <button class="t" data-act="tab" data-t="t" style="color:${isT ? '#fafafa' : '#7f7f7f'}"><span class="big num">${tv != null ? M.nf(tv, Math.round(tv * 10) % 10 === 0 ? 0 : 1) : '–'}</span><span class="deg">°</span></button>
               <button class="h" data-act="tab" data-t="h" data-haptic="selection" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? '#afafaf' : '#fafafa'}"><span class="hv num">${hv != null ? M.nf(hv, 0) : '–'}</span><span class="pc">%</span></button>
             </div>
             <span class="when">${esc(when)}</span>
