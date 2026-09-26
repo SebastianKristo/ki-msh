@@ -1,0 +1,162 @@
+// «Sjekk før levering» per popup – mot EKTE Bubble Card (lastes ned til test/.vendor ved første kjøring).
+// Popupene hentes fra examples/dashboard.yaml. Kjøres på mobil (390 px) og PC (1400 px, 256 px HA-sidebar).
+//   node test/checklist.mjs [navnefilter]
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readdirSync, writeFileSync, unlinkSync } from 'node:fs';
+
+const require = createRequire(import.meta.url);
+let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node22/lib/node_modules/playwright'); }
+mkdirSync('test/.build', { recursive: true });
+mkdirSync('test/.vendor', { recursive: true });
+mkdirSync('test/shots', { recursive: true });
+const BC = resolve('test/.vendor/bubble-card.js');
+if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
+const bundle = resolve(`test/.build/checklist-${process.pid}.js`);
+execFileSync('node', ['build.mjs', bundle], { stdio: 'inherit' });
+const popups = JSON.parse(execFileSync('python3', ['-c', "import yaml,json,sys;d=yaml.safe_load(open('examples/dashboard.yaml'));print(json.dumps([c for s in d['views'][0]['sections'] for c in s['cards'] if c.get('card_type')=='pop-up']))"]).toString());
+const navbarCfg = JSON.parse(execFileSync('python3', ['-c', "import yaml,json;d=yaml.safe_load(open('examples/dashboard.yaml'));print(json.dumps([c for s in d['views'][0]['sections'] for c in s['cards'] if c['type']=='custom:msh-navbar-card'][0]))"]).toString());
+const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => resolve('test/mock/' + f));
+const only = process.argv[2];
+
+const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const rows = [];
+let fails = 0;
+for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 900, sb: 256 }]) {
+  for (const pop of popups) {
+    if (only && !pop.name.includes(only) && !pop.hash.includes(only)) continue;
+    const page = await browser.newPage({ viewport: { width: vp.w, height: vp.h }, hasTouch: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to load resource|Failed to fetch/.test(m.text())) errors.push(m.text().slice(0, 160)); });
+    await page.goto('file://' + resolve('test/harness-bubble.html'));
+    for (const m of mocks) await page.addScriptTag({ path: m });
+    await page.addScriptTag({ path: bundle });
+    await page.addScriptTag({ path: BC, type: 'module' });
+    await page.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 10000 });
+    const r = await page.evaluate(async ({ pop, vp, navbarCfg }) => {
+      const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+      document.documentElement.style.setProperty('--sb', vp.sb + 'px');
+      const hass = window.mockHass();
+      const dash = document.getElementById('dash');
+      // navbar som eget kort utenfor popupen
+      const nav = document.createElement('msh-navbar-card'); nav.setConfig(navbarCfg); nav.hass = hass; dash.appendChild(nav);
+      const bc = document.createElement('bubble-card');
+      bc.setConfig(pop); bc.hass = hass; dash.appendChild(bc);
+      await wait(400);
+      let hapt = 0; window.addEventListener('haptic', () => hapt++);
+      const deepAll = () => { const out = []; const walk = (root) => root.querySelectorAll('*').forEach((e) => { out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(document); return out; };
+      const popEl = () => deepAll().find((e) => e.classList && e.classList.contains('bubble-pop-up'));
+      const res = {};
+      // 1. åpnes via hash
+      location.hash = pop.hash;
+      await wait(1200);
+      const P = popEl();
+      res.opens = !!P && P.classList.contains('is-popup-opened');
+      // 2. Bubble-header synlig (navn + lukk-knapp)
+      const all = deepAll();
+      const header = all.find((e) => e.classList && e.classList.contains('bubble-header-container'));
+      const closeBtn = all.find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
+      res.header = !!header && header.getBoundingClientRect().height > 0 && (header.textContent || '').includes(pop.name) && !!closeBtn;
+      // 3. kort + bredde
+      const cards = all.filter((e) => /^msh-.*-card$/.test(e.localName) && e.localName !== 'msh-navbar-card');
+      const cont = all.find((e) => e.classList && e.classList.contains('bubble-pop-up-container'));
+      const ccs = cont && getComputedStyle(cont); const cw = cont ? cont.clientWidth - parseFloat(ccs.paddingLeft) - parseFloat(ccs.paddingRight) : 0;
+      res.cards = cards.map((c) => c.localName.replace(/^msh-|-card$/g, '')).join('+');
+      res.width = cards.length === pop.cards.length && cards.every((c) => Math.abs(c.getBoundingClientRect().width - cw) <= 1) ? `ok ${Math.round(cw)}` : `FEIL ${cards.map((c) => Math.round(c.getBoundingClientRect().width)).join('/')} av ${Math.round(cw)}`;
+      // 4. toppkort synlig (første kort har høyde og ligger i visningen)
+      const first = cards[0] && cards[0].getBoundingClientRect();
+      res.top = !!first && first.height > 40 && first.top < innerHeight;
+      // 5. ikoner som ikoner
+      const txt = cards.map((c) => c.shadowRoot.textContent.replace(/<style[\s\S]*?<\/style>/g, '')).join(' ').replace(/\{[^}]*\}/g, '');
+      const icons = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('ha-icon')]);
+      res.icons = !/\b(mdi|hass|phu|hue|fapro|si):[a-z]/.test(txt) && icons.every((i) => i.getAttribute('data-ok') === '1') ? `ok ${icons.length}` : 'FEIL';
+      // 6. autokonfig: ingen kortfeil, minst ett kort med innhold utover tom-tilstand
+      res.auto = !/Feil i kortet/.test(txt) && cards.some((c) => c.shadowRoot.querySelectorAll('[data-act]:not([data-act="customize"]), [data-ent]').length > 0);
+      // 7. haptic på trykk (første handlingsknapp i kortene)
+      const btn = cards.map((c) => c.shadowRoot.querySelector('[data-act]:not([data-act="customize"])')).find(Boolean);
+      if (btn) { btn.click(); await wait(80); }
+      res.haptic = btn ? hapt >= 1 : 'ingen knapp';
+      if (location.hash !== pop.hash) { location.hash = pop.hash; await wait(600); }
+      // 8. drag lukker ikke popupen: pointerdown/touchmove på dra-elementer skal ikke nå popupen
+      let leaked = 0;
+      const spy = () => leaked++;
+      ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => P && P.addEventListener(t, spy));
+      const drags = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('*')].filter((e) => e.__mshGuard || e.__mshSc || !['auto', 'manipulation'].includes(getComputedStyle(e).touchAction)));
+      for (const d of drags.slice(0, 20)) {
+        const rr = d.getBoundingClientRect(); const x = rr.left + rr.width / 2, y = rr.top + rr.height / 2;
+        d.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 9 }));
+        try { const t = new Touch({ identifier: 9, target: d, clientX: x, clientY: y + 30 }); d.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, composed: true, touches: [t] })); d.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, composed: true, touches: [t] })); } catch (e) { /* */ }
+        d.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 9 }));
+      }
+      ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => P && P.removeEventListener(t, spy));
+      await wait(100);
+      res.drag = drags.length ? (leaked === 0 && location.hash === pop.hash ? `ok ${Math.min(drags.length, 20)}` : `LEKK ${leaked}`) : 'ingen drag';
+      // 9. navbar dekker ikke HA-sidebaren
+      const np = document.querySelector('.msh-navbar-portal');
+      const nv = np && np.shadowRoot && np.shadowRoot.querySelector('[data-nav]');
+      const nr = nv && nv.getBoundingClientRect();
+      res.navDbg = nr ? `x ${Math.round(nr.left)} b ${Math.round(nr.width)} h ${Math.round(nr.height)}` : '';
+      res.navbar = nr && nr.width > 0 ? (nr.left >= vp.sb - 1 && nr.right <= vp.w + 1 ? `ok (${vp.w > 800 ? 'rail' : 'bunn'} x=${Math.round(nr.left)})` : 'DEKKER') : 'ikke funnet';
+      // 10. GUI-editor (Bubble «Legg til kort») + speiling mot kortets egen editor
+      const eds = [];
+      for (const c of cards) {
+        try {
+          const ed = c.constructor.getConfigElement();
+          ed.hass = hass; ed.setConfig(c._rawConfig); document.body.appendChild(ed);
+          await wait(40);
+          let got = null; ed.addEventListener('config-changed', (e) => { got = e.detail.config; });
+          const ctl = ed.shadowRoot.querySelector('[data-a="sel"],[data-a="bool"]');
+          if (ctl) ctl.click();
+          await wait(40);
+          let mirror = 'ok';
+          if (got) {
+            c.setConfig(got); await wait(60);
+            if (/Feil i kortet/.test(c.shadowRoot.textContent)) mirror = 'render-feil';
+            // kortets egen tilpasning skal vise samme config
+            const before = document.querySelectorAll('.msh-portal').length;
+            c.customize();
+            await wait(80);
+            const portals = [...document.querySelectorAll('.msh-portal')];
+            const inner = portals.length > before ? portals[portals.length - 1].shadowRoot.querySelector('.body').firstElementChild : null;
+            if (!inner || !inner._config || JSON.stringify(inner._config) !== JSON.stringify(got)) mirror = 'ulik';
+            portals.forEach((p) => p.remove());
+          }
+          eds.push(got ? (got.card_id ? mirror : 'mangler card_id') : (ctl ? 'ingen endring' : 'ok'));
+          ed.remove();
+        } catch (e) { eds.push('FEIL ' + e.message); }
+      }
+      res.editor = eds.every((x) => x === 'ok') ? 'ok' : eds.join(',');
+      // 11. lukk-knapp og tilbake
+      location.hash = pop.hash; await wait(500);
+      const cb = deepAll().find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
+      if (cb) cb.click();
+      await wait(900);
+      const P2 = popEl();
+      res.close = location.hash !== pop.hash && !(P2 && P2.classList.contains('is-popup-opened'));
+      location.hash = pop.hash; await wait(800);
+      history.back(); await wait(900);
+      const P3 = popEl();
+      res.back = location.hash !== pop.hash && !(P3 && P3.classList.contains('is-popup-opened'));
+      return res;
+    }, { pop, vp, navbarCfg });
+    if (process.env.SHOT) {
+      await page.evaluate((h) => { location.hash = h; }, pop.hash); await page.waitForTimeout(900);
+      await page.screenshot({ path: `test/shots/check-${vp.n}-${pop.hash.slice(1)}.png` });
+    }
+    const ok = r.opens && r.header && r.width.startsWith('ok') && r.top && r.icons.startsWith('ok') && r.auto && r.haptic !== false && !String(r.drag).startsWith('LEKK') && r.navbar.startsWith('ok') && r.editor === 'ok' && r.close && r.back && !errors.length;
+    if (!ok) fails++;
+    rows.push({ vp: vp.n, pop: `${pop.name} ${pop.hash}`, ...r, errors: errors.slice(0, 2).join(' | '), ok });
+    await page.close();
+  }
+}
+await browser.close();
+try { unlinkSync(bundle); } catch (e) { /* */ }
+const yn = (v) => (v === true ? 'ja' : v === false ? 'NEI' : v);
+const lines = rows.map((r) => `| ${r.ok ? '✔' : '✘'} | ${r.vp} | ${r.pop} | ${yn(r.opens)} | ${r.width} | ${yn(r.header)} | ${yn(r.top)} | ${yn(r.close)} / ${yn(r.back)} | ${yn(r.haptic)} | ${r.drag} | ${r.navbar} | ${r.icons} | ${yn(r.auto)} | ${r.editor} |${!r.navbar.startsWith('ok') ? ' ' + r.navDbg : ''}${r.errors ? ' ' + r.errors : ''}`);
+const table = ['| | Visning | Popup | Åpnes via hash | Fyller bredden | Bubble-header | Toppkort | Lukk / tilbake | Haptic | Drag lukker ikke | Navbar ≠ sidebar | Ikoner | Autokonfig | GUI-editor ↔ egen editor |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|', ...lines].join('\n');
+console.log(table);
+if (!only) writeFileSync('docs/sjekkliste.md', `# Sjekk før levering – resultat\n\nGenerert av \`node test/checklist.mjs\` mot ekte Bubble Card (${new Date().toISOString().slice(0, 10)}), med mock-hass fra \`test/\`. Popupene er de i \`examples/dashboard.yaml\`.\n\n${table}\n`);
+console.log(fails ? `\n${fails} feilet` : '\nAlle bestod');
+process.exit(fails ? 1 : 0);

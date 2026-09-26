@@ -18,6 +18,14 @@
     (document.head || document.documentElement).appendChild(l);
   };
   MSH.loadFonts();
+  // Prosjektstandard: 8 px mellom kortene i Bubble Card-popups. Lav prioritet – temaet
+  // (bubble-pop-up-gap i My SmartHome v3) eller Bubble-stilen vinner hvis de setter noe.
+  if (!document.getElementById('msh-root-vars')) {
+    const st = document.createElement('style');
+    st.id = 'msh-root-vars';
+    st.textContent = ':root{--bubble-pop-up-gap:8px}';
+    (document.head || document.documentElement).appendChild(st);
+  }
   MSH.FONT = "'Space Grotesk', var(--ha-font-family-body, system-ui), sans-serif";
 
   /* ------------------------------------------------------------ farger */
@@ -454,7 +462,8 @@
   MSH.guardDrag = function (el, axis = 'both') {
     if (!el || el.__mshGuard) return;
     el.__mshGuard = true;
-    el.style.touchAction = axis === 'x' ? 'pan-y' : axis === 'y' ? 'pan-x' : 'none';
+    el.__mshTA = axis === 'x' ? 'pan-y' : axis === 'y' ? 'pan-x' : 'none';
+    el.style.touchAction = el.__mshTA;
     const stop = (e) => e.stopPropagation();
     el.addEventListener('pointerdown', stop);
     el.addEventListener('touchstart', stop, { passive: true });
@@ -528,6 +537,7 @@
   function patchNode(a, b) {
     if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
     patchAttrs(a, b);
+    if (a.__mshTA && a.style.touchAction !== a.__mshTA) a.style.touchAction = a.__mshTA; // behold drag-vern
     if (a.hasAttribute('data-nomorph')) return;
     if (a.tagName === 'STYLE') { if (a.textContent !== b.textContent) a.textContent = b.textContent; return; }
     patchChildren(a, b);
@@ -694,6 +704,20 @@
       if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; } else MSH.morph(this.shadowRoot, html);
       if (gap != null) this.style.setProperty('--msh-gap', gap + 'px');
       this.afterRender && this.afterRender();
+      this._guardScrollers();
+    }
+    // Vannrett scrollbare lister (karuseller, chip-rader): stopp sveip mot Bubble Cards swipe-to-close.
+    _guardScrollers() {
+      const stop = (e) => e.stopPropagation();
+      this.shadowRoot.querySelectorAll('*').forEach((el) => {
+        if (el.__mshSc !== undefined) return;
+        const ox = getComputedStyle(el).overflowX;
+        el.__mshSc = ox === 'auto' || ox === 'scroll';
+        if (!el.__mshSc) return;
+        el.addEventListener('touchstart', stop, { passive: true });
+        el.addEventListener('touchmove', stop, { passive: true });
+        el.addEventListener('pointerdown', stop);
+      });
     }
     _el(e, sel) {
       const path = e.composedPath ? e.composedPath() : [];

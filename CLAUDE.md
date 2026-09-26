@@ -43,3 +43,9 @@ Designfilene (.dc.html) viser popup-*innholdet* i en egen ramme. I HA er det Bub
 
 - **Ikon-rendering (påkrevd):** Ikonnavn med prefiks (`mdi:pool`, `phu:…`, `hue:…`) skal ALLTID rendres med `<ha-icon icon="…">`, aldri som tekst i Material Symbols-fonten (gir «MDI:»-tekst). Én felles hjelper, f.eks. `renderIcon(name)`: har navnet «:» → `<ha-icon>`; ellers (designfilenes Material Symbols-navn som `weekend`) → map til tilsvarende `mdi:`-ikon. Ikonet skal ha fast størrelse (`--mdc-icon-size`) og aldri påvirke layouten rundt (tittel/tekst ved siden av).
 - **Kort som åpner eksterne popups** (f.eks. Søppel-kortet på Hjem): har `popup_hash` (f.eks. `#soppel`) og entitet(er) i config, redigerbart i begge editorene. Trykk setter `location.hash` → Bubble Card åpner popupen. Kortet vises alltid, også når popupen ikke er en del av dette prosjektet.
+
+## Kodebase (ki-msh)
+- `src/00-base.js` = felles hjelpere (`window.MSH`) + basekortet `MSH.Card`; `src/01-editor.js` = felles editor. Nye kort følger mønsteret i `src/30-rom-klima.js`.
+- Kortene heter `msh-…` (kollisjonsfritt mot ki-cards). Bygg: `npm run build` → `dist/ki-msh.js` (commit dist).
+- Test: `npm test` (smoke, alle kort) og `npm run checklist` («Sjekk før levering» per popup mot ekte Bubble Card → `docs/sjekkliste.md`). Nye kort: legg testcaser i `test/cases/` og mock-data i `test/mock/`.
+- Eksempel-dashbord: `examples/dashboard.yaml` (popupene der er det sjekklisten kjører).

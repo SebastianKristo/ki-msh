@@ -122,7 +122,8 @@
   const guardSwipe = (el) => {
     if (!el || el.__mshSwipe) return;
     el.__mshSwipe = true;
-    el.style.touchAction = 'pan-x pan-y';
+    el.__mshTA = 'pan-x pan-y'; // bevares av MSH.morph
+    el.style.touchAction = el.__mshTA;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, stop, { passive: true }));
   };

@@ -44,7 +44,7 @@
     const track = () => vp.firstElementChild;
     const n = () => Number(vp.dataset.n) || 1, idx = () => Number(vp.dataset.i) || 0;
     let st = null, wheel = 0, wt = 0;
-    vp.addEventListener('pointerdown', (e) => { if (e.button || n() < 2) return; st = { x: e.clientX, y: e.clientY, t: Date.now(), w: vp.clientWidth || 1, lock: null, dx: 0, id: e.pointerId }; });
+    vp.addEventListener('pointerdown', (e) => { if (card._onDown) card._onDown(e); if (e.button || n() < 2) return; st = { x: e.clientX, y: e.clientY, t: Date.now(), w: vp.clientWidth || 1, lock: null, dx: 0, id: e.pointerId }; });
     vp.addEventListener('pointermove', (e) => {
       if (!st) return;
       const mx = e.clientX - st.x, my = e.clientY - st.y;
@@ -582,7 +582,9 @@
     }
     _applCards(E) {
       const cards = ['dish', 'wash', 'dry'].map((k) => this._appl(k, E[k])).filter((A) => A && A.mode !== 'idle');
-      this._ticking = cards.some((A) => A.mode === 'run' && A.secs != null);
+      const now = Date.now();
+      this._applT = cards.filter((A) => A.mode === 'run' && A.secs != null).map((A) => ({ kind: A.kind, end: now + A.secs * 1000, nominal: A.nominal }));
+      this._ticking = this._applT.length > 0;
       if (!cards.length) return '';
       const hms = (s) => `${Math.floor(s / 3600)}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(Math.floor(s % 60))}`;
       return `<div class="apg">${cards.map((A) => {
@@ -663,8 +665,19 @@
         if (l < strip.scrollLeft || r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.max(0, l - 24);
       }
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
-      if (this._ticking && !this._tick) this._tick = setInterval(() => { if (!this.isConnected) return; if (!this._busy) this.update(); }, 1000);
+      if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
+    }
+    _tickAppl() {
+      if (!this.isConnected || !this._applT) return;
+      const now = Date.now();
+      this._applT.forEach((a) => {
+        const el = this.shadowRoot.querySelector(`[data-key="ap-${a.kind}"]`);
+        if (!el) return;
+        const secs = Math.max(0, (a.end - now) / 1000), t = el.querySelector('.ap-t'), b = el.querySelector('.ap-bar span');
+        if (t) t.textContent = `${Math.floor(secs / 3600)}:${pad2(Math.floor((secs % 3600) / 60))}:${pad2(Math.floor(secs % 60))}`;
+        if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
+      });
     }
     // Fanelinjen: dra sideveis = liquid glass-valg; hold inne (450 ms) + dra = flytt fanen (lagres i config).
     _bindTabs() {
@@ -729,7 +742,7 @@
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
         .sec{display:flex;flex-direction:column;gap:12px}
-        .tabs{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .tabs{touch-action:pan-y;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
         .tabs::-webkit-scrollbar{display:none}
         .tg{position:relative;display:grid;width:max-content;min-width:max-content;grid-auto-columns:1fr}
@@ -745,8 +758,8 @@
         .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start}
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
-        .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px}
-        .tsw{width:100%;overflow:hidden;border-radius:36px}
+        .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
+        .tsw{width:100%;overflow:hidden;border-radius:36px;touch-action:pan-y}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
         .dots{display:flex;gap:8px;height:14px;align-items:center}
