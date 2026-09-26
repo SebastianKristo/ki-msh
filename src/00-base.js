@@ -462,7 +462,7 @@
   };
   // Enkel drag-hjelper: onMove(frac 0..1, e), onEnd(frac). Horisontal som standard.
   MSH.drag = function (el, { axis = 'x', onStart, onMove, onEnd } = {}) {
-    MSH.guardDrag(el, axis === 'x' ? 'none' : 'none');
+    MSH.guardDrag(el, 'none');
     let on = false, lastStep = null;
     const frac = (e) => {
       const r = el.getBoundingClientRect();
