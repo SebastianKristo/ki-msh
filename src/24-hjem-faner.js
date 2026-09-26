@@ -92,8 +92,9 @@
   function autoTabs(hass, c) {
     const areas = M.areas(hass), T = [{ id: 'hjem', label: 'Hjem', view: 'karusell', kind: 'hjem' }];
     const floors = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0));
-    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
-    if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'andre', label: 'Andre rom', view: 'liste', kind: 'andre' });
+    const RES = ['hjem', 'aktuelt', 'batterier', 'uten_etasje'];
+    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
+    if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'uten_etasje', label: 'Andre rom', view: 'liste', kind: 'andre' });
     customTabs(c).forEach((t) => { if (!T.some((x) => x.id === t.id)) T.push(t); });
     T.push({ id: 'aktuelt', label: 'Aktuelt', view: 'liste', kind: 'aktuelt' });
     T.push({ id: 'batterier', label: 'Batterier', view: 'batterier', kind: 'batterier' });
@@ -116,6 +117,8 @@
     let base = t.kind === 'floor' ? areas.filter((a) => a.floor === t.floor) : t.kind === 'andre' ? areas.filter((a) => !a.floor) : t.kind === 'custom' ? [] : areas;
     const add = Object.values(get(c, `layout.${t.id}.add`) || {}).filter(Boolean);
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
+    // Hjem: rom med klimadata først (som favorittene i designet), deretter resten
+    if (t.kind === 'hjem' && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
     const ord = get(c, `layout.${t.id}.order`) || [];
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
