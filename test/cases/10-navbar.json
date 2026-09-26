@@ -1,0 +1,5 @@
+[
+  { "name": "Navbar", "cards": [{ "type": "custom:msh-navbar-card" }] },
+  { "name": "Navbar glass", "cards": [{ "type": "custom:msh-navbar-card", "style": "glass", "badges": { "media": [{ "entity": "media_player.stue_tv", "op": "=", "value": "playing", "text": "TV spiller" }] } }] },
+  { "name": "Navbar tom", "cards": [{ "type": "custom:msh-navbar-card", "bar": [], "more": [], "show_names": true, "width": "full" }] }
+]

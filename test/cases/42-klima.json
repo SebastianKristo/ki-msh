@@ -1,0 +1,10 @@
+[
+  { "name": "Klima", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-hero-card" }, { "type": "custom:msh-klima-card" } ] },
+  { "name": "Klima · soner", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "so" } ] },
+  { "name": "Klima · energi", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "en" } ] },
+  { "name": "Klima · vann", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "vb" } ] },
+  { "name": "Klima · tanker", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "ta" } ] },
+  { "name": "Klima · oppsett", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "op" } ] },
+  { "name": "Klima · avansert", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-card", "start_tab": "av" } ] },
+  { "name": "Klima · tom", "hash": "#klima", "cards": [ { "type": "custom:msh-klima-hero-card", "overrides": { "effekt": "sensor.mangler", "borte": "input_boolean.mangler" } }, { "type": "custom:msh-klima-card", "platform": "ingen", "overrides": { "effekt": "sensor.mangler", "grense": "number.mangler", "pris": "sensor.mangler", "bereder": "water_heater.mangler", "legionella": "sensor.mangler", "handkle": "switch.mangler" }, "exclude": ["climate.stue", "climate.soverom", "climate.bad_gulvvarme", "climate.kjokken_panelovn", "climate.trapp", "fan.stue_vifte", "input_boolean.bortemodus", "input_boolean.sommermodus", "input_boolean.hjemkomst", "input_boolean.leggetid_sebastian", "input_boolean.leggetid_cybele"] } ] }
+]

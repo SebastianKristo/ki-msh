@@ -1,0 +1,5 @@
+[
+  { "name": "Ruter", "hash": "#ruter", "cards": [ { "type": "custom:msh-ruter-card" } ] },
+  { "name": "Ruter · egen avvikssensor", "hash": "#ruter", "cards": [ { "type": "custom:msh-ruter-card", "overrides": { "avvik": "sensor.entur_avvik" }, "sort": "tid", "stops": { "entur_bislett": { "walk": "6 min gange", "lines": "17", "count": 3 } } } ] },
+  { "name": "Ruter · tom", "hash": "#ruter", "cards": [ { "type": "custom:msh-ruter-card", "exclude": ["sensor.entur_stoppested", "sensor.entur_bislett", "sensor.entur_holbergs_plass", "sensor.ruter_avvik_rut_line_17", "sensor.ruter_avvik_rut_line_19", "sensor.ruter_avvik_rut_line_45"], "overrides": { "avvik": "sensor.finnes_ikke" } } ] }
+]

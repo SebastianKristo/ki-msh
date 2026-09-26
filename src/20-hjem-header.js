@@ -1,0 +1,712 @@
+/* msh-hjem-header-card · Hjem-visningen, header. Kilde: Hjem v2.dc.html (<header>, peopleVals, hdr/hdrVals,
+ * he.* header-editor, quick.* person-hurtigark, servermeny, lockVals).
+ * Autokonfig (entiteter.md «Hjem-header»): person.*, weather.* (første), zone.* (soner).
+ * Felles for Hjem-kortene (20–23): utvidet editor (msh-hjem-editor), dørlås-hurtigark (M.hjemLockSheet),
+ * søppel-oppslag (M.hjemTrash*), værtekst (M.hjemCond).
+ */
+(function () {
+  const M = window.MSH, esc = M.esc, C = M.C;
+  const PINK = C.accent;
+  const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const setIn = (o, p, v) => {
+    const ks = String(p).split('.');
+    let cur = o;
+    ks.forEach((k, i) => {
+      if (i === ks.length - 1) { if (v === undefined || v === '' || v === null) delete cur[k]; else cur[k] = v; }
+      else { cur[k] = { ...(cur[k] || {}) }; cur = cur[k]; }
+    });
+    return o;
+  };
+  const toasts = (card) => ({ enabled: !(card && card.config && card.config.toasts === false) });
+  M.hjemToast = (card, text) => M.toast(text, toasts(card));
+
+  /* ------------------------------------------------------------ vær */
+  const COND = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Styrtregn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
+  M.hjemCond = M.hjemCond || function (state) { return COND[state] || (state ? String(state) : '–'); };
+
+  /* ------------------------------------------------------------ søppel (delt av prosa + søppelkort) */
+  const TRASH_RE = /s(o|ø)ppel|avfall|renovasjon|waste|garbage|trash|t(o|ø)mming|restavfall|papir|plast/i;
+  M.hjemTrashDays = function (st) {
+    if (!st || M.unavailable(st)) return null;
+    if (M.isNum(st.state)) return Math.round(Number(st.state));
+    const a = st.attributes || {};
+    for (const k of ['days', 'daysTo', 'days_to', 'days_until', 'days_left']) if (M.isNum(a[k])) return Math.round(Number(a[k]));
+    const dt = /^\d{4}-\d{2}-\d{2}/.test(st.state) ? st.state : (a.next_date || a.date || null);
+    if (dt) {
+      const d = new Date(dt), t = new Date();
+      if (!isNaN(d)) { d.setHours(0, 0, 0, 0); t.setHours(0, 0, 0, 0); return Math.round((d - t) / 86400000); }
+    }
+    const m = /(\d+)\s*(d|dag|day)/i.exec(st.state);
+    return m ? Number(m[1]) : null;
+  };
+  M.hjemTrashAuto = function (hass) {
+    const c = M.all(hass, 'sensor', (s, id) => TRASH_RE.test(id + ' ' + (s.attributes.friendly_name || '')));
+    return c.find((id) => M.hjemTrashDays(hass.states[id]) != null) || c[0] || null;
+  };
+  M.hjemTrashType = function (st, typeSt) {
+    const nice = (arr) => { const l = arr.map((x, i) => (i ? String(x).toLowerCase() : String(x))); return l.length > 1 ? l.slice(0, -1).join(', ') + ' og ' + l[l.length - 1] : l[0] || ''; };
+    if (typeSt && !M.unavailable(typeSt)) { const v = typeSt.state; return Array.isArray(typeSt.attributes.types) ? nice(typeSt.attributes.types) : v; }
+    const a = (st && st.attributes) || {};
+    if (Array.isArray(a.types) && a.types.length) return nice(a.types);
+    return a.garbage_type || a.type || a.waste_type || null;
+  };
+
+  /* ------------------------------------------------------------ utvidet editor */
+  // Arver msh-editor (samme skjema/config-flyt) og legger til felttyper Hjem-kortene trenger:
+  //   rows   { name, label, title(row), sub(row), chip(row)→html, fields:[… rowWhen(row)], newRow(h,c), defaults(h,c), hide, addLabel }
+  //   modes  { name, options:[[v,label,icon,sub]] }   range { name, min, max, step, fmt }
+  //   tokens { target, tokens:[[label,text,prepend]] } swatches { name, options:[[v,css,label]] }
+  //   html   { render(h,c) }                            button { label, icon, run(row,h,c) }
+  // Alle felt kan ha when(h,c).
+  const XCSS = `
+    .xrows{display:flex;flex-direction:column;gap:6px}
+    .xr{display:flex;align-items:center;gap:4px;min-height:54px;padding:0 6px 0 12px;border-radius:26px;background:#2f2f2f}
+    .xr.on{background:#545454}
+    .xrh{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;padding:6px 0;min-height:54px}
+    .xrh b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xrh i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xsq{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:#232323;color:#fafafa}
+    .xsq[disabled]{background:transparent;color:#545454;pointer-events:none}
+    .xsq.del{background:rgb(242 128 115 / 0.2);color:var(--red,#f28073)}
+    .xrb{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:22px;background:#3a3a3a}
+    .xrb .f{background:#2f2f2f}
+    .xrb .f .inp{background:#232323}
+    .xadd{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
+    .xmodes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .xmode{min-height:118px;padding:12px;border-radius:22px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:#3a3a3a;color:#fafafa}
+    .xmode .iw{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#545454}
+    .xmode b{font-size:15px;font-weight:600;padding-top:10px}
+    .xmode i{font-style:normal;font-size:11px;line-height:1.3;color:#979797}
+    .xmode.on{background:${PINK};color:#2f2f2f}
+    .xmode.on .iw{background:rgba(42,23,32,0.12)} .xmode.on i{color:rgba(42,23,32,0.75)}
+    .xtoks{display:flex;gap:4px;flex-wrap:wrap;max-height:88px;overflow-y:auto}
+    .xtok{height:28px;padding:0 10px;border-radius:14px;background:#545454;font-size:12px;white-space:nowrap;color:#e1e1e1}
+    .xrng{width:100%;accent-color:rgb(242 133 201)}
+    .xsw{display:flex;gap:10px;flex-wrap:wrap;padding:2px}
+    .xsw button{width:34px;height:34px;border-radius:17px;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2)}
+    .xsw button.on{box-shadow:0 0 0 2px #2f2f2f,0 0 0 4px #fafafa}
+    .xbtn{height:42px;border-radius:21px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:#2f2f2f}
+    .xprev{padding:14px 16px;border-radius:24px;background:#232323;font-size:16px;line-height:1.95;text-wrap:pretty}
+    .xprev .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .xprev .pd{width:8px;height:8px;border-radius:4px;display:inline-block}
+    .xchip{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#fff}
+  `;
+  let XSHEET = null;
+  const Base = customElements.get('msh-editor');
+  if (Base && !customElements.get('msh-hjem-editor')) {
+    class HjemEditor extends Base {
+      constructor() { super(); this._ropen = {}; this._btns = {}; }
+      _css() {
+        if (this._cssOk || !this.shadowRoot) return;
+        try {
+          if (!XSHEET) { XSHEET = new CSSStyleSheet(); XSHEET.replaceSync(XCSS); }
+          this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, XSHEET];
+          this._cssOk = true;
+        } catch (e) { this._cssFallback = true; }
+      }
+      _render() {
+        this._css();
+        this._btns = {};
+        super._render();
+        if (this._cssFallback && this.shadowRoot && !this.shadowRoot.getElementById('xcss')) {
+          const s = document.createElement('style'); s.id = 'xcss'; s.textContent = XCSS; this.shadowRoot.appendChild(s);
+        }
+      }
+      _findRows(name, list) {
+        for (const f of list || this.schema) {
+          if (f.type === 'rows' && f.name === name) return f;
+          if (f.fields && f.type !== 'rows') { const r = this._findRows(name, f.fields); if (r) return r; }
+        }
+        return null;
+      }
+      _rowsOf(f) {
+        const v = get(this._config || {}, f.name);
+        if (Array.isArray(v)) return v;
+        try { return (f.defaults && f.defaults(this._hass, this._config || {})) || []; } catch (e) { return []; }
+      }
+      _val(path) {
+        const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
+        if (m) { const f = this._findRows(m[1]); if (f) return get(this._rowsOf(f)[+m[2]] || {}, m[3]); }
+        return get(this._config || {}, path);
+      }
+      _set(path, v) {
+        const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
+        if (m) {
+          const f = this._findRows(m[1]);
+          if (f) {
+            const list = this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {})));
+            if (list[+m[2]]) setIn(list[+m[2]], m[3], v);
+            return super._set(m[1], list);
+          }
+        }
+        return super._set(path, v);
+      }
+      _field(f, key) {
+        const h = this._hass, c = this._config || {};
+        if (f.when) { let ok = true; try { ok = f.when(h, c); } catch (e) { /* */ } if (!ok) return ''; }
+        const lab = f.label ? `<label>${esc(f.label)}</label>` : '';
+        const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
+        switch (f.type) {
+          case 'rows': return this._rows(f, key);
+          case 'modes': {
+            const cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
+            return `<div class="f" style="background:transparent;padding:4px 0">${lab}<div class="xmodes">${f.options.map(([v, l, ic, sub]) => `<button class="xmode ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"><span class="iw">${M.icon(ic, 20)}</span><b>${esc(l)}</b><i>${esc(sub || '')}</i></button>`).join('')}</div>${help}</div>`;
+          }
+          case 'range': {
+            const v = get(c, f.name) != null ? Number(get(c, f.name)) : Number(f.default);
+            return `<div class="f"><div class="line" style="justify-content:space-between;font-size:13px"><span style="color:#c7c7c7">${esc(f.label)}</span><b style="font-weight:500" class="num">${esc(f.fmt ? f.fmt(v) : v)}</b></div><input type="range" class="xrng" data-name="${esc(f.name)}" data-num="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}">${help}</div>`;
+          }
+          case 'tokens':
+            return `<div class="xtoks">${(f.tokens || []).map(([l, t, pre]) => `<button class="xtok" data-a="x-tok" data-name="${esc(f.target)}" data-v="${esc(t)}" data-pre="${pre ? 1 : 0}">${esc(l)}</button>`).join('')}</div>`;
+          case 'swatches': {
+            const cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
+            return `<div class="f">${lab}<div class="xsw">${f.options.map(([v, css, l]) => `<button class="${String(v) === cur ? 'on' : ''}" title="${esc(l)}" style="background:${css}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"></button>`).join('')}</div>${help}</div>`;
+          }
+          case 'html': { try { return f.render(h, c) || ''; } catch (e) { return ''; } }
+          case 'button':
+            this._btns[key] = f;
+            return `<button class="xbtn" data-a="x-btn" data-k="${esc(key)}">${f.icon ? M.icon(f.icon, 18) : ''}${esc(f.label)}</button>`;
+          default: return super._field(f, key);
+        }
+      }
+      _rows(f, key) {
+        const h = this._hass, saved = this._config || {};
+        const list = this._rowsOf(f);
+        const open = this._ropen[f.name];
+        this._config = { ...saved, [f.name]: list };
+        let body = '';
+        try {
+          body = list.map((r, i) => {
+            const t = f.title ? f.title(r, i, h, saved) : (r.name || r.id || `#${i + 1}`);
+            const sub = f.sub ? f.sub(r, i, h, saved) : '';
+            const isOpen = open === i;
+            const head = `<div class="xr ${isOpen ? 'on' : ''}" style="${r && r.hidden ? 'opacity:.55' : ''}" data-key="${esc(f.name)}-${i}">
+              ${f.chip ? f.chip(r, i, h, saved) : ''}
+              <button class="xrh" data-a="x-ropen" data-n="${esc(f.name)}" data-i="${i}"><b>${esc(t)}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</button>
+              ${f.sortable === false ? '' : `<button class="xsq" data-a="x-rmv" data-n="${esc(f.name)}" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'}>${M.icon('mdi:chevron-up', 18)}</button><button class="xsq" data-a="x-rmv" data-n="${esc(f.name)}" data-i="${i}" data-d="1" ${i < list.length - 1 ? '' : 'disabled'}>${M.icon('mdi:chevron-down', 18)}</button>`}
+              ${f.hide ? `<button class="xsq" data-a="x-rhide" data-n="${esc(f.name)}" data-i="${i}">${M.icon(r && r.hidden ? 'mdi:eye-off' : 'mdi:eye', 18, `color:${r && r.hidden ? '#696969' : '#fafafa'}`)}</button>` : ''}
+              <button class="xsq del" data-a="x-rdel" data-n="${esc(f.name)}" data-i="${i}" title="Slett">${M.icon('mdi:delete', 18)}</button></div>`;
+            if (!isOpen) return head;
+            const sub2 = (f.fields || []).filter((sf) => { try { return !sf.rowWhen || sf.rowWhen(r || {}, h, saved); } catch (e) { return true; } }).map((sf, j) => {
+              const nf = { ...sf, rowWhen: undefined };
+              if (sf.name) nf.name = `${f.name}.${i}.${sf.name}`;
+              if (sf.target) nf.target = `${f.name}.${i}.${sf.target}`;
+              if (sf.run) nf.run = () => sf.run(r || {}, h, saved);
+              if (sf.render) nf.render = () => sf.render(r || {}, h, saved);
+              return this._field(nf, `${key}_${i}_${j}`);
+            }).join('');
+            return head + `<div class="xrb" data-key="${esc(f.name)}-b${i}">${sub2}</div>`;
+          }).join('');
+        } finally { this._config = saved; }
+        return `<div class="f" style="background:transparent;padding:4px 0">${f.label ? `<label>${esc(f.label)}</label>` : ''}<div class="xrows">${body || '<span class="small">Ingen</span>'}
+          ${f.newRow ? `<button class="xadd" data-a="x-radd" data-n="${esc(f.name)}">${M.icon('mdi:plus', 20)}${esc(f.addLabel || 'Legg til')}</button>` : ''}</div>${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
+      }
+      _click(e) {
+        const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
+        if (!b || b.dataset.a.indexOf('x-') !== 0) return super._click(e);
+        M.haptic('light');
+        const d = b.dataset, f = d.n ? this._findRows(d.n) : null;
+        const list = f ? this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {}))) : [];
+        const i = Number(d.i);
+        switch (d.a) {
+          case 'x-ropen': this._ropen[d.n] = this._ropen[d.n] === i ? null : i; return this._render();
+          case 'x-rmv': { const j = i + Number(d.d); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; if (this._ropen[d.n] === i) this._ropen[d.n] = j; M.haptic('selection'); return super._set(d.n, list); }
+          case 'x-rhide': list[i].hidden = !list[i].hidden; if (!list[i].hidden) delete list[i].hidden; return super._set(d.n, list);
+          case 'x-rdel': list.splice(i, 1); if (this._ropen[d.n] === i) this._ropen[d.n] = null; return super._set(d.n, list);
+          case 'x-radd': { let r = {}; try { r = f.newRow(this._hass, this._config || {}, list) || {}; } catch (x) { /* */ } list.push(r); this._ropen[d.n] = list.length - 1; return super._set(d.n, list); }
+          case 'x-tok': { const cur = String(this._val(d.name) || ''); const v = d.pre === '1' ? d.v + cur : `${cur} ${d.v}`.trim(); return this._set(d.name, v); }
+          case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
+          default:
+        }
+      }
+    }
+    customElements.define('msh-hjem-editor', HjemEditor);
+  }
+  // Kortets egen tilpasning med den utvidede editoren (samme flyt som MSH.Card.customize).
+  M.hjemCustomize = function (card, focus) {
+    const tag = customElements.get('msh-hjem-editor') ? 'msh-hjem-editor' : 'msh-editor';
+    const ov = M.overlay({ html: '', maxWidth: 520 });
+    const ed = document.createElement(tag);
+    ed.cardClass = card.constructor;
+    ed.inline = true;
+    ed.focusSection = focus || null;
+    ed.hass = card.hass;
+    ed.setConfig(card._rawConfig || card.config);
+    ed.addEventListener('msh-save', async (ev) => {
+      const res = await M.saveCardConfig(card.hass, card._rawConfig || card.config, ev.detail.config);
+      card.setConfig(res.config);
+      ov.close();
+    });
+    ed.addEventListener('msh-cancel', () => ov.close());
+    ov.body.appendChild(ed);
+    return ov;
+  };
+  M.hjemEditorEl = function (cls) {
+    const e = document.createElement(customElements.get('msh-hjem-editor') ? 'msh-hjem-editor' : 'msh-editor');
+    e.cardClass = cls;
+    return e;
+  };
+
+  /* ------------------------------------------------------------ hurtigark: felles ramme */
+  const SHEET_CSS = `
+    .bg{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+    .sh{overflow:visible;width:calc(100% - 40px);max-width:300px;padding:62px 14px 14px;border-radius:30px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 30px 60px rgba(0,0,0,0.5)}
+    .body{display:flex;flex-direction:column;gap:10px}
+    .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
+    .orb.pic{background-size:cover;background-position:center;font-size:36px;font-weight:600;color:#232323}
+    .nm{display:flex;flex-direction:column;align-items:center;gap:3px;padding-bottom:4px;text-align:center}
+    .nm b{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+    .nm span{font-size:13px;color:var(--gray600,#7f7f7f)}
+    .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:26px;background:var(--gray000,#232323);touch-action:none;user-select:none;cursor:pointer}
+    .seg .ind{position:absolute;top:4px;bottom:4px;width:calc((100% - 8px) / 2);border-radius:22px;pointer-events:none;transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
+    .seg.drag .ind{background:linear-gradient(180deg,rgba(255,255,255,0.3),rgba(255,255,255,0.1))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,0.6),inset 0 0 0 .5px rgba(255,255,255,0.35),0 8px 20px rgba(0,0,0,0.35);transform:scale(1.08,1.12);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s}
+    .seg .o{position:relative;z-index:1;height:48px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;color:#afafaf;transition:color .25s}
+    .seg .o.on{color:#232323}
+    .seg.ro{cursor:default}
+    .opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:26px;background:var(--gray000,#232323)}
+    .opt{height:48px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;color:#979797;transition:background .25s}
+    .lst{display:flex;flex-direction:column;padding:4px 10px;border-radius:22px;background:var(--gray000,#232323)}
+    .li{display:flex;align-items:center;gap:10px;height:44px;border-top:1px solid rgba(255,255,255,0.05);text-align:left;width:100%}
+    .li:first-child{border-top:0;height:48px}
+    .li .t{flex:1;font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .li .v{font-size:13px;color:var(--gray800,#afafaf)}
+    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray200,#3a3a3a);transition:background .2s}
+    .trk.on{background:var(--pink,#f285c9)}
+    .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}
+    .trk.on i{left:21px}
+    .done{height:52px;border-radius:26px;background:${PINK};color:#2f2f2f;font-size:15px;font-weight:600}
+    .more{height:36px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;color:var(--gray700,#979797)}
+    button:active{transform:scale(.97)}
+    @keyframes pop{from{transform:translateY(-40%) scale(.9);opacity:0}}
+  `;
+  // Åpner et sentrert hurtigark. render() → html, onAct(name, el, sheet) håndterer data-a. Oppdateres av kortet via sheet.update().
+  M.hjemSheet = function (card, { render, onAct, drag }) {
+    const ov = M.overlay({ html: render(), css: SHEET_CSS, center: true, sheet: false, maxWidth: 300 });
+    const sheet = { ov, update() { if (ov.host.isConnected) M.morph(ov.body, render()); } };
+    ov.root.addEventListener('click', (e) => {
+      const el = e.target.closest && e.target.closest('[data-a]');
+      if (!el) return;
+      M.haptic(el.dataset.haptic || 'light');
+      if (el.dataset.a === 'close') return ov.close();
+      onAct && onAct(el.dataset.a, el, sheet, e);
+    });
+    if (drag) ov.root.addEventListener('pointerdown', (e) => { const seg = e.target.closest && e.target.closest('.seg[data-seg]'); if (seg && !seg.classList.contains('ro')) drag(seg, e, sheet); });
+    card._sheets = card._sheets || new Set();
+    card._sheets.add(sheet);
+    const close0 = ov.close;
+    ov.close = () => { card._sheets.delete(sheet); close0(); };
+    return sheet;
+  };
+  // Glass-segment: dra indikatoren, slipp → velg nærmeste. pick(i)
+  M.hjemSegDrag = function (seg, e, pick) {
+    const r = seg.getBoundingClientRect(), n = 2, ind = seg.querySelector('.ind');
+    const xOf = (ev) => M.clamp((ev.clientX - r.left - 4) / Math.max(1, r.width - 8), 0, 1);
+    const place = (x) => { const pos = M.clamp(x, 0.5 / n, 1 - 0.5 / n); if (ind) ind.style.left = `calc(4px + (100% - 8px) * ${pos - 0.5 / n})`; };
+    try { seg.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+    seg.classList.add('drag');
+    let last = Math.floor(xOf(e) * n);
+    place(xOf(e));
+    const mv = (ev) => { place(xOf(ev)); const k = Math.min(n - 1, Math.floor(xOf(ev) * n)); if (k !== last) { last = k; M.haptic('selection'); } };
+    const up = (ev) => {
+      seg.removeEventListener('pointermove', mv); seg.removeEventListener('pointerup', up); seg.removeEventListener('pointercancel', up);
+      seg.classList.remove('drag');
+      const i = Math.min(n - 1, Math.floor(xOf(ev) * n));
+      if (ind) ind.style.left = '';
+      seg.__dragged = true; setTimeout(() => { seg.__dragged = false; }, 50);
+      pick(i);
+    };
+    seg.addEventListener('pointermove', mv); seg.addEventListener('pointerup', up); seg.addEventListener('pointercancel', up);
+  };
+  const segHTML = (key, idx, opts, ro) => `<div class="seg ${ro ? 'ro' : ''}" data-seg="${key}"><span class="ind" style="left:calc(4px + (100% - 8px) * ${idx / 2});background:${opts[idx][3]}"></span>${opts.map(([icon, label, v], i) => `<span class="o ${i === idx ? 'on' : ''}" data-a="seg" data-seg="${key}" data-i="${i}" data-haptic="selection">${M.icon(icon, 20)}${esc(label)}</span>`).join('')}</div>`;
+
+  /* ------------------------------------------------------------ dørlås-hurtigark (lock.*) */
+  const devSib = (hass, id, test) => {
+    const e = M.regEntry(hass, id);
+    if (!e || !e.device_id) return null;
+    return Object.keys(hass.entities || {}).find((x) => x !== id && hass.entities[x].device_id === e.device_id && hass.states[x] && test(x, hass.states[x])) || null;
+  };
+  M.hjemLockAuto = (hass) => M.all(hass, 'lock')[0] || null;
+  M.hjemLockSheet = function (card, lockId) {
+    lockId = lockId || M.hjemLockAuto(card.hass);
+    if (!lockId) { M.hjemToast(card, 'Fant ingen dørlås'); return null; }
+    let spin = 0;
+    const R = () => card.s ? card.s.bind(card) : (id) => card.hass.states[id];
+    const render = () => {
+      const s = R()(lockId), h = card.hass;
+      const L = !s || s.state === 'locked' || s.state === 'locking';
+      const busy = s && (s.state === 'locking' || s.state === 'unlocking');
+      const col = L ? C.green : C.orange;
+      const name = M.name(h, lockId);
+      const auto = devSib(h, lockId, (x) => /auto/.test(x) && /^(switch|input_boolean)\./.test(x));
+      const bat = devSib(h, lockId, (x, st) => st.attributes.device_class === 'battery' && x.startsWith('sensor.'));
+      const batV = bat ? M.num(h, bat) : (s && M.isNum(s.attributes.battery_level) ? Number(s.attributes.battery_level) : null);
+      const aOn = auto && R()(auto) && R()(auto).state === 'on';
+      const by = s && (s.attributes.changed_by || s.attributes.last_changed_by);
+      const t = s ? new Date(s.last_changed).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' }) : '–';
+      const opt = (on, icon, label, c, act) => `<button class="opt" data-a="${act}" data-haptic="success" style="${on ? `background:${M.alpha(c, 0.18)};color:#fafafa;box-shadow:inset 0 0 0 1px ${M.alpha(c, 0.4)}` : ''}">${M.icon(icon, 19, `color:${on ? c : '#7f7f7f'}`)}${label}</button>`;
+      return `<button class="orb" data-a="toggle" data-haptic="success" style="background:${M.alpha(col, 0.2)};box-shadow:0 0 0 6px var(--gray200,#3a3a3a),0 12px 30px ${M.alpha(col, 0.35)};transition:background .4s,box-shadow .4s">
+          <span style="position:absolute;inset:6px;border-radius:50%;background:conic-gradient(${col} ${L ? 360 : 90}deg, transparent 0);-webkit-mask:radial-gradient(circle, transparent 38px, #000 39px);mask:radial-gradient(circle, transparent 38px, #000 39px);transform:rotate(${spin * 360}deg);transition:transform .8s cubic-bezier(.34,1.3,.64,1),background .4s"></span>
+          ${M.icon(L ? 'lock' : 'lock_open', 40, `position:relative;color:${col};transform:${L ? 'scale(1)' : 'scale(1.08) rotate(-8deg)'};transition:transform .5s cubic-bezier(.34,1.8,.64,1),color .3s`)}
+        </button>
+        <div class="nm"><b>${!s ? '–' : busy ? (L ? 'Låser …' : 'Låser opp …') : L ? 'Låst' : 'Ulåst'}</b><span>${esc(name)} · ${L ? 'sikret' : 'åpen for inngang'}</span></div>
+        <div class="opts">${opt(L, 'lock', 'Lås', C.green, 'lock')}${opt(!L, 'lock_open', 'Lås opp', C.orange, 'unlock')}</div>
+        <div class="lst">
+          <button class="li" data-a="auto" ${auto ? '' : 'disabled'}>${M.icon('lock_clock', 20, 'color:#979797')}<span class="t">${auto ? esc(M.name(h, auto, name)) : 'Autolås'}</span>${auto ? `<span class="trk ${aOn ? 'on' : ''}"><i></i></span>` : '<span class="v">–</span>'}</button>
+          <div class="li">${M.icon('battery_5_bar', 20, 'color:#979797')}<span class="t">Batteri</span><span class="v num">${batV != null ? M.nf(batV, 0) + ' %' : '–'}</span></div>
+          <div class="li">${M.icon('history', 20, 'color:#979797')}<span class="t">${L ? 'Låst' : 'Låst opp'}${by ? ' av ' + esc(by) : ''}</span><span class="v num">${esc(t)}</span></div>
+        </div>
+        <button class="done" data-a="close">Ferdig</button>`;
+    };
+    const run = (lock) => {
+      const s = card.hass.states[lockId];
+      if (!lock && s && s.attributes.code_format) { M.moreInfo(card, lockId); return; }
+      spin++;
+      M.call(card.hass, 'lock', lock ? 'lock' : 'unlock', { entity_id: lockId }).then(() => M.hjemToast(card, lock ? 'Dørlås låst' : 'Dørlås låst opp')).catch(() => {});
+    };
+    return M.hjemSheet(card, {
+      render,
+      onAct(a, el, sheet) {
+        const s = card.hass.states[lockId], L = !s || s.state === 'locked';
+        if (a === 'toggle') run(!L);
+        if (a === 'lock') run(true);
+        if (a === 'unlock') run(false);
+        if (a === 'auto') { const au = devSib(card.hass, lockId, (x) => /auto/.test(x) && /^(switch|input_boolean)\./.test(x)); if (au) M.toggle(card.hass, au); }
+        sheet.update();
+      },
+    });
+  };
+
+  /* ------------------------------------------------------------ personer og soner */
+  const PCOLS = ['orange', 'pink', 'blue', 'green', 'purple', 'yellow', 'red', 'light-blue'].map((k) => C[k.replace(/-(\w)/g, (_, x) => x.toUpperCase())]);
+  const ZCOLS = [C.purple, C.red, C.blue, C.yellow, C.green, C.orange, C.pink, C.gray700];
+  const ZICONS = ['location_city', 'stethoscope', 'apartment', 'agriculture', 'sailing', 'work', 'school', 'cottage', 'fitness_center', 'flight', 'home', 'shopping_cart', 'restaurant', 'local_hospital', 'directions_car', 'logout'];
+  const autoZones = (hass) => M.all(hass, 'zone', (s, id) => id !== 'zone.home').map((id, i) => ({ zone: id, icon: hass.states[id].attributes.icon || 'mdi:map-marker', color: ZCOLS[i % ZCOLS.length] }));
+  const zonesOf = (hass, c) => (Array.isArray(c.zones) ? c.zones : autoZones(hass));
+  const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+  const objId = (id) => String(id).split('.')[1];
+  const SLEEP_RE = /sov|sleep|seng|natt/;
+  const PRES_RE = /hjemme|home|tilstede|presence/;
+  const sibling = (hass, pid, re, doms) => {
+    const slug = objId(pid);
+    return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
+  };
+  M.hjemPersons = function (hass, c) {
+    const all = M.all(hass, 'person');
+    const inc = (c.include && c.include.personer) || [];
+    let ids = M.applyLists(c, 'personer', all);
+    inc.forEach((x) => { if (!ids.includes(x)) ids.push(x); });
+    const ord = Array.isArray(c.person_order) ? c.person_order.filter((x) => ids.includes(x)) : [];
+    ids = [...ord, ...ids.filter((x) => !ord.includes(x))];
+    const hid = new Set(c.hidden_persons || []);
+    return { all, ids, visible: ids.filter((x) => !hid.has(x)) };
+  };
+  M.hjemPersonInfo = function (hass, id, c, rd) {
+    rd = rd || ((x) => hass.states[x]);
+    const s = rd(id), a = (s && s.attributes) || {};
+    const o = objId(id);
+    const sleepId = M.pick(c, 'sover_' + o, sibling(hass, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']));
+    const presId = M.pick(c, 'hjemme_' + o, sibling(hass, id, PRES_RE, ['input_boolean']));
+    const sl = sleepId ? rd(sleepId) : null;
+    const home = !!s && s.state === 'home';
+    const sleep = !!sl && sl.state === 'on';
+    let zone = null, place = home ? 'Hjemme' : 'Borte';
+    if (s && !home && s.state !== 'not_home' && !M.unavailable(s)) {
+      const zid = Object.keys(hass.states).find((z) => z.startsWith('zone.') && (hass.states[z].attributes.friendly_name === s.state || objId(z) === M.slug(s.state)));
+      place = zid ? (hass.states[zid].attributes.friendly_name || s.state) : s.state;
+      if (zid) zone = zonesOf(hass, c).find((z) => z.zone === zid) || null;
+    }
+    const away = { icon: 'mdi:airplane', color: C.purple, ...(c.zone_away || {}) };
+    const zc = !home && !sleep ? (zone || away) : null;
+    const stCol = sleep ? C.purple : home ? C.green : M.color(zc.color, C.purple);
+    const glyph = sleep ? 'bedtime' : home ? 'home' : zc.icon || 'logout';
+    const all = M.all(hass, 'person');
+    const me = !!(hass.user && a.user_id && a.user_id === hass.user.id);
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), pic: a.entity_picture || null, initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
+  };
+
+  /* ------------------------------------------------------------ header-kortet */
+  const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['under', 'Under', 'vertical_align_top', 'Stedet under hilsenen'], ['kompakt', 'Kompakt', 'view_agenda', 'Lav og tett'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
+  const avatarBg = (p) => (p.pic ? `${p.bg} url("${esc(p.pic)}") center/cover` : p.bg);
+
+  class HjemHeader extends M.Card {
+    static get cardName() { return 'Hjem · header'; }
+    static get defaults() {
+      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: 4 };
+    }
+    static getConfigElement() { return M.hjemEditorEl(this); }
+    static get schema() {
+      return (hass, c) => {
+        const D = HjemHeader.defaults;
+        const P = hass ? M.hjemPersons(hass, c || {}) : { all: [], ids: [] };
+        return [
+          { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
+          { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'stor', open: true, fields: [
+            { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
+            { type: 'range', name: 'g_avatar', label: 'Bilder', min: 36, max: 64, step: 1, default: D.g_avatar, fmt: (v) => `${v} px` },
+            { type: 'range', name: 'g_badge', label: 'Merke', min: 14, max: 28, step: 1, default: D.g_badge, fmt: (v) => `${v} px` },
+            { type: 'range', name: 'g_gap', label: 'Avstand', min: 0, max: 16, step: 1, default: D.g_gap, fmt: (v) => `${v} px` },
+            { type: 'info', label: 'Navnet blir så stort som skjermen tillater, opp til maks.' },
+          ] },
+          { type: 'section', id: 'zones', label: 'Soner', icon: 'mdi:map-marker-radius', fields: [
+            { type: 'rows', name: 'zones', label: 'Soner med eget ikon og farge', defaults: (h) => autoZones(h), addLabel: 'Legg til sone',
+              title: (r, i, h) => (r.zone && h.states[r.zone] ? h.states[r.zone].attributes.friendly_name : r.zone) || 'Velg sone',
+              sub: (r) => r.zone || '',
+              chip: (r) => `<span class="xchip" style="background:${M.color(r.color, C.purple)}">${M.icon(r.icon || 'mdi:map-marker', 18)}</span>`,
+              newRow: (h, cc, list) => { const used = new Set(list.map((z) => z.zone)); const z = M.all(h, 'zone', (s, id) => id !== 'zone.home' && !used.has(id))[0]; return { zone: z || '', icon: (z && h.states[z].attributes.icon) || 'mdi:map-marker', color: ZCOLS[list.length % ZCOLS.length] }; },
+              fields: [
+                { type: 'entity', name: 'zone', label: 'Sone', domain: 'zone' },
+                { type: 'icon', name: 'icon', label: 'Ikon' },
+                { type: 'select', name: 'icon', label: 'Hurtigvalg', options: ZICONS.map((ic) => [M.iconName(ic), ic.replace(/_/g, ' ')]) },
+                { type: 'color', name: 'color', label: 'Farge' },
+              ] },
+            { type: 'icon', name: 'zone_away.icon', label: 'Borte · annen sone – ikon', placeholder: 'mdi:airplane', help: 'Brukes når personen ikke er i en av sonene over' },
+            { type: 'color', name: 'zone_away.color', label: 'Borte · annen sone – farge' },
+          ] },
+          { type: 'section', label: 'Hilsen', icon: 'mdi:hand-wave', fields: [
+            { type: 'text', name: 'greeting', label: 'Hilsen', placeholder: D.greeting },
+            { type: 'tokens', target: 'greeting', tokens: [['+ Fornavn', '{name}'], ['+ Sted', '{server}'], ['+ 👋', '👋 ', true]] },
+            { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på.' },
+          ] },
+          { type: 'order', name: 'person_order', hiddenName: 'hidden_persons', label: 'Personer · rekkefølge og synlighet', options: P.ids.map((id) => [id, M.name(hass, id)]) },
+          { type: 'section', label: 'Bilder', icon: 'mdi:account-circle', fields: [
+            { type: 'select', name: 'size', label: 'Størrelse', options: [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], default: D.size },
+            { type: 'select', name: 'badge', label: 'Merke', options: [['icon', 'Ikon'], ['dot', 'Prikk'], ['ring', 'Ring'], ['none', 'Ingen']], default: D.badge },
+            { type: 'boolean', name: 'show_name', label: 'Vis navn', default: false },
+            { type: 'boolean', name: 'show_place', label: 'Vis sted · Hjemme, sonen eller Borte under bildet', default: false },
+            { type: 'boolean', name: 'ring_me', label: 'Ring rundt meg · markerer bildet ditt', default: false },
+            { type: 'boolean', name: 'weather_tap', label: 'Trykk på været åpner Vær · gjelder «Hjem» og «Profil»', default: true },
+            { type: 'hash', name: 'weather_hash', label: 'Vær-popup', placeholder: D.weather_hash },
+            { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap },
+          ] },
+          { type: 'section', label: 'Steder (servermeny)', icon: 'mdi:swap-horizontal', fields: [
+            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-installasjoner', defaults: () => [], addLabel: 'Legg til sted',
+              title: (r) => r.name || 'Nytt sted', sub: (r) => r.url || '',
+              chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
+              newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length], url: '' }),
+              fields: [{ type: 'text', name: 'name', label: 'Navn' }, { type: 'text', name: 'url', label: 'Adresse', placeholder: 'https://…' }, { type: 'icon', name: 'icon', label: 'Ikon' }, { type: 'color', name: 'color', label: 'Farge' }] },
+            { type: 'text', name: 'place_name', label: 'Navn på dette stedet', auto: (h) => (h && h.config && h.config.location_name) || 'Hjem' },
+          ] },
+          { type: 'overrides', label: 'Bytt entiteter', fields: [
+            { name: 'weather', label: 'Vær', domain: 'weather', auto: (h) => M.all(h, 'weather')[0] },
+            { name: 'kiosk', label: 'Kiosk-modus (hold på tittelen)', domain: 'input_boolean', auto: (h) => M.all(h, 'input_boolean', (s, id) => /kiosk/.test(id))[0] },
+            ...P.ids.flatMap((id) => [
+              { name: 'sover_' + objId(id), label: `${M.name(hass, id)} · søvn`, domains: ['input_boolean', 'binary_sensor', 'switch'], auto: (h) => sibling(h, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) },
+              { name: 'hjemme_' + objId(id), label: `${M.name(hass, id)} · manuell hjemme/borte`, domain: 'input_boolean', auto: (h) => sibling(h, id, PRES_RE, ['input_boolean']) },
+            ]),
+          ] },
+          { type: 'lists', label: 'Personer', lists: (h) => [{ key: 'personer', label: 'Personer', ids: M.all(h, 'person'), domains: ['person'] }] },
+        ];
+      };
+    }
+    get cardSize() { return 2; }
+    customize(focus) { return M.hjemCustomize(this, focus); }
+    _server() {
+      const c = this.config, h = this.hass;
+      const here = c.place_name || (h.config && h.config.location_name) || 'Hjem';
+      const list = Array.isArray(c.servers) ? c.servers.filter((x) => x && x.name) : [];
+      let cur = list.findIndex((x) => x.url && (() => { try { return new URL(x.url).origin === location.origin; } catch (e) { return false; } })());
+      if (cur < 0) cur = list.findIndex((x) => x.name === here);
+      return { name: cur >= 0 ? list[cur].name : here, list, cur };
+    }
+    _weather() {
+      const id = M.pick(this.config, 'weather', M.all(this.hass, 'weather')[0]);
+      const s = this.s(id);
+      if (!s || M.unavailable(s)) return { id, text: '' };
+      const t = s.attributes.temperature;
+      return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}` };
+    }
+    render() {
+      const c = this.config, h = this.hass, Md = c.mode || 'familie';
+      const rd = (id) => this.s(id);
+      const P = M.hjemPersons(h, c);
+      const people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
+      const meP = people.find((p) => p.me);
+      const userFirst = firstName((h.user && h.user.name) || (meP && meP.name) || '');
+      const srv = this._server();
+      const fill = (t) => String(t || '').replace(/\{name\}/g, userFirst).replace(/\{server\}/g, srv.name);
+      const greet = fill(c.greeting != null ? c.greeting : '👋 {name}!');
+      const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
+      const W = this._weather();
+      const sub = Md === 'under' ? srv.name : (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
+      const big = Md === 'stor';
+      // tittelstil (designets hdr.titleStyle)
+      let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
+      if (Md === 'profil') { fs = 'clamp(34px, 14cqw, 60px)'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px'; }
+      else if (Md === 'kompakt') { fs = '22px'; ht = '26px'; }
+      else if (big) {
+        const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
+        fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
+      }
+      const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = Number(c.g_gap) || 0;
+      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : ({ S: 40, M: 52, L: 64 }[c.size] || 52) + 'px';
+      const ov = !c.show_name && !c.show_place && !big;
+      const face = (p, k, dress) => {
+        const ring = c.badge === 'ring' && !dress ? `, 0 0 0 5px ${p.stCol}` : '';
+        const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
+        const sz = dress ? dress.sz + 'px' : SZ;
+        const av = `display:grid;place-items:center;width:${sz};height:${sz};border-radius:50%;background:${avatarBg(p)};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${p.pic ? 0 : `calc(${sz} * 0.38)`};font-weight:600;color:#232323;transition:opacity .3s`;
+        let bd = '', bi = '';
+        if (dress) { bd = `right:${-dress.bs * 0.3}px;top:${-dress.bs * 0.3}px;width:${dress.bs}px;height:${dress.bs}px;border-radius:${dress.bs / 2}px;background:#2a2a2a;box-shadow:0 0 0 3px ${C.dash};z-index:1`; bi = M.icon(p.glyph, Math.round(dress.bs * 0.56), `color:${p.stCol}`); }
+        else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.68), 'color:#fff'); }
+        else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 14, 'color:#fff'); }
+        else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
+        const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
+        const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
+          <span class="fw"><span class="av" style="${av}">${p.pic ? '' : esc(p.initial)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
+      };
+      let faces = people, row2 = [];
+      if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
+      const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: 68, bs: 30 })).join('') : faces.map((p, k) => face(p, k)).join('');
+      const empty = !P.all.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
+      this._sheets && this._sheets.forEach((sh) => sh.update());
+      return `<header class="hd">
+        <div class="top">
+          <div class="lc" data-gcol="1">
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" title="Trykk: bytt sted · dobbelttrykk: /config · hold: kiosk-modus">
+              <span class="tx">${esc(title)}</span>${big ? '' : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+            </button>
+            ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
+          </div>
+          <div class="faces">${facesHTML}${empty}</div>
+        </div>
+        ${row2.length ? `<div class="row2">${row2.map((p) => face(p, 0, { sz: 52, bs: 28 })).join('')}</div>` : ''}
+      </header>`;
+    }
+    onAction(name, el, ev) {
+      if (name === 'title') {
+        if (this._gHeld) { this._gHeld = false; return; }
+        if (this._gTap) { clearTimeout(this._gTap); this._gTap = null; this._srv && this._srv.close(); M.navigate('/config'); return; }
+        this._gTap = setTimeout(() => { this._gTap = null; this._serverMenu(el); }, 260);
+        return;
+      }
+      if (name === 'person') {
+        const id = el.dataset.id;
+        if (this.config.person_tap === 'popup') return M.openPopup('#person-' + objId(id));
+        return this._quick(id);
+      }
+      return super.onAction(name, el, ev);
+    }
+    onHold(id) { return undefined; }
+    _serverMenu(anchor) {
+      if (this._srv) { this._srv.close(); return; }
+      const R = M.dashRect(), a = anchor.getBoundingClientRect();
+      const S = this._server();
+      const rows = (S.list.length ? S.list : [{ name: S.name, icon: 'mdi:home', color: C.green }]).map((v, i) => {
+        const act = S.list.length ? i === S.cur : true, col = M.color(v.color, C.blue);
+        return `<button class="sv" data-a="go" data-i="${i}" style="background:${act ? 'rgba(255,255,255,0.08)' : 'transparent'}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 22)}</span><span class="nm">${esc(v.name)}</span>${act ? '<span class="here">Du er her</span>' : M.icon('chevron_right', 22, 'color:#979797')}</button>`;
+      }).join('');
+      const css = `.bg{background:transparent}
+        .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:280px;max-width:calc(100% - 16px);margin:0;padding:12px 8px 8px;border-radius:26px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);transform:translateY(-8px) scale(.97);transform-origin:top left}
+        :host(.on) .sh{transform:none}
+        .body{display:flex;flex-direction:column;gap:2px}
+        .hd{font-size:12px;font-weight:500;color:#979797;padding:0 10px 6px}
+        .sv,.tp{min-height:60px;padding:0 10px;border-radius:16px;display:flex;align-items:center;gap:14px;width:100%;text-align:left}
+        .tp{min-height:56px}
+        .sv:hover,.tp:hover{background:rgba(255,255,255,0.06)}
+        .iw{width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center}
+        .nm{flex:1;min-width:0;font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .here{height:24px;padding:0 10px;border-radius:12px;display:flex;align-items:center;font-size:12px;font-weight:600;background:var(--blue,#73b9f2);color:#10223a;white-space:nowrap}
+        .dv{height:1px;background:rgba(255,255,255,0.1);margin:6px 10px}`;
+      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${rows}<div class="dv"></div><button class="tp" data-a="edit"><span class="iw" style="background:var(--gray400,#545454)">${M.icon('tune', 22, 'color:#c7c7c7')}</span><span class="nm">Tilpass …</span></button>`, css, sheet: false, maxWidth: 280, onClose: () => { this._srv = null; } });
+      this._srv = ov;
+      ov.root.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('[data-a]');
+        if (!b) return;
+        M.haptic('light');
+        if (b.dataset.a === 'edit') { ov.close(); this.customize(); return; }
+        const v = S.list[Number(b.dataset.i)];
+        ov.close();
+        if (v && v.url && Number(b.dataset.i) !== S.cur) location.href = v.url;
+      });
+    }
+    _quick(pid) {
+      const card = this;
+      const render = () => {
+        const c = card.config, h = card.hass, p = M.hjemPersonInfo(h, pid, c, (x) => card.s(x));
+        const zi = p.home ? 0 : 1, si = p.sleep ? 1 : 0;
+        return `<div class="orb pic" style="background:${avatarBg(p)};box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${p.pic ? '' : esc(p.initial)}</div>
+          <div class="nm"><b>${esc(p.name)}</b><span>${esc(p.home ? 'Hjemme' : p.place)} · ${p.sleep ? 'Sover' : 'Våken'}</span></div>
+          ${segHTML('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], !p.presId)}
+          ${segHTML('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], !p.sleepId)}
+          <button class="done" data-a="close">Ferdig</button>
+          <button class="more" data-a="details">Mobil, soner og søvn${M.icon('chevron_right', 18)}</button>`;
+      };
+      const setSeg = (key, i) => {
+        const p = M.hjemPersonInfo(card.hass, pid, card.config);
+        const ent = key === 'zone' ? p.presId : p.sleepId;
+        if (!ent) { M.hjemToast(card, key === 'zone' ? 'Hjemme/borte styres av sporing' : 'Velg søvn-entitet i tilpasning'); return; }
+        const on = key === 'zone' ? i === 0 : i === 1;
+        const d = ent.split('.')[0];
+        if (d === 'binary_sensor') { M.moreInfo(card, ent); return; }
+        M.call(card.hass, d === 'switch' ? 'switch' : 'input_boolean', on ? 'turn_on' : 'turn_off', { entity_id: ent });
+      };
+      M.hjemSheet(card, {
+        render,
+        onAct(a, el, sheet) {
+          if (a === 'seg') { const seg = el.closest('.seg'); if (seg && seg.__dragged) return; setSeg(el.dataset.seg, Number(el.dataset.i)); }
+          if (a === 'details') { sheet.ov.close(); setTimeout(() => M.openPopup('#person-' + objId(pid)), 30); }
+        },
+        drag(seg, e, sheet) { M.hjemSegDrag(seg, e, (i) => { setSeg(seg.dataset.seg, i); sheet.update(); }); },
+      });
+    }
+    afterRender() {
+      const t = this.shadowRoot.querySelector('.ttl');
+      if (t && !t.__b) {
+        t.__b = true;
+        const clear = () => clearTimeout(this._gHold);
+        t.addEventListener('pointerdown', (e) => {
+          if (e.button) return;
+          this._gHeld = false; clear();
+          this._gHold = setTimeout(() => {
+            this._gHeld = true;
+            M.haptic('heavy');
+            const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, id) => /kiosk/.test(id))[0]);
+            if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return; }
+            const on = this.hass.states[k] && this.hass.states[k].state === 'on';
+            M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
+            M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
+          }, 600);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => t.addEventListener(ev, clear));
+        t.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+      // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
+      if ((this.config.mode || 'familie') === 'stor') {
+        const col = this.shadowRoot.querySelector('.lc');
+        if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver(() => { this._gFit = null; this.update(); }); this._ro.observe(col); }
+        requestAnimationFrame(() => {
+          const sp = this.shadowRoot.querySelector('.ttl .tx'), cl = this.shadowRoot.querySelector('.lc');
+          if (!sp || !cl) return;
+          const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, w = sp.scrollWidth, avail = cl.clientWidth - 2;
+          if (!w || !avail) return;
+          const max = (Number(this.config.g_font) || 4.5) * 16, n = Math.max(20, Math.min(max, Math.floor(((fs * avail) / w) * 0.985 * 10) / 10));
+          if (Math.abs(n - (this._gFit || fs)) > 0.4) { this._gFit = n; this.update(); }
+        });
+      } else if (this._ro) { this._ro.disconnect(); this._ro = null; this._gFit = null; }
+    }
+    disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
+    get styles() {
+      return `
+        .hd{display:flex;flex-direction:column;gap:18px;padding-top:8px}
+        .top{container-type:inline-size;display:flex;align-items:center;justify-content:space-between;gap:10px}
+        .lc{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 0}
+        .ttl{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:0;line-height:1;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden;text-align:left;color:var(--white,#fafafa)}
+        .ttl .tx{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .sub{align-self:flex-start;font-size:15px;color:var(--gray700,#979797);white-space:nowrap;text-align:left}
+        .sub:active{opacity:.6}
+        .faces{display:flex;flex:none;align-items:flex-start}
+        .face{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:none}
+        .fw{position:relative;display:block}
+        .av{display:grid}
+        .bd{position:absolute;display:grid;place-items:center}
+        .lb{display:flex;flex-direction:column;align-items:center}
+        .ln{font-size:11px;font-weight:500}
+        .lp{font-size:10px;color:var(--gray700,#979797)}
+        .row2{display:flex;flex-wrap:wrap;gap:14px;padding:4px 0 0 2px}
+        .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
+      `;
+    }
+  }
+  M.define('msh-hjem-header-card', HjemHeader, 'MSH Hjem · header', 'Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hjem-visningen.');
+})();

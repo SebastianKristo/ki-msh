@@ -1,0 +1,7 @@
+[
+  { "name": "Basseng", "hash": "#basseng", "cards": [ { "type": "custom:msh-basseng-hero-card" }, { "type": "custom:msh-basseng-card" } ] },
+  { "name": "Basseng · varme", "hash": "#basseng", "cards": [ { "type": "custom:msh-basseng-hero-card", "anim": false }, { "type": "custom:msh-basseng-card", "tabs": ["heat", "ov", "klor", "spr"] } ] },
+  { "name": "Basseng · klor", "hash": "#basseng", "cards": [ { "type": "custom:msh-basseng-card", "tabs": ["klor", "ov", "heat", "spr"] } ] },
+  { "name": "Basseng · spreder", "hash": "#basseng", "cards": [ { "type": "custom:msh-basseng-card", "tabs": ["spr", "ov", "heat", "klor"], "hidden_controls": ["light"] } ] },
+  { "name": "Basseng · tomt", "hash": "#basseng", "cards": [ { "type": "custom:msh-basseng-hero-card", "area": "finnes_ikke" }, { "type": "custom:msh-basseng-card", "area": "finnes_ikke" } ] }
+]
