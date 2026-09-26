@@ -144,15 +144,17 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `battery.show` | Liste (lav \| alle) | Batterier |
 | `battery.always` | Vis fanen alltid · boolean | Batterier |
 | `battery.cond` | Vis fanen når denne er på · entity | Batterier |
-| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: kjokken, stue, bad, soverom, basseng, garasje, bod, gang, hage | Rom og snarveier · Hjem |
+| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: kjokken, stue, bad, soverom, vaskerom, basseng, garasje, bod, gang, kontor, hage | Rom og snarveier · Hjem |
 | `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.vaskerom` | Kolonne · Vaskerom (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.kontor` | Kolonne · Kontor (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Hjem |
 | `slides.hjem.L.cal` | Sveip-kort · venstre karusell · Kalender · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
@@ -211,10 +213,12 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.forste.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
 | `tiles.forste.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
 | `tiles.forste.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
-| `layout.andre.order · layout.andre.hidden` | rekkefølge/synlighet: bad, soverom | Rom og snarveier · 2. etg |
+| `layout.andre.order · layout.andre.hidden` | rekkefølge/synlighet: bad, kontor, soverom, vaskerom | Rom og snarveier · 2. etg |
 | `layout.andre.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · 2. etg |
 | `layout.andre.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · 2. etg |
+| `layout.andre.side.kontor` | Kolonne · Kontor (L \| R) | Rom og snarveier · 2. etg |
 | `layout.andre.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · 2. etg |
+| `layout.andre.side.vaskerom` | Kolonne · Vaskerom (L \| R) | Rom og snarveier · 2. etg |
 | `tiles.andre.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
 | `tiles.andre.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
 | `tiles.andre.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
@@ -255,13 +259,15 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.uten_etasje.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
 | `tiles.uten_etasje.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
 | `tiles.uten_etasje.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
-| `layout.aktuelt.order · layout.aktuelt.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue, bad, soverom, basseng, hage, garasje | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.order · layout.aktuelt.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue, bad, kontor, soverom, vaskerom, basseng, hage, garasje | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.kontor` | Kolonne · Kontor (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Aktuelt |
+| `layout.aktuelt.side.vaskerom` | Kolonne · Vaskerom (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Aktuelt |
@@ -321,77 +327,118 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `rooms.basseng.color` | Farge (ikon når lys er på) · color | Rom · Basseng |
 | `rooms.basseng.size` | Størrelse i kortliste (S \| M \| L) | Rom · Basseng |
 | `rooms.basseng.klima` | Klima-knapp (+/−) · boolean | Rom · Basseng |
-| `rooms.basseng.temperatur` | Temperatur · entity | Rom · Basseng |
-| `rooms.basseng.fuktighet` | Luftfuktighet · entity | Rom · Basseng |
-| `rooms.basseng.termostat` | Termostat · entity | Rom · Basseng |
+| `rooms.basseng.temperature` | Temperatur · entity | Rom · Basseng |
+| `rooms.basseng.humidity` | Luftfuktighet · entity | Rom · Basseng |
+| `rooms.basseng.climate` | Termostat · entity | Rom · Basseng |
 | `rooms.basseng.badges_own` | Egne varsel-vilkår · boolean | Rom · Basseng |
 | `rooms.hage.icon` | Ikon · icon | Rom · Hage |
 | `rooms.hage.color` | Farge (ikon når lys er på) · color | Rom · Hage |
 | `rooms.hage.size` | Størrelse i kortliste (S \| M \| L) | Rom · Hage |
 | `rooms.hage.klima` | Klima-knapp (+/−) · boolean | Rom · Hage |
-| `rooms.hage.temperatur` | Temperatur · entity | Rom · Hage |
-| `rooms.hage.fuktighet` | Luftfuktighet · entity | Rom · Hage |
-| `rooms.hage.termostat` | Termostat · entity | Rom · Hage |
+| `rooms.hage.temperature` | Temperatur · entity | Rom · Hage |
+| `rooms.hage.humidity` | Luftfuktighet · entity | Rom · Hage |
+| `rooms.hage.climate` | Termostat · entity | Rom · Hage |
 | `rooms.hage.badges_own` | Egne varsel-vilkår · boolean | Rom · Hage |
 | `rooms.bod.icon` | Ikon · icon | Rom · Bod |
 | `rooms.bod.color` | Farge (ikon når lys er på) · color | Rom · Bod |
 | `rooms.bod.size` | Størrelse i kortliste (S \| M \| L) | Rom · Bod |
 | `rooms.bod.klima` | Klima-knapp (+/−) · boolean | Rom · Bod |
-| `rooms.bod.temperatur` | Temperatur · entity | Rom · Bod |
-| `rooms.bod.fuktighet` | Luftfuktighet · entity | Rom · Bod |
-| `rooms.bod.termostat` | Termostat · entity | Rom · Bod |
+| `rooms.bod.temperature` | Temperatur · entity | Rom · Bod |
+| `rooms.bod.humidity` | Luftfuktighet · entity | Rom · Bod |
+| `rooms.bod.climate` | Termostat · entity | Rom · Bod |
 | `rooms.bod.badges_own` | Egne varsel-vilkår · boolean | Rom · Bod |
 | `rooms.gang.icon` | Ikon · icon | Rom · Gang |
 | `rooms.gang.color` | Farge (ikon når lys er på) · color | Rom · Gang |
 | `rooms.gang.size` | Størrelse i kortliste (S \| M \| L) | Rom · Gang |
 | `rooms.gang.klima` | Klima-knapp (+/−) · boolean | Rom · Gang |
-| `rooms.gang.temperatur` | Temperatur · entity | Rom · Gang |
-| `rooms.gang.fuktighet` | Luftfuktighet · entity | Rom · Gang |
-| `rooms.gang.termostat` | Termostat · entity | Rom · Gang |
+| `rooms.gang.temperature` | Temperatur · entity | Rom · Gang |
+| `rooms.gang.humidity` | Luftfuktighet · entity | Rom · Gang |
+| `rooms.gang.climate` | Termostat · entity | Rom · Gang |
 | `rooms.gang.badges_own` | Egne varsel-vilkår · boolean | Rom · Gang |
 | `rooms.kjokken.icon` | Ikon · icon | Rom · Kjøkken |
 | `rooms.kjokken.color` | Farge (ikon når lys er på) · color | Rom · Kjøkken |
 | `rooms.kjokken.size` | Størrelse i kortliste (S \| M \| L) | Rom · Kjøkken |
 | `rooms.kjokken.klima` | Klima-knapp (+/−) · boolean | Rom · Kjøkken |
-| `rooms.kjokken.temperatur` | Temperatur · entity | Rom · Kjøkken |
-| `rooms.kjokken.fuktighet` | Luftfuktighet · entity | Rom · Kjøkken |
-| `rooms.kjokken.termostat` | Termostat · entity | Rom · Kjøkken |
+| `rooms.kjokken.temperature` | Temperatur · entity | Rom · Kjøkken |
+| `rooms.kjokken.humidity` | Luftfuktighet · entity | Rom · Kjøkken |
+| `rooms.kjokken.climate` | Termostat · entity | Rom · Kjøkken |
 | `rooms.kjokken.badges_own` | Egne varsel-vilkår · boolean | Rom · Kjøkken |
 | `rooms.stue.icon` | Ikon · icon | Rom · Stue |
 | `rooms.stue.color` | Farge (ikon når lys er på) · color | Rom · Stue |
 | `rooms.stue.size` | Størrelse i kortliste (S \| M \| L) | Rom · Stue |
 | `rooms.stue.klima` | Klima-knapp (+/−) · boolean | Rom · Stue |
-| `rooms.stue.temperatur` | Temperatur · entity | Rom · Stue |
-| `rooms.stue.fuktighet` | Luftfuktighet · entity | Rom · Stue |
-| `rooms.stue.termostat` | Termostat · entity | Rom · Stue |
+| `rooms.stue.temperature` | Temperatur · entity | Rom · Stue |
+| `rooms.stue.humidity` | Luftfuktighet · entity | Rom · Stue |
+| `rooms.stue.climate` | Termostat · entity | Rom · Stue |
 | `rooms.stue.badges_own` | Egne varsel-vilkår · boolean | Rom · Stue |
 | `rooms.bad.icon` | Ikon · icon | Rom · Bad |
 | `rooms.bad.color` | Farge (ikon når lys er på) · color | Rom · Bad |
 | `rooms.bad.size` | Størrelse i kortliste (S \| M \| L) | Rom · Bad |
 | `rooms.bad.klima` | Klima-knapp (+/−) · boolean | Rom · Bad |
-| `rooms.bad.temperatur` | Temperatur · entity | Rom · Bad |
-| `rooms.bad.fuktighet` | Luftfuktighet · entity | Rom · Bad |
-| `rooms.bad.termostat` | Termostat · entity | Rom · Bad |
+| `rooms.bad.temperature` | Temperatur · entity | Rom · Bad |
+| `rooms.bad.humidity` | Luftfuktighet · entity | Rom · Bad |
+| `rooms.bad.climate` | Termostat · entity | Rom · Bad |
 | `rooms.bad.badges_own` | Egne varsel-vilkår · boolean | Rom · Bad |
+| `rooms.kontor.icon` | Ikon · icon | Rom · Kontor |
+| `rooms.kontor.color` | Farge (ikon når lys er på) · color | Rom · Kontor |
+| `rooms.kontor.size` | Størrelse i kortliste (S \| M \| L) | Rom · Kontor |
+| `rooms.kontor.klima` | Klima-knapp (+/−) · boolean | Rom · Kontor |
+| `rooms.kontor.temperature` | Temperatur · entity | Rom · Kontor |
+| `rooms.kontor.humidity` | Luftfuktighet · entity | Rom · Kontor |
+| `rooms.kontor.climate` | Termostat · entity | Rom · Kontor |
+| `rooms.kontor.badges_own` | Egne varsel-vilkår · boolean | Rom · Kontor |
 | `rooms.soverom.icon` | Ikon · icon | Rom · Soverom |
 | `rooms.soverom.color` | Farge (ikon når lys er på) · color | Rom · Soverom |
 | `rooms.soverom.size` | Størrelse i kortliste (S \| M \| L) | Rom · Soverom |
 | `rooms.soverom.klima` | Klima-knapp (+/−) · boolean | Rom · Soverom |
-| `rooms.soverom.temperatur` | Temperatur · entity | Rom · Soverom |
-| `rooms.soverom.fuktighet` | Luftfuktighet · entity | Rom · Soverom |
-| `rooms.soverom.termostat` | Termostat · entity | Rom · Soverom |
+| `rooms.soverom.temperature` | Temperatur · entity | Rom · Soverom |
+| `rooms.soverom.humidity` | Luftfuktighet · entity | Rom · Soverom |
+| `rooms.soverom.climate` | Termostat · entity | Rom · Soverom |
 | `rooms.soverom.badges_own` | Egne varsel-vilkår · boolean | Rom · Soverom |
+| `rooms.vaskerom.icon` | Ikon · icon | Rom · Vaskerom |
+| `rooms.vaskerom.color` | Farge (ikon når lys er på) · color | Rom · Vaskerom |
+| `rooms.vaskerom.size` | Størrelse i kortliste (S \| M \| L) | Rom · Vaskerom |
+| `rooms.vaskerom.klima` | Klima-knapp (+/−) · boolean | Rom · Vaskerom |
+| `rooms.vaskerom.temperature` | Temperatur · entity | Rom · Vaskerom |
+| `rooms.vaskerom.humidity` | Luftfuktighet · entity | Rom · Vaskerom |
+| `rooms.vaskerom.climate` | Termostat · entity | Rom · Vaskerom |
+| `rooms.vaskerom.badges_own` | Egne varsel-vilkår · boolean | Rom · Vaskerom |
 | `rooms.garasje.icon` | Ikon · icon | Rom · Garasje |
 | `rooms.garasje.color` | Farge (ikon når lys er på) · color | Rom · Garasje |
 | `rooms.garasje.size` | Størrelse i kortliste (S \| M \| L) | Rom · Garasje |
 | `rooms.garasje.klima` | Klima-knapp (+/−) · boolean | Rom · Garasje |
-| `rooms.garasje.temperatur` | Temperatur · entity | Rom · Garasje |
-| `rooms.garasje.fuktighet` | Luftfuktighet · entity | Rom · Garasje |
-| `rooms.garasje.termostat` | Termostat · entity | Rom · Garasje |
+| `rooms.garasje.temperature` | Temperatur · entity | Rom · Garasje |
+| `rooms.garasje.humidity` | Luftfuktighet · entity | Rom · Garasje |
+| `rooms.garasje.climate` | Termostat · entity | Rom · Garasje |
 | `rooms.garasje.badges_own` | Egne varsel-vilkår · boolean | Rom · Garasje |
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
 | `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
 | `toasts` | Bekreftelsesmeldinger (f.eks. «Dørlås låst opp») · boolean | Layout |
+
+## `msh-hjem-card`
+
+Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpris og gjøremål med designets marger (mobil og bred).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
+| `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
+| `breakout` | Mål margene mot dashbordflaten (bryt ut av seksjonens padding) · boolean | Layout |
+| `order · hidden` | rekkefølge/synlighet: header, prosa, faner, soppel, strom, gjoremal |  |
+
+## `msh-strompris-card`
+
+Strømpris nå, søyler per time i dag / i morgen, billigste time og dra for å se en time. Trykk åpner #strom.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `title` | Overskrift | Kort |
+| `popup_hash` | Popup-hash (trykk på prisen) · hash | Kort |
+| `day` | Dag som vises først (today \| tomorrow) | Kort |
+| `show_watt` | Vis effekt nå (W) · boolean | Kort |
+| `price_high` | Rød søyle over (kr/kWh) · number | Kort |
+| `price_mid` | Gul søyle over (kr/kWh) · number | Kort |
+| `overrides.{price, watt}` | bytt entitet |  |
 
 ## `msh-rom-klima-card`
 
@@ -401,7 +448,10 @@ Temperatur, fukt, termostat-chip og 24 t-graf med scrubbing. Alltid første kort
 |---|---|---|
 | `area` | Rom (område) · area |  |
 | `name` | Navn |  |
-| `overrides.{temperatur, fuktighet, termostat}` | bytt entitet |  |
+| `overrides.climate` | Termostat · entity | Klima |
+| `overrides.temperature` | Temperatursensor · entity | Klima |
+| `overrides.humidity` | Fuktsensor · entity | Klima |
+| `header_icon` | Rommets ikon i popup-headeren · boolean |  |
 | `graph_t` | Linje · temperatur (romfarge) · color | Graf |
 | `graph_h` | Linje · fukt · color | Graf |
 | `graph_fill` | Fyll (0 \| 0.2 \| 0.4) | Graf |
@@ -413,15 +463,20 @@ Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – aut
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen · range | Mellomrom |
 | `area` | Rom (område) · area |  |
-| `gap` | 4 / 8 / 18 px |  |
+| `overrides.climate` | Termostat · entity | Klima |
+| `overrides.temperature` | Temperatursensor · entity | Klima |
+| `overrides.humidity` | Fuktsensor · entity | Klima |
+| `include.climate` | Ekstra termostater · entities | Klima |
+| `klima_bg` | Klima-kort · bakgrunn · color | Klima |
+| `klima_ring` | Klima-kort · knappfarge · color | Klima |
+| `klima_btn` | Klima-kort · knapp (outline \| fill) | Klima |
+| `klima_mode` | Farg etter modus · boolean | Klima |
 | `sections · hidden_sections` | rekkefølge/synlighet: curtain, scenes, lys, dev, klima, media, sens |  |
 | `exclude · include.{}` | skjul / legg til |  |
-| `overrides.{termostat, fuktighet}` | bytt entitet |  |
-| `klima_bg` | Bakgrunn · color | Klima-kort |
-| `klima_ring` | Knappfarge · color | Klima-kort |
-| `klima_btn` | Knapp (outline \| fill) | Klima-kort |
-| `klima_mode` | Farg etter modus · boolean | Klima-kort |
 | `customize_button` | Vis «Tilpass rommet»-knapp nederst · boolean |  |
 
 ## `msh-romkort-card`
@@ -437,7 +492,7 @@ Romkort for Hjem: temperatur, fukt, lys, termostat og varsler. Trykk åpner Rom-
 | `klima` | Klima-knapp (+/−) på kortet · boolean | Rom |
 | `icon` | Ikon · icon | Ikon og farge |
 | `color` | Romfarge (ikon når lys er på) · color | Ikon og farge |
-| `overrides.{temperatur, fuktighet, termostat}` | bytt entitet |  |
+| `overrides.{temperature, humidity, climate}` | bytt entitet |  |
 | `badges_own` | Egne varsel-vilkår · boolean | Varsler på rommet |
 | `graph_t` | Linje · temperatur · color | Graf (variant graf) |
 | `graph_h` | Linje · fukt · color | Graf (variant graf) |
@@ -909,50 +964,3 @@ Farevarsler, time for time, dagskort, detaljkort og månefase. Prognose abonnere
 | `show_graph` | Temperaturgraf med scrub (neste 24 t) · boolean | Prognose |
 | `exclude · include.{varsler}` | skjul / legg til |  |
 | `gap` | 4 / 8 / 18 px |  |
-
-## Tillegg: nøkler fra egne editorfelt
-
-Navbaren og Hjem-kortene har egne felttyper (lister av objekter) som tabellene over ikke viser fullt ut. De viktigste:
-
-```yaml
-type: custom:msh-navbar-card
-bar: [vanning, media, klima, basseng, ruter]   # knapper i baren
-more: [gjoremal]                               # knapper i «Mer»-menyen
-hidden: []
-buttons:                                       # egne knapper / overstyring av innebygde
-  egen_godnatt: { custom: true, icon: mdi:weather-night, label: Godnatt, action: service, service: script.godnatt }
-  vanning: { hash: '#vann' }
-badges:                                        # røde prikker med vilkår (op: > < = !=)
-  media: [{ entity: media_player.stue_tv, op: '=', value: playing, text: TV spiller }]
-show_names: false
-menu_names: true
-shrink: true
-width: std          # kompakt | std | full
-style: white        # white | glass
-layout: auto        # auto | mobil | stor
-reserve_space: true
-```
-
-```yaml
-type: custom:msh-hjem-header-card
-mode: familie       # familie | sted | navn | under | kompakt | hjem | stor | profil
-greeting: '👋 {name}!'
-zones: [{ zone: zone.jobb, icon: mdi:briefcase, color: 'var(--blue, #73b9f2)' }]
-servers: [{ name: Oslo, url: https://…, icon: mdi:office-building, color: 'var(--green, #66d19e)' }]
-person_tap: quick   # quick | popup (#person-<id>)
-```
-
-```yaml
-type: custom:msh-prosa-card
-prose:              # rader: tekst før, kilde (vær/temp/pris/watt/lys/hendelser/hjemme/lås/alarm/entitet …), tekst etter, handling, betingelse
-  - { pre: 'Det er', src: temp, post: 'ute', act: '', link: vaer }
-```
-
-```yaml
-type: custom:msh-hjem-faner-card
-tab_order: [hjem, forste, andre, aktuelt]
-tab_views: { forste: liste }          # karusell | liste | batterier
-rooms: { stue: { icon: mdi:sofa, color: 'var(--orange, #f2b573)', size: L } }
-battery: { limit: 20 }
-tiles: { aktuelt: { dish: { slot: L-top } } }
-```
