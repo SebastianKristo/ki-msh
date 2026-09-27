@@ -16,8 +16,9 @@ mkdirSync('test/.build', { recursive: true });
 mkdirSync('test/.vendor', { recursive: true });
 const BC = resolve('test/.vendor/bubble-card.js');
 if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
-const bundle = resolve(`test/.build/glass-${process.pid}.js`);
-execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
+// GLASS_BUNDLE=<fil> kjører sjekken mot en ferdig bygd pakke (f.eks. før/etter-sammenligning) i stedet for å bygge src/
+const bundle = process.env.GLASS_BUNDLE ? resolve(process.env.GLASS_BUNDLE) : resolve(`test/.build/glass-${process.pid}.js`);
+if (!process.env.GLASS_BUNDLE) execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
 const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
 const res = [];
@@ -138,9 +139,55 @@ ok('layout-skift-testene flyttet faktisk segmentet (≥ 60 px)', sh.every((i) =>
   ok('dra: indikator/linse følger fingeren (mellom knappene midt i draget), ikke byttet før slipp', between && mid.on === 'tv', mid);
   ok('dra tilbake og slipp på TV: TV fortsatt valgt, popup åpen', (await page.evaluate(() => seg().querySelector('.tab.on').dataset.t)) === 'tv' && await popOpen());
 }
+// Felles hjelpere (alle segmenter): MSH.glassDrag (+ glassTap/glassMorph) og MSH.tabReorder-standardlinsen – med
+// layout-skift (64 px over segmentet) midt i animasjonen/draget. Linsen skal lande på valgt knapp (≤ 2 px).
+await page.evaluate(() => {
+  const M = window.MSH, host = card().closest('hui-card') || card();
+  const mk = (id) => {
+    const w = document.createElement('div');
+    w.id = id; w.style.cssText = 'display:flex;gap:2px;padding:4px;margin:8px 0;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)';
+    w.innerHTML = ['A', 'Bbbbbb', 'C'].map((t, i) => `<button data-t="${t}" style="flex:1;height:38px;border-radius:19px;border:0;color:#fff;background:${i ? 'transparent' : '#f285c9'}" ${i ? '' : 'class="on" aria-selected="true"'}>${t}</button>`).join('');
+    const sel = (b) => w.querySelectorAll('button').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); x.style.background = on ? '#f285c9' : 'transparent'; });
+    w.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) sel(b); });
+    host.parentNode.insertBefore(w, host);
+    return { w, sel };
+  };
+  const g = mk('gc-gd'); M.glassDrag(g.w, { axis: 'x' });
+  const t = mk('gc-tr'); M.tabReorder(t.w, { glass: true, glassTap: false, idOf: (b) => b.dataset.t, onSelect: (k) => t.sel(t.w.querySelector(`[data-t="${k}"]`)) });
+  deepAll('.bubble-pop-up-container').forEach((c) => { c.scrollTop = 0; });
+});
+const gc = async (name, id, act, to) => {
+  await wait(200);
+  const sp = page.evaluate((id) => new Promise((res) => {
+    const out = [], t0 = performance.now(), w = deep('#' + id);
+    const f = () => { const t = performance.now() - t0; out.push({ t: Math.round(t), lens: lenses(), btns: [...w.querySelectorAll('button')].map((b) => rectOf(b)) }); if (t < 1000) requestAnimationFrame(f); else res(out); };
+    requestAnimationFrame(f);
+  }), id);
+  page.evaluate(() => setTimeout(() => { deepAll('.bubble-pop-up-container').forEach((c) => { c.style.overflowAnchor = 'none'; }); const hc = card().closest('hui-card') || card(); const s = document.createElement('div'); s.className = 'gc-shift'; s.style.height = '64px'; const w = deep('#gc-gd'); w.parentNode.insertBefore(s, w); }, 150));
+  await act();
+  const S = await sp;
+  await wait(300);
+  await page.evaluate(() => deepAll('.gc-shift').forEach((x) => x.remove()));
+  let last = null;
+  S.forEach((f) => { const l = f.lens.find((x) => x.o > 0.5); if (l) last = { l: l.r, b: f.btns[to], t: f.t }; });
+  const on = await page.evaluate((id) => [...deep('#' + id).querySelectorAll('button')].findIndex((b) => b.classList.contains('on')), id);
+  ok(`${name}: valgt knapp ${to}, linsen lander ≤ 2 px fra den selv om layouten flyttet seg`, on === to && last && d(last.l, last.b) <= 2, last ? { d: d(last.l, last.b), t: last.t, on } : { on, lens: 'ingen' });
+  ok(`${name}: popupen er fortsatt åpen`, await popOpen());
+};
+const ctr = (id, i) => page.evaluate(({ id, i }) => { const r = deep('#' + id).querySelectorAll('button')[i].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, { id, i });
+const tapAt = async (id, i) => { const p = await ctr(id, i); await touch('touchStart', [{ x: p.x, y: p.y }]); await wait(60); await touch('touchEnd', []); };
+const dragAt = async (id, i, j) => {
+  const a = await ctr(id, i), b = await ctr(id, j);
+  await touch('touchStart', [{ x: a.x, y: a.y }]);
+  for (let k = 1; k <= 14; k++) { await touch('touchMove', [{ x: a.x + (b.x - a.x) * k / 14, y: a.y }]); await wait(16); }
+  await wait(40); await touch('touchEnd', []);
+};
+await gc('glassTap/glassMorph (trykk 0→2)', 'gc-gd', () => tapAt('gc-gd', 2), 2);
+await gc('glassDrag (dra 2→0)', 'gc-gd', () => dragAt('gc-gd', 2, 0), 0);
+await gc('tabReorder glass-linse (dra 0→2)', 'gc-tr', () => dragAt('gc-tr', 0, 2), 2);
 ok('ingen sidefeil', errs.length === 0, errs);
 await browser.close();
-try { unlinkSync(bundle); } catch (e) { /* */ }
+if (!process.env.GLASS_BUNDLE) { try { unlinkSync(bundle); } catch (e) { /* */ } }
 console.log(res.join('\n'));
 const bad = res.filter((r) => r.startsWith('✘')).length;
 console.log(`\n${res.length - bad}/${res.length} OK`);

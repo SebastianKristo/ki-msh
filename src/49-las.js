@@ -377,9 +377,9 @@
         .orb.holding .ring circle{opacity:1;stroke:${ORANGE};stroke-dashoffset:0;transition:stroke-dashoffset ${HOLD_MS}ms linear,opacity .15s}
         .st{font-size:32px;font-weight:500;letter-spacing:-0.02em;line-height:1.15}
         .by{font-size:13px;color:var(--gray700,#979797);text-align:center}
-        .pill{margin-top:14px;width:100%;max-width:320px;height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:600;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .15s,opacity .2s}
+        .pill{margin-top:14px;width:100%;max-width:320px;height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:600;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .15s,opacity .2s}
         .pill:active{transform:scale(.98)}
-        .pill.pink{background:${PINK};color:#2f2f2f}
+        .pill.pink{background:${PINK};color:#2f2f2f;touch-action:none}
         .pill.gray{background:var(--gray400,#545454);color:var(--white,#fafafa)}
         .pill:disabled{opacity:.45}
         .hint{min-height:16px;font-size:12px;color:var(--gray600,#7f7f7f);text-align:center}
