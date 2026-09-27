@@ -15647,20 +15647,20 @@ try {
     get hass() { return this._hass; }
     set card(c) { this._card = c; this._render(); }
     get card() { return this._card; }
-    setConfig(c) { this._c = { ...(c || {}) }; this._render(); }
+    setConfig(c) { this._config = { ...(c || {}) }; this._render(); }
     _set(patch, commit = true) {
-      const c = { ...this._c };
+      const c = { ...this._config };
       Object.keys(patch).forEach((k) => { if (patch[k] === undefined) delete c[k]; else c[k] = patch[k]; });
-      this._c = c;
+      this._config = c;
       this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit } }));
       this._render();
     }
     _list() {
-      const h = this._hass, c = this._c, all = M.cameraList(h, c);
+      const h = this._hass, c = this._config, all = M.cameraList(h, c);
       return { all, ord: ordered(all, c), hid: new Set(c.hidden || []) };
     }
     _render() {
-      const h = this._hass, c = this._c;
+      const h = this._hass, c = this._config;
       if (!h || !c) return;
       const { ord, hid } = this._list(), L = layoutOf(c), g = gapOf(c), tk = textKey(c);
       const prof = c.profile === 'popup' || c.profile === 'dashboard' ? c.profile : 'auto';
@@ -15718,8 +15718,8 @@ try {
       if (t.dataset.a === 'q') { this._q = t.value; this._render(); const i = this.shadowRoot.querySelector('.srch'); if (i && this.shadowRoot.activeElement !== i) i.focus(); return; }
       if (t.dataset.k === 'cam_gap') {
         // live under drag (ingen lagring før slipp)
-        const v = Number(t.value), c = { ...this._c, cam_gap: v };
-        this._c = c;
+        const v = Number(t.value), c = { ...this._config, cam_gap: v };
+        this._config = c;
         const rv = this.shadowRoot.querySelector('[data-rv]');
         if (rv) rv.textContent = v + ' px';
         this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit: false } }));
@@ -15728,7 +15728,7 @@ try {
     _click(e) {
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
       if (!b || b.disabled) return;
-      const d = b.dataset, c = this._c;
+      const d = b.dataset, c = this._config;
       switch (d.a) {
         case 'q': return;
         case 'prof': M.haptic('selection'); return this._set({ profile: d.v === 'auto' ? undefined : d.v });
@@ -15768,11 +15768,11 @@ try {
         case 'adv': {
           M.haptic('light');
           const card = this._card;
-          this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._c } }));
+          this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
           if (card) setTimeout(() => card.customize('advanced'), 320);
           return;
         }
-        case 'done': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._c } }));
+        case 'done': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
         default:
       }
     }
