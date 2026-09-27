@@ -8,6 +8,7 @@
  *     holdMs: 400, isEdit: () => bool, // redigeringsmodus: dra starter uten langt trykk
  *     card,                            // kortet (settes _busy under dra så render ikke river DOM-en)
  *     glass, onGlassMove(btn, x), onGlassEnd(btn|null, commit)   // egen linse (Hjem) i stedet for standardlinsen
+ *     glassTap: false                  // slå av trykk-animasjonen (MSH.glassTap, 00-base.js) – på som standard
  *   }) → kontroller { refresh(), scrollActive(smooth), fade() }. Kall igjen etter hver render (idempotent).
  * Raden: klassen .msh-tr (CSS i MSH.TAB_ROW_CSS – legg den i kortets styles). Knappene krymper aldri og kuttes aldri.
  * Touch: touchstart/touchmove {passive:false} direkte på knappen. Under holdet avbryter > 8 px bevegelse (vanlig
@@ -276,8 +277,9 @@
       if (!st) return;
       this.st = null;
       this._clearHold();
-      if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte
+      if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte (+ MSH.glassTap-animasjon)
       this.eatUntil = Date.now() + 350;
+      if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon etter dra/glass-dra
       if (st.phase === 'pan') return;
       if (st.phase === 'glass') return this._glassEnd(st, commit);
       // drag
@@ -344,6 +346,8 @@
     let T = row.__tabReorder;
     if (T) { T.opts = { ...T.opts, ...(opts || {}) }; T.refresh(); return T; }
     T = row.__tabReorder = new TabReorder(row, opts || {});
+    // Liquid glass ved trykk (Fiks 4 · 3): alle fanerader får MSH.glassTap (glassTap: false = av)
+    if (M.glassTap) M.glassTap(row, { items: () => T.items(), active: () => T.activeBtn(), enabled: () => T.o.glassTap !== false && !window.__tabReorder });
     T.refresh();
     return T;
   };

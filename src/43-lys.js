@@ -298,7 +298,7 @@
       const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
       // Én rad: fane-pillen (fyller bredden, scroller) + tannhjulet som egen knapp med samme glass-flate og ring
       return `<div class="wrap" style="${vars}">
-        <div class="trow"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div>
+        <div class="trow"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" role="tab" aria-selected="${k === tab}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div>
           <button class="gear" data-act="customize" data-haptic="light" aria-label="Tilpass lys">${M.icon('mdi:cog', 22)}</button></div>
         ${body || ''}
       </div>`;
@@ -406,7 +406,7 @@
       const info = mode === 'auto' ? `Tennes når ${lx} er under ${c.lux_on} lx, og slukkes over ${c.lux_off} lx.` : mode === 'tid' ? `Tennes ${fmt(T.on)} (skumring ${Number(c.offset) >= 0 ? '+' : '−'}${Math.abs(Number(c.offset || 0))} min) og slukkes ${fmt(T.off)}${c.latest ? `, senest ${c.latest}` : ''}.` : 'Automatikken er av. Utelyset styres bare fra knappene over.';
       const autos = mode === 'manuell' ? [] : [['kveld', 'wb_twilight', 'Kveld', 'Tenn i skumringen', A.kveld], ['morgen', 'wb_sunny', 'Morgen', `Tenn før det lysner, fra ${c.morning || '–'}`, A.morgen]];
       out += `<section class="st">
-        <div class="row" style="gap:10px"><span class="grow t15">Styring</span><div class="seg">${[['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']].map(([k, l]) => `<button data-act="mode" data-key="${k}" data-v="${k}" data-haptic="selection" style="background:${mode === k ? PINK : 'transparent'};color:${mode === k ? INK : 'var(--gray800,#afafaf)'}">${l}</button>`).join('')}</div></div>
+        <div class="row" style="gap:10px"><span class="grow t15">Styring</span><div class="seg">${[['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']].map(([k, l]) => `<button data-act="mode" data-key="${k}" data-v="${k}" aria-selected="${mode === k}" data-haptic="selection" style="background:${mode === k ? PINK : 'transparent'};color:${mode === k ? INK : 'var(--gray800,#afafaf)'}">${l}</button>`).join('')}</div></div>
         <span class="t12" style="color:var(--gray700,#979797);line-height:1.45;text-wrap:pretty">${esc(info)}</span>
         ${autos.length ? `<div class="col">${autos.map(([k, ic, l, sub, ent], i) => { const on = ent ? M.isOn(this.s(ent)) : !!c[k]; return `<button class="ar${i ? ' bt' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="${k}" data-haptic="success">${M.icon(ic, 22, 'color:var(--gray900,#c7c7c7);width:26px')}<span class="grow col" style="gap:2px;text-align:left"><span class="t14">${l}</span><span class="t12" style="color:var(--gray700,#979797)">${esc(sub)}</span></span><span class="sw" style="background:${on ? G : '#4a4a4d'}"><span style="left:${on ? 26 : 4}px;background:${on ? '#2a2a2c' : '#d8d6d1'}"></span></span></button>`; }).join('')}</div>` : ''}
       </section>`;
@@ -681,12 +681,8 @@
     const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--gray600,#7f7f7f)')}</button>`;
     const eyeRow = (label, sub, act, key, hidden, extra) => `<div class="r${hidden ? ' off' : ''}${extra ? ' ' + extra : ''}"><span class="rl col"><span class="ell">${esc(label)}</span>${sub ? `<span class="rs ell">${esc(sub)}</span>` : ''}</span>
       <button class="eye" data-a="${act}" data-k="${esc(key)}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`;
-    const field = (label, path, type, ph, extra) => {
-      const v = getPath(st.draft, path);
-      // type=time har ingen plassholder: tomt felt vises som tekst med automatisk verdi til det får fokus
-      const tph = type === 'time' && (v == null || v === '') && ph != null && ph !== '' ? ` data-ph="${esc(ph)}"` : '';
-      return `<label class="r fr"><span class="rl">${esc(label)}</span><input class="in${type === 'number' ? ' nm' : ''}" data-f="${esc(path)}" data-t="${type}" type="${type}" value="${esc(v != null ? v : '')}" placeholder="${esc(ph != null ? ph : '')}"${tph} ${extra || ''}></label>`;
-    };
+    // Tider/tall i Utelys: stepper med systemets velger (09-pickers, lokal modus → 'change' med data-f/data-t)
+    const stp = (label, path, kind, ph, o) => M.stepperHTML(hass(), null, { label, kind, key: 'stp-' + path, value: getPath(st.draft, path), placeholder: ph != null ? ph : '', attrs: `data-f="${esc(path)}" data-t="${kind}"`, ...(o || {}) });
     const sw = (label, sub, path, on) => `<button class="r" data-a="sw" data-k="${esc(path)}" data-v="${on ? 0 : 1}"><span class="rl col"><span>${esc(label)}</span>${sub ? `<span class="rs">${esc(sub)}</span>` : ''}</span><span class="sw${on ? ' on' : ''}"><span></span></span></button>`;
 
     // ---------- sider
@@ -741,27 +737,27 @@
       const lamps = sheetLamps(d, A, h);
       return `<span class="cap">Tider og terskler</span><div class="grp">
           ${seg('Styring', 'outdoor.mode', [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']], o.mode)}
-          ${field('Tennes', 'outdoor.on', 'time', sOn != null ? fmt(sOn + Number(o.offset || 0)) : '')}
-          ${field('Slukkes', 'outdoor.off', 'time', sOff != null ? fmt(sOff) : '')}
-          ${field('Slukk senest', 'outdoor.latest', 'time')}
-          ${field('Morgen fra', 'outdoor.morning', 'time', DEF.morning)}
-          ${field('Forskyvning skumring (min)', 'outdoor.offset', 'number', DEF.offset, 'step="5"')}
-          ${field('Tenn under (lx)', 'outdoor.lux_on', 'number', DEF.lux_on, 'step="5"')}
-          ${field('Slukk over (lx)', 'outdoor.lux_off', 'number', DEF.lux_off, 'step="5"')}
+          ${stp('Tennes', 'outdoor.on', 'time', sOn != null ? fmt(sOn + Number(o.offset || 0)) : '')}
+          ${stp('Slukkes', 'outdoor.off', 'time', sOff != null ? fmt(sOff) : '')}
+          ${stp('Slukk senest', 'outdoor.latest', 'time')}
+          ${stp('Morgen fra', 'outdoor.morning', 'time', DEF.morning)}
+          ${stp('Forskyvning skumring', 'outdoor.offset', 'number', DEF.offset, { unit: 'min', step: 5, min: -180, max: 180, empty: 'Standard' })}
+          ${stp('Tenn under', 'outdoor.lux_on', 'number', DEF.lux_on, { unit: 'lx', step: 5, min: 0, max: 1000, empty: 'Standard' })}
+          ${stp('Slukk over', 'outdoor.lux_off', 'number', DEF.lux_off, { unit: 'lx', step: 5, min: 0, max: 1000, empty: 'Standard' })}
           ${sw('Kveld', 'Tenn i skumringen', 'outdoor.kveld', o.kveld !== false)}
           ${sw('Morgen', 'Tenn før det lysner', 'outdoor.morgen', o.morgen !== false)}
         </div>
         <p class="note">Tomt «Tennes» = solnedgang + forskyvning${sOn != null ? ` (i dag ${fmt(sOn + Number(o.offset || 0))})` : ''}. Tomt «Slukkes» = soloppgang${sOff != null ? ` (${fmt(sOff)})` : ''}.</p>
         <span class="cap">Entiteter</span><div class="grp">
-          ${ents.map(([p, l, auto, dl]) => `<label class="r fr"><span class="rl col"><span>${esc(l)}</span><span class="rs ell">${esc(getPath(d, p) ? M.name(h, getPath(d, p)) : auto ? 'Auto · ' + M.name(h, auto) : '– · Velg entitet')}</span></span><input class="in ent" list="${dl}" data-f="${p}" data-t="entity" value="${esc(getPath(d, p) || '')}" placeholder="${esc(auto || 'Velg entitet')}"></label>`).join('')}
+          ${ents.map(([p, l, auto, dl]) => `<label class="r fr"><span class="rl col"><span>${esc(l)}</span><span class="rs ell">${esc(getPath(d, p) ? M.name(h, getPath(d, p)) : auto ? 'Auto · ' + M.name(h, auto) : '– · Velg entitet')}</span></span><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in ent" list="${dl}" data-f="${p}" data-t="entity" value="${esc(getPath(d, p) || '')}" placeholder="${esc(auto || 'Velg entitet')}"></label>`).join('')}
         </div>
         <span class="cap">Lamper</span><div class="grp">
           ${lamps.map((l, i) => `<div class="lp" data-key="lp-${i}"><span class="lpi">${M.icon(l.icon || (h.states[l.id] && h.states[l.id].attributes.icon) || 'mdi:lightbulb', 20)}</span>
-            <div class="lpf"><input class="in" data-lamp="${i}" data-lf="name" value="${esc(l.name || '')}" placeholder="${esc(l.id ? M.name(h, l.id) : 'Navn')}" aria-label="Navn">
-              <div class="lpr"><input class="in ent" list="dl-light" data-lamp="${i}" data-lf="entity" value="${esc(l.id || '')}" placeholder="light.…" aria-label="Entitet"><input class="in" data-lamp="${i}" data-lf="icon" value="${esc(l.icon || '')}" placeholder="mdi:lightbulb" aria-label="Ikon"></div>
+            <div class="lpf"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="name" value="${esc(l.name || '')}" placeholder="${esc(l.id ? M.name(h, l.id) : 'Navn')}" aria-label="Navn">
+              <div class="lpr"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in ent" list="dl-light" data-lamp="${i}" data-lf="entity" value="${esc(l.id || '')}" placeholder="light.…" aria-label="Entitet"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="icon" value="${esc(l.icon || '')}" placeholder="mdi:lightbulb" aria-label="Ikon"></div>
               ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--red,#f28073)">Finnes ikke</span>' : ''}</div>
             <button class="del" data-a="ldel" data-i="${i}" aria-label="Slett ${esc(l.name || l.id)}">${M.icon('mdi:trash-can-outline', 18)}</button></div>`).join('') || '<div class="r"><span class="rl rs">Ingen utelamper</span></div>'}
-          ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf"><input class="in ent" list="dl-light" data-new="1" placeholder="Velg lys (light.…)" aria-label="Ny lampe"></div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
+          ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in ent" list="dl-light" data-new="1" placeholder="Velg lys (light.…)" aria-label="Ny lampe"></div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
         </div>
         <button class="add press" data-a="add">${M.icon('mdi:plus', 20)}Legg til lampe</button>
         ${list('dl-light', ['light'])}${list('dl-lux', ['sensor'], (s) => s.attributes.device_class === 'illuminance')}${list('dl-bool', ['input_boolean'])}${list('dl-sel', ['input_select', 'select'])}`;
@@ -772,8 +768,6 @@
       const A = M.lysAuto(hass(), st.draft);
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
       box.innerHTML = nav() + `<div class="pg">${(PAGES[st.page] || pageMain)(A)}</div>`;
-      // Tidsfelt uten verdi: vis automatisk tid som plassholder (type=time har ikke placeholder)
-      box.querySelectorAll('input[data-ph]').forEach((i) => { i.type = 'text'; i.placeholder = i.dataset.ph; i.addEventListener('focus', () => { i.type = 'time'; }, { once: true }); });
       if (sh && st.keepScroll) sh.scrollTop = top;
       st.keepScroll = true;
     };
@@ -795,8 +789,9 @@
       ov.close();
     };
 
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, glass: true, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS, maxWidth: 520, glass: true, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
     const R = ov.root;
+    if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'lys-sheet';

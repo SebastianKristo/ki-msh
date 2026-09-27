@@ -460,15 +460,30 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 
 ## `msh-strompris-card`
 
-Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.
+Strømpris nå og per time i dag / i morgen (Norge: spot, totalpris eller Norgespris; Sverige: SEK i kr/kWh), nettleie i morgen og referanselinje. Dra på grafen for å se en time.
+
+Kilde og visning er én felles config i ki-store `power_price` («Tilpass Hjem» → Popups → Strømpris, eller GUI-editoren), lest via `MSH.powerPrice` av kortet, prosa-boblen «Strømpris», strøm-sliden og Klima. `power_price` i kortets YAML (og gamle `entity` / `norgespris_entity` / `norgespris`) brukes som grunnlag under ki-store.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `entity` | Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow) · entity | Strømpriser |
-| `norgespris_entity` | Norgespris-sensor (kr/kWh) · entity | Strømpriser |
-| `norgespris` | Norgespris uten sensor (kr/kWh) · number | Strømpriser |
-| `threshold` | Oransje linje over (kr/kWh) · number | Strømpriser |
-| `show_norgespris` | Vis Norgespris · boolean | Strømpriser |
+| `power_price.profile` | Profil (no \| se) | Strømpris-kilde |
+| `power_price.source` | Kilde ('' = auto \| nordpool \| tibber \| strompris \| custom) | Strømpris-kilde |
+| `power_price.spot_entity` | Spotpris-sensor (Norge; alias `entity`) · entity | Strømpris-kilde |
+| `power_price.area` | Prisområde NO1–NO5 | Strømpris-kilde |
+| `power_price.norgespris_entity` | Norgespris-sensor · entity | Strømpris-kilde |
+| `power_price.norgespris` | Norgespris uten sensor (kr/kWh, standard 0,50) · number | Strømpris-kilde |
+| `power_price.se_entity` | Nord Pool-sensor i SEK (Sverige) · entity | Strømpris-kilde |
+| `power_price.se_area` | Elområde SE1–SE4 | Strømpris-kilde |
+| `power_price.se_unit` | Sensorens enhet (auto \| ore \| kr) – vises alltid som kr/kWh | Strømpris-kilde |
+| `power_price.grid_entity` | Nettleie-sensor (tilstand + today/tomorrow) · entity | Strømpris-kilde |
+| `power_price.mode` | Pris som vises (spot \| total \| norgespris) | Strømpris-kilde |
+| `power_price.unit` | Enhet (kr \| ore) – Norge | Strømpris-kilde |
+| `power_price.tab.style` | Fane-stil (glass \| standard) | Fane |
+| `power_price.tab.font` | Tekststørrelse 11–18 px (14) · range | Fane |
+| `power_price.tab.height` | Høyde 24–48 px (30) · range | Fane |
+| `power_price.tab.padding` | Bredde / sidemarg per knapp 8–40 px (20) · range | Fane |
+| `threshold` | Oransje linje over (kr/kWh) · number | Graf |
+| `show_norgespris` | Vis referanselinje (Norgespris / spot) · boolean | Graf |
 
 ## `msh-rom-klima-card`
 

@@ -44,8 +44,8 @@
   const AUTO = {
     weather: (h) => M.all(h, 'weather')[0] || null,
     temp: () => null, // standard: temperaturen fra vær-entiteten
-    // Samme sensor som strømpriskortet (M.priceSensor i 26-hjem-strompris.js): nåpris per kWh, aldri kostnad/energi.
-    price: (h) => (M.priceSensor ? M.priceSensor(h, {}) : null),
+    // Felles strømpris-kilde (MSH.powerPrice, 15-strompris-kilde.js): samme sensor som strømpriskortet og sliden.
+    price: (h) => (M.powerPrice ? M.powerPrice(h).entity : null),
     watt: (h) => M.kiRomId(h, null, 'effekt') || null,
     lights: (h) => M.kiRomId(h, null, 'lys') || null,
     lock: (h) => M.all(h, 'lock')[0] || null,
@@ -76,7 +76,13 @@
     if (ts && M.isNum(ts.state)) S.temp = [`${nb(Number(ts.state), 1)}°`, Number(ts.state), null, E.temp];
     else if (w && w.attributes.temperature != null) S.temp = [`${nb(Number(w.attributes.temperature), 1)}°`, Number(w.attributes.temperature), null, E.weather];
     const p = E.price && rd(E.price);
-    if (p && M.isNum(p.state)) { const v = M.priceNow ? M.priceNow(h, E.price) : Number(p.state); S.price = [`${nb(v, 2)} kr`, v, lvlP(v), E.price]; }
+    if (p && M.isNum(p.state)) {
+      // Pris som vises / enhet / SEK→kr fra power_price; egen entitet i boblen (overrides.price / ent_override) overstyrer bare sensoren
+      const own = M.powerPrice && E.price !== AUTO.price(h) ? M.powerPriceCfg(null, { spot_entity: E.price, se_entity: E.price }) : null;
+      const P = M.powerPrice ? M.powerPrice(h, own) : null, v = P ? P.now : Number(p.state);
+      if (P && P.grid) rd(P.grid.entity);
+      if (v != null) S.price = [P ? P.fmt(v) : `${nb(v, 2)} kr`, v, lvlP(v), E.price];
+    }
     const wt = E.watt && rd(E.watt);
     if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${nb(v, 0)} W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
     const ls = E.lights && rd(E.lights);
@@ -343,6 +349,7 @@
     _events() { if (!this.hass) return; const E = ents(this.hass, this.config); loadEvents(this.hass, E.calendars, () => this.update()); }
     render() {
       if (!this._evOnce) { this._evOnce = true; setTimeout(() => this._events(), 0); }
+      if (M.powerPriceWatch) M.powerPriceWatch(this); // power_price i ki-store endret → tegn på nytt
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
       this._sheets && this._sheets.forEach((sh) => sh.update());

@@ -1,93 +1,17 @@
 /* msh-strompris-card · Hjem, «Strømpriser» (spesifikasjon punkt 14): header-rad med tittel + I dag / I morgen utenfor
  * kortflaten; kortflate med verdirad (Spot nå / valgt time · Norgespris), legende, trinnlinje-graf i øre/kWh (teal, oransje
  * over terskel, fylt område, stiplet Norgespris-linje, valgt time med bånd + prikk) og x-akse. Scrub på grafen velger time.
- * Autokonfig (entiteter.md «Strøm»): pris-sensor M.priceSensor (nordpool / tibber / energi_data_service – samme sensor som
- * prosa-boblen «Strømmen koster …»), config `entity` / overrides.price overstyrer. Timespriser fra today/tomorrow (24 tall
- * eller 96 kvarter → timesnitt), ellers raw_today/raw_tomorrow ({start, value}). Norgespris: sensor.*norgespris* (kr/kWh)
- * eller config `norgespris` (0,50). Kortet vises alltid: mangler data → «–» og tom graf (bare rutenettet).
+ * Data: MSH.powerPrice (15-strompris-kilde.js) – én felles kilde/config (ki-store `power_price`, «Tilpass Hjem» → Popups →
+ * Strømpris) for kortet, prosa-boblen og strøm-sliden. Profil Norge (spot / totalpris m/ nettleie / Norgespris, kr eller
+ * øre) eller Sverige (SEK, alltid kr/kWh, graf i öre, ingen Norgespris – høyre verdi = snitt). Nettleie i morgen (↑/↓ +
+ * differanse) som rad under verdiene når Pris som vises = Norgespris/Totalpris. Fane «I dag / I morgen»: liquid glass eller
+ * standard, tekststørrelse/høyde/bredde fra power_price.tab. Kortets YAML: threshold, show_norgespris (+ valgfritt
+ * power_price / gamle entity, norgespris_entity, norgespris som grunnlag under ki-store). GUI-editoren viser samme
+ * power_price-felt (msh-strompris-editor) og skriver dem til ki-store. Mangler data → «–» og tom graf (bare rutenettet).
  */
 (function () {
   const M = window.MSH, esc = M.esc;
-  const HOUR = 3600000;
   const hh = (h) => String(h).padStart(2, '0');
-  const nf2 = (v) => (v == null || isNaN(v) ? '–' : M.nf(v, 2));
-
-  /* ------------------------------------------------------------ felles pris-oppslag (prosa, faner-slide, romvarsler, dette kortet) */
-  const PER_KWH = /\/\s*kwh/i;
-  M.priceScale = M.priceScale || function (st) {
-    const a = (st && st.attributes) || {};
-    return a.price_in_cents === true || /øre|öre|\bore\b|cent/i.test(String(a.unit_of_measurement || '')) ? 0.01 : 1;
-  };
-  const hasSeries = (a) => ['raw_today', 'today', 'prices_today'].some((k) => Array.isArray(a[k]) && a[k].length);
-  // En pris-sensor: enhet «…/kWh» (NOK/kWh, kr/kWh, øre/kWh), eller uten enhet men med timesprislister.
-  // Kostnad (kr/NOK uten /kWh, device_class monetary), energi (kWh) og effekt (W) velges aldri.
-  M.isPriceSensor = M.isPriceSensor || function (hass, id) {
-    const s = hass && id && hass.states[id];
-    if (!s || !/^(sensor|input_number)\./.test(id)) return false;
-    const a = s.attributes || {}, u = String(a.unit_of_measurement || ''), dc = a.device_class;
-    if (dc === 'energy' || dc === 'power' || dc === 'energy_storage') return false;
-    if (PER_KWH.test(u)) return true;
-    if (dc === 'monetary' || u) return false;
-    return hasSeries(a);
-  };
-  // Samme sensor for prosa-boblen og strømpriskortet: overrides.price → plattform nordpool → tibber → energi_data_service
-  // (sensorer med timespriser først) → første sensor med enhet …/kWh.
-  M.priceSensor = M.priceSensor || function (hass, cfg) {
-    const o = (cfg && cfg.overrides) || {};
-    if (o.price) return o.price;
-    if (!hass || !hass.states) return null;
-    const rank = (id) => { const a = hass.states[id].attributes || {}; return (hasSeries(a) ? 0 : 2) + (M.isNum(hass.states[id].state) ? 0 : 1); };
-    const best = (ids) => ids.filter((id) => M.isPriceSensor(hass, id)).sort((x, y) => rank(x) - rank(y) || (x < y ? -1 : 1))[0] || null;
-    for (const p of ['nordpool', 'tibber', 'energi_data_service']) { const hit = best(M.byPlatform(hass, p, 'sensor')); if (hit) return hit; }
-    return best(Object.keys(hass.states).filter((id) => id.startsWith('sensor.')));
-  };
-  // Nåpris i kr/kWh (state × skala).
-  M.priceNow = M.priceNow || function (hass, id) {
-    const s = hass && id && hass.states[id];
-    if (!s || !M.isNum(s.state)) return null;
-    return Number(s.state) * M.priceScale(s);
-  };
-  // 48 timer (i dag 0–23, i morgen 24–47) i kr/kWh. Tåler raw_today/raw_tomorrow ({start,end,value}), today/tomorrow
-  // (tall-lister – også 96 kvarter – eller objektlister) og prices_today/prices_tomorrow. Kvarterpriser → timesnitt.
-  M.priceSeries = M.priceSeries || function (hass, id) {
-    const s = hass && id && hass.states[id];
-    const out = Array(48).fill(null);
-    if (!s) return out;
-    const a = s.attributes || {}, k = M.priceScale(s);
-    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
-    const sum = Array.from({ length: 48 }, () => [0, 0]);
-    const put = (t, v) => {
-      if (v == null || v === '' || isNaN(Number(v)) || isNaN(t)) return;
-      const d = new Date(t), day = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - d0) / 86400000);
-      if (day < 0 || day > 1) return;
-      const i = day * 24 + d.getHours();
-      sum[i][0] += Number(v) * k; sum[i][1]++;
-    };
-    [['raw_today', 'today', 'prices_today', 0], ['raw_tomorrow', 'tomorrow', 'prices_tomorrow', 1]].forEach(([rk, tk, pk, day]) => {
-      const list = [a[tk], a[rk], a[pk]].find((x) => Array.isArray(x) && x.length);
-      if (!list) return;
-      if (list[0] != null && typeof list[0] === 'object') {
-        list.forEach((p) => { if (!p) return; const st = p.start || p.startsAt || p.time || p.hour; const v = p.value !== undefined ? p.value : p.price !== undefined ? p.price : p.total; put(new Date(st).getTime(), v); });
-      } else {
-        const base = d0.getTime() + day * 86400000, step = HOUR * (24 / list.length);
-        list.forEach((v, i) => put(base + i * step + 1, v));
-      }
-    });
-    sum.forEach(([t, n], i) => { if (n) out[i] = t / n; });
-    return out;
-  };
-
-
-  // Norgespris-sensor: config norgespris_entity → første sensor.*norgespris* med tallverdi og enhet …/kWh (eller uten enhet).
-  M.norgesprisSensor = M.norgesprisSensor || function (hass, cfg) {
-    if (cfg && cfg.norgespris_entity) return cfg.norgespris_entity;
-    if (!hass || !hass.states) return null;
-    return Object.keys(hass.states).filter((id) => {
-      if (!/^sensor\..*norgespris/i.test(id)) return false;
-      const s = hass.states[id], u = String((s.attributes || {}).unit_of_measurement || '');
-      return M.isNum(s.state) && (!u || PER_KWH.test(u));
-    }).sort()[0] || null;
-  };
 
   /* ------------------------------------------------------------ kort */
   const TEAL = 'oklch(0.78 0.13 175)', ORANGE = 'oklch(0.74 0.17 55)', PINK = 'oklch(0.78 0.13 350)';
@@ -104,70 +28,138 @@
     return { y0: lo, st: raw };
   };
 
+  const GREEN = 'var(--green, rgb(102 209 158))', RED = 'var(--red, rgb(242 128 115))';
+  const avg = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+  // Nettleie i morgen: pil, farge og tekst (null når i morgen-data mangler)
+  M.gridTrend = function (P) {
+    const g = P && P.grid;
+    if (!g || g.diff == null) return null;
+    const d = g.diff, up = d > 0.005, dn = d < -0.005;
+    const sign = up ? '+' : dn ? '−' : '±';
+    const abs = Math.abs(d), txt = P.unit === 'øre/kWh' ? `${sign}${M.nf(abs * 100, 1)} øre/kWh` : `${sign}${M.nf(abs, 2)} kr/kWh`;
+    return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? RED : dn ? GREEN : '#979797', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
+  };
+  // Fanen «I dag / I morgen» (kortet og forhåndsvisningen i editoren): { style, font, height, padding }
+  M.powerTabHTML = function (tab, isToday, hasM, attrs) {
+    const t = tab || {}, glass = t.style !== 'standard';
+    return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" ${glass ? 'data-glass-drag="x"' : ''} ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
+      const on = (k === 'today') === isToday;
+      return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
+    }).join('')}</div>`;
+  };
+  M.powerTabCSS = (t) => {
+    const h = t.height, f = t.font, p = t.padding;
+    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y}
+      .seg.std{background:#303030}
+      .seg.glass{background:rgba(255,255,255,0.06);backdrop-filter:blur(22px) saturate(190%);-webkit-backdrop-filter:blur(22px) saturate(190%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),inset 0 1px 0 rgba(255,255,255,.12)}
+      ${M.glassFallback ? M.glassFallback('.seg.glass', 'row') : ''}
+      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
+      .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+      .sg:disabled{opacity:.4;cursor:default}`;
+  };
+
   class Strompris extends M.Card {
     static get cardName() { return 'Hjem · strømpriser'; }
     static get defaults() { return { show_norgespris: true }; }
+    static getConfigElement() { const e = document.createElement(customElements.get('msh-strompris-editor') ? 'msh-strompris-editor' : 'msh-editor'); e.cardClass = this; return e; }
+    // Samme felt som «Tilpass Hjem» → Popups → Strømpris (power_price.* lagres i ki-store av msh-strompris-editor)
     static get schema() {
-      return [
-        { type: 'section', id: 'kort', label: 'Strømpriser', icon: 'mdi:flash', open: true, fields: [
-          { type: 'entity', name: 'entity', label: 'Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
-          { type: 'entity', name: 'norgespris_entity', label: 'Norgespris-sensor (kr/kWh)', domain: 'sensor', auto: (h) => M.norgesprisSensor(h, {}) },
-          { type: 'number', name: 'norgespris', label: 'Norgespris uten sensor (kr/kWh)', step: 0.01, placeholder: '0.50' },
-          { type: 'number', name: 'threshold', label: 'Oransje linje over (kr/kWh)', step: 0.05, placeholder: 'Norgespris', help: 'Tomt = Norgespris' },
-          { type: 'boolean', name: 'show_norgespris', label: 'Vis Norgespris', default: true },
-        ] },
-      ];
+      return (h, c) => {
+        const pp = { ...M.POWER_PRICE_DEF, ...(c.power_price || {}) }, se = pp.profile === 'se';
+        const P = h ? M.powerPrice(h, M.powerPriceCfg({}, c.power_price || {})) : null;
+        const pf = (n) => 'power_price.' + n;
+        const areas = [['', 'Auto'], ...M.POWER_AREAS[se ? 'se' : 'no'].map((a) => [a, a])];
+        const tr = P ? M.gridTrend(P) : null;
+        return [
+          { type: 'section', id: 'kilde', label: 'Strømpris-kilde', icon: 'mdi:flash', open: true, meta: () => (se ? 'Sverige' : 'Norge'), fields: [
+            { type: 'select', name: pf('profile'), label: 'Profil', options: [['no', 'Norge'], ['se', 'Sverige']], default: 'no' },
+            { type: 'select', name: pf('source'), label: 'Kilde', options: [['', 'Auto'], ...M.POWER_SOURCES.filter((x) => !se || x[0] !== 'strompris')], default: '' },
+            se
+              ? { type: 'entity', name: pf('se_entity'), label: 'Nord Pool-sensor (SEK)', domain: 'sensor', auto: (hh) => M.powerPriceAuto(hh, M.powerPriceCfg({}, { ...(c.power_price || {}), se_entity: '' })) }
+              : { type: 'entity', name: pf('spot_entity'), label: 'Spotpris-sensor', domain: 'sensor', auto: (hh) => M.powerPriceAuto(hh, M.powerPriceCfg({}, { ...(c.power_price || {}), spot_entity: '' })) },
+            { type: 'select', name: pf(se ? 'se_area' : 'area'), label: se ? 'Elområde' : 'Prisområde', options: areas, default: '' },
+            ...(se ? [{ type: 'select', name: pf('se_unit'), label: 'Sensorens enhet', options: [['auto', 'Automatisk'], ['ore', 'öre'], ['kr', 'kr']], default: 'auto', help: 'Vises alltid som kr/kWh' }] : [
+              { type: 'entity', name: pf('norgespris_entity'), label: 'Norgespris-sensor', domain: 'sensor', auto: (hh) => M.norgesprisAuto(hh) },
+              { type: 'number', name: pf('norgespris'), label: 'Norgespris uten sensor (kr/kWh)', step: 0.01, placeholder: '0.50' },
+            ]),
+            { type: 'entity', name: pf('grid_entity'), label: 'Nettleie-sensor (valgfri, today/tomorrow)', domain: 'sensor', auto: () => '' },
+            { type: 'select', name: pf('mode'), label: 'Pris som vises', options: se ? [['spot', 'Spotpris'], ['total', 'Totalpris m/ nettleie']] : [['spot', 'Spotpris'], ['total', 'Totalpris m/ nettleie'], ['norgespris', 'Norgespris']], default: 'spot' },
+            ...(se ? [] : [{ type: 'select', name: pf('unit'), label: 'Enhet', options: [['kr', 'kr/kWh'], ['ore', 'øre/kWh']], default: 'kr' }]),
+            { type: 'info', label: P ? P.status + (tr ? ` · nettleie i morgen ${tr.arrow} ${tr.text}` : '') : '' },
+          ] },
+          { type: 'section', id: 'fane', label: 'Fane «I dag / I morgen»', icon: 'mdi:tab', fields: [
+            { type: 'select', name: pf('tab.style'), label: 'Stil', options: [['glass', 'Liquid glass'], ['standard', 'Standard']], default: 'glass' },
+            { type: 'range', name: pf('tab.font'), label: 'Tekststørrelse', min: 11, max: 18, default: 14, presets: [[12, 'Liten'], [14, 'Standard'], [16, 'Stor']] },
+            { type: 'range', name: pf('tab.height'), label: 'Høyde', min: 24, max: 48, default: 30, presets: [[26, 'Lav'], [30, 'Standard'], [38, 'Høy']] },
+            { type: 'range', name: pf('tab.padding'), label: 'Bredde (sidemarg per knapp)', min: 8, max: 40, default: 20, presets: [[12, 'Smal'], [20, 'Standard'], [30, 'Bred']] },
+          ] },
+          { type: 'section', id: 'kort', label: 'Graf', icon: 'mdi:chart-line', fields: [
+            { type: 'number', name: 'threshold', label: 'Oransje linje over (kr/kWh)', step: 0.05, placeholder: se ? 'snitt' : 'Norgespris', help: 'Tomt = referanselinjen (Norgespris) / snitt i Sverige' },
+            ...(se ? [] : [{ type: 'boolean', name: 'show_norgespris', label: 'Vis referanselinje (Norgespris / spot)', default: true }]),
+          ] },
+        ];
+      };
     }
     get cardSize() { return 5; }
-    _priceId() {
-      const c = this.config;
-      return c.entity ? c.entity : M.priceSensor(this.hass, c);
-    }
-    _norgespris() {
-      const c = this.config, id = M.norgesprisSensor(this.hass, c), st = this.s(id);
-      if (st && M.isNum(st.state)) return { v: Number(st.state) * M.priceScale(st), id };
-      const v = num(c.norgespris);
-      return { v: v != null ? v : 0.5, id: null };
+    // Kortets tannhjul / «Velg entitet» → «Tilpass Hjem» → Popups → Strømpris
+    customize(focus) {
+      if (M.openHomeEditor && M.popupsPanel) {
+        const ed = M.openHomeEditor({ focus: 'pop' });
+        if (ed && ed.u) { ed.u.pv = 'strom'; ed.u.pd = null; ed.render(); return ed; }
+      }
+      return super.customize(focus);
     }
     render() {
-      const c = this.config, hass = this.hass, ui = this.ui;
-      const id = this._priceId(), st = this.s(id);
-      const all = st ? M.priceSeries(hass, id) : Array(48).fill(null);
-      const hasT = all.slice(0, 24).some((v) => v != null), hasM = all.slice(24).some((v) => v != null);
+      const c = this.config, ui = this.ui;
+      const P = M.powerPrice(this.hass, M.powerPriceCfg(this._rawConfig || c), this);
+      const se = P.profile === 'se', st = P.state;
+      const hasT = P.hasToday, hasM = P.hasTomorrow;
       const isToday = !(ui.day === 'tomorrow' && hasM);
-      const ser = isToday ? all.slice(0, 24) : all.slice(24);
-      const has = isToday ? hasT : hasM;
+      const ser = isToday ? P.today : P.tomorrow, has = isToday ? hasT : hasM;
+      const refSer = P.ref && c.show_norgespris !== false ? (isToday ? P.ref.today : P.ref.tomorrow) : null;
+      const showRef = !se && !!refSer;
       const nowH = new Date().getHours();
-      const np = this._norgespris(), showNp = c.show_norgespris !== false;
-      const thr = num(c.threshold) != null ? num(c.threshold) : np.v;
       const scrub = ui.sel != null && has;
       const sel = scrub ? ui.sel : isToday && has ? nowH : null;
+      const ML = { spot: 'Spot', total: 'Totalpris', norgespris: 'Norgespris' }[P.mode];
+      const srcL = (M.POWER_SOURCES.find((x) => x[0] === P.source) || [0, ''])[1];
+      const dayL = isToday ? 'i dag' : 'i morgen';
 
-      // Verdirad (kr/kWh)
+      // Verdirad (valgt enhet)
       let label, val;
-      if (scrub) { label = `Spot ${isToday ? 'i dag' : 'i morgen'} kl. ${hh(sel)}`; val = ser[sel]; }
-      else if (isToday) { label = 'Spot nå'; val = M.priceNow(hass, id); if (val == null) val = ser[nowH]; }
-      else { const v = ser.filter((x) => x != null); label = 'Spot snitt i morgen'; val = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+      if (scrub) { label = `${ML} ${dayL} kl. ${hh(sel)}`; val = ser[sel]; }
+      else if (isToday) { label = `${ML} nå`; val = P.now != null ? P.now : ser[nowH]; }
+      else { label = `${ML} snitt i morgen`; val = avg(ser); }
+      let rLabel, rVal;
+      if (se) { rLabel = `Snitt ${dayL}`; rVal = avg(ser); }
+      else if (showRef) { rLabel = P.ref.label; rVal = scrub ? refSer[sel] : isToday ? P.ref.now : avg(refSer); }
+      const tr = !se && (P.mode === 'norgespris' || P.mode === 'total') ? M.gridTrend(P) : null;
 
-      // Graf (øre/kWh)
+      // Graf (øre/öre per kWh)
       const ore = ser.map((v) => (v == null ? null : v * 100)), vals = ore.filter((v) => v != null);
-      const npO = np.v * 100, thrO = thr * 100;
-      const lo = Math.min(0, ...vals), hi = vals.length ? Math.max(...vals, showNp ? npO : 0) * 1.05 : 100;
+      const refO = showRef ? refSer.map((v) => (v == null ? null : v * 100)) : null, refVals = refO ? refO.filter((v) => v != null) : [];
+      const thrKr = num(c.threshold) != null ? num(c.threshold) : showRef && P.ref.now != null ? P.ref.now : avg(P.today);
+      const thrO = thrKr != null ? thrKr * 100 : Infinity;
+      const lo = Math.min(0, ...vals, ...refVals), hi = vals.length ? Math.max(...vals, ...refVals) * 1.05 : 100;
       const { y0, st: step } = scale(lo, hi), span = 4 * step;
       const Y = (v) => PT + (1 - (v - y0) / span) * (VH - PT - PB);
       const X = (h) => (h * VW) / 24;
       const f1 = (n) => Math.round(n * 10) / 10;
       const ticks = [0, 1, 2, 3, 4].map((i) => y0 + i * step);
       const base = f1(Y(Math.max(y0, Math.min(0, y0 + span))));
-      let line = '', fill = '', runStart = null;
-      ore.forEach((v, h) => {
-        if (v == null) { if (runStart != null) fill += `V${base}Z`; runStart = null; return; }
-        const y = f1(Y(v));
-        if (runStart == null) { runStart = h; line += `M${f1(X(h))} ${y}`; fill += `M${f1(X(h))} ${base}V${y}`; } else { line += `V${y}`; fill += `V${y}`; }
-        line += `H${f1(X(h + 1))}`; fill += `H${f1(X(h + 1))}`;
-      });
-      if (runStart != null) fill += `V${base}Z`;
-      const tOff = M.clamp(Y(thrO) / VH, 0, 1).toFixed(4);
+      const stepPath = (arr, withFill) => {
+        let line = '', fill = '', run = false;
+        arr.forEach((v, h) => {
+          if (v == null) { if (run && withFill) fill += `V${base}Z`; run = false; return; }
+          const y = f1(Y(v));
+          if (!run) { run = true; line += `M${f1(X(h))} ${y}`; fill += `M${f1(X(h))} ${base}V${y}`; } else { line += `V${y}`; fill += `V${y}`; }
+          line += `H${f1(X(h + 1))}`; fill += `H${f1(X(h + 1))}`;
+        });
+        if (run && withFill) fill += `V${base}Z`;
+        return { line, fill };
+      };
+      const main = stepPath(ore, true), refP = refO && refVals.length ? stepPath(refO, false).line : '';
+      const tOff = M.clamp((thrO === Infinity ? 0 : Y(thrO)) / VH, 0, 1).toFixed(4);
       const grid = ticks.map((v) => `<line x1="0" x2="${VW}" y1="${f1(Y(v))}" y2="${f1(Y(v))}" class="gl"/>`).join('');
       const gid = 'sp' + (this._gid || (this._gid = Math.random().toString(36).slice(2, 8)));
       const svg = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="none" aria-hidden="true">
@@ -176,9 +168,9 @@
           <linearGradient id="${gid}f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}" stop-opacity="0.28"/><stop offset="${tOff}" stop-color="${ORANGE}" stop-opacity="0.12"/><stop offset="${tOff}" stop-color="${TEAL}" stop-opacity="0.14"/><stop offset="1" stop-color="${TEAL}" stop-opacity="0"/></linearGradient>
         </defs>
         ${grid}
-        ${has ? `<path class="fill" d="${fill}" fill="url(#${gid}f)"/>
-        <path class="spot" d="${line}" stroke="url(#${gid}s)"/>
-        ${showNp ? `<line class="np" x1="0" x2="${VW}" y1="${f1(Y(npO))}" y2="${f1(Y(npO))}"/>` : ''}` : ''}
+        ${has ? `<path class="fill" d="${main.fill}" fill="url(#${gid}f)"/>
+        <path class="spot" d="${main.line}" stroke="url(#${gid}s)"/>
+        ${refP ? `<path class="np" d="${refP}"/>` : ''}` : ''}
       </svg>`;
       let marker = '';
       if (sel != null && ore[sel] != null) {
@@ -189,31 +181,30 @@
       }
       const yax = ticks.map((v) => `<span style="top:${((Y(v) / VH) * 100).toFixed(2)}%">${M.nf(v, step % 1 ? 1 : 0)}</span>`).join('');
       const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
-      const seg = [['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]];
+      const mainLeg = P.mode === 'spot' ? `${srcL && P.source !== 'custom' ? srcL + ' ' : ''}spot${se && P.area ? ' ' + P.area : ''}` : P.mode === 'total' ? 'Totalpris m/ nettleie' : 'Norgespris';
+      const uS = `<small> ${P.unit}</small>`;
       return `<div class="sp">
         <div class="hdr">
           <span class="ttl ell">Strømpriser</span>
-          <div class="seg" role="tablist">${seg.map(([k, l, ok]) => {
-            const on = (k === 'today') === isToday;
-            return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
-          }).join('')}</div>
+          ${M.powerTabHTML(P.cfg.tab, isToday, hasM)}
         </div>
         <div class="srf">
           <div class="vr">
-            <div class="vc" ${id ? `data-ent="${esc(id)}"` : ''}>
+            <div class="vc" ${P.entity ? `data-ent="${esc(P.entity)}"` : ''}>
               <span class="lb">${esc(label)}</span>
-              <span class="v num">${nf2(val)}<small> kr/kWh</small></span>
+              <span class="v num">${P.val(val)}${uS}</span>
             </div>
-            ${showNp ? `<div class="vc r" ${np.id ? `data-ent="${esc(np.id)}"` : ''}>
-              <span class="lb">Norgespris</span>
-              <span class="v num np">${nf2(np.v)}<small> kr/kWh</small></span>
+            ${rLabel ? `<div class="vc r" ${!se && P.norgespris && P.norgespris.entity && P.mode !== 'norgespris' ? `data-ent="${esc(P.norgespris.entity)}"` : ''}>
+              <span class="lb">${esc(rLabel)}</span>
+              <span class="v num ${se ? '' : 'np'}">${P.val(rVal)}${uS}</span>
             </div>` : ''}
           </div>
-          <div class="lg"><span class="li"><i style="background:${TEAL}"></i>Nord Pool spot</span>${showNp ? `<span class="li"><i style="background:${PINK}"></i>Norgespris</span>` : ''}<span class="unit">øre/kWh</span></div>
+          ${tr ? `<div class="gt" data-ent="${esc(P.grid.entity)}"><span class="lb">Nettleie i morgen</span><span class="ar" style="color:${tr.color}">${tr.arrow}</span><span class="gd num" style="color:${tr.color}">${esc(tr.text)}</span><span class="gs num">snitt ${P.val(tr.today)} → ${P.val(tr.tomorrow)}</span></div>` : ''}
+          <div class="lg"><span class="li"><i style="background:${TEAL}"></i>${esc(mainLeg)}</span>${showRef ? `<span class="li"><i class="dash"></i>${esc(P.ref.label)}</span>` : ''}<span class="unit">${P.graphUnit}</span></div>
           <div class="gr">
             <div class="ya num">${yax}</div>
-            <div class="plot" role="img" aria-label="Spotpris per time ${isToday ? 'i dag' : 'i morgen'} i øre/kWh">${svg}${marker}
-              ${st ? '' : `<button class="pick" data-act="customize" data-section="kort">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
+            <div class="plot" role="img" aria-label="${esc(ML)} per time ${dayL} i ${P.graphUnit}">${svg}${marker}
+              ${st ? '' : `<button class="pick" data-act="customize" data-section="kilde">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
           </div>
           <div class="xa num">${xax}</div>
         </div>
@@ -224,6 +215,8 @@
       return super.onAction(name, el, ev);
     }
     afterRender() {
+      const seg = this.shadowRoot.querySelector('.seg.glass');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', enabled: () => seg.classList.contains('glass') });
       const p = this.shadowRoot.querySelector('.plot');
       if (!p || p.__sc) return;
       p.__sc = true;
@@ -248,14 +241,12 @@
       p.addEventListener('pointerleave', reset);
     }
     get styles() {
+      const t = M.powerPriceCfg(this._rawConfig || this.config).tab;
       return `
         .sp{display:flex;flex-direction:column;gap:12px}
         .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
         .ttl{min-width:0;font-size:18px;font-weight:500}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#303030;flex:none}
-        .sg{height:30px;padding:0 20px;border-radius:15px;font-size:14px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
-        .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
-        .sg:disabled{opacity:.4;cursor:default}
+        ${M.powerTabCSS(t)}
         .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030}
         .vr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
         .vc{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -264,9 +255,14 @@
         .v{font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1.05;white-space:nowrap}
         .v small{font-size:13px;letter-spacing:0;color:#8e8d89}
         .v.np{color:${PINK}}
-        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap}
-        .li{display:inline-flex;align-items:center;gap:6px}
-        .li i{display:block;width:14px;height:2.5px;border-radius:2px}
+        .gt{display:flex;align-items:baseline;gap:6px;min-width:0;padding:8px 12px;border-radius:14px;background:rgba(255,255,255,0.04);white-space:nowrap}
+        .gt .ar{font-size:15px;font-weight:600;line-height:1}
+        .gt .gd{font-size:13px;font-weight:500}
+        .gt .gs{margin-left:auto;font-size:11px;color:#6d6c69;overflow:hidden;text-overflow:ellipsis}
+        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap;min-width:0}
+        .li{display:inline-flex;align-items:center;gap:6px;min-width:0}
+        .li i{display:block;width:14px;height:2.5px;border-radius:2px;flex:none}
+        .li i.dash{background:repeating-linear-gradient(90deg, ${PINK} 0 5px, transparent 5px 8px)}
         .unit{margin-left:auto;color:#6d6c69}
         .gr{display:flex;gap:6px;height:150px}
         .ya{position:relative;flex:none;width:20px;font-size:9px;color:#6d6c69}
@@ -276,7 +272,7 @@
         .plot svg *{vector-effect:non-scaling-stroke}
         .gl{stroke:rgba(255,255,255,0.07);stroke-width:1}
         .spot{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
-        .np{stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
+        .np{fill:none;stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
         .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.12);pointer-events:none;transition:left .15s}
         .halo,.dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;transition:left .15s,top .15s,background .15s}
         .halo{width:34px;height:34px}
@@ -289,5 +285,48 @@
       `;
     }
   }
-  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpriser', 'Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.');
+  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpriser', 'Strømpris nå og per time i dag / i morgen (Norge: spot, totalpris eller Norgespris; Sverige: SEK i kr/kWh), nettleie i morgen og referanselinje. Dra på grafen for å se en time.');
+
+  /* ------------------------------------------------------------ GUI-editor: power_price.* → ki-store (én felles config) */
+  const Base = customElements.get('msh-editor');
+  if (Base && !customElements.get('msh-strompris-editor')) {
+    const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+    const setIn = (o, p, v) => {
+      const ks = String(p).split('.'), root = { ...(o || {}) };
+      let cur = root;
+      ks.forEach((k, i) => {
+        if (i === ks.length - 1) { if (v === undefined || v === null || v === '') delete cur[k]; else cur[k] = v; }
+        else { cur[k] = isObj(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; }
+      });
+      return root;
+    };
+    class StromprisEditor extends Base {
+      connectedCallback() {
+        if (super.connectedCallback) super.connectedCallback();
+        if (M.store && !this._ppOff) this._ppOff = M.store.subscribe((d, path) => { if (this._ppSaving || !this._config) return; if (!path || String(path).startsWith('power_price')) { this._config = this._withStore(this._config); this._render(); } });
+      }
+      disconnectedCallback() { if (this._ppOff) { this._ppOff(); this._ppOff = null; } }
+      _withStore(c) { const st = M.store && M.store.get('power_price'); return { ...c, power_price: { ...(isObj(c.power_price) ? c.power_price : {}), ...(isObj(st) ? st : {}) } }; }
+      setConfig(c) { super.setConfig(c); this._config = this._withStore(this._config || {}); this._render(); }
+      _set(path, v, commit = true) {
+        if (!String(path).startsWith('power_price.')) {
+          const { power_price, ...rest } = this._config || {};
+          this._config = rest;
+          super._set(path, v, commit);
+          this._config = this._withStore(this._config);
+          return this._render();
+        }
+        const sub = String(path).slice('power_price.'.length);
+        let pp = setIn((M.store && M.store.get('power_price')) || {}, sub, typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v) && /norgespris$|tab\./.test(sub) ? Number(v) : v);
+        if (isObj(pp.tab) && !Object.keys(pp.tab).length) delete pp.tab;
+        this._config = { ...this._config, power_price: pp };
+        if (commit !== false && M.store) {
+          this._ppSaving = true;
+          try { if (this._hass) M.store.load(this._hass); M.store.set('power_price', Object.keys(pp).length ? pp : undefined); } finally { this._ppSaving = false; }
+        }
+        this._render();
+      }
+    }
+    customElements.define('msh-strompris-editor', StromprisEditor);
+  }
 })();

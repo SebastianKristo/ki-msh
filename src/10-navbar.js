@@ -75,7 +75,7 @@
   //  · hold og dra (8 px langs aksen) → glassboble følger fingeren med fjær, skala 1,1, snapper til nærmeste knapp,
   //    haptic('selection') per ny knapp (M.haptic: maks én per 40 ms). Slipp → knappen aktiveres, haptic('light'),
   //    boblen glir på plass og tones ut (220 ms). Vanlig trykk går som før (click).
-  // opt: { axis: 'x'|'y', enabled: () => bool, touchAction }
+  // opt: { axis: 'x'|'y', enabled: () => bool, touchAction, tap: false (ingen MSH.glassTap-animasjon ved trykk) }
   const LENS_EASE = 'cubic-bezier(.34,1.5,.64,1)';
   M.glassDrag = M.glassDrag || function (c, opt = {}) {
     if (!c || c.__gd) return;
@@ -151,12 +151,15 @@
       l.style.opacity = '0'; l.style.transform = 'scale(1)';
       setTimeout(() => l.remove(), 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
+      if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
     c.addEventListener('lostpointercapture', (e) => { if (e.target === c && st && st.on && e.pointerId === st.id) end(e); }); // bare vår egen capture (knappens implisitte touch-capture bobler også hit)
     c.addEventListener('click', (e) => { if (suppress && e.isTrusted) { e.stopPropagation(); e.preventDefault(); suppress = false; } }, true);
+    // Trykk-animasjon (Fiks 4 · 3) i samme rad, med samme glass-sjekk. opt.tap === false = av (navbar/meny).
+    if (opt.tap !== false && M.glassTap) M.glassTap(c, { enabled: on, axis: opt.axis });
   };
 
   // Normalisert navbar-config (samme i kortet og editoren).
@@ -493,7 +496,8 @@
           for (const n of path) { if (n === sr) break; if (n.matches && n.matches('[data-act]')) { el = n; break; } }
           if (!el) return;
           e.stopPropagation(); // ikke la kortets egen klikk-lytter (portalen er slottet inn i kortet) håndtere det én gang til
-          const h = el.getAttribute('data-haptic');
+          // Trykk på knappen til åpen popup lukker den (Fiks 4 · 1) → én haptic('light')
+          const h = el.dataset.act === 'go' && this._isOpen(el.dataset.id) ? 'light' : el.getAttribute('data-haptic');
           if (h !== 'off') M.haptic(h || 'light');
           this.onAction(el.dataset.act, el, e);
         });
@@ -509,7 +513,7 @@
       const glassOn = () => this.config.style === 'glass';
       if (nav && !nav.__b) {
         nav.__b = true;
-        M.glassDrag(nav, { enabled: glassOn });
+        M.glassDrag(nav, { enabled: glassOn, tap: false });
         nav.addEventListener('pointermove', (e) => {
           if (!glassOn() || e.pointerType === 'touch') return;
           const r = nav.getBoundingClientRect(), sh = nav.querySelector('.sheen');
@@ -518,7 +522,7 @@
         nav.addEventListener('pointerleave', () => { const sh = nav.querySelector('.sheen'); if (sh) sh.style.opacity = '0'; });
       }
       const mb = this._portal.shadowRoot.querySelector('[data-menu]');
-      if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: glassOn }); }
+      if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: glassOn, tap: false }); }
       // plass til innholdet (designet: padding-bottom 120 på mobil, padding-left 108–120 på bred)
       requestAnimationFrame(() => {
         if (!nav || !nav.isConnected) return;
@@ -547,6 +551,13 @@
       if (el.style.paddingLeft !== l) el.style.paddingLeft = l;
     }
 
+    // Er popupen til knappen åpen nå? (location.hash = knappens hash)
+    _isOpen(id) {
+      if (!id || id === '__more' || !location.hash) return false;
+      const h = hashOf(norm(this.config), id);
+      return !!h && h === location.hash;
+    }
+
     onAction(name, el, ev) {
       const N = norm(this.config);
       if (name === 'go') {
@@ -559,6 +570,9 @@
         }
         this._closeMenu(true);
         this.setUI({ compact: false });
+        // Popupen til knappen er allerede åpen → lukk den (fasit Hjem v2: isOpen ? closePop() : open…).
+        // Gjelder bunn, glass (slipp etter dra), rail og «Mer»-menyen – alle går via denne handlingen.
+        if (this._isOpen(id)) { M.closePopup(); this._schedule(true); return; }
         const b = N.B[id] || {};
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
@@ -784,7 +798,7 @@
               <button class="d34" data-a="nbrdel" data-id="${esc(id)}" data-i="${ri}" title="Fjern">${M.icon('delete', 18)}</button>
             </div>
             ${this._search({ type: 'entity' }, `nbq_${id}_${ri}`, 'nbent', `${id}|${ri}`, x.entity ? 'Bytt entitet …' : 'Søk entitet …')}
-            <div class="r1"><div class="seg">${OPS.map(([o, l]) => `<button class="${op === o ? 'on' : ''}" data-a="nbrop" data-id="${esc(id)}" data-i="${ri}" data-v="${esc(o)}">${l}</button>`).join('')}</div>
+            <div class="r1"><div class="seg">${OPS.map(([o, l]) => `<button class="${op === o ? 'on' : ''}" aria-selected="${op === o}" data-a="nbrop" data-id="${esc(id)}" data-i="${ri}" data-v="${esc(o)}">${l}</button>`).join('')}</div>
               <input class="i34" data-nbf="rval" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.value ?? '')}" placeholder="${num ? '0' : 'on, open'}">${unit && num ? `<span style="font-size:12px;color:#979797;flex:none">${esc(unit)}</span>` : ''}</div>
             <span class="hint">${num ? 'Tallverdi – prikken vises når entiteten er over/under.' : 'Skill flere tilstander med komma – én av dem holder (||).'} Nå: <b>${esc(s ? M.fmtState(h, x.entity) + (num ? '' : ` (${s.state})`) : '–')}</b></span>
             <input class="i36" data-nbf="rtext" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.text || '')}" placeholder="Tekst i varselet">
@@ -828,7 +842,7 @@
         ${tog('Vis navn i menyen', 'menu_names', c.menu_names !== false)}
         ${tog('Krymp ved scrolling', 'shrink', c.shrink !== false)}
         <span class="gt">Bredde</span>
-        <div class="wseg">${[['kompakt', 'Kompakt'], ['std', 'Standard'], ['full', 'Full']].map(([k, l]) => `<button class="${W === k ? 'on' : ''}" data-a="nbw" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="wseg">${[['kompakt', 'Kompakt'], ['std', 'Standard'], ['full', 'Full']].map(([k, l]) => `<button class="${W === k ? 'on' : ''}" aria-selected="${W === k}" data-a="nbw" data-v="${k}">${l}</button>`).join('')}</div>
         <span class="gt">Stil</span>
         <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
