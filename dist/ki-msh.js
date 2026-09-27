@@ -1758,7 +1758,9 @@ try {
     Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    const res = await MSH.store.set(key, { ...(MSH.store.get(key) || {}), ...rest }, { immediate: opts.immediate });
+    const prev = MSH.store.get(key) || {};
+    Object.keys(prev).forEach((k) => { if (!(k in newCfg) && !(k in rest) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet siden forrige lagring
+    const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
   // YAML-config + ki-store (null = fjernet)
@@ -1837,7 +1839,7 @@ try {
       else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
-      this._firstRender = false;
+      // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
       const keys = this.constructor.uiPersist || [];
       if (config.card_id && keys.length && prevId !== config.card_id) {
         const saved = MSH.uiLoad(config.card_id), pick = {};
@@ -3157,6 +3159,361 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 04-strategy.js', e); }
+
+/* ---- 05-tab-reorder.js ---- */
+try {
+/* KI MSH · felles fanerad: vannrett scroll + langt trykk/dra = omorganiser (mus, telefon og iPad).
+ *   MSH.tabReorder(row, {
+ *     items: () => [knapper],          // standard: row > button
+ *     idOf: (btn) => id,               // standard: data-tab-id || data-key
+ *     active: () => id,                // aktiv fane (scrolles inn); standard: .on / [aria-selected=true]
+ *     onReorder(newOrderIds),          // ved slipp (kun når rekkefølgen er endret) – kortet lagrer i config
+ *     onSelect(id),                    // valgfritt: «liquid glass»-valg når alle faner får plass (glass: true)
+ *     holdMs: 400, isEdit: () => bool, // redigeringsmodus: dra starter uten langt trykk
+ *     card,                            // kortet (settes _busy under dra så render ikke river DOM-en)
+ *     glass, onGlassMove(btn, x), onGlassEnd(btn|null, commit)   // egen linse (Hjem) i stedet for standardlinsen
+ *   }) → kontroller { refresh(), scrollActive(smooth), fade() }. Kall igjen etter hver render (idempotent).
+ * Raden: klassen .msh-tr (CSS i MSH.TAB_ROW_CSS – legg den i kortets styles). Knappene krymper aldri og kuttes aldri.
+ * Touch: touchstart/touchmove {passive:false} direkte på knappen. Under holdet avbryter > 8 px bevegelse (vanlig
+ * scroll). Når draget er i gang: touchmove → preventDefault + stopPropagation, og pointercancel ignoreres (dra
+ * fortsetter via touch-hendelsene). Glass-drag slås av på containeren (dataset.glassDragOff = '1') mens man drar.
+ * Haptic: medium (dra starter) → selection (fanen passerer en annen) → light (slipp). Ingen haptic ved scroll.
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.tabReorder) return;
+
+  M.TAB_ROW_CSS = `
+    .msh-tr{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;min-width:0;max-width:100%;
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%)}
+    .msh-tr::-webkit-scrollbar{display:none}
+    .msh-tr.tr-fitglass{touch-action:pan-y}
+    .msh-tr>button{flex:0 0 auto;min-width:max-content;scroll-snap-align:start;white-space:nowrap;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+    .msh-tr.tr-drag{scroll-snap-type:none}
+    .msh-tr.tr-drag>button{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px var(--pink,#f285c9)}
+    .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--gray300,#404040) !important;color:var(--white,#fafafa) !important}
+    .msh-tr.tr-settle>button{transition:none !important}
+  `;
+
+  // Glass-drag (10-navbar.js: M.glassDrag) respekterer dataset.glassDragOff = '1' på containeren.
+  (function () {
+    const wrap = (fn) => {
+      if (typeof fn !== 'function' || fn.__trWrap) return fn;
+      const w = function (c, opt) {
+        opt = opt || {};
+        const en = opt.enabled;
+        return fn.call(this, c, { ...opt, enabled: () => !(c && c.dataset && c.dataset.glassDragOff === '1') && (!en || en()) });
+      };
+      w.__trWrap = true;
+      return w;
+    };
+    let inner = wrap(M.glassDrag);
+    try { Object.defineProperty(M, 'glassDrag', { configurable: true, enumerable: true, get: () => inner, set: (fn) => { inner = wrap(fn); } }); } catch (e) { /* */ }
+  })();
+
+  const SLOP = 8;
+  let lastHap = 0;
+  const hap = (type) => { lastHap = Date.now(); M.haptic(type); };
+  // M.haptic slipper maks én per 40 ms – slipp-haptic skal ikke forsvinne rett etter en «selection».
+  const hapLater = (type) => { const w = 45 - (Date.now() - lastHap); if (w > 0) setTimeout(() => hap(type), w); else hap(type); };
+  // Alle containere som kan ha glass-drag: raden, kortet og forfedre (også gjennom shadow roots).
+  const glassHosts = (row, card) => {
+    const out = [row];
+    if (card) out.push(card);
+    let n = row.parentNode || row.host, d = 0;
+    while (n && d++ < 60) {
+      if (n.nodeType === 1 && (n.__gd || (n.hasAttribute && n.hasAttribute('data-glass-drag')))) out.push(n);
+      n = n.parentNode || n.host;
+    }
+    return out;
+  };
+  const lensEl = () => {
+    const l = document.createElement('span');
+    Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
+    document.body.appendChild(l);
+    requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
+    return l;
+  };
+
+  class TabReorder {
+    constructor(row, opts) {
+      this.row = row;
+      this.opts = opts;
+      this.st = null;
+      this.eatUntil = 0;
+      this._bindRow();
+    }
+    get o() { return { holdMs: 400, styleRow: true, ...this.opts }; }
+    items() { const f = this.o.items; return (f ? Array.from(f() || []) : Array.from(this.row.children).filter((b) => b.tagName === 'BUTTON')).filter((b) => b && b.isConnected); }
+    idOf(b) { return this.o.idOf ? this.o.idOf(b) : (b.dataset.tabId || b.dataset.key); }
+    overflow() { return this.row.scrollWidth > this.row.clientWidth + 1; }
+    canReorder() { return !!this.o.onReorder && this.items().length > 1; }
+
+    /* ---------------- oppsett */
+    _bindRow() {
+      const row = this.row, stop = (e) => e.stopPropagation();
+      // Bubble Card (swipe-to-close), karusell og dashbord skal ikke få gestene
+      row.addEventListener('pointerdown', stop);
+      row.addEventListener('touchstart', stop, { passive: true });
+      row.addEventListener('touchmove', stop, { passive: true });
+      row.addEventListener('contextmenu', (e) => e.preventDefault());
+      // Ingen click / fanebytte etter et drag
+      row.addEventListener('click', (e) => { if (Date.now() < this.eatUntil) { this.eatUntil = 0; e.stopPropagation(); e.preventDefault(); } }, true);
+      row.addEventListener('scroll', () => {
+        this.fade();
+        const st = this.st;
+        if (st && st.phase === 'hold' && st.type !== 'mouse') this._abortHold(); // native scroll → ikke langt trykk
+      }, { passive: true });
+      if (window.ResizeObserver) { this._ro = new ResizeObserver(() => this.fade()); this._ro.observe(row); }
+    }
+    _bindBtn(b) {
+      if (b.__trB === this) return;
+      b.__trB = this;
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+      b.addEventListener('pointerdown', (e) => this._down(e, b));
+      b.addEventListener('pointermove', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._move(e.clientX, e.clientY, e, false); });
+      b.addEventListener('pointerup', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._end(true, e.clientX); });
+      b.addEventListener('pointercancel', (e) => {
+        const st = this.st;
+        if (!st || st.b !== b || e.pointerId !== st.pid) return;
+        if ((st.phase === 'drag' || st.phase === 'glass') && st.touchLock) return; // touch-lytteren har stoppet scrollen – dra videre
+        if (st.phase === 'hold') this._abortHold(); else this._end(false);
+      });
+      b.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        const t = e.changedTouches[0];
+        if (!t) return;
+        if (!this.st || this.st.b !== b) this._begin(b, t.clientX, t.clientY, null, 'touch');
+        if (this.st) this.st.tid = t.identifier;
+      }, { passive: false });
+      b.addEventListener('touchmove', (e) => {
+        e.stopPropagation();
+        const st = this.st;
+        if (!st || st.b !== b) return;
+        const t = [...e.touches].find((x) => st.tid == null || x.identifier === st.tid) || e.touches[0];
+        if (!t) return;
+        if (st.phase === 'drag' || st.phase === 'glass') { if (e.cancelable) e.preventDefault(); st.touchLock = true; }
+        this._move(t.clientX, t.clientY, e, true);
+      }, { passive: false });
+      b.addEventListener('touchend', (e) => { const st = this.st; if (st && st.b === b && (st.phase === 'drag' || st.phase === 'glass')) { const t = e.changedTouches[0]; this._end(true, t ? t.clientX : st.x); } });
+      b.addEventListener('touchcancel', () => { const st = this.st; if (st && st.b === b && st.phase !== 'hold') this._end(false); });
+    }
+    refresh() {
+      const row = this.row;
+      if (this.o.styleRow !== false && !row.classList.contains('msh-tr')) row.classList.add('msh-tr');
+      if (this.st && this.st.phase === 'drag') return;
+      this.items().forEach((b) => this._bindBtn(b));
+      this.fade();
+      this.scrollActive();
+    }
+    // Myk fade (12 px) på kanten som har mer innhold; touch-action etter om raden scroller.
+    fade() {
+      const row = this.row, max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
+      const set = (k, v) => { if (row.style.getPropertyValue(k) !== v) row.style.setProperty(k, v); };
+      set('--tr-fl', ovf && sl > 1 ? '12px' : '0px');
+      set('--tr-fr', ovf && sl < max - 1 ? '12px' : '0px');
+      row.classList.toggle('tr-fitglass', !ovf && !!this.o.glass);
+    }
+    activeBtn() {
+      const a = this.o.active ? this.o.active() : null, its = this.items();
+      if (a != null) return its.find((b) => this.idOf(b) === a) || null;
+      return its.find((b) => b.classList.contains('on') || b.getAttribute('aria-selected') === 'true' || b.hasAttribute('data-active')) || null;
+    }
+    // Aktiv fane inn i synlig område (row.scrollTo smooth; første gang uten animasjon).
+    scrollActive(force) {
+      const row = this.row, b = this.activeBtn();
+      if (!b) return;
+      const id = this.idOf(b);
+      if (!force && this._shown === id) return;
+      const init = this._shown == null;
+      this._shown = id;
+      const cw = row.clientWidth, sl = row.scrollLeft, l = b.getBoundingClientRect().left - row.getBoundingClientRect().left + sl, r = l + b.offsetWidth, m = 24;
+      if (!cw || row.scrollWidth <= cw + 1) return;
+      let left = null;
+      if (l - m < sl) left = Math.max(0, l - m);
+      else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
+      if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
+    }
+
+    /* ---------------- gest */
+    _begin(b, x, y, pid, type) {
+      if (this.st && this.st.phase !== 'hold') return;
+      this._clearHold();
+      const st = (this.st = { b, pid, type, x0: x, y0: y, x, y, sl0: this.row.scrollLeft, phase: 'hold', edit: !!(this.o.isEdit && this.o.isEdit()) });
+      if (this.canReorder()) st.timer = setTimeout(() => { if (this.st === st && st.phase === 'hold') this._startDrag(); }, this.o.holdMs);
+    }
+    _down(e, b) {
+      if (e.button) return;
+      e.stopPropagation();
+      if (this.st && this.st.b === b && this.st.phase === 'hold' && this.st.pid == null) this.st.pid = e.pointerId; // touchstart kom først
+      else this._begin(b, e.clientX, e.clientY, e.pointerId, e.pointerType);
+      if (this.st) { this.st.pid = e.pointerId; this.st.type = e.pointerType || this.st.type; }
+      try { b.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+    }
+    _clearHold() { if (this.st && this.st.timer) { clearTimeout(this.st.timer); this.st.timer = null; } }
+    _abortHold() { this._clearHold(); this.st = null; }
+    _move(x, y, e, touch) {
+      const st = this.st;
+      if (!st) return;
+      st.x = x; st.y = y;
+      const dx = x - st.x0, dy = y - st.y0;
+      if (st.phase === 'hold') {
+        if (Math.hypot(dx, dy) <= SLOP) return;
+        this._clearHold();
+        const horiz = Math.abs(dx) >= Math.abs(dy);
+        if (st.edit && horiz && this.canReorder()) this._startDrag();
+        else if (horiz && this.o.glass && this.o.onSelect && !this.overflow() && this.items().length > 1) this._startGlass();
+        else if (horiz && st.type === 'mouse' && this.overflow()) { st.phase = 'pan'; }
+        else { this.st = null; return; } // vanlig scroll (touch: native)
+        if (touch && e.cancelable) { e.preventDefault(); st.touchLock = true; }
+      }
+      if (st.phase === 'hold') return;
+      if (!touch && e.cancelable) e.preventDefault();
+      if (st.phase === 'pan') { this.row.scrollLeft = st.sl0 - dx; return; }
+      if (st.phase === 'glass') { this._glassMove(x, y); return; }
+      if (st.phase === 'drag') this._layout(st);
+    }
+
+    /* ---------------- omorganisering */
+    _glassOff(on) {
+      const st = this.st;
+      if (on) {
+        st.gh = glassHosts(this.row, this.o.card).filter((n) => n.dataset && n.dataset.glassDragOff !== '1');
+        st.gh.forEach((n) => { n.dataset.glassDragOff = '1'; });
+      } else if (st && st.gh) st.gh.forEach((n) => { delete n.dataset.glassDragOff; });
+    }
+    _startDrag() {
+      const st = this.st, row = this.row, its = this.items();
+      const from = its.indexOf(st.b);
+      if (from < 0 || its.length < 2) { this.st = null; return; }
+      this._clearHold();
+      st.phase = 'drag';
+      const rr = row.getBoundingClientRect();
+      st.its = its;
+      st.ids = its.map((b) => this.idOf(b));
+      st.rects = its.map((b) => { const r = b.getBoundingClientRect(); return { l: r.left - rr.left + row.scrollLeft, w: r.width }; });
+      const cs = getComputedStyle(row);
+      st.gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || (its[1] ? Math.max(0, st.rects[1].l - st.rects[0].l - st.rects[0].w) : 0);
+      st.from = from; st.to = from;
+      st.sl0 = row.scrollLeft; st.x0 = st.x;
+      if (this.o.card) this.o.card._busy = true;
+      window.__tabReorder = true;
+      this._glassOff(true);
+      row.classList.add('tr-drag');
+      st.b.classList.add('tr-lift');
+      st.b.style.transform = 'scale(1.06)';
+      if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
+      hap('medium');
+      const tick = () => {
+        if (this.st !== st || st.phase !== 'drag') return;
+        const r = row.getBoundingClientRect(), E = 28;
+        let v = 0;
+        if (st.x < r.left + E) v = -Math.ceil((r.left + E - st.x) / 4);
+        else if (st.x > r.right - E) v = Math.ceil((st.x - (r.right - E)) / 4);
+        if (v) { const before = row.scrollLeft; row.scrollLeft = before + v; if (row.scrollLeft !== before) this._layout(st); }
+        st.raf = requestAnimationFrame(tick);
+      };
+      st.raf = requestAnimationFrame(tick);
+    }
+    _layout(st) {
+      const row = this.row;
+      const dx = st.x - st.x0 + (row.scrollLeft - st.sl0);
+      const R = st.rects, f = st.from, wf = R[f].w + st.gap;
+      const minDx = -R[f].l, maxDx = R[R.length - 1].l + R[R.length - 1].w - (R[f].l + R[f].w);
+      const cdx = Math.max(minDx - 12, Math.min(maxDx + 12, dx));
+      st.b.style.transform = `translateX(${cdx}px) scale(1.06)`;
+      const c = R[f].l + R[f].w / 2 + cdx;
+      let to = 0;
+      R.forEach((r, i) => { if (i !== f && r.l + r.w / 2 < c) to++; });
+      if (to === st.to) return;
+      st.to = to;
+      hap('selection');
+      st.its.forEach((b, i) => {
+        if (i === f) return;
+        const s = i > f && i <= to ? -wf : i < f && i >= to ? wf : 0;
+        b.style.transform = s ? `translateX(${s}px)` : '';
+      });
+    }
+    _end(commit, x) {
+      const st = this.st;
+      if (!st) return;
+      this.st = null;
+      this._clearHold();
+      if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte
+      this.eatUntil = Date.now() + 350;
+      if (st.phase === 'pan') return;
+      if (st.phase === 'glass') return this._glassEnd(st, commit);
+      // drag
+      cancelAnimationFrame(st.raf);
+      if (x != null && commit) { st.x = x; this._layout(st); }
+      const row = this.row, ids = st.ids.slice(), [m] = ids.splice(st.from, 1);
+      ids.splice(st.to, 0, m);
+      const changed = commit && ids.join('\u0001') !== st.ids.join('\u0001');
+      // Legg nodene i ny rekkefølge straks (morph finner dem via data-key) → ingen blink før re-render
+      row.classList.add('tr-settle');
+      if (changed) {
+        const order = st.its.slice(), [bm] = order.splice(st.from, 1);
+        order.splice(st.to, 0, bm);
+        const anchor = st.its[st.its.length - 1].nextSibling;
+        order.forEach((b) => row.insertBefore(b, anchor));
+      }
+      st.its.forEach((b) => { b.style.transform = ''; b.classList.remove('tr-lift'); });
+      row.classList.remove('tr-drag');
+      void row.offsetWidth;
+      requestAnimationFrame(() => row.classList.remove('tr-settle'));
+      this._glassOff(false);
+      window.__tabReorder = false;
+      if (this.o.card) this.o.card._busy = false;
+      if (commit) hapLater('light');
+      if (changed && this.o.onReorder) this.o.onReorder(ids);
+      else if (this.o.card && this.o.card.update) this.o.card.update();
+    }
+
+    /* ---------------- liquid glass-valg (når alle faner får plass) */
+    _startGlass() {
+      const st = this.st;
+      st.phase = 'glass';
+      if (this.o.card) this.o.card._busy = true;
+      this._glassOff(true);
+      if (!this.o.onGlassMove) st.lens = lensEl();
+      if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
+    }
+    _nearest(x) {
+      let best = null, bd = Infinity;
+      this.items().forEach((b) => { const r = b.getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = b; } });
+      return best;
+    }
+    _glassMove(x) {
+      const st = this.st, hit = this._nearest(x);
+      if (!hit) return;
+      if (hit !== st.hit) { st.hit = hit; hap('selection'); }
+      if (this.o.onGlassMove) return this.o.onGlassMove(hit, x);
+      const r = hit.getBoundingClientRect(), cr = this.row.getBoundingClientRect();
+      const L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, x - r.width / 2));
+      Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' });
+    }
+    _glassEnd(st, commit) {
+      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
+      this._glassOff(false);
+      if (this.o.card) this.o.card._busy = false;
+      const hit = commit ? st.hit : null;
+      if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
+      if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
+    }
+  }
+
+  M.tabReorder = function (row, opts) {
+    if (!row) return null;
+    let T = row.__tabReorder;
+    if (T) { T.opts = { ...T.opts, ...(opts || {}) }; T.refresh(); return T; }
+    T = row.__tabReorder = new TabReorder(row, opts || {});
+    T.refresh();
+    return T;
+  };
+})();
+
+} catch (e) { console.error('[ki-msh] 05-tab-reorder.js', e); }
 
 /* ---- 10-navbar.js ---- */
 try {
@@ -5877,8 +6234,8 @@ try {
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
- * Fanerad: scroller vannrett (mange faner), aktiv fane scrolles inn. Dra sideveis = scroll (eller liquid glass-valg når
- * alle faner får plass); hold inne 400 ms + dra = flytt fanen (lagres i config.tab_order).
+ * Fanerad (felles MSH.tabReorder, 05-tab-reorder.js): scroller vannrett, aktiv fane scrolles inn. Dra sideveis = scroll
+ * (eller liquid glass-valg når alle faner får plass); hold inne 400 ms + dra = flytt fanen (config.tab_order) – mus og touch.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -6234,9 +6591,13 @@ try {
     async _reorderTabs(from, to) {
       const TV = this._TV || [], all = allTabs(this.hass, this.config).map((t) => t.id), vis = TV.map((t) => t.id);
       const nv = vis.slice(); const [m] = nv.splice(from, 1); nv.splice(to, 0, m);
+      return this._saveTabOrder(nv);
+    }
+    // Ny rekkefølge for de synlige fanene → full tab_order (skjulte beholder plassen sin)
+    async _saveTabOrder(nv) {
+      const all = allTabs(this.hass, this.config).map((t) => t.id), vis = (this._TV || []).map((t) => t.id);
       let k = 0;
       const order = all.map((id) => (vis.includes(id) ? nv[k++] : id));
-      M.haptic('success');
       await this._saveCfg({ tab_order: order });
     }
     async _saveCfg(patch) {
@@ -6255,7 +6616,7 @@ try {
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
       const P = (this._tabPos || {})[(TV[idx] || {}).id];
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" data-tabs="1">
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
         <span class="ind" style="${ind}"></span>
         ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
@@ -6563,12 +6924,13 @@ try {
         if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
       });
     }
-    // Linse på aktiv fane + aktiv fane inn i synlig område (row.scrollTo smooth) + kant-fade.
+    // Linse (.ind) på aktiv fane. Scroll av aktiv fane inn i synlig område (row.scrollTo smooth) og kant-fade: MSH.tabReorder.
     _placeTabs() {
       const row = this.shadowRoot.querySelector('.tg');
       if (!row) return;
+      const T = row.__tabReorder, busy = T && T.st && T.st.phase !== 'hold';
       const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
-      if (on && ind && !(this._tabDrag && this._tabDrag.mode)) {
+      if (on && ind && !busy) {
         const L = on.offsetLeft, W = on.offsetWidth;
         (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
         const first = ind.style.opacity === '0';
@@ -6576,118 +6938,32 @@ try {
         ind.style.left = L + 'px'; ind.style.width = W + 'px'; ind.style.opacity = '';
         if (first) { void ind.offsetWidth; ind.style.transition = ''; }
       }
-      if (on && this._shownTab !== on.dataset.key) {
-        const init = this._shownTab == null;
-        this._shownTab = on.dataset.key;
-        const cw = row.clientWidth, sl = row.scrollLeft, l = on.offsetLeft, r = l + on.offsetWidth, m = 24;
-        let left = null;
-        if (row.scrollWidth > cw + 1) {
-          if (l - m < sl) left = Math.max(0, l - m);
-          else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
-        }
-        if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
-      }
-      this._tabFade();
     }
-    // Myk fade (12 px) på kanten som har mer innhold; touch-action pan-x når raden scroller.
-    _tabFade() {
-      const row = this.shadowRoot.querySelector('.tg');
-      if (!row) return;
-      const max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
-      const set = (k, v) => { if (this.style.getPropertyValue(k) !== v) this.style.setProperty(k, v); };
-      set('--msh-tabs-fl', ovf && sl > 1 ? '12px' : '0px');
-      set('--msh-tabs-fr', ovf && sl < max - 1 ? '12px' : '0px');
-      set('--msh-tabs-ta', ovf ? 'pan-x' : 'pan-y');
-    }
-    // Fanelinjen. Vanlig sveip scroller alltid raden (touch: native; mus: dra-scroll). Får fanene plass (ingen
-    // scroll), er sideveis dra = liquid glass-linse. Flytt fane KUN etter langt trykk (400 ms) eller i
-    // redigeringsmodus (this.editMode / window.__kiEditMode). Gester stoppes (stopPropagation) så verken
-    // karusell, dashbord eller Bubble-popup tar dem.
+    // Fanelinjen: felles MSH.tabReorder. Vanlig sveip scroller raden (touch: native; mus: dra-scroll). Får fanene
+    // plass, er sideveis dra = liquid glass-linse (.ind følger fingeren). Flytt fane KUN etter langt trykk (400 ms)
+    // eller i redigeringsmodus (this.editMode / window.__kiEditMode).
     _bindTabs() {
       const row = this.shadowRoot.querySelector('.tg');
-      if (!row || row.__b) return;
-      row.__b = true;
-      const stop = (e) => e.stopPropagation();
-      row.addEventListener('pointerdown', stop);
-      row.addEventListener('touchstart', stop, { passive: true });
-      row.addEventListener('touchmove', stop, { passive: true });
-      row.addEventListener('scroll', () => {
-        this._tabFade();
-        const st = this._tabDrag;
-        if (st && !st.mode) { clearTimeout(st.t); this._tabDrag = null; } // native scroll → ingen langt trykk
-      }, { passive: true });
-      if (window.ResizeObserver) { this._tabRO = new ResizeObserver(() => this._tabFade()); this._tabRO.observe(row); }
+      if (!row) return;
       const items = () => [...row.querySelectorAll('.tab')];
-      const at = (x, rects) => {
-        let best = 0, bd = Infinity;
-        (rects || items().map((b) => b.getBoundingClientRect())).forEach((r, i) => { const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
-        return best;
-      };
-      const capture = (st) => { try { row.setPointerCapture(st.id); } catch (x) { /* */ } };
-      const startReo = (st) => {
-        st.mode = 'reo'; capture(st); this._busy = true; window.__tabReorder = true;
-        st.rects = items().map((b) => b.getBoundingClientRect());
-        M.haptic('medium');
-        row.classList.add('reo');
-        const it = items()[st.from]; if (it) it.classList.add('lift');
-      };
-      row.addEventListener('pointerdown', (e) => {
-        if (e.button) return;
-        const n = items().length, edit = !!(this.editMode || window.__kiEditMode);
-        const st = (this._tabDrag = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType, mode: null, n, edit, ovf: row.scrollWidth > row.clientWidth + 1, sl: row.scrollLeft, from: at(e.clientX), near: null, to: null });
-        st.t = setTimeout(() => { if (this._tabDrag === st && !st.mode && st.n > 1) startReo(st); }, 400);
-      });
-      row.addEventListener('pointermove', (e) => {
-        const st = this._tabDrag;
-        if (!st || e.pointerId !== st.id) return;
-        const dx = e.clientX - st.x, dy = e.clientY - st.y;
-        if (!st.mode) {
-          if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return;
-          clearTimeout(st.t);
-          if (Math.abs(dx) < Math.abs(dy)) { this._tabDrag = null; return; }
-          if (st.edit && st.n > 1) startReo(st);
-          else if (st.ovf) { if (st.type !== 'touch') { st.mode = 'pan'; capture(st); } else { this._tabDrag = null; return; } } // touch: native scroll
-          else if (st.n > 1) { st.mode = 'glass'; capture(st); this._busy = true; row.classList.add('drag'); }
-          else { this._tabDrag = null; return; }
-        }
-        e.preventDefault();
-        if (st.mode === 'pan') { row.scrollLeft = st.sl - dx; return; }
-        if (st.mode === 'glass') {
-          const near = at(e.clientX), nb = items()[near], ind = row.querySelector('.ind');
-          if (nb && ind) {
-            const rr = row.getBoundingClientRect(), x = e.clientX - rr.left + row.scrollLeft, W = nb.offsetWidth;
+      M.tabReorder(row, {
+        card: this, glass: true, holdMs: 400,
+        items, idOf: (b) => b.dataset.id,
+        isEdit: () => !!(this.editMode || window.__kiEditMode),
+        onReorder: (ids) => this._saveTabOrder(ids),
+        onSelect: (id) => { const i = (this._TV || []).findIndex((t) => t.id === id); if (i >= 0) this._pickTab(i); },
+        onGlassMove: (b, x) => {
+          row.classList.add('drag');
+          const ind = row.querySelector('.ind');
+          if (ind) {
+            const rr = row.getBoundingClientRect(), W = b.offsetWidth, cx = x - rr.left + row.scrollLeft;
             ind.style.width = W + 'px';
-            ind.style.left = M.clamp(x - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
+            ind.style.left = M.clamp(cx - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
           }
-          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
-          return;
-        }
-        // reo: flytt fanen; auto-scroll ved kantene
-        const rr = row.getBoundingClientRect();
-        if (e.clientX < rr.left + 24) row.scrollLeft -= 8; else if (e.clientX > rr.right - 24) row.scrollLeft += 8;
-        const to = at(e.clientX + (row.scrollLeft - st.sl), st.rects);
-        if (to !== st.to) {
-          st.to = to; M.haptic('selection');
-          const ord = Array.from({ length: st.n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
-          items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
-        }
+          items().forEach((t) => t.classList.toggle('near', t === b));
+        },
+        onGlassEnd: (b) => { row.classList.remove('drag'); items().forEach((t) => t.classList.remove('near')); if (!b) this.update(); },
       });
-      const end = (e) => {
-        const st = this._tabDrag;
-        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
-        clearTimeout(st.t);
-        this._tabDrag = null;
-        if (!st.mode) return;
-        this._busy = false; window.__tabReorder = false;
-        this._swallow = true; setTimeout(() => { this._swallow = false; }, 350);
-        if (st.mode === 'pan') return;
-        row.classList.remove('drag', 'reo');
-        items().forEach((b) => { b.classList.remove('near', 'lift'); b.style.order = ''; });
-        if (st.mode === 'glass') { if (e.type === 'pointerup' && st.near != null) this._pickTab(st.near); else this.update(); } else if (e.type === 'pointerup' && st.to != null && st.to !== st.from) this._reorderTabs(st.from, st.to); else this.update();
-      };
-      row.addEventListener('pointerup', end);
-      row.addEventListener('pointercancel', end);
-      row.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     get styles() {
       return `${M.romkortCSS || ''}
@@ -6696,9 +6972,8 @@ try {
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
-        .tg{position:relative;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:var(--msh-tabs-ta, pan-x);overscroll-behavior-x:contain;border-radius:999px;
-          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%);mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%)}
-        .tg::-webkit-scrollbar{display:none}
+        ${M.TAB_ROW_CSS || ''}
+        .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
@@ -6706,9 +6981,9 @@ try {
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
-        .tg.reo .ind{opacity:0}
-        .tg.reo .tab{color:var(--gray800,#afafaf)}
-        .tab.lift{color:#fff !important;background:rgba(255,255,255,0.14);transform:scale(1.08);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
+        .tg.tr-drag .ind{opacity:0}
+        .tg.tr-drag .tab{color:var(--gray800,#afafaf)}
+        .tg.tr-drag>.tab.tr-lift{color:#fff !important;background:rgba(255,255,255,0.14);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
         .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start}
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
@@ -7009,16 +7284,16 @@ try {
 
 /* ---- 26-hjem-strompris.js ---- */
 try {
-/* msh-strompris-card · Hjem, strømpriskortet. Kilde: strøm-dataene i Hjem v2.dc.html (SPOT/TMR, price(), priceHead,
- * priceBars, priceDays, strøm-sliden «Strøm nå · Billigst kl. …») + oppsettet i ki-strompris-card (ki-cards, «Strømpriser»):
- * nåpris, søyler per time for i dag / i morgen med dag-bytter, billigste time og scrub (dra for å se en time).
- * Autokonfig (entiteter.md «Strøm»): pris-sensor fra plattform nordpool / tibber / energi_data_service (M.priceSensor –
- * samme sensor som prosa-boblen «Strømmen koster …»), timespriser fra attributtene raw_today/raw_tomorrow ({start,end,value})
- * eller today/tomorrow (tall-lister). Effekt: sensor.hele_huset_effekt (KI Rom). Overstyr: overrides.price / overrides.watt.
- * Kortet vises alltid: mangler data → «–» og tomme søyler.
+/* msh-strompris-card · Hjem, «Strømpriser» (spesifikasjon punkt 14): header-rad med tittel + I dag / I morgen utenfor
+ * kortflaten; kortflate med verdirad (Spot nå / valgt time · Norgespris), legende, trinnlinje-graf i øre/kWh (teal, oransje
+ * over terskel, fylt område, stiplet Norgespris-linje, valgt time med bånd + prikk) og x-akse. Scrub på grafen velger time.
+ * Autokonfig (entiteter.md «Strøm»): pris-sensor M.priceSensor (nordpool / tibber / energi_data_service – samme sensor som
+ * prosa-boblen «Strømmen koster …»), config `entity` / overrides.price overstyrer. Timespriser fra today/tomorrow (24 tall
+ * eller 96 kvarter → timesnitt), ellers raw_today/raw_tomorrow ({start, value}). Norgespris: sensor.*norgespris* (kr/kWh)
+ * eller config `norgespris` (0,50). Kortet vises alltid: mangler data → «–» og tom graf (bare rutenettet).
  */
 (function () {
-  const M = window.MSH, esc = M.esc, C = M.C;
+  const M = window.MSH, esc = M.esc;
   const HOUR = 3600000;
   const hh = (h) => String(h).padStart(2, '0');
   const nf2 = (v) => (v == null || isNaN(v) ? '–' : M.nf(v, 2));
@@ -7075,7 +7350,7 @@ try {
       sum[i][0] += Number(v) * k; sum[i][1]++;
     };
     [['raw_today', 'today', 'prices_today', 0], ['raw_tomorrow', 'tomorrow', 'prices_tomorrow', 1]].forEach(([rk, tk, pk, day]) => {
-      const list = [a[rk], a[pk], a[tk]].find((x) => Array.isArray(x) && x.length);
+      const list = [a[tk], a[rk], a[pk]].find((x) => Array.isArray(x) && x.length);
       if (!list) return;
       if (list[0] != null && typeof list[0] === 'object') {
         list.forEach((p) => { if (!p) return; const st = p.start || p.startsAt || p.time || p.hour; const v = p.value !== undefined ? p.value : p.price !== undefined ? p.price : p.total; put(new Date(st).getTime(), v); });
@@ -7088,119 +7363,219 @@ try {
     return out;
   };
 
+
+  // Norgespris-sensor: config norgespris_entity → første sensor.*norgespris* med tallverdi og enhet …/kWh (eller uten enhet).
+  M.norgesprisSensor = M.norgesprisSensor || function (hass, cfg) {
+    if (cfg && cfg.norgespris_entity) return cfg.norgespris_entity;
+    if (!hass || !hass.states) return null;
+    return Object.keys(hass.states).filter((id) => {
+      if (!/^sensor\..*norgespris/i.test(id)) return false;
+      const s = hass.states[id], u = String((s.attributes || {}).unit_of_measurement || '');
+      return M.isNum(s.state) && (!u || PER_KWH.test(u));
+    }).sort()[0] || null;
+  };
+
   /* ------------------------------------------------------------ kort */
+  const TEAL = 'oklch(0.78 0.13 175)', ORANGE = 'oklch(0.74 0.17 55)', PINK = 'oklch(0.78 0.13 350)';
+  const VW = 480, VH = 150, PT = 6, PB = 6; // viewBox + innrykk topp/bunn for rutenettet
+  const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+  // «Pen» y-skala med 5 verdier (4 steg) som dekker lo..hi.
+  const scale = (lo, hi) => {
+    if (!(hi > lo)) hi = lo + 100;
+    const raw = (hi - lo) / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 3, 4, 5, 6, 8, 10, 20]) {
+      const st = m * p, y0 = Math.floor(lo / st) * st;
+      if (y0 + 4 * st >= hi - 1e-9) return { y0, st };
+    }
+    return { y0: lo, st: raw };
+  };
+
   class Strompris extends M.Card {
-    static get cardName() { return 'Hjem · strømpris'; }
-    static get defaults() { return { title: 'Strømpris', popup_hash: '#strom', price_high: 1.5, price_mid: 1.1, show_watt: true }; }
+    static get cardName() { return 'Hjem · strømpriser'; }
+    static get defaults() { return { show_norgespris: true }; }
     static get schema() {
       return [
-        { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:flash', open: true, fields: [
-          { type: 'text', name: 'title', label: 'Overskrift', placeholder: 'Strømpris' },
-          { type: 'hash', name: 'popup_hash', label: 'Popup-hash (trykk på prisen)', placeholder: '#strom' },
-          { type: 'select', name: 'day', label: 'Dag som vises først', options: [['today', 'I dag'], ['tomorrow', 'I morgen']], default: 'today' },
-          { type: 'boolean', name: 'show_watt', label: 'Vis effekt nå (W)', default: true },
-          { type: 'number', name: 'price_high', label: 'Rød søyle over (kr/kWh)', step: 0.1, placeholder: '1.5' },
-          { type: 'number', name: 'price_mid', label: 'Gul søyle over (kr/kWh)', step: 0.1, placeholder: '1.1' },
-        ] },
-        { type: 'overrides', label: 'Bytt entiteter', fields: [
-          { name: 'price', label: 'Strømpris (kr/kWh, med today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
-          { name: 'watt', label: 'Effekt nå (W)', domain: 'sensor', device_class: 'power', auto: (h) => M.kiRomId(h, null, 'effekt') },
+        { type: 'section', id: 'kort', label: 'Strømpriser', icon: 'mdi:flash', open: true, fields: [
+          { type: 'entity', name: 'entity', label: 'Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
+          { type: 'entity', name: 'norgespris_entity', label: 'Norgespris-sensor (kr/kWh)', domain: 'sensor', auto: (h) => M.norgesprisSensor(h, {}) },
+          { type: 'number', name: 'norgespris', label: 'Norgespris uten sensor (kr/kWh)', step: 0.01, placeholder: '0.50' },
+          { type: 'number', name: 'threshold', label: 'Oransje linje over (kr/kWh)', step: 0.05, placeholder: 'Norgespris', help: 'Tomt = Norgespris' },
+          { type: 'boolean', name: 'show_norgespris', label: 'Vis Norgespris', default: true },
         ] },
       ];
     }
-    get cardSize() { return 4; }
-    _lvl(p) {
+    get cardSize() { return 5; }
+    _priceId() {
       const c = this.config;
-      return p > (Number(c.price_high) || 1.5) ? C.red : p > (Number(c.price_mid) || 1.1) ? C.yellow : C.green;
+      return c.entity ? c.entity : M.priceSensor(this.hass, c);
+    }
+    _norgespris() {
+      const c = this.config, id = M.norgesprisSensor(this.hass, c), st = this.s(id);
+      if (st && M.isNum(st.state)) return { v: Number(st.state) * M.priceScale(st), id };
+      const v = num(c.norgespris);
+      return { v: v != null ? v : 0.5, id: null };
     }
     render() {
       const c = this.config, hass = this.hass, ui = this.ui;
-      const id = M.priceSensor(hass, c), st = this.s(id);
-      const wattId = M.pick(c, 'watt', M.kiRomId(hass, null, 'effekt')), watt = c.show_watt !== false ? this.n(wattId) : null;
+      const id = this._priceId(), st = this.s(id);
       const all = st ? M.priceSeries(hass, id) : Array(48).fill(null);
-      const day = ui.day || (c.day === 'tomorrow' ? 'tomorrow' : 'today'), isToday = day === 'today';
+      const hasT = all.slice(0, 24).some((v) => v != null), hasM = all.slice(24).some((v) => v != null);
+      const isToday = !(ui.day === 'tomorrow' && hasM);
       const ser = isToday ? all.slice(0, 24) : all.slice(24);
+      const has = isToday ? hasT : hasM;
       const nowH = new Date().getHours();
-      let pNow = M.priceNow(hass, id);
-      if (pNow == null && all[nowH] != null) pNow = all[nowH];
-      const has = ser.some((v) => v != null);
-      const future = ser.map((p, h) => [p, h]).filter(([p, h]) => p != null && (!isToday || h >= nowH));
-      const cheap = future.length ? future.reduce((m, x) => (x[0] < m[0] ? x : m)) : null;
-      const maxP = Math.max(0.01, ...ser.filter((v) => v != null));
-      const sel = ui.sel != null ? ui.sel : null;
-      const cheapTxt = cheap ? `Billigst kl. ${hh(cheap[1])} · ${nf2(cheap[0])} kr` : '';
-      let head;
-      if (sel != null) head = { label: `${isToday ? 'I dag' : 'I morgen'} kl. ${hh(sel)}–${hh((sel + 1) % 24)}`, v: nf2(ser[sel]), meta: isToday && sel < nowH ? 'Tidligere i dag' : cheapTxt };
-      else if (isToday) head = { label: 'Nå', v: nf2(pNow), meta: cheapTxt || (st ? '' : 'Fant ingen strømpris-sensor') };
-      else head = { label: 'Snitt i morgen', v: has ? nf2(ser.filter((v) => v != null).reduce((x, y) => x + y, 0) / ser.filter((v) => v != null).length) : '–', meta: has ? cheapTxt : 'Kommer ca. kl. 13' };
-      const bars = ser.map((p, h) => {
-        const past = isToday && h < nowH, now = isToday && h === nowH, on = sel === h;
-        if (p == null) return `<span class="b" data-key="b${h}"><i class="e"></i></span>`;
-        const hgt = Math.max(4, (p / maxP) * 100);
-        return `<span class="b" data-key="b${h}"><i style="height:${hgt.toFixed(1)}%;background:${on || (now && sel == null) ? 'var(--white,#fafafa)' : this._lvl(p)};opacity:${past && !on ? 0.3 : 1}"></i></span>`;
-      }).join('');
-      const seg = [['today', 'I dag'], ['tomorrow', 'I morgen']];
-      const di = isToday ? 0 : 1;
-      return `<section class="sp">
-        <div class="top">
-          <span class="ttl ell">${esc(c.title || 'Strømpris')}</span>
-          ${watt != null ? `<span class="w num" data-ent="${esc(wattId)}">${M.nf(watt, 0)} W</span>` : ''}
-          <div class="seg"><span class="ind" style="left:calc(3px + ${di} * (100% - 6px) / 2)"></span>${seg.map(([k, l], i) => `<button class="sg ${i === di ? 'on' : ''}" data-act="day" data-d="${k}" data-haptic="selection">${l}</button>`).join('')}</div>
+      const np = this._norgespris(), showNp = c.show_norgespris !== false;
+      const thr = num(c.threshold) != null ? num(c.threshold) : np.v;
+      const scrub = ui.sel != null && has;
+      const sel = scrub ? ui.sel : isToday && has ? nowH : null;
+
+      // Verdirad (kr/kWh)
+      let label, val;
+      if (scrub) { label = `Spot ${isToday ? 'i dag' : 'i morgen'} kl. ${hh(sel)}`; val = ser[sel]; }
+      else if (isToday) { label = 'Spot nå'; val = M.priceNow(hass, id); if (val == null) val = ser[nowH]; }
+      else { const v = ser.filter((x) => x != null); label = 'Spot snitt i morgen'; val = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+
+      // Graf (øre/kWh)
+      const ore = ser.map((v) => (v == null ? null : v * 100)), vals = ore.filter((v) => v != null);
+      const npO = np.v * 100, thrO = thr * 100;
+      const lo = Math.min(0, ...vals), hi = vals.length ? Math.max(...vals, showNp ? npO : 0) * 1.05 : 100;
+      const { y0, st: step } = scale(lo, hi), span = 4 * step;
+      const Y = (v) => PT + (1 - (v - y0) / span) * (VH - PT - PB);
+      const X = (h) => (h * VW) / 24;
+      const f1 = (n) => Math.round(n * 10) / 10;
+      const ticks = [0, 1, 2, 3, 4].map((i) => y0 + i * step);
+      const base = f1(Y(Math.max(y0, Math.min(0, y0 + span))));
+      let line = '', fill = '', runStart = null;
+      ore.forEach((v, h) => {
+        if (v == null) { if (runStart != null) fill += `V${base}Z`; runStart = null; return; }
+        const y = f1(Y(v));
+        if (runStart == null) { runStart = h; line += `M${f1(X(h))} ${y}`; fill += `M${f1(X(h))} ${base}V${y}`; } else { line += `V${y}`; fill += `V${y}`; }
+        line += `H${f1(X(h + 1))}`; fill += `H${f1(X(h + 1))}`;
+      });
+      if (runStart != null) fill += `V${base}Z`;
+      const tOff = M.clamp(Y(thrO) / VH, 0, 1).toFixed(4);
+      const grid = ticks.map((v) => `<line x1="0" x2="${VW}" y1="${f1(Y(v))}" y2="${f1(Y(v))}" class="gl"/>`).join('');
+      const gid = 'sp' + (this._gid || (this._gid = Math.random().toString(36).slice(2, 8)));
+      const svg = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gid}s" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${TEAL}"/><stop offset="1" stop-color="${TEAL}"/></linearGradient>
+          <linearGradient id="${gid}f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}" stop-opacity="0.28"/><stop offset="${tOff}" stop-color="${ORANGE}" stop-opacity="0.12"/><stop offset="${tOff}" stop-color="${TEAL}" stop-opacity="0.14"/><stop offset="1" stop-color="${TEAL}" stop-opacity="0"/></linearGradient>
+        </defs>
+        ${grid}
+        ${has ? `<path class="fill" d="${fill}" fill="url(#${gid}f)"/>
+        <path class="spot" d="${line}" stroke="url(#${gid}s)"/>
+        ${showNp ? `<line class="np" x1="0" x2="${VW}" y1="${f1(Y(npO))}" y2="${f1(Y(npO))}"/>` : ''}` : ''}
+      </svg>`;
+      let marker = '';
+      if (sel != null && ore[sel] != null) {
+        const col = ore[sel] > thrO ? ORANGE : TEAL, top = (Y(ore[sel]) / VH) * 100, left = ((sel + 0.5) / 24) * 100;
+        marker = `<span class="band" style="left:${((sel / 24) * 100).toFixed(3)}%"></span>
+          <span class="halo" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:color-mix(in oklch, ${col} 30%, transparent)"></span>
+          <span class="dot" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:${col}"></span>`;
+      }
+      const yax = ticks.map((v) => `<span style="top:${((Y(v) / VH) * 100).toFixed(2)}%">${M.nf(v, step % 1 ? 1 : 0)}</span>`).join('');
+      const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
+      const seg = [['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]];
+      return `<div class="sp">
+        <div class="hdr">
+          <span class="ttl ell">Strømpriser</span>
+          <div class="seg" role="tablist">${seg.map(([k, l, ok]) => {
+            const on = (k === 'today') === isToday;
+            return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
+          }).join('')}</div>
         </div>
-        <button class="hd" data-act="open" ${id ? `data-ent="${esc(id)}"` : ''}>
-          <span class="lb">${esc(head.label)}</span>
-          <span class="v num">${esc(head.v)}<small> kr/kWh</small></span>
-          <span class="meta ell">${esc(head.meta || '')}</span>
-        </button>
-        ${st ? '' : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}
-        <div class="bars" role="img" aria-label="Strømpris per time ${isToday ? 'i dag' : 'i morgen'}">${bars}
-          ${sel != null ? `<span class="band" style="left:${(sel / 24) * 100}%"></span>` : ''}</div>
-        <div class="xa num"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
-      </section>`;
+        <div class="srf">
+          <div class="vr">
+            <div class="vc" ${id ? `data-ent="${esc(id)}"` : ''}>
+              <span class="lb">${esc(label)}</span>
+              <span class="v num">${nf2(val)}<small> kr/kWh</small></span>
+            </div>
+            ${showNp ? `<div class="vc r" ${np.id ? `data-ent="${esc(np.id)}"` : ''}>
+              <span class="lb">Norgespris</span>
+              <span class="v num np">${nf2(np.v)}<small> kr/kWh</small></span>
+            </div>` : ''}
+          </div>
+          <div class="lg"><span class="li"><i style="background:${TEAL}"></i>Nord Pool spot</span>${showNp ? `<span class="li"><i style="background:${PINK}"></i>Norgespris</span>` : ''}<span class="unit">øre/kWh</span></div>
+          <div class="gr">
+            <div class="ya num">${yax}</div>
+            <div class="plot" role="img" aria-label="Spotpris per time ${isToday ? 'i dag' : 'i morgen'} i øre/kWh">${svg}${marker}
+              ${st ? '' : `<button class="pick" data-act="customize" data-section="kort">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
+          </div>
+          <div class="xa num">${xax}</div>
+        </div>
+      </div>`;
     }
     onAction(name, el, ev) {
-      if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null });
-      if (name === 'open') { if (this._dragged) { this._dragged = false; return; } return M.openPopup(this.config.popup_hash || '#strom'); }
+      if (name === 'day') { if (el.disabled) return; return this.setUI({ day: el.dataset.d, sel: null }); }
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      const b = this.shadowRoot.querySelector('.bars');
-      if (!b || b.__b) return;
-      b.__b = true;
-      let t = null;
-      M.drag(b, {
-        axis: 'x',
-        onStart: () => { clearTimeout(t); this._busy = false; },
-        onMove: (f) => { const i = M.clamp(Math.floor(f * 24), 0, 23); if (i !== this.ui.sel) this.setUI({ sel: i }); },
-        onEnd: () => { clearTimeout(t); t = setTimeout(() => this.setUI({ sel: null }), 2500); },
+      const p = this.shadowRoot.querySelector('.plot');
+      if (!p || p.__sc) return;
+      p.__sc = true;
+      M.guardDrag(p, 'x'); // touch-action: pan-y + stopPropagation (Bubble Card swipe-to-close)
+      let down = false;
+      const pick = (e) => {
+        const r = p.getBoundingClientRect();
+        if (!r.width || !p.querySelector('path.spot')) return;
+        const h = M.clamp(Math.floor(((e.clientX - r.left) / r.width) * 24), 0, 23);
+        if (h !== this.ui.sel) { M.haptic('selection'); this.setUI({ sel: h }); }
+      };
+      const reset = () => { down = false; if (this.ui.sel != null) this.setUI({ sel: null }); };
+      p.addEventListener('pointerdown', (e) => {
+        if (e.button || (e.target.closest && e.target.closest('button'))) return;
+        down = true;
+        try { p.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        pick(e);
       });
+      p.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e); });
+      p.addEventListener('pointerup', reset);
+      p.addEventListener('pointercancel', reset);
+      p.addEventListener('pointerleave', reset);
     }
     get styles() {
       return `
-        .sp{display:flex;flex-direction:column;gap:10px;padding:18px 18px 14px;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04)}
-        .top{display:flex;align-items:center;gap:10px;min-width:0}
-        .ttl{flex:1;min-width:0;font-size:15px;font-weight:500}
-        .w{font-size:13px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:12px;background:var(--gray000,#232323);flex:none}
-        .ind{position:absolute;top:3px;bottom:3px;width:calc((100% - 6px) / 2);border-radius:9px;background:${C.accent};transition:left .45s cubic-bezier(.34,1.4,.64,1)}
-        .sg{position:relative;z-index:1;height:30px;padding:0 12px;border-radius:9px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--gray700,#979797);transition:color .25s}
-        .sg.on{color:var(--gray100,#2f2f2f)}
-        .hd{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;min-width:0}
-        .lb{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .v{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1;white-space:nowrap}
-        .v small{font-size:13px;letter-spacing:0;color:var(--gray600,#7f7f7f)}
-        .meta{font-size:12px;color:var(--gray700,#979797);max-width:100%;min-height:15px}
-        .pick{align-self:flex-start}
-        .bars{position:relative;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;height:96px;padding-top:6px;cursor:crosshair;touch-action:none}
-        .b{display:flex;align-items:flex-end;height:100%;min-width:0}
-        .b i{display:block;width:100%;border-radius:4px;transition:background .2s,height .3s}
-        .b i.e{height:8%;background:var(--gray300,#404040)}
-        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.08);pointer-events:none;transition:left .12s}
-        .xa{display:flex;justify-content:space-between;font-size:10px;color:var(--gray500,#696969)}
+        .sp{display:flex;flex-direction:column;gap:12px}
+        .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+        .ttl{min-width:0;font-size:18px;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#303030;flex:none}
+        .sg{height:30px;padding:0 20px;border-radius:15px;font-size:14px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
+        .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+        .sg:disabled{opacity:.4;cursor:default}
+        .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030}
+        .vr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+        .vc{display:flex;flex-direction:column;gap:4px;min-width:0}
+        .vc.r{align-items:flex-end;text-align:right}
+        .lb{font-size:12px;color:#8e8d89;white-space:nowrap}
+        .v{font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1.05;white-space:nowrap}
+        .v small{font-size:13px;letter-spacing:0;color:#8e8d89}
+        .v.np{color:${PINK}}
+        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap}
+        .li{display:inline-flex;align-items:center;gap:6px}
+        .li i{display:block;width:14px;height:2.5px;border-radius:2px}
+        .unit{margin-left:auto;color:#6d6c69}
+        .gr{display:flex;gap:6px;height:150px}
+        .ya{position:relative;flex:none;width:20px;font-size:9px;color:#6d6c69}
+        .ya span{position:absolute;right:0;transform:translateY(-50%);line-height:1;white-space:nowrap}
+        .plot{position:relative;flex:1;min-width:0;height:150px;cursor:crosshair;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+        .plot svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+        .plot svg *{vector-effect:non-scaling-stroke}
+        .gl{stroke:rgba(255,255,255,0.07);stroke-width:1}
+        .spot{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+        .np{stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
+        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.12);pointer-events:none;transition:left .15s}
+        .halo,.dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;transition:left .15s,top .15s,background .15s}
+        .halo{width:34px;height:34px}
+        .dot{width:14px;height:14px;box-shadow:0 0 0 3px #303030}
+        .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+        .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:#6d6c69}
+        .xa span{position:absolute;top:0;transform:translateX(-50%);line-height:11px}
+        .xa span:first-child{transform:none}
+        .xa span:last-child{transform:translateX(-100%)}
       `;
     }
   }
-  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpris', 'Strømpris nå, søyler per time i dag / i morgen, billigste time og dra for å se en time. Trykk åpner #strom.');
+  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpriser', 'Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.');
 })();
 
 } catch (e) { console.error('[ki-msh] 26-hjem-strompris.js', e); }
@@ -8776,6 +9151,12 @@ try {
  * Tellertekster: sensor.<rom>_lys|_media|_brytere|_sensorer|_effekt (attributes.tekst) → ellers beregnet.
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
  * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
+ * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
+ * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
+ * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
+ * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
+ * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
+ * chevron_color, color_presets ("a, b" eller [..])}. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -8828,7 +9209,7 @@ try {
   // Alle lister for et rom. auto = det autokonfig fant; lists = etter exclude/include/overrides.
   M.roomLists = M.roomLists || function (hass, area, cfg) {
     cfg = cfg || {};
-    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {} };
+    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {}, sceneMeta: {} };
     if (!hass || !area) { LISTS.forEach(([k]) => { out.auto[k] = []; out.lists[k] = []; }); return out; }
     const ov = M.kiRom(hass, area, 'oversikt'), A = (ov && ov.attributes) || {};
     out.ov = ov;
@@ -8837,9 +9218,16 @@ try {
     const objs = (arr) => (Array.isArray(arr) ? arr : []).map((x) => (typeof x === 'string' ? { entity: x } : x || {})).filter((x) => x.entity);
     const a = out.auto;
     a.gardiner = has('gardiner') ? M.ids(A.gardiner) : reg('cover');
-    // Scener først, så skript. KI Rom først; tomt/mangler → scene.*/script.* med område = rommet.
+    // Scener: KI Rom-lysscenene (button.*) først, så rommets egne scene.* / script.* (unntatt de som
+    // allerede er med – samme entitet eller samme navn som en lysscene).
+    const ls = M.roomLightScenes(hass, area);
+    out.sceneMeta = ls.meta;
     const kiSc = has('scener', 'skript') ? [...M.ids(A.scener), ...M.ids(A.skript)].filter((id) => /^(scene|script)\./.test(id) && hass.states[id]) : [];
-    a.scener = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const own = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9æøå]/g, '');
+    const areaNm = M.areaName(hass, area);
+    const used = new Set(ls.ids.map((id) => norm(ls.meta[id].navn)));
+    a.scener = [...ls.ids, ...own.filter((id) => !ls.ids.includes(id) && !used.has(norm(M.name(hass, id, areaNm))))];
     a.lys = has('lys') ? M.ids(A.lys) : reg('light');
     if (has('brytere', 'vifter')) {
       const d = [...objs(A.brytere), ...objs(A.vifter)];
@@ -8855,10 +9243,49 @@ try {
       M.ids(A.lysniva).forEach((id) => { if (!a.sensorer.includes(id)) { a.sensorer.push(id); out.cls[id] = 'illuminance'; } });
     } else a.sensorer = [...reg('binary_sensor'), ...reg('sensor', (s) => s.attributes.device_class === 'illuminance')];
     LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, a[k]); });
+    // Scener: include.scenes (alias for include.scener) + order.scenes (sortering fra «Tilpass rom»)
+    (((cfg.include || {}).scenes) || []).forEach((id) => { if (!out.lists.scener.includes(id) && !((cfg.exclude || []).includes(id))) out.lists.scener.push(id); });
+    const so = (cfg.order && Array.isArray(cfg.order.scenes)) ? cfg.order.scenes : null;
+    if (so) { const ix = (id) => { const i = so.indexOf(id); return i < 0 ? 1e6 : i; }; const base = out.lists.scener.slice(); out.lists.scener.sort((x, y) => ix(x) - ix(y) || base.indexOf(x) - base.indexOf(y)); }
     const th = cfg.overrides && (cfg.overrides.climate || cfg.overrides.termostat);
     if (th) out.lists.klima = [th, ...out.lists.klima.filter((x) => x !== th)];
     (((cfg.include || {}).climate) || []).forEach((id) => { if (!out.lists.klima.includes(id)) out.lists.klima.push(id); });
     [...out.lists.enheter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
+    return out;
+  };
+  // KI Rom-lysscener for et rom (button.*). Kilde: sensor med integrasjon ki_lys + ki_type oversikt og
+  // area_id = rommet (eller area_ids inneholder rommet) → attributes.scener [{id, navn, ikon, rekkefolge, entity}]
+  // (allerede sortert). Fallback: alle button.* med ki_type scene og area_id = rommet.
+  // → { ids: [button.…], meta: {id: {navn, ikon}} }. Knapper som ikke finnes i hass.states hoppes over.
+  const LYS_ORDER = ['maks', 'komfort', 'middag', 'tv', 'mindre', 'natt', 'av'];
+  M.roomLightScenes = M.roomLightScenes || function (hass, area) {
+    const out = { ids: [], meta: {} };
+    if (!hass || !area) return out;
+    const S = hass.states;
+    let ov = null, ovZone = null;
+    for (const id in S) {
+      if (!id.startsWith('sensor.')) continue;
+      const a = S[id].attributes || {};
+      if (a.integrasjon !== 'ki_lys' || a.ki_type !== 'oversikt') continue;
+      if (a.area_id === area) { ov = S[id]; break; }
+      if (!ovZone && Array.isArray(a.area_ids) && a.area_ids.includes(area)) ovZone = S[id];
+    }
+    ov = ov || ovZone;
+    const areaNm = M.areaName(hass, area);
+    const strip = (t) => { const r = new RegExp('^' + String(areaNm).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i'); return String(t || '').replace(r, '') || t; };
+    if (ov && Array.isArray(ov.attributes.scener) && ov.attributes.scener.length) {
+      ov.attributes.scener.forEach((sc) => {
+        const id = sc && (sc.entity || (sc.id && ov.attributes.slug ? `button.${ov.attributes.slug}_lys_${sc.id}` : null));
+        if (!id || !S[id] || out.meta[id]) return;
+        out.ids.push(id);
+        out.meta[id] = { navn: sc.navn || strip(S[id].attributes.friendly_name) || sc.id, ikon: sc.ikon || S[id].attributes.icon || null, ki: true };
+      });
+      return out;
+    }
+    const btn = Object.keys(S).filter((id) => { const a = id.startsWith('button.') && S[id].attributes; return a && a.ki_type === 'scene' && (a.area_id === area); });
+    const rank = (id) => { const i = LYS_ORDER.indexOf(S[id].attributes.scene); return i < 0 ? 99 : i; };
+    btn.sort((x, y) => rank(x) - rank(y) || x.localeCompare(y));
+    btn.forEach((id) => { out.ids.push(id); out.meta[id] = { navn: strip(S[id].attributes.friendly_name) || S[id].attributes.scene || id, ikon: S[id].attributes.icon || null, ki: true }; });
     return out;
   };
   const autoLightType = (s) => {
@@ -8921,10 +9348,48 @@ try {
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
+      if (L) {
+        // Scener: KI Rom-lysscenene først, så rommets scene.*/script.*. Skjul = exclude, sortering = order.scenes,
+        // legg til = include.scenes.
+        const all = [...new Set([...(L.auto.scener || []), ...(((c.include || {}).scener) || []), ...(((c.include || {}).scenes) || [])])];
+        const nmSc = (id) => { const m = L.sceneMeta[id]; return (m && m.navn) || cap(M.name(h, id, M.areaName(h, area))); };
+        out.push({ type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${L.lists.scener.length} av ${all.length} vises`, fields: [
+          { type: 'info', label: 'KI Rom-lysscenene (knapper) først, deretter rommets egne scener og skript. Øye = skjul, piler = rekkefølge.' },
+          ...(all.length ? [{ type: 'order', name: 'order.scenes', hiddenName: 'exclude', label: 'Rekkefølge og synlighet', options: all.map((id) => [id, `${nmSc(id)}${L.sceneMeta[id] ? ' · KI Rom' : id.startsWith('script.') ? ' · skript' : ' · scene'}`]) }] : [{ type: 'info', label: 'Fant ingen scener i rommet' }]),
+          { type: 'entities', name: 'include.scenes', label: 'Lagt til', domains: ['button', 'scene', 'script'], addLabel: '+ Legg til scene', area: () => area },
+        ] });
+      }
       if (L && L.lists.lys.length) {
-        out.push({ type: 'section', id: 'lys', label: 'Lys · type', icon: 'mdi:lightbulb', fields: [
-          { type: 'info', label: 'Velg «Kun av/på» for å tvinge en dimbar lampe til bryter' },
-          ...L.lists.lys.map((id) => ({ type: 'select', name: 'light_types.' + obj(id), label: M.name(h, id), help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(h.states[id])) || [])[1], options: LT_NAMES })),
+        const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
+        const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
+        const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+        const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter.' },
+          ...L.lists.lys.map((id) => {
+            const p = 'lights.' + obj(id), st = h.states[id];
+            return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
+              { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
+              { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
+              { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
+              { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
+              { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
+              { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
+              { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
+              { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
+              { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
+              { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
+              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
+              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
+              { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
+              { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
+              { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
+              { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
+              { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+            ] };
+          }),
         ] });
       }
       if (L) {
@@ -9053,57 +9518,89 @@ try {
     }
 
     /* ------------ scener (engangshandlinger – ingen aktiv-tilstand) */
+    // KI Rom-lysscener (button.* → button.press) først, så scene.*/script.* (turn_on).
     _scenes() {
       const ids = this._L.lists.scener;
       if (!ids.length) return '';
+      const meta = this._L.sceneMeta || {};
       return `<section class="scn noscroll" data-hs="1" data-key="sec-scenes">${ids.map((id) => {
-        const s = this.s(id), nm = this._nm(id), lk = this._look(id);
+        const s = this.s(id), m = meta[id], lk = this._look(id);
+        const nm = (m && m.navn) || this._nm(id);
         const auto = (SCENE_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1];
-        const icon = lk.icon || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
-        return `<button class="sc" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
+        const icon = lk.icon || (m && m.ikon) || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
+        return `<button class="sc" data-act="scene" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
       }).join('')}</section>`;
     }
 
-    /* ------------ lys */
+    /* ------------ lys (mysmart-light-control per lys, gjenbrukt per entity) */
+    // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
+    // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
+    _lightCfg(id) {
+      const c = this.config, L = c.lights || {}, s = this.hass.states[id];
+      const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
+      const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
+      const romfarge = M.color((c.look && (c.look.col || c.look.color)) || null, M.romColor ? M.romColor(this._area, this.hass) : C.orange);
+      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
+      const out = { entity: id, name: this._nm(id), size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
+        card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
+        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
+      const B = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
+      Object.keys(u).forEach((k) => {
+        let v = u[k];
+        if (v == null || v === '') return;
+        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update'].includes(k)) v = B(v);
+        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
+        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background'].includes(k)) v = M.color(v, undefined);
+        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
+        out[k] = v;
+      });
+      if (out.show_icon === true) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
+      if (T === 'onoff' && u.force_toggle_mode == null) out.force_toggle_mode = true;
+      return out;
+    }
     _lights() {
       const ids = this._L.lists.lys;
       if (!ids.length) return '';
-      const c = this.config, open = !!(this.ui.acc || {}).lys;
+      const open = !!(this.ui.acc || {}).lys;
       let on = 0;
       const rows = ids.map((id) => {
-        const s = this.s(id), a = (s && s.attributes) || {}, isOn = !!s && s.state === 'on';
+        const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return '';
-        const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-        const real = isOn ? Math.max(1, Math.round(((a.brightness != null ? a.brightness : 255) / 255) * 100)) : 0;
-        const v = this._v('light', id, real);
-        const lon = v > 0;
-        const kMin = a.min_color_temp_kelvin || 2200, kMax = a.max_color_temp_kelvin || 6500;
-        const kReal = a.color_temp_kelvin || (a.color_temp ? Math.round(1e6 / a.color_temp) : 3500);
-        const K = this._v('ct', id, Math.round(((kReal - kMin) / (kMax - kMin)) * 100));
-        const kelvin = Math.round(kMin + (K / 100) * (kMax - kMin));
-        const hue = this._v('hue', id, Math.round(((a.hs_color && a.hs_color[0]) != null ? a.hs_color[0] : 30) / 3.6)) * 3.6;
-        const fill = T === 'color' && lon ? `linear-gradient(90deg, hsl(${hue} 55% 40%), hsl(${hue} 85% 62%))` : T === 'ct' && lon ? `linear-gradient(90deg, #a07c5c, ${kelvin > 4500 ? '#e9e4dc' : '#f0c08a'})` : 'linear-gradient(90deg, #a07c5c, #d8b07e)';
-        const canX = T === 'ct' || T === 'color', xOpen = canX && !!(this.ui.lx || {})[id];
-        const unav = M.unavailable(s);
-        const pct = unav ? '–' : T === 'onoff' ? (isOn ? 'På' : 'Av') : `${v}%`;
-        let ctl;
-        if (T === 'onoff') {
-          ctl = `<button class="sw" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success"><span class="swf" style="background:${isOn ? 'linear-gradient(90deg, #b8875a, #e0b27e)' : '#8e7563'};transform:${isOn ? 'translateX(92%)' : 'none'}">${M.icon('power_settings_new', 18, 'color:#e8c9a8')}</span><span class="swd" style="${isOn ? 'left:18px' : 'right:18px'}"></span></button>`;
-        } else {
-          ctl = `<div class="ltr"><div class="sl ${this._dragging('light', id) ? 'drag' : ''}" data-slide="light" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="slf" style="flex:${v} 1 0;display:${v > 0 ? 'block' : 'none'};background:${fill}"></span><span class="slh"></span><span class="slt" style="flex:${100 - v} 1 0;display:${v < 100 ? 'block' : 'none'}"></span></div>${canX ? `<button class="lxb" data-act="lx" data-id="${esc(id)}" data-haptic="selection">${this._chev(xOpen, 22)}</button>` : ''}</div>`;
-        }
-        let x = '';
-        if (xOpen) {
-          const ct = T === 'ct', xv = ct ? K : hue / 3.6, hc = ct ? '#ffcf9e' : `hsl(${hue} 90% 65%)`;
-          x = `<div class="xb"><div class="xh"><span class="xl">${ct ? 'Temperatur' : 'Farge'}</span><span class="xv num">${ct ? `${kelvin} K` : `${Math.round(hue)}°`}</span></div>
-            <div class="xbar ${ct ? 'ct' : 'hue'} ${this._dragging(ct ? 'ct' : 'hue', id) ? 'drag' : ''}" data-slide="${ct ? 'ct' : 'hue'}" data-id="${esc(id)}"><span class="xk" style="left:calc(${M.clamp(xv, 0, 100)}% - 17px);background:${hc}"></span></div></div>`;
-        }
-        return `<div class="lt ${unav ? 'unav' : ''}" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">${pct}</span></div>${ctl}${x}</div>`;
+        if (!s) return `<div class="lt unav" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">Finnes ikke</span></div></div>`;
+        return `<div class="lc" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-nomorph></div>`;
       }).join('');
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
     }
+    // Monter/oppdater mysmart-light-control i plassholderne (data-nomorph → morph rører dem ikke).
+    _mountLights() {
+      const R = this.shadowRoot, h = this.hass;
+      if (!R || !h) return;
+      const map = (this._lc = this._lc || new Map());
+      const ok = !!customElements.get('mysmart-light-control');
+      R.querySelectorAll('[data-lc]').forEach((wrap) => {
+        const id = wrap.dataset.lc;
+        if (!wrap.__lcGuard) {
+          wrap.__lcGuard = true;
+          ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => wrap.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+          wrap.addEventListener('pointerup', () => M.haptic('light'));
+        }
+        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = `<div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span></div>`; return; }
+        let rec = map.get(id);
+        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+        const cfg = this._lightCfg(id), json = JSON.stringify(cfg);
+        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+        if (rec.el.hass !== h) rec.el.hass = h;
+        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      });
+    }
+    set hass(h) {
+      super.hass = h;
+      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    }
+    get hass() { return super.hass; }
 
     /* ------------ enheter (brytere/vifter med effekt) – aktiv enhet har ingen glød */
     _w(id) {
@@ -9258,7 +9755,7 @@ try {
         const icon0 = a.icon || SENS_ICON[cls] || M.domainIcon(id, s);
         const lk = this._look(id), ctx = { state, name: nm, w: 0, entity: s };
         const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || state, icon = tpl(lk.icon, ctx) || icon0;
-        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), 'currentColor');
+        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), hot ? 'currentColor' : G.g800);
         return `<div class="pill sn" data-act="more" data-id="${esc(id)}" data-key="s-${esc(id)}" style="background:${bg};color:${hot ? G.g200 : G.w}">
           <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24)}</span>
           <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${hot ? 'rgba(31,42,36,0.75)' : G.g700}">${esc(sub)}</span></span></div>`;
@@ -9272,7 +9769,7 @@ try {
       const d = el.dataset, h = this.hass;
       if (name === 'acc') { const acc = { ...(this.ui.acc || {}) }; acc[d.k] = !acc[d.k]; return this.setUI({ acc }); }
       if (name === 'cvx') return this.setUI({ cvOpen: !this.ui.cvOpen });
-      if (name === 'lx') { const lx = { ...(this.ui.lx || {}) }; lx[d.id] = !lx[d.id]; return this.setUI({ lx }); }
+      if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
       if (name === 'mcmd') return M.call(h, 'media_player', d.cmd, { entity_id: d.id });
@@ -9294,20 +9791,15 @@ try {
     _commit(kind, id, v) {
       const h = this.hass, s = h.states[id], a = (s && s.attributes) || {};
       this._pend[kind + '|' + id] = { v, t: Date.now() };
-      if (kind === 'light') { if (v <= 0) M.call(h, 'light', 'turn_off', { entity_id: id }).catch(() => {}); else M.call(h, 'light', 'turn_on', { entity_id: id, brightness_pct: v }).catch(() => {}); }
-      else if (kind === 'cover') {
+      if (kind === 'cover') {
         if ((Number(a.supported_features) & 4) || a.current_position != null) M.call(h, 'cover', 'set_cover_position', { entity_id: id, position: v }).catch(() => {});
         else M.call(h, 'cover', v >= 50 ? 'open_cover' : 'close_cover', { entity_id: id }).catch(() => {});
       } else if (kind === 'vol') M.call(h, 'media_player', 'volume_set', { entity_id: id, volume_level: v / 100 }).catch(() => {});
-      else if (kind === 'ct') { const mn = a.min_color_temp_kelvin || 2200, mx = a.max_color_temp_kelvin || 6500; M.call(h, 'light', 'turn_on', { entity_id: id, color_temp_kelvin: Math.round(mn + (v / 100) * (mx - mn)) }).catch(() => {}); }
-      else if (kind === 'hue') M.call(h, 'light', 'turn_on', { entity_id: id, hs_color: [Math.round(v * 3.6), (a.hs_color && a.hs_color[1]) || 90] }).catch(() => {});
       this.update();
     }
     _tap(kind, id, v) {
       const h = this.hass;
-      if (kind === 'light') { M.haptic('success'); this._pend['light|' + id] = { v: h.states[id] && h.states[id].state === 'on' ? 0 : 70, t: Date.now() }; M.toggle(h, id).catch(() => {}); this.update(); return; }
       if (kind === 'cover') { M.haptic('success'); const cur = this._cvPos(id); this._commit('cover', id, cur > 0 ? 0 : 100); return; }
-      if (kind === 'ct' || kind === 'hue') { M.haptic('selection'); this._commit(kind, id, v); }
     }
 
     /* ------------ drag/sveip (touch-action + stopPropagation → Bubble Card lukker ikke popupen) */
@@ -9359,11 +9851,10 @@ try {
       const R = this.shadowRoot;
       const area = M.roomArea(this);
       if (area && (this._pubArea !== area || this._pubCfg !== this._rawConfig)) { this._pubArea = area; this._pubCfg = this._rawConfig; M.setRoomCfg(area, this._roomCfg()); }
-      const edge = M.popupPad(this);
-      if (edge && this.style.getPropertyValue('--msh-edge') !== edge + 'px') this.style.setProperty('--msh-edge', edge + 'px');
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
-      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x pan-y'); });
+      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      this._mountLights();
       R.querySelectorAll('[data-car]').forEach((el) => {
         if (el.__b) return;
         el.__b = true;
@@ -9400,9 +9891,9 @@ try {
         .cvn2{font-size:14px;font-weight:500;max-width:100px;flex:none}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
-        .scn{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0 calc(-1 * var(--msh-edge, 0px));padding:0 var(--msh-edge, 0px);scrollbar-width:none}
+        .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
         .scn::-webkit-scrollbar{display:none}
-        .sc{flex:none;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
+        .sc{flex:none;scroll-snap-align:start;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
         .scl{font-size:14px;font-weight:400;max-width:100%}
         /* akkordeon */
@@ -9411,31 +9902,14 @@ try {
         .acct{flex:1;font-size:16px;font-weight:500}
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
-        /* lys */
+        /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
         .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
         .ltp{font-size:12px;color:${G.g700}}
-        .ltr{display:flex;gap:8px;align-items:center}
-        .sl{flex:1;min-width:0;height:40px;display:flex;align-items:center;gap:6px;touch-action:none;cursor:pointer;user-select:none}
-        .slf{height:34px;border-radius:14px 5px 5px 14px;transition:flex-grow .3s}
-        .slh{width:4px;height:40px;border-radius:2px;flex:none;background:#b08a68}
-        .slt{height:34px;border-radius:5px 14px 14px 5px;background:${G.g400};transition:flex-grow .3s}
-        .sl.drag .slf,.sl.drag .slt{transition:none}
-        .lxb{width:36px;height:40px;display:grid;place-items:center;flex:none;color:${G.g800}}
-        .sw{position:relative;height:48px;width:100%;border-radius:24px;background:#695b51;display:flex;align-items:center;padding:4px}
-        .swf{height:40px;width:52%;border-radius:20px;display:flex;align-items:center;padding-left:14px;transition:transform .35s cubic-bezier(.34,1.4,.64,1),background .25s}
-        .swd{position:absolute;top:20px;width:8px;height:8px;border-radius:4px;background:#e8c9a8;opacity:.8}
-        .xb{display:flex;flex-direction:column;gap:6px;padding-left:11px}
-        .xh{display:flex;justify-content:space-between}
-        .xl{font-size:11px;color:${G.g600}}
-        .xv{font-size:12px;color:${G.g800}}
-        .xbar{position:relative;height:28px;border-radius:14px;touch-action:none;cursor:pointer}
-        .xbar.ct{background:linear-gradient(90deg, #ff9f45, #ffd9a8, #fff6ea, #d6e6ff)}
-        .xbar.hue{background:linear-gradient(90deg, hsl(0 85% 60%), hsl(60 85% 60%), hsl(120 70% 55%), hsl(180 70% 55%), hsl(240 75% 65%), hsl(300 75% 62%), hsl(360 85% 60%))}
-        .xk{position:absolute;top:-3px;width:34px;height:34px;border-radius:17px;box-shadow:0 0 0 3px ${G.w}, 0 2px 8px rgba(0,0,0,0.4);pointer-events:none;transition:left .3s}
-        .xbar.drag .xk{transition:none}
+        .lc{display:block;min-height:40px;background:none;padding:0}
+        .lc mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}
         .pill{display:flex;align-items:center;gap:14px;height:66px;padding:0 16px 0 5px;border-radius:33px;text-align:left;width:100%;box-shadow:none;transition:background .25s,transform .2s}
@@ -11301,81 +11775,11 @@ try {
     card.setConfig(next);
     try { const res = await M.saveCardConfig(card.hass, old, next); if (res && res.config && res.config.card_id !== next.card_id) card.setConfig(res.config); } catch (e) { /* */ }
   };
-  // Faner: langt trykk (380 ms) + dra = omorganiser (onReorder(keys)); valgfritt «liquid glass»-drag på tvers
-  // av segmentene (onSelect(key)). Knappene må ha data-key. touch-action pan-y + stopPropagation.
+  // Bakoverkompatibel tynn wrapper rundt MSH.tabReorder (05-tab-reorder.js): langt trykk + dra = omorganiser
+  // (onReorder(keys)); valgfritt «liquid glass»-valg (onSelect(key), glass: true). Knappene må ha data-key.
   M.mshTabDrag = M.mshTabDrag || function (card, nav, { onReorder, onSelect, glass } = {}) {
-    if (!nav || nav.__mshTab) return;
-    nav.__mshTab = true;
-    M.guardDrag(nav, 'x');
-    let st = null;
-    const items = () => Array.from(nav.querySelectorAll('[data-key]'));
-    const reset = () => {
-      if (!st) return;
-      clearTimeout(st.hold);
-      items().forEach((b) => { b.style.transform = ''; b.style.boxShadow = ''; b.style.opacity = ''; b.style.zIndex = ''; b.style.position = ''; b.style.transition = ''; });
-      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
-      card._busy = false;
-      st = null;
-    };
-    const eat = () => { card._swallow = true; setTimeout(() => { card._swallow = false; }, 400); };
-    const lensEl = () => {
-      const l = document.createElement('span');
-      Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-      document.body.appendChild(l);
-      requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
-      return l;
-    };
-    const nearest = (x, y) => { let best = null, bd = 1e9; items().forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
-    nav.addEventListener('pointerdown', (e) => {
-      if (e.button) return;
-      const b = e.target.closest && e.target.closest('[data-key]');
-      if (!b) return;
-      reset();
-      st = { b, x0: e.clientX, y0: e.clientY, id: e.pointerId, mode: null };
-      if (onReorder) st.hold = setTimeout(() => {
-        if (!st || st.mode) return;
-        st.mode = 're';
-        st.rects = items().map((x) => x.getBoundingClientRect());
-        st.idx = items().indexOf(b);
-        card._busy = true;
-        M.haptic('medium');
-        try { nav.setPointerCapture(st.id); } catch (x) { /* */ }
-        items().forEach((x) => { if (x !== b) { x.style.opacity = '0.65'; x.style.transition = 'opacity .2s'; } });
-        Object.assign(b.style, { position: 'relative', zIndex: '5', transform: 'scale(1.06)', boxShadow: '0 8px 20px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgb(242 133 201)', transition: 'none' });
-      }, 380);
-    });
-    nav.addEventListener('pointermove', (e) => {
-      if (!st || e.pointerId !== st.id) return;
-      const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-      if (st.mode === 're') { e.preventDefault(); st.b.style.transform = `translateX(${dx}px) scale(1.06)`; return; }
-      if (st.mode === 'glass') { e.preventDefault(); const hit = nearest(e.clientX, e.clientY); if (hit) { if (hit !== st.hit) M.haptic('selection'); st.hit = hit; const r = hit.getBoundingClientRect(), cr = nav.getBoundingClientRect(); let L = e.clientX - r.width / 2; L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, L)); Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' }); } return; }
-      if (Math.hypot(dx, dy) > 8) {
-        clearTimeout(st.hold);
-        if (glass && onSelect && Math.abs(dx) > Math.abs(dy)) { st.mode = 'glass'; st.lens = lensEl(); try { nav.setPointerCapture(st.id); } catch (x) { /* */ } }
-        else st = null;
-      }
-    });
-    const end = (e) => {
-      if (!st) return;
-      const s0 = st;
-      if (s0.mode === 're' && e.type === 'pointerup') {
-        const keys = items().map((x) => x.dataset.key), k = s0.b.dataset.key, r0 = s0.rects[Math.max(0, s0.idx)] || s0.rects[0];
-        const cx = r0.left + r0.width / 2 + (e.clientX - s0.x0);
-        let j = s0.rects.findIndex((r) => cx >= r.left && cx <= r.right);
-        if (j < 0) j = cx < s0.rects[0].left ? 0 : s0.rects.length - 1;
-        const a2 = keys.filter((x) => x !== k); a2.splice(j, 0, k);
-        reset(); eat();
-        M.haptic('success');
-        onReorder(a2);
-        return;
-      }
-      if (s0.mode === 'glass') { const hit = s0.hit; reset(); eat(); if (hit && e.type === 'pointerup') { M.haptic('light'); onSelect(hit.dataset.key); } return; }
-      if (s0.mode === 're') { reset(); eat(); return; }
-      clearTimeout(s0.hold);
-      st = null;
-    };
-    nav.addEventListener('pointerup', end);
-    nav.addEventListener('pointercancel', end);
+    if (!nav) return null;
+    return M.tabReorder(nav, { card, onReorder, onSelect, glass, styleRow: false, items: () => Array.from(nav.querySelectorAll('[data-key]')) });
   };
   // Ordne liste etter lagret rekkefølge; skjulte fjernes.
   M.mshOrder = M.mshOrder || function (keys, order, hidden) {
@@ -11785,7 +12189,7 @@ try {
       const body = { ov: () => this._ov(A, K), so: () => this._so(A), en: () => this._en2(A, K), vb: () => this._vb(A), ta: () => this._ta(A, K), op: () => this._op(A), av: () => this._av(A, K) }[tab];
       return `<div class="wrap">
         ${this._modes(A)}
-        ${tabs.length ? `<nav class="tabs" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map((k) => { const act = k === tab; return `<button class="tab" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav>` : ''}
+        ${tabs.length ? `<div class="tbox"><nav class="tabs msh-tr" data-gd-skip>${tabs.map((k) => { const act = k === tab; return `<button class="tab${act ? ' on' : ''}" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav></div>` : ''}
         ${body ? body() : ''}
       </div>`;
     }
@@ -12152,7 +12556,7 @@ try {
     }
     afterRender() {
       const nav = this.shadowRoot.querySelector('.tabs');
-      M.mshTabDrag(this, nav, { onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
+      M.tabReorder(nav, { card: this, onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
       const md = this.shadowRoot.querySelector('.modes');
       if (md && !md.__b) { md.__b = true; const st = (e) => e.stopPropagation(); md.addEventListener('touchstart', st, { passive: true }); md.addEventListener('touchmove', st, { passive: true }); }
     }
@@ -12164,9 +12568,11 @@ try {
         .mb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),background .25s}
         .mode:active .mb{transform:scale(.94)!important}
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
-        .tabs{display:grid;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-        .tab{height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s;min-width:0}
-        .tl{font-size:9.5px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+        ${M.TAB_ROW_CSS || ''}
+        .tbox{padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0;overflow:hidden}
+        .tabs{gap:2px;border-radius:20px}
+        .tabs>.tab{flex:1 0 auto;min-width:56px;padding:0 8px;height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s}
+        .tl{font-size:9.5px;font-weight:500;white-space:nowrap}
         .bars{position:relative;display:flex;align-items:flex-end;gap:4px;height:96px}
         .bars>span:not(.lim){flex:1;border-radius:6px;transition:height .4s}
         .bars .lim{position:absolute;left:0;right:0;bottom:88px;border-top:1px dashed var(--gray400,#545454)}
@@ -12226,11 +12632,14 @@ try {
 /* ---- 43-lys.js ---- */
 try {
 /* msh-lys-card · Lys-popup (#lys). Kilde: Lys v4.dc.html.
- * Faner: Utelys · én per etasje (hass.floors) · Lys på. Kan omorganiseres (langt trykk + dra → config.tab_order)
- * og velges med «liquid glass»-drag på tvers av segmentene.
+ * Faner: Utelys · én per etasje (hass.floors) · Lys på. Raden scroller vannrett; langt trykk + dra = omorganiser
+ * (MSH.tabReorder, 05-tab-reorder.js → config.tab_order via ki-store) – virker med mus og touch.
+ * Lys: mysmart-light-control per lys (gjenbrukt per entity, i data-nomorph-plassholdere). Innstillinger per lys under
+ * lights.<object_id> {size, label_layout, show_icon/name/brightness, brightness_min/max, slider_color_mode,
+ * color_control, force_toggle_mode, hide_*, farger, color_presets} – i kortets egen editor og GUI-editoren.
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
  * Utelys = lys i utendørs etasje/område (Ute, Hage, Terrasse …) eller med «ute» i navnet; config.lamps overstyrer.
- * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Sol fra sun.*. Dimmere med drag-vern.
+ * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Sol fra sun.*. Slidere med drag-vern.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -12246,6 +12655,20 @@ try {
   const P = (m) => ((((m - 720) % 1440) + 1440) % 1440) / 1440 * 100;
   const pctOf = (s) => (!s || s.state !== 'on' ? 0 : s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : 100);
   const dimmable = (s) => { const m = (s && s.attributes.supported_color_modes) || []; return m.length ? m.some((x) => x !== 'onoff') : s && s.attributes.brightness != null; };
+  const obj = (id) => String(id || '').split('.').slice(1).join('.');
+  const cap = (n) => String(n || '').charAt(0).toUpperCase() + String(n || '').slice(1);
+  // Lystype fra supported_color_modes: farge (hs/rgb/xy) → temperatur → dimbar → kun av/på
+  const lightType = (s) => {
+    const m = (s && s.attributes.supported_color_modes) || [];
+    if (m.some((x) => ['hs', 'rgb', 'rgbw', 'rgbww', 'xy'].includes(x))) return 'color';
+    if (m.includes('color_temp')) return 'ct';
+    if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
+    return 'onoff';
+  };
+  const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
+  const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
+  const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+  const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
 
   /* ------------------------------------------------------------ autokonfig */
   M.lysAuto = function (hass, cfg) {
@@ -12331,6 +12754,33 @@ try {
             { type: 'boolean', name: 'kveld', label: 'Kveld · tenn i skumringen', default: true },
             { type: 'boolean', name: 'morgen', label: 'Morgen · tenn før det lysner', default: true },
           ] },
+          { type: 'section', label: 'Lys · slidere', id: 'lys', icon: 'mdi:lightbulb', meta: () => `${lightIds(a).length} lys`, fields: [
+            { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto: farge-/temperatur-/dimbar slider etter lystype, romfargen som fyll.' },
+            ...lightIds(a).map((id) => {
+              const p = 'lights.' + obj(id), st = h && h.states[id];
+              return { type: 'section', label: cap(M.name(h, id)), icon: 'mdi:lightbulb', meta: () => ({ color: 'Farge', ct: 'Temperatur', dim: 'Dimbar', onoff: 'Av/på' })[lightType(st)], fields: [
+                { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
+                { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
+                { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
+                { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
+                { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
+                { type: 'boolean', name: p + '.force_toggle_mode', label: 'Kun av/på (bryter)', default: lightType(st) === 'onoff' },
+                { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
+                { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
+                { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
+                { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
+                { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
+                { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
+                { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
+                { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
+                { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
+                { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
+                { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
+                { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
+                { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+              ] };
+            }),
+          ] },
           { type: 'gap' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
         ];
@@ -12357,12 +12807,82 @@ try {
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       return `<div class="wrap">
-        <div class="tw"><div class="tabs noscroll">${tabs.map((k) => `<button class="tab" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'};padding:0 ${tabs.length > 4 ? 11 : 14}px">${esc(names[k])}</button>`).join('')}</div></div>
+        <div class="tw"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div></div>
         ${body || ''}
       </div>`;
     }
 
-    /* ---------------- lampefliser */
+    /* ---------------- lys: mysmart-light-control per lys (plassholder data-nomorph, fylles i _mountLights) */
+    _light(id, name, area) {
+      const s = this.s(id);
+      if (!s) return this._tile(id, false, name);
+      return `<div class="lsl" data-key="lc-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(name || '')}" data-area="${esc(area || '')}" data-nomorph></div>`;
+    }
+    _lightCfg(id, name, area) {
+      const h = this.hass, c = this.config, L = c.lights || {}, s = h.states[id];
+      const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
+      const T = lightType(s);
+      const romfarge = area && M.romColor ? M.romColor(area, h) : Y;
+      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
+      const out = { entity: id, size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
+        slider_color_mode: mode.slider_color_mode, card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
+        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
+      if (name) out.name = name;
+      if (!out.slider_color_mode) delete out.slider_color_mode;
+      const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
+      Object.keys(u).forEach((k) => {
+        let v = u[k];
+        if (v == null || v === '') return;
+        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update', 'show_icon_on_small_sizes', 'show_expand_toggle'].includes(k)) v = B(v);
+        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
+        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background', 'popup_number_color'].includes(k)) v = M.color(v, undefined);
+        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
+        out[k] = v;
+      });
+      if (out.show_icon === true && out.show_icon_on_small_sizes == null) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
+      if (out.force_toggle_mode === false && T === 'onoff') delete out.force_toggle_mode;
+      return out;
+    }
+    // Monter/oppdater lys-elementene: gjenbrukes per entity, setConfig bare ved endret config, hass ved hver endring.
+    _mountLights() {
+      const R = this.shadowRoot, h = this.hass;
+      if (!R || !h) return;
+      const map = (this._lc = this._lc || new Map());
+      const ok = !!customElements.get('mysmart-light-control');
+      R.querySelectorAll('[data-lc]').forEach((wrap) => {
+        const id = wrap.dataset.lc;
+        if (!wrap.__lcGuard) {
+          wrap.__lcGuard = true;
+          // Drag-vern mot Bubble Cards swipe-to-close; haptic «light» ved slipp / trykk på ikon (ikke per trinn)
+          const stop = (e) => e.stopPropagation();
+          wrap.addEventListener('pointerdown', (e) => {
+            stop(e);
+            if (e.button) return;
+            const up = () => { window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', cancel, true); M.haptic('light'); };
+            const cancel = () => { window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', cancel, true); };
+            window.addEventListener('pointerup', up, true);
+            window.addEventListener('pointercancel', cancel, true);
+          });
+          wrap.addEventListener('touchstart', stop, { passive: true });
+          wrap.addEventListener('touchmove', stop, { passive: true });
+        }
+        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = this._tile(id, false, wrap.dataset.name); return; }
+        let rec = map.get(id);
+        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+        const cfg = this._lightCfg(id, wrap.dataset.name, wrap.dataset.area), json = JSON.stringify(cfg);
+        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+        if (rec.el.hass !== h) rec.el.hass = h;
+        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      });
+    }
+    set hass(h) {
+      super.hass = h;
+      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    }
+    get hass() { return super.hass; }
+
+    /* ---------------- reserveflis (lys som ikke finnes / uten light-control) */
     _tile(id, big, name, icon) {
       const s = this.s(id), p = pctOf(s), on = s && s.state === 'on', un = M.unavailable(s);
       const val = !s ? 'Finnes ikke' : un ? 'Utilgjengelig' : on ? (dimmable(s) ? `${p} %` : 'På') : 'Av';
@@ -12402,7 +12922,7 @@ try {
           <div class="mk">${marks.map(([m, ic, col, top]) => `<span style="left:${P(m)}%;top:${top}px;color:${col}">${M.icon(ic, 14)}${fmt(m)}</span>`).join('')}</div>
         </div>
       </section>`;
-      out += L.length ? `<section class="g2">${L.map((l) => this._tile(l.id, true, l.name, l.icon)).join('')}</section>` : M.emptyState('Fant ingen utelamper', 'entities');
+      out += L.length ? `<section class="lbox" data-key="lb-out">${L.map((l) => this._light(l.id, l.name, (A.aOf || {})[l.id] || M.areaOf(this.hass, l.id))).join('')}</section>` : M.emptyState('Fant ingen utelamper', 'entities');
       // Styring
       const lx = A.lux ? M.name(this.hass, A.lux) : 'lysnivåsensoren';
       const info = mode === 'auto' ? `Tennes når ${lx} er under ${c.lux_on} lx, og slukkes over ${c.lux_off} lx.` : mode === 'tid' ? `Tennes ${fmt(T.on)} (skumring ${Number(c.offset) >= 0 ? '+' : '−'}${Math.abs(Number(c.offset || 0))} min) og slukkes ${fmt(T.off)}${c.latest ? `, senest ${c.latest}` : ''}.` : 'Automatikken er av. Utelyset styres bare fra knappene over.';
@@ -12465,7 +12985,7 @@ try {
         return `<section class="col" style="gap:8px" data-key="r-${esc(r.area || '_')}">
           <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--gray700,#979797)')}<span class="grow t15 ell">${esc(r.name)}</span><span class="t12 dim" style="white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
             <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--gray800,#afafaf)' : Y}">${n ? 'Av' : 'På'}</button></div>
-          <div class="g2">${r.ids.map((id) => this._tile(id, false, ((n) => n.charAt(0).toUpperCase() + n.slice(1))(M.name(this.hass, id, r.name)))).join('')}</div></section>`;
+          <div class="lbox">${r.ids.map((id) => this._light(id, cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
       }).join('');
       return out;
     }
@@ -12559,66 +13079,20 @@ try {
       if (name === 'lamp') { const L = this._lamps(this._A); if (!L[d.i]) return; L[d.i][d.f] = v; return M.mshPatchConfig(this, { lamps: L }); }
     }
 
-    /* ---------------- drag: dimmere og faner */
+    /* ---------------- faner (felles MSH.tabReorder) og lys-slidere */
     afterRender() {
-      M.mshTabDrag(this, this.shadowRoot.querySelector('.tabs'), { glass: true, onSelect: (k) => this.setUI({ tab: k }), onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
+      const row = this.shadowRoot.querySelector('.tabs');
+      M.tabReorder(row, {
+        card: this, glass: true,
+        items: () => Array.from(row.querySelectorAll('.tab')),
+        active: () => this._curTab(),
+        onSelect: (k) => this.setUI({ tab: k }),
+        onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
+      });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
       const sc = this.shadowRoot.querySelector('.sc');
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
-      this.shadowRoot.querySelectorAll('.lt').forEach((el) => this._bindDim(el));
-    }
-    _bindDim(el) {
-      if (el.__b) return;
-      el.__b = true;
-      M.guardDrag(el, 'x'); // touch-action: pan-y + stopPropagation → Bubble Card lukker ikke popupen
-      let d = null;
-      const setVis = (p) => {
-        const f = el.querySelector('.lf'), v = el.querySelector('.lv'), i = el.querySelector('.li');
-        if (f) { f.style.transition = 'none'; f.style.width = p + '%'; }
-        if (v) { v.textContent = p ? p + ' %' : 'Av'; v.style.color = p ? 'var(--gray900,#c7c7c7)' : 'var(--gray500,#696969)'; }
-        if (i) { i.style.background = p ? Y : C.ctrl; i.style.color = p ? '#282828' : 'var(--gray500,#696969)'; }
-      };
-      const frac = (e) => { const r = el.getBoundingClientRect(); return M.clamp((e.clientX - r.left) / r.width, 0, 1); };
-      el.addEventListener('pointerdown', (e) => {
-        if (e.button) return;
-        d = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId, last: null };
-        d.hold = setTimeout(() => { if (d && !d.moved) { d.held = true; M.haptic('medium'); M.moreInfo(this, el.dataset.dim); } }, 520);
-      });
-      el.addEventListener('pointermove', (e) => {
-        if (!d || e.pointerId !== d.id) return;
-        const dx = e.clientX - d.x, dy = e.clientY - d.y;
-        if (!d.moved) {
-          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { clearTimeout(d.hold); d = null; return; }
-          if (Math.abs(dx) > 6 && el.dataset.can === '1') { d.moved = true; clearTimeout(d.hold); this._busy = true; try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ } }
-          else return;
-        }
-        e.preventDefault();
-        const p = Math.round(frac(e) * 100);
-        const step = Math.round(p / 5);
-        if (step !== d.last) { d.last = step; M.haptic('selection'); }
-        d.p = p;
-        setVis(p);
-      });
-      const end = (e) => {
-        if (!d) return;
-        const s0 = d; d = null;
-        clearTimeout(s0.hold);
-        if (e.type === 'pointercancel') { this._busy = false; this.update(); return; }
-        if (s0.held) return;
-        const id = el.dataset.dim;
-        if (s0.moved) {
-          this._busy = false;
-          const p = s0.p != null ? s0.p : 0;
-          M.call(this.hass, 'light', p > 0 ? 'turn_on' : 'turn_off', p > 0 ? { entity_id: id, brightness_pct: p } : { entity_id: id });
-          setTimeout(() => this.update(), 50);
-          return;
-        }
-        M.haptic('light');
-        M.toggle(this.hass, id);
-      };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); M.haptic('light'); M.toggle(this.hass, el.dataset.dim); } });
+      this._mountLights();
     }
 
     get styles() {
@@ -12627,9 +13101,15 @@ try {
         .t15{font-size:15px;font-weight:500} .t14{font-size:14px;font-weight:500} .t13{font-size:13px} .t12{font-size:12px} .t11{font-size:11px}
         .dim{color:var(--gray600,#7f7f7f)}
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
+        ${M.TAB_ROW_CSS || ''}
         .tw{display:flex;justify-content:center;min-width:0}
-        .tabs{display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);max-width:100%;overflow-x:auto;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-        .tab{height:38px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;transition:background .2s;flex:none}
+        .tbox{padding:4px;border-radius:23px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);max-width:100%;min-width:0;overflow:hidden}
+        .tabs{gap:2px;border-radius:19px}
+        .tab{height:38px;padding:0 14px;border-radius:19px;font-size:13px;font-weight:500;transition:background .2s}
+        .lbox{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .lsl{display:block;min-height:40px}
+        .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
+        .lbox>.lt{background:var(--gray300,#404040)}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .oc{display:flex;flex-direction:column;gap:18px;padding:18px;border-radius:30px;transition:background .4s}
         .ol{font-size:48px;font-weight:300;letter-spacing:-0.03em;line-height:1}
@@ -12690,6 +13170,8 @@ try {
       `;
     }
   }
+  // Alle lys kortet viser (etasjer + utelys) – for innstillinger per lys i editoren
+  function lightIds(a) { return [...new Set([...(a.lamps || []).map((l) => l.id), ...(a.all || [])])]; }
   function fmtSun(h, c, which) {
     const A = M.lysAuto(h, c || {}), s = A.sun && h.states[A.sun], at = (s && s.attributes) || {};
     const m = which === 'on' ? hm(at.next_setting) : hm(at.next_rising);
@@ -13096,7 +13578,7 @@ try {
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
       const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
-      const head = `<div class="tabs"><span></span><div class="seg">${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
       if (this._pid !== p.id) { this._pid = p.id; ui.act = ''; ui.lastKey = ''; }
@@ -13178,7 +13660,6 @@ try {
     onAction(name, el, ev) {
       const h = this.hass, R = this._R, p = R && R.p;
       if (name === 'tab') {
-        if (Date.now() - (this._eat || 0) < 350) return;
         this._ui = { ...this._ui, act: '', lastKey: '' };
         return this.select(el.dataset.t);
       }
@@ -13265,58 +13746,15 @@ try {
         ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => root.addEventListener(t, clear));
         root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab')) e.preventDefault(); });
       }
-      // Faner: langt trykk + dra = omorganiser (lagres i config.tab_order)
+      // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
-      if (seg && !seg.__b) {
-        seg.__b = true;
-        M.guardDrag(seg, 'x');
-        seg.addEventListener('pointerdown', (e) => {
-          const t = e.target.closest && e.target.closest('.tab');
-          if (!t || e.button) return;
-          clearTimeout(this._th);
-          this._txy = [e.clientX, e.clientY];
-          this._th = setTimeout(() => this._beginTab(seg, t, e.clientX), 380);
-        });
-        seg.addEventListener('pointermove', (e) => { if (this._txy && Math.hypot(e.clientX - this._txy[0], e.clientY - this._txy[1]) > 8) clearTimeout(this._th); });
-        ['pointerup', 'pointercancel'].forEach((ty) => seg.addEventListener(ty, () => clearTimeout(this._th)));
-      }
-    }
-    _beginTab(seg, el, x0) {
-      const sib = [...seg.querySelectorAll('.tab')];
-      if (sib.length < 2) return;
-      const rects = sib.map((c) => c.getBoundingClientRect()), i = sib.indexOf(el), keys = sib.map((c) => c.dataset.t);
-      M.haptic('medium');
-      this._busy = true;
-      el.classList.add('drag');
-      sib.forEach((c) => { if (c !== el) c.classList.add('dim'); });
-      const mv = (e) => { e.preventDefault(); e.stopPropagation(); el.style.transform = `translateX(${e.clientX - x0}px) scale(1.06)`; };
-      const fin = (e) => {
-        window.removeEventListener('pointermove', mv, true);
-        window.removeEventListener('pointerup', fin, true);
-        window.removeEventListener('pointercancel', fin, true);
-        e.stopPropagation();
-        el.style.transform = '';
-        el.classList.remove('drag');
-        sib.forEach((c) => c.classList.remove('dim'));
-        this._busy = false;
-        this._eat = Date.now();
-        if (e.type === 'pointerup') {
-          const r0 = rects[i], cx = r0.left + r0.width / 2 + (e.clientX - x0);
-          let j = rects.findIndex((r) => cx >= r.left && cx <= r.right);
-          if (j < 0) j = cx < rects[0].left ? 0 : rects.length - 1;
-          const k = keys[i], a2 = keys.filter((x) => x !== k);
-          a2.splice(j, 0, k);
-          if (a2.join() !== keys.join()) {
-            M.haptic('success');
-            const all = this._R ? this._R.orderAll : a2;
-            this._save({ tab_order: [...a2, ...all.filter((x) => !a2.includes(x))] });
-          }
-        }
-        this.update();
-      };
-      window.addEventListener('pointermove', mv, { capture: true, passive: false });
-      window.addEventListener('pointerup', fin, true);
-      window.addEventListener('pointercancel', fin, true);
+      if (seg) M.tabReorder(seg, {
+        card: this,
+        items: () => Array.from(seg.querySelectorAll('.tab')),
+        idOf: (b) => b.dataset.t,
+        active: () => this._R && this._R.tab,
+        onReorder: (keys) => { const all = this._R ? this._R.orderAll : keys; this._save({ tab_order: [...keys, ...all.filter((x) => !keys.includes(x))] }); },
+      });
     }
     async _save(patch) {
       const old = this._rawConfig || this.config, n = { ...old, ...patch };
@@ -13339,12 +13777,11 @@ try {
     get styles() {
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
-        .tabs{display:grid;grid-template-columns:46px 1fr 46px;align-items:center;gap:8px}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
-        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:opacity .2s}
+        ${M.TAB_ROW_CSS || ''}
+        .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
+        .seg{gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
+        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);background:transparent}
         .tab.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tab.drag{position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px ${PINKC};transition:none}
-        .tab.dim{opacity:.65}
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}
