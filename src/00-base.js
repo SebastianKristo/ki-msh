@@ -203,7 +203,12 @@
   };
   // Åpne HAs egen more-info (den ligger på rot-nivå, så transform i popupen påvirker den ikke).
   MSH.moreInfo = function (el, entityId) {
-    if (!entityId) return;
+    // Bare ekte entiteter: aldri interne plassholdere (__tilpass …) eller ID-er som ikke finnes i hass.states
+    const h = MSH.lastHass;
+    if (!entityId || String(entityId).startsWith('__') || !/^[a-z_]+\.[^\s]+$/.test(entityId) || (h && h.states && !h.states[entityId])) {
+      if (entityId) console.warn('[ki-msh] more-info ignorert for', entityId);
+      return;
+    }
     const ev = new CustomEvent('hass-more-info', { detail: { entityId }, bubbles: true, composed: true });
     (el || document.querySelector('home-assistant') || window).dispatchEvent(ev);
   };
@@ -1184,9 +1189,10 @@
         el.addEventListener('pointerdown', stop);
       });
     }
-    _el(e, sel) {
+    // own = bare elementer i kortets egen shadow root (ikke inni innebygde kort, som har egne lyttere)
+    _el(e, sel, own) {
       const path = e.composedPath ? e.composedPath() : [];
-      for (const n of path) { if (n === this.shadowRoot) break; if (n.matches && n.matches(sel)) return n; }
+      for (const n of path) { if (n === this.shadowRoot) break; if (n.matches && n.matches(sel) && (!own || n.getRootNode() === this.shadowRoot)) return n; }
       return null;
     }
     _onClick(e) {
@@ -1205,7 +1211,9 @@
     }
     _onDown(e) {
       if (e.button) return;
-      const el = this._el(e, '[data-ent]');
+      // Hold → more-info: bare egne elementer. Innebygde kort (header/prosa i Hjem) håndterer sitt eget hold,
+      // og interne plassholdere (data-ent="__tilpass") skal aldri nå HA (fiks 15.4).
+      const el = this._el(e, '[data-ent]', true);
       if (!el) return;
       this._hx = e.clientX; this._hy = e.clientY;
       this._cancelHold();
