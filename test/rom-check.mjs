@@ -50,18 +50,19 @@ const out = await p.evaluate(async () => {
   res.firstAccordion = secs[0];
   res.ranges = ed.shadowRoot.querySelectorAll('input[type=range]').length;
   // bytt temperatursensor via velgeren
-  const pks = [...ed.shadowRoot.querySelectorAll('.pk')];
-  res.pickers = pks.map((b) => b.textContent.trim().replace(/\s+/g, ' ')).slice(0, 4);
-  const tempPk = pks.find((b) => /stue_temperatur|Automatisk/.test(b.textContent) && b.closest('.f').textContent.includes('Temperatursensor'));
-  tempPk.click(); await wait(100);
-  const rows = [...ed.shadowRoot.querySelectorAll('.pls .pr')];
+  // felles entitetsvelger (<msh-entity-picker>, egen shadow root)
+  const pkEls = () => [...ed.shadowRoot.querySelectorAll('msh-entity-picker')];
+  res.pickers = pkEls().map((p) => p.shadowRoot.querySelector('.pk').textContent.trim().replace(/\s+/g, ' ')).slice(0, 4);
+  const tempEl = () => pkEls().find((p) => p.closest('.f') && p.closest('.f').textContent.includes('Temperatursensor'));
+  tempEl().shadowRoot.querySelector('.pk').click(); await wait(100);
+  const rows = [...tempEl().shadowRoot.querySelectorAll('.pls .pr')];
   res.listFirst = rows[0] && rows[0].textContent.trim().replace(/\s+/g, ' ');
   const kjt = rows.find((x) => x.dataset.v === 'sensor.kjokken_temperatur');
   kjt.click(); await wait(250);
   res.liveTemp = k.shadowRoot.querySelector('.big').textContent;
   // tilbake til Automatisk
-  [...ed.shadowRoot.querySelectorAll('.pk')].find((b) => b.closest('.f').textContent.includes('Temperatursensor')).click(); await wait(80);
-  ed.shadowRoot.querySelector('.pls .pr').click(); await wait(250);
+  tempEl().shadowRoot.querySelector('.pk').click(); await wait(80);
+  tempEl().shadowRoot.querySelector('.pls .pr').click(); await wait(250);
   res.autoTemp = k.shadowRoot.querySelector('.big').textContent;
   // slider live
   const rg = ed.shadowRoot.querySelectorAll('input[type=range]')[1];

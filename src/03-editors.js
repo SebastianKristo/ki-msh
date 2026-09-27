@@ -83,14 +83,16 @@
     constructor() { super(); this.attachShadow({ mode: 'open' }); this.shadowRoot.addEventListener('click', (e) => this._click(e)); }
     connectedCallback() { this._off = M.store && M.store.subscribe(() => this._render()); this._render(); }
     disconnectedCallback() { if (this._off) this._off(); clearTimeout(this._ct); }
+    // storeKey (ett kort) eller storeKeys (Tilpass Hjem: flere kort + popups)
+    _keys() { return [].concat(this.storeKeys || this.storeKey || []).filter(Boolean); }
     _render() {
       const S = M.store; if (!S) return;
-      const dev = S.scope === 'device', own = this.storeKey && S.hasOwn(this.storeKey), u = (this.hass && this.hass.user && this.hass.user.name) || '';
+      const dev = S.scope === 'device', own = this._keys().some((k) => S.hasOwn(k)), u = (this.hass && this.hass.user && this.hass.user.name) || '';
       const who = `For ${u ? M.esc(u) + ' · ' : ''}${dev ? M.esc(S.deviceName) : 'alle enheter'}`;
       const hint = dev ? `Lagres for ${M.esc(S.deviceName)}` : 'Gjelder alle enheter uten eget oppsett';
       this.shadowRoot.innerHTML = `<style>${M.BASE_CSS}${SCOPE_CSS}</style>
         <div class="seg" role="tablist"><button class="${dev ? 'on' : ''}" data-s="device">Denne enheten</button><button class="${dev ? '' : 'on'}" data-s="shared">Alle enheter</button></div>
-        <div class="sub"><span class="who" title="${hint}">${who} · ${hint}</span>${own ? '<span class="chip">Eget oppsett</span>' : ''}</div>
+        <div class="sub"><span class="who" title="${hint}">${this.noWho ? hint : who + ' · ' + hint}</span>${own ? '<span class="chip">Eget oppsett</span>' : ''}</div>
         ${own ? `<div class="act"><button class="warn" data-a="clear">${this._confirm ? 'Trykk igjen for å bekrefte' : 'Bruk felles oppsett'}</button><button data-a="copy">Kopier til alle</button></div>` : ''}`;
     }
     async _click(e) {
@@ -106,10 +108,11 @@
       if (b.dataset.a === 'clear') {
         if (!this._confirm) { M.haptic('light'); this._confirm = true; this._render(); clearTimeout(this._ct); this._ct = setTimeout(() => { this._confirm = false; this._render(); }, 3500); return; }
         this._confirm = false;
-        const r = await S.clearOwn(this.storeKey);
+        const rs = await Promise.all(this._keys().filter((k) => S.hasOwn(k)).map((k) => S.clearOwn(k))), r = rs.find((x) => x && x.ok === false) || rs[0];
         M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Bruker felles oppsett');
       } else if (b.dataset.a === 'copy') {
-        const r = await S.copyToAll(this.storeKey);
+        let r;
+        for (const k of this._keys()) if (S.hasOwn(k)) r = await S.copyToAll(k); // etter hverandre: copyToAll leser data
         M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Kopiert til alle enheter');
       }
       this._render();

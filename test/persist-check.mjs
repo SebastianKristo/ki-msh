@@ -57,7 +57,7 @@ let res = {};
     await wait(50);
     const statusDuring = (S.querySelector('.stat') || {}).textContent;
     await wait(900);
-    return { hapsAfterSlider, hapsAfterPill, statusBefore, statusDuring, hapsAll: haps, stored: (window.__userData.ki_dashboard || {}).rooms, editorOpen: window.MSH.portals().length };
+    return { hapsAfterSlider, hapsAfterPill, statusBefore, statusDuring, hapsAll: haps, stored: (() => { const u = window.__userData.ki_dashboard || {}, d = ((u.devices || {})[window.MSH.store.deviceId] || {}).rooms || {}; return { stue: { ...((u.rooms || {}).stue || {}), ...(d.stue || {}) } }; })(), // felles + denne enhetens oppsett editorOpen: window.MSH.portals().length };
   }, deep);
   res.save.errs = errs;
   const ud = await p.evaluate(() => window.__userData);

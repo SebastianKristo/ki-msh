@@ -814,7 +814,7 @@
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       // «Denne enheten · Alle enheter» (fra openEditor) rett under headeren
       const slot = this.shadowRoot.querySelector('.scope'), bar = this.parentNode && this.parentNode.querySelector && this.parentNode.querySelector(':scope > msh-scope-bar');
-      if (slot && bar && bar.parentNode !== slot) slot.appendChild(bar);
+      if (slot && bar && bar.parentNode !== slot) { bar.noWho = true; slot.appendChild(bar); if (bar._render) bar._render(); } // headeren viser allerede «For <bruker> · <enhet>»
     }
     // Legg til kamera: alle camera.* som ikke vises i lista (også skjulte kanaler/Frigate)
     _addList(ord) {

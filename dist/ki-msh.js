@@ -2487,7 +2487,7 @@ try {
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
-    setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c) : c) }; this._render(); }
+    setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
     get schema() {
       const cls = this.cardClass;
       let s = cls && cls.schema;
@@ -2510,6 +2510,7 @@ try {
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
+        ${!this._inline && M.store ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
         ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
@@ -3259,14 +3260,16 @@ try {
     constructor() { super(); this.attachShadow({ mode: 'open' }); this.shadowRoot.addEventListener('click', (e) => this._click(e)); }
     connectedCallback() { this._off = M.store && M.store.subscribe(() => this._render()); this._render(); }
     disconnectedCallback() { if (this._off) this._off(); clearTimeout(this._ct); }
+    // storeKey (ett kort) eller storeKeys (Tilpass Hjem: flere kort + popups)
+    _keys() { return [].concat(this.storeKeys || this.storeKey || []).filter(Boolean); }
     _render() {
       const S = M.store; if (!S) return;
-      const dev = S.scope === 'device', own = this.storeKey && S.hasOwn(this.storeKey), u = (this.hass && this.hass.user && this.hass.user.name) || '';
+      const dev = S.scope === 'device', own = this._keys().some((k) => S.hasOwn(k)), u = (this.hass && this.hass.user && this.hass.user.name) || '';
       const who = `For ${u ? M.esc(u) + ' · ' : ''}${dev ? M.esc(S.deviceName) : 'alle enheter'}`;
       const hint = dev ? `Lagres for ${M.esc(S.deviceName)}` : 'Gjelder alle enheter uten eget oppsett';
       this.shadowRoot.innerHTML = `<style>${M.BASE_CSS}${SCOPE_CSS}</style>
         <div class="seg" role="tablist"><button class="${dev ? 'on' : ''}" data-s="device">Denne enheten</button><button class="${dev ? '' : 'on'}" data-s="shared">Alle enheter</button></div>
-        <div class="sub"><span class="who" title="${hint}">${who} · ${hint}</span>${own ? '<span class="chip">Eget oppsett</span>' : ''}</div>
+        <div class="sub"><span class="who" title="${hint}">${this.noWho ? hint : who + ' · ' + hint}</span>${own ? '<span class="chip">Eget oppsett</span>' : ''}</div>
         ${own ? `<div class="act"><button class="warn" data-a="clear">${this._confirm ? 'Trykk igjen for å bekrefte' : 'Bruk felles oppsett'}</button><button data-a="copy">Kopier til alle</button></div>` : ''}`;
     }
     async _click(e) {
@@ -3282,10 +3285,11 @@ try {
       if (b.dataset.a === 'clear') {
         if (!this._confirm) { M.haptic('light'); this._confirm = true; this._render(); clearTimeout(this._ct); this._ct = setTimeout(() => { this._confirm = false; this._render(); }, 3500); return; }
         this._confirm = false;
-        const r = await S.clearOwn(this.storeKey);
+        const rs = await Promise.all(this._keys().filter((k) => S.hasOwn(k)).map((k) => S.clearOwn(k))), r = rs.find((x) => x && x.ok === false) || rs[0];
         M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Bruker felles oppsett');
       } else if (b.dataset.a === 'copy') {
-        const r = await S.copyToAll(this.storeKey);
+        let r;
+        for (const k of this._keys()) if (S.hasOwn(k)) r = await S.copyToAll(k); // etter hverandre: copyToAll leser data
         M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Kopiert til alle enheter');
       }
       this._render();
@@ -8705,6 +8709,7 @@ try {
 
   class HomeEditor {
     constructor(focus) {
+      if (M.store) M.store.scope = 'device'; // standard: Denne enheten
       this.u = { sec: 'kort', ctx: null, sel: null, pick: null, acc: {}, icQ: '', allIc: false, allCol: false, popG: 'alle', popSel: null, proseSel: null };
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
@@ -8717,7 +8722,7 @@ try {
       this._bind();
       this._storeOff = M.store ? M.store.subscribe((d, path) => {
         if (this._saving) return;
-        if (!path || /^cards(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
+        if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
         this._schedule();
       }) : null;
       if (M.store && this.hass) M.store.load(this.hass);
@@ -8737,6 +8742,7 @@ try {
       if (!silent) this.render();
     }
     _closed() {
+      if (M.store) M.store.scope = 'device';
       if (this._storeOff) this._storeOff();
       if (M.flushSaves) M.flushSaves();
       if (M.store && M.store.flush) M.store.flush();
@@ -8752,11 +8758,16 @@ try {
       const ha = document.querySelector('home-assistant');
       return (a && a.hass) || (b && b.hass) || (hj && hj.hass) || M.lastHass || (ha && ha.hass) || null;
     }
+    // Config sett fra valgt omfang: «Denne enheten» = enhet + felles + YAML, «Alle enheter» = felles + YAML
     _raw(tag, key) {
-      const live = M.liveOf(tag);
-      if (live && live._rawConfig) return live._rawConfig;
-      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] });
+      const live = M.liveOf(tag), shared = !!(M.store && M.store.scope === 'shared');
+      if (live && live._yamlConfig) return M.effectiveConfig(live._yamlConfig, live, { shared });
+      if (live && live._rawConfig && !shared) return live._rawConfig;
+      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] }, null, { shared });
     }
+    // ki-store-nøklene arket skriver til (for «Eget oppsett» / «Bruk felles oppsett» / «Kopier til alle»)
+    get storeKeys() { return ['cards.' + M.CARD_IDS.faner, 'cards.' + M.CARD_IDS.prosa, 'cards.' + M.CARD_IDS.home, 'popups']; }
+    _pops() { return (M.store && (M.store.scope === 'shared' ? M.store.get('popups') : (M.store.view().popups))) || {}; }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
@@ -8770,7 +8781,7 @@ try {
       if (!nc.type) nc.type = old.type || 'custom:' + tag;
       this[CK] = nc;
       this._saving = true;
-      try { M.saveCardConfig(this.hass, old, nc, { toasts: false }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
+      try { M.saveCardConfig(this.hass, old, nc, { toasts: false, card: M.liveOf(tag) }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
       this._schedule();
     }
     saveF(patch) { this._save('msh-hjem-faner-card', 'faner', patch); }
@@ -8860,10 +8871,17 @@ try {
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
+        <msh-scope-bar data-key="scope" data-nomorph></msh-scope-bar>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
+      const bar = this.body.querySelector('msh-scope-bar');
+      if (bar && !bar.__b) {
+        bar.__b = true; bar.hass = this.hass; bar.storeKeys = this.storeKeys;
+        bar.addEventListener('scope-change', () => { this._F = null; this._P = null; this._H = null; this._schedule(); });
+        if (bar._render) bar._render();
+      }
       this._after();
     }
     _after() {
@@ -9143,7 +9161,7 @@ try {
 
     /* ======================================================== Popups */
     _popList() {
-      const hass = this.hass, c = this.F(), P = (M.store && M.store.get('popups')) || {}, out = [];
+      const hass = this.hass, c = this.F(), P = this._pops(), out = [];
       M.areas(hass).forEach((a) => {
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
@@ -9179,10 +9197,12 @@ try {
       return row + ed;
     }
     _popSet(key, patch) {
-      const cur = { ...((M.store.get('popups') || {})[key] || {}), ...patch };
-      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || cur[k] === false) delete cur[k]; });
+      const dev = M.store.scope === 'device';
+      const cur = { ...(this._pops()[key] || {}), ...patch };
+      // enhetslaget beholder false (skal kunne overstyre felles «skjult»)
+      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || (cur[k] === false && !dev)) delete cur[k]; });
       this._saving = true;
-      try { if (this.hass) M.store.load(this.hass); M.store.set('popups.' + key, Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
+      try { if (this.hass) M.store.load(this.hass); M.store.set(M.store.scoped('popups.' + key), Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
       this._schedule();
     }
 
@@ -9307,7 +9327,7 @@ try {
       } else if (u.sec === 'faner') {
         this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
       } else if (u.sec === 'pop') {
-        this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
+        this._saving = true; try { M.store.set(M.store.scoped('popups'), undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
       } else { u.proseSel = null; this.saveP({ prose: undefined, prose_font_size: undefined, prose_line_height: undefined, prose_offset: undefined }); }
     }
@@ -9493,7 +9513,7 @@ try {
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
         case 'popsel': u.popSel = u.popSel === d.v ? null : d.v; return this.render();
-        case 'pophide': { M.haptic('selection'); const cur = ((M.store.get('popups') || {})[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
+        case 'pophide': { M.haptic('selection'); const cur = (this._pops()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
         case 'popcol': return this._popSet(d.k, { color: d.v });
         case 'popreset': return this._popSet(d.v, { name: undefined, icon: undefined, color: undefined });
         default:
@@ -15704,7 +15724,7 @@ try {
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       // «Denne enheten · Alle enheter» (fra openEditor) rett under headeren
       const slot = this.shadowRoot.querySelector('.scope'), bar = this.parentNode && this.parentNode.querySelector && this.parentNode.querySelector(':scope > msh-scope-bar');
-      if (slot && bar && bar.parentNode !== slot) slot.appendChild(bar);
+      if (slot && bar && bar.parentNode !== slot) { bar.noWho = true; slot.appendChild(bar); if (bar._render) bar._render(); } // headeren viser allerede «For <bruker> · <enhet>»
     }
     // Legg til kamera: alle camera.* som ikke vises i lista (også skjulte kanaler/Frigate)
     _addList(ord) {

@@ -312,6 +312,7 @@
 
   class HomeEditor {
     constructor(focus) {
+      if (M.store) M.store.scope = 'device'; // standard: Denne enheten
       this.u = { sec: 'kort', ctx: null, sel: null, pick: null, acc: {}, icQ: '', allIc: false, allCol: false, popG: 'alle', popSel: null, proseSel: null };
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
@@ -324,7 +325,7 @@
       this._bind();
       this._storeOff = M.store ? M.store.subscribe((d, path) => {
         if (this._saving) return;
-        if (!path || /^cards(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
+        if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
         this._schedule();
       }) : null;
       if (M.store && this.hass) M.store.load(this.hass);
@@ -344,6 +345,7 @@
       if (!silent) this.render();
     }
     _closed() {
+      if (M.store) M.store.scope = 'device';
       if (this._storeOff) this._storeOff();
       if (M.flushSaves) M.flushSaves();
       if (M.store && M.store.flush) M.store.flush();
@@ -359,11 +361,16 @@
       const ha = document.querySelector('home-assistant');
       return (a && a.hass) || (b && b.hass) || (hj && hj.hass) || M.lastHass || (ha && ha.hass) || null;
     }
+    // Config sett fra valgt omfang: «Denne enheten» = enhet + felles + YAML, «Alle enheter» = felles + YAML
     _raw(tag, key) {
-      const live = M.liveOf(tag);
-      if (live && live._rawConfig) return live._rawConfig;
-      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] });
+      const live = M.liveOf(tag), shared = !!(M.store && M.store.scope === 'shared');
+      if (live && live._yamlConfig) return M.effectiveConfig(live._yamlConfig, live, { shared });
+      if (live && live._rawConfig && !shared) return live._rawConfig;
+      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] }, null, { shared });
     }
+    // ki-store-nøklene arket skriver til (for «Eget oppsett» / «Bruk felles oppsett» / «Kopier til alle»)
+    get storeKeys() { return ['cards.' + M.CARD_IDS.faner, 'cards.' + M.CARD_IDS.prosa, 'cards.' + M.CARD_IDS.home, 'popups']; }
+    _pops() { return (M.store && (M.store.scope === 'shared' ? M.store.get('popups') : (M.store.view().popups))) || {}; }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
@@ -377,7 +384,7 @@
       if (!nc.type) nc.type = old.type || 'custom:' + tag;
       this[CK] = nc;
       this._saving = true;
-      try { M.saveCardConfig(this.hass, old, nc, { toasts: false }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
+      try { M.saveCardConfig(this.hass, old, nc, { toasts: false, card: M.liveOf(tag) }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
       this._schedule();
     }
     saveF(patch) { this._save('msh-hjem-faner-card', 'faner', patch); }
@@ -467,10 +474,17 @@
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
+        <msh-scope-bar data-key="scope" data-nomorph></msh-scope-bar>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
+      const bar = this.body.querySelector('msh-scope-bar');
+      if (bar && !bar.__b) {
+        bar.__b = true; bar.hass = this.hass; bar.storeKeys = this.storeKeys;
+        bar.addEventListener('scope-change', () => { this._F = null; this._P = null; this._H = null; this._schedule(); });
+        if (bar._render) bar._render();
+      }
       this._after();
     }
     _after() {
@@ -750,7 +764,7 @@
 
     /* ======================================================== Popups */
     _popList() {
-      const hass = this.hass, c = this.F(), P = (M.store && M.store.get('popups')) || {}, out = [];
+      const hass = this.hass, c = this.F(), P = this._pops(), out = [];
       M.areas(hass).forEach((a) => {
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
@@ -786,10 +800,12 @@
       return row + ed;
     }
     _popSet(key, patch) {
-      const cur = { ...((M.store.get('popups') || {})[key] || {}), ...patch };
-      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || cur[k] === false) delete cur[k]; });
+      const dev = M.store.scope === 'device';
+      const cur = { ...(this._pops()[key] || {}), ...patch };
+      // enhetslaget beholder false (skal kunne overstyre felles «skjult»)
+      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || (cur[k] === false && !dev)) delete cur[k]; });
       this._saving = true;
-      try { if (this.hass) M.store.load(this.hass); M.store.set('popups.' + key, Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
+      try { if (this.hass) M.store.load(this.hass); M.store.set(M.store.scoped('popups.' + key), Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
       this._schedule();
     }
 
@@ -914,7 +930,7 @@
       } else if (u.sec === 'faner') {
         this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
       } else if (u.sec === 'pop') {
-        this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
+        this._saving = true; try { M.store.set(M.store.scoped('popups'), undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
       } else { u.proseSel = null; this.saveP({ prose: undefined, prose_font_size: undefined, prose_line_height: undefined, prose_offset: undefined }); }
     }
@@ -1100,7 +1116,7 @@
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
         case 'popsel': u.popSel = u.popSel === d.v ? null : d.v; return this.render();
-        case 'pophide': { M.haptic('selection'); const cur = ((M.store.get('popups') || {})[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
+        case 'pophide': { M.haptic('selection'); const cur = (this._pops()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
         case 'popcol': return this._popSet(d.k, { color: d.v });
         case 'popreset': return this._popSet(d.v, { name: undefined, icon: undefined, color: undefined });
         default:
