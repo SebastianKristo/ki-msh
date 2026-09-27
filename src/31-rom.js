@@ -3,13 +3,15 @@
  * Autokonfig: sensor.<rom>_oversikt (KI Rom) → ellers HA-registre (område direkte / via enhet).
  * Tellertekster: sensor.<rom>_lys|_media|_brytere|_sensorer|_effekt (attributes.tekst) → ellers beregnet.
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
- * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
+ * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}
+ * (universal-rad, M.universal: mode, size, icon, main_text, sub_text, alt_text, symbol, background_color, text_color,
+ * badge_condition/badge_color, bar_value/bar_color/bar_invert_colors, state_rule_1..3_*; legacy name/label/bg/cell/icon_color).
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
- * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
- * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
- * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
- * chevron_color, color_presets ("a, b" eller [..])}. Objekt-id som nøkkel fordi entity_id har punktum.
+ * Lys: felles lys-rad (08-light-row.js, samme som Lys-popupen) per lys, gjenbrukt per entity. slider_height (32–56,
+ * std 40) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
+ * hide_color_controls, hide_color_presets, color_presets ("a, b" eller [..])}. Eldre utseende-nøkler (size, label_layout,
+ * show_…, slider_color_mode, bar-, håndtak-, ikon- og pilfarger) ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -225,33 +227,21 @@
         ] });
       }
       if (L && L.lists.lys.length) {
-        const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
-        const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
-        const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+        // Felles lys-rad (08-light-row.js): samme utseende for alle lys – bare høyden (slider_height) og funksjon per lys
         const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
-        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
-          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter.' },
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 40} px`, fields: [
+          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 56, default: 40, presets: [[32, 'Kompakt 32'], [40, 'Standard 40'], [48, 'Stor 48'], [56, 'Ekstra stor 56']] },
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Farge/temperatur vises bare for lys som støtter det.' },
           ...L.lists.lys.map((id) => {
             const p = 'lights.' + obj(id), st = h.states[id];
             return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
               { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
-              { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
-              { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
-              { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
-              { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
-              { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
               { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
               { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
-              { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
               { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
               { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
               { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
               { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
-              { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
-              { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
-              { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
-              { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
-              { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
               { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
             ] };
           }),
@@ -261,16 +251,11 @@
         const items = [...L.lists.enheter.map((id) => [id, 'Enhet']), ...L.lists.sensorer.map((id) => [id, 'Sensor'])];
         if (items.length) {
           out.push({ type: 'section', id: 'looks', label: 'Utseende på kort', icon: 'mdi:palette', fields: [
-            { type: 'info', label: 'Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === \'på\' ? \'#7fd6a0\' : \'#404040\' ]]]' },
+            { type: 'info', label: 'Rad-stil som universal_sensor. Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === \'på\' ? \'var(--green)\' : null ]]]. Sensorer: regel 1 er som standard «aktiv» (bevegelse/åpen/fukt) → grønn bakgrunn og mørk tekst.' },
             ...items.map(([id, kind]) => {
-              const p = 'looks.' + id;
-              return { type: 'section', label: `${cap(M.name(h, id, M.areaName(h, area)))} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
-                { type: 'text', name: p + '.name', label: 'Navn', placeholder: cap(M.name(h, id, M.areaName(h, area))) },
-                { type: 'text', name: p + '.label', label: 'Undertekst', placeholder: kind === 'Enhet' ? 'På · {w} W' : '{state}' },
-                { type: 'icon', name: p + '.icon', label: 'Ikon' },
-                { type: 'color', name: p + '.icon_color', label: 'Ikonfarge' },
-                { type: 'color', name: p + '.bg', label: 'Bakgrunn' },
-                { type: 'color', name: p + '.cell', label: 'Ikoncelle' },
+              const p = 'looks.' + id, nm0 = cap(M.name(h, id, M.areaName(h, area)));
+              return { type: 'section', label: `${nm0} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
+                ...(M.universalSchema ? M.universalSchema(p, { kind: kind === 'Enhet' ? 'toggle' : 'sensor', placeholders: { sub_text: nm0, main_text: kind === 'Enhet' ? '{w} W / På / Av' : '{state}', rule1: kind === 'Sensor' && h.states[id] && id.startsWith('binary_sensor.') ? 'Auto: aktiv (on)' : '' } }) : []),
                 ...(kind === 'Enhet' && M.applianceType && M.applianceType(id, h.states[id], h) ? [
                   { type: 'select', name: p + '.animation', label: 'Animasjon', options: ANIM_LV, help: 'Tomt = som «Hvitevarer» under' },
                   { type: 'number', name: p + '.run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto' },
@@ -407,32 +392,15 @@
       }).join('')}</section>`;
     }
 
-    /* ------------ lys (mysmart-light-control per lys, gjenbrukt per entity) */
+    /* ------------ lys: felles lys-rad (08-light-row.js, samme som Lys-popupen), gjenbrukt per entity */
     // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
     // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
+    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (32–56, std 40).
     _lightCfg(id) {
       const c = this.config, L = c.lights || {}, s = this.hass.states[id];
       const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
       const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-      const romfarge = M.color((c.look && (c.look.col || c.look.color)) || null, M.romColor ? M.romColor(this._area, this.hass) : C.orange);
-      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
-      const out = { entity: id, name: this._nm(id), size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
-        card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
-        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
-      const B = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
-      Object.keys(u).forEach((k) => {
-        let v = u[k];
-        if (v == null || v === '') return;
-        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update'].includes(k)) v = B(v);
-        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
-        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
-        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background'].includes(k)) v = M.color(v, undefined);
-        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
-        out[k] = v;
-      });
-      if (out.show_icon === true) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
-      if (T === 'onoff' && u.force_toggle_mode == null) out.force_toggle_mode = true;
-      return out;
+      return M.lightRowCfg(id, { name: this._nm(id), type: T, user: u, height: M.lightRowHeight(c) });
     }
     _lights() {
       const ids = this._L.lists.lys;
@@ -443,37 +411,16 @@
         const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return '';
-        if (!s) return `<div class="lt unav" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">Finnes ikke</span></div></div>`;
-        return `<div class="lc" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-nomorph></div>`;
+        return `<div class="lsl" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(this._nm(id))}" data-nomorph></div>`;
       }).join('');
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
-      return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
+      return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts" style="--lr-h:${M.lightRowHeight(this.config)}px">${rows}</div></div>` : ''}</section>`;
     }
-    // Monter/oppdater mysmart-light-control i plassholderne (data-nomorph → morph rører dem ikke).
-    _mountLights() {
-      const R = this.shadowRoot, h = this.hass;
-      if (!R || !h) return;
-      const map = (this._lc = this._lc || new Map());
-      const ok = !!customElements.get('mysmart-light-control');
-      R.querySelectorAll('[data-lc]').forEach((wrap) => {
-        const id = wrap.dataset.lc;
-        if (!wrap.__lcGuard) {
-          wrap.__lcGuard = true;
-          ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => wrap.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
-          wrap.addEventListener('pointerup', () => M.haptic('light'));
-        }
-        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = `<div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span></div>`; return; }
-        let rec = map.get(id);
-        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
-        const cfg = this._lightCfg(id), json = JSON.stringify(cfg);
-        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
-        if (rec.el.hass !== h) rec.el.hass = h;
-        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
-      });
-    }
+    // Monter/oppdater lys-radene i plassholderne (data-nomorph → morph rører dem ikke).
+    _mountLights() { M.mountLightRows(this, (id) => this._lightCfg(id)); }
     set hass(h) {
       super.hass = h;
-      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+      M.lightRowsHass(this, h);
     }
     get hass() { return super.hass; }
 
@@ -518,13 +465,17 @@
             bg: isOn ? PINK : G.g300, col: isOn ? G.g200 : G.w, cell: isOn ? 'rgba(42,23,32,0.12)' : C.popup, icol: isOn ? G.g200 : G.g800,
             anim: isOn && fan ? `spinn ${ANIM.spinn} infinite` : 'none', run: isOn, subCol: isOn ? 'rgba(42,23,32,0.75)' : G.g700, subW: 400 };
         }
-        const lk = lk0, ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s };
-        const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || st.sub, icon = tpl(lk.icon, ctx) || st.icon;
-        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 26 }) : '';
-        const bg = M.color(tpl(lk.bg, ctx), st.bg), cell = M.color(tpl(lk.cell, ctx), st.cell), icol = M.color(tpl(lk.icon_color, ctx), st.icol);
-        return `<button class="pill dv ${unav ? 'unav' : ''}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success" data-key="d-${esc(id)}" style="background:${bg};color:${st.col}">
-          <span class="iw${aIcon ? ' ma-cell' : ''}" style="background:${cell};color:${icol}">${aIcon || M.icon(icon, 24, `animation:${st.anim}`)}</span>
-          <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${st.subCol};font-weight:${st.subW}">${esc(sub)}</span></span></button>`;
+        // Universal-rad (07-universal.js): toggle-variant, verdi = effekt eller På/Av, navn under. Legacy-nøkler (name/label/bg/cell) som reserve.
+        const ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s }, lk = M.universalLook(lk0, ctx);
+        const icon = lk.icon || st.icon;
+        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 30 }) : '';
+        const alt = unav ? '' : P ? (st.bg !== G.g300 ? P.verb : '') : pctF.replace(' · ', '');
+        return M.universal({ ...lk, mode: lk.mode || 'toggle', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
+          icon_html: aIcon || M.icon(icon, 30, `animation:${st.anim}`),
+          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : unav ? 'Utilgjengelig' : w != null ? `${M.nf(w)} W` : isOn ? 'På' : 'Av'),
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : alt,
+          background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color,
+          toggle_on: lk.toggle_on_value ? undefined : isOn });
       }).join('');
       const sum = this._tekst('effekt', this._listChanged('enheter')) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-dev">${this._head('dev', 'radio', 'Enheter', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
@@ -633,12 +584,17 @@
         const nm = this._nm(id);
         const state = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : bin ? ((BS[cls] || ['På', 'Av'])[s.state === 'on' ? 0 : 1]) : M.fmtState(this.hass, id);
         const icon0 = a.icon || SENS_ICON[cls] || M.domainIcon(id, s);
-        const lk = this._look(id), ctx = { state, name: nm, w: 0, entity: s };
-        const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || state, icon = tpl(lk.icon, ctx) || icon0;
-        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), hot ? 'currentColor' : G.g800);
-        return `<div class="pill sn" data-act="more" data-id="${esc(id)}" data-key="s-${esc(id)}" style="background:${bg};color:${hot ? G.g200 : G.w}">
-          <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24)}</span>
-          <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${hot ? 'rgba(31,42,36,0.75)' : G.g700}">${esc(sub)}</span></span></div>`;
+        // Universal-rad (07-universal.js). Standard regel 1: aktiv (bevegelse/åpen/fukt …) → grønn bakgrunn, mørk tekst.
+        const ctx = { state, name: nm, w: 0, entity: s }, lk0 = this._look(id), lk = M.universalLook(lk0, ctx);
+        const ownRule = Object.keys(lk0).some((k) => /^state_rule_1_(value|condition)$/.test(k) && lk0[k] != null && lk0[k] !== '');
+        const num = !!s && !bin && M.isNum(s.state), u = num ? String(a.unit_of_measurement || '') : '';
+        const dflt = num ? { main_text: M.nf(Number(s.state), Number(s.state) % 1 ? 1 : 0), symbol: u === '°C' || u === '°F' ? '°' : u === '%' ? '%' : u ? ' ' + u : '' } : { main_text: state };
+        return M.universal({
+          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
+          ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || icon0,
+          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : dflt.symbol,
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
+          background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color });
       }).join('');
       const sum = this._tekst('sensorer', this._listChanged('sensorer')) || `${act} aktiv - ${ids.length - act} stille`;
       return `<section class="box" data-key="sec-sens">${this._head('sens', 'directions_walk', 'Sensorer', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
@@ -783,13 +739,12 @@
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
         /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
-        .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
+        .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
         .ltp{font-size:12px;color:${G.g700}}
-        .lc{display:block;min-height:40px;background:none;padding:0}
-        .lc mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
+        ${M.LIGHT_ROW_CSS || ''}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}
         .pill{display:flex;align-items:center;gap:14px;height:66px;padding:0 16px 0 5px;border-radius:33px;text-align:left;width:100%;box-shadow:none;transition:background .25s,transform .2s}
@@ -803,6 +758,7 @@
         @keyframes puls{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
         @keyframes spinn{to{transform:rotate(360deg)}}
         ${M.APPLIANCE_CSS || ''}
+        ${M.UNIVERSAL_CSS || ''}
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}

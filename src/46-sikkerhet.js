@@ -225,6 +225,7 @@
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', id: 'view', fields: [
           { type: 'boolean', name: 'show_alerts', label: 'Varsler · «Krever oppmerksomhet» øverst', default: true },
           { type: 'boolean', name: 'show_log', label: 'Siste hendelser · logg nederst', default: true },
+          { type: 'select', name: 'sensor_view', label: 'Sensorer i rom', options: [['rows', 'Rader'], ['chips', 'Brikker']], default: 'rows' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (toast)', default: true },
         ] },
         { type: 'gap' },
@@ -331,6 +332,17 @@
           <div class="rh"><div class="cap">Rom</div><div class="cnt">${S.length} ${S.length === 1 ? 'sensor' : 'sensorer'}</div></div>
           ${S.length ? rooms.map((room, i) => {
             const list = S.filter((x) => x.room === room), alr = list.some(isAlert), mv = list.some((x) => x.on && !isAlert(x));
+            if (c.sensor_view !== 'chips') {
+              // Universal-rader (07-universal.js): aktiv sensor → regel 1 med varselfarge som bakgrunn og mørk tekst
+              return `<div class="room urm" data-key="r-${esc(room)}"><div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
+                <div class="ulst">${list.map((x) => {
+                  const col = colorOf(x);
+                  const val = x.un ? '–' : ({ door: x.on ? 'Åpen' : 'Lukket', window: x.on ? 'Åpent' : 'Lukket', lock: x.on ? 'Ulåst' : 'Låst', motion: x.on ? 'Bevegelse' : 'Stille', presence: x.on ? 'Noen her' : 'Stille' })[x.type] || (x.on ? 'På' : 'Av');
+                  const alt = x.type === 'lock' && x.bat != null ? `${x.bat} %` : x.on && x.st && x.st.last_changed ? M.relTime(x.st.last_changed) : '';
+                  return M.universal({ mode: 'sensor', size: 'small', entity: x.id, st: x.st, act: 'chip', key: 'u-' + x.id, icon: iconOf(x), main_text: val, sub_text: x.name, alt_text: alt,
+                    state_rule_1_condition: !!col, state_rule_1_background_color: col, state_rule_1_text_color: 'var(--gray000)' });
+                }).join('')}</div></div>`;
+            }
             return `<div class="room" data-key="r-${esc(room)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
               <div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
               <div class="chips">${list.map((x) => {
@@ -518,6 +530,10 @@
         .rd{width:7px;height:7px;border-radius:4px;flex:none}
         .chips{flex:none;max-width:62%;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
         .chip{height:32px;padding:0 11px 0 8px;border-radius:16px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap;transition:background .2s}
+        .urm{flex-direction:column;align-items:stretch;gap:8px;padding:6px 0}
+        .urm .rn{padding:0 4px}
+        .ulst{display:flex;flex-direction:column;gap:8px}
+        ${M.UNIVERSAL_CSS || ''}
         .log{display:flex;flex-direction:column;padding-left:4px}
         .ev{display:flex;gap:14px;align-items:stretch}
         .evl{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}

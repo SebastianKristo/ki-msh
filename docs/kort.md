@@ -77,6 +77,9 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `g_avatar` | Bilder · range | Størrelser |
 | `g_badge` | Merke · range | Størrelser |
 | `g_gap` | Avstand · range | Størrelser |
+| `pic_size` | Profilbilde · range | Størrelser |
+| `persons_size` | Personer · range | Størrelser |
+| `title_size` | Tittel · range | Størrelser |
 | `zones` | Soner med eget ikon og farge · rows | Soner |
 | `zone_away.icon` | Borte · annen sone – ikon · icon | Soner |
 | `zone_away.color` | Borte · annen sone – farge · color | Soner |
@@ -673,12 +676,16 @@ Alle termostater og vifter gruppert per rom, moduser, energi mot timegrensen, va
 
 ## `msh-lys-card`
 
-Utelys med tidslinje og styring, lys per etasje og rom med dimmere, og oversikt over lys som er på.
+Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og oversikt over lys som er på.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `columns` | Kolonner (1 \| 2) | Visning |
+| `size` | Størrelse (standard \| compact) | Visning |
+| `slider_height` | Slider-høyde · range | Visning |
+| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
-| `tile_gap` | Mellom lys-flisene · range | Mellomrom |
+| `tile_gap` | Mellom lys-radene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
 | `tab_order · hidden_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, on | Faner |
@@ -697,303 +704,156 @@ Utelys med tidslinje og styring, lys per etasje og rom med dimmere, og oversikt 
 | `lights.gang_speil.name` | Navn | Rom og lys › 1. etg › Gang › Speil |
 | `lights.gang_speil.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Speil |
 | `light_types.gang_speil` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Speil |
-| `lights.gang_speil.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.handle_color` | Håndtak · color | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `lights.gang_speil.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_tak.name` | Navn | Rom og lys › 1. etg › Gang › Tak |
 | `lights.gang_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Tak |
 | `light_types.gang_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Tak |
-| `lights.gang_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.handle_color` | Håndtak · color | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `lights.gang_tak.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `light_order.kjokken · exclude` | rekkefølge/synlighet: light.kjokken_spot | Rom og lys › 1. etg › Kjøkken |
 | `lights.kjokken_spot.name` | Navn | Rom og lys › 1. etg › Kjøkken › Spot |
 | `lights.kjokken_spot.icon` | Ikon · icon | Rom og lys › 1. etg › Kjøkken › Spot |
 | `light_types.kjokken_spot` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Kjøkken › Spot |
-| `lights.kjokken_spot.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.handle_color` | Håndtak · color | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `lights.kjokken_spot.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `light_order.stue · exclude` | rekkefølge/synlighet: light.stue_lampe, light.stue_led, light.stue_tak | Rom og lys › 1. etg › Stue |
 | `lights.stue_lampe.name` | Navn | Rom og lys › 1. etg › Stue › Lampe |
 | `lights.stue_lampe.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Lampe |
 | `light_types.stue_lampe` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Lampe |
-| `lights.stue_lampe.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.handle_color` | Håndtak · color | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `lights.stue_lampe.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_led.name` | Navn | Rom og lys › 1. etg › Stue › LED |
 | `lights.stue_led.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › LED |
 | `light_types.stue_led` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › LED |
-| `lights.stue_led.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.handle_color` | Håndtak · color | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `lights.stue_led.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_tak.name` | Navn | Rom og lys › 1. etg › Stue › Tak |
 | `lights.stue_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Tak |
 | `light_types.stue_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Tak |
-| `lights.stue_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.show_name` | Vis navn · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.show_icon` | Vis ikon · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.bar_foreground` | Slider · fylt del · color | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.bar_background` | Slider · bakgrunn · color | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.handle_color` | Håndtak · color | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.icon_color` | Ikonfarge · color | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `lights.stue_tak.chevron_color` | Pil (utvid) · color | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `room_order.andre · hidden_rooms` | rekkefølge/synlighet: bad, soverom | Rom og lys › 2. etg |
 | `light_order.bad · exclude` | rekkefølge/synlighet: light.bad_tak | Rom og lys › 2. etg › Bad |
 | `lights.bad_tak.name` | Navn | Rom og lys › 2. etg › Bad › Tak |
 | `lights.bad_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Bad › Tak |
 | `light_types.bad_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Bad › Tak |
-| `lights.bad_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.show_name` | Vis navn · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.show_icon` | Vis ikon · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.bar_foreground` | Slider · fylt del · color | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.bar_background` | Slider · bakgrunn · color | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.handle_color` | Håndtak · color | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.icon_color` | Ikonfarge · color | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `lights.bad_tak.chevron_color` | Pil (utvid) · color | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `light_order.soverom · exclude` | rekkefølge/synlighet: light.soverom_nattbord, light.soverom_tak | Rom og lys › 2. etg › Soverom |
 | `lights.soverom_nattbord.name` | Navn | Rom og lys › 2. etg › Soverom › Nattbord |
 | `lights.soverom_nattbord.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Nattbord |
 | `light_types.soverom_nattbord` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Nattbord |
-| `lights.soverom_nattbord.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.show_name` | Vis navn · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.show_icon` | Vis ikon · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.bar_foreground` | Slider · fylt del · color | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.bar_background` | Slider · bakgrunn · color | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.handle_color` | Håndtak · color | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.icon_color` | Ikonfarge · color | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `lights.soverom_nattbord.chevron_color` | Pil (utvid) · color | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_tak.name` | Navn | Rom og lys › 2. etg › Soverom › Tak |
 | `lights.soverom_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Tak |
 | `light_types.soverom_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Tak |
-| `lights.soverom_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.show_name` | Vis navn · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.show_icon` | Vis ikon · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.show_brightness` | Vis lysstyrke (%) · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.bar_foreground` | Slider · fylt del · color | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.bar_background` | Slider · bakgrunn · color | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.handle_color` | Håndtak · color | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.icon_color` | Ikonfarge · color | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
-| `lights.soverom_tak.chevron_color` | Pil (utvid) · color | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `include.lys` | Lagt til · entities | Rom og lys |
-| `mode` | Styring (auto \| tid \| manuell) | Utelys |
-| `on` | Tennes (HH:MM) | Utelys |
-| `off` | Slukkes (HH:MM) | Utelys |
-| `latest` | Slukk senest (HH:MM) | Utelys |
-| `morning` | Morgen fra (HH:MM) | Utelys |
-| `offset` | Forskyvning skumring (min) · number | Utelys |
-| `lux_on` | Tenn under (lx) · number | Utelys |
-| `lux_off` | Slukk over (lx) · number | Utelys |
-| `kveld` | Kveld · tenn i skumringen · boolean | Utelys |
-| `morgen` | Morgen · tenn før det lysner · boolean | Utelys |
-| `overrides.lux` | Lysnivåsensor (ute) · entity | Utelys |
-| `overrides.automatikk` | Automatikk-bryter · entity | Utelys |
-| `overrides.modus` | Modusvelger (Auto/Tidsplan/Manuelt) · entity | Utelys |
-| `overrides.kveld_bryter` | Kveld-bryter · entity | Utelys |
-| `overrides.morgen_bryter` | Morgen-bryter · entity | Utelys |
+| `outdoor.mode` | Styring (auto \| tid \| manuell) | Utelys › Tider og terskler |
+| `outdoor.on` | Tennes (HH:MM) | Utelys › Tider og terskler |
+| `outdoor.off` | Slukkes (HH:MM) | Utelys › Tider og terskler |
+| `outdoor.latest` | Slukk senest (HH:MM) | Utelys › Tider og terskler |
+| `outdoor.morning` | Morgen fra (HH:MM) | Utelys › Tider og terskler |
+| `outdoor.offset` | Forskyvning skumring (min) · number | Utelys › Tider og terskler |
+| `outdoor.lux_on` | Tenn under (lx) · number | Utelys › Tider og terskler |
+| `outdoor.lux_off` | Slukk over (lx) · number | Utelys › Tider og terskler |
+| `outdoor.kveld` | Kveld · tenn i skumringen · boolean | Utelys › Tider og terskler |
+| `outdoor.morgen` | Morgen · tenn før det lysner · boolean | Utelys › Tider og terskler |
+| `overrides.lux` | Lysnivåsensor (ute) · entity | Utelys › Entiteter |
+| `overrides.automatikk` | Automatikk-bryter · entity | Utelys › Entiteter |
+| `overrides.modus` | Modusvelger (Auto/Tidsplan/Manuelt) · entity | Utelys › Entiteter |
+| `overrides.kveld_bryter` | Kveld-bryter · entity | Utelys › Entiteter |
+| `overrides.morgen_bryter` | Morgen-bryter · entity | Utelys › Entiteter |
 | `order.utelys · exclude` | rekkefølge/synlighet: light.basseng_lys, light.utelys_inngang, light.veranda_flomlys, light.verandalampe | Utelys |
 | `include.utelys` | Lagt til · entities | Utelys |
 | `lights.basseng_lys.name` | Navn | Utelys › Basseng lys |
 | `lights.basseng_lys.icon` | Ikon · icon | Utelys › Basseng lys |
 | `light_types.basseng_lys` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Basseng lys |
-| `lights.basseng_lys.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.show_name` | Vis navn · boolean | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.show_icon` | Vis ikon · boolean | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.show_brightness` | Vis lysstyrke (%) · boolean | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.brightness_min` | Minste lysstyrke (%) · number | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.brightness_max` | Største lysstyrke (%) · number | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.hide_temperature_slider` | Skjul temperaturslider · boolean | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.bar_foreground` | Slider · fylt del · color | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.bar_background` | Slider · bakgrunn · color | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.handle_color` | Håndtak · color | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.icon_color` | Ikonfarge · color | Utelys › Basseng lys › Slider (avansert) |
-| `lights.basseng_lys.chevron_color` | Pil (utvid) · color | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.color_presets` | Fargeforhåndsvalg | Utelys › Basseng lys › Slider (avansert) |
 | `lights.utelys_inngang.name` | Navn | Utelys › Utelys inngang |
 | `lights.utelys_inngang.icon` | Ikon · icon | Utelys › Utelys inngang |
 | `light_types.utelys_inngang` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Utelys inngang |
-| `lights.utelys_inngang.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.show_name` | Vis navn · boolean | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.show_icon` | Vis ikon · boolean | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.show_brightness` | Vis lysstyrke (%) · boolean | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.brightness_min` | Minste lysstyrke (%) · number | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.brightness_max` | Største lysstyrke (%) · number | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.hide_temperature_slider` | Skjul temperaturslider · boolean | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.bar_foreground` | Slider · fylt del · color | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.bar_background` | Slider · bakgrunn · color | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.handle_color` | Håndtak · color | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.icon_color` | Ikonfarge · color | Utelys › Utelys inngang › Slider (avansert) |
-| `lights.utelys_inngang.chevron_color` | Pil (utvid) · color | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.utelys_inngang.color_presets` | Fargeforhåndsvalg | Utelys › Utelys inngang › Slider (avansert) |
 | `lights.veranda_flomlys.name` | Navn | Utelys › Veranda flomlys |
 | `lights.veranda_flomlys.icon` | Ikon · icon | Utelys › Veranda flomlys |
 | `light_types.veranda_flomlys` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Veranda flomlys |
-| `lights.veranda_flomlys.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.show_name` | Vis navn · boolean | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.show_icon` | Vis ikon · boolean | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.show_brightness` | Vis lysstyrke (%) · boolean | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.brightness_min` | Minste lysstyrke (%) · number | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.brightness_max` | Største lysstyrke (%) · number | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.hide_temperature_slider` | Skjul temperaturslider · boolean | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.bar_foreground` | Slider · fylt del · color | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.bar_background` | Slider · bakgrunn · color | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.handle_color` | Håndtak · color | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.icon_color` | Ikonfarge · color | Utelys › Veranda flomlys › Slider (avansert) |
-| `lights.veranda_flomlys.chevron_color` | Pil (utvid) · color | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.veranda_flomlys.color_presets` | Fargeforhåndsvalg | Utelys › Veranda flomlys › Slider (avansert) |
 | `lights.verandalampe.name` | Navn | Utelys › Verandalampe |
 | `lights.verandalampe.icon` | Ikon · icon | Utelys › Verandalampe |
 | `light_types.verandalampe` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Verandalampe |
-| `lights.verandalampe.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.show_name` | Vis navn · boolean | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.show_icon` | Vis ikon · boolean | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.show_brightness` | Vis lysstyrke (%) · boolean | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.brightness_min` | Minste lysstyrke (%) · number | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.brightness_max` | Største lysstyrke (%) · number | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.hide_temperature_slider` | Skjul temperaturslider · boolean | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.bar_foreground` | Slider · fylt del · color | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.bar_background` | Slider · bakgrunn · color | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.handle_color` | Håndtak · color | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.icon_color` | Ikonfarge · color | Utelys › Verandalampe › Slider (avansert) |
-| `lights.verandalampe.chevron_color` | Pil (utvid) · color | Utelys › Verandalampe › Slider (avansert) |
 | `lights.verandalampe.color_presets` | Fargeforhåndsvalg | Utelys › Verandalampe › Slider (avansert) |
-| `columns` | Kolonner (1 \| 2) | Utseende |
-| `tile_height` | Flishøyde (56 \| 64 \| 72) | Utseende |
-| `show_percent` | Vis prosent · boolean | Utseende |
-| `toasts` | Bekreftelsesmeldinger · boolean | Utseende |
 
 ## `msh-media-hero-card`
 
@@ -1286,6 +1146,7 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | `sections · hidden_sections` | rekkefølge/synlighet: modes, alerts, rooms, log, edit |  |
 | `show_alerts` | Varsler · «Krever oppmerksomhet» øverst · boolean | Visning |
 | `show_log` | Siste hendelser · logg nederst · boolean | Visning |
+| `sensor_view` | Sensorer i rom (rows \| chips) | Visning |
 | `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
 | `gap` | 4 / 8 / 18 px |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |

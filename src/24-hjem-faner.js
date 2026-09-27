@@ -533,12 +533,15 @@
       const key = `${t.id}-${slot}`, n = stR.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
       return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + x.k)}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
     }
+    // Snarvei-flis = universal small-rad (07-universal.js); ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
-      let st = '', iw = '', ic = '', sb = '';
-      if (t.solid && t.tone) { st = `background:${t.tone};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(0,0,0,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(31,42,36,0.75)'; } else if (t.tone === 'pink') { st = `background:${C.accent};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(42,23,32,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(42,23,32,0.7)'; } else if (t.tone) { st = `background:${M.alpha(t.tone, 0.14)};box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}`; iw = `background:${M.alpha(t.tone, 0.2)};color:${t.tone}`; }
-      return `<div class="tile" data-act="tile" data-k="${esc(t.kind)}" data-w="card" ${t.ent ? `data-ent="${esc(t.ent)}"` : ''} data-key="${esc(key)}" style="${st}">
-        <button class="tic" data-act="tile" data-k="${esc(t.kind)}" data-w="ic" style="${iw}">${t.aIcon || M.icon(t.icon, 24)}</button>
-        <div class="tx"><span class="tt ell">${esc(t.title)}</span><span class="ts" style="${sb}">${esc(t.sub || '')}</span></div></div>`;
+      const o = { background_color: null, text_color: null, icon_color: null, circle_color: null, style: '' };
+      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)' });
+      else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(42,23,32,0.1)' });
+      else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
+      return M.universal({ ...o, mode: 'sensor', size: 'small', st: null, icon: t.icon, icon_html: t.aIcon || null, main_text: t.title, sub_text: t.sub || '',
+        act: 'tile', id: null, ent: t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card' },
+        icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
     }
     _runTile(kind, w) {
       const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c));
@@ -679,7 +682,7 @@
         };
         const appl = cur.kind === 'aktuelt' ? this._applCards(E) : '';
         const cols = col('L') + col('R');
-        const empty = !rooms.length && !/class="(tile|slot|rk)/.test(cols);
+        const empty = !rooms.length && !/class="(tile|slot|rk|u u-)/.test(cols);
         view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen lys på, ingenting spiller.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
       }
       return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${view}</section>`);
@@ -778,7 +781,10 @@
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
         .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
-        .tsw{width:100%;overflow:hidden;border-radius:36px;touch-action:pan-y}
+        .tsw{width:100%;overflow:hidden;border-radius:var(--ha-card-border-radius, 32px);touch-action:pan-y}
+        ${M.UNIVERSAL_CSS || ''}
+        .u-i[data-act]{cursor:pointer;transition:transform .2s,background .25s}
+        .u-i[data-act]:active{transform:scale(.9)}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
         .dots{display:flex;gap:8px;height:14px;align-items:center}

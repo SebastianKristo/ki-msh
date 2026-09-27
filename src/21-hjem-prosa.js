@@ -18,7 +18,7 @@
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
-  const PCOL = { hvit: 'var(--gray1000, #e1e1e1)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
+  const PCOL = { hvit: 'var(--white, #fafafa)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
@@ -185,9 +185,14 @@
   }
 
   const chipHTML = (v, cls) => `${v.dot ? `<span class="${cls.dot}" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
+  // Pille + etterfølgende tegnsetting i én nowrap-bit, så «.» eller «,» aldri brytes alene til neste linje.
+  const glue = (pill, post) => {
+    const m = /^[.,!?:;…»)\]]+/.exec(post || ''), p = m ? m[0] : '';
+    return `<span style="white-space:nowrap">${pill}${p ? `<span>${esc(p)}</span>` : ''}</span><span>${esc(String(post || '').slice(p.length))}</span>`;
+  };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>` : ''}<span>${esc(v.post)}</span>`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
+    return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -271,6 +276,7 @@
         const persons = hass ? M.all(hass, 'person') : [];
         const toks = [...Object.keys(TOK).map((k) => [`+ {${k}}`, `{${k}}`]), ...areas.map((a) => [`+ {${a.id}.temp}`, `{${a.id}.temp}`]), ...persons.map((p) => { const o = p.split('.')[1]; return [`+ {${o}.hjemme}`, `{${o}.hjemme}`]; })];
         const links = [...LINKS, ...(hass ? M.areas(hass).map((a) => ['#' + a.id, a.name]) : [])];
+        (M.popupOptions && hass ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
@@ -345,7 +351,7 @@
       if (!R.vis.length) {
         return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('')}</div>`;
     }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
@@ -362,8 +368,8 @@
         :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
         .pz{margin:0;padding:4px 0 12px 0;font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
         /* Pillene endrer ikke linjehøyden: inline-flex på grunnlinjen, høyde 1,53em (≈30 px) < linjehøyden */
-        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--gray1000,#e1e1e1);color:var(--gray100,#2f2f2f);font-size:inherit;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
-        .chip ha-icon{color:var(--gray100,#2f2f2f);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
+        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--white,#fafafa);color:var(--gray000,#232323);font-size:inherit;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
+        .chip ha-icon{color:var(--gray000,#232323);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
         .chip .em{font-size:14px;line-height:1;flex:none}
         .dot{width:10px;height:10px;border-radius:5px;flex:none;margin:0 2px;transition:background .3s}
         .pick{vertical-align:baseline}

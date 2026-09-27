@@ -431,10 +431,49 @@
     }
     return r.shadowRoot.querySelector('.slot');
   };
+  // Liquid glass (navbar-stil «glass»). Kilden er navbarens config (style: 'glass'): msh-navbar-card speiler den
+  // til <html data-ki-glass="1|0"> ved hver render; uten navbar leses ki-store (cards.ki-navbar.style). Ikke localStorage.
+  MSH.glassOn = function () {
+    const d = document.documentElement.dataset.kiGlass;
+    if (d === '1' || d === '0') return d === '1';
+    try { const c = MSH.store && MSH.store.card && MSH.store.card('ki-navbar'); return !!(c && c.style === 'glass'); } catch (e) { return false; }
+  };
+  // Felles glassflater (Fiks 3 · 7c) → CSS-deklarasjoner (uten selektor), f.eks. `.box{${MSH.glassSurface('menu')}}`.
+  //   menu    = «Mer»-meny/nedtrekk: rgba(40,40,44,.38), blur 22 saturate 190 % brightness 1.1, overlegg + kant, skygge
+  //   sheet   = Tilpass-ark: rgba(34,34,37,.72) + samme blur/overlegg/kant
+  //   row     = rader/grupper inni et glassark: rgba(255,255,255,.06) + inset .5px rgba(255,255,255,.08)
+  //   segment = spor i segmentvelgere: rgba(0,0,0,.25) (aktiv = glassboble, se MSH.GLASS_BUBBLE)
+  // Overlegget (lys gradient) legges som ekstra bakgrunnslag, så flaten trenger ingen egne pseudo-elementer.
+  // Uten backdrop-filter-støtte: menu/sheet → #2f2f2f, row → #3a3a3a (se MSH.glassFallback).
+  const GL_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
+  const GL_SHEEN = 'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))';
+  const GL_EDGE = 'inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25)';
+  MSH.glassSurface = function (level) {
+    switch (level) {
+      case 'menu': return `background:${GL_SHEEN},rgba(40,40,44,0.38);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgba(0,0,0,0.45);color:#fafafa;`;
+      case 'sheet': return `background:${GL_SHEEN},rgba(34,34,37,0.72);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 -20px 50px rgba(0,0,0,0.5);color:#fafafa;`;
+      case 'row': return 'background:rgba(255,255,255,0.06);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.08);';
+      case 'segment': return 'background:rgba(0,0,0,0.25);';
+      default: return '';
+    }
+  };
+  // @supports-reserve (legg etter regelen som bruker glassSurface): sel = selektor, level som over.
+  MSH.glassFallback = (sel, level) => `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${sel}{background:${level === 'row' ? '#3a3a3a' : '#2f2f2f'};backdrop-filter:none;-webkit-backdrop-filter:none}}`;
+  // Aktiv glassboble (segmentvelgere, dra-linsen)
+  MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);color:#fafafa;';
+  // CSS-variabler som arver inn i alle shadow roots under et glassark (felles editor, egne editorer):
+  // --ki-g-row/--ki-g-ring (rader/grupper), --ki-g-seg (segmentspor), --ki-g-in (felt), --ki-g-on/--ki-g-on-c/--ki-g-on-sh
+  // (aktivt segment), --ki-g-t2 (sekundærtekst). Uten glass er de udefinert → editorene faller tilbake til standardfargene.
+  MSH.GLASS_VARS = '--ki-glass:1;--ki-g-row:rgba(255,255,255,0.06);--ki-g-ring:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-g-seg:rgba(0,0,0,0.25);--ki-g-in:rgba(0,0,0,0.25);'
+    + '--ki-g-on:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));--ki-g-on-c:#fafafa;--ki-g-on-sh:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);--ki-g-t2:rgba(255,255,255,0.62);';
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false } = {}) {
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true } = {}) {
     const host = document.createElement('div');
     host.className = 'msh-portal';
+    // Liquid glass (navbar-stil glass): arket = glassSurface('sheet'), bakteppe rgba(0,0,0,.35) + blur(6px); variablene
+    // (MSH.GLASS_VARS) arver inn i editorene så rader/grupper/segmenter blir glass. glass: false = alltid standard.
+    const gl = glass != null ? !!glass : MSH.glassOn();
+    if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     const R = MSH.dashRect();
     Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
@@ -444,7 +483,11 @@
         padding:12px 18px calc(28px + env(safe-area-inset-bottom));background:var(--gray100,#2f2f2f);box-shadow:0 -20px 50px rgba(0,0,0,0.5);opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;color:#fafafa;font-family:${MSH.FONT}}
       :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translateY(-50%) scale(1)' : 'translateY(0)'}}
       .grab{width:40px;height:5px;border-radius:3px;background:var(--gray400,#545454);margin:0 auto 12px}
-      ${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
+</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}}
+      .bg{background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+      .sh{${MSH.glassSurface('sheet')}border-radius:${center ? '32px' : '32px 32px 0 0'}}
+      .grab{background:rgba(255,255,255,0.3)}
+      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -455,6 +498,7 @@
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
+      if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
       onClose && onClose();
@@ -463,9 +507,20 @@
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     const hash0 = location.hash;
     const onHash = () => { if (location.hash !== hash0) close(); };
-    sr.querySelector('.bg').addEventListener('click', () => { MSH.haptic('light'); close(); });
+    // guard (ms): bakteppet tar ikke imot trykk rett etter åpning, så trykket som åpnet (touch → click) ikke lukker igjen.
+    const bgEl = sr.querySelector('.bg'), t0 = Date.now();
+    if (guard > 0) { bgEl.style.pointerEvents = 'none'; setTimeout(() => { bgEl.style.pointerEvents = ''; }, guard); }
+    bgEl.addEventListener('click', () => { if (guard > 0 && Date.now() - t0 < guard) return; if (bgHaptic) MSH.haptic('light'); close(); });
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', onHash);
+    // Navbar-stilen byttes mens arket er åpent (f.eks. i «Tilpass navbar») → glass av/på live
+    const onGlass = () => {
+      const g = MSH.glassOn();
+      host.classList.toggle('glass', g); host.toggleAttribute('data-glass', g);
+      const st = sr.querySelector('style[data-gl]'); if (g) st.removeAttribute('media'); else st.setAttribute('media', 'not all');
+      sr.querySelectorAll('.body *').forEach((el) => { if (el._glassSync) el._glassSync(); });
+    };
+    if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; };
@@ -708,8 +763,8 @@
     const { type, card_id, ...rest } = newCfg;
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    // Denne enheten: lagre bare feltene som avviker fra felles oppsett (YAML + felles ki-store) under devices.<id>
-    if ((opts.scope || MSH.store.scope) === 'device') {
+    // Denne enheten (bare Kamera/Person): lagre bare feltene som avviker fra felles oppsett (YAML + felles ki-store) under devices.<id>
+    if ((opts.scope || MSH.store.scope) === 'device' && MSH.isPerDevice(newCfg, opts.card, key)) {
       const card = opts.card, yaml = card && card._yamlConfig;
       const base = yaml ? MSH.effectiveConfig(yaml, card, { shared: true }) : (MSH.store.get(key) || {});
       const rec = {}, same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -725,11 +780,19 @@
     const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
-  // YAML-config + felles ki-store + denne enhetens oppsett (null = fjernet). opts.shared = uten enhetslaget (GUI-editoren).
+  // Oppsett per enhet finnes bare for Kamera og Person (static perDevice = true, eller card_id med kamera/person)
+  MSH.PER_DEVICE_CARDS = ['msh-kamera-card', 'msh-person-card'];
+  MSH.isPerDevice = function (cfg, card, key) {
+    const tag = (card && card.localName) || String((cfg && cfg.type) || '').replace('custom:', '');
+    const cls = (card && card.constructor) || (tag && customElements.get(tag));
+    if ((cls && cls.perDevice) || MSH.PER_DEVICE_CARDS.includes(tag)) return true;
+    return !!(key && MSH.store && MSH.store.perDeviceKey && MSH.store.perDeviceKey(key) && !tag);
+  };
+  // YAML-config + felles ki-store + denne enhetens oppsett (bare Kamera/Person) (null = fjernet). opts.shared = uten enhetslaget (GUI-editoren).
   MSH.effectiveConfig = function (yaml, card, opts) {
     const key = yaml && MSH.store ? MSH.storeKey(yaml, card) : null;
     if (!key) return yaml;
-    const st = MSH.store.get(key), dv = opts && opts.shared ? null : MSH.store.get(MSH.store.devKey(key));
+    const st = MSH.store.get(key), dv = (opts && opts.shared) || !MSH.isPerDevice(yaml, card, key) ? null : MSH.store.get(MSH.store.devKey(key));
     if (!st && !dv) return yaml;
     const out = { ...yaml };
     [st, dv].forEach((o) => { if (o && typeof o === 'object') Object.keys(o).forEach((k) => { if (o[k] === null) delete out[k]; else out[k] = o[k]; }); });
@@ -1051,12 +1114,14 @@
     if (MSH.store && card.hass) MSH.store.refresh(card.hass);
     let orig = card._rawConfig || card.config;
     let cur = orig, dirty = false, seq = 0;
-    // Oppsett per enhet: «Denne enheten · Alle enheter» øverst (standard: denne enheten)
+    // Oppsett per enhet (bare Kamera/Person): «Denne enheten · Alle enheter» øverst (standard: denne enheten).
+    // Alle andre kort har én felles config – ingen omfangsvelger.
     const key = MSH.store ? MSH.storeKey(card._yamlConfig || orig, card) : null;
-    if (MSH.store) MSH.store.scope = 'device';
+    const perDev = !!(key && MSH.isPerDevice(card._yamlConfig || orig, card, key));
+    if (MSH.store) MSH.store.scope = perDev ? 'device' : 'shared';
     const own = () => key && MSH.store.hasOwn(key);
     const cfgFor = () => (card._yamlConfig ? MSH.effectiveConfig(card._yamlConfig, card, { shared: MSH.store.scope === 'shared' }) : orig);
-    if (key && customElements.get('msh-scope-bar')) {
+    if (perDev && customElements.get('msh-scope-bar')) {
       const bar = document.createElement('msh-scope-bar');
       bar.hass = card.hass; bar.storeKey = key;
       bar.addEventListener('scope-change', () => {
@@ -1107,7 +1172,7 @@
       dirty = false;
       ov.close();
     });
-    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'device'; };
+    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'shared'; };
     ov.body.appendChild(ed);
     return { overlay: ov, editor: ed };
   };

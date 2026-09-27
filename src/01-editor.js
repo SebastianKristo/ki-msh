@@ -268,6 +268,23 @@
     .rg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
     .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:#545454;color:#fafafa}
     .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
+    /* Liquid glass (navbar-stil glass, attributtet settes når editoren ligger i et glassark fra MSH.overlay):
+       rader/grupper = glassSurface('row'), felt/segmentspor rgba(0,0,0,.25), aktivt segment = glassboble, tekst #fafafa / .62.
+       Ferdig-knappen (rosa gradient) er uendret. Standard-profilen bruker reglene over. */
+    :host([glass]){--ed-bg:transparent}
+    :host([glass]) .sec,:host([glass]) .f,:host([glass]) .ent,:host([glass]) .ordrow{${M.glassSurface('row')}}
+    :host([glass]) .inp{background:rgba(0,0,0,0.25)}
+    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .stat,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:rgba(255,255,255,0.62)}
+    :host([glass]) .chips.sg{${M.glassSurface('segment')}padding:3px;border-radius:19px;gap:2px;touch-action:pan-y}
+    :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
+    :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
+    :host([glass]) .chip,:host([glass]) .pill{background:rgba(255,255,255,0.1)}
+    :host([glass]) .btn:not(.pri){${M.glassSurface('row')}}
+    :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
+    :host([glass]) .menu{${M.glassSurface('menu')}}
+    ${M.glassFallback(':host([glass]) .menu', 'menu')}
+    :host([glass]) .sw:not(.on),:host([glass]) .rg input[type=range]::-webkit-slider-runnable-track{background:rgba(255,255,255,0.18)}
+    :host([glass]) .rg input[type=range]::-moz-range-track{background:rgba(255,255,255,0.18)}
   `;
 
   class MshEditor extends HTMLElement {
@@ -295,6 +312,14 @@
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
+    connectedCallback() { this._glassSync(); }
+    // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
+    _glassSync() {
+      const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
+      const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
+      if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
+      if (glass && M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+    }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
     setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
@@ -320,11 +345,12 @@
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
-        ${!this._inline && M.store ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
+        ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
         ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      this._glassSync();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;
@@ -357,11 +383,11 @@
         }
         case 'select': {
           const cur = val != null ? String(val) : f.default != null ? String(f.default) : '';
-          return `<div class="f">${lab}<div class="chips">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
+          return `<div class="f">${lab}<div class="chips sg">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
         }
         case 'gap': {
           const cur = c.gap != null ? Number(c.gap) : 8;
-          return `<div class="f"><label>Mellomrom</label><div class="chips">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
+          return `<div class="f"><label>Mellomrom</label><div class="chips sg">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
         }
         case 'range': {
           const cur = val != null ? Number(val) : f.default;
@@ -377,8 +403,11 @@
         case 'number':
           return `<div class="f">${lab}<input class="inp" type="number" data-name="${esc(f.name)}" data-num="1" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || f.default || '')}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>${help}</div>`;
         case 'text':
-        case 'hash':
           return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
+        case 'hash': { // forslag: alle popups inkl. egne (MSH.allPopups)
+          const dl = 'hl-' + key, opts = M.popupOptions ? M.popupOptions(this._hass) : [];
+          return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
+        }
         case 'icon':
           if (customElements.get('ha-icon-picker')) return `<div class="f">${lab}<ha-icon-picker data-name="${esc(f.name)}" data-nomorph placeholder="${esc(auto || f.placeholder || '')}"></ha-icon-picker>${help}</div>`;
           return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;

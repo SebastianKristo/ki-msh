@@ -11,10 +11,9 @@
   const WX = { sun: ['clear_day', 'Sol', SUNY], moon: ['bedtime', 'Klarvær', MOON], part: ['partly_cloudy_day', 'Delvis skyet', SUNY], partn: ['partly_cloudy_night', 'Delvis skyet', MOON], cloud: ['cloud', 'Overskyet', CLOUD], rain: ['rainy', 'Regn', RAIN], sleet: ['weather_mix', 'Sludd', C.lightBlue], snow: ['weather_snowy', 'Snø', 'var(--white, #fafafa)'], fog: ['foggy', 'Tåke', CLOUD], thunder: ['thunderstorm', 'Torden', SUNY], wind: ['air', 'Kraftig vind', RAIN] };
   // HA-condition → [nøkkel, norsk etikett]
   const COND = { sunny: ['sun', 'Sol'], 'clear-night': ['moon', 'Klarvær'], partlycloudy: ['part', 'Delvis skyet'], cloudy: ['cloud', 'Overskyet'], rainy: ['rain', 'Regn'], pouring: ['rain', 'Kraftig regn'], snowy: ['snow', 'Snø'], 'snowy-rainy': ['sleet', 'Sludd'], hail: ['sleet', 'Hagl'], fog: ['fog', 'Tåke'], lightning: ['thunder', 'Torden'], 'lightning-rainy': ['thunder', 'Torden og regn'], windy: ['wind', 'Kraftig vind'], 'windy-variant': ['wind', 'Vind og skyer'], exceptional: ['cloud', 'Ekstremvær'] };
-  const WXANIM = { clear_day: 'wx-spin 24s linear infinite, wx-glow 4s ease-in-out infinite', partly_cloudy_day: 'wx-drift 5s ease-in-out infinite', partly_cloudy_night: 'wx-drift 6s ease-in-out infinite', cloud: 'wx-drift 6s ease-in-out infinite', rainy: 'wx-bob 1.1s ease-in-out infinite', weather_mix: 'wx-sway 2.6s ease-in-out infinite', weather_snowy: 'wx-sway 3.4s ease-in-out infinite', foggy: 'wx-fade 4s ease-in-out infinite', thunderstorm: 'wx-flash 3.2s linear infinite', air: 'wx-drift 1.6s ease-in-out infinite', bedtime: 'wx-bob 5s ease-in-out infinite' };
+  const WXANIM = { clear_day: 'wx-spin 24s linear infinite', partly_cloudy_day: 'wx-drift 5s ease-in-out infinite', partly_cloudy_night: 'wx-drift 6s ease-in-out infinite', cloud: 'wx-drift 6s ease-in-out infinite', rainy: 'wx-bob 1.1s ease-in-out infinite', weather_mix: 'wx-sway 2.6s ease-in-out infinite', weather_snowy: 'wx-sway 3.4s ease-in-out infinite', foggy: 'wx-fade 4s ease-in-out infinite', thunderstorm: 'wx-flash 3.2s linear infinite', air: 'wx-drift 1.6s ease-in-out infinite', bedtime: 'wx-bob 5s ease-in-out infinite' };
   const KEYFRAMES = `
     @keyframes wx-spin{to{transform:rotate(360deg)}}
-    @keyframes wx-glow{0%,100%{filter:drop-shadow(0 0 14px rgb(242 210 111 / .3))}50%{filter:drop-shadow(0 0 32px rgb(242 210 111 / .65))}}
     @keyframes wx-drift{0%,100%{transform:translateX(-4px)}50%{transform:translateX(4px)}}
     @keyframes wx-bob{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
     @keyframes wx-sway{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
@@ -24,7 +23,6 @@
     @keyframes wx-snow{0%{transform:translate(0,-20px);opacity:0}10%{opacity:1}50%{transform:translate(14px,120px)}100%{transform:translate(-8px,260px);opacity:0}}
     @keyframes wx-fog{0%{transform:translateX(-25%)}100%{transform:translateX(25%)}}
     @keyframes wx-bolt{0%,84%,100%{opacity:0}85%,88%{opacity:.55}86%{opacity:.1}}
-    @keyframes wx-ray{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.7;transform:scale(1.12)}}
     @keyframes wx-wind{0%{transform:translateX(-120%);opacity:0}20%{opacity:.7}100%{transform:translateX(320%);opacity:0}}
     @media (prefers-reduced-motion: reduce){ha-icon,.fx span{animation:none !important}}
   `;
@@ -113,16 +111,15 @@
     if (k === 'snow') flakes(28, 4.2);
     if (k === 'fog') [18, 62, 108, 150].forEach((y, i) => P.push(`left:-30%;top:${y}px;width:160%;height:36px;border-radius:18px;background:linear-gradient(90deg, transparent, rgba(220,220,220,0.16), rgba(220,220,220,0.22), transparent);filter:blur(6px);animation:wx-fog ${7 + i * 1.5}s ease-in-out ${-i * 2}s infinite alternate`));
     if (k === 'thunder') P.push('inset:0;background:rgba(255,255,240,0.5);animation:wx-bolt 4.5s linear infinite');
-    if (k === 'sun') P.push(`right:-60px;top:-60px;width:300px;height:300px;border-radius:150px;background:radial-gradient(circle, ${M.alpha(C.yellow, 0.28)}, transparent 65%);animation:wx-ray 5s ease-in-out infinite`);
     if (k === 'part' || k === 'cloud' || k === 'partn') [[-10, 20, 220], [40, 90, 260]].forEach(([x, y, w], i) => P.push(`left:${x}%;top:${y}px;width:${w}px;height:70px;border-radius:35px;background:rgba(255,255,255,${k === 'cloud' ? 0.07 : 0.05});filter:blur(10px);animation:wx-drift ${8 + i * 3}s ease-in-out infinite`));
     if (k === 'wind') for (let i = 0; i < 7; i++) P.push(`left:0;top:${20 + i * 24}px;width:${90 + (i % 3) * 40}px;height:2px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(220,230,245,0.45), transparent);animation:wx-wind ${(1.4 + (i % 4) * 0.3).toFixed(1)}s linear ${(-i * 0.4).toFixed(1)}s infinite`);
     return P.map((s) => `<span style="position:absolute;${s}"></span>`).join('');
   };
   // Horisontal sveip (karusell/timeliste): la nettleseren scrolle, men stopp Bubble Cards swipe-to-close.
-  const guardSwipe = (el) => {
+  const guardSwipe = (el, ta = 'pan-x pan-y') => {
     if (!el || el.__mshSwipe) return;
     el.__mshSwipe = true;
-    el.__mshTA = 'pan-x pan-y'; // bevares av MSH.morph
+    el.__mshTA = ta; // bevares av MSH.morph
     el.style.touchAction = el.__mshTA;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, stop, { passive: true }));
@@ -200,14 +197,13 @@
       const rain = H[0] && num(H[0].precipitation) != null ? `${f1(H[0].precipitation)} ${pu}` : '';
       const uv = num(A.uv_index) != null ? num(A.uv_index) : H[0] && num(H[0].uv_index) != null ? num(H[0].uv_index) : null;
       const col = cond ? cond.color : 'var(--gray600, #7f7f7f)';
-      const glow = !cond || cond.key === 'sun' ? '' : `filter:drop-shadow(0 0 20px ${/gray|white/.test(col) ? 'rgba(255,255,255,0.15)' : M.alpha(col, 0.3)})`;
       const slides = [];
       slides.push(`<div class="sl now" data-key="s0" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}>
         <div class="fx">${cond ? heroFx(cond.key) : ''}</div>
         <span class="pl">Været nå · ${esc(place)}</span>
         <span class="tv"><span class="big num">${temp != null ? f1(temp) : '–'}°</span>${feels ? `<span class="fl">${esc(feels)}</span>` : ''}</span>
         <span class="meta">${st ? `<span>${esc(cond.label)}</span>${wind ? `<span>${esc(wind)}</span>` : ''}${rain ? `<span>${esc(rain)}</span>` : ''}` : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</span>
-        <span class="hi">${wxIcon(cond ? cond.icon : 'cloud', 120, col, glow)}</span>
+        <span class="hi">${wxIcon(cond ? cond.icon : 'cloud', 120, col)}</span>
       </div>`);
       if (c.show_extras !== false) {
         const uvL = uvOf(uv);
@@ -267,12 +263,12 @@
         .ex{gap:14px}
         .po{gap:12px}
         .exg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--gray300,#404040);min-width:0}
+        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--gray100,#2f2f2f);min-width:0}
         .ext span{font-size:12px;color:var(--gray900,#c7c7c7);text-align:center;line-height:1.25;padding:0 4px}
         .ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 8px}
         .src{font-size:11px;color:var(--gray600,#7f7f7f)}
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);min-width:0}
+        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
         .pn{font-size:12px;font-weight:500}
         .pe{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--gray700,#979797)}
         .dots{display:flex;gap:8px;height:14px;align-items:center}
@@ -459,7 +455,7 @@
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      guardSwipe(this.shadowRoot.querySelector('.hrs'));
+      guardSwipe(this.shadowRoot.querySelector('.hrs'), 'pan-x');
       const sc = this.shadowRoot.querySelector('.scrub');
       if (!sc || sc.__b) return;
       sc.__b = true;
@@ -483,9 +479,9 @@
         .lb{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px}
         .ax{display:flex;flex-direction:column;gap:10px;width:100%;padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.06);text-align:left}
         .map{display:flex;align-items:center;gap:4px;color:var(--gray800,#afafaf);text-decoration:none;white-space:nowrap}
-        .hrs{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
-        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0}
-        .hb.first{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08)}
+        .hrs{width:100%;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain;margin:0;padding:0}
+        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0;scroll-snap-align:start}
+        .hb.first .ht{color:var(--white,#fafafa);font-weight:600}
         .hb.ph,.day.ph{width:100%;height:auto;min-height:72px;justify-content:center;font-size:13px;color:var(--gray700,#979797)}
         .ht{font-size:13px;color:var(--gray800,#afafaf)}
         .htv{font-size:24px;font-weight:300;letter-spacing:-0.02em}
@@ -514,10 +510,10 @@
         .arr{position:absolute;top:12px;left:50%;margin-left:-11px;line-height:0;transition:transform .4s}
         .arc{position:relative;height:56px;overflow:hidden}
         .ell0{position:absolute;left:4px;right:4px;top:6px;height:100px;border-radius:50%;border:1.5px dashed var(--gray400,#545454)}
-        .sd{position:absolute;width:18px;height:18px;border-radius:9px;background:${SUNY};box-shadow:0 0 16px ${M.alpha(SUNY, 0.6)}}
+        .sd{position:absolute;width:18px;height:18px;border-radius:9px;background:${SUNY}}
         .base{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--gray400,#545454)}
         .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
-        .moon{position:relative;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden;box-shadow:0 0 30px rgba(233,228,214,0.18)}
+        .moon{position:relative;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden}
         .own{width:100%;height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
         .own:active{transform:scale(0.98)}
       `;

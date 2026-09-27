@@ -8,7 +8,9 @@
  *   Tekst      → msh-prosa-card-config (prose[] med ent / ent_override / cent via felles MSH.entityPicker,
  *                prose_font_size, prose_line_height)
  *   Kort       → også msh-hjem-card-config (show_todo, hidden) – «Kort på Hjem» med øye per kort
- *   Popups     → ki-store popups.<hash uten #> = { hidden, name, icon, color } (leses av strategien ved neste generering)
+ *   Popups     → 28-popup-editor.js (MSH.popupsPanel): alle popups (Rom · Funksjoner · Egne) med YAML-editor. Skriver
+ *                ki-store popups.<hash uten #> = { hidden, name, icon, color }, custom_popups[] og popup_overrides{}
+ *                (strategien oppdaterer popupene i dashbordet straks, uten omlasting)
  * Alt lagres live med MSH.saveCardConfig (ki-store, debounce, ingen navigering); kortene abonnerer på ki-store.
  */
 (function () {
@@ -312,7 +314,7 @@
 
   class HomeEditor {
     constructor(focus) {
-      if (M.store) M.store.scope = 'device'; // standard: Denne enheten
+      if (M.store) M.store.scope = 'shared'; // én felles config
       this.u = { sec: 'kort', ctx: null, sel: null, pick: null, acc: {}, icQ: '', allIc: false, allCol: false, popG: 'alle', popSel: null, proseSel: null };
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
@@ -345,7 +347,6 @@
       if (!silent) this.render();
     }
     _closed() {
-      if (M.store) M.store.scope = 'device';
       if (this._storeOff) this._storeOff();
       if (M.flushSaves) M.flushSaves();
       if (M.store && M.store.flush) M.store.flush();
@@ -369,8 +370,8 @@
       return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] }, null, { shared });
     }
     // ki-store-nøklene arket skriver til (for «Eget oppsett» / «Bruk felles oppsett» / «Kopier til alle»)
-    get storeKeys() { return ['cards.' + M.CARD_IDS.faner, 'cards.' + M.CARD_IDS.prosa, 'cards.' + M.CARD_IDS.home, 'popups']; }
-    _pops() { return (M.store && (M.store.scope === 'shared' ? M.store.get('popups') : (M.store.view().popups))) || {}; }
+    // popup-valg (felles config)
+    _popCfg() { return (M.store && M.store.get('popups')) || {}; }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
@@ -474,20 +475,14 @@
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
-        <msh-scope-bar data-key="scope" data-nomorph></msh-scope-bar>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
-      const bar = this.body.querySelector('msh-scope-bar');
-      if (bar && !bar.__b) {
-        bar.__b = true; bar.hass = this.hass; bar.storeKeys = this.storeKeys;
-        bar.addEventListener('scope-change', () => { this._F = null; this._P = null; this._H = null; this._schedule(); });
-        if (bar._render) bar._render();
-      }
       this._after();
     }
     _after() {
+      if (this.u.sec === 'pop' && M.popupsPanel) M.popupsPanel.after(this);
       const r = this.root;
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
       r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
@@ -764,7 +759,7 @@
 
     /* ======================================================== Popups */
     _popList() {
-      const hass = this.hass, c = this.F(), P = this._pops(), out = [];
+      const hass = this.hass, c = this.F(), P = this._popCfg(), out = [];
       M.areas(hass).forEach((a) => {
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
@@ -775,6 +770,7 @@
       return out.map((p) => ({ ...p, ov: P[p.key] || {} }));
     }
     _pops() {
+      if (M.popupsPanel) return M.popupsPanel.render(this); // 28-popup-editor.js (egne popups, YAML)
       const u = this.u, L = this._popList(), G = [['alle', 'mdi:layers-outline', 'Alle'], ['rom', 'mdi:texture-box', 'Rom'], ['fn', 'mdi:apps', 'Funksjoner'], ['person', 'mdi:account', 'Personer']];
       const list = L.filter((p) => u.popG === 'alle' || p.g === u.popG);
       return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops">
@@ -800,12 +796,10 @@
       return row + ed;
     }
     _popSet(key, patch) {
-      const dev = M.store.scope === 'device';
-      const cur = { ...(this._pops()[key] || {}), ...patch };
-      // enhetslaget beholder false (skal kunne overstyre felles «skjult»)
-      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || (cur[k] === false && !dev)) delete cur[k]; });
+      const cur = { ...(this._popCfg()[key] || {}), ...patch };
+      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || cur[k] === false) delete cur[k]; });
       this._saving = true;
-      try { if (this.hass) M.store.load(this.hass); M.store.set(M.store.scoped('popups.' + key), Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
+      try { if (this.hass) M.store.load(this.hass); M.store.set('popups.' + key, Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
       this._schedule();
     }
 
@@ -830,6 +824,7 @@
         const cur = R.valOf(p), cs = p.csrc || p.src;
         const sv = R.valFor ? R.valFor(cs, p.cent || (cs === p.src ? (cs === 'custom' ? p.ent : p.ent_override) : '') || '') : cs === 'custom' ? R.getS(p.cent) : R.S[cs];
         const links = [...LINKS, ...M.areas(hass).map((a) => ['#' + a.id, a.name])];
+        (M.popupOptions ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
         const linkKnown = links.some((l) => l[0] === (p.link || ''));
         const ed = `<div class="ped" data-key="ped-${i}">
           <div class="fld"><span class="fl">Tekst før</span><input class="in" data-in="pf" data-i="${i}" data-f="pre" value="${esc(p.pre || '')}" placeholder="F.eks. Strømmen koster">${tokHTML('pre', i)}</div>
@@ -930,7 +925,7 @@
       } else if (u.sec === 'faner') {
         this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
       } else if (u.sec === 'pop') {
-        this._saving = true; try { M.store.set(M.store.scoped('popups'), undefined); } finally { this._saving = false; }
+        this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
       } else { u.proseSel = null; this.saveP({ prose: undefined, prose_font_size: undefined, prose_line_height: undefined, prose_offset: undefined }); }
     }
@@ -1112,11 +1107,12 @@
       }
     }
     _actPop(a, d) {
+      if (M.popupsPanel && M.popupsPanel.act(this, a, d)) return;
       const u = this.u;
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
         case 'popsel': u.popSel = u.popSel === d.v ? null : d.v; return this.render();
-        case 'pophide': { M.haptic('selection'); const cur = (this._pops()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
+        case 'pophide': { M.haptic('selection'); const cur = (this._popCfg()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
         case 'popcol': return this._popSet(d.k, { color: d.v });
         case 'popreset': return this._popSet(d.v, { name: undefined, icon: undefined, color: undefined });
         default:
@@ -1153,6 +1149,7 @@
       const el = this._el(e, 'in');
       if (!el) return;
       const k = el.dataset.in, d = el.dataset, v = el.value, u = this.u;
+      if (u.sec === 'pop' && M.popupsPanel && M.popupsPanel.input(this, el, kind)) return;
       // live under skriving: kun søk og slidere
       if (kind === 'input') {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
@@ -1279,7 +1276,7 @@
       while (n && n !== this.root) { if (n.dataset && n.dataset.drop && n !== s.el) { tgt = n; break; } n = n.parentNode || n.host; }
       if (tgt && s.type === 'tab' ? !/^tab:/.test(tgt.dataset.drop) : tgt && /^tab:/.test(tgt.dataset.drop)) tgt = null;
       let pos = null;
-      if (tgt && /^(room|tile|tab):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
+      if (tgt && /^(room|tile|tab|pop):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
       const key = tgt ? tgt.dataset.drop + '|' + pos : null;
       if (key !== s.key) {
         this.root.querySelectorAll('.hov-t,.hov-b,.hov').forEach((z) => z.classList.remove('hov-t', 'hov-b', 'hov'));
@@ -1300,6 +1297,7 @@
       try { this._drop(s, target); } catch (x) { console.error('[ki-msh] Tilpass Hjem drop', x); this.render(); }
     }
     _drop(s, tg) {
+      if (s.type === 'pop') return M.popupsPanel ? M.popupsPanel.drop(this, s, tg) : this.render();
       const [kind, a, b] = tg.drop.split(':'), after = tg.pos === 'b';
       if (s.type === 'tab') {
         if (kind !== 'tab' || a === s.id) return this.render();
