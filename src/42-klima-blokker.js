@@ -23,7 +23,8 @@
   const TIMESMALER_KANDIDATER = ['sensor.ki_time_energi'];
   const SONE_ENTITETER = {};
   const DATO_TID = new Set(['ki_vvb_siste_godkjente_syklus', 'ki_vvb_oppvarming_startet', 'ki_vvb_boost_til', 'ki_hjemkomst_planlagt']);
-  const mapId = (id) => {
+  // input_* fra pakke-tiden → integrasjonens domener (mapId i JS-kortet)
+  const mapDom = (id) => {
     if (!id || typeof id !== 'string') return id;
     const [dom, obj] = id.split('.');
     if (dom === 'input_boolean') return `switch.${obj}`;
@@ -32,6 +33,90 @@
     if (dom === 'input_datetime') return `${DATO_TID.has(obj) ? 'datetime' : 'time'}.${obj}`;
     return id;
   };
+  // … og deretter til den FAKTISKE entitets-ID-en fra registeret (fiks 15.12): «sensor.ki_energi_status» kan hete
+  // «sensor.ki_energi_status_2» (kollisjon med pakke-/pyscript-sensoren ved installasjon) eller være omdøpt av brukeren.
+  const mapId = (id) => mapDom(id);
+
+  /* ================================================================ KI Energi i registeret (fiks 15.12) */
+  // Integrasjonen (entity.py): entity_id = <domene>.<nøkkel>, unique_id = "ki_energi_<nøkkel>", platform = "ki_energi",
+  // ingen translation_key. Oppslaget bygges fra hass.entities (platform === 'ki_energi'); unique_id brukes når den finnes
+  // der (eldre/andre frontend-versjoner) eller fra config/entity_registry/list (reserve, én gang). Uten unique_id godtas
+  // HAs kollisjonssuffiks (_2, _3 …) når grunn-ID-en ikke selv finnes.
+  const DOMENE = 'ki_energi', STATUS = 'sensor.ki_energi_status';
+  const KI = { ents: undefined, built: -1, ver: 0, ids: new Map(), n: 0, reg: null, regAsked: false, entry: undefined, entryAsked: false, logged: false, cards: new Set() };
+  const uidKey = (u) => (typeof u === 'string' && u.startsWith(DOMENE + '_') ? u.slice(DOMENE.length + 1) : null);
+  function kiBuild(hass) {
+    const ents = hass && hass.entities;
+    const list = [];
+    if (ents) Object.keys(ents).forEach((id) => { const e = ents[id]; if (e && e.platform === DOMENE) list.push({ ...e, entity_id: e.entity_id || id }); });
+    // Registeret over WS (reserve) har unique_id; fyll inn / legg til
+    if (Array.isArray(KI.reg)) {
+      const byId = new Map(list.map((e) => [e.entity_id, e]));
+      KI.reg.forEach((r) => { if (!r || r.platform !== DOMENE || r.disabled_by) return; const e = byId.get(r.entity_id); if (e) { if (e.unique_id == null) e.unique_id = r.unique_id; if (e.translation_key == null) e.translation_key = r.translation_key; } else list.push(r); });
+    }
+    const ids = new Map(), egne = new Set(list.map((e) => e.entity_id));
+    // 1) unique_id / translation_key → nøyaktig
+    list.forEach((e) => {
+      const dom = String(e.entity_id).split('.')[0], k = uidKey(e.unique_id);
+      if (k && `${dom}.${k}` !== e.entity_id) ids.set(`${dom}.${k}`, e.entity_id);
+      if (e.translation_key && !egne.has(`${dom}.${e.translation_key}`) && !ids.has(`${dom}.${e.translation_key}`)) ids.set(`${dom}.${e.translation_key}`, e.entity_id);
+    });
+    // 2) uten unique_id: HAs kollisjonssuffiks
+    list.forEach((e) => {
+      if (uidKey(e.unique_id)) return;
+      const m = /^(.+?)_\d+$/.exec(e.entity_id);
+      if (m && !egne.has(m[1]) && !ids.has(m[1])) ids.set(m[1], e.entity_id);
+    });
+    // Oppslaget skal aldri peke vekk fra en ID som selv er integrasjonens
+    egne.forEach((id) => ids.delete(id));
+    KI.ids = ids; KI.n = list.length; KI.ents = ents; KI.built = KI.ver;
+  }
+  function kiIndex(hass) {
+    if (!hass) return KI;
+    if (hass.entities !== KI.ents || KI.built !== KI.ver) kiBuild(hass);
+    kiAsk(hass);
+    return KI;
+  }
+  const kiBump = () => { KI.ver++; KI.cards.forEach((c) => { if (c.isConnected) { if (c.update) c.update(); } else KI.cards.delete(c); }); };
+  // Reserve-oppslag over WS (én gang per økt): config entry for loggen/«installert», registeret når statussensoren
+  // ikke kan finnes via hass.entities.
+  function kiAsk(hass) {
+    if (!hass || typeof hass.callWS !== 'function') { kiLog(hass); return; }
+    if (!KI.entryAsked) {
+      KI.entryAsked = true;
+      Promise.resolve().then(() => hass.callWS({ type: 'config_entries/get', domain: DOMENE }))
+        .then((r) => { KI.entry = Array.isArray(r) ? (r.find((e) => e && e.domain === DOMENE) || null) : undefined; })
+        .catch(() => { KI.entry = undefined; })
+        .then(() => { kiLog(M.lastHass || hass); kiBump(); });
+    }
+    // Registeret hentes bare når noe tyder på avvikende ID-er: statussensoren er ikke funnet, eller en ki_energi-entitet
+    // har kollisjonssuffiks / et navn som ikke følger integrasjonens mønster (omdøpt av brukeren) og mangler unique_id.
+    const funnet = (hass.states && hass.states[STATUS] && (!hass.entities || !hass.entities[STATUS] || hass.entities[STATUS].platform === DOMENE)) || KI.ids.has(STATUS);
+    const avvik = () => Object.keys(hass.entities || {}).some((id) => { const e = hass.entities[id]; if (!e || e.platform !== DOMENE || e.unique_id) return false; const o = id.split('.')[1] || ''; return /_\d+$/.test(o) || !/^(ki_|vvb_)/.test(o); });
+    if (!KI.regAsked && (!funnet || avvik())) {
+      KI.regAsked = true;
+      Promise.resolve().then(() => hass.callWS({ type: 'config/entity_registry/list' }))
+        .then((r) => { if (Array.isArray(r)) { KI.reg = r.filter((e) => e && e.platform === DOMENE); kiBump(); } })
+        .catch(() => { /* ikke admin / ikke tilgjengelig – oppslaget fra hass.entities står */ });
+    }
+  }
+  function kiLog(hass) {
+    if (KI.logged || !hass) return;
+    KI.logged = true;
+    const st = hass.states && hass.states[mapId(STATUS)];
+    console.info('msh-klima-card', window.KI_MSH_VERSION || '', { entry: !!KI.entry, entiteter: KI.n, status: st ? st.state : null });
+  }
+  // Status for heroen og «Venter på KI Energi» (4 · bare når integrasjonen mangler eller status er utilgjengelig)
+  M.kiEnergi = function (card) {
+    const hass = (card && (card.hass || card._hass)) || M.lastHass || null;
+    kiIndex(hass);
+    if (card && card.isConnected !== undefined) KI.cards.add(card);
+    const statusId = mapId(STATUS), s = hass && hass.states ? hass.states[statusId] || null : null;
+    const installert = !!KI.entry || KI.n > 0 || !!s;
+    return { installert, entry: KI.entry || null, entiteter: KI.n, statusId, status: s, venter: !installert || !s || s.state === 'unavailable', ids: KI.ids };
+  };
+  M.klimaMapId = mapId;
+  M.KI_ENERGI_OPPSETT = '/config/integrations/integration/ki_energi';
   const TJENESTER = {
     'pyscript.ki_overstyr': ['ki_energi', 'overstyr'],
     'pyscript.ki_fjern_overstyring': ['ki_energi', 'fjern_overstyring'],
@@ -93,6 +178,7 @@
   // tilstandsobjektet byttes (også ved bare attributt-endring – sammenligning på referanse som i JS-kortet).
   function ctx(card) {
     const hass = (card && (card.hass || card._hass)) || M.lastHass || null;
+    kiIndex(hass);
     const st = (id) => {
       if (!id || !hass) return null;
       const m = mapId(id);
@@ -1584,13 +1670,15 @@
   const ZONE_TEXT = { ok: 'God margin', yellow: 'Nærmer seg grensen', orange: 'Liten margin', red: 'Fare for ny topp', critical: 'Kritisk', fallback: 'Trygg fallback', off: 'Motoren er av' };
   const ZONE_COLOR = { ok: G, yellow: Y, orange: OR, red: R, critical: 'rgb(240 86 110)', fallback: B, off: '#979797' };
   M.KLIMA_ZONE_COLOR = ZONE_COLOR;
+  const SONE_AV_TILSTAND = { gronn: 'ok', gul: 'yellow', oransje: 'orange', rod: 'red', kritisk: 'critical' };
   M.klimaStatus = function (card) {
     const K = ctx(card);
     const st = K.st('sensor.ki_energi_status');
     const at = (k) => { const v = st && st.attributes ? st.attributes[k] : undefined; return v === null || v === undefined || v === '' ? NaN : Number(v); };
     const kw = at('forventet_effekt_kw'), allowed = at('tillatt_effekt_kw'), usedKwh = at('forbrukt_kwh'), limitKwh = at('grense_kwh'), freeKw = at('ledig_kw'), minLeft = at('minutter_igjen');
-    let forecastKwh = Number(K.a('sensor.ki_prognoselaering', 'forventet_slutt_kwh', NaN));
-    if (!isFinite(forecastKwh)) forecastKwh = K.n('sensor.ki_estimert_timesforbruk');
+    // Prognose ved timeslutt: sensor.ki_estimert_timesforbruk (15.12), ellers prognoselæringen, ellers regnet ut
+    let forecastKwh = K.n('sensor.ki_estimert_timesforbruk');
+    if (!isFinite(forecastKwh)) forecastKwh = Number(K.a('sensor.ki_prognoselaering', 'forventet_slutt_kwh', NaN));
     if (!isFinite(forecastKwh) && isFinite(usedKwh) && isFinite(kw) && isFinite(minLeft)) forecastKwh = usedKwh + kw * minLeft / 60;
     const pct = isFinite(kw) && isFinite(allowed) && allowed > 0 ? kw / allowed * 100 : NaN;
     const thr = (k, d) => { const v = K.n(`input_number.ki_sone_${k}`); if (isFinite(v)) return v; const w = K.n(`number.ki_terskel_${k}`); return isFinite(w) ? w : d; };
@@ -1601,9 +1689,11 @@
     if (!st) zone = 'off';
     else if (motorAv) zone = 'off';
     else if (state === 'fallback') zone = 'fallback';
-    else if (state === 'kritisk' || pct > 100 || (isFinite(usedKwh) && isFinite(limitKwh) && usedKwh > limitKwh)) zone = 'critical';
+    // Tilstanden ER sonen motoren har regnet ut (engine.py: gronn/gul/oransje/rod/kritisk) – den går foran egen utregning
+    else if (SONE_AV_TILSTAND[state]) zone = SONE_AV_TILSTAND[state];
+    else if (pct > 100 || (isFinite(usedKwh) && isFinite(limitKwh) && usedKwh > limitKwh)) zone = 'critical';
     else if (isFinite(pct)) zone = pct >= tRod ? 'red' : pct >= tOr ? 'orange' : pct >= tGul ? 'yellow' : 'ok';
-    else zone = ({ gronn: 'ok', gul: 'yellow', oransje: 'orange', rod: 'red' })[state] || 'fallback';
+    else zone = 'fallback';
     const soner = soneListe(K);
     const senket = soner.filter((l) => l.handling === 'senket').map((l) => l.navn);
     const kandidat = [...soner].reverse().find((l) => l.handling !== 'senket' && !l.overstyrt && l.handling !== 'manuell');
