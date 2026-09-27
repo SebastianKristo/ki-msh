@@ -125,12 +125,21 @@
           { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: 20, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
           { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: 40, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']] },
         ] },
+        { type: 'section', id: 'look', label: 'Rom', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
+          { type: 'color', name: 'look.col', label: 'Romfarge', help: 'Brukes i toppkortets graf, romkortet og ikon-sirkelen i popup-headeren' },
+          { type: 'icon', name: 'look.icon', label: 'Rom-ikon', auto: (hh, cc) => { const ar = cc.area || area0; return ar && hh && hh.areas && hh.areas[ar] ? hh.areas[ar].icon : null; } },
+        ] },
         ...(area0 ? [] : [{ type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' }]),
         { type: 'section', id: 'klima', label: 'Klima', icon: 'mdi:thermostat', meta: (hh, cc) => { const ar = cc.area || area0; const rc = ar && hh ? M.roomClimate(hh, ar, cc) : null; return rc && rc.climate ? M.name(hh, rc.climate) : 'Automatisk'; }, fields: [
           { type: 'entity', name: 'overrides.climate', label: 'Termostat', domain: 'climate', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; return ar ? M.roomAuto(hh, ar).thermo : null; } },
           { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.temp || (a.tempVal != null ? `KI Rom · ${M.nf(a.tempVal, 1)}°` : null); } },
           { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.hum || (a.humVal != null ? `KI Rom · ${M.nf(a.humVal, 0)} %` : null); } },
           { type: 'entities', name: 'include.climate', label: 'Ekstra termostater', domain: 'climate', addLabel: '+ Legg til termostat', area: (hh, cc) => cc.area || area0 },
+          { type: 'color', name: 'graph_t', label: 'Toppkort · graf temperatur', help: 'Tomt = romfargen' },
+          { type: 'color', name: 'graph_h', label: 'Toppkort · graf fukt', auto: () => 'var(--blue, #73b9f2)' },
+          { type: 'select', name: 'graph_fill', label: 'Toppkort · fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
+          { type: 'select', name: 'graph_width', label: 'Toppkort · linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
+          { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
           { type: 'color', name: 'klima_bg', label: 'Klima-kort · bakgrunn', auto: () => '#2a2a2a' },
           { type: 'color', name: 'klima_ring', label: 'Klima-kort · knappfarge', auto: () => 'rgba(255,255,255,0.22)' },
           { type: 'select', name: 'klima_btn', label: 'Klima-kort · knapp', options: [['outline', 'Kontur'], ['fill', 'Fylt']], default: 'outline' },
@@ -187,28 +196,8 @@
 
     // Egen tilpasning: samme editor/skjema som GUI-editoren, men med rommet fra popupens hash kjent.
     customize(focus) {
-      if (!customElements.get('msh-editor')) return;
       const area = M.roomArea(this);
-      const ov = M.overlay({ html: '', maxWidth: 520 });
-      const ed = document.createElement('msh-editor');
-      ed.cardClass = { schema: buildSchema(area), cardName: area ? M.areaName(this.hass, area) : 'Rom' };
-      ed.inline = true;
-      ed.focusSection = focus || null;
-      ed.hass = this.hass;
-      ed.areaCtx = area;
-      const orig = this._rawConfig || this.config;
-      let done = false;
-      ed.setConfig(orig);
-      ed.addEventListener('msh-change', (ev) => this.setConfig(ev.detail.config)); // live i popupen
-      ed.addEventListener('msh-save', async (ev) => {
-        done = true;
-        const res = await M.saveCardConfig(this.hass, orig, ev.detail.config);
-        this.setConfig(res.config);
-        ov.close();
-      });
-      ed.addEventListener('msh-cancel', () => { done = true; this.setConfig(orig); ov.close(); });
-      ov.onClosed = () => { if (!done) this.setConfig(orig); };
-      ov.body.appendChild(ed);
+      return M.openEditor(this, { cardClass: { schema: buildSchema(area), cardName: area ? M.areaName(this.hass, area) : 'Rom' }, focus, areaCtx: area });
     }
 
     /* ------------ hjelpere */
@@ -587,32 +576,6 @@
     }
     _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom }; }
     onOpen() { this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
-    // Mellomrom i popupen: gap mellom kortene (Bubble-containerens gap), pad_top = avstand fra
-    // Bubble-headeren til første kort (negativ = inntil), pad_bottom = luft under siste kort.
-    _applySpacing() {
-      const cont = M.popupContainer(this);
-      if (!cont) return;
-      const c = this.config;
-      const gap = c.gap != null ? Number(c.gap) : 8, top = c.pad_top != null ? Number(c.pad_top) : 20, bot = c.pad_bottom != null ? Number(c.pad_bottom) : 40;
-      // Bubble legger kortene i .bubble-cards-container (grid) inni .bubble-pop-up-container – sett gap på begge.
-      const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
-      for (let n = this; n && n !== cont; n = n.parentNode || n.host) if (n.classList && n.classList.contains('bubble-cards-container') && !grids.includes(n)) grids.push(n);
-      grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
-      const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
-      if (!cards.length) return;
-      const first = cards[0], last = cards[cards.length - 1];
-      cards.forEach((e) => { if (e.__mshPadT) { e.style.marginTop = ''; e.__mshPadT = false; } if (e.__mshPadB) { e.style.paddingBottom = ''; e.__mshPadB = false; } });
-      last.style.paddingBottom = bot + 'px'; last.__mshPadB = true;
-      // mål faktisk avstand fra headeren og juster første kort
-      const root = cont.getRootNode && cont.getRootNode();
-      const hdr = root && root.querySelector && root.querySelector('.bubble-header-container');
-      const fr = first.getBoundingClientRect();
-      if (hdr && fr.height) {
-        const natural = fr.top - hdr.getBoundingClientRect().bottom;
-        first.style.marginTop = (top - natural) + 'px';
-      } else first.style.marginTop = (top - 20) + 'px';
-      first.__mshPadT = true;
-    }
     afterRender() {
       const R = this.shadowRoot;
       const area = M.roomArea(this);

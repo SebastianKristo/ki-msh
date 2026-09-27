@@ -74,7 +74,7 @@
 
   class RomKlima extends M.Card {
     static get cardName() { return 'Rom · klima-toppkort'; }
-    static get defaults() { return { graph_t: 'var(--orange, #f2b573)', graph_h: 'var(--blue, #73b9f2)', graph_fill: 0.2, graph_width: 2 }; }
+    static get defaults() { return { graph_h: 'var(--blue, #73b9f2)', graph_fill: 0.2, graph_width: 2 }; }
     static get schema() {
       return [
         { type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' },
@@ -156,7 +156,7 @@
       if (hNow != null && ser0.h.length) ser0.h[24] = hNow;
       const isT = (ui.tab || 't') === 't' || !ser0.h.length && ser0.t.length;
       const ser = isT ? ser0.t : ser0.h;
-      const gc = M.color(isT ? c.graph_t : c.graph_h, isT ? C.orange : C.blue);
+      const gc = M.color(isT ? (c.graph_t || (c.look && c.look.col)) : c.graph_h, isT ? C.orange : C.blue);
       const sel = ui.sel != null ? ui.sel : 24;
       let pts = '0,60 300,60', lo = 0, hi = 1, mn = null, mx = null;
       if (ser.length) {

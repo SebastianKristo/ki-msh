@@ -136,13 +136,13 @@
       if (typeof s === 'function') s = s(this._hass, this._config || {});
       return s || [];
     }
-    _set(path, v) {
+    _set(path, v, commit = true) {
       let c = set(this._config || {}, path, v);
       if (!c.card_id) c.card_id = M.uid();
       c = clean(c);
       this._config = c;
       if (!this._inline) this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true }));
-      else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c } })); // kortet oppdateres live
+      else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit } })); // live; commit=false under slider-drag
       this._render();
     }
     _render() {
@@ -152,7 +152,7 @@
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
-        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Lagre</button></div>` : ''}
+        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
@@ -234,6 +234,9 @@
           return this._lists(f, key);
         case 'order':
           return this._order(f);
+        case 'button':
+          (this._btns = this._btns || {})[key] = f;
+          return `<button class="btn" style="height:48px" data-a="run" data-k="${key}">${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}</button>${help}`;
         case 'info':
           return `<div class="small" style="padding:0 6px">${esc(f.label)}</div>`;
         default:
@@ -339,6 +342,7 @@
       const d = b.dataset, c = this._config;
       M.haptic(['setent', 'clear', 'addlist'].includes(d.a) && this._menu ? 'selection' : 'light');
       switch (d.a) {
+        case 'run': { const f = (this._btns || {})[d.k]; if (f && f.run) Promise.resolve(f.run(this._hass, this._config, this)).catch((e) => M.toast('Feil: ' + e.message)); return; }
         case 'pkopen': this._menu = this._menu === d.k ? null : d.k; this._q = {}; this._render(); { const i = this.shadowRoot.querySelector(`[data-search="${d.k}"]`); if (i) i.focus(); } return;
         case 'bool': return this._set(d.name, d.v === '1');
         case 'sel': return this._set(d.name, d.num === '1' ? Number(d.v) : d.v);
@@ -360,7 +364,7 @@
     }
     _input(e) {
       const t = e.target;
-      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { M.haptic('selection'); this._set(t.dataset.name, v); } return; }
+      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { M.haptic('selection'); this._set(t.dataset.name, v, false); } return; }
       if (t.dataset.search) { this._q[t.dataset.search] = t.value; this._menu = t.dataset.search; this._render(); }
     }
     _change(e) {

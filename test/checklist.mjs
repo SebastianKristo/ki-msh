@@ -60,7 +60,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const closeBtn = all.find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
       res.header = !!header && header.getBoundingClientRect().height > 0 && (header.textContent || '').includes(pop.name) && !!closeBtn;
       // 3. kort + bredde
-      const cards = all.filter((e) => /^msh-.*-card$/.test(e.localName) && e.localName !== 'msh-navbar-card');
+      const cards = all.filter((e) => /^msh-.*-card$/.test(e.localName) && e.localName !== 'msh-navbar-card' && !/^msh-/.test(((e.getRootNode() || {}).host || {}).localName || ''));
       const cont = all.find((e) => e.classList && e.classList.contains('bubble-pop-up-container'));
       const ccs = cont && getComputedStyle(cont); const cw = cont ? cont.clientWidth - parseFloat(ccs.paddingLeft) - parseFloat(ccs.paddingRight) : 0;
       res.cards = cards.map((c) => c.localName.replace(/^msh-|-card$/g, '')).join('+');
@@ -68,6 +68,13 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       // 4. toppkort synlig (første kort har høyde og ligger i visningen)
       const first = cards[0] && cards[0].getBoundingClientRect();
       res.top = !!first && first.height > 40 && first.top < innerHeight;
+      const heroTag = (window.MSH.HEROES || {})[cards[0] && cards[0].localName];
+      if (heroTag) { const he = cards[0].shadowRoot.querySelector('.msh-hero-slot > ' + heroTag); const hr = he && he.getBoundingClientRect(); res.top = res.top && !!hr && hr.height > 40 && Math.abs(hr.top - first.top) < 2; }
+      res.oneCard = (pop.cards || []).length === 1;
+      const bn = all.find((e) => e.classList && e.classList.contains('bubble-name') && e.getBoundingClientRect().height > 0);
+      const ic = all.find((e) => e.classList && e.classList.contains('icon-container') && e.getBoundingClientRect().height > 0);
+      const isRoom = /^#(stue|kjokken)/.test(pop.hash);
+      res.mal = isRoom ? (ic && getComputedStyle(ic).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 'B' : 'B?') : (bn && getComputedStyle(bn).fontSize === '30px' ? 'A' : 'A? ' + (bn && getComputedStyle(bn).fontSize));
       // 5. ikoner som ikoner
       const txt = cards.map((c) => c.shadowRoot.textContent.replace(/<style[\s\S]*?<\/style>/g, '')).join(' ').replace(/\{[^}]*\}/g, '');
       const icons = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('ha-icon')]);
@@ -145,7 +152,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       await page.evaluate((h) => { location.hash = h; }, pop.hash); await page.waitForTimeout(900);
       await page.screenshot({ path: `test/shots/check-${vp.n}-${pop.hash.slice(1)}.png` });
     }
-    const ok = r.opens && r.header && r.width.startsWith('ok') && r.top && r.icons.startsWith('ok') && r.auto && r.haptic !== false && !String(r.drag).startsWith('LEKK') && r.navbar.startsWith('ok') && r.editor === 'ok' && r.close && r.back && !errors.length;
+    const ok = r.opens && r.header && r.width.startsWith('ok') && r.top && r.icons.startsWith('ok') && r.auto && r.haptic !== false && !String(r.drag).startsWith('LEKK') && r.navbar.startsWith('ok') && r.editor === 'ok' && r.close && r.back && r.oneCard && !String(r.mal).includes('?') && !errors.length;
     if (!ok) fails++;
     rows.push({ vp: vp.n, pop: `${pop.name} ${pop.hash}`, ...r, errors: errors.slice(0, 2).join(' | '), ok });
     await page.close();
@@ -154,8 +161,8 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
 await browser.close();
 try { unlinkSync(bundle); } catch (e) { /* */ }
 const yn = (v) => (v === true ? 'ja' : v === false ? 'NEI' : v);
-const lines = rows.map((r) => `| ${r.ok ? '✔' : '✘'} | ${r.vp} | ${r.pop} | ${yn(r.opens)} | ${r.width} | ${yn(r.header)} | ${yn(r.top)} | ${yn(r.close)} / ${yn(r.back)} | ${yn(r.haptic)} | ${r.drag} | ${r.navbar} | ${r.icons} | ${yn(r.auto)} | ${r.editor} |${!r.navbar.startsWith('ok') ? ' ' + r.navDbg : ''}${r.errors ? ' ' + r.errors : ''}`);
-const table = ['| | Visning | Popup | Åpnes via hash | Fyller bredden | Bubble-header | Toppkort | Lukk / tilbake | Haptic | Drag lukker ikke | Navbar ≠ sidebar | Ikoner | Autokonfig | GUI-editor ↔ egen editor |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|', ...lines].join('\n');
+const lines = rows.map((r) => `| ${r.ok ? '✔' : '✘'} | ${r.vp} | ${r.pop} | ${yn(r.opens)} | ${r.width} | ${yn(r.header)} | ${yn(r.top)} | ${yn(r.close)} / ${yn(r.back)} | ${yn(r.haptic)} | ${r.drag} | ${r.navbar} | ${r.icons} | ${yn(r.auto)} | ${r.editor} | ${r.oneCard ? '1' : 'FLERE'} · mal ${r.mal} |${!r.navbar.startsWith('ok') ? ' ' + r.navDbg : ''}${r.errors ? ' ' + r.errors : ''}`);
+const table = ['| | Visning | Popup | Åpnes via hash | Fyller bredden | Bubble-header | Toppkort | Lukk / tilbake | Haptic | Drag lukker ikke | Navbar ≠ sidebar | Ikoner | Autokonfig | GUI-editor ↔ egen editor | Kort · Bubble-mal |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|', ...lines].join('\n');
 console.log(table);
 if (!only) writeFileSync('docs/sjekkliste.md', `# Sjekk før levering – resultat\n\nGenerert av \`node test/checklist.mjs\` mot ekte Bubble Card (${new Date().toISOString().slice(0, 10)}), med mock-hass fra \`test/\`. Popupene er de i \`examples/dashboard.yaml\`.\n\n${table}\n`);
 console.log(fails ? `\n${fails} feilet` : '\nAlle bestod');

@@ -569,44 +569,114 @@
   };
 
   /* ------------------------------------------------------------ config-lagring */
-  // Fersk lovelace/config → finn kortet via card_id → endre kun det kortet → lovelace/config/save.
-  // YAML-modus → melding «Rediger i YAML», lagres kun i localStorage.
+  // Fersk lovelace/config → finn kortet via card_id (også inni Bubble-popupens cards) → endre kun det
+  // kortet → lovelace/config/save. YAML-modus → «Rediger i YAML», lagres kun i localStorage.
+  // Lagring skal bare lagre: debounce 600 ms, og etter HAs rebuild (lovelace_updated) gjenopprettes
+  // sti, hash (Bubble-popup), scroll og UI-tilstand – aldri navigate('/') eller reload.
   MSH.cacheGet = function (cardId) { try { return JSON.parse(localStorage.getItem('msh-card-' + cardId) || 'null'); } catch (e) { return null; } };
   MSH.cacheSet = function (cardId, cfg) { try { localStorage.setItem('msh-card-' + cardId, JSON.stringify(cfg)); } catch (e) { /* */ } };
-  MSH.saveCardConfig = async function (hass, oldCfg, newCfg) {
-    if (!newCfg.card_id) newCfg = { ...newCfg, card_id: oldCfg.card_id || MSH.uid() };
-    MSH.cacheSet(newCfg.card_id, newCfg);
+
+  // Levende kortinstanser per card_id (en rebuild lager nye instanser; editoren oppdaterer alle).
+  MSH.liveCards = MSH.liveCards || new Map();
+  MSH.applyLive = function (cardId, cfg) {
+    const set = cardId && MSH.liveCards.get(cardId);
+    if (set) set.forEach((c) => { if (c.isConnected && c._rawConfig !== cfg) c.setConfig(cfg); });
+  };
+
+  // Tilstand som skal overleve en rebuild
+  function openPopupEl() {
+    let hit = null;
+    const walk = (r, d) => { if (hit || d > 14 || !r || !r.querySelectorAll) return; r.querySelectorAll('*').forEach((e) => { if (hit) return; if (e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened')) hit = e; else if (e.shadowRoot) walk(e.shadowRoot, d + 1); }); };
+    walk(document, 0);
+    return hit;
+  }
+  function scrollerOf(pop) {
+    if (!pop) return null;
+    const c = pop.querySelector('.bubble-pop-up-container');
+    return c && c.scrollHeight > c.clientHeight ? c : pop;
+  }
+  MSH.saveSnapshot = function () {
+    const pop = openPopupEl(), sc = scrollerOf(pop);
+    return { path: location.pathname + location.search, hash: location.hash, scroll: sc ? sc.scrollTop : 0, editor: !!document.querySelector('.msh-portal'), until: Date.now() + 3000 };
+  };
+  let restoreTimer = null;
+  MSH.restoreAfterSave = function () {
+    const f = window.__kiSaving;
+    if (!f) return;
+    if (Date.now() > f.until) { window.__kiSaving = null; clearInterval(restoreTimer); restoreTimer = null; return; }
+    if (location.pathname + location.search !== f.path || location.hash !== f.hash) {
+      history.replaceState(history.state, '', f.path + f.hash);
+      window.dispatchEvent(new Event('location-changed'));
+      window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+    }
+    const sc = scrollerOf(openPopupEl());
+    if (sc && f.scroll && Math.abs(sc.scrollTop - f.scroll) > 2) sc.scrollTop = f.scroll;
+  };
+  ['location-changed', 'hashchange', 'popstate', 'll-rebuild'].forEach((t) => window.addEventListener(t, () => { if (window.__kiSaving) setTimeout(MSH.restoreAfterSave, 0); }));
+  function armRestore(snap) {
+    window.__kiSaving = snap;
+    clearInterval(restoreTimer);
+    restoreTimer = setInterval(MSH.restoreAfterSave, 80);
+  }
+
+  const PENDING = new Map();
+  async function doSave(id) {
+    const p = PENDING.get(id);
+    if (!p) return;
+    PENDING.delete(id);
+    const { hass, orig, mutate } = p;
+    const newCfg = p.cfg;
+    const done = (r) => { p.resolvers.forEach((fn) => fn(r)); return r; };
+    const quiet = p.toasts === false;
     const urlPath = (hass && hass.panelUrl && hass.panelUrl !== 'lovelace') ? hass.panelUrl : null;
     let lc;
-    try {
-      lc = await hass.callWS({ type: 'lovelace/config', url_path: urlPath, force: true });
-    } catch (e) {
-      MSH.toast('Rediger i YAML');
-      return { ok: false, yaml: true, config: newCfg };
-    }
-    if (!lc || lc.strategy) { MSH.toast('Rediger i YAML'); return { ok: false, yaml: true, config: newCfg }; }
+    try { lc = await hass.callWS({ type: 'lovelace/config', url_path: urlPath, force: true }); } catch (e) { MSH.toast('Rediger i YAML'); return done({ ok: false, yaml: true, config: newCfg }); }
+    if (!lc || lc.strategy) { MSH.toast('Rediger i YAML'); return done({ ok: false, yaml: true, config: newCfg }); }
     let hit = false;
-    const oldJson = JSON.stringify(oldCfg);
+    const oldJson = JSON.stringify(orig);
+    const visit = (c) => {
+      if (hit || !c || typeof c !== 'object' || Array.isArray(c) || c.type !== orig.type) return null;
+      if ((newCfg.card_id && c.card_id === newCfg.card_id) || (orig.card_id && c.card_id === orig.card_id) || (!c.card_id && JSON.stringify(c) === oldJson)) { hit = true; return newCfg; }
+      return null;
+    };
     const walk = (o) => {
       if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) { const r = visit(o[i]); if (r) o[i] = r; else walk(o[i]); } return; }
       if (o && typeof o === 'object') for (const k of Object.keys(o)) { const r = visit(o[k]); if (r) o[k] = r; else walk(o[k]); }
     };
-    const visit = (c) => {
-      if (hit || !c || typeof c !== 'object' || Array.isArray(c) || c.type !== oldCfg.type) return null;
-      if ((oldCfg.card_id && c.card_id === oldCfg.card_id) || (!oldCfg.card_id && JSON.stringify(c) === oldJson)) { hit = true; return newCfg; }
-      return null;
-    };
     walk(lc);
-    if (!hit) { MSH.toast('Fant ikke kortet – lagret lokalt'); return { ok: false, config: newCfg }; }
+    if (!hit) { MSH.toast('Fant ikke kortet – lagret lokalt'); return done({ ok: false, config: newCfg }); }
+    try { if (mutate) mutate(lc, newCfg); } catch (e) { console.warn('[ki-msh] mutate', e); }
+    try { if (MSH.syncPopups) MSH.syncPopups(lc, newCfg, hass); } catch (e) { console.warn('[ki-msh] syncPopups', e); }
+    armRestore(MSH.saveSnapshot());
     try {
       await hass.callWS({ type: 'lovelace/config/save', url_path: urlPath, config: lc });
-      MSH.toast('Lagret');
-      return { ok: true, config: newCfg };
+      MSH.haptic('success');
+      if (!quiet) MSH.toast('Lagret');
+      return done({ ok: true, config: newCfg });
     } catch (e) {
       MSH.toast('Rediger i YAML');
-      return { ok: false, yaml: true, config: newCfg };
+      return done({ ok: false, yaml: true, config: newCfg });
     }
+  }
+  // saveCardConfig(hass, gammelConfig, nyConfig, { immediate, mutate(lovelaceConfig), toasts })
+  MSH.saveCardConfig = function (hass, oldCfg, newCfg, opts) {
+    opts = opts || {};
+    if (!newCfg.card_id) newCfg = { ...newCfg, card_id: (oldCfg && oldCfg.card_id) || MSH.uid() };
+    MSH.cacheSet(newCfg.card_id, newCfg);
+    MSH.applyLive(newCfg.card_id, newCfg); // lokalt først – brukeren ser endringen med én gang
+    const id = newCfg.card_id;
+    let p = PENDING.get(id);
+    if (!p) { p = { orig: oldCfg || {}, resolvers: [] }; PENDING.set(id, p); }
+    p.cfg = newCfg; p.hass = hass; p.toasts = opts.toasts != null ? opts.toasts : newCfg.toasts;
+    if (opts.mutate) p.mutate = opts.mutate;
+    clearTimeout(p.timer);
+    return new Promise((res) => { p.resolvers.push(res); p.timer = setTimeout(() => doSave(id), opts.immediate ? 0 : 600); });
   };
+  MSH.flushSaves = function () { [...PENDING.keys()].forEach((id) => { const p = PENDING.get(id); clearTimeout(p.timer); doSave(id); }); };
+
+  // UI-tilstand (valgt fane, kamera, akkordeoner …) lagres i localStorage ki:<card_id>:ui – aldri i Lovelace.
+  MSH.uiLoad = function (cardId) { try { return JSON.parse(localStorage.getItem('ki:' + cardId + ':ui') || 'null') || {}; } catch (e) { return {}; } };
+  MSH.uiStore = function (cardId, ui) { try { localStorage.setItem('ki:' + cardId + ':ui', JSON.stringify(ui)); } catch (e) { /* */ } };
 
   /* ------------------------------------------------------------ grunnstil */
   MSH.BASE_CSS = `
@@ -663,9 +733,17 @@
     static getConfigElement() { const e = document.createElement('msh-editor'); e.cardClass = this; return e; }
     setConfig(config) {
       if (!config) throw new Error('Mangler config');
+      const prevId = this._rawConfig && this._rawConfig.card_id;
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       this._firstRender = false;
+      const keys = this.constructor.uiPersist || [];
+      if (config.card_id && keys.length && prevId !== config.card_id) {
+        const saved = MSH.uiLoad(config.card_id), pick = {};
+        keys.forEach((k) => { if (saved[k] !== undefined) pick[k] = saved[k]; });
+        this._ui = { ...this._ui, ...pick };
+      }
+      if (this.isConnected) this._register(prevId);
       this._schedule(true);
     }
     get config() { return this._config || {}; }
@@ -674,6 +752,7 @@
       this._hass = h;
       if (!old || this._changed(old, h)) this._schedule();
       if (!old) this._checkOpen();
+      if (this._heroEl) this._heroEl.hass = h;
     }
     get hass() { return this._hass; }
     _changed(o, n) {
@@ -687,12 +766,16 @@
     s(id) { if (!id) return null; this._deps.add(id); return (this._hass && this._hass.states[id]) || null; }
     n(id) { const s = this.s(id); return s && MSH.isNum(s.state) ? Number(s.state) : null; }
     connectedCallback() {
+      this._register();
+      if (window.__kiSaving) setTimeout(MSH.restoreAfterSave, 0);
       window.addEventListener('hashchange', this._onHash);
       window.addEventListener('location-changed', this._onHash);
       this._schedule(true);
       setTimeout(() => this._checkOpen(), 0);
     }
     disconnectedCallback() {
+      const id = this._rawConfig && this._rawConfig.card_id;
+      if (id && MSH.liveCards.get(id)) MSH.liveCards.get(id).delete(this);
       window.removeEventListener('hashchange', this._onHash);
       window.removeEventListener('location-changed', this._onHash);
       this.onClose && this.onClose();
@@ -700,7 +783,7 @@
     _checkOpen() {
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
-      if (open && !this._open) { this._open = true; this.onOpen && this.onOpen(); }
+      if (open && !this._open) { this._open = true; this.onOpen && this.onOpen(); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
       else if (!open && this._open) { this._open = false; this.onClose && this.onClose(); }
     }
     get isOpen() { return !!this._open; }
@@ -710,7 +793,20 @@
       this._raf = requestAnimationFrame(() => { this._raf = 0; this._render(); });
     }
     update() { this._schedule(true); }
-    setUI(p) { this._ui = { ...this._ui, ...p }; this._schedule(true); }
+    static get uiPersist() { return []; }
+    setUI(p) {
+      this._ui = { ...this._ui, ...p };
+      const keys = this.constructor.uiPersist || [], id = this._rawConfig && this._rawConfig.card_id;
+      if (id && keys.some((k) => k in p)) { const o = {}; keys.forEach((k) => { if (this._ui[k] !== undefined) o[k] = this._ui[k]; }); MSH.uiStore(id, o); }
+      this._schedule(true);
+    }
+    _register(prevId) {
+      if (prevId && MSH.liveCards.get(prevId)) MSH.liveCards.get(prevId).delete(this);
+      const id = this._rawConfig && this._rawConfig.card_id;
+      if (!id) return;
+      if (!MSH.liveCards.has(id)) MSH.liveCards.set(id, new Set());
+      MSH.liveCards.get(id).add(this);
+    }
     get ui() { return this._ui; }
     _render() {
       if (!this._config || !this._hass) return;
@@ -720,11 +816,51 @@
       let body;
       try { body = this.render(); } catch (e) { console.error('[ki-msh]', this.localName, e); body = `<div class="empty">Feil i kortet: ${MSH.esc(e.message)}</div>`; }
       const gap = this._config.gap != null ? Number(this._config.gap) : null;
-      const html = `<style>${MSH.BASE_CSS}${this.styles || ''}</style><ha-card>${body}</ha-card>`;
+      const heroTag = MSH.HEROES[this.localName];
+      const slot = heroTag ? '<div class="msh-hero-slot" data-nomorph></div>' : '';
+      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}${this.styles || ''}</style><ha-card>${slot}${body}</ha-card>`;
       if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; } else MSH.morph(this.shadowRoot, html);
       if (gap != null) this.style.setProperty('--msh-gap', gap + 'px');
+      if (heroTag) this._mountHero(heroTag);
       this.afterRender && this.afterRender();
+      if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
       this._guardScrollers();
+    }
+    // Toppkort (hero) bygget inn som første seksjon i hovedkortet – ett kort per popup.
+    _mountHero(tag) {
+      const slot = this.shadowRoot.querySelector('.msh-hero-slot');
+      if (!slot || !customElements.get(tag)) return;
+      if (!this._heroEl) { this._heroEl = document.createElement(tag); this._heroEl._host = this; }
+      const raw = this._rawConfig || {};
+      if (this._heroSrc !== raw) {
+        this._heroSrc = raw;
+        const { type, card_id, hero, ...rest } = raw;
+        this._heroEl.setConfig({ type: 'custom:' + tag, ...rest, ...(hero || {}), embedded: true, card_id: card_id ? card_id + '_hero' : undefined });
+      }
+      if (this._heroEl.parentNode !== slot) slot.appendChild(this._heroEl);
+      if (this._heroEl.hass !== this._hass) this._heroEl.hass = this._hass;
+    }
+    // Mellomrom i Bubble-popupen: pad_top = avstand fra popup-headeren til kortet (negativ = inntil),
+    // pad_bottom = luft i bunnen, gap = popupens kort-gap. Popupen selv har --vertical-stack-card-gap: 0.
+    _applySpacing() {
+      if (this._config.embedded) return;
+      const cont = MSH.popupContainer(this);
+      if (!cont) return;
+      const c = this._config, D = this.constructor.spacingDefaults || { gap: 8, pad_top: 20, pad_bottom: 40 };
+      const gap = c.gap != null ? Number(c.gap) : D.gap, top = c.pad_top != null ? Number(c.pad_top) : D.pad_top, bot = c.pad_bottom != null ? Number(c.pad_bottom) : D.pad_bottom;
+      const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
+      grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
+      const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
+      if (!cards.length || (cards[0] !== this && cards[cards.length - 1] !== this)) return;
+      const first = cards[0], last = cards[cards.length - 1];
+      if (last === this) { this.style.paddingBottom = bot + 'px'; }
+      if (first === this) {
+        this.style.marginTop = '';
+        const root = cont.getRootNode && cont.getRootNode();
+        const hdr = root && root.querySelector && root.querySelector('.bubble-header-container');
+        const fr = this.getBoundingClientRect();
+        if (hdr && fr.height) this.style.marginTop = (top - (fr.top - hdr.getBoundingClientRect().bottom)) + 'px';
+      }
     }
     // Vannrett scrollbare lister (karuseller, chip-rader): stopp sveip mot Bubble Cards swipe-to-close.
     _guardScrollers() {
@@ -784,34 +920,59 @@
       if (name === 'customize') return this.customize(d.section);
     }
     // Kortets egen tilpasning: samme editor som GUI-editoren, lagres til kortets config.
-    customize(focus) {
-      const Ed = customElements.get('msh-editor');
-      if (!Ed) return;
-      const ov = MSH.overlay({ html: '', maxWidth: 520 });
-      const ed = document.createElement('msh-editor');
-      ed.cardClass = this.constructor;
-      ed.inline = true;
-      ed.focusSection = focus || null;
-      ed.hass = this._hass;
-      ed.setConfig(this._rawConfig || this._config);
-      const orig = this._rawConfig || this._config;
-      let saved = false;
-      ed.addEventListener('msh-change', (ev) => this.setConfig(ev.detail.config)); // live
-      ed.addEventListener('msh-save', async (ev) => {
-        saved = true;
-        const res = await MSH.saveCardConfig(this._hass, orig, ev.detail.config);
-        this.setConfig(res.config);
-        ov.close();
-      });
-      ed.addEventListener('msh-cancel', () => { this.setConfig(orig); saved = true; ov.close(); });
-      ov.onClosed = () => { if (!saved) this.setConfig(orig); };
-      ov.body.appendChild(ed);
+    customize(focus, opts) {
+      if (this._config && this._config.embedded && this._host) return this._host.customize(focus, opts);
+      return MSH.openEditor(this, { cardClass: this.constructor, focus, ...(opts || {}) });
     }
     getCardSize() { return this.cardSize || 3; }
     getGridOptions() { return { columns: 'full' }; }
     getLayoutOptions() { return { grid_columns: 'full' }; }
   }
   MSH.Card = MshCard;
+  // Hovedkort → innebygd toppkort. Ett kort per Bubble-popup; toppkortet er første seksjon.
+  MSH.HEROES = {
+    'msh-rom-card': 'msh-rom-klima-card',
+    'msh-basseng-card': 'msh-basseng-hero-card',
+    'msh-vanning-card': 'msh-vanning-hero-card',
+    'msh-klima-card': 'msh-klima-hero-card',
+    'msh-media-card': 'msh-media-hero-card',
+    'msh-sikkerhet-card': 'msh-sikkerhet-hero-card',
+    'msh-vaer-card': 'msh-vaer-hero-card',
+    'msh-person-card': 'msh-person-hero-card',
+  };
+
+  // Kortets egen editor (samme skjema som GUI-editoren). Endringer vises live i alle instanser av
+  // kortet og lagres automatisk (debounce 600 ms; slidere når man slipper). «Ferdig» lukker,
+  // «Avbryt» tilbakestiller til configen fra da editoren ble åpnet. Popupen blir stående åpen.
+  MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
+    if (!customElements.get(tag || 'msh-editor')) return null;
+    const ov = MSH.overlay({ html: '', maxWidth: 520 });
+    const ed = document.createElement(tag || 'msh-editor');
+    ed.cardClass = cardClass || card.constructor;
+    ed.inline = true;
+    ed.focusSection = focus || null;
+    if (areaCtx) ed.areaCtx = areaCtx;
+    if (title) ed.title = title;
+    ed.hass = card.hass;
+    const orig = card._rawConfig || card.config;
+    let cur = orig, dirty = false;
+    ed.setConfig(orig);
+    const save = (immediate) => MSH.saveCardConfig(card.hass, orig, cur, { immediate });
+    ed.addEventListener('msh-change', (ev) => {
+      cur = ev.detail.config;
+      if (cur.card_id) MSH.applyLive(cur.card_id, cur);
+      if (card._rawConfig !== cur) card.setConfig(cur);
+      if (ev.detail.commit !== false) { dirty = true; save(false); }
+    });
+    ed.addEventListener('msh-save', (ev) => { cur = ev.detail.config || cur; if (dirty || cur !== orig) save(true); ov.close(); });
+    ed.addEventListener('msh-cancel', () => {
+      if (cur !== orig) { card.setConfig(orig); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true }); }
+      ov.close();
+    });
+    ov.onClosed = () => { if (dirty) MSH.flushSaves(); };
+    ov.body.appendChild(ed);
+    return { overlay: ov, editor: ed };
+  };
 
   // Registrer kort + oppføring i kortvelgeren.
   MSH.define = function (tag, cls, name, description) {

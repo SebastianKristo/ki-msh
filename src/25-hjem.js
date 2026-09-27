@@ -46,7 +46,7 @@
       const kid = { ...newCfg, type: newCfg.type || oldCfg.type };
       if (!kid.card_id) kid.card_id = M.uid();
       const pNew = { ...pOld, cards: { ...(pOld.cards || {}), [link.key]: kid } };
-      const r = await orig.call(this, hass, pOld, pNew);
+      const r = await orig.call(this, hass, pOld, pNew, arguments[3]);
       P.setConfig(r.config || pNew);
       return { ...r, config: ((r.config || pNew).cards || {})[link.key] || kid };
     };
@@ -71,6 +71,10 @@
           { type: 'boolean', name: 'breakout', label: 'Mål margene mot dashbordflaten (bryt ut av seksjonens padding)', default: true },
         ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
+        { type: 'section', id: 'popups', label: 'Popups', icon: 'mdi:layers-outline', fields: [
+          { type: 'info', label: 'Lager én Bubble Card-popup per rom (mal B) og per funksjon/person (mal A), med ett kort hver. Finnes hashen fra før, oppdateres bare cards – dine styles står urørt.' },
+          { type: 'button', label: 'Opprett / oppdater popups', icon: 'mdi:auto-fix', run: (h) => M.buildPopups(h) },
+        ] },
       ];
     }
     get cardSize() { return 14; }
