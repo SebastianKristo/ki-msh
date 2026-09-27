@@ -5,7 +5,7 @@
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
  * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
- * først, så rommets scene.*/script.*. include.scenes (alias include.scener), exclude, order.scenes [ids].
+ * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
  * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
  * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
  * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
