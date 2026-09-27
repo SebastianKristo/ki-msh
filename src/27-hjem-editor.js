@@ -8,7 +8,9 @@
  *   Tekst      → msh-prosa-card-config (prose[] med ent / ent_override / cent via felles MSH.entityPicker,
  *                prose_font_size, prose_line_height)
  *   Kort       → også msh-hjem-card-config (show_todo, hidden) – «Kort på Hjem» med øye per kort
- *   Popups     → ki-store popups.<hash uten #> = { hidden, name, icon, color } (leses av strategien ved neste generering)
+ *   Popups     → 28-popup-editor.js (MSH.popupsPanel): alle popups (Rom · Funksjoner · Egne) med YAML-editor. Skriver
+ *                ki-store popups.<hash uten #> = { hidden, name, icon, color }, custom_popups[] og popup_overrides{}
+ *                (strategien oppdaterer popupene i dashbordet straks, uten omlasting)
  * Alt lagres live med MSH.saveCardConfig (ki-store, debounce, ingen navigering); kortene abonnerer på ki-store.
  */
 (function () {
