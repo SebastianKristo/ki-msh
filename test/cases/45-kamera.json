@@ -3,5 +3,13 @@
   {"name":  "Kamera · mosaikk", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "layout":  "mosaic"}]},
   {"name":  "Kamera · hendelser", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "layout":  "list", "view":  "events"}]},
   {"name":  "Kamera · frigate", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "mode":  "frigate", "layout":  "3col"}]},
-  {"name":  "Kamera · tom", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "area":  "finnes_ikke"}]}
+  {"name":  "Kamera · tom", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "area":  "finnes_ikke"}]},
+  {"name":  "Kamera · utseende", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "layout":  "grid", "cam_gap":  0, "show_name":  false, "show_badge":  false, "text_size":  "l"}]},
+  {"name":  "Kamera · auto-profil uten popup", "cards":  [{"type":  "custom:msh-kamera-card"}]},
+  {"name":  "Kamera · dashbord (ki-kamera-card-YAML)", "cards":  [{"type":  "custom:msh-kamera-card", "profile":  "dashboard", "back_path":  "/dashboard-mysmarthome", "default_source":  "vanlig", "show_events":  true, "events_limit":  12, "events_columns":  2, "events_height":  "500px", "luft":  12, "fill_screen":  true, "fill_breakpoint":  700, "grid_layout":  "mosaikk",
+    "cameras":  [
+      {"name":  "Inngang", "icon":  "mdi:doorbell-video", "plain":  "camera.inngang", "frigate":  ["camera.innkjorsel"], "privacy":  "switch.inngang_privacy_mode", "motion":  "binary_sensor.inngang_bevegelse", "last_motion":  "sensor.inngang_last_motion_detected", "logbook":  ["binary_sensor.inngang_person", "event.inngang_ringeklokke"]},
+      {"name":  "Veranda", "icon":  "mdi:balcony", "plain":  "camera.veranda"},
+      {"name":  "Garasje", "plain":  "camera.garasje", "frigate":  ["camera.garasje_frigate"]}
+    ]}]}
 ]
