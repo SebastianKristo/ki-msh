@@ -77,7 +77,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `g_font` | Maks tekst · range | Størrelser |
 | `g_avatar` | Bilder · range | Størrelser |
 | `g_badge` | Merke · range | Størrelser |
-| `g_gap` | Avstand · range | Størrelser |
+| `g_gap` | Avstand (minus = overlapp) · range | Størrelser |
 | `pic_size` | Profilbilde · range | Størrelser |
 | `persons_size` | Personer · range | Størrelser |
 | `title_size` | Tittel · range | Størrelser |
@@ -466,7 +466,7 @@ Strømpris nå og per time i dag / i morgen (Norge: spot, totalpris eller Norges
 | `power_price.grid_entity` | Nettleie-sensor (valgfri, today/tomorrow) · entity | Strømpris-kilde |
 | `power_price.mode` | Pris som vises (spot \| total \| norgespris) | Strømpris-kilde |
 | `power_price.unit` | Enhet (kr \| ore) | Strømpris-kilde |
-| `power_price.tab.style` | Stil (glass \| standard) | Fane «I dag / I morgen» |
+| `power_price.tab.style` | Stil (standard \| glass) | Fane «I dag / I morgen» |
 | `power_price.tab.font` | Tekststørrelse · range | Fane «I dag / I morgen» |
 | `power_price.tab.height` | Høyde · range | Fane «I dag / I morgen» |
 | `power_price.tab.padding` | Bredde (sidemarg per knapp) · range | Fane «I dag / I morgen» |
