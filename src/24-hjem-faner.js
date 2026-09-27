@@ -144,13 +144,13 @@
   };
 
   /* ------------------------------------------------------------ adaptiv layout */
-  // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), bred = to kolonner, ≥1500 px = tre; zoom opptil 1,8×.
+  // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), Fold (MSH.isFold) = samme kolonne i full bredde.
   M.hjemLayout = M.hjemLayout || function (mode, vw) {
-    const w = vw || M.dashRect().width, vh = window.innerHeight || 900;
-    const wide = mode === 'stor' ? true : mode === 'mobil' ? false : M.isWide(w); // Fiks 17.20: samme regel som header/navbar
-    const pc = wide && w >= 1500;
-    const zoom = !wide ? 1 : pc ? M.clamp(Math.min(w / 1480, vh / 820), 1, 1.8) : M.clamp(Math.min(w / 1024, vh / 760), 1, 1.4);
-    return { wide, pc, cols: pc ? 3 : wide ? 2 : 1, zoom: Math.round(zoom * 100) / 100, vw: w };
+    const w = vw || M.dashRect().width;
+    // Fiks 18.7: den brede griden (2/3 kolonner + zoom) er erstattet av Fold-oppsettet: telefon-innholdet i full bredde,
+    // ingen max-width og ingen zoom. «Stor» = Fold.
+    const fold = mode === 'stor' ? true : mode === 'mobil' ? false : M.isFold(w);
+    return { wide: false, fold, pc: false, cols: 1, zoom: 1, vw: w };
   };
 
   /* ------------------------------------------------------------ swipe (karusell / flis-stabler) */
@@ -591,8 +591,7 @@
           ] });
         });
         fields.push({ type: 'section', id: 'utseende', label: 'Layout', icon: 'mdi:page-layout-body', fields: [
-          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
-          { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
+          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto', help: 'Stor skjerm = Fold-oppsettet: telefon-innholdet i full bredde (auto: ≥ 1000 px, berøring ≥ 600 px).' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes»)', default: true },
         ] });
         return fields;
@@ -603,7 +602,7 @@
     connectedCallback() {
       super.connectedCallback();
       if (!this._ro && window.ResizeObserver) {
-        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.wide !== L.wide || o.zoom !== L.zoom || o.pc !== L.pc) this.update(); });
+        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.wide !== L.wide || o.fold !== L.fold || o.zoom !== L.zoom || o.pc !== L.pc) this.update(); });
         this._ro.observe(this);
       }
     }
@@ -613,6 +612,7 @@
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this._mT) { clearInterval(this._mT); this._mT = null; }
       if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
+      if (this._tcRO) { this._tcRO.disconnect(); this._tcRO = null; this._tcEl = null; }
     }
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
     _calcLayout() {
@@ -621,7 +621,7 @@
       const vw = ha ? M.dashRect().width : ((this.parentElement && this.parentElement.getBoundingClientRect().width) || M.dashRect().width);
       const L = M.hjemLayout(c.layout_mode || 'auto', vw);
       if (c.zoom === false || this.mshEmbedded) L.zoom = 1; // i msh-hjem-card zoomer containeren hele griden
-      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; }
+      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; L.fold = !!this.mshEmbedded.fold; }
       return L;
     }
 
@@ -1200,7 +1200,7 @@
       if (!M.romkortHTML || !M.romData) return '<div class="empty">Romkort-modulen mangler</div>';
       const L = (this._L = this._calcLayout());
       this._ticking = false;
-      const wrap = (inner) => `<div class="hf ${L.wide ? 'wide' : ''}" style="${L.zoom !== 1 ? `zoom:${L.zoom}` : ''}">${inner}</div>`;
+      const wrap = (inner) => `<div class="hf ${L.wide ? 'wide' : ''} ${L.fold ? 'fold' : ''}" style="${L.zoom !== 1 ? `zoom:${L.zoom}` : ''}">${inner}</div>`;
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
       const B = this._batteries(), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
@@ -1252,6 +1252,7 @@
       this._bindTileHold();
       this._bindTabs();
       this._placeTabs();
+      this._tColObs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
@@ -1259,6 +1260,27 @@
       const need = !!this._minTick; this._minTick = false;
       if (need && !this._mT) this._mT = setInterval(() => { if (this.isConnected) this.update(); }, 60000);
       else if (!need && this._mT) { clearInterval(this._mT); this._mT = null; }
+    }
+    // Fiks 18.8: høyre fliskolonne måles (ikke regnes) for mini-spilleren i Fold-oppsettet (msh-navbar-card).
+    // ResizeObserver på flis-griden (.cols, to kolonner, gap 8): bredde = (grid − 8) / 2, left = grid.left + bredde + 8
+    // i viewport-koordinater. Siste målte verdi beholdes når griden ikke finnes (andre faner).
+    _tColObs() {
+      if (!window.ResizeObserver) return;
+      const g = this.shadowRoot.querySelector('.cols');
+      if (!this._tcRO) this._tcRO = new ResizeObserver(() => this._tColMeasure());
+      if (this._tcEl !== g) { if (this._tcEl) this._tcRO.unobserve(this._tcEl); this._tcEl = g; if (g) this._tcRO.observe(g); }
+      this._tColMeasure();
+    }
+    _tColMeasure() {
+      const g = this._tcEl;
+      if (!g || !g.isConnected) return;
+      const r = g.getBoundingClientRect();
+      if (!r.width) return;
+      const w = (r.width - 8) / 2, v = { left: Math.round((r.left + w + 8) * 10) / 10, width: Math.round(w * 10) / 10 };
+      const o = M.hjemTCol;
+      if (o && o.left === v.left && o.width === v.width) return;
+      M.hjemTCol = v;
+      window.dispatchEvent(new CustomEvent('msh-tcol', { detail: v }));
     }
     _tickAppl() {
       if (!this.isConnected || !this._applT) return;
@@ -1317,6 +1339,7 @@
         ${M.APPLIANCE_CSS || ''}
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
+        .hf.fold{max-width:none;margin:0}
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
@@ -1363,8 +1386,7 @@
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
         /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
-        .dots{display:flex;gap:10px;height:14px;align-items:center}
-        .dots{--dot-w:9px;--dot-on-w:12px;--dot-bg:var(--gray300,#404040);--dot-on-bg:var(--gray500,#696969)}
+        /* prikkrader: felles .msh-dots i BASE_CSS (18.3: 10/12 px, gap 8 px) */
         .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
         .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}

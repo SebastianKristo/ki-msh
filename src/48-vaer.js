@@ -304,7 +304,6 @@
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
         .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
         .pn{font-size:12px;font-weight:500}
-        .dots{display:flex;height:14px;align-items:center;--dot-w:10px;--dot-on-w:12px;--dot-bg:var(--gray400,#545454);--dot-on-bg:var(--gray600,#7f7f7f)}
       `;
     }
   }

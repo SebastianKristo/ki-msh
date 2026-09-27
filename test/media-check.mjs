@@ -69,6 +69,9 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
   // volum: første spiller i musikk-fanen (valgt) – pille som standard + bryter
   const v0 = await p.evaluate(() => { const r = window.__main.shadowRoot.querySelector('.mvr'); return r && { key: r.dataset.vkey, pill: !!r.querySelector('.mvl'), tog: !!r.querySelector('.mvt'), txt: r.textContent.replace(/\s+/g, ' ').trim() }; });
   ok(v0 && v0.pill && v0.tog, 'volum: pille + bryter mangler ' + JSON.stringify(v0));
+  // 18.9: sporet har kortfargen (#3a3a3a + 5 % kant), som kilde-flisene
+  const bg0 = await p.evaluate(() => { const c = getComputedStyle(window.__main.shadowRoot.querySelector('.mvl')); return c.backgroundColor + ' ' + c.boxShadow; });
+  ok(/^rgb\(58, 58, 58\) rgba\(255, 255, 255, 0\.05\) 0px 0px 0px 1px inset$/.test(bg0), 'volum 18.9: pille-spor ' + bg0);
   // drag på pillen → volume_set (throttlet) + endelig verdi
   await clearCalls(p);
   const bx = await p.evaluate(() => { const e = window.__main.shadowRoot.querySelector('.mvl'); e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width }; });
@@ -83,6 +86,8 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
   await p.evaluate(() => window.__main.shadowRoot.querySelector('.mvt').click()); await p.waitForTimeout(300);
   const v1 = await p.evaluate(() => ({ st: window.MSH.store.get('media.vol_style'), trinn: !!window.__main.shadowRoot.querySelector('.mvs'), bars: window.__main.shadowRoot.querySelectorAll('.mvbars span').length }));
   ok(v1.st === 'trinn' && v1.trinn && v1.bars === 16, 'volum: bytte til trinn ' + JSON.stringify(v1));
+  const bg1 = await p.evaluate(() => { const R = window.__main.shadowRoot, g = (q) => getComputedStyle(R.querySelector(q)).backgroundColor; return [g('.mvs'), g('.mvs .mvb'), g('.mvbars span:not(.on)')].join(' | '); });
+  ok(bg1 === 'rgb(58, 58, 58) | rgb(47, 47, 47) | rgb(47, 47, 47)', 'volum 18.9: trinn-spor/knapper/trinn ' + bg1);
   await clearCalls(p);
   await p.evaluate(() => { const b = window.__main.shadowRoot.querySelector('.mvs [data-vact="up"]'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); window.__upPt = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   const up = await p.evaluate(() => window.__upPt);

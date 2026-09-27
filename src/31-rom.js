@@ -952,8 +952,7 @@
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
-        .dots{display:flex;gap:8px;height:14px;align-items:center}
-        .dots{--dot-w:10px;--dot-on-w:12px;--dot-bg:${G.g400};--dot-on-bg:${G.g600}}
+        .dots{display:flex;height:14px;align-items:center} /* prikkene: felles .msh-dots (18.3) */
         /* klima */
         .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;overflow:hidden;transition:background .4s,border-radius .3s}
         /* 16.8: rosa «varmer»-lag (opasitet → 300 ms overgang), mørk tekst */
@@ -989,7 +988,7 @@
         .mctl{display:flex;align-items:center;justify-content:space-between;margin-top:28px}
         .mb{width:44px;height:44px;display:grid;place-items:center}
         .mp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center}
-        .vs .cvt{background:var(--gray000, #232323)}
+        .vs .cvt{background:var(--gray200, #3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)} /* 18.9: samme spor som Media (kortfarge) */
         .mp:active{transform:scale(.94)}
         .mv{display:flex;align-items:center;gap:16px;padding:16px 12px 6px 20px}
         .mvl{font-size:14px;font-weight:500}

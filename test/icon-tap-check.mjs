@@ -120,7 +120,8 @@ cb = await tapChip(2); await wait(300);
 st = await popState();
 ok('prosa-pille tap none: ikke trykkbar, ingen navigasjon', !!cb && !cb.press && st.hash === '', { cb, st });
 const defTap = await page.evaluate(() => { const d = document.createElement('msh-prosa-card'); d.setConfig({ type: 'custom:msh-prosa-card' }); d.hass = H; const R = MSH.prosaTapOf; const rows = (d.constructor.schema(H).find((f) => f.name === 'prose') || {}).defaults(H, {}) || []; return rows.map((r) => [r.src, R(r)]); });
-ok('standard-prosa: vær → #vaer, lys → #lys (tap)', defTap.some(([s, t]) => s === 'weather' && t && t.navigation_path === '#vaer') && defTap.every(([s, t]) => s !== 'lights' || (t && t.navigation_path === '#lys')), defTap);
+// Fiks 18.1: finnes vær-seksjonen (vaer), lages ingen vær-setning i standardprosaen – ellers skal den gå til #vaer
+ok('standard-prosa: vær → #vaer (eller vær-seksjon), lys → #lys (tap)', defTap.every(([s, t]) => s !== 'weather' || (t && t.navigation_path === '#vaer')) && defTap.every(([s, t]) => s !== 'lights' || (t && t.navigation_path === '#lys')), defTap);
 
 /* ---------------- 15.7 · «Tilpass navbar»: ikonvelger */
 await page.evaluate(async () => { NAV.customize(); await new Promise((r) => setTimeout(r, 500)); });

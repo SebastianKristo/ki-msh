@@ -151,12 +151,109 @@
   let lastHaptic = 0;
   MSH.haptic = function (type) {
     type = HP[type] ? type : 'light';
-    try { if (localStorage.getItem('haptic') === 'off') return; } catch (e) { /* */ }
+    if (MSH.hapticOff()) return; // Fiks 18.5: av på denne enheten → verken haptic-event eller vibrate
     const now = Date.now();
     if (now - lastHaptic < 40) return;
     lastHaptic = now;
     try { window.dispatchEvent(new CustomEvent('haptic', { detail: type, bubbles: true, composed: true })); } catch (e) { /* */ }
     try { navigator.vibrate && navigator.vibrate(HP[type]); } catch (e) { /* */ }
+  };
+
+  /* ------------------------------------------------------------ enhet (Fiks 18.5 / 18.6) */
+  // Modell: navigator.userAgentData (høy entropi, async – mellomlagres i localStorage ki-device-model) ellers UA.
+  let devModel = '';
+  try { devModel = localStorage.getItem('ki-device-model') || ''; } catch (e) { /* */ }
+  try {
+    const uad = navigator.userAgentData;
+    if (uad && uad.getHighEntropyValues) {
+      uad.getHighEntropyValues(['model']).then((v) => {
+        const m = v && String(v.model || '').trim();
+        if (!m || m === devModel) return;
+        devModel = m;
+        try { localStorage.setItem('ki-device-model', m); } catch (e) { /* */ }
+        window.dispatchEvent(new CustomEvent('ki-device-info'));
+      }).catch(() => {});
+    }
+  } catch (e) { /* */ }
+  // { model, os, label } – label «Pixel 9 Pro · Android», «iPhone · iOS», ellers «Ukjent enhet»
+  MSH.deviceInfo = function () {
+    const ua = navigator.userAgent || '';
+    const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const os = ipad ? 'iPadOS' : /iPhone|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh|Mac OS X/.test(ua) ? 'macOS' : /Linux|CrOS/.test(ua) ? 'Linux' : '';
+    let model = devModel;
+    if (!model && os === 'Android') {
+      const m = ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build\/[^;)]*)?\s*(?:;|\))/);
+      if (m && m[1] && m[1].length > 1 && !/^(wv|K|Mobile)$/i.test(m[1])) model = m[1].trim();
+    }
+    if (!model && os === 'iOS') model = 'iPhone';
+    if (!model && ipad) model = 'iPad';
+    return { model, os, label: model ? model + (os ? ' · ' + os : '') : os || 'Ukjent enhet' };
+  };
+  // browser_mod-ID (samme form som MSH.store.deviceId) eller null når browser_mod ikke finnes
+  MSH.bmId = function () {
+    try {
+      const bm = localStorage.getItem('browser_mod-browser-id');
+      return bm ? String(bm).replace(/^"|"$/g, '').replace(/[^\w-]/g, '_') : null;
+    } catch (e) { return null; }
+  };
+
+  // Fiks 18.5 · haptisk feedback av per enhet: localStorage ki-haptic-off = '1' (+ ki-store haptic_off_devices: [browser_id])
+  MSH.hapticOff = function () {
+    let off = false;
+    try { off = localStorage.getItem('ki-haptic-off') === '1' || localStorage.getItem('haptic') === 'off'; } catch (e) { /* */ }
+    if (!off && MSH.store) {
+      const id = MSH.bmId(), L = id ? MSH.store.get('haptic_off_devices') : null;
+      if (Array.isArray(L) && L.includes(id)) { off = true; try { localStorage.setItem('ki-haptic-off', '1'); } catch (e) { /* */ } }
+    }
+    window.__kiHapticOff = off;
+    return off;
+  };
+  // Lagres straks (ikke med i Tilpass-arkets Ferdig/Avbryt)
+  MSH.setHapticOff = function (off) {
+    try { if (off) localStorage.setItem('ki-haptic-off', '1'); else { localStorage.removeItem('ki-haptic-off'); localStorage.removeItem('haptic'); } } catch (e) { /* */ }
+    const id = MSH.bmId();
+    if (id && MSH.store) {
+      const L = (MSH.store.get('haptic_off_devices') || []).filter((x) => x !== id);
+      if (off) L.push(id);
+      MSH.store.set('haptic_off_devices', L.length ? L : undefined, { now: true, immediate: true });
+    }
+    return MSH.hapticOff();
+  };
+  // Bubble Cards / HAs egne haptic-eventer: stoppes tidlig (capture på window) når haptic er av på denne enheten
+  if (!window.__kiHapticGuard) {
+    window.__kiHapticGuard = true;
+    window.addEventListener('haptic', (e) => { if (MSH.hapticOff()) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
+  }
+  MSH.hapticOff();
+
+  // Fiks 18.6 · navbarens avstand fra bunnen per enhet: localStorage ki-nav-bottom (+ ki-store nav_bottom_devices.<browser_id>)
+  MSH.navBottomDefault = function () {
+    const ua = navigator.userAgent || '', d = MSH.deviceInfo(), s = d.model + ' ' + ua;
+    if (d.os === 'iOS') return 0;
+    if (d.os === 'iPadOS') return 12;
+    if (/OnePlus|\bCPH2\d{3}\b|\bPJ[A-Z]\d{3}\b|\bPJ[A-Z0-9]{4}\b/i.test(s)) return 20;
+    if (d.os === 'Android') return 16; // Pixel 9 Pro / Pixel 9 Pro Fold lukket / annen Android
+    return 8;
+  };
+  // Egen verdi på denne enheten (px) eller null
+  MSH.navBottomOwn = function () {
+    let v = null;
+    try { const s = localStorage.getItem('ki-nav-bottom'); if (s != null && s !== '' && !isNaN(Number(s))) v = Number(s); } catch (e) { /* */ }
+    if (v == null && MSH.store) {
+      const id = MSH.bmId(), sv = id ? MSH.store.get('nav_bottom_devices.' + id) : null;
+      if (sv != null && !isNaN(Number(sv))) { v = Number(sv); try { localStorage.setItem('ki-nav-bottom', String(v)); } catch (e) { /* */ } }
+    }
+    return v == null ? null : Math.max(0, Math.min(48, Math.round(v)));
+  };
+  MSH.navBottom = () => { const v = MSH.navBottomOwn(); return v == null ? MSH.navBottomDefault() : v; };
+  // v = px eller null (Standard). save=false: bare live (under dra); save=true: lagres straks
+  MSH.setNavBottom = function (v, save) {
+    const n = v == null || v === '' ? null : Math.max(0, Math.min(48, Math.round(Number(v))));
+    try { if (n == null) localStorage.removeItem('ki-nav-bottom'); else localStorage.setItem('ki-nav-bottom', String(n)); } catch (e) { /* */ }
+    const id = MSH.bmId();
+    if (save !== false && id && MSH.store) MSH.store.set('nav_bottom_devices.' + id, n == null ? undefined : n, { now: true, immediate: true });
+    window.dispatchEvent(new CustomEvent('ki-nav-bottom'));
+    return n;
   };
 
   /* ------------------------------------------------------------ hass-hjelpere */
@@ -434,6 +531,17 @@
     const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
     return W >= 1000 || (touch && W >= 680);
   };
+  // Fiks 18.4/18.7: Fold-oppsettet (designets isFold) = telefon-innholdet i én kolonne i full bredde + vertikal navbar
+  // til venstre. Containerbredde ≥ 1000 px, eller berøringsenhet med bredde ≥ 600 px (Fold åpen, iPad, PC). Erstatter
+  // den brede griden (isWide brukes ikke lenger til layout). w = containerens bredde, ikke vinduets.
+  MSH.isFold = function (w) {
+    const W = w != null ? w : MSH.dashRect().width;
+    const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
+    return W >= 1000 || (touch && W >= 600);
+  };
+  // Vertikal navbar (rail): bredde (10 + 60 + 10) og avstand til dashbordkanten. Innholdet får padding-left = w + 2 × gap.
+  MSH.RAIL = { w: 80, gap: 20 };
+  MSH.railPad = () => MSH.RAIL.w + 2 * MSH.RAIL.gap;
 
   /* ------------------------------------------------------------ portal/overlegg */
   // Overlegg (ark, tastatur, tilpasning) portales til document.body og plasseres mot dashbordflaten,
@@ -787,8 +895,10 @@
     const gl = glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
-    const R = MSH.dashRect();
-    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto' });
+    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) dekker arket bare innholdsflaten til høyre for railen
+    const railX = () => (MSH.railOn && MSH.railPad ? MSH.railPad() : 0);
+    const R = MSH.dashRect(), rx = railX();
+    Object.assign(host.style, { position: 'fixed', left: R.left + rx + 'px', top: '0', width: R.width - rx + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
     const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
@@ -840,7 +950,7 @@
     if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + x + 'px'; host.style.width = D.width - x + 'px'; };
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
@@ -853,14 +963,14 @@
   // Bekreftelsesmelding: 44 px pill, #e1e1e1 / #232323, top 106 px, sentrert i dashbordflaten, 2,2 s.
   MSH.toast = function (text, opts) {
     if (opts && opts.enabled === false) return;
-    const R = MSH.dashRect();
+    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0; // fiks 18.4: midt på innholdsflaten
     const old = MSH.overlayRoot().querySelector('#msh-toast');
     if (old) old.remove();
     const t = document.createElement('div');
     t.id = 'msh-toast';
     t.textContent = text;
     Object.assign(t.style, {
-      position: 'fixed', top: '106px', left: R.left + R.width / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
+      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
       display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 14px ${MSH.FONT}`,
       boxShadow: '0 12px 30px rgba(0,0,0,0.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none',
     });
@@ -871,7 +981,8 @@
 
   /* ------------------------------------------------------------ karusell-prikker (Fiks 17.12/17.17/17.30) */
   // Felles for ALLE sveip-karuseller (Hjem-romkort/flis-stabler, Rom → Klima/Media, Media-hero, Vær).
-  // Prikkene er knapper med 32×32 treffflate (synlig prikk via ::after, størrelse/farge via --dot-*-variabler).
+  // Prikkene er knapper like store som prikken (10 px, aktiv 12 px, gap 8 px – Hjem v3 «hasDots»); treffflaten
+  // (32 px høy) ligger i ::before (inset −11px −4px), så den ikke påvirker avstanden (18.3). Størrelse/farge via --dot-*.
   // Trykk → go(i) (mykt, «auto» ved prefers-reduced-motion), haptic light, stopPropagation (åpner ikke kortet
   // under), trykk på aktiv prikk gjør ingenting, ←/→ når raden har fokus. Aktiv prikk settes rett i DOM-en
   // (MSH.setDots) – ALDRI re-render av kortet mens man sveiper (17.17).
@@ -1234,11 +1345,11 @@
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:13px;text-align:center}
     .pick{height:36px;padding:0 14px;border-radius:18px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
-    .dots.msh-dots{gap:0;justify-content:center;outline:none;border-radius:16px}
+    .dots.msh-dots{display:flex;gap:8px;height:14px;align-items:center;justify-content:center;outline:none;border-radius:16px}
     .msh-dots:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
-    .msh-dot{flex:none;width:32px;height:32px;display:grid;place-items:center;cursor:pointer;border-radius:16px;-webkit-tap-highlight-color:transparent}
-    .msh-dot::after{content:'';width:var(--dot-w,9px);height:var(--dot-h,var(--dot-w,9px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray300,#404040));transition:background .2s,width .2s,height .2s}
-    .msh-dot.on::after{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray500,#696969))}
+    .msh-dot{flex:none;position:relative;width:var(--dot-w,10px);height:var(--dot-h,var(--dot-w,10px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray400,#545454));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s,width .2s,height .2s}
+    .msh-dot.on{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray600,#7f7f7f))}
+    .msh-dot::before{content:'';position:absolute;inset:-11px -4px} /* 18.3: treffflate utenfor layouten, naboene møtes i gap-midten */
   `;
 
   /* ------------------------------------------------------------ basekort */

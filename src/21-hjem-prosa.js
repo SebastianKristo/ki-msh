@@ -18,6 +18,8 @@
  *   standard-config (SEC_STD) i getStubConfig og fylt inn for manglende nøkler (exclude: [pris] / pris: false = av).
  *   Hver seksjon vises bare når entiteten finnes. Rekkefølge: rekkefolge[] (standard vær → hjemkomst → ringeklokke →
  *   apparater → planter → pris → setninger (prose[]) → bursdag). Aktive vær/pris-seksjoner erstatter standardprosaens vær/pris.
+ * Fiks 18.1: aktive vær/pris-seksjoner erstatter også lagrede vær/pris-setninger i prose[] (cleanProse, migreres og lagres én gang),
+ *   eldre weather/price/strom-nøkler → vaer/pris, hver fast kilde maks én gang, og «og vi bruker …» fortsetter pris-setningen.
  *   planter: KI Planter-steder via entitetsregisteret (platform ki_planter) eller attributtet integrasjon: ki_planter;
  *   sensor.<sted>_planter_trenger_vann (antall, trenger_vann[], trenger_vann_tekst). Trykk → path (#planter),
  *   hold → «Merk alle som vannet?» → button.<sted>_planter_alle_vannet. Maler: {pille}/{planter}, {navn}, {antall}, {sted}.
@@ -189,22 +191,48 @@
   function defaultProse(h, c, skip) {
     const S = { ...sources(h, c) };
     // Fiks 17.9: vær/pris vises av seksjonene når de er aktive – ikke dobbelt
+    // Fiks 18.1: aktiv pris-seksjon = prisen finnes; effekt/lys fortsetter pris-setningen («… kr og vi bruker …»)
+    const secP = !!(skip && skip.pris);
     if (skip && skip.vaer) delete S.weather;
-    if (skip && skip.pris) delete S.price;
+    if (secP) delete S.price;
     const out = [];
     const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', cop: 'alltid', ...(extra || {}) });
     if (S.weather) row('p1', 'Ute er det', 'weather', '.', nav('#vaer'));
-    const P = !!S.price, W = !!S.watt, L = !!S.lights;
-    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
-    else if (P && W) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', '.'); }
-    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
+    const P = secP || !!S.price, W = !!S.watt, L = !!S.lights;
+    const pr = (post) => { if (!secP) row('p2', 'Strømmen koster', 'price', post, { icon: 'dot' }); };
+    if (P && W && L) { pr(''); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
+    else if (P && W) { pr(''); row('p3', 'og vi bruker', 'watt', '.'); }
+    else if (P && L) { if (secP) row('p4', 'og vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); else { pr('.'); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); } }
     else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
-    else if (P) row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' });
+    else if (P) pr('.');
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
     else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', ...nav('#lys') });
     if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', tap: { action: 'more-info' } });
     return out;
   }
+  // Fiks 18.1 · én vær/pris: lagrede setninger (prose[] fra før 17.9, eller lagret av editoren) med kilde vær/strømpris
+  // fjernes når vær-/pris-seksjonen er aktiv (config vinner over autokonfig). Idempotent, så ingen dobbel etter omlasting;
+  // editorene viser og lagrer den rensede listen (migreringen følger med ved første lagring, se også Prosa._migrate).
+  const SEC_SRC = { weather: 'vaer', price: 'pris' };
+  function cleanProse(rows, active) {
+    return (rows || []).filter((p) => !(p && SEC_SRC[p.src] && active && active[SEC_SRC[p.src]]));
+  }
+  // Eldre toppnivå-nøkler → vaer/pris (entitet), slettes fra config
+  const LEGACY = { weather: 'vaer', 'vær': 'vaer', price: 'pris', strom: 'pris', 'strøm': 'pris', strompris: 'pris' };
+  function legacyOf(c) {
+    if (!c) return null;
+    let o = null;
+    Object.keys(LEGACY).forEach((k) => {
+      if (c[k] == null || typeof c[k] === 'boolean') return;
+      o = o || { ...c };
+      const t = LEGACY[k], v = c[k];
+      // weather.* → tilstand + temperatur (som den gamle autokonfigen), ikke attributtet «weather» fra standarden
+      if (o[t] == null) o[t] = typeof v === 'string' ? (t === 'vaer' && v.indexOf('weather.') === 0 ? { entity: v, attributt: '', enhet: '' } : { entity: v }) : v;
+      delete o[k];
+    });
+    return o;
+  }
+  let LH = null; // siste hass (editorens rad-normalisering har ikke hass)
 
 
   /* ------------------------------------------------------------ Fiks 17.9 · seksjoner (standard-config + KI Planter) */
@@ -421,9 +449,12 @@
 
   // Beregn synlige setninger → [{ pre, post, chip, hasChip, dot, emoji, bg, i, row, id, tap }]
   function compute(h, c, rd) {
+    c = legacyOf(c) || c; // Fiks 18.1: eldre weather/price/strom-nøkler → vaer/pris
+    if (h) LH = h;
     const S = sources(h, c, rd), getS = getter(h, c, S, rd);
     const SX = sections(h, c, rd);
-    const rows = Array.isArray(c.prose) ? c.prose : defaultProse(h, c, SX.active);
+    // Fiks 18.1: lagrede setninger renses for vær/pris når seksjonen er aktiv (én kilde per type)
+    const rows = Array.isArray(c.prose) ? cleanProse(c.prose, SX.active) : defaultProse(h, c, SX.active);
     // Verdi for en kilde. Faste kilder kan pekes til en annen entitet (ent_override / cent); «Egendefinert» bruker ent.
     const valFor = (src, ov) => {
       if (src === 'custom') return getS(ov) || null;
@@ -446,7 +477,9 @@
       const eq = num ? sv[1] === x : String(sv[0]).toLowerCase() === String(p.cval || '').trim().toLowerCase();
       return op === '=' ? eq : !eq;
     };
-    const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p)).map(({ p, i }) => {
+    const seen = new Set(); // Fiks 18.1: hver fast kilde (vær, pris, effekt, lys …) vises maks én gang – første synlige vinner
+    const once = (p) => { const k = p.src; if (!FIXED.includes(k)) return true; if (seen.has(k)) return false; seen.add(k); return true; };
+    const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p) && once(p)).map(({ p, i }) => {
       const post = fill(p.post), sv = valOf(p);
       const bg = p.color === 'auto' ? (sv && sv[2]) || '#fafafa' : PCOL[p.color] || M.color(p.color, '#fafafa');
       return { i, row: p, pre: p.pre ? fill(p.pre) + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post) + ' ' : ' ', hasChip: (p.src || 'none') !== 'none',
@@ -458,6 +491,14 @@
     // Fiks 17.9: seksjonene og setningene i valgt rekkefølge («setninger» = prose[])
     const ex = exOf(c), all = [];
     secOrder(c).forEach((k) => { if (k === 'setninger') { if (!ex.has('setninger')) all.push(...vis); } else if (SX.items[k]) all.push(...SX.items[k]); });
+    // Fiks 18.1: setning som fortsetter (liten forbokstav, «og vi bruker …») slås sammen med pris-pillen foran
+    // («Strømmen koster 1,16 kr og vi bruker …»); står den ikke etter en setning som fortsetter, får den stor forbokstav.
+    for (let i = 0; i < all.length; i++) {
+      const v = all[i], pv = all[i - 1];
+      if (v.sec || !/^[a-zæøå]/.test(v.pre)) continue;
+      if (pv && pv.sec === 'pris' && /\.\s*$/.test(pv.post)) all[i - 1] = { ...pv, post: pv.post.replace(/\s*\.\s*$/, ' ') };
+      else if (!pv || /[.!?]\s*$/.test(pv.post)) all[i] = { ...v, pre: v.pre.charAt(0).toUpperCase() + v.pre.slice(1) };
+    }
     return { S, getS, rows, vis: all, rowVis: vis, test, valOf, valFor, autoOf, fill, SX };
   }
 
@@ -513,7 +554,8 @@
     @media (prefers-reduced-motion: reduce){.pz .an{animation:none!important}}
   `;
   // Standard: clamp(22px, 7,4cqi, 34px) – kortet (eller forhåndsvisningen) er container (container-type: inline-size)
-  const AUTO_FS = 'clamp(22px, 7.4cqi, 34px)';
+  // Fiks 18.4: i Fold-oppsettet setter msh-hjem-card --msh-prosa-max (telefonens størrelse) – prosaen blir ikke større enn på telefon
+  const AUTO_FS = 'clamp(22px, 7.4cqi, var(--msh-prosa-max, 34px))';
   M.PROSA_AUTO_FS = AUTO_FS;
   const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
@@ -680,7 +722,8 @@
           ...SEC_SCHEMA,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
-            defaults: (h, c) => defaultProse(h, c),
+            defaults: (h, c) => defaultProse(h, c, sections(h, legacyOf(c) || c).active),
+            norm: (list, c) => (LH ? cleanProse(list, sections(LH, legacyOf(c) || c).active) : list), // Fiks 18.1
             newRow: () => ({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', cop: 'alltid' }),
             title: (p) => [p.pre, (p.src || 'none') === 'none' ? '' : `[${p.src === 'text' ? p.fmt || '' : p.src === 'custom' ? p.ent || 'state' : srcL(p.src)}]`, p.post].filter(Boolean).join(' ') || 'Tom setning',
             sub: (p, i, h, c) => { const op = p.cop || 'alltid'; if (op === 'alltid') return 'Vises alltid'; const R = compute(h, c); return `Når ${srcL(p.csrc || p.src).toLowerCase()} ${(OPS.find((o) => o[0] === op) || ['', ''])[1].toLowerCase()} ${p.cval || '…'} · ${R.test(p) ? 'vises nå' : 'skjult nå'}`; },
@@ -742,6 +785,7 @@
       if (M.powerPriceWatch) M.powerPriceWatch(this); // power_price i ki-store endret → tegn på nytt
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
+      this._migrate(R);
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const pzS = `style="${textStyle(this.config)}"`;
       if (!R.vis.length) {
@@ -750,6 +794,21 @@
       return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => (v.sec
         ? `<button class="chip press" data-key="s-${v.sec}-${v.j}" data-act="sec" data-s="${v.sec}" data-j="${v.j}" ${v.id || v.hold ? `data-ent="${esc(v.id || '__' + v.hold)}"` : ''} ${v.hold ? `data-hold="${esc(v.hold)}"` : ''} style="background:${v.bg};cursor:pointer">${chipHTML(v)}</button>`
         : `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`))}</div>`;
+    }
+    // Fiks 18.1 · migrering, lagres én gang per kort: eldre vær/pris-nøkler → vaer/pris, og vær/pris-setninger i prose[]
+    // fjernes når seksjonen er aktiv. Bare det levende kortet (ikke editorens frakoblede instans), ikke mens et utkast er åpent.
+    _migrate(R) {
+      const raw = this._rawConfig, id = raw && raw.card_id;
+      if (!id || !this.isConnected || !this.hass || !M.store || !M.store.loaded || (M.draftOf && M.draftOf(this))) return;
+      const done = (M._prosaMig = M._prosaMig || new Set());
+      if (done.has(id)) return;
+      const L = legacyOf(raw), base = L || raw;
+      const cut = Array.isArray(base.prose) && R.rows.length !== base.prose.length;
+      if (!L && !cut) return;
+      done.add(id);
+      const nc = { ...base };
+      if (cut) nc.prose = R.rows.map((x) => clone(x));
+      try { M.saveCardConfig(this.hass, raw, nc, { toasts: false, card: this }); } catch (e) { console.warn('[ki-msh] prosa-migrering', e); }
     }
     onHold(id, el) {
       if (id === '__tilpass') { this.customize('prose'); return true; }

@@ -3,7 +3,7 @@
 //  · skjules i #media, hold på pause → media_pause + skjult til neste avspilling (sessionStorage), tilbake ved playing
 //  · volum: trykk → pille, dra → volume_set; hold → volume_mute
 //  · flere spillere → prikker + sveip; av i config → ingen mini
-//  · bred (rail) med HA-sidebar: mini-spilleren ligger innenfor dashbordflaten (aldri over sidebaren)
+//  · bred (rail) med HA-sidebar: mini-spilleren ligger innenfor dashbordflaten (aldri over sidebaren), over høyre fliskolonne (18.4/18.8)
 //  · «Mer»-menyen: verktøyene under streken har samme farge som punktene over (standard og glass)
 //  · «Tilpass navbar» → Mini-spiller: av/på, Vis når, Skjul i Media-popupen
 // Kjør: node test/mini-check.mjs
@@ -163,7 +163,11 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   const { p, errs } = await setup({ width: 1440, height: 900 }, {}, 256);
   const m = await mini(p);
   const dash = await p.evaluate(() => rect(document.getElementById('dash')));
-  ok('bred: mini-spilleren innenfor dashbordflaten (ikke over sidebaren)', m && !m.off && m.m.l >= 256 && Math.abs(m.m.l + m.m.w / 2 - (dash.l + dash.w / 2)) < 2 && m.m.b <= 900, m && { m: m.m, dash });
+  // Fiks 18.4/18.8: Fold-oppsettet – nederst til høyre over høyre fliskolonne (uten Hjem: utregningen (innhold − 8) / 2,
+  // høyrekant = innholdets padding-right 18), innenfor dashbordflaten og til høyre for railen
+  const tr = await p.evaluate(() => getComputedStyle(deep('[data-mini]')).transform);
+  ok('bred: mini-spilleren innenfor dashbordflaten, over høyre kolonne (ikke over sidebaren/railen)', m && !m.off && m.m.l >= 256 + 120 && Math.abs(m.m.r - (dash.r - 18)) < 2 && Math.abs(m.m.w - (dash.w - 120 - 18 - 8) / 2) < 2 && m.m.b <= 900 - 15, m && { m: m.m, dash });
+  ok('bred: ingen translateX/sentrering', /^(none|matrix\(1, 0, 0, 1, 0, [-\d.]+\))$/.test(tr), tr);
   if (SHOT) await p.screenshot({ path: SHOT + '/mini-bred.png' });
   ok('ingen sidefeil (bred)', !errs.length, errs);
   await p.close();

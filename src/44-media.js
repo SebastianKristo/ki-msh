@@ -296,7 +296,7 @@
     },
     CSS: `
       .mvr{display:flex;align-items:center;gap:8px;min-width:0}
-      .mvp{position:relative;flex:1;min-width:0;height:56px;border-radius:28px;background:var(--gray300,#404040);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+      .mvp{position:relative;flex:1;min-width:0;height:56px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       .mvp.dis{opacity:.45}
       .mvl{touch-action:none;cursor:pointer}
       .mvc{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 20px;font-size:15px;font-weight:500;color:var(--white,#fafafa);pointer-events:none}
@@ -304,7 +304,7 @@
       .mvn{margin-left:auto;font-variant-numeric:tabular-nums}
       .mvf{position:absolute;inset:0;background:${VOL_PINK};clip-path:inset(0 calc(100% - var(--v, 0%)) 0 0);pointer-events:none}
       .mvs{display:flex;align-items:center;gap:8px;padding:0 6px}
-      .mvb{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:var(--white,#fafafa);transition:transform .12s}
+      .mvb{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);transition:transform .12s} /* 18.9: spor = kortfarge #3a3a3a, knapper/inaktive trinn #2f2f2f */
       .mvb:active{transform:scale(.9)}
       .mvbars{flex:1;min-width:0;height:30px;display:flex;align-items:flex-end;gap:3px;touch-action:none;cursor:pointer;padding:0 2px}
       .mvbars span{flex:1;min-width:2px;border-radius:2px;background:var(--gray100,#2f2f2f);transition:background .12s}

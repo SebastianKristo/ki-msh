@@ -1,5 +1,6 @@
 // Fiks 17.13/17.15/17.20: «Hilsen»/«Sted» i headeren (én rad, store bilder, merker), justerbare størrelser,
-// tittelen krymper før den kortes, og bred layout på Fold/nettbrett (berøring ≥ 680 px).
+// tittelen krymper før den kortes. Fiks 18.4/18.7: Fold-oppsettet (≥ 1000 px, berøring ≥ 600 px: Fold, iPad, PC) =
+// telefon-innholdet i én kolonne i full bredde, padding-left = rail + 2 × avstand, header skalert 0,72, ingen zoom.
 import { createRequire } from 'node:module';
 import { readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -33,7 +34,10 @@ const measure = `(() => {
   const g = all.find((e) => e.classList && e.classList.contains('g'));
   return { hil: !!R.querySelector('.hd.hil'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
     av, bd, gaps: over, arrowGap: arrow, overflow: top.scrollWidth > top.clientWidth + 1 || (lastBd ? lastBd.getBoundingClientRect().right > hr.right + 0.5 : false),
-    layout: g ? g.className : null, gW: g ? Math.round(g.getBoundingClientRect().width) : null, dashW: Math.round(document.getElementById('dash').getBoundingClientRect().width) };
+    layout: g ? g.className : null, gW: g ? Math.round(g.getBoundingClientRect().width) : null, dashW: Math.round(document.getElementById('dash').getBoundingClientRect().width),
+    padL: g ? parseFloat(getComputedStyle(g).paddingLeft) : null, zoom: g ? getComputedStyle(g).zoom : null, grid: g ? getComputedStyle(g).display : null,
+    cols: (() => { const F = all.find((e) => e.localName === 'msh-hjem-faner-card'); const c = F && F.shadowRoot.querySelector('.cols'); return c ? getComputedStyle(c).gridTemplateColumns.split(' ').length : null; })(),
+    hfW: (() => { const F = all.find((e) => e.localName === 'msh-hjem-faner-card'); const h = F && F.shadowRoot.querySelector('.hf'); return h ? Math.round(h.getBoundingClientRect().width) : null; })() };
 })()`;
 const hjem = async (p, header) => p.evaluate(async (header) => {
   const h = window.mockHass(); window.__h = h;
@@ -45,14 +49,21 @@ const hjem = async (p, header) => p.evaluate(async (header) => {
 }, header);
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 
-// 17.20 A: Fold / nettbrett / telefon
-for (const [name, w, h, touch, wide] of [['telefon412', 412, 915, true, false], ['telefon360', 360, 780, true, false], ['foldÅpen', 840, 880, true, true], ['fold9pro', 884, 1032, true, true], ['b700', 700, 900, true, true], ['b820', 820, 1000, true, true], ['b900', 900, 1000, true, true], ['mus840', 840, 880, false, false], ['pc1200', 1200, 900, false, true]]) {
+// 18.4/18.7: Fold / iPad / PC = Fold-oppsettet; telefon og mus < 1000 px = telefon-oppsettet
+for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], ['telefon360', 360, 780, true, false], ['foldÅpen', 840, 880, true, true], ['fold9pro', 884, 1032, true, true], ['b600', 600, 900, true, true], ['b599', 599, 900, true, false], ['b700', 700, 900, true, true], ['b820', 820, 1000, true, true], ['b900', 900, 1000, true, true], ['ipadStaende', 1024, 1366, true, true], ['ipadLiggende', 1366, 1024, true, true], ['mus840', 840, 880, false, false], ['pc1200', 1200, 900, false, true], ['pc1440', 1440, 900, false, true], ['pc1920', 1920, 1080, false, true]]) {
   const p = await page(w, h, touch);
   await hjem(p);
   const m = await p.evaluate(measure);
   res[name] = m;
-  ok(/wide/.test(m.layout) === wide, `${name}: layout ${m.layout}, ventet ${wide ? 'wide' : 'mob'}`);
-  ok(m.gW >= m.dashW - 2 || wide, `${name}: telefon-kolonnen fyller ikke containeren (${m.gW}/${m.dashW})`);
+  ok(/fold/.test(m.layout) === fold && /mob/.test(m.layout) && !/wide/.test(m.layout), `${name}: layout ${m.layout}, ventet ${fold ? 'fold' : 'mob'}`);
+  ok(m.gW >= m.dashW - 2, `${name}: kolonnen fyller ikke containeren (${m.gW}/${m.dashW})`);
+  ok(m.grid === 'flex' && (m.zoom === '1' || m.zoom == null), `${name}: ikke én kolonne / zoom (${m.grid}, zoom ${m.zoom})`);
+  ok(fold ? Math.abs(m.padL - 120) < 0.5 : Math.abs(m.padL - 18) < 0.5, `${name}: padding-left ${m.padL}`);
+  ok(m.cols === 2, `${name}: flisene står ikke i to kolonner (${m.cols})`);
+  ok(!fold || m.hfW >= m.gW - m.padL - 18 - 2, `${name}: fanene/flisene fyller ikke bredden (max-width?) ${m.hfW}`);
+  // Header i Fold: 0,72 × standard (58 → 42 px tekst, 62 → 45 px bilder, 24 → 17 px merker), navnet avkortes ikke
+  if (fold) ok(m.fs <= 42.01 && m.av.every((x) => x <= 45) && m.bd.every((x) => x <= 17) && !m.cut, `${name}: header ikke skalert 0,72 (${m.fs}px, ${m.av}, ${m.bd}, kuttet ${m.cut})`);
+  else ok(m.fs > 42.01 || m.av.some((x) => x > 45) || w < 420, `${name}: telefon-header er skalert`);
   ok(m.hil, `${name}: standard er ikke Hilsen`);
   // Ellipsis bare som siste utvei: 18 px, bildene 32 px og full overlapp (−12)
   ok(!m.cut || (m.fs <= 18.01 && m.av.every((x) => x <= 32) && m.gaps.every((g) => g <= -12)), `${name}: tittelen er kuttet før bildene er krympet (${m.text} ${m.fs}px, ${m.av}, ${m.gaps})`);
@@ -60,15 +71,15 @@ for (const [name, w, h, touch, wide] of [['telefon412', 412, 915, true, false], 
   ok(m.fs >= 18 - 0.01, `${name}: tittel under 18 px`);
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr-${name}.png` });
   ok(!p.__errs.length, `${name}: ${p.__errs.join(' | ')}`);
-  // Live bretting: 840 → 412 → 840 uten reload
-  if (name === 'foldÅpen') {
-    await p.setViewportSize({ width: 412, height: 880 }); await p.waitForTimeout(500);
+  // Live bretting: 884 → 412 → 884 uten reload
+  if (name === 'fold9pro') {
+    await p.setViewportSize({ width: 412, height: 915 }); await p.waitForTimeout(500);
     const m2 = await p.evaluate(measure); res.foldLukket = m2.layout;
-    ok(/mob/.test(m2.layout), 'bretting: ble ikke mob ved 412');
+    ok(!/fold/.test(m2.layout) && Math.abs(m2.padL - 18) < 0.5, `bretting: ble ikke telefon ved 412 (${m2.layout}, ${m2.padL})`);
     ok(!m2.cut, 'bretting: tittel kuttet ved 412');
-    await p.setViewportSize({ width: 840, height: 880 }); await p.waitForTimeout(500);
-    res.foldIgjen = (await p.evaluate(measure)).layout;
-    ok(/wide/.test(res.foldIgjen), 'bretting: ble ikke wide igjen');
+    await p.setViewportSize({ width: 884, height: 1032 }); await p.waitForTimeout(500);
+    const m3 = await p.evaluate(measure); res.foldIgjen = m3.layout;
+    ok(/fold/.test(m3.layout) && Math.abs(m3.padL - 120) < 0.5 && m3.fs <= 42.01, 'bretting: ble ikke Fold igjen');
   }
   await p.close();
 }
