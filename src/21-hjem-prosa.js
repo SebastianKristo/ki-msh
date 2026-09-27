@@ -276,6 +276,7 @@
         const persons = hass ? M.all(hass, 'person') : [];
         const toks = [...Object.keys(TOK).map((k) => [`+ {${k}}`, `{${k}}`]), ...areas.map((a) => [`+ {${a.id}.temp}`, `{${a.id}.temp}`]), ...persons.map((p) => { const o = p.split('.')[1]; return [`+ {${o}.hjemme}`, `{${o}.hjemme}`]; })];
         const links = [...LINKS, ...(hass ? M.areas(hass).map((a) => ['#' + a.id, a.name]) : [])];
+        (M.popupOptions && hass ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },

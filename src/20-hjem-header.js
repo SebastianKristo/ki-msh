@@ -374,6 +374,7 @@
   const autoZones = (hass) => M.all(hass, 'zone', (s, id) => id !== 'zone.home').map((id, i) => ({ zone: id, icon: hass.states[id].attributes.icon || 'mdi:map-marker', color: ZCOLS[i % ZCOLS.length] }));
   const zonesOf = (hass, c) => (Array.isArray(c.zones) ? c.zones : autoZones(hass));
   const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+  const clampN = (v, lo, hi, d) => { const n = Number(v); return v === '' || v == null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); };
   const objId = (id) => String(id).split('.')[1];
   const SLEEP_RE = /sov|sleep|seng|natt/;
   const PRES_RE = /hjemme|home|tilstede|presence/;
@@ -621,8 +622,9 @@
     }
     onAction(name, el, ev) {
       if (name === 'title') {
-        // Trykk håndteres på pointerup (afterRender). Klikk uten peker (tastatur) åpner menyen direkte.
-        if (ev && ev.detail === 0 && !this._gHeld) this._titleTap(el);
+        // Ett vanlig trykk (click) åpner «Bytt sted» med én gang – ingen hold/dobbelttrykk på stedsnavnet.
+        if (ev) ev.stopPropagation();
+        if (this._srv) this._srvClose(); else this._srvOpen(el);
         return;
       }
       if (name === 'person') {
@@ -632,24 +634,28 @@
       }
       return super.onAction(name, el, ev);
     }
-    // Ett trykk (pointerup) åpner «Bytt sted» med én gang. Nytt trykk innen 250 ms = dobbelttrykk:
-    // lukk menyen uten animasjon og åpne /config. Én haptic: 'light' ved åpning, 'medium' ved dobbelttrykk.
-    _titleTap(anchor) {
-      const now = Date.now();
-      if (this._gLast && now - this._gLast < 250) { this._gLast = 0; this._titleDbl(); return; }
-      this._gLast = now;
+    // Langt trykk i headeren (ikke på stedsnavnet) → «Tilpass header», eller kiosk-modus med hold_kiosk: true.
+    onHold(id) {
+      if (id !== '__tilpass') return undefined;
+      const t = this.shadowRoot.querySelector('.ttl'), r = t && t.getBoundingClientRect();
+      if (r && this._hx >= r.left && this._hx <= r.right && this._hy >= r.top && this._hy <= r.bottom) { this._swallow = false; return true; }
+      if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return true; }
+      const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, i) => /kiosk/.test(i))[0]);
+      if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return true; }
+      const on = this.hass.states[k] && this.hass.states[k].state === 'on';
+      M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
+      M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
+      return true;
+    }
+    // Eksplisitt åpne/lukke. Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet
+    // (touch → click) aldri lukker menyen igjen. Én haptic ved åpning, ingen ved lukking via bakteppet.
+    _srvOpen(anchor) {
+      if (this._srv) return;
       M.haptic('light');
-      if (this._srv) { this._srv.close(); return; }
       this._serverMenu(anchor);
     }
-    _titleDbl() {
-      const ov = this._srv;
-      if (ov) { ov.close(); ov.host.remove(); } // uten lukke-animasjon
-      M.haptic('medium');
-      M.navigate('/config');
-    }
+    _srvClose() { if (this._srv) this._srv.close(); }
     _serverMenu(anchor) {
-      if (this._srv) { this._srv.close(); return; }
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
       const top = S.cur < 0 ? `<div class="me">${M.icon('mdi:map-marker-outline', 16, 'color:#7f7f7f')}<span>Denne serveren · ${esc(S.host)}</span></div>` : '';
@@ -670,17 +676,10 @@
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
         .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .here{height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;font-size:11px;font-weight:600;background:rgb(115 185 242);color:#1f2a36;white-space:nowrap;flex:none}`;
-      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, onClose: () => { if (this._srv === ov) this._srv = null; } });
+      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
       this._srv = ov;
-      // Andre trykk i et dobbelttrykk treffer bakgrunnen (menyen dekker hilsenen) → dobbelttrykk, ikke «lukk».
-      let swallow = false;
-      ov.root.querySelector('.bg').addEventListener('pointerup', (e) => {
-        if (!this._gLast || Date.now() - this._gLast >= 250) return;
-        e.stopPropagation(); swallow = true; this._gLast = 0; this._titleDbl();
-      });
-      ov.root.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopImmediatePropagation(); } }, true);
       ov.root.addEventListener('click', (e) => {
-        const b = e.target.closest && e.target.closest('[data-a]');
+        const b = e.composedPath().find((n) => n && n.dataset && n.dataset.a);
         if (!b) return;
         const i = Number(b.dataset.i), v = S.list[i];
         M.haptic('light');
@@ -728,37 +727,6 @@
         img.addEventListener('error', fail);
         if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
       });
-      const t = this.shadowRoot.querySelector('.ttl');
-      if (t && !t.__b) {
-        t.__b = true;
-        const clear = () => clearTimeout(this._gHold);
-        t.addEventListener('pointerdown', (e) => {
-          if (e.button) return;
-          this._gHeld = false; clear();
-          this._gDown = { x: e.clientX, y: e.clientY };
-          this._gHold = setTimeout(() => {
-            this._gHeld = true;
-            M.haptic('heavy');
-            // Langt trykk på hilsenen → «Tilpass header» (kiosk-modus flyttet til hold_kiosk: true)
-            if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return; }
-            const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, id) => /kiosk/.test(id))[0]);
-            if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return; }
-            const on = this.hass.states[k] && this.hass.states[k].state === 'on';
-            M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
-            M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
-          }, 600);
-        });
-        ['pointerleave', 'pointercancel'].forEach((ev) => t.addEventListener(ev, () => { clear(); this._gDown = null; }));
-        // Første pointerup åpner menyen umiddelbart (ingen 260 ms venting). Langt trykk eller dra åpner ikke.
-        t.addEventListener('pointerup', (e) => {
-          if (e.button) return;
-          clear();
-          const dn = this._gDown; this._gDown = null;
-          if (this._gHeld || !dn || Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 10) return;
-          this._titleTap(t);
-        });
-        t.addEventListener('contextmenu', (e) => e.preventDefault());
-      }
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
       if ((this.config.mode || 'familie') === 'stor') {
         const col = this.shadowRoot.querySelector('.lc');
@@ -794,6 +762,12 @@
         .ln{font-size:11px;font-weight:500}
         .lp{font-size:10px;color:var(--gray700,#979797)}
         .row2{display:flex;flex-wrap:wrap;gap:14px;padding:4px 0 0 2px}
+        /* Profil. Personer → prosa: 22 px synlig avstand (containerens gap 22 + prosaens luft over første linje − 8) */
+        .prof{gap:22px;margin-bottom:-8px}
+        .prof .top{align-items:flex-start}
+        .prof .ttl{line-height:1.1;column-gap:10px}
+        .prof .sub{color:var(--gray800,#afafaf)}
+        .prof .row2{gap:14px;padding:0}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }

@@ -483,12 +483,11 @@
         padding:12px 18px calc(28px + env(safe-area-inset-bottom));background:var(--gray100,#2f2f2f);box-shadow:0 -20px 50px rgba(0,0,0,0.5);opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;color:#fafafa;font-family:${MSH.FONT}}
       :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translateY(-50%) scale(1)' : 'translateY(0)'}}
       .grab{width:40px;height:5px;border-radius:3px;background:var(--gray400,#545454);margin:0 auto 12px}
-      ${gl ? `:host{${MSH.GLASS_VARS}}
+</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}}
       .bg{background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
       .sh{${MSH.glassSurface('sheet')}border-radius:${center ? '32px' : '32px 32px 0 0'}}
       .grab{background:rgba(255,255,255,0.3)}
-      ${MSH.glassFallback('.sh', 'sheet')}` : ''}
-      ${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
+      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -499,6 +498,7 @@
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
+      if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
       onClose && onClose();
@@ -513,6 +513,14 @@
     bgEl.addEventListener('click', () => { if (guard > 0 && Date.now() - t0 < guard) return; if (bgHaptic) MSH.haptic('light'); close(); });
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', onHash);
+    // Navbar-stilen byttes mens arket er åpent (f.eks. i «Tilpass navbar») → glass av/på live
+    const onGlass = () => {
+      const g = MSH.glassOn();
+      host.classList.toggle('glass', g); host.toggleAttribute('data-glass', g);
+      const st = sr.querySelector('style[data-gl]'); if (g) st.removeAttribute('media'); else st.setAttribute('media', 'not all');
+      sr.querySelectorAll('.body *').forEach((el) => { if (el._glassSync) el._glassSync(); });
+    };
+    if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; };

@@ -45,6 +45,15 @@
   const COMMON = { state: null, is_sidebar_hidden: true, margin_top_mobile: '50px', margin_top_desktop: '50px', card_layout: 'large', button_type: 'name', sub_button: { main: [], bottom: [] }, slider_fill_orientation: 'left', slider_value_position: 'right' };
   M.popupTemplateA = ({ name, icon, hash, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: STYLES_A, bg_blur: '5', shadow_opacity: '20', bg_opacity: '98', cards: card ? [card] : [] });
   M.popupTemplateB = ({ name, icon, hash, color, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: stylesB(color || 'var(--orange)'), bg_blur: '20', shadow_opacity: '20', bg_opacity: '88', cards: card ? [card] : [] });
+  // Maler for «Ny popup» i «Tilpass Hjem» → Popups (egne popups kan ha vilkårlige kort i cards:)
+  M.newPopupTemplate = function (kind, { name, hash, area, hass } = {}) {
+    if (kind === 'rom') {
+      const a = (hass && hass.areas && hass.areas[area]) || {};
+      return M.popupTemplateB({ name: name || a.name || 'Nytt rom', icon: a.icon || 'mdi:texture-box', hash: hash || '#' + (area || 'rom'), color: M.romColor ? M.romColor(area, hass) : 'var(--orange)', card: { type: 'custom:msh-rom-card', card_id: M.uid(), area } });
+    }
+    if (kind === 'tom') return { type: 'custom:bubble-card', card_type: 'pop-up', hash: hash || '#ny-popup', name: name || 'Ny popup', icon: 'mdi:card-outline', cards: [] };
+    return M.popupTemplateA({ name: name || 'Ny popup', icon: 'mdi:star-outline', hash: hash || '#ny-popup', card: { type: 'markdown', content: 'Innhold her – bytt ut med egne kort.' } });
+  };
 
   // Funksjons-popups i designet (hash → kort). Innholdet = ett kort; toppkortet er innebygd i kortet.
   M.FUNCTION_POPUPS = [
@@ -59,6 +68,24 @@
     ['#lys', 'Lys', 'mdi:lightbulb-group', 'msh-lys-card'],
     ['#gjoremal', 'Gjøremål', 'mdi:format-list-checks', 'msh-gjoremal-card'],
   ];
+  // Alle popups som kan velges som mål (navbar, «Mer», Hjem-kort popup_hash, prosa-bobler): [{ hash, name, icon, group, source }]
+  // group: rom | fn | egne · source: auto | yaml | custom. Fra siste strategi-generering (MSH.popupReport); uten strategi
+  // (manuelt dashbord) → rom/funksjoner/personer fra hass + egne popups i ki-store. opts.hidden: ta med skjulte.
+  M.allPopups = function (hass, opts) {
+    const R = M.popupReport;
+    const inc = (e) => (opts && opts.hidden) || !e.hidden;
+    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden }));
+    const out = [], seen = new Set();
+    const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
+    if (hass) M.areas(hass).forEach((a) => add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'));
+    M.FUNCTION_POPUPS.forEach(([h, n, i]) => add(h, n, i, 'fn', 'auto'));
+    if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
+    const cp = (M.store && M.store.get('custom_popups')) || [];
+    (Array.isArray(cp) ? cp : []).forEach((c) => { if (c && c.hash) add(String(c.hash)[0] === '#' ? c.hash : '#' + c.hash, c.name, c.icon, 'egne', 'custom'); });
+    return out;
+  };
+  // [verdi, etikett]-par for nedtrekkslister (egne popups merkes «Egen · »)
+  M.popupOptions = (hass) => M.allPopups(hass).map((p) => [p.hash, (p.group === 'egne' ? 'Egen · ' : '') + p.name]);
   const HERO_OF = () => M.HEROES || {};
   const isPopup = (c) => c && typeof c === 'object' && c.type === 'custom:bubble-card' && c.card_type === 'pop-up';
   const tagOf = (c) => String((c && c.type) || '').replace('custom:', '');

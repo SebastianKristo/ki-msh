@@ -820,6 +820,7 @@
         const cur = R.valOf(p), cs = p.csrc || p.src;
         const sv = R.valFor ? R.valFor(cs, p.cent || (cs === p.src ? (cs === 'custom' ? p.ent : p.ent_override) : '') || '') : cs === 'custom' ? R.getS(p.cent) : R.S[cs];
         const links = [...LINKS, ...M.areas(hass).map((a) => ['#' + a.id, a.name])];
+        (M.popupOptions ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
         const linkKnown = links.some((l) => l[0] === (p.link || ''));
         const ed = `<div class="ped" data-key="ped-${i}">
           <div class="fld"><span class="fl">Tekst før</span><input class="in" data-in="pf" data-i="${i}" data-f="pre" value="${esc(p.pre || '')}" placeholder="F.eks. Strømmen koster">${tokHTML('pre', i)}</div>

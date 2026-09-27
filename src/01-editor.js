@@ -312,6 +312,14 @@
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
+    connectedCallback() { this._glassSync(); }
+    // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
+    _glassSync() {
+      const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
+      const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
+      if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
+      if (glass && M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+    }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
     setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
@@ -342,11 +350,7 @@
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
-      // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass). Segmentvelgerne får glass-dra (horisontalt).
-      const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
-      const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
-      if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
-      if (glass && M.glassDrag) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+      this._glassSync();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;
@@ -399,8 +403,11 @@
         case 'number':
           return `<div class="f">${lab}<input class="inp" type="number" data-name="${esc(f.name)}" data-num="1" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || f.default || '')}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>${help}</div>`;
         case 'text':
-        case 'hash':
           return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
+        case 'hash': { // forslag: alle popups inkl. egne (MSH.allPopups)
+          const dl = 'hl-' + key, opts = M.popupOptions ? M.popupOptions(this._hass) : [];
+          return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
+        }
         case 'icon':
           if (customElements.get('ha-icon-picker')) return `<div class="f">${lab}<ha-icon-picker data-name="${esc(f.name)}" data-nomorph placeholder="${esc(auto || f.placeholder || '')}"></ha-icon-picker>${help}</div>`;
           return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;

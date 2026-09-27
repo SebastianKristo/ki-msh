@@ -2,7 +2,12 @@
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
-/* mysmart-light-control – norsk kopi (tekster oversatt, ikke i «Legg til kort»). Original: src/vendor/mysmart-light-control.js */
+/* mysmart-light-control – norsk kopi (tekster oversatt, ikke i «Legg til kort»). Original: src/vendor/mysmart-light-control.js
+ * KI MSH-endringer: «msh»-modus (config.msh = true, settes av MSH.lightRowCfg i src/08-light-row.js) gir én felles rad for
+ * alle lys: navn 15/500 + verdi 13 («45 %»/«Av»/«På»), spor msh_height px (std 40) radius 14, håndtak 4 × (høyde − 12)
+ * inni sporet, fast 32 px chevron-kolonne. Farger: av = #545454 uten fyll, håndtak #979797; på = lampens farge bare når
+ * den støttes (msh_type color → rgb_color, ct → Kelvin), ellers rgb(225 225 225 / .55). Ingen adaptiv farge/localStorage,
+ * ingen title-tooltips, trykk på sporet når lyset er av = slå på til forrige nivå. Norske fargenavn og meldinger. */
 const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,r=Symbol(),i=new WeakMap;let s=class{constructor(e,t,i){if(this._$cssResult$=!0,i!==r)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o;const r=this.t;if(t&&void 0===e){const t=void 0!==r&&1===r.length;t&&(e=i.get(r)),void 0===e&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),t&&i.set(r,e))}return e}toString(){return this.cssText}};const o=(e,...t)=>{const i=1===e.length?e[0]:t.reduce((t,r,i)=>t+(e=>{if(!0===e._$cssResult$)return e.cssText;if("number"==typeof e)return e;throw Error("Value passed to 'css' function must be a 'css' function result: "+e+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(r)+e[i+1],e[0]);return new s(i,e,r)},n=t?e=>e:e=>e instanceof CSSStyleSheet?(e=>{let t="";for(const r of e.cssRules)t+=r.cssText;return(e=>new s("string"==typeof e?e:e+"",void 0,r))(t)})(e):e,{is:a,defineProperty:l,getOwnPropertyDescriptor:d,getOwnPropertyNames:h,getOwnPropertySymbols:c,getPrototypeOf:u}=Object,g=globalThis,p=g.trustedTypes,m=p?p.emptyScript:"",_=g.reactiveElementPolyfillSupport,b=(e,t)=>e,f={toAttribute(e,t){switch(t){case Boolean:e=e?m:null;break;case Object:case Array:e=null==e?e:JSON.stringify(e)}return e},fromAttribute(e,t){let r=e;switch(t){case Boolean:r=null!==e;break;case Number:r=null===e?null:Number(e);break;case Object:case Array:try{r=JSON.parse(e)}catch(e){r=null}}return r}},v=(e,t)=>!a(e,t),y={attribute:!0,type:String,converter:f,reflect:!1,useDefault:!1,hasChanged:v};Symbol.metadata??=Symbol("metadata"),g.litPropertyMetadata??=new WeakMap;let $=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=y){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){const r=Symbol(),i=this.getPropertyDescriptor(e,r,t);void 0!==i&&l(this.prototype,e,i)}}static getPropertyDescriptor(e,t,r){const{get:i,set:s}=d(this.prototype,e)??{get(){return this[t]},set(e){this[t]=e}};return{get:i,set(t){const o=i?.call(this);s?.call(this,t),this.requestUpdate(e,o,r)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??y}static _$Ei(){if(this.hasOwnProperty(b("elementProperties")))return;const e=u(this);e.finalize(),void 0!==e.l&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(b("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(b("properties"))){const e=this.properties,t=[...h(e),...c(e)];for(const r of t)this.createProperty(r,e[r])}const e=this[Symbol.metadata];if(null!==e){const t=litPropertyMetadata.get(e);if(void 0!==t)for(const[e,r]of t)this.elementProperties.set(e,r)}this._$Eh=new Map;for(const[e,t]of this.elementProperties){const r=this._$Eu(e,t);void 0!==r&&this._$Eh.set(r,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){const t=[];if(Array.isArray(e)){const r=new Set(e.flat(1/0).reverse());for(const e of r)t.unshift(n(e))}else void 0!==e&&t.push(n(e));return t}static _$Eu(e,t){const r=t.attribute;return!1===r?void 0:"string"==typeof r?r:"string"==typeof e?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),void 0!==this.renderRoot&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){const e=new Map,t=this.constructor.elementProperties;for(const r of t.keys())this.hasOwnProperty(r)&&(e.set(r,this[r]),delete this[r]);e.size>0&&(this._$Ep=e)}createRenderRoot(){const r=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((r,i)=>{if(t)r.adoptedStyleSheets=i.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(const t of i){const i=document.createElement("style"),s=e.litNonce;void 0!==s&&i.setAttribute("nonce",s),i.textContent=t.cssText,r.appendChild(i)}})(r,this.constructor.elementStyles),r}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,r){this._$AK(e,r)}_$ET(e,t){const r=this.constructor.elementProperties.get(e),i=this.constructor._$Eu(e,r);if(void 0!==i&&!0===r.reflect){const s=(void 0!==r.converter?.toAttribute?r.converter:f).toAttribute(t,r.type);this._$Em=e,null==s?this.removeAttribute(i):this.setAttribute(i,s),this._$Em=null}}_$AK(e,t){const r=this.constructor,i=r._$Eh.get(e);if(void 0!==i&&this._$Em!==i){const e=r.getPropertyOptions(i),s="function"==typeof e.converter?{fromAttribute:e.converter}:void 0!==e.converter?.fromAttribute?e.converter:f;this._$Em=i;const o=s.fromAttribute(t,e.type);this[i]=o??this._$Ej?.get(i)??o,this._$Em=null}}requestUpdate(e,t,r,i=!1,s){if(void 0!==e){const o=this.constructor;if(!1===i&&(s=this[e]),r??=o.getPropertyOptions(e),!((r.hasChanged??v)(s,t)||r.useDefault&&r.reflect&&s===this._$Ej?.get(e)&&!this.hasAttribute(o._$Eu(e,r))))return;this.C(e,t,r)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(e,t,{useDefault:r,reflect:i,wrapped:s},o){r&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,o??t??this[e]),!0!==s||void 0!==o)||(this._$AL.has(e)||(this.hasUpdated||r||(t=void 0),this._$AL.set(e,t)),!0===i&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}const e=this.scheduleUpdate();return null!=e&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[e,t]of this._$Ep)this[e]=t;this._$Ep=void 0}const e=this.constructor.elementProperties;if(e.size>0)for(const[t,r]of e){const{wrapped:e}=r,i=this[t];!0!==e||this._$AL.has(t)||void 0===i||this.C(t,void 0,r,i)}}let e=!1;const t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(e=>e.hostUpdate?.()),this.update(t)):this._$EM()}catch(t){throw e=!1,this._$EM(),t}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(e){}firstUpdated(e){}};$.elementStyles=[],$.shadowRootOptions={mode:"open"},$[b("elementProperties")]=new Map,$[b("finalized")]=new Map,_?.({ReactiveElement:$}),(g.reactiveElementVersions??=[]).push("2.1.2");const w=globalThis,x=e=>e,C=w.trustedTypes,S=C?C.createPolicy("lit-html",{createHTML:e=>e}):void 0,k="$lit$",A=`lit$${Math.random().toFixed(9).slice(2)}$`,P="?"+A,M=`<${P}>`,E=document,T=()=>E.createComment(""),H=e=>null===e||"object"!=typeof e&&"function"!=typeof e,z=Array.isArray,N="[ \t\n\f\r]",U=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,B=/-->/g,R=/>/g,V=RegExp(`>|${N}(?:([^\\s"'>=/]+)(${N}*=${N}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),L=/'/g,D=/"/g,O=/^(?:script|style|textarea|title)$/i,I=(e=>(t,...r)=>({_$litType$:e,strings:t,values:r}))(1),j=Symbol.for("lit-noChange"),F=Symbol.for("lit-nothing"),W=new WeakMap,G=E.createTreeWalker(E,129);function Y(e,t){if(!z(e)||!e.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==S?S.createHTML(t):t}const X=(e,t)=>{const r=e.length-1,i=[];let s,o=2===t?"<svg>":3===t?"<math>":"",n=U;for(let t=0;t<r;t++){const r=e[t];let a,l,d=-1,h=0;for(;h<r.length&&(n.lastIndex=h,l=n.exec(r),null!==l);)h=n.lastIndex,n===U?"!--"===l[1]?n=B:void 0!==l[1]?n=R:void 0!==l[2]?(O.test(l[2])&&(s=RegExp("</"+l[2],"g")),n=V):void 0!==l[3]&&(n=V):n===V?">"===l[0]?(n=s??U,d=-1):void 0===l[1]?d=-2:(d=n.lastIndex-l[2].length,a=l[1],n=void 0===l[3]?V:'"'===l[3]?D:L):n===D||n===L?n=V:n===B||n===R?n=U:(n=V,s=void 0);const c=n===V&&e[t+1].startsWith("/>")?" ":"";o+=n===U?r+M:d>=0?(i.push(a),r.slice(0,d)+k+r.slice(d)+A+c):r+A+(-2===d?t:c)}return[Y(e,o+(e[r]||"<?>")+(2===t?"</svg>":3===t?"</math>":"")),i]};class q{constructor({strings:e,_$litType$:t},r){let i;this.parts=[];let s=0,o=0;const n=e.length-1,a=this.parts,[l,d]=X(e,t);if(this.el=q.createElement(l,r),G.currentNode=this.el.content,2===t||3===t){const e=this.el.content.firstChild;e.replaceWith(...e.childNodes)}for(;null!==(i=G.nextNode())&&a.length<n;){if(1===i.nodeType){if(i.hasAttributes())for(const e of i.getAttributeNames())if(e.endsWith(k)){const t=d[o++],r=i.getAttribute(e).split(A),n=/([.?@])?(.*)/.exec(t);a.push({type:1,index:s,name:n[2],strings:r,ctor:"."===n[1]?ee:"?"===n[1]?te:"@"===n[1]?re:Q}),i.removeAttribute(e)}else e.startsWith(A)&&(a.push({type:6,index:s}),i.removeAttribute(e));if(O.test(i.tagName)){const e=i.textContent.split(A),t=e.length-1;if(t>0){i.textContent=C?C.emptyScript:"";for(let r=0;r<t;r++)i.append(e[r],T()),G.nextNode(),a.push({type:2,index:++s});i.append(e[t],T())}}}else if(8===i.nodeType)if(i.data===P)a.push({type:2,index:s});else{let e=-1;for(;-1!==(e=i.data.indexOf(A,e+1));)a.push({type:7,index:s}),e+=A.length-1}s++}}static createElement(e,t){const r=E.createElement("template");return r.innerHTML=e,r}}function K(e,t,r=e,i){if(t===j)return t;let s=void 0!==i?r._$Co?.[i]:r._$Cl;const o=H(t)?void 0:t._$litDirective$;return s?.constructor!==o&&(s?._$AO?.(!1),void 0===o?s=void 0:(s=new o(e),s._$AT(e,r,i)),void 0!==i?(r._$Co??=[])[i]=s:r._$Cl=s),void 0!==s&&(t=K(e,s._$AS(e,t.values),s,i)),t}class J{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){const{el:{content:t},parts:r}=this._$AD,i=(e?.creationScope??E).importNode(t,!0);G.currentNode=i;let s=G.nextNode(),o=0,n=0,a=r[0];for(;void 0!==a;){if(o===a.index){let t;2===a.type?t=new Z(s,s.nextSibling,this,e):1===a.type?t=new a.ctor(s,a.name,a.strings,this,e):6===a.type&&(t=new ie(s,this,e)),this._$AV.push(t),a=r[++n]}o!==a?.index&&(s=G.nextNode(),o++)}return G.currentNode=E,i}p(e){let t=0;for(const r of this._$AV)void 0!==r&&(void 0!==r.strings?(r._$AI(e,r,t),t+=r.strings.length-2):r._$AI(e[t])),t++}}class Z{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,r,i){this.type=2,this._$AH=F,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=r,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode;const t=this._$AM;return void 0!==t&&11===e?.nodeType&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=K(this,e,t),H(e)?e===F||null==e||""===e?(this._$AH!==F&&this._$AR(),this._$AH=F):e!==this._$AH&&e!==j&&this._(e):void 0!==e._$litType$?this.$(e):void 0!==e.nodeType?this.T(e):(e=>z(e)||"function"==typeof e?.[Symbol.iterator])(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==F&&H(this._$AH)?this._$AA.nextSibling.data=e:this.T(E.createTextNode(e)),this._$AH=e}$(e){const{values:t,_$litType$:r}=e,i="number"==typeof r?this._$AC(e):(void 0===r.el&&(r.el=q.createElement(Y(r.h,r.h[0]),this.options)),r);if(this._$AH?._$AD===i)this._$AH.p(t);else{const e=new J(i,this),r=e.u(this.options);e.p(t),this.T(r),this._$AH=e}}_$AC(e){let t=W.get(e.strings);return void 0===t&&W.set(e.strings,t=new q(e)),t}k(e){z(this._$AH)||(this._$AH=[],this._$AR());const t=this._$AH;let r,i=0;for(const s of e)i===t.length?t.push(r=new Z(this.O(T()),this.O(T()),this,this.options)):r=t[i],r._$AI(s),i++;i<t.length&&(this._$AR(r&&r._$AB.nextSibling,i),t.length=i)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){const t=x(e).nextSibling;x(e).remove(),e=t}}setConnected(e){void 0===this._$AM&&(this._$Cv=e,this._$AP?.(e))}}class Q{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,r,i,s){this.type=1,this._$AH=F,this._$AN=void 0,this.element=e,this.name=t,this._$AM=i,this.options=s,r.length>2||""!==r[0]||""!==r[1]?(this._$AH=Array(r.length-1).fill(new String),this.strings=r):this._$AH=F}_$AI(e,t=this,r,i){const s=this.strings;let o=!1;if(void 0===s)e=K(this,e,t,0),o=!H(e)||e!==this._$AH&&e!==j,o&&(this._$AH=e);else{const i=e;let n,a;for(e=s[0],n=0;n<s.length-1;n++)a=K(this,i[r+n],t,n),a===j&&(a=this._$AH[n]),o||=!H(a)||a!==this._$AH[n],a===F?e=F:e!==F&&(e+=(a??"")+s[n+1]),this._$AH[n]=a}o&&!i&&this.j(e)}j(e){e===F?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}}class ee extends Q{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===F?void 0:e}}class te extends Q{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==F)}}class re extends Q{constructor(e,t,r,i,s){super(e,t,r,i,s),this.type=5}_$AI(e,t=this){if((e=K(this,e,t,0)??F)===j)return;const r=this._$AH,i=e===F&&r!==F||e.capture!==r.capture||e.once!==r.once||e.passive!==r.passive,s=e!==F&&(r===F||i);i&&this.element.removeEventListener(this.name,this,r),s&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}}class ie{constructor(e,t,r){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=r}get _$AU(){return this._$AM._$AU}_$AI(e){K(this,e)}}const se=w.litHtmlPolyfillSupport;se?.(q,Z),(w.litHtmlVersions??=[]).push("3.3.2");const oe=globalThis;class ne extends ${constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){const t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=((e,t,r)=>{const i=r?.renderBefore??t;let s=i._$litPart$;if(void 0===s){const e=r?.renderBefore??null;i._$litPart$=s=new Z(t.insertBefore(T(),e),e,void 0,r??{})}return s._$AI(e),s})(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return j}}ne._$litElement$=!0,ne.finalized=!0,oe.litElementHydrateSupport?.({LitElement:ne});const ae=oe.litElementPolyfillSupport;ae?.({LitElement:ne}),(oe.litElementVersions??=[]).push("4.2.2");const le=[{label:"Warm",rgb:[255,183,76]},{label:"Amber",rgb:[255,138,101]},{label:"Rose",rgb:[244,143,177]},{label:"Lavender",rgb:[179,157,219]},{label:"Sky",rgb:[129,212,250]},{label:"Mint",rgb:[165,214,167]}],de=le.map(e=>`rgb(${e.rgb.join(", ")})`),he=3700,ce="custom",ue="custom_temperature",ge="light_temperature",pe="light_rgb",me="legacy_adaptive",_e="spectrum",be="presets",fe="both",ve="title_outside_icon_inside",ye="icon_title_outside",$e=ge,we=fe,xe=ye,Ce="large",Se="var(--gray1000)",ke=!0,Ae=!1,Pe=100,Me={small:{trackHeight:16,handleHeight:28,handleWidth:4,splitGap:10,sliderPadding:6,bubbleSize:34,radius:8,iconSize:14},medium:{trackHeight:24,handleHeight:40,handleWidth:4,splitGap:12,sliderPadding:8,bubbleSize:38,radius:12,iconSize:18},large:{trackHeight:40,handleHeight:56,handleWidth:4,splitGap:14,sliderPadding:10,bubbleSize:40,radius:16,iconSize:20},xlarge:{trackHeight:56,handleHeight:68,handleWidth:4,splitGap:16,sliderPadding:12,bubbleSize:42,radius:16,iconSize:24},jumbo:{trackHeight:72,handleHeight:84,handleWidth:4,splitGap:20,sliderPadding:14,bubbleSize:46,radius:20,iconSize:28}},Ee=new Set(["brightness","color_temp","hs","xy","rgb","rgbw","rgbww","white"]),Te=new Set(["hs","xy","rgb","rgbw","rgbww"]);function He(e){if(Array.isArray(e?.color_presets)&&e.color_presets.length)return e.color_presets.map(e=>{const t=Array.isArray(e?.rgb)?e.rgb:Ne(e);return t?`rgb(${t.join(", ")})`:null}).filter(Boolean);const t=Array.from({length:6},(e,t)=>`preset_color_${t+1}`).map(t=>e?.[t]||"").filter(Boolean);return t.length?t:de}function ze(e){const t={...e||{}},r=He({color_presets:t.color_presets});var i,s;return t.size===Ce&&delete t.size,Be(t)===$e&&delete t.slider_color_mode,Re(t)===we&&delete t.color_control,Ve(t)===xe&&delete t.label_layout,t.icon_color===Se&&delete t.icon_color,t.hide_color_controls===ke&&delete t.hide_color_controls,t.hide_color_presets===Ae&&delete t.hide_color_presets,0===Number(t.brightness_min)&&delete t.brightness_min,Number(t.brightness_max)===Pe&&delete t.brightness_max,!1===t.hide_rgb_presets&&delete t.hide_rgb_presets,Array.isArray(t.color_presets)&&0===t.color_presets.length&&delete t.color_presets,i=r,s=de,Array.isArray(i)&&Array.isArray(s)&&i.length===s.length&&i.every((e,t)=>e===s[t])&&delete t.color_presets,t}function Ne(e){if(Array.isArray(e)&&e.length>=3)return e.slice(0,3).map(e=>Math.max(0,Math.min(255,Number(e)||0)));if("string"!=typeof e)return null;const t=e.trim(),r=t.match(/^#([\da-f]{3}|[\da-f]{6})$/i);if(r){const e=r[1];return 3===e.length?e.split("").map(e=>Number.parseInt(e+e,16)):[Number.parseInt(e.slice(0,2),16),Number.parseInt(e.slice(2,4),16),Number.parseInt(e.slice(4,6),16)]}const i=t.match(/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);if(i)return i.slice(1,4).map(e=>Math.max(0,Math.min(255,Number(e))));const s=t.match(/^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})$/);return s?s.slice(1,4).map(e=>Math.max(0,Math.min(255,Number(e)))):null}function Ue(e){return e?`mysmart-light-control:last-adaptive-color:${e}`:null}function Be(e){return e?.slider_color_mode?e.slider_color_mode:e?.adaptive_slider_color?me:$e}function Re(e){return[_e,be,fe].includes(e?.color_control)?e.color_control:we}function Ve(e){return[ve,ye].includes(e?.label_layout)?e.label_layout:xe}function Le(e,t=0){const r=Number(e);return Number.isFinite(r)?Math.max(0,Math.min(100,Math.round(r))):t}function De(e){const t=Le(e?.brightness_min,0),r=Le(e?.brightness_max,Pe);return r<t?{min:r,max:t}:{min:t,max:r}}class Oe extends ne{static get properties(){return{hass:{},_config:{state:!0}}}setConfig(e){this._config=this._withEditorDefaults(e)}_withEditorDefaults(e){const t=De(e);return{...e,size:e?.size||Ce,slider_color_mode:Be(e),color_control:Re(e),label_layout:Ve(e),icon_color:e?.icon_color??Se,hide_color_controls:e?.hide_color_controls??ke,hide_color_presets:!0===e?.hide_color_presets||!0===e?.hide_rgb_presets,brightness_min:t.min,brightness_max:t.max,color_presets:He(e)}}_stripDefaultConfig(e){return ze(e)}_updateConfig(e,t){const r={...this._config||{}};"slider_color_mode"===e&&delete r.adaptive_slider_color,"hide_color_presets"===e&&delete r.hide_rgb_presets,""===t||null==t||Array.isArray(t)&&0===t.length||"boolean"==typeof t&&"show_icon"===e&&!0===t||"boolean"==typeof t&&"show_name"===e&&!0===t||"boolean"==typeof t&&"show_brightness"===e&&!1===t||"boolean"==typeof t&&"force_toggle_mode"===e&&!1===t||"boolean"==typeof t&&"show_expand_toggle"===e&&!0===t||"boolean"==typeof t&&"hide_temperature_slider"===e&&!1===t||"boolean"==typeof t&&"hide_color_controls"===e&&t===ke||"boolean"==typeof t&&"hide_color_presets"===e&&t===Ae||"boolean"==typeof t&&"hide_rgb_presets"===e&&!1===t||"boolean"==typeof t&&"live_update"===e&&!1===t||"boolean"==typeof t&&"show_icon_on_small_sizes"===e&&!1===t||"brightness_min"===e&&0===Number(t)||"brightness_max"===e&&Number(t)===Pe||"label_layout"===e&&t===xe||"slider_color_mode"===e&&t===$e||"color_control"===e&&t===we||"icon_color"===e&&t===Se||"size"===e&&t===Ce?delete r[e]:r[e]=t;const i=this._stripDefaultConfig(r);this._config=this._withEditorDefaults(i),this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:i},bubbles:!0,composed:!0}))}_valueChanged(e){const t=e.target,r=t.configValue;if(!r)return;let i=e.detail?.value??t.value;"checkbox"===t.type||"ha-switch"===t.localName?i=t.checked:"number"===t.type&&(i=Number(i)),this._updateConfig(r,i)}_presetValueChanged(e,t){const r=[...this._config?.color_presets||[]];r[e]=t,this._updateConfig("color_presets",r.filter(e=>e))}_addPreset(){const e=[...this._config?.color_presets||[]];e.push("#d7c3ff"),this._updateConfig("color_presets",e)}_removePreset(e){const t=[...this._config?.color_presets||[]];t.splice(e,1),this._updateConfig("color_presets",t)}_normalizeColorForPicker(e){const t=Ne(e);return t?`#${t.map(e=>e.toString(16).padStart(2,"0")).join("")}`:"#d7c3ff"}_getSliderColorMode(){return Be(this._config)}_renderColorField(e,t){return I`
       <ha-input
         .value=${this._config?.[t]||""}
@@ -259,7 +264,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
       .add-button {
         justify-self: start;
       }
-    `}}customElements.get("mysmart-light-control-editor")||customElements.define("mysmart-light-control-editor",Oe);class Ie extends ne{static get properties(){return{hass:{},config:{},_dragging:{state:!0},_dragValue:{state:!0},_pendingBrightness:{state:!0},_pendingSince:{state:!0},_expanded:{state:!0},_tempPreviewValue:{state:!0},_colorPreviewHue:{state:!0},_sliderColorSource:{state:!0},_sliderColorValue:{state:!0}}}constructor(){super(),this._dragging=!1,this._dragValue=null,this._pendingBrightness=null,this._pendingSince=0,this._expanded=!1,this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._trackRect=null,this._lastBrightnessSentAt=0,this._brightnessTimer=null,this._previewUpdatedAt=0,this._lastAdaptiveColor=null,this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._suppressNextClick=!1,this._moveHandler=this._handlePointerMove.bind(this),this._upHandler=this._handlePointerUp.bind(this)}disconnectedCallback(){super.disconnectedCallback(),this._teardownPointerListeners(),window.clearTimeout(this._brightnessTimer)}updated(e){if(super.updated(e),!e.has("hass")||!this.config?.entity)return;const t=this.hass?.states?.[this.config.entity];t&&(this._syncPendingBrightness(t),this._syncPreviewState(t))}_syncPendingBrightness(e){if(null==this._pendingBrightness)return;const t=null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0;if(Math.abs(t-this._pendingBrightness)<=2)return void this._clearPendingBrightness();Date.now()-this._pendingSince>1e4&&this._clearPendingBrightness()}_syncPreviewState(e){if(!this._sliderColorSource)return;const t=Date.now()-this._previewUpdatedAt;if(t>1e4)this._clearPreviewState();else{if("temp"===this._sliderColorSource){const r=Number(e.attributes.color_temp_kelvin);return!Number.isFinite(r)||r<=0?void(t>1500&&this._clearPreviewState()):void((Math.abs(r-Number(this._sliderColorValue))<=50||t>1500)&&this._clearPreviewState())}if("rgb"===this._sliderColorSource){const r=Array.isArray(e.attributes.rgb_color)?e.attributes.rgb_color.slice(0,3):this._hsColorToRgb(e.attributes.hs_color);if(!r)return void(t>1500&&this._clearPreviewState());(this._rgbArraysClose(r,this._sliderColorValue)||t>1500)&&this._clearPreviewState()}}}setConfig(e){if(!e.entity)throw new Error("You need to define a light entity");const t=He(e),r=this._loadStoredAdaptiveColor(e.entity),i=Be(e),s=Re(e),o=Ve(e),n=De(e),a=Number(e.slider_color_temperature);this.config={name:"",show_icon:!0,show_icon_on_small_sizes:!1,icon:"",size:Ce,label_layout:o,show_name:!0,show_brightness:!1,force_toggle_mode:!1,show_expand_toggle:!0,hide_temperature_slider:!1,hide_color_controls:ke,hide_color_presets:Ae,hide_rgb_presets:!1,brightness_min:0,brightness_max:Pe,color_control:s,live_update:!1,adaptive_slider_color:!1,slider_color_mode:i,slider_color_temperature:he,bar_background:"#5f5872",bar_foreground:"#d7c3ff",card_background:"transparent",handle_color:"#d7c3ff",popup_number_color:"#ffffff",icon_color:Se,chevron_color:"#bdb4d2",color_presets:t,...e,card_background:e.card_background??"transparent",icon_background:"transparent",slider_color_mode:i,color_control:s,label_layout:o,brightness_min:n.min,brightness_max:n.max,slider_color_temperature:Number.isFinite(a)&&a>0?a:he,color_presets:t},this._lastAdaptiveColor=r}static getConfigForm(){return{schema:[{name:"entity",required:!0,selector:{entity:{domain:"light"}}},{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}},{name:"size",selector:{select:{mode:"dropdown",options:[{value:"small",label:"Small"},{value:"medium",label:"Medium"},{value:"large",label:"Large"},{value:"xlarge",label:"Extra Large"},{value:"jumbo",label:"Jumbo"}]}}},{name:"show_icon",selector:{boolean:{}}},{name:"show_icon_on_small_sizes",selector:{boolean:{}}},{name:"label_layout",selector:{select:{mode:"dropdown",options:[{value:ve,label:"Title outside, icon inside slider"},{value:ye,label:"Icon and title outside slider"}]}}},{name:"show_name",selector:{boolean:{}}},{name:"show_brightness",selector:{boolean:{}}},{name:"brightness_min",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"brightness_max",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"force_toggle_mode",selector:{boolean:{}}},{name:"show_expand_toggle",selector:{boolean:{}}},{name:"hide_temperature_slider",selector:{boolean:{}}},{name:"hide_color_controls",selector:{boolean:{}}},{name:"hide_color_presets",selector:{boolean:{}}},{name:"color_control",selector:{select:{mode:"dropdown",options:[{value:_e,label:"Spectrum slider"},{value:be,label:"Preset buttons"},{value:fe,label:"Spectrum and presets"}]}}},{name:"live_update",selector:{boolean:{}}},{name:"slider_color_mode",selector:{select:{mode:"dropdown",options:[{value:ce,label:"Custom colors"},{value:ue,label:"Custom temperature / Kelvin"},{value:ge,label:"Light temperature"},{value:pe,label:"Light RGB"}]}}},{name:"slider_color_temperature",selector:{number:{min:1e3,max:4e4,step:50,mode:"box"}}},{name:"bar_background",selector:{text:{}}},{name:"bar_foreground",selector:{text:{}}},{name:"card_background",selector:{text:{}}},{name:"handle_color",selector:{text:{}}},{name:"icon_color",selector:{text:{}}},{name:"popup_number_color",selector:{text:{}}}],computeHelper:e=>"entity"===e.name?"Choose a light entity with brightness support.":"show_icon"===e.name?"Show the leading icon inside the active segment.":"show_icon_on_small_sizes"===e.name?"Show the icon on Small and Medium sliders. Off by default to keep those sizes cleaner.":"label_layout"===e.name?"Choose whether the slider icon stays inside the active segment or moves beside the title.":"force_toggle_mode"===e.name?"Render this card as a simple on/off toggle even when the light supports brightness.":"size"===e.name?"Slider thickness preset. Large and Extra Large are closest to your screenshot.":"show_expand_toggle"===e.name?"Show a chevron for lights with extra controls like color temperature or color.":"show_brightness"===e.name?"Show the current value in the header: brightness percent for sliders, On/Off state for switches.":"brightness_min"===e.name?"Minimum non-zero brightness sent by the slider, as a percent.":"brightness_max"===e.name?"Maximum brightness sent by the slider, as a percent.":"hide_temperature_slider"===e.name?"Hide the color temperature slider even for lights that support it.":"hide_color_controls"===e.name?"Hide the color spectrum slider even for lights that support color.":"hide_color_presets"===e.name?"Hide preset color buttons even for lights that support color.":"color_control"===e.name?"Choose how color-capable lights expose color controls.":"live_update"===e.name?"When enabled, brightness updates continuously while dragging. Off by default to reduce device traffic.":"slider_color_mode"===e.name?"Choose whether the slider uses your custom colors, a fixed Kelvin value, or the light temperature/RGB.":"slider_color_temperature"===e.name?"Only used when Slider color mode is set to Custom temperature / Kelvin.":void 0}}static async getConfigElement(){return document.createElement("mysmart-light-control-editor")}static getStubConfig(){return{entity:"light.living_room"}}getCardSize(){const e=this.hass?.states?.[this.config?.entity];if(e&&this._shouldRenderToggleMode(e))return 1;const t=!!e&&this._hasExtraControls(e),r=t&&!1!==this.config?.show_expand_toggle;return!t||r&&!this._expanded?2:3}render(){if(!this.hass||!this.config)return I``;const e=this.hass.states[this.config.entity];if(!e)return this._renderMessage(`Entity not found: ${this.config.entity}`);if(!e.entity_id?.startsWith("light."))return this._renderMessage(`${this.config.entity} is not a light entity.`);if(this._shouldRenderToggleMode(e))return this._renderToggleControl(e);const t=this._getDisplayBrightness(e),r=this._dragging?this._dragValue??t:t,i=this._percentFromBrightness(r),s="on"===e.state,o=this._isUnavailableState(e),n=this._hasExtraControls(e),a=n&&this.config.show_expand_toggle,l=n&&(!a||this._expanded),d=this.config.name||e.attributes.friendly_name||this.config.entity,h=this.config.icon||e.attributes.icon||"mdi:lightbulb",c=this.config.icon_color,u=Ve(this.config),g=!1!==this.config.show_icon&&(this.config.show_icon_on_small_sizes||!["small","medium"].includes(this.config.size)),p=g&&u===ye,m=g&&u===ve,_=this.config.show_brightness||o,b=this.config.show_name||_||p,f=this._getSizeMetrics(),v=[a?"":"no-expand"].join(" ").trim(),y=this._mainActiveWidth(i),$=this._mainInactiveWidth(y),w=this._mainHandleLeft(y),x=this._getSliderPalette(e),C=`\n      --mysmart-slider-card-background: transparent;\n      --mysmart-slider-bar-background: ${x.inactiveColor};\n      --mysmart-slider-bar-foreground: ${x.activeColor};\n      --mysmart-slider-handle-color: ${x.handleColor};\n      --mysmart-slider-popup-number-color: ${this.config.popup_number_color};\n      --mysmart-slider-popup-background: ${x.popupColor};\n      --mysmart-slider-popup-stem-color: ${x.popupColor};\n      --mysmart-slider-icon-background: transparent;\n      --mysmart-slider-icon-color: ${c};\n      --mysmart-slider-chevron-color: ${this.config.chevron_color};\n      --mysmart-slider-track-height: ${f.trackHeight}px;\n      --mysmart-slider-handle-height: ${f.handleHeight}px;\n      --mysmart-slider-handle-width: ${f.handleWidth}px;\n      --mysmart-slider-gap: ${f.splitGap}px;\n      --mysmart-slider-padding: ${f.sliderPadding}px;\n      --mysmart-slider-bubble-size: ${f.bubbleSize}px;\n      --mysmart-slider-radius: ${f.radius}px;\n      --mysmart-slider-inner-radius: ${Math.max(4,Math.round(.375*f.radius))}px;\n      --mysmart-slider-icon-size: ${f.iconSize}px;\n      --mysmart-secondary-gap: ${f.splitGap}px;\n    `;return I`
+    `}}customElements.get("mysmart-light-control-editor")||customElements.define("mysmart-light-control-editor",Oe);class Ie extends ne{static get properties(){return{hass:{},config:{},_dragging:{state:!0},_dragValue:{state:!0},_pendingBrightness:{state:!0},_pendingSince:{state:!0},_expanded:{state:!0},_tempPreviewValue:{state:!0},_colorPreviewHue:{state:!0},_sliderColorSource:{state:!0},_sliderColorValue:{state:!0}}}constructor(){super(),this._dragging=!1,this._dragValue=null,this._pendingBrightness=null,this._pendingSince=0,this._expanded=!1,this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._trackRect=null,this._lastBrightnessSentAt=0,this._brightnessTimer=null,this._previewUpdatedAt=0,this._lastAdaptiveColor=null,this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._suppressNextClick=!1,this._moveHandler=this._handlePointerMove.bind(this),this._upHandler=this._handlePointerUp.bind(this)}disconnectedCallback(){super.disconnectedCallback(),this._teardownPointerListeners(),window.clearTimeout(this._brightnessTimer)}updated(e){if(super.updated(e),!e.has("hass")||!this.config?.entity)return;const t=this.hass?.states?.[this.config.entity];t&&(this._syncPendingBrightness(t),this._syncPreviewState(t))}_syncPendingBrightness(e){if(null==this._pendingBrightness)return;const t=null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0;if(Math.abs(t-this._pendingBrightness)<=2)return void this._clearPendingBrightness();Date.now()-this._pendingSince>1e4&&this._clearPendingBrightness()}_syncPreviewState(e){if(!this._sliderColorSource)return;const t=Date.now()-this._previewUpdatedAt;if(t>1e4)this._clearPreviewState();else{if("temp"===this._sliderColorSource){const r=Number(e.attributes.color_temp_kelvin);return!Number.isFinite(r)||r<=0?void(t>1500&&this._clearPreviewState()):void((Math.abs(r-Number(this._sliderColorValue))<=50||t>1500)&&this._clearPreviewState())}if("rgb"===this._sliderColorSource){const r=Array.isArray(e.attributes.rgb_color)?e.attributes.rgb_color.slice(0,3):this._hsColorToRgb(e.attributes.hs_color);if(!r)return void(t>1500&&this._clearPreviewState());(this._rgbArraysClose(r,this._sliderColorValue)||t>1500)&&this._clearPreviewState()}}}setConfig(e){if(!e.entity)throw new Error("Mangler lys-entitet (entity)");const t=He(e),r=e.msh?null:this._loadStoredAdaptiveColor(e.entity),i=Be(e),s=Re(e),o=Ve(e),n=De(e),a=Number(e.slider_color_temperature);this.config={name:"",show_icon:!0,show_icon_on_small_sizes:!1,icon:"",size:Ce,label_layout:o,show_name:!0,show_brightness:!1,force_toggle_mode:!1,show_expand_toggle:!0,hide_temperature_slider:!1,hide_color_controls:ke,hide_color_presets:Ae,hide_rgb_presets:!1,brightness_min:0,brightness_max:Pe,color_control:s,live_update:!1,adaptive_slider_color:!1,slider_color_mode:i,slider_color_temperature:he,bar_background:"#5f5872",bar_foreground:"#d7c3ff",card_background:"transparent",handle_color:"#d7c3ff",popup_number_color:"#ffffff",icon_color:Se,chevron_color:"#bdb4d2",color_presets:t,...e,card_background:e.card_background??"transparent",icon_background:"transparent",slider_color_mode:i,color_control:s,label_layout:o,brightness_min:n.min,brightness_max:n.max,slider_color_temperature:Number.isFinite(a)&&a>0?a:he,color_presets:t},this._lastAdaptiveColor=r}static getConfigForm(){return{schema:[{name:"entity",required:!0,selector:{entity:{domain:"light"}}},{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}},{name:"size",selector:{select:{mode:"dropdown",options:[{value:"small",label:"Small"},{value:"medium",label:"Medium"},{value:"large",label:"Large"},{value:"xlarge",label:"Extra Large"},{value:"jumbo",label:"Jumbo"}]}}},{name:"show_icon",selector:{boolean:{}}},{name:"show_icon_on_small_sizes",selector:{boolean:{}}},{name:"label_layout",selector:{select:{mode:"dropdown",options:[{value:ve,label:"Title outside, icon inside slider"},{value:ye,label:"Icon and title outside slider"}]}}},{name:"show_name",selector:{boolean:{}}},{name:"show_brightness",selector:{boolean:{}}},{name:"brightness_min",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"brightness_max",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"force_toggle_mode",selector:{boolean:{}}},{name:"show_expand_toggle",selector:{boolean:{}}},{name:"hide_temperature_slider",selector:{boolean:{}}},{name:"hide_color_controls",selector:{boolean:{}}},{name:"hide_color_presets",selector:{boolean:{}}},{name:"color_control",selector:{select:{mode:"dropdown",options:[{value:_e,label:"Spectrum slider"},{value:be,label:"Preset buttons"},{value:fe,label:"Spectrum and presets"}]}}},{name:"live_update",selector:{boolean:{}}},{name:"slider_color_mode",selector:{select:{mode:"dropdown",options:[{value:ce,label:"Custom colors"},{value:ue,label:"Custom temperature / Kelvin"},{value:ge,label:"Light temperature"},{value:pe,label:"Light RGB"}]}}},{name:"slider_color_temperature",selector:{number:{min:1e3,max:4e4,step:50,mode:"box"}}},{name:"bar_background",selector:{text:{}}},{name:"bar_foreground",selector:{text:{}}},{name:"card_background",selector:{text:{}}},{name:"handle_color",selector:{text:{}}},{name:"icon_color",selector:{text:{}}},{name:"popup_number_color",selector:{text:{}}}],computeHelper:e=>"entity"===e.name?"Choose a light entity with brightness support.":"show_icon"===e.name?"Show the leading icon inside the active segment.":"show_icon_on_small_sizes"===e.name?"Show the icon on Small and Medium sliders. Off by default to keep those sizes cleaner.":"label_layout"===e.name?"Choose whether the slider icon stays inside the active segment or moves beside the title.":"force_toggle_mode"===e.name?"Render this card as a simple on/off toggle even when the light supports brightness.":"size"===e.name?"Slider thickness preset. Large and Extra Large are closest to your screenshot.":"show_expand_toggle"===e.name?"Show a chevron for lights with extra controls like color temperature or color.":"show_brightness"===e.name?"Show the current value in the header: brightness percent for sliders, On/Off state for switches.":"brightness_min"===e.name?"Minimum non-zero brightness sent by the slider, as a percent.":"brightness_max"===e.name?"Maximum brightness sent by the slider, as a percent.":"hide_temperature_slider"===e.name?"Hide the color temperature slider even for lights that support it.":"hide_color_controls"===e.name?"Hide the color spectrum slider even for lights that support color.":"hide_color_presets"===e.name?"Hide preset color buttons even for lights that support color.":"color_control"===e.name?"Choose how color-capable lights expose color controls.":"live_update"===e.name?"When enabled, brightness updates continuously while dragging. Off by default to reduce device traffic.":"slider_color_mode"===e.name?"Choose whether the slider uses your custom colors, a fixed Kelvin value, or the light temperature/RGB.":"slider_color_temperature"===e.name?"Only used when Slider color mode is set to Custom temperature / Kelvin.":void 0}}static async getConfigElement(){return document.createElement("mysmart-light-control-editor")}static getStubConfig(){return{entity:"light.living_room"}}getCardSize(){const e=this.hass?.states?.[this.config?.entity];if(e&&this._shouldRenderToggleMode(e))return 1;const t=!!e&&this._hasExtraControls(e),r=t&&!1!==this.config?.show_expand_toggle;return!t||r&&!this._expanded?2:3}render(){if(!this.hass||!this.config)return I``;const e=this.hass.states[this.config.entity];if(!e)return this._renderMessage(`Finner ikke ${this.config.entity}`);if(!e.entity_id?.startsWith("light."))return this._renderMessage(`${this.config.entity} er ikke et lys.`);if(this.config.msh)return this._renderMsh(e);if(this._shouldRenderToggleMode(e))return this._renderToggleControl(e);const t=this._getDisplayBrightness(e),r=this._dragging?this._dragValue??t:t,i=this._percentFromBrightness(r),s="on"===e.state,o=this._isUnavailableState(e),n=this._hasExtraControls(e),a=n&&this.config.show_expand_toggle,l=n&&(!a||this._expanded),d=this.config.name||e.attributes.friendly_name||this.config.entity,h=this.config.icon||e.attributes.icon||"mdi:lightbulb",c=this.config.icon_color,u=Ve(this.config),g=!1!==this.config.show_icon&&(this.config.show_icon_on_small_sizes||!["small","medium"].includes(this.config.size)),p=g&&u===ye,m=g&&u===ve,_=this.config.show_brightness||o,b=this.config.show_name||_||p,f=this._getSizeMetrics(),v=[a?"":"no-expand"].join(" ").trim(),y=this._mainActiveWidth(i),$=this._mainInactiveWidth(y),w=this._mainHandleLeft(y),x=this._getSliderPalette(e),C=`\n      --mysmart-slider-card-background: transparent;\n      --mysmart-slider-bar-background: ${x.inactiveColor};\n      --mysmart-slider-bar-foreground: ${x.activeColor};\n      --mysmart-slider-handle-color: ${x.handleColor};\n      --mysmart-slider-popup-number-color: ${this.config.popup_number_color};\n      --mysmart-slider-popup-background: ${x.popupColor};\n      --mysmart-slider-popup-stem-color: ${x.popupColor};\n      --mysmart-slider-icon-background: transparent;\n      --mysmart-slider-icon-color: ${c};\n      --mysmart-slider-chevron-color: ${this.config.chevron_color};\n      --mysmart-slider-track-height: ${f.trackHeight}px;\n      --mysmart-slider-handle-height: ${f.handleHeight}px;\n      --mysmart-slider-handle-width: ${f.handleWidth}px;\n      --mysmart-slider-gap: ${f.splitGap}px;\n      --mysmart-slider-padding: ${f.sliderPadding}px;\n      --mysmart-slider-bubble-size: ${f.bubbleSize}px;\n      --mysmart-slider-radius: ${f.radius}px;\n      --mysmart-slider-inner-radius: ${Math.max(4,Math.round(.375*f.radius))}px;\n      --mysmart-slider-icon-size: ${f.iconSize}px;\n      --mysmart-secondary-gap: ${f.splitGap}px;\n    `;return I`
       <ha-card class="${o?"unavailable":""}" style="${C}">
         <div class="card-shell ${this._expanded?"expanded":""} ${o?"is-disabled":""}">
           ${b?I`
@@ -271,17 +276,16 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
                       class="header-icon-button"
                       type="button"
                       @click=${this._handleIconClick}
-                      title="${s?"Slå av":"Slå på"} ${d}"
                       aria-label="${s?"Slå av":"Slå på"} ${d}"
                       ?disabled=${o}
                     >
                       <ha-icon icon="${h}"></ha-icon>
                     </button>
                   `:""}
-                  ${this.config.show_name?I`<div class="name" title="${d}">${d}</div>`:""}
+                  ${this.config.show_name?I`<div class="name">${d}</div>`:""}
                 </div>
               `:I`<div></div>`}
-              ${_?I`<div class="value-readout">${o?this._formatUnavailableState(e):`${i}%`}</div>`:""}
+              ${_?I`<div class="value-readout">${o?this._formatUnavailableState(e):`${i} %`}</div>`:""}
             </div>
           `:""}
 
@@ -306,7 +310,6 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
                         class="icon-button"
                         type="button"
                         @click=${this._handleIconClick}
-                        title="${s?"Slå av":"Slå på"} ${d}"
                         aria-label="${s?"Slå av":"Slå på"} ${d}"
                         ?disabled=${o}
                       >
@@ -323,7 +326,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
                     aria-valuemin="0"
                     aria-valuemax="100"
                     aria-valuenow="${i}"
-                    aria-valuetext="${i}% brightness"
+                    aria-valuetext="${i} % lysstyrke"
                     aria-disabled="${o}"
                     ?disabled=${o}
                     role="slider"
@@ -337,8 +340,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
                 class="expand-button"
                 type="button"
                 @click=${this._toggleExpanded}
-                title="${this._expanded?"Hide extra controls":"Show extra controls"}"
-                aria-label="${this._expanded?"Hide extra controls":"Show extra controls"}"
+                aria-label="${this._expanded?"Skjul flere valg":"Vis flere valg"}"
                 ?disabled=${o}
               >
                 <ha-icon icon="${this._expanded?"mdi:chevron-up":"mdi:chevron-down"}"></ha-icon>
@@ -347,6 +349,28 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
           </div>
 
           ${l?this._renderExpandedControls(e):""}
+        </div>
+      </ha-card>
+    `}_mshPalette(e,t){const r="var(--gray400, #545454)";if(!t)return{fill:"transparent",rest:r,handle:"var(--gray700, #979797)"};const i=this.config.msh_type||(this._supportsColor(e)?"color":this._supportsColorTemp(e)?"ct":"dim");let s=null;"color"===i?s=this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e):"ct"===i&&(s=this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e));return{fill:s||"rgb(225 225 225 / .55)",rest:r,handle:"var(--gray1000, #e1e1e1)"}}_mshClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;const t=this.hass.states[this.config.entity];if(!t)return;if(this._shouldRenderToggleMode(t)||"on"!==t.state)return void this.hass.callService("light","on"===t.state?"turn_off":"turn_on",{entity_id:this.config.entity});this._handleTrackClick(e)}_renderMsh(e){const t=this.config,r=this._isUnavailableState(e),i="on"===e.state,s=this._shouldRenderToggleMode(e),o=Math.max(24,Math.min(72,Number(t.msh_height)||40)),n=Math.max(12,o-12),a=Math.min(14,o/2),l=Math.max(8,Math.round(a*.7)),d=t.name||e.attributes.friendly_name||t.entity,h=this._getDisplayBrightness(e),c=s?i?100:0:this._dragging||null!=this._pendingBrightness||i?Math.max(i&&!this._dragging?1:0,this._percentFromBrightness(h)):0,u=c>0,g=this._mshPalette(e,u),p=!s&&this._hasExtraControls(e)&&!1!==t.show_expand_toggle,m=p&&this._expanded,_=r?this._formatUnavailableState(e):s?i?"På":"Av":u?`${c} %`:"Av";return I`
+      <ha-card class="${r?"unavailable":""}" style="--msh-h:${o}px;--msh-hh:${n}px;--msh-r:${a}px;--msh-fill:${g.fill};--msh-rest:${g.rest};--msh-handle:${g.handle};--mysmart-slider-bar-foreground:${u?g.fill:"var(--gray700, #979797)"};--mysmart-slider-bar-background:var(--gray400, #545454);--mysmart-slider-handle-color:var(--gray1000, #e1e1e1);--mysmart-secondary-gap:12px;--mysmart-secondary-track-height:20px;--mysmart-secondary-handle-height:28px;--mysmart-secondary-handle-width:4px;--mysmart-secondary-radius:10px">
+        <div class="msh ${r?"is-disabled":""} ${this._dragging?"drag":""}">
+          <div class="msh-hd"><span class="msh-n">${d}</span><span class="msh-v">${_}</span></div>
+          <div
+            class="msh-tr ${r?"disabled":""}"
+            role="${s?"switch":"slider"}"
+            aria-label="${d}"
+            aria-valuetext="${_}"
+            @click=${this._mshClick}
+            @pointerdown=${s?null:this._handlePointerDown}
+            @mousedown=${this._preventTrackMouseDown}
+          >
+            <div class="slider-track msh-track">
+              <div class="msh-fill" style="width:${u?`clamp(${l}px, ${c}%, 100%)`:"0px"}"></div>
+              <span class="msh-handle" style="left:clamp(${l}px, ${c}%, calc(100% - ${l}px))"></span>
+            </div>
+          </div>
+          ${p?I`<button class="msh-cv" type="button" @click=${this._toggleExpanded} aria-label="${this._expanded?"Skjul farge og temperatur":"Farge og temperatur"}" ?disabled=${r}><ha-icon icon="${this._expanded?"mdi:chevron-up":"mdi:chevron-down"}"></ha-icon></button>`:I`<span class="msh-cv" aria-hidden="true"></span>`}
+          ${m?I`<div class="msh-x">${this._renderExpandedControls(e)}</div>`:""}
         </div>
       </ha-card>
     `}_renderToggleControl(e){const t="on"===e.state,r=this._isUnavailableState(e),i=this.config.name||e.attributes.friendly_name||this.config.entity,s=this.config.icon||e.attributes.icon||"mdi:lightbulb",o=this._getSizeMetrics(),n=this._getSliderPalette(e),a=Ve(this.config),l=!1!==this.config.show_icon&&(this.config.show_icon_on_small_sizes||!["small","medium"].includes(this.config.size)),d=l&&a===ye,h=l&&a===ve,c=!0===this.config.show_brightness||r,u=!1!==this.config.show_name||d||c,g=this.config.card_background||"transparent",p=!this._isTransparentBackground(g),m=Math.max(8,o.sliderPadding),_=Math.max(10,Math.round(1.25*o.sliderPadding)),b=`\n      --mysmart-slider-card-background: transparent;\n      --mysmart-toggle-background: ${g};\n      --mysmart-slider-bar-background: ${n.inactiveColor};\n      --mysmart-slider-bar-foreground: ${n.activeColor};\n      --mysmart-slider-handle-color: ${n.handleColor};\n      --mysmart-slider-icon-color: ${this.config.icon_color};\n      --mysmart-slider-track-height: ${o.trackHeight}px;\n      --mysmart-slider-radius: ${o.radius}px;\n      --mysmart-slider-padding: ${o.sliderPadding}px;\n      --mysmart-slider-icon-size: ${o.iconSize}px;\n      --mysmart-slider-gap: ${o.splitGap}px;\n      --mysmart-toggle-track-inset: 4px;\n      --mysmart-toggle-padding-top: ${p?`${m}px`:"2px"};\n      --mysmart-toggle-padding-right: ${p?`${_}px`:"0px"};\n      --mysmart-toggle-padding-bottom: ${p?`${m}px`:"2px"};\n      --mysmart-toggle-padding-left: ${p?`${_}px`:"0px"};\n    `;return I`
@@ -361,14 +385,13 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
                       class="header-icon-button"
                       type="button"
                       @click=${this._handleIconClick}
-                      title="${t?"Turn off":"Turn on"} ${i}"
-                      aria-label="${t?"Turn off":"Turn on"} ${i}"
+                      aria-label="${t?"Slå av":"Slå på"} ${i}"
                       ?disabled=${r}
                     >
                       <ha-icon icon="${s}"></ha-icon>
                     </button>
                   `:""}
-                  ${!1!==this.config.show_name?I`<div class="name" title="${i}">${i}</div>`:""}
+                  ${!1!==this.config.show_name?I`<div class="name">${i}</div>`:""}
                 </div>
               `:I`<div></div>`}
               ${c?I`<div class="toggle-state-readout">${r?this._formatUnavailableState(e):t?"På":"Av"}</div>`:I`<div></div>`}
@@ -381,8 +404,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
             role="switch"
             aria-checked="${t}"
             aria-disabled="${r}"
-            aria-label="${t?"Turn off":"Turn on"} ${i}"
-            title="${t?"Turn off":"Turn on"} ${i}"
+            aria-label="${t?"Slå av":"Slå på"} ${i}"
             ?disabled=${r}
           >
             <span class="toggle-state-icons" aria-hidden="true">
@@ -435,7 +457,6 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
       <div class="secondary-group">
         <div class="secondary-label-row">
           <span>Forhåndsvalg</span>
-          <span>Forhåndsvalg</span>
         </div>
         <div class="preset-row">
           ${r.map(e=>I`
@@ -444,7 +465,6 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
               type="button"
               style="--preset-color: ${e.cssColor};"
               @click=${()=>this._setColorPreset(e.rgb)}
-              title="${e.label}"
               aria-label="${e.label}"
               ?disabled=${t}
             ></button>
@@ -487,7 +507,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
       <ha-card>
         <div class="message">${e}</div>
       </ha-card>
-    `}_supportsBrightness(e){if(!e||!e.entity_id?.startsWith("light."))return!1;if(null!=e.attributes.brightness)return!0;return(e.attributes.supported_color_modes||[]).some(e=>Ee.has(e))}_isUnavailableState(e){return"unavailable"===e?.state||"unknown"===e?.state}_formatUnavailableState(e){return"unknown"===e?.state?"Ukjent":"Utilgjengelig"}_isCurrentEntityUnavailable(){const e=this.hass?.states?.[this.config?.entity];return this._isUnavailableState(e)}_shouldRenderToggleMode(e){return!0===this.config.force_toggle_mode||!this._supportsBrightness(e)}_supportsColorTemp(e){const t=e.attributes.supported_color_modes||[];return Boolean(t.includes("color_temp")||e.attributes.min_color_temp_kelvin||e.attributes.max_color_temp_kelvin||e.attributes.color_temp_kelvin)}_supportsColor(e){return(e.attributes.supported_color_modes||[]).some(e=>Te.has(e))}_shouldShowTemperatureControl(e){return!this.config.hide_temperature_slider&&this._supportsColorTemp(e)}_shouldShowColorSpectrum(e){const t=Re(this.config);return!this.config.hide_color_controls&&this._supportsColor(e)&&(t===_e||t===fe)}_shouldShowColorPresets(e){const t=Re(this.config);return!this.config.hide_color_presets&&!this.config.hide_rgb_presets&&this._supportsColor(e)&&(t===be||t===fe)}_hasExtraControls(e){return this._shouldShowTemperatureControl(e)||this._shouldShowColorSpectrum(e)||this._shouldShowColorPresets(e)}_getDisplayBrightness(e){return this._dragging&&null!=this._dragValue?this._dragValue:null!=this._pendingBrightness?this._pendingBrightness:null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0}_percentFromBrightness(e){return Math.max(0,Math.min(100,Math.round(Number(e||0)/255*100)))}_brightnessClampRange(){return De(this.config)}_brightnessFromClampPercent(e){return this._brightnessFromPercent(e)}_clampBrightness(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return 0;const r=this._brightnessClampRange(),i=this._brightnessFromClampPercent(r.min),s=this._brightnessFromClampPercent(r.max);return Math.max(i,Math.min(s,Math.round(t)))}_getMaxBrightness(){const e=this._brightnessClampRange();return this._brightnessFromClampPercent(e.max)}_getSizeMetrics(){return Me[this.config.size]||Me.large}_resolveSliderColor(e){const t=Be(this.config),r=this.config.bar_foreground,i=this._temperatureValueToCss(he)||r;if(t===ce)return{color:r,isAdaptive:!1};const s=this._getConfiguredSliderColor(e,t);return s?(this._setLastAdaptiveColor(s),{color:s,isAdaptive:!0}):t===ue||t===ge||t===me?{color:i,isAdaptive:!0}:{color:r,isAdaptive:!1}}_getSliderPalette(e){const{color:t,isAdaptive:r}=this._resolveSliderColor(e);if(Be(this.config)===ce||!r)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const i=Ne(t);if(!i)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const s=this._mixRgb(i,[0,0,0],.32);return{activeColor:t,inactiveColor:`rgba(${i.join(", ")}, 0.24)`,handleColor:s,popupColor:s}}_getConfiguredSliderColor(e,t=Be(this.config)){if(t===ue){const e=Number(this.config.slider_color_temperature);return this._temperatureValueToCss(Number.isFinite(e)&&e>0?e:he)}return t===ge?this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor:t===pe?this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._lastAdaptiveColor:this._getOverrideSliderColor("rgb",e)||this._getOverrideSliderColor("temp",e)||this._getStateRgbColor(e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor}_getOverrideSliderColor(e,t){if(this._sliderColorSource!==e)return null;if("rgb"===e){return this._colorValueToCss(this._sliderColorValue)||this._getStateRgbColor(t)}if("temp"===e){return this._temperatureValueToCss(this._sliderColorValue)||this._getStateTemperatureColor(t)}return null}_getStateRgbColor(e){const t=Array.isArray(e?.attributes?.rgb_color)?e.attributes.rgb_color:this._hsColorToRgb(e?.attributes?.hs_color);return this._colorValueToCss(t)}_getStateTemperatureColor(e){const t=Number(e?.attributes?.color_temp_kelvin);return this._temperatureValueToCss(t)}_colorValueToCss(e){const t=Ne(e);return t?`rgb(${t.join(", ")})`:null}_temperatureValueToCss(e){const t=this._kelvinToRgb(e);return t?`rgb(${t.join(", ")})`:null}_setLastAdaptiveColor(e){e&&(this._lastAdaptiveColor=e,this._persistAdaptiveColor(e))}_loadStoredAdaptiveColor(e=this.config?.entity){const t=Ue(e);if(!t)return null;try{const e=window.localStorage.getItem(t);return this._colorValueToCss(e)}catch(e){return null}}_persistAdaptiveColor(e){const t=Ue(this.config?.entity);if(t)try{window.localStorage.setItem(t,e)}catch(e){}}_mixRgb(e,t,r){const i=Math.max(0,Math.min(1,Number(r)||0));return`rgb(${e.map((e,r)=>{const s=e+((t[r]||0)-e)*i;return Math.round(Math.max(0,Math.min(255,s)))}).join(", ")})`}_hsColorToRgb(e){if(!Array.isArray(e)||e.length<2)return null;const t=Number(e[0]),r=Math.max(0,Math.min(100,Number(e[1])||0))/100;if(!Number.isFinite(t))return null;const i=r,s=(t%360+360)%360/60,o=i*(1-Math.abs(s%2-1));let n=0,a=0,l=0;s>=0&&s<1?(n=i,a=o):s<2?(n=o,a=i):s<3?(a=i,l=o):s<4?(a=o,l=i):s<5?(n=o,l=i):(n=i,l=o);const d=1-i;return[n,a,l].map(e=>Math.round(255*(e+d)))}_hueToRgb(e){return this._hsColorToRgb([e,100])}_rgbToHue(e){const t=Ne(e);if(!t)return null;const[r,i,s]=t.map(e=>Math.max(0,Math.min(255,Number(e)))/255),o=Math.max(r,i,s),n=o-Math.min(r,i,s);if(0===n)return 0;let a;return a=o===r?(i-s)/n%6:o===i?(s-r)/n+2:(r-i)/n+4,Math.round((60*a%360+360)%360)}_kelvinToRgb(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return null;const r=Math.max(1e3,Math.min(4e4,t))/100;let i,s,o;return r<=66?(i=255,s=99.4708025861*Math.log(r)-161.1195681661):(i=329.698727446*Math.pow(r-60,-.1332047592),s=288.1221695283*Math.pow(r-60,-.0755148492)),o=r>=66?255:r<=19?0:138.5177312231*Math.log(r-10)-305.0447927307,[i,s,o].map(e=>{const t=Math.max(0,Math.min(255,e));return Math.round(t)})}_getResolvedColorPresets(){const e=(Array.isArray(this.config?.color_presets)?this.config.color_presets:[]).map((e,t)=>{const r=this._parseColorToRgb(e);return r?{label:`Preset ${t+1}`,rgb:r,cssColor:`rgb(${r.join(", ")})`}:null}).filter(Boolean);return e.length?e:this._defaultResolvedColorPresets()}_defaultResolvedColorPresets(){return le.map((e,t)=>({label:e.label||`Preset ${t+1}`,rgb:e.rgb,cssColor:`rgb(${e.rgb.join(", ")})`}))}_getDisplayHue(e){if(null!=this._colorPreviewHue)return this._clampHueSliderValue(this._colorPreviewHue);const t=Number(e?.attributes?.hs_color?.[0]);if(Number.isFinite(t))return this._normalizeHue(t);const r=this._rgbToHue(e?.attributes?.rgb_color);return null!=r?r:0}_normalizeHue(e){const t=Number(e);return Number.isFinite(t)?(t%360+360)%360:0}_clampHueSliderValue(e){const t=Number(e);return Number.isFinite(t)?Math.max(0,Math.min(360,t)):0}_getHueColorName(e){const t=this._normalizeHue(e);return t<15||t>=345?"Red":t<45?"Orange":t<75?"Yellow":t<150?"Green":t<195?"Cyan":t<255?"Blue":t<285?"Purple":t<330?"Magenta":"Pink"}_parseColorToRgb(e){return Ne(e)}_isTransparentBackground(e){if(null==e)return!0;const t=String(e).trim().toLowerCase();if(!t||"transparent"===t||"none"===t)return!0;if(/^#[0-9a-f]{4}$/i.test(t))return"0"===t.slice(-1);if(/^#[0-9a-f]{8}$/i.test(t))return"00"===t.slice(-2);const r=t.match(/^rgba?\([^)]*,\s*(0|0?\.0+)\s*\)$/i);return Boolean(r)}_brightnessFromPercent(e){return Math.max(0,Math.min(255,Math.round(Number(e)/100*255)))}_mainActiveWidth(e){const t="var(--mysmart-slider-gap)";return e<=0?"0px":e>=100?`max(0px, calc(100% - ${t}))`:`max(0px, calc(${`clamp(0%, ${e}%, 100%)`} - (${t} / 2)))`}_mainInactiveWidth(e){return`max(0px, calc(100% - (${e}) - var(--mysmart-slider-gap)))`}_mainHandleLeft(e){return`calc(${e} + (var(--mysmart-slider-gap) / 2))`}_segmentWidth(e,t,r="main"){return`max(0px, calc(clamp(0%, ${e}%, 100%) - ${e>0&&e<100||t>0&&t<100?`(${"secondary"===r?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"}))`}_segmentLeft(e,t="main"){return`calc(clamp(0%, ${e}%, 100%) + ${e>0&&e<100?`(${"secondary"===t?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"})`}_bubbleStyle(e){return`left: ${e};`}_hueSegmentStyle(e,t){if("active"===e){return`clip-path: inset(0 calc(100% - (${this._segmentWidth(t,100-t,"secondary")})) 0 0 round var(--mysmart-secondary-radius));`}return`clip-path: inset(0 0 0 ${this._segmentLeft(t,"secondary")} round var(--mysmart-secondary-radius));`}_preventTrackMouseDown(e){e.target===e.currentTarget&&e.preventDefault()}_toggleExpanded(){this._isCurrentEntityUnavailable()||(this._expanded=!this._expanded)}_handleIconClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_handleToggleClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_toggleLight(){const e=this.hass.states[this.config.entity];if(!e||this._isUnavailableState(e))return;if("on"===e.state)return void this.hass.callService("light","turn_off",{entity_id:this.config.entity});const t={entity_id:this.config.entity},r=this._supportsBrightness(e)?this._getMaxBrightness():null;null!=r&&r>0&&(t.brightness=r),this.hass.callService("light","turn_on",t)}_handleTrackClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;if(e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)))return;const t=this.shadowRoot.querySelector(".slider-track");if(!t)return;const r=t.getBoundingClientRect(),i=(e.clientX-r.left)/r.width*100,s=this._clampBrightness(this._brightnessFromPercent(i));this._setPendingBrightness(s),this._sendBrightness(s)}_handlePointerDown(e){if(this._isCurrentEntityUnavailable())return;if(null!=e.button&&0!==e.button)return;const t=e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)),r=t?.classList?.contains("slider-handle");if(t&&!r)return;const i=this.shadowRoot.querySelector(".slider-track");i&&(this._trackRect=i.getBoundingClientRect(),this._gestureMode="pending",this._gesturePointerId=e.pointerId,this._gestureStartX=e.clientX,this._gestureStartY=e.clientY,window.addEventListener("pointermove",this._moveHandler),window.addEventListener("pointerup",this._upHandler),window.addEventListener("pointercancel",this._upHandler),"mouse"===e.pointerType&&(this._startBrightnessDrag(e.clientX),e.preventDefault(),e.stopPropagation()))}_handlePointerMove(e){if(null==this._gesturePointerId||e.pointerId===this._gesturePointerId){if("pending"===this._gestureMode){const t=e.clientX-this._gestureStartX,r=e.clientY-this._gestureStartY,i=Math.abs(t),s=Math.abs(r);if(Math.max(i,s)<8)return;if(s>i)return void this._cancelPendingGesture();this._startBrightnessDrag(e.clientX)}this._dragging&&(e.preventDefault(),this._updateDragBrightness(e.clientX))}}_handlePointerUp(e){if(null!=this._gesturePointerId&&e.pointerId!==this._gesturePointerId)return;if(!this._dragging)return void this._cancelPendingGesture();e.preventDefault();const t=this._dragValue??0;this._setPendingBrightness(t),this._sendBrightness(t),this._dragging=!1,this._dragValue=null,this._clearGestureState()}_teardownPointerListeners(){window.removeEventListener("pointermove",this._moveHandler),window.removeEventListener("pointerup",this._upHandler),window.removeEventListener("pointercancel",this._upHandler)}_startBrightnessDrag(e){this._gestureMode="dragging",this._dragging=!0,this._suppressNextClick=!0,this._updateDragBrightness(e)}_cancelPendingGesture(){this._dragging=!1,this._dragValue=null,this._clearGestureState()}_clearGestureState(){this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._teardownPointerListeners()}_updateDragBrightness(e){if(!this._trackRect)return;const t=(e-this._trackRect.left)/this._trackRect.width*100,r=Math.max(0,Math.min(100,t)),i=this._clampBrightness(this._brightnessFromPercent(r));this._dragValue=i,this.config.live_update&&this._commitLiveBrightness(i)}_sendBrightness(e){if(this._isCurrentEntityUnavailable())return;this._lastBrightnessSentAt=Date.now(),window.clearTimeout(this._brightnessTimer);const t=this._clampBrightness(e);t<=0?this.hass.callService("light","turn_off",{entity_id:this.config.entity}):this.hass.callService("light","turn_on",{entity_id:this.config.entity,brightness:t})}_setPendingBrightness(e){this._pendingBrightness=this._clampBrightness(e),this._pendingSince=Date.now()}_clearPendingBrightness(){this._pendingBrightness=null,this._pendingSince=0}_commitLiveBrightness(e){if(Date.now()-this._lastBrightnessSentAt<90)return window.clearTimeout(this._brightnessTimer),void(this._brightnessTimer=window.setTimeout(()=>{this._sendBrightness(e)},90));this._sendBrightness(e)}_handleColorTempInput(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now()}_handleColorTempChange(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,color_temp_kelvin:t})}_handleColorHueInput(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._hueToRgb(this._normalizeHue(t));this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=r,this._previewUpdatedAt=Date.now()}_handleColorHueChange(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._normalizeHue(t),i=this._hueToRgb(r);this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=i,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,hs_color:[r,100]})}_setColorPreset(e){this._isCurrentEntityUnavailable()||(this._tempPreviewValue=null,this._colorPreviewHue=this._rgbToHue(e),this._sliderColorSource="rgb",this._sliderColorValue=Array.isArray(e)?e.slice(0,3):e,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,rgb_color:e}))}_clearPreviewState(){this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._previewUpdatedAt=0}_rgbArraysClose(e,t){return!(!Array.isArray(e)||!Array.isArray(t)||e.length<3||t.length<3)&&e.slice(0,3).every((e,r)=>Math.abs(Number(e)-Number(t[r]))<=2)}static get styles(){return o`
+    `}_supportsBrightness(e){if(!e||!e.entity_id?.startsWith("light."))return!1;if(null!=e.attributes.brightness)return!0;return(e.attributes.supported_color_modes||[]).some(e=>Ee.has(e))}_isUnavailableState(e){return"unavailable"===e?.state||"unknown"===e?.state}_formatUnavailableState(e){return"unknown"===e?.state?"Ukjent":"Utilgjengelig"}_isCurrentEntityUnavailable(){const e=this.hass?.states?.[this.config?.entity];return this._isUnavailableState(e)}_shouldRenderToggleMode(e){return!0===this.config.force_toggle_mode||!this._supportsBrightness(e)}_supportsColorTemp(e){const t=e.attributes.supported_color_modes||[];return Boolean(t.includes("color_temp")||e.attributes.min_color_temp_kelvin||e.attributes.max_color_temp_kelvin||e.attributes.color_temp_kelvin)}_supportsColor(e){return(e.attributes.supported_color_modes||[]).some(e=>Te.has(e))}_shouldShowTemperatureControl(e){return!this.config.hide_temperature_slider&&this._supportsColorTemp(e)}_shouldShowColorSpectrum(e){const t=Re(this.config);return!this.config.hide_color_controls&&this._supportsColor(e)&&(t===_e||t===fe)}_shouldShowColorPresets(e){const t=Re(this.config);return!this.config.hide_color_presets&&!this.config.hide_rgb_presets&&this._supportsColor(e)&&(t===be||t===fe)}_hasExtraControls(e){return this._shouldShowTemperatureControl(e)||this._shouldShowColorSpectrum(e)||this._shouldShowColorPresets(e)}_getDisplayBrightness(e){return this._dragging&&null!=this._dragValue?this._dragValue:null!=this._pendingBrightness?this._pendingBrightness:null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0}_percentFromBrightness(e){return Math.max(0,Math.min(100,Math.round(Number(e||0)/255*100)))}_brightnessClampRange(){return De(this.config)}_brightnessFromClampPercent(e){return this._brightnessFromPercent(e)}_clampBrightness(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return 0;const r=this._brightnessClampRange(),i=this._brightnessFromClampPercent(r.min),s=this._brightnessFromClampPercent(r.max);return Math.max(i,Math.min(s,Math.round(t)))}_getMaxBrightness(){const e=this._brightnessClampRange();return this._brightnessFromClampPercent(e.max)}_getSizeMetrics(){return Me[this.config.size]||Me.large}_resolveSliderColor(e){const t=Be(this.config),r=this.config.bar_foreground,i=this._temperatureValueToCss(he)||r;if(t===ce)return{color:r,isAdaptive:!1};const s=this._getConfiguredSliderColor(e,t);return s?(this._setLastAdaptiveColor(s),{color:s,isAdaptive:!0}):t===ue||t===ge||t===me?{color:i,isAdaptive:!0}:{color:r,isAdaptive:!1}}_getSliderPalette(e){const{color:t,isAdaptive:r}=this._resolveSliderColor(e);if(Be(this.config)===ce||!r)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const i=Ne(t);if(!i)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const s=this._mixRgb(i,[0,0,0],.32);return{activeColor:t,inactiveColor:`rgba(${i.join(", ")}, 0.24)`,handleColor:s,popupColor:s}}_getConfiguredSliderColor(e,t=Be(this.config)){if(t===ue){const e=Number(this.config.slider_color_temperature);return this._temperatureValueToCss(Number.isFinite(e)&&e>0?e:he)}return t===ge?this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor:t===pe?this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._lastAdaptiveColor:this._getOverrideSliderColor("rgb",e)||this._getOverrideSliderColor("temp",e)||this._getStateRgbColor(e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor}_getOverrideSliderColor(e,t){if(this._sliderColorSource!==e)return null;if("rgb"===e){return this._colorValueToCss(this._sliderColorValue)||this._getStateRgbColor(t)}if("temp"===e){return this._temperatureValueToCss(this._sliderColorValue)||this._getStateTemperatureColor(t)}return null}_getStateRgbColor(e){const t=Array.isArray(e?.attributes?.rgb_color)?e.attributes.rgb_color:this._hsColorToRgb(e?.attributes?.hs_color);return this._colorValueToCss(t)}_getStateTemperatureColor(e){const t=Number(e?.attributes?.color_temp_kelvin);return this._temperatureValueToCss(t)}_colorValueToCss(e){const t=Ne(e);return t?`rgb(${t.join(", ")})`:null}_temperatureValueToCss(e){const t=this._kelvinToRgb(e);return t?`rgb(${t.join(", ")})`:null}_setLastAdaptiveColor(e){e&&(this._lastAdaptiveColor=e,this._persistAdaptiveColor(e))}_loadStoredAdaptiveColor(e=this.config?.entity){const t=Ue(e);if(!t)return null;try{const e=window.localStorage.getItem(t);return this._colorValueToCss(e)}catch(e){return null}}_persistAdaptiveColor(e){if(this.config?.msh)return;const t=Ue(this.config?.entity);if(t)try{window.localStorage.setItem(t,e)}catch(e){}}_mixRgb(e,t,r){const i=Math.max(0,Math.min(1,Number(r)||0));return`rgb(${e.map((e,r)=>{const s=e+((t[r]||0)-e)*i;return Math.round(Math.max(0,Math.min(255,s)))}).join(", ")})`}_hsColorToRgb(e){if(!Array.isArray(e)||e.length<2)return null;const t=Number(e[0]),r=Math.max(0,Math.min(100,Number(e[1])||0))/100;if(!Number.isFinite(t))return null;const i=r,s=(t%360+360)%360/60,o=i*(1-Math.abs(s%2-1));let n=0,a=0,l=0;s>=0&&s<1?(n=i,a=o):s<2?(n=o,a=i):s<3?(a=i,l=o):s<4?(a=o,l=i):s<5?(n=o,l=i):(n=i,l=o);const d=1-i;return[n,a,l].map(e=>Math.round(255*(e+d)))}_hueToRgb(e){return this._hsColorToRgb([e,100])}_rgbToHue(e){const t=Ne(e);if(!t)return null;const[r,i,s]=t.map(e=>Math.max(0,Math.min(255,Number(e)))/255),o=Math.max(r,i,s),n=o-Math.min(r,i,s);if(0===n)return 0;let a;return a=o===r?(i-s)/n%6:o===i?(s-r)/n+2:(r-i)/n+4,Math.round((60*a%360+360)%360)}_kelvinToRgb(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return null;const r=Math.max(1e3,Math.min(4e4,t))/100;let i,s,o;return r<=66?(i=255,s=99.4708025861*Math.log(r)-161.1195681661):(i=329.698727446*Math.pow(r-60,-.1332047592),s=288.1221695283*Math.pow(r-60,-.0755148492)),o=r>=66?255:r<=19?0:138.5177312231*Math.log(r-10)-305.0447927307,[i,s,o].map(e=>{const t=Math.max(0,Math.min(255,e));return Math.round(t)})}_getResolvedColorPresets(){const e=(Array.isArray(this.config?.color_presets)?this.config.color_presets:[]).map((e,t)=>{const r=this._parseColorToRgb(e);return r?{label:`Forhåndsvalg ${t+1}`,rgb:r,cssColor:`rgb(${r.join(", ")})`}:null}).filter(Boolean);return e.length?e:this._defaultResolvedColorPresets()}_defaultResolvedColorPresets(){return le.map((e,t)=>({label:`Forhåndsvalg ${t+1}`,rgb:e.rgb,cssColor:`rgb(${e.rgb.join(", ")})`}))}_getDisplayHue(e){if(null!=this._colorPreviewHue)return this._clampHueSliderValue(this._colorPreviewHue);const t=Number(e?.attributes?.hs_color?.[0]);if(Number.isFinite(t))return this._normalizeHue(t);const r=this._rgbToHue(e?.attributes?.rgb_color);return null!=r?r:0}_normalizeHue(e){const t=Number(e);return Number.isFinite(t)?(t%360+360)%360:0}_clampHueSliderValue(e){const t=Number(e);return Number.isFinite(t)?Math.max(0,Math.min(360,t)):0}_getHueColorName(e){const t=this._normalizeHue(e);return t<15||t>=345?"Rød":t<45?"Oransje":t<75?"Gul":t<150?"Grønn":t<195?"Cyan":t<255?"Blå":t<285?"Lilla":t<330?"Magenta":"Rosa"}_parseColorToRgb(e){return Ne(e)}_isTransparentBackground(e){if(null==e)return!0;const t=String(e).trim().toLowerCase();if(!t||"transparent"===t||"none"===t)return!0;if(/^#[0-9a-f]{4}$/i.test(t))return"0"===t.slice(-1);if(/^#[0-9a-f]{8}$/i.test(t))return"00"===t.slice(-2);const r=t.match(/^rgba?\([^)]*,\s*(0|0?\.0+)\s*\)$/i);return Boolean(r)}_brightnessFromPercent(e){return Math.max(0,Math.min(255,Math.round(Number(e)/100*255)))}_mainActiveWidth(e){const t="var(--mysmart-slider-gap)";return e<=0?"0px":e>=100?`max(0px, calc(100% - ${t}))`:`max(0px, calc(${`clamp(0%, ${e}%, 100%)`} - (${t} / 2)))`}_mainInactiveWidth(e){return`max(0px, calc(100% - (${e}) - var(--mysmart-slider-gap)))`}_mainHandleLeft(e){return`calc(${e} + (var(--mysmart-slider-gap) / 2))`}_segmentWidth(e,t,r="main"){return`max(0px, calc(clamp(0%, ${e}%, 100%) - ${e>0&&e<100||t>0&&t<100?`(${"secondary"===r?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"}))`}_segmentLeft(e,t="main"){return`calc(clamp(0%, ${e}%, 100%) + ${e>0&&e<100?`(${"secondary"===t?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"})`}_bubbleStyle(e){return`left: ${e};`}_hueSegmentStyle(e,t){if("active"===e){return`clip-path: inset(0 calc(100% - (${this._segmentWidth(t,100-t,"secondary")})) 0 0 round var(--mysmart-secondary-radius));`}return`clip-path: inset(0 0 0 ${this._segmentLeft(t,"secondary")} round var(--mysmart-secondary-radius));`}_preventTrackMouseDown(e){e.target===e.currentTarget&&e.preventDefault()}_toggleExpanded(){this._isCurrentEntityUnavailable()||(this._expanded=!this._expanded)}_handleIconClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_handleToggleClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_toggleLight(){const e=this.hass.states[this.config.entity];if(!e||this._isUnavailableState(e))return;if("on"===e.state)return void this.hass.callService("light","turn_off",{entity_id:this.config.entity});const t={entity_id:this.config.entity},r=this._supportsBrightness(e)?this._getMaxBrightness():null;null!=r&&r>0&&(t.brightness=r),this.hass.callService("light","turn_on",t)}_handleTrackClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;if(e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)))return;const t=this.shadowRoot.querySelector(".slider-track");if(!t)return;const r=t.getBoundingClientRect(),i=(e.clientX-r.left)/r.width*100,s=this._clampBrightness(this._brightnessFromPercent(i));this._setPendingBrightness(s),this._sendBrightness(s)}_handlePointerDown(e){if(this._isCurrentEntityUnavailable())return;if(null!=e.button&&0!==e.button)return;const t=e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)),r=t?.classList?.contains("slider-handle");if(t&&!r)return;const i=this.shadowRoot.querySelector(".slider-track");i&&(this._trackRect=i.getBoundingClientRect(),this._gestureMode="pending",this._gesturePointerId=e.pointerId,this._gestureStartX=e.clientX,this._gestureStartY=e.clientY,window.addEventListener("pointermove",this._moveHandler),window.addEventListener("pointerup",this._upHandler),window.addEventListener("pointercancel",this._upHandler),"mouse"===e.pointerType&&!this.config.msh&&(this._startBrightnessDrag(e.clientX),e.preventDefault(),e.stopPropagation()))}_handlePointerMove(e){if(null==this._gesturePointerId||e.pointerId===this._gesturePointerId){if("pending"===this._gestureMode){const t=e.clientX-this._gestureStartX,r=e.clientY-this._gestureStartY,i=Math.abs(t),s=Math.abs(r);if(Math.max(i,s)<8)return;if(s>i)return void this._cancelPendingGesture();this._startBrightnessDrag(e.clientX)}this._dragging&&(e.preventDefault(),this._updateDragBrightness(e.clientX))}}_handlePointerUp(e){if(null!=this._gesturePointerId&&e.pointerId!==this._gesturePointerId)return;if(!this._dragging)return void this._cancelPendingGesture();e.preventDefault();const t=this._dragValue??0;this._setPendingBrightness(t),this._sendBrightness(t),this._dragging=!1,this._dragValue=null,this._clearGestureState()}_teardownPointerListeners(){window.removeEventListener("pointermove",this._moveHandler),window.removeEventListener("pointerup",this._upHandler),window.removeEventListener("pointercancel",this._upHandler)}_startBrightnessDrag(e){this._gestureMode="dragging",this._dragging=!0,this._suppressNextClick=!0,this._updateDragBrightness(e)}_cancelPendingGesture(){this._dragging=!1,this._dragValue=null,this._clearGestureState()}_clearGestureState(){this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._teardownPointerListeners()}_updateDragBrightness(e){if(!this._trackRect)return;const t=(e-this._trackRect.left)/this._trackRect.width*100,r=Math.max(0,Math.min(100,t)),i=this._clampBrightness(this._brightnessFromPercent(r));this._dragValue=i,this.config.live_update&&this._commitLiveBrightness(i)}_sendBrightness(e){if(this._isCurrentEntityUnavailable())return;this._lastBrightnessSentAt=Date.now(),window.clearTimeout(this._brightnessTimer);const t=this._clampBrightness(e);t<=0?this.hass.callService("light","turn_off",{entity_id:this.config.entity}):this.hass.callService("light","turn_on",{entity_id:this.config.entity,brightness:t})}_setPendingBrightness(e){this._pendingBrightness=this._clampBrightness(e),this._pendingSince=Date.now()}_clearPendingBrightness(){this._pendingBrightness=null,this._pendingSince=0}_commitLiveBrightness(e){if(Date.now()-this._lastBrightnessSentAt<90)return window.clearTimeout(this._brightnessTimer),void(this._brightnessTimer=window.setTimeout(()=>{this._sendBrightness(e)},90));this._sendBrightness(e)}_handleColorTempInput(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now()}_handleColorTempChange(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,color_temp_kelvin:t})}_handleColorHueInput(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._hueToRgb(this._normalizeHue(t));this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=r,this._previewUpdatedAt=Date.now()}_handleColorHueChange(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._normalizeHue(t),i=this._hueToRgb(r);this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=i,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,hs_color:[r,100]})}_setColorPreset(e){this._isCurrentEntityUnavailable()||(this._tempPreviewValue=null,this._colorPreviewHue=this._rgbToHue(e),this._sliderColorSource="rgb",this._sliderColorValue=Array.isArray(e)?e.slice(0,3):e,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,rgb_color:e}))}_clearPreviewState(){this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._previewUpdatedAt=0}_rgbArraysClose(e,t){return!(!Array.isArray(e)||!Array.isArray(t)||e.length<3||t.length<3)&&e.slice(0,3).every((e,r)=>Math.abs(Number(e)-Number(t[r]))<=2)}static get styles(){return o`
       :host {
         --ha-card-background: transparent;
         --ha-card-border-width: 0;
@@ -1026,6 +1046,127 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
           0 1px 3px rgba(0, 0, 0, 0.22);
       }
 
+      /* KI MSH · felles lys-rad (msh-modus) */
+      .msh {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 32px;
+        column-gap: 8px;
+        row-gap: 8px;
+        align-items: center;
+        font-family: inherit;
+      }
+
+      .msh-hd {
+        grid-column: 1;
+        grid-row: 1;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 2px;
+      }
+
+      .msh-n {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 20px;
+        color: var(--gray1000, #e1e1e1);
+      }
+
+      .msh-v {
+        flex: none;
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--gray700, #979797);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .msh-tr {
+        grid-column: 1;
+        grid-row: 2;
+        position: relative;
+        cursor: pointer;
+        touch-action: pan-y;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .msh-tr.disabled {
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .msh-track {
+        position: relative;
+        height: var(--msh-h, 40px);
+        border-radius: var(--msh-r, 14px);
+        background: var(--msh-rest, #545454);
+        overflow: hidden;
+        touch-action: pan-y;
+      }
+
+      .msh-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: var(--msh-fill, transparent);
+        transition: width 200ms ease, background 200ms ease;
+      }
+
+      .msh-handle {
+        position: absolute;
+        top: 50%;
+        width: 4px;
+        height: var(--msh-hh, 28px);
+        border-radius: 2px;
+        background: var(--msh-handle, #e1e1e1);
+        transform: translate(-50%, -50%);
+        transition: left 200ms ease, background 200ms ease;
+        pointer-events: none;
+      }
+
+      .msh.drag .msh-fill,
+      .msh.drag .msh-handle {
+        transition: none;
+      }
+
+      .msh-cv {
+        grid-column: 2;
+        grid-row: 2;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--gray700, #979797);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        --mdc-icon-size: 20px;
+      }
+
+      span.msh-cv {
+        cursor: default;
+      }
+
+      .msh-cv:active {
+        transform: scale(0.92);
+      }
+
+      .msh-x {
+        grid-column: 1 / -1;
+        grid-row: 3;
+      }
+
       .message {
         padding: 16px;
         color: var(--secondary-text-color);
@@ -1480,10 +1621,49 @@ try {
     }
     return r.shadowRoot.querySelector('.slot');
   };
+  // Liquid glass (navbar-stil «glass»). Kilden er navbarens config (style: 'glass'): msh-navbar-card speiler den
+  // til <html data-ki-glass="1|0"> ved hver render; uten navbar leses ki-store (cards.ki-navbar.style). Ikke localStorage.
+  MSH.glassOn = function () {
+    const d = document.documentElement.dataset.kiGlass;
+    if (d === '1' || d === '0') return d === '1';
+    try { const c = MSH.store && MSH.store.card && MSH.store.card('ki-navbar'); return !!(c && c.style === 'glass'); } catch (e) { return false; }
+  };
+  // Felles glassflater (Fiks 3 · 7c) → CSS-deklarasjoner (uten selektor), f.eks. `.box{${MSH.glassSurface('menu')}}`.
+  //   menu    = «Mer»-meny/nedtrekk: rgba(40,40,44,.38), blur 22 saturate 190 % brightness 1.1, overlegg + kant, skygge
+  //   sheet   = Tilpass-ark: rgba(34,34,37,.72) + samme blur/overlegg/kant
+  //   row     = rader/grupper inni et glassark: rgba(255,255,255,.06) + inset .5px rgba(255,255,255,.08)
+  //   segment = spor i segmentvelgere: rgba(0,0,0,.25) (aktiv = glassboble, se MSH.GLASS_BUBBLE)
+  // Overlegget (lys gradient) legges som ekstra bakgrunnslag, så flaten trenger ingen egne pseudo-elementer.
+  // Uten backdrop-filter-støtte: menu/sheet → #2f2f2f, row → #3a3a3a (se MSH.glassFallback).
+  const GL_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
+  const GL_SHEEN = 'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))';
+  const GL_EDGE = 'inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25)';
+  MSH.glassSurface = function (level) {
+    switch (level) {
+      case 'menu': return `background:${GL_SHEEN},rgba(40,40,44,0.38);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgba(0,0,0,0.45);color:#fafafa;`;
+      case 'sheet': return `background:${GL_SHEEN},rgba(34,34,37,0.72);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 -20px 50px rgba(0,0,0,0.5);color:#fafafa;`;
+      case 'row': return 'background:rgba(255,255,255,0.06);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.08);';
+      case 'segment': return 'background:rgba(0,0,0,0.25);';
+      default: return '';
+    }
+  };
+  // @supports-reserve (legg etter regelen som bruker glassSurface): sel = selektor, level som over.
+  MSH.glassFallback = (sel, level) => `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${sel}{background:${level === 'row' ? '#3a3a3a' : '#2f2f2f'};backdrop-filter:none;-webkit-backdrop-filter:none}}`;
+  // Aktiv glassboble (segmentvelgere, dra-linsen)
+  MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);color:#fafafa;';
+  // CSS-variabler som arver inn i alle shadow roots under et glassark (felles editor, egne editorer):
+  // --ki-g-row/--ki-g-ring (rader/grupper), --ki-g-seg (segmentspor), --ki-g-in (felt), --ki-g-on/--ki-g-on-c/--ki-g-on-sh
+  // (aktivt segment), --ki-g-t2 (sekundærtekst). Uten glass er de udefinert → editorene faller tilbake til standardfargene.
+  MSH.GLASS_VARS = '--ki-glass:1;--ki-g-row:rgba(255,255,255,0.06);--ki-g-ring:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-g-seg:rgba(0,0,0,0.25);--ki-g-in:rgba(0,0,0,0.25);'
+    + '--ki-g-on:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));--ki-g-on-c:#fafafa;--ki-g-on-sh:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);--ki-g-t2:rgba(255,255,255,0.62);';
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false } = {}) {
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true } = {}) {
     const host = document.createElement('div');
     host.className = 'msh-portal';
+    // Liquid glass (navbar-stil glass): arket = glassSurface('sheet'), bakteppe rgba(0,0,0,.35) + blur(6px); variablene
+    // (MSH.GLASS_VARS) arver inn i editorene så rader/grupper/segmenter blir glass. glass: false = alltid standard.
+    const gl = glass != null ? !!glass : MSH.glassOn();
+    if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     const R = MSH.dashRect();
     Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
@@ -1493,7 +1673,11 @@ try {
         padding:12px 18px calc(28px + env(safe-area-inset-bottom));background:var(--gray100,#2f2f2f);box-shadow:0 -20px 50px rgba(0,0,0,0.5);opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;color:#fafafa;font-family:${MSH.FONT}}
       :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translateY(-50%) scale(1)' : 'translateY(0)'}}
       .grab{width:40px;height:5px;border-radius:3px;background:var(--gray400,#545454);margin:0 auto 12px}
-      ${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
+</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}}
+      .bg{background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+      .sh{${MSH.glassSurface('sheet')}border-radius:${center ? '32px' : '32px 32px 0 0'}}
+      .grab{background:rgba(255,255,255,0.3)}
+      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -1504,6 +1688,7 @@ try {
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
+      if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
       onClose && onClose();
@@ -1512,9 +1697,20 @@ try {
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     const hash0 = location.hash;
     const onHash = () => { if (location.hash !== hash0) close(); };
-    sr.querySelector('.bg').addEventListener('click', () => { MSH.haptic('light'); close(); });
+    // guard (ms): bakteppet tar ikke imot trykk rett etter åpning, så trykket som åpnet (touch → click) ikke lukker igjen.
+    const bgEl = sr.querySelector('.bg'), t0 = Date.now();
+    if (guard > 0) { bgEl.style.pointerEvents = 'none'; setTimeout(() => { bgEl.style.pointerEvents = ''; }, guard); }
+    bgEl.addEventListener('click', () => { if (guard > 0 && Date.now() - t0 < guard) return; if (bgHaptic) MSH.haptic('light'); close(); });
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', onHash);
+    // Navbar-stilen byttes mens arket er åpent (f.eks. i «Tilpass navbar») → glass av/på live
+    const onGlass = () => {
+      const g = MSH.glassOn();
+      host.classList.toggle('glass', g); host.toggleAttribute('data-glass', g);
+      const st = sr.querySelector('style[data-gl]'); if (g) st.removeAttribute('media'); else st.setAttribute('media', 'not all');
+      sr.querySelectorAll('.body *').forEach((el) => { if (el._glassSync) el._glassSync(); });
+    };
+    if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; };
@@ -2468,6 +2664,23 @@ try {
     .rg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
     .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:#545454;color:#fafafa}
     .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
+    /* Liquid glass (navbar-stil glass, attributtet settes når editoren ligger i et glassark fra MSH.overlay):
+       rader/grupper = glassSurface('row'), felt/segmentspor rgba(0,0,0,.25), aktivt segment = glassboble, tekst #fafafa / .62.
+       Ferdig-knappen (rosa gradient) er uendret. Standard-profilen bruker reglene over. */
+    :host([glass]){--ed-bg:transparent}
+    :host([glass]) .sec,:host([glass]) .f,:host([glass]) .ent,:host([glass]) .ordrow{${M.glassSurface('row')}}
+    :host([glass]) .inp{background:rgba(0,0,0,0.25)}
+    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .stat,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:rgba(255,255,255,0.62)}
+    :host([glass]) .chips.sg{${M.glassSurface('segment')}padding:3px;border-radius:19px;gap:2px;touch-action:pan-y}
+    :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
+    :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
+    :host([glass]) .chip,:host([glass]) .pill{background:rgba(255,255,255,0.1)}
+    :host([glass]) .btn:not(.pri){${M.glassSurface('row')}}
+    :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
+    :host([glass]) .menu{${M.glassSurface('menu')}}
+    ${M.glassFallback(':host([glass]) .menu', 'menu')}
+    :host([glass]) .sw:not(.on),:host([glass]) .rg input[type=range]::-webkit-slider-runnable-track{background:rgba(255,255,255,0.18)}
+    :host([glass]) .rg input[type=range]::-moz-range-track{background:rgba(255,255,255,0.18)}
   `;
 
   class MshEditor extends HTMLElement {
@@ -2495,6 +2708,14 @@ try {
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
+    connectedCallback() { this._glassSync(); }
+    // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
+    _glassSync() {
+      const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
+      const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
+      if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
+      if (glass && M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+    }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
     setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
@@ -2525,6 +2746,7 @@ try {
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      this._glassSync();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;
@@ -2557,11 +2779,11 @@ try {
         }
         case 'select': {
           const cur = val != null ? String(val) : f.default != null ? String(f.default) : '';
-          return `<div class="f">${lab}<div class="chips">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
+          return `<div class="f">${lab}<div class="chips sg">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
         }
         case 'gap': {
           const cur = c.gap != null ? Number(c.gap) : 8;
-          return `<div class="f"><label>Mellomrom</label><div class="chips">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
+          return `<div class="f"><label>Mellomrom</label><div class="chips sg">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
         }
         case 'range': {
           const cur = val != null ? Number(val) : f.default;
@@ -3201,6 +3423,387 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 02-popups.js', e); }
+
+/* ---- 02-yaml.js ---- */
+try {
+/* KI MSH · liten YAML-parser/-serialiserer for Bubble Card-config (egne popups, «Tilpass Hjem» → Popups).
+ * HA-frontenden har js-yaml innebygd, men eksponerer det ikke globalt (ha-yaml-editor parser internt og gir bare
+ * isValid, uten linjenummer vi kan stole på på tvers av versjoner). Derfor en egen, avhengighetsfri implementasjon av
+ * undersettet dashbord-YAML bruker:
+ *   blokk-mapper og -lister (også «- key: v»-elementer og lister på samme innrykk som nøkkelen), kommentarer,
+ *   skalarer (plain / 'enkel' / "dobbel" med escapes), null/~, true/false, tall, blokkskalarer | |- |+ > >- (+ innrykk-tall),
+ *   flyt-samlinger [a, b] og {a: 1} (også over flere linjer), «---» øverst.
+ * Ikke støttet (gir feil med linjenummer): ankre/aliaser (&, *), tagger (!!), tab-innrykk, «? »-nøkler.
+ *   MSH.yaml.parse(tekst)  → verdi; kaster MSH.yaml.YAMLError { message, line } (line er 1-basert)
+ *   MSH.yaml.dump(verdi)   → YAML-tekst (2 mellomrom, flerlinjestrenger som |-blokk, strenger som ser ut som tall
+ *                            quotes – f.eks. bg_opacity: '98' – så typene overlever rundturen)
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.yaml) return;
+
+  class YAMLError extends Error {
+    constructor(message, line) { super(line ? `Linje ${line}: ${message}` : message); this.reason = message; this.line = line || null; }
+  }
+
+  /* ------------------------------------------------------------ skalarer */
+  const resolvePlain = (s) => {
+    if (s === '' || s === '~' || /^(null|Null|NULL)$/.test(s)) return null;
+    if (/^(true|True|TRUE)$/.test(s)) return true;
+    if (/^(false|False|FALSE)$/.test(s)) return false;
+    if (/^[-+]?(0|[1-9][0-9]*)$/.test(s)) return Number(s);
+    if (/^0x[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16);
+    if (/^0o[0-7]+$/.test(s)) return parseInt(s.slice(2), 8);
+    if (/^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$/.test(s)) return Number(s);
+    if (/^[-+]?\.(inf|Inf|INF)$/.test(s)) return s[0] === '-' ? -Infinity : Infinity;
+    if (/^\.(nan|NaN|NAN)$/.test(s)) return NaN;
+    return s;
+  };
+  const DQ = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', '/': '/', 0: '\0', b: '\b', f: '\f', e: '\x1b', ' ': ' ', N: '\x85', _: '\xa0', L: ' ', P: ' ', a: '\x07', v: '\x0b' };
+  // Les quotet streng fra s[i] (i peker på ' eller "); returnerer [verdi, indeks etter slutt-quote]
+  function readQuoted(s, i, line) {
+    const q = s[i];
+    let out = '', j = i + 1;
+    while (j < s.length) {
+      const ch = s[j];
+      if (q === "'") {
+        if (ch === "'") { if (s[j + 1] === "'") { out += "'"; j += 2; continue; } return [out, j + 1]; }
+        out += ch; j++;
+      } else {
+        if (ch === '"') return [out, j + 1];
+        if (ch === '\\') {
+          const e = s[j + 1];
+          if (e === 'x' || e === 'u' || e === 'U') {
+            const n = e === 'x' ? 2 : e === 'u' ? 4 : 8, hex = s.substr(j + 2, n);
+            if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length !== n) throw new YAMLError('Ugyldig escape i streng', line);
+            out += String.fromCodePoint(parseInt(hex, 16)); j += 2 + n; continue;
+          }
+          if (e === '\n') { j += 2; while (s[j] === ' ') j++; continue; }
+          if (!(e in DQ)) throw new YAMLError(`Ukjent escape «\\${e || ''}» i streng`, line);
+          out += DQ[e]; j += 2; continue;
+        }
+        out += ch; j++;
+      }
+    }
+    throw new YAMLError('Streng mangler avsluttende ' + q, line);
+  }
+  // Fjern kommentar (« #…») utenfor quotes; returnerer innholdet trimmet i slutten
+  function stripComment(s) {
+    let q = null;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (q) { if (ch === q) { if (q === "'" && s[i + 1] === "'") { i++; continue; } q = null; } else if (q === '"' && ch === '\\') i++; continue; }
+      if ((ch === "'" || ch === '"') && (i === 0 || /[\s[{,:]/.test(s[i - 1]))) { q = ch; continue; }
+      if (ch === '#' && (i === 0 || /\s/.test(s[i - 1]))) return s.slice(0, i).replace(/\s+$/, '');
+    }
+    return s.replace(/\s+$/, '');
+  }
+  // Finn «: » / «:» på slutten som skiller nøkkel og verdi (utenfor quotes/flyt). -1 = ingen.
+  function findColon(s) {
+    let q = null, depth = 0;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (q) { if (ch === q) { if (q === "'" && s[i + 1] === "'") { i++; continue; } q = null; } else if (q === '"' && ch === '\\') i++; continue; }
+      if ((ch === "'" || ch === '"') && (i === 0 || /[\s[{,:]/.test(s[i - 1]))) { q = ch; continue; }
+      if (ch === '[' || ch === '{') depth++;
+      else if (ch === ']' || ch === '}') depth--;
+      else if (ch === ':' && depth === 0 && (i === s.length - 1 || s[i + 1] === ' ')) return i;
+    }
+    return -1;
+  }
+  function scalar(raw, line) {
+    const s = raw.trim();
+    if (!s) return null;
+    if (s[0] === '"' || s[0] === "'") {
+      const [v, end] = readQuoted(s, 0, line);
+      if (s.slice(end).trim()) throw new YAMLError(`Uventet tekst etter streng: «${s.slice(end).trim()}»`, line);
+      return v;
+    }
+    if (s[0] === '[' || s[0] === '{') return parseFlow(s, line);
+    if (s[0] === '&' || s[0] === '*') throw new YAMLError('Ankre/aliaser (& og *) støttes ikke – skriv verdien ut', line);
+    if (s[0] === '!') throw new YAMLError('Tagger (!…) støttes ikke', line);
+    if (s[0] === '@' || s[0] === '`') throw new YAMLError(`«${s[0]}» kan ikke starte en verdi – sett den i anførselstegn`, line);
+    if (/^[|>]/.test(s)) throw new YAMLError('Blokkskalar må stå sist på linjen', line);
+    if (s[0] === '%') throw new YAMLError('Direktiver (%) støttes ikke', line);
+    return resolvePlain(s);
+  }
+
+  /* ------------------------------------------------------------ flyt-samlinger */
+  function parseFlow(src, line) {
+    let i = 0;
+    const ws = () => { while (i < src.length && /[\s]/.test(src[i])) i++; };
+    const err = (m) => { throw new YAMLError(m, line); };
+    function value(stop) {
+      ws();
+      const ch = src[i];
+      if (ch === '[') return seq();
+      if (ch === '{') return map();
+      if (ch === '"' || ch === "'") { const [v, e] = readQuoted(src, i, line); i = e; return v; }
+      let j = i;
+      while (j < src.length && !stop.includes(src[j]) && !(src[j] === ':' && (src[j + 1] === ' ' || stop.includes(src[j + 1] || '')))) j++;
+      const raw = src.slice(i, j).trim(); i = j;
+      return raw === '' ? null : scalar(raw, line);
+    }
+    function seq() {
+      i++; const out = [];
+      ws();
+      if (src[i] === ']') { i++; return out; }
+      for (;;) {
+        ws();
+        const v = value(',]');
+        ws();
+        if (src[i] === ':') { i++; const vv = value(',]'); out.push({ [String(v)]: vv }); ws(); } else out.push(v);
+        if (src[i] === ',') { i++; ws(); if (src[i] === ']') { i++; return out; } continue; }
+        if (src[i] === ']') { i++; return out; }
+        err('Liste mangler «]» eller «,»');
+      }
+    }
+    function map() {
+      i++; const out = {};
+      ws();
+      if (src[i] === '}') { i++; return out; }
+      for (;;) {
+        ws();
+        const k = value(',:}');
+        ws();
+        let v = null;
+        if (src[i] === ':') { i++; v = value(',}'); ws(); }
+        const key = String(k);
+        if (Object.prototype.hasOwnProperty.call(out, key)) err(`Dobbel nøkkel «${key}»`);
+        out[key] = v;
+        if (src[i] === ',') { i++; ws(); if (src[i] === '}') { i++; return out; } continue; }
+        if (src[i] === '}') { i++; return out; }
+        err('Objekt mangler «}» eller «,»');
+      }
+    }
+    const v = value('');
+    ws();
+    if (i < src.length) err(`Uventet tekst: «${src.slice(i).trim()}»`);
+    return v;
+  }
+  const flowBalance = (s) => {
+    let q = null, d = 0;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (q) { if (ch === q) { if (q === "'" && s[i + 1] === "'") { i++; continue; } q = null; } else if (q === '"' && ch === '\\') i++; continue; }
+      if (ch === '"' || ch === "'") q = ch; else if (ch === '[' || ch === '{') d++; else if (ch === ']' || ch === '}') d--;
+    }
+    return d;
+  };
+
+  /* ------------------------------------------------------------ blokk-parser */
+  function parse(text) {
+    const src = String(text == null ? '' : text).replace(/\r\n?/g, '\n').replace(/^﻿/, '');
+    const raw = src.split('\n');
+    // Linjeliste: { n (1-basert), ind, text (uten innrykk/kommentar), raw }
+    const L = [];
+    let started = false;
+    for (let n = 0; n < raw.length; n++) {
+      const r = raw[n];
+      if (/^ *\t/.test(r) && r.trim()) throw new YAMLError('Tab kan ikke brukes til innrykk – bruk mellomrom', n + 1);
+      const body = stripComment(r);
+      if (!body.trim()) { L.push({ n: n + 1, blank: true, raw: r }); continue; }
+      if (!started && /^---(\s|$)/.test(body)) { started = true; const rest = body.slice(3).trim(); if (rest) L.push({ n: n + 1, ind: 0, text: rest, raw: r }); continue; }
+      if (/^\.\.\.\s*$/.test(body)) break;
+      if (/^---(\s|$)/.test(body)) throw new YAMLError('Flere dokumenter (---) støttes ikke', n + 1);
+      started = true;
+      const ind = body.length - body.replace(/^ +/, '').length;
+      L.push({ n: n + 1, ind, text: body.slice(ind), raw: r });
+    }
+    let p = 0;
+    const next = () => { while (p < L.length && L[p].blank) p++; return L[p]; };
+
+    // Blokkskalar (| eller >) etter linje ln; parentInd = innrykket til nøkkelen/«-»
+    function blockScalar(header, ln, parentInd) {
+      const m = /^([|>])([+-]?)([1-9]?)([+-]?)$/.exec(header.trim());
+      if (!m) throw new YAMLError(`Ugyldig blokkskalar «${header.trim()}»`, ln);
+      const style = m[1], chomp = m[2] || m[4], explicit = m[3] ? Number(m[3]) : 0;
+      const lines = [];
+      let ind = explicit ? parentInd + explicit : 0;
+      // bruk rålinjer (kommentarer er innhold her)
+      while (p < L.length) {
+        const l = L[p], r = l.raw;
+        if (!r.trim()) { lines.push(''); p++; continue; }
+        const li = r.length - r.replace(/^ +/, '').length;
+        if (!ind) { if (li <= parentInd) break; ind = li; }
+        if (li < ind) break;
+        lines.push(r.slice(ind)); p++;
+      }
+      // tomme linjer på slutten
+      let trail = 0;
+      while (lines.length && lines[lines.length - 1] === '') { lines.pop(); trail++; }
+      let body;
+      if (style === '|') body = lines.join('\n');
+      else {
+        body = '';
+        lines.forEach((x, i) => {
+          if (i === 0) { body = x; return; }
+          const prev = lines[i - 1];
+          if (x === '' ) body += '\n';
+          else if (prev === '' || /^\s/.test(x) || /^\s/.test(prev)) body += (prev === '' ? '' : '\n') + x;
+          else body += ' ' + x;
+        });
+      }
+      if (!lines.length) return chomp === '+' ? '\n'.repeat(trail) : '';
+      if (chomp === '-') return body;
+      if (chomp === '+') return body + '\n' + '\n'.repeat(trail);
+      return body + '\n';
+    }
+    // Verdi i linjen (etter «key:» eller «- »): kan være tom (→ nestet blokk), blokkskalar, flyt over flere linjer, skalar
+    function inlineValue(rest, l, ownInd) {
+      const r = rest.trim();
+      if (r === '') {
+        const nx = next();
+        if (!nx) return null;
+        if (nx.ind > ownInd) return block(nx.ind);
+        if (nx.ind === ownInd && /^-( |$)/.test(nx.text) && l.isKey) return block(nx.ind);
+        return null;
+      }
+      if (/^[|>]/.test(r)) return blockScalar(r, l.n, ownInd);
+      if ((r[0] === '[' || r[0] === '{') && flowBalance(r) > 0) {
+        let acc = r;
+        while (flowBalance(acc) > 0) {
+          const nx = L[p];
+          if (!nx) throw new YAMLError('Flyt-samling mangler avslutning', l.n);
+          p++;
+          if (!nx.blank) acc += ' ' + nx.text;
+        }
+        return parseFlow(acc, l.n);
+      }
+      if ((r[0] === '"' || r[0] === "'")) {
+        // quotet streng over flere linjer
+        let acc = r, tries = 0;
+        for (;;) {
+          try { return scalar(acc, l.n); } catch (e) {
+            if (!/mangler avsluttende/.test(e.message) || p >= L.length || tries > 200) throw e;
+            const nx = L[p]; p++; tries++;
+            acc += nx.blank ? '\n' : ' ' + (nx.raw.trim());
+          }
+        }
+      }
+      // plain skalar kan fortsette på flere linjer (mer innrykket)
+      let acc = r;
+      for (;;) {
+        const nx = L[p];
+        if (!nx || nx.blank || nx.ind <= ownInd || findColon(nx.text) >= 0 || /^-( |$)/.test(nx.text)) break;
+        acc += ' ' + nx.text; p++;
+      }
+      return scalar(acc, l.n);
+    }
+    function block(ind) {
+      const l = next();
+      if (!l) return null;
+      if (/^-( |$)/.test(l.text)) return seq(ind);
+      return map(ind);
+    }
+    function seq(ind) {
+      const out = [];
+      for (;;) {
+        const l = next();
+        if (!l || l.ind < ind) break;
+        if (l.ind > ind) throw new YAMLError('Feil innrykk', l.n);
+        if (!/^-( |$)/.test(l.text)) break;
+        p++;
+        const rest = l.text.slice(1);
+        const inner = rest.replace(/^ +/, '');
+        if (!inner) { out.push(inlineValue('', { ...l, isKey: false }, ind)); continue; }
+        const childInd = ind + (l.text.length - inner.length);
+        // «- key: v» → objekt med innrykk childInd; «- - x» → nestet liste
+        if (/^-( |$)/.test(inner) || findColon(inner) >= 0) {
+          L.splice(p, 0, { n: l.n, ind: childInd, text: inner, raw: ' '.repeat(childInd) + inner });
+          out.push(block(childInd));
+        } else out.push(inlineValue(inner, { ...l, isKey: false }, ind));
+      }
+      return out;
+    }
+    function map(ind) {
+      const out = {};
+      for (;;) {
+        const l = next();
+        if (!l || l.ind < ind) break;
+        if (l.ind > ind) throw new YAMLError('Feil innrykk', l.n);
+        if (/^-( |$)/.test(l.text)) break;
+        if (/^\? /.test(l.text)) throw new YAMLError('Komplekse nøkler (?) støttes ikke', l.n);
+        const c = findColon(l.text);
+        if (c < 0) throw new YAMLError(`Mangler «:» etter nøkkelen «${l.text.slice(0, 30)}»`, l.n);
+        const kraw = l.text.slice(0, c).trim();
+        let key;
+        if (kraw[0] === '"' || kraw[0] === "'") { const [v, e] = readQuoted(kraw, 0, l.n); if (kraw.slice(e).trim()) throw new YAMLError('Ugyldig nøkkel', l.n); key = v; }
+        else { if (/^[&*!]/.test(kraw)) throw new YAMLError('Ankre/aliaser/tagger støttes ikke', l.n); key = kraw; }
+        if (Object.prototype.hasOwnProperty.call(out, key)) throw new YAMLError(`Dobbel nøkkel «${key}»`, l.n);
+        p++;
+        out[key] = inlineValue(l.text.slice(c + 1), { ...l, isKey: true }, ind);
+      }
+      return out;
+    }
+    const first = next();
+    if (!first) return null;
+    let v;
+    if (findColon(first.text) < 0 && !/^-( |$)/.test(first.text)) { p++; v = inlineValue(first.text, first, -1); }
+    else v = block(first.ind);
+    const rest = next();
+    if (rest) throw new YAMLError(rest.ind > 0 ? 'Feil innrykk' : `Uventet innhold: «${rest.text.slice(0, 30)}»`, rest.n);
+    return v;
+  }
+
+  /* ------------------------------------------------------------ serialiserer */
+  const RESERVED = /^(null|Null|NULL|~|true|True|TRUE|false|False|FALSE|y|Y|yes|Yes|YES|n|N|no|No|NO|on|On|ON|off|Off|OFF)$/;
+  const needsQuote = (s) => s === '' || RESERVED.test(s) || resolvePlain(s) !== s || /^[\s]|[\s]$/.test(s) || /^[-?:,[\]{}#&*!|>'"%@`]/.test(s) || /: |:$| #|\t/.test(s) || /[\x00-\x1f\x7f]/.test(s);
+  const quote = (s) => (/[\x00-\x1f\x7f]/.test(s) ? JSON.stringify(s) : "'" + s.replace(/'/g, "''") + "'");
+  const keyStr = (k) => (needsQuote(k) || /\n/.test(k) ? quote(k) : k);
+  function scalarStr(v, ind) {
+    if (v === null || v === undefined) return 'null';
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    if (typeof v === 'number') return Number.isNaN(v) ? '.nan' : v === Infinity ? '.inf' : v === -Infinity ? '-.inf' : String(v);
+    const s = String(v);
+    if (s.includes('\n') && !/[\x00-\x09\x0b-\x1f\x7f]/.test(s) && !/[ ]+\n|[ ]+$/.test(s.replace(/\n+$/, ''))) {
+      const trail = (/\n+$/.exec(s) || [''])[0].length;
+      const body = s.replace(/\n+$/, '');
+      const chomp = trail === 0 ? '-' : trail === 1 ? '' : '+';
+      const pad = ' '.repeat(ind);
+      const hint = /^ /.test(body) ? String(2) : '';
+      const lines = (trail > 1 ? s.slice(0, -1) : body).split('\n');
+      return `|${hint}${chomp}\n` + lines.map((x) => (x ? pad + x : '')).join('\n');
+    }
+    return needsQuote(s) ? quote(s) : s;
+  }
+  function dumpNode(v, ind) {
+    const pad = ' '.repeat(ind);
+    if (Array.isArray(v)) {
+      if (!v.length) return ' []';
+      return '\n' + v.map((x) => {
+        if (x && typeof x === 'object' && !Array.isArray(x) && Object.keys(x).length) {
+          const inner = dumpMap(x, ind + 2);
+          return pad + '- ' + inner.slice(ind + 2);
+        }
+        if (Array.isArray(x) && x.length) return pad + '-' + dumpNode(x, ind + 2).replace(/^\n/, '\n');
+        return pad + '-' + (x && typeof x === 'object' ? dumpNode(x, ind + 2) : ' ' + scalarStr(x, ind + 2));
+      }).join('\n');
+    }
+    if (v && typeof v === 'object') {
+      if (!Object.keys(v).length) return ' {}';
+      return '\n' + dumpMap(v, ind);
+    }
+    return ' ' + scalarStr(v, ind);
+  }
+  function dumpMap(o, ind) {
+    const pad = ' '.repeat(ind);
+    return Object.keys(o).filter((k) => o[k] !== undefined).map((k) => {
+      const v = o[k];
+      if (Array.isArray(v) && v.length) return pad + keyStr(k) + ':' + dumpNode(v, ind); // lister på samme innrykk som nøkkelen (som HA)
+      return pad + keyStr(k) + ':' + dumpNode(v, ind + 2);
+    }).join('\n');
+  }
+  function dump(v) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) return Object.keys(v).length ? dumpMap(v, 0) + '\n' : '{}\n';
+    if (Array.isArray(v)) return v.length ? dumpNode(v, 0).replace(/^\n/, '') + '\n' : '[]\n';
+    return scalarStr(v, 0) + '\n';
+  }
+
+  M.yaml = { parse, dump, YAMLError };
+})();
+
+} catch (e) { console.error('[ki-msh] 02-yaml.js', e); }
 
 /* ---- 03-editors.js ---- */
 try {
@@ -4257,6 +4860,424 @@ try {
 
 } catch (e) { console.error('[ki-msh] 06-appliance-icons.js', e); }
 
+/* ---- 07-universal.js ---- */
+try {
+/* ki-msh · universal – felles rad-/flis-maler (button-card-malene universal_* som rene JS-funksjoner).
+ * MSH.universal(opts) → HTML-streng. MSH.UNIVERSAL_CSS må med i kortets styles (shadow DOM).
+ * Varianter (mode): sensor · action · navigate · toggle · bar · room · button · headline. Størrelse (size): small · big.
+ * Farger (universal_base): kort var(--gray100) · tekst/ikon var(--gray1000) · navn/alt samme farge opacity .7 ·
+ * ikon-sirkel rgba(250,251,252,0.1) + 1px kant · badge 9×9 var(--red) oppe til høyre ved badge_condition.
+ * Tilstandsregler state_rule_1..3_{value|condition, main_text, background_color, text_color, hide_bar, hide_alt_text}:
+ * første treff vinner (value = entitetens state, ellers condition sann).
+ * Klikk/hold: kortets data-act/data-ent-mønster (MSH.Card) – toggle → data-act="toggle" data-id, hold → more-info (data-ent).
+ * opts: mode, size, entity (id), st (state-objekt, ellers fra hass), hass, icon, icon_html, icon_color, circle_color,
+ * main_text, sub_text, alt_text, symbol, background_color, text_color, margin, badge_condition, badge_color, bar_value,
+ * bar_symbol, bar_color, bar_invert_colors, show_timer, toggle_on_value, toggle_on, toggle_on_icon, toggle_off_icon,
+ * toggle_icon_color_on/off, toggle_rotate, temp, lights, height (room), show_button_icon, match_value,
+ * active_background_color, active_text_color (button), og handling: act, id, hash, path, ent (false = ingen hold),
+ * haptic, key (data-key), attrs {navn: verdi}, icon_attrs {…} (ikonet blir egen knapp), cls, style.
+ */
+(function () {
+  const M = window.MSH, esc = M.esc;
+  const MODES = ['sensor', 'action', 'navigate', 'toggle', 'bar', 'room', 'button', 'headline'];
+  const FG = 'var(--gray1000, #e1e1e1)', BG = 'var(--gray100, #2f2f2f)';
+  const has = (v) => v !== null && v !== undefined && String(v).trim() !== '';
+  const str = (v) => (v == null ? '' : String(v).trim());
+  // Sannhetsverdi for condition/badge_condition: boolean, funksjon(st), tall eller tekst ('true', '1', 'on' …)
+  const truthy = (c, st) => {
+    if (typeof c === 'function') { try { return !!c(st); } catch (e) { return false; } }
+    if (typeof c === 'string') return !['', 'false', '0', 'null', 'undefined', 'off', 'nei', 'no'].includes(c.trim().toLowerCase());
+    return !!c;
+  };
+  M.uTruthy = truthy;
+  // Tekst-mal: {state}/{name}/{w} … eller kode [[[ return … ]]] (state, entity, w, name). Brukes på config-felter.
+  M.uTpl = function (v, ctx) {
+    if (v == null || typeof v !== 'string') return v;
+    const t = v.trim();
+    if (!t) return null;
+    ctx = ctx || {};
+    if (t.indexOf('[[[') === 0 && t.slice(-3) === ']]]') {
+      try { const r = new Function('state', 'entity', 'w', 'name', t.slice(3, -3))(ctx.state, ctx.entity, ctx.w, ctx.name); return r == null ? null : typeof r === 'boolean' ? r : String(r); } catch (e) { return '⚠ feil i kode'; }
+    }
+    return t.replace(/\{(\w+)\}/g, (m, k) => (ctx[k] != null && typeof ctx[k] !== 'object' ? ctx[k] : m));
+  };
+  // Løs alle tekstfelter i et look-objekt (per-entitet-config) mot ctx.
+  M.universalLook = function (look, ctx) {
+    const out = {};
+    Object.keys(look || {}).forEach((k) => { const v = M.uTpl(look[k], ctx); if (v != null && v !== '') out[k] = v; }); // tomt felt = standard
+    return out;
+  };
+
+  // Første regel som treffer (1..3) → { bg, fg, main, hideBar, hideAlt } eller null
+  function rule(o, st) {
+    for (let i = 1; i <= 3; i++) {
+      const p = 'state_rule_' + i + '_', v = o[p + 'value'];
+      let hit = false;
+      if (has(v)) hit = !!st && (Array.isArray(v) ? v.map(String) : String(v).split('|').map((x) => x.trim())).includes(String(st.state));
+      else if (o[p + 'condition'] != null) hit = truthy(o[p + 'condition'], st);
+      if (hit) return { i, bg: o[p + 'background_color'], fg: o[p + 'text_color'], main: o[p + 'main_text'], hideBar: truthy(o[p + 'hide_bar']), hideAlt: truthy(o[p + 'hide_alt_text']) };
+    }
+    return null;
+  }
+  const attrs = (a) => Object.keys(a || {}).filter((k) => a[k] != null && a[k] !== false).map((k) => (a[k] === true ? k : `${k}="${esc(a[k])}"`)).join(' ');
+  const sym = (s) => `<span class="u-sym">${esc(s)}</span>`;
+  const cols = (s) => s.replace(/(^|\s)1fr/g, '$1minmax(0,1fr)');
+
+  M.universal = function (o) {
+    o = o || {};
+    const mode = MODES.includes(o.mode) ? o.mode : 'sensor';
+    const size = o.size === 'big' ? 'big' : 'small', small = size === 'small';
+    const ent = o.entity || null;
+    const st = o.st !== undefined ? o.st : ent && o.hass ? o.hass.states[ent] || null : null;
+    const R = mode === 'button' || mode === 'headline' ? null : rule(o, st);
+    const bg = M.color(R && has(R.bg) ? R.bg : o.background_color, mode === 'button' ? 'var(--gray200, #3a3a3a)' : BG);
+    const fg = M.color(R && has(R.fg) ? R.fg : o.text_color, FG);
+    const icol = R && has(R.fg) ? fg : M.color(o.icon_color, fg);
+    const sub = str(o.sub_text), alt = R && R.hideAlt ? '' : str(o.alt_text);
+    const unav = st && (st.state === 'unavailable' || st.state === 'unknown');
+
+    // Hovedtekst (label)
+    let base;
+    if (R && has(R.main)) base = String(R.main);
+    else if (has(o.main_text)) base = String(o.main_text);
+    else if (mode === 'bar' && has(o.bar_value)) base = String(o.bar_value);
+    else if (mode === 'toggle') base = !st ? '–' : unav ? 'Utilgjengelig' : null;
+    else base = st ? String(st.state) : '–';
+    const on = o.toggle_on != null ? !!o.toggle_on : !!st && st.state === String(o.toggle_on_value != null ? o.toggle_on_value : 'on');
+    if (base == null) base = on ? 'På' : 'Av';
+    if (!small && o.show_timer && R && R.i === 1 && st && st.last_changed) base = M.relTime(st.last_changed);
+    const suffix = R && has(R.main) ? null : has(o.symbol) ? String(o.symbol) : mode === 'bar' ? (o.bar_symbol != null ? String(o.bar_symbol) : '%') : null;
+    let label = esc(base);
+    if (suffix != null && suffix !== '') label += small ? esc(suffix) : sym(suffix);
+    const name = small ? [sub, alt].filter(Boolean).join(' · ') : sub;
+
+    // Handling (MSH.Card: data-act → onAction, data-ent → hold = more-info)
+    let act = o.act, id = o.id != null ? o.id : ent;
+    if (act === undefined) {
+      if (mode === 'toggle' && ent) act = 'toggle';
+      else if (mode === 'navigate' && (o.hash || o.path)) act = o.hash ? 'popup' : 'nav';
+      else if (mode !== 'headline' && ent) act = 'more';
+    }
+    const A = {
+      class: `u${['room', 'button', 'headline'].includes(mode) ? '' : ' u-' + size} u-m-${mode}${unav ? ' u-unav' : ''}${o.cls ? ' ' + o.cls : ''}`,
+      role: act ? 'button' : null,
+      'data-act': act || null, 'data-id': act ? id : null, 'data-hash': o.hash || null, 'data-path': o.path || null,
+      'data-ent': o.ent === false ? null : o.ent || ent || null,
+      'data-haptic': o.haptic || (act === 'toggle' ? 'success' : null),
+      'data-key': o.key || null,
+      ...(o.attrs || {}),
+    };
+    const S = [`--u-bg:${bg}`, `--u-fg:${fg}`];
+    if (has(o.margin) && String(o.margin) !== '0') S.push(`margin-top:${/^-?\d+(\.\d+)?$/.test(String(o.margin)) ? o.margin + 'px' : o.margin}`);
+    const badge = o.badge_condition != null && truthy(o.badge_condition, st);
+    const badgeHtml = badge ? `<span class="u-badge" style="background:${M.color(o.badge_color, 'var(--red, #f28073)')}"></span>` : '';
+    const iconHtml = (sz) => o.icon_html || M.icon(o.icon || (ent ? M.domainIcon(ent, st) : 'mdi:alert'), sz);
+    const iconCell = (sz) => `<div class="u-i"${o.icon_attrs ? ' ' + attrs(o.icon_attrs) : ''} style="color:${icol}${has(o.circle_color) ? ';background:' + M.color(o.circle_color) : ''}">${iconHtml(sz)}</div>`;
+
+    /* ---- room */
+    if (mode === 'room') {
+      let lab;
+      if (has(o.main_text)) lab = esc(o.main_text);
+      else {
+        const t = o.temp != null && !isNaN(parseFloat(o.temp)) ? parseFloat(o.temp).toFixed(0) : st && st.attributes.temp != null ? parseFloat(st.attributes.temp).toFixed(0) : '–';
+        const l = o.lights != null ? o.lights : st && st.attributes.lights != null ? parseFloat(st.attributes.lights).toFixed(0) : '–';
+        lab = `${esc(t)}°${sym(has(o.alt_text) ? o.alt_text : `${l} lys på`)}`;
+      }
+      const hgt = parseInt(o.height, 10);
+      if (!isNaN(hgt)) S.push(`height:${hgt}px`);
+      return `<div ${attrs(A)} style="${S.join(';')};grid-template-areas:'n i' 'l i';grid-template-rows:1fr min-content;grid-template-columns:minmax(0,1fr) min-content${o.style ? ';' + o.style : ''}">
+        <div class="u-i" style="align-self:${!isNaN(hgt) && hgt > 120 ? 'start' : 'center'}">${M.icon(o.icon || 'mdi:chevron-right', 18)}</div>
+        <div class="u-n">${esc(sub)}</div><div class="u-l">${lab}</div>${badgeHtml}</div>`;
+    }
+    /* ---- button */
+    if (mode === 'button') {
+      const active = o.match_value != null && !!st && st.state === String(o.match_value);
+      const showI = truthy(o.show_button_icon);
+      S[0] = `--u-bg:${active ? M.color(o.active_background_color, 'var(--active-big, #f285c9)') : `linear-gradient(120deg, rgba(242, 133, 201, 0.2) 0%, ${bg} 40%)`}`;
+      if (active) S[1] = `--u-fg:${M.color(o.active_text_color, 'var(--black, #000)')}`;
+      return `<div ${attrs(A)} style="${S.join(';')};grid-template-areas:${showI ? "'i' 'n'" : "'n'"};grid-template-rows:${showI ? 'min-content 1fr' : '1fr'}${o.style ? ';' + o.style : ''}">
+        ${showI ? `<div class="u-i">${M.icon(o.icon || 'mdi:circle', 22)}</div>` : ''}<div class="u-n"${showI ? ' style="margin-top:-6px"' : ''}>${esc(has(o.main_text) ? o.main_text : 'Knapp')}</div></div>`;
+    }
+    /* ---- headline */
+    if (mode === 'headline') {
+      return `<div ${attrs(A)} style="${S.join(';')}${o.style ? ';' + o.style : ''}"><div class="u-i">${M.icon(o.icon || 'mdi:ab-testing', 22)}</div><div class="u-n">${esc(str(o.main_text))}</div><div class="u-l">${esc(sub)}</div></div>`;
+    }
+
+    /* ---- sensor · action · navigate · toggle · bar */
+    const hasSub = sub !== '', smallName = name !== '';
+    let areas, colT, rows;
+    if (mode === 'sensor' || mode === 'bar') {
+      if (small) { areas = smallName ? `'i l' 'i n'` : `'i l'`; colT = '76px 1fr'; rows = smallName ? '1fr 1fr' : '1fr'; }
+      else if (mode === 'bar') { areas = alt ? `'i i i' 'n n n' 'l l alt' 'bar bar bar'` : `'i i i' 'n n n' 'l l l' 'bar bar bar'`; colT = '1fr 1fr min-content'; rows = '1fr min-content min-content min-content'; }
+      else { areas = alt ? `'i i i' 'n n n' 'l l alt'` : `'i i i' 'n n n' 'l l l'`; colT = '1fr 1fr min-content'; rows = '1fr min-content min-content'; }
+    } else {
+      if (small) { areas = smallName ? `'i l mode' 'i n mode'` : `'i l mode'`; colT = mode === 'toggle' ? '76px 1fr 76px' : '76px 1fr 58px'; rows = smallName ? '1fr 1fr' : '1fr'; }
+      else {
+        areas = hasSub ? (alt ? `'i mode' 'n n' 'l alt'` : `'i mode' 'n n' 'l l'`) : alt ? `'i mode' 'l alt'` : `'i mode' 'l l'`;
+        colT = '1fr 1fr min-content'; rows = hasSub ? '1fr min-content min-content' : '1fr min-content';
+      }
+    }
+    const center = small ? !smallName : mode !== 'sensor' && mode !== 'bar' && !hasSub;
+    let modeHtml = '';
+    if (mode === 'action') modeHtml = `<div class="u-mode">${M.icon('mdi:gesture-tap', 22, 'opacity:.4')}</div>`;
+    else if (mode === 'navigate') modeHtml = `<div class="u-mode u-nav">${M.icon('mdi:chevron-right', 20, 'opacity:.7')}</div>`;
+    else if (mode === 'toggle') {
+      const ic = on ? o.toggle_on_icon || 'mdi:toggle-switch' : o.toggle_off_icon || 'mdi:toggle-switch-off';
+      const col = on ? M.color(o.toggle_icon_color_on, 'var(--green, #66d19e)') : M.color(o.toggle_icon_color_off, 'rgba(255,255,255,0.35)');
+      modeHtml = `<div class="u-mode u-tg${on ? ' on' : ''}">${M.icon(ic, 56, `color:${col};transform:rotate(${o.toggle_rotate || '0deg'})`)}</div>`;
+    }
+    let barHtml = '';
+    if (mode === 'bar' && !small && !(R && R.hideBar)) {
+      const raw = Number(has(o.bar_value) ? o.bar_value : st ? st.state : 0) || 0, v = Math.max(0, Math.min(100, raw));
+      let col;
+      if (o.bar_color === 'white') col = FG;
+      else if (has(o.bar_color)) col = M.color(o.bar_color);
+      else {
+        const C = ['var(--red, #f28073)', 'var(--orange, #f2b573)', 'var(--yellow, #f2d26f)', 'var(--blue, #73b9f2)', 'var(--green, #66d19e)'];
+        let i = [70, 50, 30, 20, 0].findIndex((t) => raw >= t);
+        if (i < 0) i = 4;
+        if (truthy(o.bar_invert_colors)) i = 4 - i;
+        col = C[i];
+      }
+      barHtml = `<div class="u-bar" style="background-image:repeating-linear-gradient(45deg, transparent, transparent 2px, ${col} 3px, transparent 4px)"><div style="background:${col};width:${v}%"></div></div>`;
+      S.push('height:180px');
+    }
+    return `<div ${attrs(A)} style="${S.join(';')};grid-template-areas:${areas};grid-template-columns:${cols(colT)};grid-template-rows:${rows}${o.style ? ';' + o.style : ''}">
+      ${iconCell(30)}<div class="u-l"${center ? ' style="align-self:center"' : ''}>${label}</div>${(small ? smallName : hasSub) ? `<div class="u-n">${esc(name)}</div>` : ''}${!small && alt ? `<div class="u-alt">${esc(alt)}</div>` : ''}${modeHtml}${barHtml}${badgeHtml}</div>`;
+  };
+
+  // Felles CSS – kortene har shadow DOM og må ta med denne i styles.
+  M.UNIVERSAL_CSS = `
+    .u{position:relative;display:grid;box-sizing:border-box;width:100%;min-width:0;border-radius:var(--ha-card-border-radius, 32px);background:var(--u-bg);color:var(--u-fg);box-shadow:none;overflow:visible;text-align:left;font-size:16px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .25s,transform .2s}
+    .u:not([data-act]){cursor:default}
+    .u[data-act]:active{transform:scale(.98)}
+    .u>*{min-width:0}
+    .u-i{grid-area:i;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(250,251,252,0.1);border:1px solid rgba(250,251,252,0.1);color:var(--u-fg);justify-self:start;align-self:start;box-sizing:border-box;overflow:hidden;transition:background .25s}
+    .u-l{grid-area:l;justify-self:stretch;align-self:end;line-height:1.2em;color:var(--u-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .u-n{grid-area:n;justify-self:stretch;text-align:left;font-size:14px;font-weight:500;color:var(--u-fg);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .u-alt{grid-area:alt;justify-self:end;align-self:end;font-size:14px;font-weight:500;color:var(--u-fg);opacity:.7;white-space:nowrap;margin-bottom:-12px}
+    .u-sym{font-size:14px;line-height:1.5em;font-weight:500;opacity:.7;margin-left:2px}
+    .u-mode{grid-area:mode;display:flex;align-items:center;justify-content:center;line-height:0;color:var(--u-fg);margin:0}
+    .u-nav{rotate:-45deg}
+    .u-badge{position:absolute;top:0;right:0;width:9px;height:9px;padding:2px;box-sizing:content-box;border-radius:50%;pointer-events:none}
+    .u-unav .u-l,.u-unav .u-i{opacity:.55}
+    /* small */
+    .u-small{height:66px;padding:0}
+    .u-small .u-i{width:56px;height:56px;margin:0 4px;align-self:center}
+    .u-small .u-l{font-size:16px;font-weight:500}
+    .u-small .u-n{align-self:start;padding-top:2px}
+    .u-small .u-mode{justify-self:center;align-self:center}
+    .u-small .u-tg{justify-self:start;margin:0 4px 0 0}
+    /* big */
+    .u-big{height:160px;padding:20px}
+    .u-big .u-i{width:52px;height:52px;translate:-10px -10px}
+    .u-big .u-l{font-size:2em;font-weight:300}
+    .u-big .u-n{align-self:end;padding-top:10px}
+    .u-big .u-mode{justify-self:end;align-self:start}
+    .u-big .u-tg{translate:10px -10px}
+    /* bar */
+    .u-big.u-m-bar{padding:20px 0 0 0}
+    .u-big.u-m-bar .u-i{translate:10px -10px}
+    .u-big.u-m-bar .u-l,.u-big.u-m-bar .u-n{padding-left:20px}
+    .u-big.u-m-bar .u-alt{padding-right:20px}
+    .u .u-bar{grid-area:bar;justify-self:start;position:relative;width:calc(100% - 1px);height:30px;margin-top:6px;overflow:hidden;border-bottom-left-radius:34px;border-bottom-right-radius:34px}
+    .u .u-bar>div{height:30px}
+    /* room */
+    .u-m-room{padding:20px;height:auto}
+    .u-m-room .u-i{width:18px;height:18px;justify-self:end;background:none;border:0;border-radius:0;rotate:-45deg;opacity:.7}
+    .u-m-room .u-n{justify-self:start;align-self:start;font-size:16px;font-weight:500;opacity:1;padding-bottom:4px}
+    .u-m-room .u-l{justify-self:start;align-self:end;font-size:2em;line-height:1em;font-weight:300;padding-top:4px}
+    /* button */
+    .u-m-button{aspect-ratio:1/1;height:auto;padding:0;outline:1px solid rgba(242,133,201,0.22)}
+    .u-m-button .u-i{width:22px;height:22px;padding:18px 0 0 0;margin:0;justify-self:center;background:none;border:0;border-radius:0;box-sizing:content-box}
+    .u-m-button .u-n{justify-self:center;align-self:center;text-align:center;font-size:14px;font-weight:500;opacity:1;padding:0}
+    /* headline */
+    .u-m-headline{background:none;padding:0;height:auto;grid-template-areas:'i n l';grid-template-columns:min-content min-content minmax(0,1fr);align-items:center}
+    .u-m-headline .u-i{width:22px;height:auto;padding-right:12px;box-sizing:content-box;background:none;border:0;border-radius:0;color:var(--gray1000, #e1e1e1);align-self:center}
+    .u-m-headline .u-n{font-size:16px;font-weight:500;opacity:1;color:var(--gray1000, #e1e1e1);align-self:center;overflow:visible}
+    .u-m-headline .u-l{justify-self:start;align-self:center;padding-left:12px;font-size:14px;opacity:.7;color:var(--gray1000, #e1e1e1)}
+    .u-m-headline[data-act]:active{transform:none}
+  `;
+
+  // Editor-felter for per-entitet-utseende (Tilpass rom / GUI). p = sti-prefiks, f.eks. 'looks.sensor.stue_temp'.
+  // o.kind: 'sensor' | 'toggle' – bestemmer standard-mode i plassholderne.
+  M.universalSchema = function (p, o) {
+    o = o || {};
+    const MODE = [['', 'Auto'], ['sensor', 'Sensor'], ['toggle', 'Bryter'], ['action', 'Handling'], ['navigate', 'Naviger'], ['bar', 'Stolpe']];
+    const SIZE = [['', 'Auto'], ['small', 'Liten'], ['big', 'Stor']];
+    const ph = o.placeholders || {};
+    const ruleSec = (i) => ({ type: 'section', label: `Tilstandsregel ${i}`, icon: 'mdi:format-list-checks', meta: (h, c) => { const g = (k) => String(p + '.state_rule_' + i + '_' + k).split('.').reduce((a, x) => (a == null ? a : a[x]), c); return has(g('value')) ? '= ' + g('value') : has(g('condition')) ? 'kode' : (i === 1 && ph.rule1) || ''; }, fields: [
+      { type: 'text', name: `${p}.state_rule_${i}_value`, label: 'Når tilstand er', placeholder: i === 1 && ph.rule1 ? ph.rule1 : 'on  (flere: on|open)' },
+      { type: 'text', name: `${p}.state_rule_${i}_condition`, label: 'Eller når kode er sann', placeholder: "[[[ return Number(state) > 25 ]]]" },
+      { type: 'text', name: `${p}.state_rule_${i}_main_text`, label: 'Hovedtekst', placeholder: 'Uendret' },
+      { type: 'color', name: `${p}.state_rule_${i}_background_color`, label: 'Bakgrunn' },
+      { type: 'color', name: `${p}.state_rule_${i}_text_color`, label: 'Tekst og ikon' },
+      { type: 'boolean', name: `${p}.state_rule_${i}_hide_bar`, label: 'Skjul stolpe' },
+      { type: 'boolean', name: `${p}.state_rule_${i}_hide_alt_text`, label: 'Skjul tilleggstekst' },
+    ] });
+    return [
+      { type: 'select', name: p + '.mode', label: 'Type', options: MODE, help: `Auto = ${o.kind === 'toggle' ? 'Bryter' : 'Sensor'}` },
+      { type: 'select', name: p + '.size', label: 'Størrelse', options: SIZE, help: 'Auto = Liten (66 px)' },
+      { type: 'icon', name: p + '.icon', label: 'Ikon' },
+      { type: 'text', name: p + '.main_text', label: 'Hovedtekst (verdi)', placeholder: ph.main_text || '{state}' },
+      { type: 'text', name: p + '.sub_text', label: 'Navn', placeholder: ph.sub_text || '' },
+      { type: 'text', name: p + '.alt_text', label: 'Tilleggstekst', placeholder: ph.alt_text || 'Tomt', help: 'Liten: «Navn · tillegg». Stor: nederst til høyre' },
+      { type: 'text', name: p + '.symbol', label: 'Symbol etter verdien', placeholder: ph.symbol || '°, %, W …' },
+      { type: 'color', name: p + '.background_color', label: 'Bakgrunn' },
+      { type: 'color', name: p + '.text_color', label: 'Tekst og ikon' },
+      { type: 'text', name: p + '.badge_condition', label: 'Merke (prikk) når', placeholder: "[[[ return state === 'on' ]]]  eller true" },
+      { type: 'color', name: p + '.badge_color', label: 'Merkefarge' },
+      { type: 'section', label: 'Stolpe', icon: 'mdi:chart-bar', fields: [
+        { type: 'text', name: p + '.bar_value', label: 'Verdi (0–100)', placeholder: '{state}' },
+        { type: 'color', name: p + '.bar_color', label: 'Farge', help: 'Tom = etter verdi (rød ≥70, oransje ≥50, gul ≥30, blå ≥20, grønn)' },
+        { type: 'boolean', name: p + '.bar_invert_colors', label: 'Snu fargeskalaen' },
+      ] },
+      ruleSec(1), ruleSec(2), ruleSec(3),
+    ];
+  };
+  // Nøkler som hører til universal-looken (for kopiering fra config)
+  M.UNIVERSAL_KEYS = ['mode', 'size', 'icon', 'main_text', 'sub_text', 'alt_text', 'symbol', 'background_color', 'text_color', 'margin', 'badge_condition', 'badge_color', 'bar_value', 'bar_color', 'bar_invert_colors', 'show_timer', 'toggle_on_value',
+    ...[1, 2, 3].flatMap((i) => ['value', 'condition', 'main_text', 'background_color', 'text_color', 'hide_bar', 'hide_alt_text'].map((k) => `state_rule_${i}_${k}`))];
+})();
+
+} catch (e) { console.error('[ki-msh] 07-universal.js', e); }
+
+/* ---- 08-light-row.js ---- */
+try {
+/* KI MSH · felles lys-rad for Rom → Lys (31-rom.js) og Lys-popupen (43-lys.js).
+ * Bruker mysmart-light-control (norsk kopi, src/vendor/mysmart-light-control-no.js) i «msh»-modus, så alle lys får
+ * nøyaktig samme rad: navn 15/500 #e1e1e1 til venstre, verdi 13 #979797 til høyre («45 %» / «Av» / «På»), 8 px ned til
+ * sporet, spor 40 px (slider_height 32–56) radius 14, håndtak 4 × 28 inni sporet, alltid 32 px chevron-kolonne til høyre.
+ * Farger: av = spor #545454 uten fyll, håndtak #979797 helt til venstre. På = lampens farge bare når den støttes
+ * (farge → rgb_color, bare temperatur → Kelvin-farge, ellers rgb(225 225 225 / .55)). Aldri romfarge/adaptiv/localStorage.
+ * Av/på-lys: samme spor, trykk veksler. Dra = lysstyrke (touch-action pan-y + stopPropagation), én haptic ved slipp.
+ *   M.lightType(state)                          → 'color' | 'ct' | 'dim' | 'onoff' (fra supported_color_modes)
+ *   M.lightRowCfg(id, { name, type, user, height }) → config til mysmart-light-control
+ *       user = lights.<objekt-id> (brightness_min/max, color_control, hide_*, color_presets, live_update)
+ *   M.lightRowHeight(cfg)                       → slider_height (32–56, std 40)
+ *   M.mountLightRows(card, cfgOf(id, wrap))     → monter/oppdater i plassholdere [data-lc] (gjenbrukes per entity)
+ *   M.lightRowsHass(card, hass)                 → gi nye hass til monterte rader
+ *   M.LIGHT_ROW_CSS                             → CSS for plassholderne (.lsl; høyden fra --lr-h på en forelder)
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.lightRowCfg) return;
+  const esc = M.esc;
+  const COLOR = ['hs', 'rgb', 'rgbw', 'rgbww', 'xy'];
+
+  M.lightType = function (s) {
+    const m = (s && s.attributes.supported_color_modes) || [];
+    if (m.some((x) => COLOR.includes(x))) return 'color';
+    if (m.includes('color_temp')) return 'ct';
+    if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
+    return 'onoff';
+  };
+  // Slider-høyde: slider_height (32–56), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) / size: compact → 32
+  M.lightRowHeight = function (c) {
+    c = c || {};
+    const v = Number(c.slider_height);
+    if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(56, Math.round(v)));
+    if (c.size === 'compact') return 32;
+    const th = Number(c.tile_height);
+    if (!c.size && th >= 56) return Math.max(32, Math.min(56, 40 + (th - 56)));
+    return 40;
+  };
+  const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
+  M.lightRowCfg = function (id, { name, type, user, height } = {}) {
+    const u = user || {};
+    const T = type || 'dim';
+    const out = {
+      entity: id, msh: true, msh_type: T, msh_height: height || 40, size: 'large', show_name: true, show_icon: false, show_brightness: true,
+      live_update: false, adaptive_slider_color: false, card_background: 'transparent', show_expand_toggle: true,
+      // lystype styrer ekstra-kontrollene (chevron): bare lys som faktisk har farge/temperatur
+      force_toggle_mode: T === 'onoff',
+      hide_temperature_slider: !(T === 'ct' || T === 'color'),
+      hide_color_controls: T !== 'color',
+      hide_color_presets: T !== 'color',
+      color_control: 'both',
+    };
+    if (name) out.name = name;
+    Object.keys(u).forEach((k) => {
+      let v = u[k];
+      if (v == null || v === '') return;
+      if (k === 'brightness_min' || k === 'brightness_max') { v = Number(v); if (!isNaN(v)) out[k] = v; return; }
+      if (k === 'color_control' && ['spectrum', 'presets', 'both'].includes(v)) { out[k] = v; return; }
+      if (k === 'live_update' || k === 'hide_temperature_slider' || k === 'hide_color_controls' || k === 'hide_color_presets') {
+        v = B(v);
+        // «skjul» kan bare skjule – aldri vise farge/temperatur for et lys som ikke har det
+        if (v === true || (v === false && k === 'live_update')) out[k] = v;
+        return;
+      }
+      if (k === 'color_presets') {
+        const a = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        if (a.length) out[k] = a;
+      }
+    });
+    return out;
+  };
+
+  // Reserverad (lys uten mysmart-light-control / finnes ikke): samme mål som den ekte raden
+  const fallback = (card, id, name) => {
+    const h = card.hass, s = h && h.states[id], on = s && s.state === 'on';
+    const p = on && s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : null;
+    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') : 'Av';
+    return `<div class="lrf"><div class="lrf-hd"><span class="lrf-n">${esc(name || (s ? M.name(h, id) : id))}</span><span class="lrf-v">${esc(val)}</span></div>
+      <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%"></span></div></div>`;
+  };
+
+  M.mountLightRows = function (card, cfgOf) {
+    const R = card.shadowRoot, h = card.hass;
+    if (!R || !h) return;
+    const map = (card._lc = card._lc || new Map());
+    const ok = !!customElements.get('mysmart-light-control');
+    R.querySelectorAll('[data-lc]').forEach((wrap) => {
+      const id = wrap.dataset.lc;
+      if (!wrap.__lcGuard) {
+        wrap.__lcGuard = true;
+        // Drag-vern mot Bubble Cards swipe-to-close; én haptic «light» ved slipp (ikke per trinn)
+        const stop = (e) => e.stopPropagation();
+        wrap.addEventListener('pointerdown', (e) => {
+          stop(e);
+          if (e.button) return;
+          const done = (ev) => {
+            window.removeEventListener('pointerup', done, true);
+            window.removeEventListener('pointercancel', done, true);
+            if (ev.type === 'pointerup') M.haptic('light');
+          };
+          window.addEventListener('pointerup', done, true);
+          window.addEventListener('pointercancel', done, true);
+        });
+        wrap.addEventListener('touchstart', stop, { passive: true });
+        wrap.addEventListener('touchmove', stop, { passive: true });
+      }
+      const s = h.states[id];
+      if (!ok || !s) { const html = fallback(card, id, wrap.dataset.name); if (wrap.__fb !== html) { wrap.innerHTML = html; wrap.__fb = html; } return; }
+      wrap.__fb = null;
+      let rec = map.get(id);
+      if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+      const cfg = cfgOf(id, wrap), json = JSON.stringify(cfg);
+      if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+      if (rec.el.hass !== h) rec.el.hass = h;
+      if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+    });
+  };
+  M.lightRowsHass = function (card, h) {
+    if (card._lc) card._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+  };
+  M.LIGHT_ROW_CSS = `
+    .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,40px) + 28px)}
+    .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--gray1000,#e1e1e1);--secondary-text-color:var(--gray700,#979797)}
+    .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
+    .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
+    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--gray1000,#e1e1e1)}
+    .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--gray700,#979797)}
+    .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--gray400,#545454);overflow:hidden}
+    .lrf-f{position:absolute;left:0;top:0;bottom:0;background:rgb(225 225 225 / .55)}
+  `;
+})();
+
+} catch (e) { console.error('[ki-msh] 08-light-row.js', e); }
+
 /* ---- 10-navbar.js ---- */
 try {
 /* msh-navbar-card · Navbar. Kilde: Hjem v2.dc.html (<nav>, «Mer»-meny, «Tilpass navbar», navbar-badges) + glass-drag.js.
@@ -4325,49 +5346,75 @@ try {
     if (st.getPropertyValue('--ki-nav-h') !== v) st.setProperty('--ki-nav-h', v);
     if (!h && st.getPropertyValue('--ki-nav-bottom') !== '0px') st.setProperty('--ki-nav-bottom', '0px');
   };
-  // Dra langs en knapperad → glasslinse følger fingeren, slipp = trykk på knappen under. Drag-vern mot Bubble Card.
+  // Liquid glass-dra (Fiks 3 · 7b, fasit glass-drag.js) koblet direkte på containeren – virker i shadow DOM og i HA:
+  //  · composedPath (ikke closest på document) avgjør hva som er truffet
+  //  · glass-sjekk fra config: opt.enabled() (navbaren: config.style === 'glass', editorene: glassarket), aldri localStorage
+  //  · touch-action fra start: navbar/meny 'none' (CSS), horisontale segmenter 'pan-y' (opt.touchAction overstyrer);
+  //    stopPropagation på pointerdown/touchstart/touchmove så Bubble Card ikke scroller/lukker popupen
+  //  · linsen ligger i containeren (position:absolute, regnet fra containerens rect, også når den er skalert)
+  //  · hold og dra (8 px langs aksen) → glassboble følger fingeren med fjær, skala 1,1, snapper til nærmeste knapp,
+  //    haptic('selection') per ny knapp (M.haptic: maks én per 40 ms). Slipp → knappen aktiveres, haptic('light'),
+  //    boblen glir på plass og tones ut (220 ms). Vanlig trykk går som før (click).
+  // opt: { axis: 'x'|'y', enabled: () => bool, touchAction }
+  const LENS_EASE = 'cubic-bezier(.34,1.5,.64,1)';
   M.glassDrag = M.glassDrag || function (c, opt = {}) {
     if (!c || c.__gd) return;
     c.__gd = true;
     let st = null, suppress = false;
     const on = () => !opt.enabled || opt.enabled();
     const axisOf = () => opt.axis || (getComputedStyle(c).flexDirection === 'column' ? 'y' : 'x');
+    // touch-action fra start (morph gjenoppretter __mshTA etter en ny render)
+    const ta0 = opt.touchAction || (c.isConnected ? getComputedStyle(c).touchAction : '');
+    if (opt.touchAction || !ta0 || ta0 === 'auto') { c.__mshTA = opt.touchAction || (axisOf() === 'x' ? 'pan-y' : 'none'); c.style.touchAction = c.__mshTA; }
+    const pathIn = (e) => { const p = e.composedPath ? e.composedPath() : [e.target], i = p.indexOf(c); return i < 0 ? [] : p.slice(0, i); };
     const itemsOf = () => Array.from(c.querySelectorAll('button')).filter((b) => b.getClientRects().length && !b.closest('[data-gd-skip]'));
     const pick = (items, x, y) => { let best = null, bd = 1e9; items.forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
     const lensEl = () => {
       const l = document.createElement('span');
-      Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-      document.body.appendChild(l);
-      requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
+      l.className = 'gd-lens';
+      l.setAttribute('aria-hidden', 'true');
+      Object.assign(l.style, { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: `left .16s ${LENS_EASE}, top .16s ${LENS_EASE}, width .2s ${LENS_EASE}, height .2s ${LENS_EASE}, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)` });
+      c.appendChild(l);
       return l;
     };
-    const place = (x, y) => {
+    // Klient-koordinater → lokale koordinater i linsens containing block (tar hensyn til skala og scroll)
+    const local = (l, X, Y) => {
+      const op = l.offsetParent || c, r = op.getBoundingClientRect(), k = op.offsetWidth ? r.width / op.offsetWidth : 1;
+      return { x: (X - r.left) / k - op.clientLeft + op.scrollLeft, y: (Y - r.top) / k - op.clientTop + op.scrollTop, k };
+    };
+    const place = (x, y, snap) => {
       const hit = pick(st.items, x, y);
       if (!hit) return;
-      if (hit !== st.hit) { st.hit = hit; M.haptic('selection'); }
+      if (hit !== st.hit) { st.hit = hit; if (!snap) M.haptic('selection'); }
+      if (!st.lens.isConnected) c.appendChild(st.lens); // en ny render (morph) kan ha fjernet den
       const r = hit.getBoundingClientRect(), cr = c.getBoundingClientRect(), w = r.width, h = r.height;
-      let L = st.ax === 'x' ? x - w / 2 : r.left, T = st.ax === 'y' ? y - h / 2 : r.top;
+      let L = st.ax === 'x' && !snap ? x - w / 2 : r.left, T = st.ax === 'y' && !snap ? y - h / 2 : r.top;
       L = Math.max(cr.left + 2, Math.min(cr.right - w - 2, L)); T = Math.max(cr.top + 2, Math.min(cr.bottom - h - 2, T));
-      Object.assign(st.lens.style, { left: L + 'px', top: T + 'px', width: w + 'px', height: h + 'px', borderRadius: Math.min(w, h) / 2 + 'px' });
+      const p = local(st.lens, L, T);
+      Object.assign(st.lens.style, { left: p.x + 'px', top: p.y + 'px', width: w / p.k + 'px', height: h / p.k + 'px', borderRadius: Math.min(w, h) / p.k / 2 + 'px' });
     };
     const stop = (e) => e.stopPropagation();
     c.addEventListener('touchstart', stop, { passive: true });
-    c.addEventListener('touchmove', stop, { passive: true });
+    c.addEventListener('touchmove', (e) => { e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
     c.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       if (e.button || !on()) return;
-      if (e.target.closest && e.target.closest('input,select,textarea,[data-gd-skip]')) return;
+      if (pathIn(e).some((n) => n.matches && n.matches('input,select,textarea,[data-gd-skip]'))) return;
       st = { sx: e.clientX, sy: e.clientY, ax: axisOf(), on: false, id: e.pointerId };
     });
     c.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.id) return;
+      if (!on()) { if (st.lens) st.lens.remove(); st = null; return; } // f.eks. fane-omorganisering tok over
       const dx = e.clientX - st.sx, dy = e.clientY - st.sy;
       if (!st.on) {
         const along = st.ax === 'x' ? Math.abs(dx) : Math.abs(dy), across = st.ax === 'x' ? Math.abs(dy) : Math.abs(dx);
         if (across > 12 && across > along) { st = null; return; }
         if (along < 8) return;
-        st.on = true; st.items = itemsOf(); st.lens = lensEl();
+        st.on = true; st.items = itemsOf(); st.hit = pick(st.items, st.sx, st.sy); st.lens = lensEl();
         try { c.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        place(st.sx, st.sy, true); // start der fingeren var, så glir den etter
+        const l = st.lens;
+        requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
       }
       e.preventDefault();
       place(e.clientX, e.clientY);
@@ -4377,12 +5424,18 @@ try {
       const s0 = st; st = null;
       if (!s0.on) return;
       e.stopPropagation();
-      const l = s0.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220);
+      try { c.releasePointerCapture(s0.id); } catch (x) { /* */ }
+      const l = s0.lens, ok = s0.hit && e.type === 'pointerup';
+      if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
+      l.style.transition += ', opacity .22s';
+      l.style.opacity = '0'; l.style.transform = 'scale(1)';
+      setTimeout(() => l.remove(), 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
-      if (s0.hit && e.type === 'pointerup') s0.hit.click();
+      if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
+    c.addEventListener('lostpointercapture', (e) => { if (st && st.on && e.pointerId === st.id) end(e); });
     c.addEventListener('click', (e) => { if (suppress && e.isTrusted) { e.stopPropagation(); e.preventDefault(); suppress = false; } }, true);
   };
 
@@ -4437,6 +5490,13 @@ try {
     nav.nb.glass .od{background:${C.pink}}
     nav.nb .it.open .od{transform:scale(1)}
     nav.nb .dot{position:absolute;left:calc(50% + 5px);top:calc(50% - 16px);width:11px;height:11px;border-radius:6px;background:var(--red,#f28073);pointer-events:none;z-index:2}
+    nav.nb.row.glass{height:64px;padding:4px;border-radius:32px}
+    nav.nb.row.glass .ind{border-radius:28px}
+    nav.nb.row.glass .it{border-radius:28px}
+    nav.nb.row.glass .dot{left:calc(50% + 4px);top:calc(50% - 20px);width:9px;height:9px;border-radius:5px}
+    nav.nb.glass .od{display:none}
+    nav.nb .gd-lens{position:absolute;z-index:3;pointer-events:none}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:#2f2f2f}}
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
@@ -4454,6 +5514,15 @@ try {
     .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto}
     .mbox.ic .mi .mdot{position:absolute;right:9px;top:9px;margin:0}
     .sep{flex:none;align-self:stretch;min-width:24px;height:1.5px;border-radius:1px;background:rgba(0,0,0,0.16);margin:8px 10px}
+    .mbox{position:relative}
+    /* «Mer» i liquid glass (Fiks 3 · 7c): glassSurface('menu'), radius 32, bredde 64 (kun ikoner), ikoner #fafafa 22 */
+    .mbox.glass{${M.glassSurface('menu')}border-radius:32px;padding:7px}
+    .mbox.glass.ic{width:64px}
+    .mbox.glass .mi{color:#fafafa!important;border-radius:25px}
+    .mbox.glass .mi ha-icon{color:#fafafa!important}
+    .mbox.glass .mi:hover{background:rgba(255,255,255,0.08)}
+    .mbox.glass .sep{background:rgba(255,255,255,0.14)}
+    ${M.glassFallback('.mbox.glass', 'menu')}
     @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
   `;
 
@@ -4502,6 +5571,7 @@ try {
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
+      if (this._outside) window.removeEventListener('click', this._outside, true);
       this._hidePortal();
       this._dEl = null;
     }
@@ -4616,7 +5686,9 @@ try {
         if (dist) { this._dist = dist; this._moving = true; clearTimeout(this._mt); this._mt = setTimeout(() => { this._moving = false; this._schedule(true); }, 260); }
       }
       const W = c.width || 'std', SZ = rail ? 60 : W === 'kompakt' ? 44 : W === 'full' ? 56 : 50, GAP = W === 'full' ? 14 : W === 'kompakt' ? 4 : 10, PAD = 10;
-      const names = !!c.show_names || glass, itemH = names ? SZ + (glass ? 16 : 10) : SZ, N_ = items.length;
+      // Liquid glass på bunnen (Fiks 3 · 7a): 64 px høy (padding 4, fane 56), ikon 22, navn 11/600, kapsel 56 × én fane
+      const gRow = glass && !rail;
+      const names = !!c.show_names || glass, itemH = gRow ? 56 : names ? SZ + (glass ? 16 : 10) : SZ, N_ = items.length;
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
@@ -4626,14 +5698,15 @@ try {
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
       const ind = rail
         ? `top:${PAD + Math.max(0, act) * (itemH + GAP)}px;left:${PAD}px;width:${SZ}px;height:${itemH}px`
+        : gRow ? `top:4px;bottom:4px;left:calc(4px + ${Math.max(0, act)} * ((100% - 8px) / ${N_}));width:calc((100% - 8px) / ${N_})`
         : `top:5px;bottom:5px;left:calc(14px + ${Math.max(0, act)} * ((100% - 28px) / ${N_}) - 6px);width:calc((100% - 28px) / ${N_} + 12px)`;
       const btns = items.map((it, i) => {
         const on = i === act;
         const col = glass ? (on ? C.pink : '#fafafa') : 'var(--gray000,#232323)';
-        return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
-          ${M.icon(it.icon, rail ? 28 : 27)}
-          ${names ? `<span class="nm" style="font-size:${glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}">${esc(it.label)}</span>` : ''}
-          <span class="od"></span>
+        return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${gRow ? 0 : glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
+          ${M.icon(it.icon, gRow ? 22 : rail ? 28 : 27)}
+          ${names ? `<span class="nm" style="font-size:${gRow ? 11 : glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}${gRow ? ';margin-top:2px' : ''}">${esc(it.label)}</span>` : ''}
+          ${glass ? '' : '<span class="od"></span>'}
           ${it.badge ? '<span class="dot"></span>' : ''}
         </button>`;
       }).join('');
@@ -4659,14 +5732,17 @@ try {
       if (geo.rail) pos = `left:${Math.round(at.right != null ? at.right + 8 : geo.left + 106)}px;bottom:${Math.round(at.bottom != null ? window.innerHeight - at.bottom : 40)}px;transform:scale(1.15);transform-origin:left bottom`;
       else if (ic) pos = `left:${Math.round(at.cx || geo.left + geo.width / 2)}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px;transform:translateX(-50%)`;
       else pos = `right:${Math.round(Math.max(12, window.innerWidth - (at.right || geo.left + geo.width / 2 + 198) - 6))}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px`;
-      return `<div class="mbg" data-act="mclose" data-haptic="off"></div>
-        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''}" data-menu>
+      // bakteppet tar ikke imot trykk de første 300 ms (trykket som åpnet menyen skal ikke lukke den igjen)
+      const guard = Date.now() - (this._menuT || 0) < 300;
+      return `<div class="mbg" data-act="mclose" data-haptic="off" style="pointer-events:${guard ? 'none' : 'auto'}"></div>
+        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu>
           ${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
         </div></div>`;
     }
 
     render() {
       const c = this.config, N = norm(c);
+      this._syncGlass();
       this.s('zone.__msh_navbar'); // fast avhengighet: rendres kun når badge-entiteter endres
       const R = this._dash(), rail = this._wide(R.width);
       const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: rail ? this._zoom(R.width) : 1 };
@@ -4757,17 +5833,19 @@ try {
         const id = el.dataset.id;
         if (id === '__more') {
           if (this._inline) return;
+          if (this.ui.menu) return this._closeMenu();
           const r = el.getBoundingClientRect(), nav = el.closest('nav'), nr = nav ? nav.getBoundingClientRect() : r;
-          return this.setUI({ menu: !this.ui.menu, compact: false, menuAt: { cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom } });
+          return this._openMenu({ cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom });
         }
-        this.setUI({ menu: false, compact: false });
+        this._closeMenu(true);
+        this.setUI({ compact: false });
         const b = N.B[id] || {};
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
         if (h) M.openPopup(h);
         return;
       }
-      if (name === 'mclose') return this.setUI({ menu: false });
+      if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
         if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
@@ -4776,6 +5854,36 @@ try {
         return;
       }
       return super.onAction(name, el, ev);
+    }
+
+    // «Mer»-menyen (Fiks 3 · 8): åpnes på click (portalens klikk-lytter stopper propagering), eksplisitt open/close.
+    // Lukke-lytteren kobles på i neste frame og ignorerer alt de første 300 ms; utenfor = composedPath uten menyen/knappen.
+    _openMenu(at) {
+      this._menuT = Date.now();
+      this.setUI({ menu: true, compact: false, menuAt: at });
+      setTimeout(() => { if (this.ui.menu) this._schedule(true); }, 320); // slipp bakteppets pointer-events-vern
+      if (!this._outside) {
+        this._outside = (e) => {
+          if (!this.ui.menu) { window.removeEventListener('click', this._outside, true); return; }
+          if (Date.now() - (this._menuT || 0) < 300) return;
+          const sr = this._portal && this._portal.shadowRoot, path = e.composedPath();
+          if (sr && path.some((n) => n.nodeType === 1 && (n.hasAttribute('data-menu') || n.dataset.id === '__more' || n.classList.contains('mbg')))) return; // egne handlere
+          this._closeMenu();
+        };
+      }
+      requestAnimationFrame(() => { if (this.ui.menu) window.addEventListener('click', this._outside, true); });
+    }
+    _closeMenu(silent) {
+      if (this._outside) window.removeEventListener('click', this._outside, true);
+      if (this.ui.menu) this.setUI({ menu: false });
+      return silent;
+    }
+    // Liquid glass-flagget for resten av dashbordet (MSH.glassOn): speiler navbarens config til <html data-ki-glass>
+    _syncGlass() {
+      const g = this.config && this.config.style === 'glass' ? '1' : '0', ds = document.documentElement.dataset;
+      if (ds.kiGlass === g) return;
+      ds.kiGlass = g;
+      window.dispatchEvent(new CustomEvent('ki-glass-change', { detail: { glass: g === '1' } }));
     }
 
     // Handlinger for egne knapper (autokonfig: første lås/alarm/garasjeport/TV/støvsuger).
@@ -4887,6 +5995,14 @@ try {
     .pft{display:flex;align-items:center;justify-content:space-between;width:100%;gap:6px}
     .pft .x{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0}
     .pft .x b{font-size:15px;font-weight:600} .pft .x i{font-style:normal;font-size:12px;color:#979797}
+    /* Liquid glass (glassark, se 01-editor): rader/grupper = glassSurface('row'), spor/felt rgba(0,0,0,.25), aktivt segment = glassboble */
+    :host([glass]) .nrow,:host([glass]) .ned,:host([glass]) .tg,:host([glass]) .prof,:host([glass]) .rule,:host([glass]) .rsb{${M.glassSurface('row')}}
+    :host([glass]) .prof.on{box-shadow:inset 0 0 0 2px ${C.pink}}
+    :host([glass]) .seg,:host([glass]) .wseg,:host([glass]) .ud,:host([glass]) .i44,:host([glass]) .icp,:host([glass]) .epk,:host([glass]) .i34,:host([glass]) .i36,:host([glass]) .s44,:host([glass]) .st,:host([glass]) .rule .inp{background:rgba(0,0,0,0.25)}
+    :host([glass]) .seg,:host([glass]) .wseg{touch-action:pan-y}
+    :host([glass]) .seg button.on,:host([glass]) .wseg button.on{${M.GLASS_BUBBLE}}
+    :host([glass]) .seg button,:host([glass]) .wseg button,:host([glass]) .gt,:host([glass]) .cap,:host([glass]) .pft .x i{color:rgba(255,255,255,0.62)}
+    :host([glass]) .chp:not(.on),:host([glass]) .trk:not(.on){background:rgba(255,255,255,0.14)}
   `;
 
   class NavEditor extends Base {
@@ -6055,6 +7171,7 @@ try {
   const autoZones = (hass) => M.all(hass, 'zone', (s, id) => id !== 'zone.home').map((id, i) => ({ zone: id, icon: hass.states[id].attributes.icon || 'mdi:map-marker', color: ZCOLS[i % ZCOLS.length] }));
   const zonesOf = (hass, c) => (Array.isArray(c.zones) ? c.zones : autoZones(hass));
   const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+  const clampN = (v, lo, hi, d) => { const n = Number(v); return v === '' || v == null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); };
   const objId = (id) => String(id).split('.')[1];
   const SLEEP_RE = /sov|sleep|seng|natt/;
   const PRES_RE = /hjemme|home|tilstede|presence/;
@@ -6130,7 +7247,7 @@ try {
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: 4 };
+      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: 4, pic_size: 60, persons_size: 46, title_size: 36 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
@@ -6145,6 +7262,11 @@ try {
             { type: 'range', name: 'g_badge', label: 'Merke', min: 14, max: 28, step: 1, default: D.g_badge, fmt: (v) => `${v} px` },
             { type: 'range', name: 'g_gap', label: 'Avstand', min: 0, max: 16, step: 1, default: D.g_gap, fmt: (v) => `${v} px` },
             { type: 'info', label: 'Navnet blir så stort som skjermen tillater, opp til maks.' },
+          ] },
+          { type: 'section', id: 'psizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'profil', open: true, fields: [
+            { type: 'range', name: 'pic_size', label: 'Profilbilde', min: 40, max: 72, step: 1, default: D.pic_size, fmt: (v) => `${v} px` },
+            { type: 'range', name: 'persons_size', label: 'Personer', min: 32, max: 56, step: 1, default: D.persons_size, fmt: (v) => `${v} px` },
+            { type: 'range', name: 'title_size', label: 'Tittel', min: 28, max: 48, step: 1, default: D.title_size, fmt: (v) => `${v} px` },
           ] },
           { type: 'section', id: 'zones', label: 'Soner', icon: 'mdi:map-marker-radius', fields: [
             { type: 'rows', name: 'zones', label: 'Soner med eget ikon og farge', defaults: (h) => autoZones(h), addLabel: 'Legg til sone',
@@ -6187,7 +7309,7 @@ try {
           ] },
           { type: 'section', label: 'Steder (servermeny)', icon: 'mdi:swap-horizontal', fields: [
             { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-installasjoner (også denne)', defaults: () => [], addLabel: 'Legg til sted',
-              help: 'Trykk på hilsenen åpner menyen, dobbelttrykk åpner /config. «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
+              help: 'Trykk på stedsnavnet/hilsenen åpner menyen. «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
               title: (r) => r.name || 'Nytt sted', sub: (r) => r.url || '',
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length], url: '' }),
@@ -6196,7 +7318,7 @@ try {
           ] },
           { type: 'overrides', label: 'Bytt entiteter', fields: [
             { name: 'weather', label: 'Vær', domain: 'weather', auto: (h) => M.all(h, 'weather')[0] },
-            { name: 'kiosk', label: 'Kiosk-modus (hold på tittelen)', domain: 'input_boolean', auto: (h) => M.all(h, 'input_boolean', (s, id) => /kiosk/.test(id))[0] },
+            { name: 'kiosk', label: 'Kiosk-modus (hold i headeren, hold_kiosk: true)', domain: 'input_boolean', auto: (h) => M.all(h, 'input_boolean', (s, id) => /kiosk/.test(id))[0] },
             ...P.ids.flatMap((id) => [
               { name: 'sover_' + objId(id), label: `${M.name(hass, id)} · søvn`, domains: ['input_boolean', 'binary_sensor', 'switch'], auto: (h) => sibling(h, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) },
               { name: 'hjemme_' + objId(id), label: `${M.name(hass, id)} · manuell hjemme/borte`, domain: 'input_boolean', auto: (h) => sibling(h, id, PRES_RE, ['input_boolean']) },
@@ -6242,7 +7364,9 @@ try {
       const big = Md === 'stor';
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
-      if (Md === 'profil') { fs = 'clamp(34px, 14cqw, 60px)'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px'; }
+      const prof = Md === 'profil';
+      const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
+      if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
       else if (Md === 'kompakt') { fs = '22px'; ht = '26px'; }
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
@@ -6258,40 +7382,46 @@ try {
       const face = (p, k, dress) => {
         const ring = c.badge === 'ring' && !dress ? `, 0 0 0 5px ${p.stCol}` : '';
         const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
-        const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? Math.round((dress.sz * 25) / 55) + 'px' : RAD, n = dress ? dress.sz : szN;
-        const av = `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s`;
+        const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? '50%' : RAD, n = dress ? dress.sz : szN;
+        // Profil: runde bilder; uten bilde → initialer 18 px/500 på grå 300 (ikon bare når visning = Ikon).
+        const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
+        const av = ini
+          ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.home ? 1 : 0.6};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s`;
         let bd = '', bi = '';
-        if (dress) { bd = `right:${-dress.bs * 0.3}px;top:${-dress.bs * 0.3}px;width:${dress.bs}px;height:${dress.bs}px;border-radius:${dress.bs / 2}px;background:#2a2a2a;box-shadow:0 0 0 3px ${C.dash};z-index:1`; bi = M.icon(p.glyph, Math.round(dress.bs * 0.56), `color:${p.stCol}`); }
+        // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
+        if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.sleep ? C.purple : p.home ? 'var(--green,' + C.green + ')' : 'var(--gray700,#979797)'}`); }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.68), 'color:#fff'); }
         else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 14, 'color:#fff'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
         return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
-          <span class="fw"><span class="av" style="${av}">${faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
+          <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [];
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
-      const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: 68, bs: 30 })).join('') : faces.map((p, k) => face(p, k)).join('');
+      const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('');
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
-      return `<header class="hd">
+      return `<header class="hd${prof ? ' prof' : ''}" data-ent="__tilpass">
         <div class="top">
           <div class="lc" data-gcol="1">
-            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" title="Trykk: bytt sted · dobbelttrykk: /config · hold: tilpass header (eller kiosk-modus)">
-              <span class="tx">${esc(title)}</span>${big ? '' : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" aria-haspopup="menu" title="Bytt sted">
+              <span class="tx">${esc(title)}</span>${big ? '' : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
           <div class="faces">${facesHTML}${empty}</div>
         </div>
-        ${row2.length ? `<div class="row2">${row2.map((p) => face(p, 0, { sz: 52, bs: 28 })).join('')}</div>` : ''}
+        ${row2.length ? `<div class="row2">${row2.map((p) => face(p, 0, { sz: pPers, bs: 21 })).join('')}</div>` : ''}
       </header>`;
     }
     onAction(name, el, ev) {
       if (name === 'title') {
-        // Trykk håndteres på pointerup (afterRender). Klikk uten peker (tastatur) åpner menyen direkte.
-        if (ev && ev.detail === 0 && !this._gHeld) this._titleTap(el);
+        // Ett vanlig trykk (click) åpner «Bytt sted» med én gang – ingen hold/dobbelttrykk på stedsnavnet.
+        if (ev) ev.stopPropagation();
+        if (this._srv) this._srvClose(); else this._srvOpen(el);
         return;
       }
       if (name === 'person') {
@@ -6301,24 +7431,28 @@ try {
       }
       return super.onAction(name, el, ev);
     }
-    // Ett trykk (pointerup) åpner «Bytt sted» med én gang. Nytt trykk innen 250 ms = dobbelttrykk:
-    // lukk menyen uten animasjon og åpne /config. Én haptic: 'light' ved åpning, 'medium' ved dobbelttrykk.
-    _titleTap(anchor) {
-      const now = Date.now();
-      if (this._gLast && now - this._gLast < 250) { this._gLast = 0; this._titleDbl(); return; }
-      this._gLast = now;
+    // Langt trykk i headeren (ikke på stedsnavnet) → «Tilpass header», eller kiosk-modus med hold_kiosk: true.
+    onHold(id) {
+      if (id !== '__tilpass') return undefined;
+      const t = this.shadowRoot.querySelector('.ttl'), r = t && t.getBoundingClientRect();
+      if (r && this._hx >= r.left && this._hx <= r.right && this._hy >= r.top && this._hy <= r.bottom) { this._swallow = false; return true; }
+      if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return true; }
+      const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, i) => /kiosk/.test(i))[0]);
+      if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return true; }
+      const on = this.hass.states[k] && this.hass.states[k].state === 'on';
+      M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
+      M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
+      return true;
+    }
+    // Eksplisitt åpne/lukke. Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet
+    // (touch → click) aldri lukker menyen igjen. Én haptic ved åpning, ingen ved lukking via bakteppet.
+    _srvOpen(anchor) {
+      if (this._srv) return;
       M.haptic('light');
-      if (this._srv) { this._srv.close(); return; }
       this._serverMenu(anchor);
     }
-    _titleDbl() {
-      const ov = this._srv;
-      if (ov) { ov.close(); ov.host.remove(); } // uten lukke-animasjon
-      M.haptic('medium');
-      M.navigate('/config');
-    }
+    _srvClose() { if (this._srv) this._srv.close(); }
     _serverMenu(anchor) {
-      if (this._srv) { this._srv.close(); return; }
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
       const top = S.cur < 0 ? `<div class="me">${M.icon('mdi:map-marker-outline', 16, 'color:#7f7f7f')}<span>Denne serveren · ${esc(S.host)}</span></div>` : '';
@@ -6339,17 +7473,10 @@ try {
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
         .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .here{height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;font-size:11px;font-weight:600;background:rgb(115 185 242);color:#1f2a36;white-space:nowrap;flex:none}`;
-      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, onClose: () => { if (this._srv === ov) this._srv = null; } });
+      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
       this._srv = ov;
-      // Andre trykk i et dobbelttrykk treffer bakgrunnen (menyen dekker hilsenen) → dobbelttrykk, ikke «lukk».
-      let swallow = false;
-      ov.root.querySelector('.bg').addEventListener('pointerup', (e) => {
-        if (!this._gLast || Date.now() - this._gLast >= 250) return;
-        e.stopPropagation(); swallow = true; this._gLast = 0; this._titleDbl();
-      });
-      ov.root.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopImmediatePropagation(); } }, true);
       ov.root.addEventListener('click', (e) => {
-        const b = e.target.closest && e.target.closest('[data-a]');
+        const b = e.composedPath().find((n) => n && n.dataset && n.dataset.a);
         if (!b) return;
         const i = Number(b.dataset.i), v = S.list[i];
         M.haptic('light');
@@ -6397,37 +7524,6 @@ try {
         img.addEventListener('error', fail);
         if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
       });
-      const t = this.shadowRoot.querySelector('.ttl');
-      if (t && !t.__b) {
-        t.__b = true;
-        const clear = () => clearTimeout(this._gHold);
-        t.addEventListener('pointerdown', (e) => {
-          if (e.button) return;
-          this._gHeld = false; clear();
-          this._gDown = { x: e.clientX, y: e.clientY };
-          this._gHold = setTimeout(() => {
-            this._gHeld = true;
-            M.haptic('heavy');
-            // Langt trykk på hilsenen → «Tilpass header» (kiosk-modus flyttet til hold_kiosk: true)
-            if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return; }
-            const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, id) => /kiosk/.test(id))[0]);
-            if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return; }
-            const on = this.hass.states[k] && this.hass.states[k].state === 'on';
-            M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
-            M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
-          }, 600);
-        });
-        ['pointerleave', 'pointercancel'].forEach((ev) => t.addEventListener(ev, () => { clear(); this._gDown = null; }));
-        // Første pointerup åpner menyen umiddelbart (ingen 260 ms venting). Langt trykk eller dra åpner ikke.
-        t.addEventListener('pointerup', (e) => {
-          if (e.button) return;
-          clear();
-          const dn = this._gDown; this._gDown = null;
-          if (this._gHeld || !dn || Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 10) return;
-          this._titleTap(t);
-        });
-        t.addEventListener('contextmenu', (e) => e.preventDefault());
-      }
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
       if ((this.config.mode || 'familie') === 'stor') {
         const col = this.shadowRoot.querySelector('.lc');
@@ -6463,6 +7559,12 @@ try {
         .ln{font-size:11px;font-weight:500}
         .lp{font-size:10px;color:var(--gray700,#979797)}
         .row2{display:flex;flex-wrap:wrap;gap:14px;padding:4px 0 0 2px}
+        /* Profil. Personer → prosa: 22 px synlig avstand (containerens gap 22 + prosaens luft over første linje − 8) */
+        .prof{gap:22px;margin-bottom:-8px}
+        .prof .top{align-items:flex-start}
+        .prof .ttl{line-height:1.1;column-gap:10px}
+        .prof .sub{color:var(--gray800,#afafaf)}
+        .prof .row2{gap:14px;padding:0}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }
@@ -7592,12 +8694,15 @@ try {
       const key = `${t.id}-${slot}`, n = stR.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
       return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + x.k)}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
     }
+    // Snarvei-flis = universal small-rad (07-universal.js); ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
-      let st = '', iw = '', ic = '', sb = '';
-      if (t.solid && t.tone) { st = `background:${t.tone};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(0,0,0,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(31,42,36,0.75)'; } else if (t.tone === 'pink') { st = `background:${C.accent};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(42,23,32,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(42,23,32,0.7)'; } else if (t.tone) { st = `background:${M.alpha(t.tone, 0.14)};box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}`; iw = `background:${M.alpha(t.tone, 0.2)};color:${t.tone}`; }
-      return `<div class="tile" data-act="tile" data-k="${esc(t.kind)}" data-w="card" ${t.ent ? `data-ent="${esc(t.ent)}"` : ''} data-key="${esc(key)}" style="${st}">
-        <button class="tic" data-act="tile" data-k="${esc(t.kind)}" data-w="ic" style="${iw}">${t.aIcon || M.icon(t.icon, 24)}</button>
-        <div class="tx"><span class="tt ell">${esc(t.title)}</span><span class="ts" style="${sb}">${esc(t.sub || '')}</span></div></div>`;
+      const o = { background_color: null, text_color: null, icon_color: null, circle_color: null, style: '' };
+      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)' });
+      else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(42,23,32,0.1)' });
+      else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
+      return M.universal({ ...o, mode: 'sensor', size: 'small', st: null, icon: t.icon, icon_html: t.aIcon || null, main_text: t.title, sub_text: t.sub || '',
+        act: 'tile', id: null, ent: t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card' },
+        icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
     }
     _runTile(kind, w) {
       const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c));
@@ -7738,7 +8843,7 @@ try {
         };
         const appl = cur.kind === 'aktuelt' ? this._applCards(E) : '';
         const cols = col('L') + col('R');
-        const empty = !rooms.length && !/class="(tile|slot|rk)/.test(cols);
+        const empty = !rooms.length && !/class="(tile|slot|rk|u u-)/.test(cols);
         view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen lys på, ingenting spiller.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
       }
       return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${view}</section>`);
@@ -7837,7 +8942,10 @@ try {
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
         .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
-        .tsw{width:100%;overflow:hidden;border-radius:36px;touch-action:pan-y}
+        .tsw{width:100%;overflow:hidden;border-radius:var(--ha-card-border-radius, 32px);touch-action:pan-y}
+        ${M.UNIVERSAL_CSS || ''}
+        .u-i[data-act]{cursor:pointer;transition:transform .2s,background .25s}
+        .u-i[data-act]:active{transform:scale(.9)}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
         .dots{display:flex;gap:8px;height:14px;align-items:center}
@@ -10035,13 +11143,15 @@ try {
  * Autokonfig: sensor.<rom>_oversikt (KI Rom) → ellers HA-registre (område direkte / via enhet).
  * Tellertekster: sensor.<rom>_lys|_media|_brytere|_sensorer|_effekt (attributes.tekst) → ellers beregnet.
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
- * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
+ * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}
+ * (universal-rad, M.universal: mode, size, icon, main_text, sub_text, alt_text, symbol, background_color, text_color,
+ * badge_condition/badge_color, bar_value/bar_color/bar_invert_colors, state_rule_1..3_*; legacy name/label/bg/cell/icon_color).
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
- * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
- * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
- * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
- * chevron_color, color_presets ("a, b" eller [..])}. Objekt-id som nøkkel fordi entity_id har punktum.
+ * Lys: felles lys-rad (08-light-row.js, samme som Lys-popupen) per lys, gjenbrukt per entity. slider_height (32–56,
+ * std 40) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
+ * hide_color_controls, hide_color_presets, color_presets ("a, b" eller [..])}. Eldre utseende-nøkler (size, label_layout,
+ * show_…, slider_color_mode, bar-, håndtak-, ikon- og pilfarger) ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -10257,33 +11367,21 @@ try {
         ] });
       }
       if (L && L.lists.lys.length) {
-        const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
-        const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
-        const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+        // Felles lys-rad (08-light-row.js): samme utseende for alle lys – bare høyden (slider_height) og funksjon per lys
         const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
-        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
-          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter.' },
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 40} px`, fields: [
+          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 56, default: 40, presets: [[32, 'Kompakt 32'], [40, 'Standard 40'], [48, 'Stor 48'], [56, 'Ekstra stor 56']] },
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Farge/temperatur vises bare for lys som støtter det.' },
           ...L.lists.lys.map((id) => {
             const p = 'lights.' + obj(id), st = h.states[id];
             return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
               { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
-              { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
-              { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
-              { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
-              { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
-              { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
               { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
               { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
-              { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
               { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
               { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
               { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
               { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
-              { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
-              { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
-              { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
-              { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
-              { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
               { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
             ] };
           }),
@@ -10293,16 +11391,11 @@ try {
         const items = [...L.lists.enheter.map((id) => [id, 'Enhet']), ...L.lists.sensorer.map((id) => [id, 'Sensor'])];
         if (items.length) {
           out.push({ type: 'section', id: 'looks', label: 'Utseende på kort', icon: 'mdi:palette', fields: [
-            { type: 'info', label: 'Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === \'på\' ? \'#7fd6a0\' : \'#404040\' ]]]' },
+            { type: 'info', label: 'Rad-stil som universal_sensor. Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === \'på\' ? \'var(--green)\' : null ]]]. Sensorer: regel 1 er som standard «aktiv» (bevegelse/åpen/fukt) → grønn bakgrunn og mørk tekst.' },
             ...items.map(([id, kind]) => {
-              const p = 'looks.' + id;
-              return { type: 'section', label: `${cap(M.name(h, id, M.areaName(h, area)))} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
-                { type: 'text', name: p + '.name', label: 'Navn', placeholder: cap(M.name(h, id, M.areaName(h, area))) },
-                { type: 'text', name: p + '.label', label: 'Undertekst', placeholder: kind === 'Enhet' ? 'På · {w} W' : '{state}' },
-                { type: 'icon', name: p + '.icon', label: 'Ikon' },
-                { type: 'color', name: p + '.icon_color', label: 'Ikonfarge' },
-                { type: 'color', name: p + '.bg', label: 'Bakgrunn' },
-                { type: 'color', name: p + '.cell', label: 'Ikoncelle' },
+              const p = 'looks.' + id, nm0 = cap(M.name(h, id, M.areaName(h, area)));
+              return { type: 'section', label: `${nm0} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
+                ...(M.universalSchema ? M.universalSchema(p, { kind: kind === 'Enhet' ? 'toggle' : 'sensor', placeholders: { sub_text: nm0, main_text: kind === 'Enhet' ? '{w} W / På / Av' : '{state}', rule1: kind === 'Sensor' && h.states[id] && id.startsWith('binary_sensor.') ? 'Auto: aktiv (on)' : '' } }) : []),
                 ...(kind === 'Enhet' && M.applianceType && M.applianceType(id, h.states[id], h) ? [
                   { type: 'select', name: p + '.animation', label: 'Animasjon', options: ANIM_LV, help: 'Tomt = som «Hvitevarer» under' },
                   { type: 'number', name: p + '.run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto' },
@@ -10439,32 +11532,15 @@ try {
       }).join('')}</section>`;
     }
 
-    /* ------------ lys (mysmart-light-control per lys, gjenbrukt per entity) */
+    /* ------------ lys: felles lys-rad (08-light-row.js, samme som Lys-popupen), gjenbrukt per entity */
     // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
     // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
+    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (32–56, std 40).
     _lightCfg(id) {
       const c = this.config, L = c.lights || {}, s = this.hass.states[id];
       const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
       const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-      const romfarge = M.color((c.look && (c.look.col || c.look.color)) || null, M.romColor ? M.romColor(this._area, this.hass) : C.orange);
-      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
-      const out = { entity: id, name: this._nm(id), size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
-        card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
-        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
-      const B = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
-      Object.keys(u).forEach((k) => {
-        let v = u[k];
-        if (v == null || v === '') return;
-        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update'].includes(k)) v = B(v);
-        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
-        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
-        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background'].includes(k)) v = M.color(v, undefined);
-        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
-        out[k] = v;
-      });
-      if (out.show_icon === true) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
-      if (T === 'onoff' && u.force_toggle_mode == null) out.force_toggle_mode = true;
-      return out;
+      return M.lightRowCfg(id, { name: this._nm(id), type: T, user: u, height: M.lightRowHeight(c) });
     }
     _lights() {
       const ids = this._L.lists.lys;
@@ -10475,37 +11551,16 @@ try {
         const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return '';
-        if (!s) return `<div class="lt unav" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">Finnes ikke</span></div></div>`;
-        return `<div class="lc" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-nomorph></div>`;
+        return `<div class="lsl" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(this._nm(id))}" data-nomorph></div>`;
       }).join('');
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
-      return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
+      return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts" style="--lr-h:${M.lightRowHeight(this.config)}px">${rows}</div></div>` : ''}</section>`;
     }
-    // Monter/oppdater mysmart-light-control i plassholderne (data-nomorph → morph rører dem ikke).
-    _mountLights() {
-      const R = this.shadowRoot, h = this.hass;
-      if (!R || !h) return;
-      const map = (this._lc = this._lc || new Map());
-      const ok = !!customElements.get('mysmart-light-control');
-      R.querySelectorAll('[data-lc]').forEach((wrap) => {
-        const id = wrap.dataset.lc;
-        if (!wrap.__lcGuard) {
-          wrap.__lcGuard = true;
-          ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => wrap.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
-          wrap.addEventListener('pointerup', () => M.haptic('light'));
-        }
-        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = `<div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span></div>`; return; }
-        let rec = map.get(id);
-        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
-        const cfg = this._lightCfg(id), json = JSON.stringify(cfg);
-        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
-        if (rec.el.hass !== h) rec.el.hass = h;
-        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
-      });
-    }
+    // Monter/oppdater lys-radene i plassholderne (data-nomorph → morph rører dem ikke).
+    _mountLights() { M.mountLightRows(this, (id) => this._lightCfg(id)); }
     set hass(h) {
       super.hass = h;
-      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+      M.lightRowsHass(this, h);
     }
     get hass() { return super.hass; }
 
@@ -10550,13 +11605,17 @@ try {
             bg: isOn ? PINK : G.g300, col: isOn ? G.g200 : G.w, cell: isOn ? 'rgba(42,23,32,0.12)' : C.popup, icol: isOn ? G.g200 : G.g800,
             anim: isOn && fan ? `spinn ${ANIM.spinn} infinite` : 'none', run: isOn, subCol: isOn ? 'rgba(42,23,32,0.75)' : G.g700, subW: 400 };
         }
-        const lk = lk0, ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s };
-        const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || st.sub, icon = tpl(lk.icon, ctx) || st.icon;
-        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 26 }) : '';
-        const bg = M.color(tpl(lk.bg, ctx), st.bg), cell = M.color(tpl(lk.cell, ctx), st.cell), icol = M.color(tpl(lk.icon_color, ctx), st.icol);
-        return `<button class="pill dv ${unav ? 'unav' : ''}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success" data-key="d-${esc(id)}" style="background:${bg};color:${st.col}">
-          <span class="iw${aIcon ? ' ma-cell' : ''}" style="background:${cell};color:${icol}">${aIcon || M.icon(icon, 24, `animation:${st.anim}`)}</span>
-          <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${st.subCol};font-weight:${st.subW}">${esc(sub)}</span></span></button>`;
+        // Universal-rad (07-universal.js): toggle-variant, verdi = effekt eller På/Av, navn under. Legacy-nøkler (name/label/bg/cell) som reserve.
+        const ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s }, lk = M.universalLook(lk0, ctx);
+        const icon = lk.icon || st.icon;
+        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 30 }) : '';
+        const alt = unav ? '' : P ? (st.bg !== G.g300 ? P.verb : '') : pctF.replace(' · ', '');
+        return M.universal({ ...lk, mode: lk.mode || 'toggle', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
+          icon_html: aIcon || M.icon(icon, 30, `animation:${st.anim}`),
+          main_text: lk.main_text || lk.label || (unav ? 'Utilgjengelig' : w != null ? `${M.nf(w)} W` : isOn ? 'På' : 'Av'),
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : alt,
+          background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color,
+          toggle_on: lk.toggle_on_value ? undefined : isOn });
       }).join('');
       const sum = this._tekst('effekt', this._listChanged('enheter')) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-dev">${this._head('dev', 'radio', 'Enheter', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
@@ -10665,12 +11724,17 @@ try {
         const nm = this._nm(id);
         const state = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : bin ? ((BS[cls] || ['På', 'Av'])[s.state === 'on' ? 0 : 1]) : M.fmtState(this.hass, id);
         const icon0 = a.icon || SENS_ICON[cls] || M.domainIcon(id, s);
-        const lk = this._look(id), ctx = { state, name: nm, w: 0, entity: s };
-        const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || state, icon = tpl(lk.icon, ctx) || icon0;
-        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), hot ? 'currentColor' : G.g800);
-        return `<div class="pill sn" data-act="more" data-id="${esc(id)}" data-key="s-${esc(id)}" style="background:${bg};color:${hot ? G.g200 : G.w}">
-          <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24)}</span>
-          <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${hot ? 'rgba(31,42,36,0.75)' : G.g700}">${esc(sub)}</span></span></div>`;
+        // Universal-rad (07-universal.js). Standard regel 1: aktiv (bevegelse/åpen/fukt …) → grønn bakgrunn, mørk tekst.
+        const ctx = { state, name: nm, w: 0, entity: s }, lk0 = this._look(id), lk = M.universalLook(lk0, ctx);
+        const ownRule = Object.keys(lk0).some((k) => /^state_rule_1_(value|condition)$/.test(k) && lk0[k] != null && lk0[k] !== '');
+        const num = !!s && !bin && M.isNum(s.state), u = num ? String(a.unit_of_measurement || '') : '';
+        const dflt = num ? { main_text: M.nf(Number(s.state), Number(s.state) % 1 ? 1 : 0), symbol: u === '°C' || u === '°F' ? '°' : u === '%' ? '%' : u ? ' ' + u : '' } : { main_text: state };
+        return M.universal({
+          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
+          ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || icon0,
+          main_text: lk.main_text || lk.label || dflt.main_text, symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label ? null : dflt.symbol,
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
+          background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color });
       }).join('');
       const sum = this._tekst('sensorer', this._listChanged('sensorer')) || `${act} aktiv - ${ids.length - act} stille`;
       return `<section class="box" data-key="sec-sens">${this._head('sens', 'directions_walk', 'Sensorer', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
@@ -10815,13 +11879,12 @@ try {
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
         /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
-        .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
+        .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
         .ltp{font-size:12px;color:${G.g700}}
-        .lc{display:block;min-height:40px;background:none;padding:0}
-        .lc mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
+        ${M.LIGHT_ROW_CSS || ''}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}
         .pill{display:flex;align-items:center;gap:14px;height:66px;padding:0 16px 0 5px;border-radius:33px;text-align:left;width:100%;box-shadow:none;transition:background .25s,transform .2s}
@@ -10835,6 +11898,7 @@ try {
         @keyframes puls{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
         @keyframes spinn{to{transform:rotate(360deg)}}
         ${M.APPLIANCE_CSS || ''}
+        ${M.UNIVERSAL_CSS || ''}
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
@@ -16057,6 +17121,7 @@ try {
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', id: 'view', fields: [
           { type: 'boolean', name: 'show_alerts', label: 'Varsler · «Krever oppmerksomhet» øverst', default: true },
           { type: 'boolean', name: 'show_log', label: 'Siste hendelser · logg nederst', default: true },
+          { type: 'select', name: 'sensor_view', label: 'Sensorer i rom', options: [['rows', 'Rader'], ['chips', 'Brikker']], default: 'rows' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (toast)', default: true },
         ] },
         { type: 'gap' },
@@ -16163,6 +17228,17 @@ try {
           <div class="rh"><div class="cap">Rom</div><div class="cnt">${S.length} ${S.length === 1 ? 'sensor' : 'sensorer'}</div></div>
           ${S.length ? rooms.map((room, i) => {
             const list = S.filter((x) => x.room === room), alr = list.some(isAlert), mv = list.some((x) => x.on && !isAlert(x));
+            if (c.sensor_view !== 'chips') {
+              // Universal-rader (07-universal.js): aktiv sensor → regel 1 med varselfarge som bakgrunn og mørk tekst
+              return `<div class="room urm" data-key="r-${esc(room)}"><div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
+                <div class="ulst">${list.map((x) => {
+                  const col = colorOf(x);
+                  const val = x.un ? '–' : ({ door: x.on ? 'Åpen' : 'Lukket', window: x.on ? 'Åpent' : 'Lukket', lock: x.on ? 'Ulåst' : 'Låst', motion: x.on ? 'Bevegelse' : 'Stille', presence: x.on ? 'Noen her' : 'Stille' })[x.type] || (x.on ? 'På' : 'Av');
+                  const alt = x.type === 'lock' && x.bat != null ? `${x.bat} %` : x.on && x.st && x.st.last_changed ? M.relTime(x.st.last_changed) : '';
+                  return M.universal({ mode: 'sensor', size: 'small', entity: x.id, st: x.st, act: 'chip', key: 'u-' + x.id, icon: iconOf(x), main_text: val, sub_text: x.name, alt_text: alt,
+                    state_rule_1_condition: !!col, state_rule_1_background_color: col, state_rule_1_text_color: 'var(--gray000)' });
+                }).join('')}</div></div>`;
+            }
             return `<div class="room" data-key="r-${esc(room)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
               <div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
               <div class="chips">${list.map((x) => {
@@ -16350,6 +17426,10 @@ try {
         .rd{width:7px;height:7px;border-radius:4px;flex:none}
         .chips{flex:none;max-width:62%;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
         .chip{height:32px;padding:0 11px 0 8px;border-radius:16px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap;transition:background .2s}
+        .urm{flex-direction:column;align-items:stretch;gap:8px;padding:6px 0}
+        .urm .rn{padding:0 4px}
+        .ulst{display:flex;flex-direction:column;gap:8px}
+        ${M.UNIVERSAL_CSS || ''}
         .log{display:flex;flex-direction:column;padding-left:4px}
         .ev{display:flex;gap:14px;align-items:stretch}
         .evl{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}

@@ -64,49 +64,75 @@
     if (st.getPropertyValue('--ki-nav-h') !== v) st.setProperty('--ki-nav-h', v);
     if (!h && st.getPropertyValue('--ki-nav-bottom') !== '0px') st.setProperty('--ki-nav-bottom', '0px');
   };
-  // Dra langs en knapperad → glasslinse følger fingeren, slipp = trykk på knappen under. Drag-vern mot Bubble Card.
+  // Liquid glass-dra (Fiks 3 · 7b, fasit glass-drag.js) koblet direkte på containeren – virker i shadow DOM og i HA:
+  //  · composedPath (ikke closest på document) avgjør hva som er truffet
+  //  · glass-sjekk fra config: opt.enabled() (navbaren: config.style === 'glass', editorene: glassarket), aldri localStorage
+  //  · touch-action fra start: navbar/meny 'none' (CSS), horisontale segmenter 'pan-y' (opt.touchAction overstyrer);
+  //    stopPropagation på pointerdown/touchstart/touchmove så Bubble Card ikke scroller/lukker popupen
+  //  · linsen ligger i containeren (position:absolute, regnet fra containerens rect, også når den er skalert)
+  //  · hold og dra (8 px langs aksen) → glassboble følger fingeren med fjær, skala 1,1, snapper til nærmeste knapp,
+  //    haptic('selection') per ny knapp (M.haptic: maks én per 40 ms). Slipp → knappen aktiveres, haptic('light'),
+  //    boblen glir på plass og tones ut (220 ms). Vanlig trykk går som før (click).
+  // opt: { axis: 'x'|'y', enabled: () => bool, touchAction }
+  const LENS_EASE = 'cubic-bezier(.34,1.5,.64,1)';
   M.glassDrag = M.glassDrag || function (c, opt = {}) {
     if (!c || c.__gd) return;
     c.__gd = true;
     let st = null, suppress = false;
     const on = () => !opt.enabled || opt.enabled();
     const axisOf = () => opt.axis || (getComputedStyle(c).flexDirection === 'column' ? 'y' : 'x');
+    // touch-action fra start (morph gjenoppretter __mshTA etter en ny render)
+    const ta0 = opt.touchAction || (c.isConnected ? getComputedStyle(c).touchAction : '');
+    if (opt.touchAction || !ta0 || ta0 === 'auto') { c.__mshTA = opt.touchAction || (axisOf() === 'x' ? 'pan-y' : 'none'); c.style.touchAction = c.__mshTA; }
+    const pathIn = (e) => { const p = e.composedPath ? e.composedPath() : [e.target], i = p.indexOf(c); return i < 0 ? [] : p.slice(0, i); };
     const itemsOf = () => Array.from(c.querySelectorAll('button')).filter((b) => b.getClientRects().length && !b.closest('[data-gd-skip]'));
     const pick = (items, x, y) => { let best = null, bd = 1e9; items.forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
     const lensEl = () => {
       const l = document.createElement('span');
-      Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-      document.body.appendChild(l);
-      requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
+      l.className = 'gd-lens';
+      l.setAttribute('aria-hidden', 'true');
+      Object.assign(l.style, { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: `left .16s ${LENS_EASE}, top .16s ${LENS_EASE}, width .2s ${LENS_EASE}, height .2s ${LENS_EASE}, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)` });
+      c.appendChild(l);
       return l;
     };
-    const place = (x, y) => {
+    // Klient-koordinater → lokale koordinater i linsens containing block (tar hensyn til skala og scroll)
+    const local = (l, X, Y) => {
+      const op = l.offsetParent || c, r = op.getBoundingClientRect(), k = op.offsetWidth ? r.width / op.offsetWidth : 1;
+      return { x: (X - r.left) / k - op.clientLeft + op.scrollLeft, y: (Y - r.top) / k - op.clientTop + op.scrollTop, k };
+    };
+    const place = (x, y, snap) => {
       const hit = pick(st.items, x, y);
       if (!hit) return;
-      if (hit !== st.hit) { st.hit = hit; M.haptic('selection'); }
+      if (hit !== st.hit) { st.hit = hit; if (!snap) M.haptic('selection'); }
+      if (!st.lens.isConnected) c.appendChild(st.lens); // en ny render (morph) kan ha fjernet den
       const r = hit.getBoundingClientRect(), cr = c.getBoundingClientRect(), w = r.width, h = r.height;
-      let L = st.ax === 'x' ? x - w / 2 : r.left, T = st.ax === 'y' ? y - h / 2 : r.top;
+      let L = st.ax === 'x' && !snap ? x - w / 2 : r.left, T = st.ax === 'y' && !snap ? y - h / 2 : r.top;
       L = Math.max(cr.left + 2, Math.min(cr.right - w - 2, L)); T = Math.max(cr.top + 2, Math.min(cr.bottom - h - 2, T));
-      Object.assign(st.lens.style, { left: L + 'px', top: T + 'px', width: w + 'px', height: h + 'px', borderRadius: Math.min(w, h) / 2 + 'px' });
+      const p = local(st.lens, L, T);
+      Object.assign(st.lens.style, { left: p.x + 'px', top: p.y + 'px', width: w / p.k + 'px', height: h / p.k + 'px', borderRadius: Math.min(w, h) / p.k / 2 + 'px' });
     };
     const stop = (e) => e.stopPropagation();
     c.addEventListener('touchstart', stop, { passive: true });
-    c.addEventListener('touchmove', stop, { passive: true });
+    c.addEventListener('touchmove', (e) => { e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
     c.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       if (e.button || !on()) return;
-      if (e.target.closest && e.target.closest('input,select,textarea,[data-gd-skip]')) return;
+      if (pathIn(e).some((n) => n.matches && n.matches('input,select,textarea,[data-gd-skip]'))) return;
       st = { sx: e.clientX, sy: e.clientY, ax: axisOf(), on: false, id: e.pointerId };
     });
     c.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.id) return;
+      if (!on()) { if (st.lens) st.lens.remove(); st = null; return; } // f.eks. fane-omorganisering tok over
       const dx = e.clientX - st.sx, dy = e.clientY - st.sy;
       if (!st.on) {
         const along = st.ax === 'x' ? Math.abs(dx) : Math.abs(dy), across = st.ax === 'x' ? Math.abs(dy) : Math.abs(dx);
         if (across > 12 && across > along) { st = null; return; }
         if (along < 8) return;
-        st.on = true; st.items = itemsOf(); st.lens = lensEl();
+        st.on = true; st.items = itemsOf(); st.hit = pick(st.items, st.sx, st.sy); st.lens = lensEl();
         try { c.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        place(st.sx, st.sy, true); // start der fingeren var, så glir den etter
+        const l = st.lens;
+        requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
       }
       e.preventDefault();
       place(e.clientX, e.clientY);
@@ -116,12 +142,18 @@
       const s0 = st; st = null;
       if (!s0.on) return;
       e.stopPropagation();
-      const l = s0.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220);
+      try { c.releasePointerCapture(s0.id); } catch (x) { /* */ }
+      const l = s0.lens, ok = s0.hit && e.type === 'pointerup';
+      if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
+      l.style.transition += ', opacity .22s';
+      l.style.opacity = '0'; l.style.transform = 'scale(1)';
+      setTimeout(() => l.remove(), 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
-      if (s0.hit && e.type === 'pointerup') s0.hit.click();
+      if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
+    c.addEventListener('lostpointercapture', (e) => { if (st && st.on && e.pointerId === st.id) end(e); });
     c.addEventListener('click', (e) => { if (suppress && e.isTrusted) { e.stopPropagation(); e.preventDefault(); suppress = false; } }, true);
   };
 
@@ -176,6 +208,13 @@
     nav.nb.glass .od{background:${C.pink}}
     nav.nb .it.open .od{transform:scale(1)}
     nav.nb .dot{position:absolute;left:calc(50% + 5px);top:calc(50% - 16px);width:11px;height:11px;border-radius:6px;background:var(--red,#f28073);pointer-events:none;z-index:2}
+    nav.nb.row.glass{height:64px;padding:4px;border-radius:32px}
+    nav.nb.row.glass .ind{border-radius:28px}
+    nav.nb.row.glass .it{border-radius:28px}
+    nav.nb.row.glass .dot{left:calc(50% + 4px);top:calc(50% - 20px);width:9px;height:9px;border-radius:5px}
+    nav.nb.glass .od{display:none}
+    nav.nb .gd-lens{position:absolute;z-index:3;pointer-events:none}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:#2f2f2f}}
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
@@ -193,6 +232,15 @@
     .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto}
     .mbox.ic .mi .mdot{position:absolute;right:9px;top:9px;margin:0}
     .sep{flex:none;align-self:stretch;min-width:24px;height:1.5px;border-radius:1px;background:rgba(0,0,0,0.16);margin:8px 10px}
+    .mbox{position:relative}
+    /* «Mer» i liquid glass (Fiks 3 · 7c): glassSurface('menu'), radius 32, bredde 64 (kun ikoner), ikoner #fafafa 22 */
+    .mbox.glass{${M.glassSurface('menu')}border-radius:32px;padding:7px}
+    .mbox.glass.ic{width:64px}
+    .mbox.glass .mi{color:#fafafa!important;border-radius:25px}
+    .mbox.glass .mi ha-icon{color:#fafafa!important}
+    .mbox.glass .mi:hover{background:rgba(255,255,255,0.08)}
+    .mbox.glass .sep{background:rgba(255,255,255,0.14)}
+    ${M.glassFallback('.mbox.glass', 'menu')}
     @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
   `;
 
@@ -241,6 +289,7 @@
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
+      if (this._outside) window.removeEventListener('click', this._outside, true);
       this._hidePortal();
       this._dEl = null;
     }
@@ -355,7 +404,9 @@
         if (dist) { this._dist = dist; this._moving = true; clearTimeout(this._mt); this._mt = setTimeout(() => { this._moving = false; this._schedule(true); }, 260); }
       }
       const W = c.width || 'std', SZ = rail ? 60 : W === 'kompakt' ? 44 : W === 'full' ? 56 : 50, GAP = W === 'full' ? 14 : W === 'kompakt' ? 4 : 10, PAD = 10;
-      const names = !!c.show_names || glass, itemH = names ? SZ + (glass ? 16 : 10) : SZ, N_ = items.length;
+      // Liquid glass på bunnen (Fiks 3 · 7a): 64 px høy (padding 4, fane 56), ikon 22, navn 11/600, kapsel 56 × én fane
+      const gRow = glass && !rail;
+      const names = !!c.show_names || glass, itemH = gRow ? 56 : names ? SZ + (glass ? 16 : 10) : SZ, N_ = items.length;
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
@@ -365,14 +416,15 @@
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
       const ind = rail
         ? `top:${PAD + Math.max(0, act) * (itemH + GAP)}px;left:${PAD}px;width:${SZ}px;height:${itemH}px`
+        : gRow ? `top:4px;bottom:4px;left:calc(4px + ${Math.max(0, act)} * ((100% - 8px) / ${N_}));width:calc((100% - 8px) / ${N_})`
         : `top:5px;bottom:5px;left:calc(14px + ${Math.max(0, act)} * ((100% - 28px) / ${N_}) - 6px);width:calc((100% - 28px) / ${N_} + 12px)`;
       const btns = items.map((it, i) => {
         const on = i === act;
         const col = glass ? (on ? C.pink : '#fafafa') : 'var(--gray000,#232323)';
-        return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
-          ${M.icon(it.icon, rail ? 28 : 27)}
-          ${names ? `<span class="nm" style="font-size:${glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}">${esc(it.label)}</span>` : ''}
-          <span class="od"></span>
+        return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${gRow ? 0 : glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
+          ${M.icon(it.icon, gRow ? 22 : rail ? 28 : 27)}
+          ${names ? `<span class="nm" style="font-size:${gRow ? 11 : glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}${gRow ? ';margin-top:2px' : ''}">${esc(it.label)}</span>` : ''}
+          ${glass ? '' : '<span class="od"></span>'}
           ${it.badge ? '<span class="dot"></span>' : ''}
         </button>`;
       }).join('');
@@ -398,14 +450,17 @@
       if (geo.rail) pos = `left:${Math.round(at.right != null ? at.right + 8 : geo.left + 106)}px;bottom:${Math.round(at.bottom != null ? window.innerHeight - at.bottom : 40)}px;transform:scale(1.15);transform-origin:left bottom`;
       else if (ic) pos = `left:${Math.round(at.cx || geo.left + geo.width / 2)}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px;transform:translateX(-50%)`;
       else pos = `right:${Math.round(Math.max(12, window.innerWidth - (at.right || geo.left + geo.width / 2 + 198) - 6))}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px`;
-      return `<div class="mbg" data-act="mclose" data-haptic="off"></div>
-        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''}" data-menu>
+      // bakteppet tar ikke imot trykk de første 300 ms (trykket som åpnet menyen skal ikke lukke den igjen)
+      const guard = Date.now() - (this._menuT || 0) < 300;
+      return `<div class="mbg" data-act="mclose" data-haptic="off" style="pointer-events:${guard ? 'none' : 'auto'}"></div>
+        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu>
           ${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
         </div></div>`;
     }
 
     render() {
       const c = this.config, N = norm(c);
+      this._syncGlass();
       this.s('zone.__msh_navbar'); // fast avhengighet: rendres kun når badge-entiteter endres
       const R = this._dash(), rail = this._wide(R.width);
       const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: rail ? this._zoom(R.width) : 1 };
@@ -496,17 +551,19 @@
         const id = el.dataset.id;
         if (id === '__more') {
           if (this._inline) return;
+          if (this.ui.menu) return this._closeMenu();
           const r = el.getBoundingClientRect(), nav = el.closest('nav'), nr = nav ? nav.getBoundingClientRect() : r;
-          return this.setUI({ menu: !this.ui.menu, compact: false, menuAt: { cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom } });
+          return this._openMenu({ cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom });
         }
-        this.setUI({ menu: false, compact: false });
+        this._closeMenu(true);
+        this.setUI({ compact: false });
         const b = N.B[id] || {};
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
         if (h) M.openPopup(h);
         return;
       }
-      if (name === 'mclose') return this.setUI({ menu: false });
+      if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
         if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
@@ -515,6 +572,36 @@
         return;
       }
       return super.onAction(name, el, ev);
+    }
+
+    // «Mer»-menyen (Fiks 3 · 8): åpnes på click (portalens klikk-lytter stopper propagering), eksplisitt open/close.
+    // Lukke-lytteren kobles på i neste frame og ignorerer alt de første 300 ms; utenfor = composedPath uten menyen/knappen.
+    _openMenu(at) {
+      this._menuT = Date.now();
+      this.setUI({ menu: true, compact: false, menuAt: at });
+      setTimeout(() => { if (this.ui.menu) this._schedule(true); }, 320); // slipp bakteppets pointer-events-vern
+      if (!this._outside) {
+        this._outside = (e) => {
+          if (!this.ui.menu) { window.removeEventListener('click', this._outside, true); return; }
+          if (Date.now() - (this._menuT || 0) < 300) return;
+          const sr = this._portal && this._portal.shadowRoot, path = e.composedPath();
+          if (sr && path.some((n) => n.nodeType === 1 && (n.hasAttribute('data-menu') || n.dataset.id === '__more' || n.classList.contains('mbg')))) return; // egne handlere
+          this._closeMenu();
+        };
+      }
+      requestAnimationFrame(() => { if (this.ui.menu) window.addEventListener('click', this._outside, true); });
+    }
+    _closeMenu(silent) {
+      if (this._outside) window.removeEventListener('click', this._outside, true);
+      if (this.ui.menu) this.setUI({ menu: false });
+      return silent;
+    }
+    // Liquid glass-flagget for resten av dashbordet (MSH.glassOn): speiler navbarens config til <html data-ki-glass>
+    _syncGlass() {
+      const g = this.config && this.config.style === 'glass' ? '1' : '0', ds = document.documentElement.dataset;
+      if (ds.kiGlass === g) return;
+      ds.kiGlass = g;
+      window.dispatchEvent(new CustomEvent('ki-glass-change', { detail: { glass: g === '1' } }));
     }
 
     // Handlinger for egne knapper (autokonfig: første lås/alarm/garasjeport/TV/støvsuger).
@@ -626,6 +713,14 @@
     .pft{display:flex;align-items:center;justify-content:space-between;width:100%;gap:6px}
     .pft .x{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0}
     .pft .x b{font-size:15px;font-weight:600} .pft .x i{font-style:normal;font-size:12px;color:#979797}
+    /* Liquid glass (glassark, se 01-editor): rader/grupper = glassSurface('row'), spor/felt rgba(0,0,0,.25), aktivt segment = glassboble */
+    :host([glass]) .nrow,:host([glass]) .ned,:host([glass]) .tg,:host([glass]) .prof,:host([glass]) .rule,:host([glass]) .rsb{${M.glassSurface('row')}}
+    :host([glass]) .prof.on{box-shadow:inset 0 0 0 2px ${C.pink}}
+    :host([glass]) .seg,:host([glass]) .wseg,:host([glass]) .ud,:host([glass]) .i44,:host([glass]) .icp,:host([glass]) .epk,:host([glass]) .i34,:host([glass]) .i36,:host([glass]) .s44,:host([glass]) .st,:host([glass]) .rule .inp{background:rgba(0,0,0,0.25)}
+    :host([glass]) .seg,:host([glass]) .wseg{touch-action:pan-y}
+    :host([glass]) .seg button.on,:host([glass]) .wseg button.on{${M.GLASS_BUBBLE}}
+    :host([glass]) .seg button,:host([glass]) .wseg button,:host([glass]) .gt,:host([glass]) .cap,:host([glass]) .pft .x i{color:rgba(255,255,255,0.62)}
+    :host([glass]) .chp:not(.on),:host([glass]) .trk:not(.on){background:rgba(255,255,255,0.14)}
   `;
 
   class NavEditor extends Base {
@@ -694,6 +789,7 @@
           </div>`;
         }).join('');
         const tgt = [['', 'Ingen'], ...POPS.map(([k, , l]) => ['#' + k, l]), ...M.areas(h).map((a) => ['#' + a.id, a.name]), ...M.all(h, 'person').map((p) => ['#person-' + p.split('.')[1], 'Person · ' + M.name(h, p)])];
+        (M.popupOptions ? M.popupOptions(h) : []).forEach((o) => { if (!tgt.some((t) => t[0] === o[0])) tgt.push(o); }); // egne popups
         const curH = hashOf(N, id);
         if (curH && !tgt.some((t) => t[0] === curH)) tgt.push([curH, curH]);
         const acts = [...ACTS.map(([k, , l]) => [k, l]), ...M.areas(h).map((a) => ['light:' + a.id, 'Lys ' + a.name])];
