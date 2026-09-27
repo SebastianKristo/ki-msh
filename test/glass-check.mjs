@@ -26,7 +26,6 @@ const ok = (name, cond, info) => { res.push(`${cond ? '✔' : '✘'} ${name}${in
 
 const page = await browser.newPage({ viewport: { width: 390, height: 600 }, hasTouch: true, isMobile: true });
 const errs = []; page.on('pageerror', (e) => errs.push(e.message));
-if (process.env.GDBG) { page.on('console', (m) => console.log('C', m.text())); await page.addInitScript(() => { for (const k of ['back', 'go', 'pushState', 'replaceState']) { const o = history[k].bind(history); history[k] = (...a) => { console.log('H', k, JSON.stringify(a).slice(0, 80), new Error().stack.split('\n').slice(2, 5).join(' ')); return o(...a); }; } window.addEventListener('touchend', (e) => console.log('TEND', e.changedTouches[0].clientX, e.changedTouches[0].clientY), true); window.addEventListener('click', (e) => console.log('CLICK', e.isTrusted, e.clientX, e.clientY, e.composedPath().slice(0, 12).map((n) => (n.tagName || n.nodeName || '') + '.' + ((n.className && n.className.baseVal == null ? n.className : '') + '').slice(0, 30)).join(' > ')), true); window.addEventListener('beforeunload', () => console.log('UNLOAD', new Error().stack)); }); }
 await page.goto('file://' + R + 'test/harness-bubble.html');
 for (const m of mocks) await page.addScriptTag({ path: m });
 await page.addScriptTag({ path: bundle });
@@ -105,7 +104,6 @@ async function run(name, act, to, scrollBottom, shift) {
 }
 
 ok('popup #media åpen', await popOpen());
-if (process.env.GDBG) { page.on('framenavigated', (f) => console.log('NAV', f.url())); page.on('console', (m) => console.log('C', m.text())); }
 // Første bytte: innholdet har ulik høyde (TV med fjernkontroll ≈ 100 px høyere enn Musikk med transport)
 const first = (await run('trykk TV→Musikk', () => tap('musikk'), 'musikk')).info;
 const hInfo = [];
@@ -160,7 +158,7 @@ const gc = async (name, id, act, to) => {
   await wait(200);
   const sp = page.evaluate((id) => new Promise((res) => {
     const out = [], t0 = performance.now(), w = deep('#' + id);
-    const f = () => { const t = performance.now() - t0; out.push({ t: Math.round(t), lens: lenses(), btns: [...w.querySelectorAll('button')].map((b) => rectOf(b)) }); if (t < 1000) requestAnimationFrame(f); else res(out); };
+    const f = () => { const t = performance.now() - t0; out.push({ t: Math.round(t), lens: lenses(), btns: [...w.querySelectorAll('button')].map((b) => rectOf(b)) }); if (t < 1700) requestAnimationFrame(f); else res(out); };
     requestAnimationFrame(f);
   }), id);
   page.evaluate(() => setTimeout(() => { deepAll('.bubble-pop-up-container').forEach((c) => { c.style.overflowAnchor = 'none'; }); const hc = card().closest('hui-card') || card(); const s = document.createElement('div'); s.className = 'gc-shift'; s.style.height = '64px'; const w = deep('#gc-gd'); w.parentNode.insertBefore(s, w); }, 150));

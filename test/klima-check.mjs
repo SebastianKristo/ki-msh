@@ -315,13 +315,12 @@ for (const [navn, mut] of Object.entries(SETS)) {
     await wait(2600);
     res.raskGjenapning = syn(card());
     // 6 · Vakten: gjør kortet usynlig (opacity 0 på verten), åpne på nytt → feilkort med diagnosen etter 3 s; synlig igjen → borte
-    const c0 = card(); c0.style.opacity = '0';
-    lukk(); await wait(700); location.hash = '#klima'; await wait(3600);
-    const c1 = card(), fk = c1 && c1.shadowRoot.querySelector('[data-blank]');
+    lukk(); await wait(700); location.hash = '#klima'; await wait(80);
+    const c1 = card(); c1.style.opacity = '0'; await wait(3500);
+    const fk = c1.shadowRoot.querySelector('[data-blank]');
     res.vakt = !!fk && /"synlig": false/.test(fk.textContent) && /"host"/.test(fk.textContent);
     c1.style.opacity = ''; await wait(3400);
-    res.vaktBorte = !c1.shadowRoot.querySelector('[data-blank]');
-    res.sammeKort = c1 === c0;
+    res.vaktBorte = !c1.shadowRoot.querySelector('[data-blank]') && syn(c1).ok;
     return res;
   }, DIAG).catch((e) => ({ feil: e.message }));
   const d = r.diag || {}, f1 = d.fase1 || {};

@@ -16,7 +16,7 @@
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
   const GREEN = C.green, ORANGE = C.orange, RED = C.red;
-  const AUTO_RX = /auto.?re?lock|autol[aå]s|auto.?l[aå]s|relock/i;
+  const AUTO_RX = /auto.?(re)?lock|autol[aå]s|auto.?l[aå]s|relock/i;
   const LOCK_RX = /l[aå]s|lock/i;
   const AWAY_RX = /borte|away|alle.?dra|leav|ingen.?hjemme|nobody/i;
   const NIGHT_RX = /natt|night|kveld|bedtime|leggetid/i;
@@ -189,7 +189,11 @@
     }
     get cardSize() { return 8; }
     customize(focus, opts) { return super.customize(focus, { title: 'Tilpass dørlås', ...(opts || {}) }); }
-    onOpen() { this._loadLog(); }
+    onOpen() {
+      // Åpnet fra en Dørlås-flis på Hjem (hold på ikonet): vis den låsen
+      if (M.lasPick) { const id = M.lasPick; M.lasPick = null; if (M.lasAuto(this.hass, this.config).locks.includes(id) && id !== this.ui.sel) this.setUI({ sel: id }); }
+      this._loadLog();
+    }
     onClose() { this._stopHold(); }
     _toast(t) { if (this.config.toasts !== false) M.toast(t); }
     _cur(A) { const L = A.locks; if (!L.length) return null; const i = L.indexOf(this.ui.sel); return L[i >= 0 ? i : 0]; }

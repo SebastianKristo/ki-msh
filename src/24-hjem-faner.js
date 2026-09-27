@@ -750,6 +750,7 @@
       if (a.action === 'toggle') { if (t.ic) return t.ic(); if (ent) M.toggle(this.hass, ent); return; }
       if (a.action === 'more-info') { const e = a.entity || ent; if (e) M.moreInfo(this, e); return; }
       if (a.action === 'navigate' && /^#/.test(a.navigation_path) && !this._hasPopup(a.navigation_path)) { if (ent) M.moreInfo(this, ent); return; }
+      if (a.action === 'navigate' && a.navigation_path === '#dorlas' && ent && /^lock\./.test(ent)) M.lasPick = ent; // popupen viser låsen på flisen
       if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
       if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }

@@ -15,6 +15,7 @@
     "hold": "node test/hold-check.mjs",
     "draft": "node test/draft-check.mjs",
     "icons": "node test/icon-tap-check.mjs",
+    "glass": "node test/glass-check.mjs",
     "templates": "node test/templates-check.mjs"
   },
   "license": "Apache-2.0"

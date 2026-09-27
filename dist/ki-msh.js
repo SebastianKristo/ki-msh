@@ -7729,8 +7729,10 @@ try {
       const l = s0.lens, ok = s0.hit && e.type === 'pointerup';
       if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
       l.style.transition += ', opacity .22s';
-      l.style.opacity = '0'; l.style.transform = 'scale(1)';
-      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, 220);
+      // Slipp: snap til knappen først, tones ut når den har satt seg (ellers forsvinner den midt i glidningen, Fiks 16.10)
+      l.style.transform = 'scale(1)';
+      setTimeout(() => { l.style.opacity = '0'; }, ok ? 160 : 0);
+      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, ok ? 380 : 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
@@ -12248,6 +12250,7 @@ try {
       if (a.action === 'toggle') { if (t.ic) return t.ic(); if (ent) M.toggle(this.hass, ent); return; }
       if (a.action === 'more-info') { const e = a.entity || ent; if (e) M.moreInfo(this, e); return; }
       if (a.action === 'navigate' && /^#/.test(a.navigation_path) && !this._hasPopup(a.navigation_path)) { if (ent) M.moreInfo(this, ent); return; }
+      if (a.action === 'navigate' && a.navigation_path === '#dorlas' && ent && /^lock\./.test(ent)) M.lasPick = ent; // popupen viser låsen på flisen
       if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
       if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }
@@ -26580,7 +26583,7 @@ try {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
   const GREEN = C.green, ORANGE = C.orange, RED = C.red;
-  const AUTO_RX = /auto.?re?lock|autol[aå]s|auto.?l[aå]s|relock/i;
+  const AUTO_RX = /auto.?(re)?lock|autol[aå]s|auto.?l[aå]s|relock/i;
   const LOCK_RX = /l[aå]s|lock/i;
   const AWAY_RX = /borte|away|alle.?dra|leav|ingen.?hjemme|nobody/i;
   const NIGHT_RX = /natt|night|kveld|bedtime|leggetid/i;
@@ -26753,7 +26756,11 @@ try {
     }
     get cardSize() { return 8; }
     customize(focus, opts) { return super.customize(focus, { title: 'Tilpass dørlås', ...(opts || {}) }); }
-    onOpen() { this._loadLog(); }
+    onOpen() {
+      // Åpnet fra en Dørlås-flis på Hjem (hold på ikonet): vis den låsen
+      if (M.lasPick) { const id = M.lasPick; M.lasPick = null; if (M.lasAuto(this.hass, this.config).locks.includes(id) && id !== this.ui.sel) this.setUI({ sel: id }); }
+      this._loadLog();
+    }
     onClose() { this._stopHold(); }
     _toast(t) { if (this.config.toasts !== false) M.toast(t); }
     _cur(A) { const L = A.locks; if (!L.length) return null; const i = L.indexOf(this.ui.sel); return L[i >= 0 ? i : 0]; }

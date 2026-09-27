@@ -294,7 +294,8 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     // Fiks 16.12 · malene er løst i strategien: ingen template: på button-card/decluttering-card i popupene
     const tplLeft = (v, out) => { out = out || []; if (!v || typeof v !== 'object') return out; if (Array.isArray(v)) { v.forEach((x) => tplLeft(x, out)); return out; } if (/^custom:(button-card|decluttering-card)$/.test(v.type || '') && 'template' in v) out.push(v.template); Object.values(v).forEach((x) => tplLeft(x, out)); return out; };
     const hadTpl = (h) => tplLeft(M.yaml.parse(docs[want.indexOf(h)].text)).length > 0;
-    I.malerLost = ['#server', '#rolf', '#tesla', '#vanning', '#stromregning'].every((h) => hadTpl(h) && byI(h).length === 1 && tplLeft(byI(h)[0]).length === 0)
+    // (#stromregning bruker ingen maler i fixturen – sjekkes likevel for rester)
+    I.malerLost = ['#server', '#rolf', '#tesla', '#vanning', '#stromregning'].every((h) => byI(h).length === 1 && tplLeft(byI(h)[0]).length === 0) && ['#server', '#rolf', '#tesla', '#vanning'].every(hadTpl)
       && JSON.stringify(byI('#server')[0]).includes('[[[') && (M.customPopupConfig(CP[1]).cfg.cards || []).length > 0 && tplLeft(M.customPopupConfig(CP[1]).cfg).length > 0;
     I.stackRekkefolge = pI.map((c) => c.hash).slice(-10).join() === want.join();
     I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && !byI('#settings')[0].cards.some((c) => c.type === 'custom:msh-settings-card') && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')

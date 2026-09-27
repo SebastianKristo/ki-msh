@@ -155,8 +155,10 @@
       const l = s0.lens, ok = s0.hit && e.type === 'pointerup';
       if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
       l.style.transition += ', opacity .22s';
-      l.style.opacity = '0'; l.style.transform = 'scale(1)';
-      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, 220);
+      // Slipp: snap til knappen først, tones ut når den har satt seg (ellers forsvinner den midt i glidningen, Fiks 16.10)
+      l.style.transform = 'scale(1)';
+      setTimeout(() => { l.style.opacity = '0'; }, ok ? 160 : 0);
+      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, ok ? 380 : 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
