@@ -533,8 +533,8 @@
       const key = `${t.id}-${slot}`, n = stR.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
       return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + x.k)}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
     }
-    // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 72 px / radius 36
-    // på samme element som bakgrunnen, ikon-sirkel 60/30, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
+    // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 64 px / radius 32 (Fiks 15.3)
+    // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
       const o = { background_color: null, text_color: 'var(--white, #fafafa)', icon_color: null, circle_color: null, style: '' };
       if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
@@ -690,7 +690,7 @@
       if (name === 'tile') return this._runTile(d.k, d.w);
       if (name === 'appl') { const A = this._appl(d.k, (this._E || {})[d.k]); if (A) this._applAct(A); return; }
       if (name === 'slide') { const x = this._slide(d.s, this._E || tileEnts(this.hass, this.config)); if (x.hash) return M.openPopup(x.hash); if (x.ent) return M.moreInfo(this, x.ent); return; }
-      if (M.romkortAction && M.romkortAction(this, name, el)) return;
+      if (M.romkortAction && M.romkortAction(this, name, el, ev)) return;
       return super.onAction(name, el, ev);
     }
     afterRender() {
@@ -765,7 +765,7 @@
         ${M.TAB_ROW_CSS || ''}
         .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
-        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
         .tab.on{color:var(--gray100,#2f2f2f)}
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
@@ -778,29 +778,31 @@
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
         .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
-        .tsw{width:100%;overflow:hidden;border-radius:36px;touch-action:pan-y}
+        .tsw{width:100%;overflow:hidden;border-radius:32px;touch-action:pan-y}
         ${M.UNIVERSAL_CSS || ''}
         .u-i[data-act]{cursor:pointer;transition:transform .2s,background .25s}
         .u-i[data-act]:active{transform:scale(.9)}
-        /* tileV (Hjem v2): pille med faste px – ikke tema-radius. Radius, bakgrunn og overflow på samme element. */
-        .u.ht{height:72px;padding:0 14px 0 6px;border-radius:36px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);grid-template-columns:60px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
+        /* tileV (Hjem v2 · Fiks 15.3 MySmartHome): pille 64 px høy, ikon-sirkel 56, 4 px til venstre – faste px, ikke
+           tema-radius. Radius, bakgrunn og overflow på samme element. */
+        .u.ht{height:64px;padding:0 14px 0 4px;border-radius:32px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);grid-template-columns:56px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
         .u.ht[data-act]:active{transform:scale(.97)}
-        .u.ht .u-i{width:60px;height:60px;border-radius:30px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
+        .u.ht .u-i{width:56px;height:56px;border-radius:28px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
         .u.ht .u-l{align-self:end !important;font-size:15px;font-weight:500;line-height:1.25}
-        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,var(--gray600,#7f7f7f))}
+        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f)}
         .u.ht:not(:has(.u-n)){grid-template-rows:1fr !important}
         .u.ht:not(:has(.u-n)) .u-l{align-self:center !important}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
-        .dots{display:flex;gap:8px;height:14px;align-items:center}
-        .dots span{width:10px;height:10px;border-radius:6px;background:var(--gray400,#545454);transition:background .2s,width .2s,height .2s}
-        .dots span.on{width:12px;height:12px;background:var(--gray600,#7f7f7f)}
-        .tile{display:flex;align-items:center;gap:12px;height:72px;padding:0 14px 0 6px;border-radius:36px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
-        .tic{width:60px;height:60px;border-radius:30px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
+        /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
+        .dots{display:flex;gap:10px;height:14px;align-items:center}
+        .dots span{width:9px;height:9px;border-radius:6px;background:var(--gray300,#404040);transition:background .2s,width .2s,height .2s}
+        .dots span.on{width:12px;height:12px;background:var(--gray500,#696969)}
+        .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
+        .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
         .tt{font-size:15px;font-weight:500}
-        .ts{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ts{font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{flex:none;width:100%;height:220px;padding:18px;display:flex;flex-direction:column}
         .sl-top{font-size:15px;color:var(--gray800,#afafaf)}
         .sl-ti{font-size:30px;font-weight:300;letter-spacing:-0.01em;line-height:1.15;text-transform:uppercase}

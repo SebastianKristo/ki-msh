@@ -1,13 +1,13 @@
 /* KI MSH · «Tilpass Hjem» → Popups → Strømpris (fiks-4 punkt 5–6). Ark for den felles strømpris-kilden
  * (MSH.powerPrice, 15-strompris-kilde.js). Kobles inn i Popups-panelet (28-popup-editor.js) som visningen u.pv = 'strom'
  * via MSH.powerPricePanel { render, act, input, after }.
- *   Profil (glass-segment) Norge · Sverige
+ *   Profil (segment, glass-dra alltid) Norge · Sverige
  *   Norge:   kilde (Nord Pool · Tibber · Strømpris · Egen sensor), spotpris-sensor (msh-entity-picker, forslag for kilde/område),
  *            prisområde NO1–NO5, Norgespris-sensor + fast sats, nettleie-sensor (+ forhåndsvisning av nettleie i morgen),
  *            pris som vises (Spot · Totalpris m/ nettleie · Norgespris), enhet (kr/øre)
  *   Sverige: kilde (Nord Pool · Tibber · Egen), Nord Pool-sensor (SEK), elområde SE1–SE4, sensorens enhet (auto · öre · kr),
  *            nettleie, pris som vises (Spot · Totalpris) – alltid kr/kWh, ingen Norgespris
- *   Fane «I dag / I morgen»: Liquid glass · Standard, tekststørrelse 11–18, høyde 24–48, bredde 8–40 med live forhåndsvisning
+ *   Fane «I dag / I morgen»: Standard · Liquid glass (bare utseendet; glassflate kun med temaet, drag alltid), tekststørrelse 11–18, høyde 24–48, bredde 8–40 med live forhåndsvisning
  *   Statuslinje: «sensor.x · 24 timer i dag, 24 i morgen» / «Mangler i morgen-priser» / feil i rødt.
  * Lagres med MSH.store.set('power_price', …) – kortet, prosa-boblen og sliden oppdateres straks (store.subscribe).
  */
@@ -74,7 +74,8 @@
     .pwst.err{color:${C.red}}
     msh-entity-picker{display:block}
   `;
-  const seg = (f, opts, val, glass) => `<div class="pwseg ${glass ? 'gl' : ''}" ${glass ? 'data-glass-drag="x"' : ''} data-key="pwseg-${f}">${opts.map(([v, l]) => `<button class="${String(v) === String(val) ? 'on' : ''}" ${String(v) === String(val) ? 'aria-selected="true" data-active="1"' : ''} data-a="pwset" data-f="${f}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
+  // Segmenter (Fiks 15.2): Liquid Glass-drag alltid; glass-utseendet (.gl) bare med Liquid Glass-temaet (MSH.glassOn()).
+  const seg = (f, opts, val) => `<div class="pwseg ${M.glassOn && M.glassOn() ? 'gl' : ''}" data-glass-drag="x" data-key="pwseg-${f}">${opts.map(([v, l]) => `<button class="${String(v) === String(val) ? 'on' : ''}" ${String(v) === String(val) ? 'aria-selected="true" data-active="1"' : ''} data-a="pwset" data-f="${f}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
   const fmtNow = (hass, id) => (hass && hass.states[id] ? M.fmtState(hass, id) : '');
 
   function render(ed) {
@@ -95,10 +96,10 @@
     return `<div class="pw" data-key="pw"><style>${CSS}</style>
       <div class="pphd"><button class="b40" data-a="pwback" title="Tilbake">${ic('mdi:chevron-left', 18)}</button><span class="t">Strømpris</span></div>
       <span class="hint">Én felles kilde for strømpriskortet, prosa-boblen «Strømpris», strøm-sliden på Hjem og «billigst kl.» i Klima. Endringer vises straks.</span>
-      <div class="pwc" data-key="pw-prof"><div class="pwh">${ic('mdi:earth', 18)}Profil</div>${seg('profile', [['no', 'Norge'], ['se', 'Sverige']], c.profile, true)}</div>
+      <div class="pwc" data-key="pw-prof"><div class="pwh">${ic('mdi:earth', 18)}Profil</div>${seg('profile', [['no', 'Norge'], ['se', 'Sverige']], c.profile)}</div>
       <div class="pwc" data-key="pw-src">
         <div class="pwh">${ic('mdi:flash', 18)}${se ? 'Nord Pool-sensor (SEK)' : 'Spotpris'}<i>${esc(P.source ? (M.POWER_SOURCES.find((x) => x[0] === P.source) || [0, ''])[1] : '')}</i></div>
-        <span class="pwl">Kilde${c.source ? '' : ' · automatisk'}</span>${seg('source', srcOpts.map(([v, l]) => [v, v === 'custom' ? 'Egen' : l]), srcCur, true)}
+        <span class="pwl">Kilde${c.source ? '' : ' · automatisk'}</span>${seg('source', srcOpts.map(([v, l]) => [v, v === 'custom' ? 'Egen' : l]), srcCur)}
         <span class="pwl">${se ? 'Nord Pool-sensor (SEK)' : 'Prisentitet'}</span>
         ${M.entityPicker.html({ key: 'pk-pw-' + entF, value: entV, auto: autoId || '', autoMode: true, domains: 'sensor', placeholder: 'Velg pris-sensor …', attrs: `data-in="pwent" data-f="${entF}"` })}
         ${cand.length > 1 || (cand.length && entV && entV !== cand[0]) ? `<span class="pwl">Forslag${c.source && c.source !== 'custom' ? ' for ' + esc((srcOpts.find((x) => x[0] === c.source) || [0, ''])[1]) : ''}${c[areaF] ? ' · ' + esc(c[areaF]) : ''}</span>${sug(entF, cand)}` : ''}
@@ -126,7 +127,8 @@
       </div>
       <div class="pwc" data-key="pw-tab">
         <div class="pwh">${ic('mdi:tab', 18)}Fane «I dag / I morgen»</div>
-        ${seg('tab.style', [['glass', 'Liquid glass'], ['standard', 'Standard']], t.style, true)}
+        ${seg('tab.style', [['standard', 'Standard'], ['glass', 'Liquid glass']], t.style)}
+        <span class="hint">Stil styrer bare utseendet: Liquid glass-flaten vises bare med Liquid Glass-temaet. Dra-effekten (linse ved trykk og dra) er alltid på.</span>
         ${rng('font', 'Tekststørrelse', 11, 18)}${rng('height', 'Høyde', 24, 48)}${rng('padding', 'Bredde (sidemarg per knapp)', 8, 40)}
         <div class="pwprev" data-nomorph data-key="pw-prev"></div>
       </div>
@@ -144,7 +146,7 @@
     const s = sr.querySelector('.seg');
     if (s) {
       s.addEventListener('click', (e) => { const b = e.composedPath().find((n) => n.dataset && n.dataset.d); if (!b) return; M.haptic('selection'); ed.u.pwTmr = b.dataset.d === 'tomorrow'; paintPreview(ed, over); });
-      if (s.classList.contains('glass') && M.glassDrag) M.glassDrag(s, { axis: 'x' });
+      if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); // Liquid Glass-drag alltid (Fiks 15.2)
     }
   }
 
@@ -159,7 +161,7 @@
           save(ed, { [el.dataset.f]: (e.detail && e.detail.value) || undefined });
         });
       }
-      ed.root.querySelectorAll('.pwseg.gl').forEach((s) => { if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); });
+      ed.root.querySelectorAll('.pwseg').forEach((s) => { if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); });
       // Slidere: ikke la arket/Bubble scrolle eller lukke mens man drar (fallgruve 2)
       ed.root.querySelectorAll('.pwrg input[type=range]').forEach((r) => {
         if (r.__pwG) return;

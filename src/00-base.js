@@ -1030,7 +1030,7 @@
       if (!config) throw new Error('Mangler config');
       const prevId = this._rawConfig && this._rawConfig.card_id;
       if (config.__eff) { const { __eff, ...c } = config; config = c; } // live-utkast fra editoren
-      else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
+      else { this._yamlConfig = config; try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
@@ -1088,13 +1088,15 @@
       window.removeEventListener('location-changed', this._onHash);
       // Bubble Card tar innholdet ut av DOM-en når popupen lukkes – neste åpning skal gi onOpen igjen
       this._open = false;
-      this.onClose && this.onClose();
+      this._safeCall('onClose');
     }
+    // onOpen/onClose vernet: en feil her skal ikke stoppe åpningen (fiks 15.1)
+    _safeCall(fn) { try { if (this[fn]) this[fn](); } catch (e) { console.error(this.localName, e); } }
     _checkOpen() {
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
-      if (open && !this._open) { this._open = true; this.onOpen && this.onOpen(); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
-      else if (!open && this._open) { this._open = false; this.onClose && this.onClose(); }
+      if (open && !this._open) { this._open = true; this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
+      else if (!open && this._open) { this._open = false; this._safeCall('onClose'); }
     }
     get isOpen() { return !!this._open; }
     _schedule(force) {
@@ -1126,23 +1128,54 @@
       if (this._pickerFocus || (MSH.pickerBusy && MSH.pickerBusy(this.shadowRoot))) { this._force = true; return; }
       this._force = false;
       this._deps = new Set();
-      let body;
-      try { body = this.render(); } catch (e) { console.error('[ki-msh]', this.localName, e); body = `<div class="empty">Feil i kortet: ${MSH.esc(e.message)}</div>`; }
+      // Fiks 15.1: ALT i tegningen (render, styles, morph, hero, afterRender) er vernet – en feil gir et synlig
+      // feilkort («Klima-kortet feilet: …») i stedet for tom flate, og logges med console.error(<tag>, e).
+      let body, css = '';
+      try { body = this.render(); } catch (e) { body = this._failHTML(e); }
+      try { css = this.styles || ''; } catch (e) { body = this._failHTML(e) + body; }
       const gap = this._config.gap != null ? Number(this._config.gap) : null;
       const heroTag = MSH.HEROES[this.localName];
       const slot = heroTag ? '<div class="msh-hero-slot" data-nomorph></div>' : '';
-      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}${this.styles || ''}</style><ha-card>${slot}${body}</ha-card>`;
-      if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
+      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}.msh-fail{color:var(--red,#f28073);text-align:left;align-items:flex-start}${css}</style><ha-card>${slot}${body}</ha-card>`;
+      try {
+        this.shadowRoot.querySelectorAll('ha-card > .msh-fail[data-post]').forEach((x) => x.remove()); // feilkort fra forrige runde
+        if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
+      } catch (e) { console.error(this.localName, e); this.shadowRoot.innerHTML = html; this._firstRender = true; }
       if (gap != null) this.style.setProperty('--msh-gap', gap + 'px');
-      if (heroTag) this._mountHero(heroTag);
-      this.afterRender && this.afterRender();
-      if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
-      this._guardScrollers();
+      try { if (heroTag) this._mountHero(heroTag); } catch (e) { this._showFail(e); }
+      try { if (this.afterRender) this.afterRender(); } catch (e) { this._showFail(e); }
+      try {
+        if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
+        this._guardScrollers();
+      } catch (e) { console.error(this.localName, e); }
+    }
+    // Synlig feilkort: «<Kortnavn>-kortet feilet: <melding>» (aldri tom popup)
+    _failHTML(e) {
+      console.error(this.localName, e);
+      const name = this.constructor.cardName || this.localName;
+      return `<div class="empty msh-fail" role="alert">${MSH.icon('mdi:alert-circle-outline', 22)}<span>${MSH.esc(name)}-kortet feilet: ${MSH.esc((e && e.message) || String(e))}</span></div>`;
+    }
+    // Feil etter at innholdet er tegnet (hero, afterRender): legg feilkortet øverst i kortet (fjernes ved neste morph)
+    _showFail(e) {
+      const card = this.shadowRoot.querySelector('ha-card');
+      if (!card) { this.shadowRoot.innerHTML = `<style>${MSH.BASE_CSS}</style><ha-card>${this._failHTML(e)}</ha-card>`; return; }
+      const old = card.querySelector(':scope > .msh-fail[data-post]');
+      const t = document.createElement('template');
+      t.innerHTML = this._failHTML(e);
+      const el = t.content.firstElementChild;
+      el.setAttribute('data-post', '');
+      if (old) old.replaceWith(el); else card.prepend(el);
     }
     // Toppkort (hero) bygget inn som første seksjon i hovedkortet – ett kort per popup.
     _mountHero(tag) {
       const slot = this.shadowRoot.querySelector('.msh-hero-slot');
-      if (!slot || !customElements.get(tag)) return;
+      if (!slot) return;
+      if (!customElements.get(tag)) {
+        // Toppkortet skal aldri forsvinne stille: vis plassholder til elementet er registrert
+        if (!slot.firstChild) slot.innerHTML = `<div class="empty">${MSH.icon('mdi:timer-sand', 22)}<span>Toppkortet (${MSH.esc(tag)}) lastes …</span></div>`;
+        if (!this._heroWait) { this._heroWait = true; customElements.whenDefined(tag).then(() => { this._heroWait = false; slot.innerHTML = ''; this.update(); }); }
+        return;
+      }
       if (!this._heroEl) { this._heroEl = document.createElement(tag); this._heroEl._host = this; }
       const raw = this._rawConfig || {};
       if (this._heroSrc !== raw) {
@@ -1170,10 +1203,12 @@
       if (last === this) { this.style.paddingBottom = MSH.popupBottomPad(bot); this.style.marginBottom = ''; }
       if (first === this) {
         this.style.marginTop = '';
-        const root = cont.getRootNode && cont.getRootNode();
-        const hdr = root && root.querySelector && root.querySelector('.bubble-header-container');
-        const fr = this.getBoundingClientRect();
-        if (hdr && fr.height) this.style.marginTop = (top - (fr.top - hdr.getBoundingClientRect().bottom)) + 'px';
+        // Headeren i DENNE popupen (ikke første popup i samme rot – da havner kortet utenfor synsfeltet)
+        const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
+        const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
+        const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
+        const mt = hr && hr.height ? top - (fr.top - hr.bottom) : null;
+        if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
       }
     }
     // Vannrett scrollbare lister (karuseller, chip-rader): stopp sveip mot Bubble Cards swipe-to-close.

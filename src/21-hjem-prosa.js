@@ -6,12 +6,12 @@
  * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, act, link, cop/csrc/cval (betingelse),
  *   ent (entitet for src 'custom', påkrevd), ent_override (overstyr entiteten til en fast kilde, tom = automatisk),
  *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
- *   prose_font_size (em av kortets 14 px, 1,4–2,8, standard 2,15 ≈ 30 px – MySmartHome-størrelsen på mobil; følger
- *   HA-temaets --ha-font-size-m), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
+ *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
+ *   med kortet som container – MySmartHome), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
- * Utseende (Fiks 13 · MySmartHome): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst (≈ 0,82 × linjehøyden),
- * #fafafa/#2f2f2f/600, pris-prikk med glød, &nbsp; mot foreldreløse korte ord, tegnsetting limt til pillen.
- * Høyde: 2,15em × 1,55 av 14 px ≈ 46,6 px per linje, padding 4px 0 12px 0 → linjer × 46,6 + 16.
+ * Utseende (Fiks 15.3 · MySmartHome, overstyrer Fiks 13): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst,
+ * #fafafa/#2f2f2f/600, pris-prikk med glød. Teksten flyter naturlig (ingen &nbsp;/text-wrap), kun tegnsetting rett
+ * etter en pille limes til pillen. Tall: «15.2°» (vær, som HA-tilstanden), «2395W», «1,16 kr»; lys-pillen ✨.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -20,15 +20,16 @@
   const SRC = [['none', 'Ingen boble'], ['text', 'Fast tekst'], ['weather', 'Vær'], ['temp', 'Ute-temp'], ['price', 'Strømpris'], ['watt', 'Effekt'], ['lights', 'Lys på'], ['events', 'Hendelser'], ['home', 'Hjemme'], ['lock', 'Dørlås'], ['alarm', 'Alarm'], ['trash', 'Søppel'], ['todo', 'Gjøremål'], ['custom', 'Egendefinert']];
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
-  const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
+  const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['✨', '✨'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
   const SIZE_FIELDS = [
-    { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.4, max: 2.8, step: 0.05, default: 2.15, unit: 'em', help: 'Relativt til kortets 14 px · standard 2,15 em ≈ 30 px', presets: [[1.8, 'Liten 1,8'], [2.15, 'Standard 2,15'], [2.5, 'Stor 2,5']] },
+    { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.4, max: 2.8, step: 0.05, unit: 'em', help: 'Auto = tilpasses kortets bredde (22–34 px, som MySmartHome) · ellers em av kortets 14 px', presets: [['', 'Auto'], [1.8, 'Liten 1,8'], [2.15, 'Middels 2,15'], [2.5, 'Stor 2,5']] },
     { type: 'range', name: 'prose_line_height', label: 'Linjehøyde', icon: 'mdi:format-line-spacing', min: 1.3, max: 2, step: 0.05, default: 1.55, unit: 'em', help: 'Ganger tekststørrelsen · standard 1,55 (≈ 46,6 px per linje)', presets: [[1.4, 'Tett 1,4'], [1.55, 'Standard 1,55'], [1.75, 'Luftig 1,75']] },
   ];
   function textSizeOf(c) {
     const n = (v, d, lo, hi) => { const x = Number(v); return v == null || v === '' || isNaN(x) ? d : M.clamp(x, lo, hi); };
     const [F, L] = SIZE_FIELDS;
-    return { fs: n(c && c.prose_font_size, F.default, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
+    // fs = null → automatisk størrelse etter kortets bredde (PROSA_AUTO_FS)
+    return { fs: n(c && c.prose_font_size, null, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
   }
   const PCOL = { hvit: '#fafafa', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
@@ -37,6 +38,16 @@
   // Faste kilder som kan pekes til en annen entitet (prose[].ent_override)
   const FIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo'];
   const nb = (n, d) => M.nf(n, d);
+  // Tallformat som MySmartHome (Fiks 15.3): vær/ute-temp med én desimal og punktum som HA-tilstanden («15.2°»),
+  // effekt uten mellomrom/tusenskille («2395W»), pris med komma («1,16 kr», MSH.powerPrice.fmt).
+  const deg = (v) => `${Number(v).toFixed(1)}°`;
+  // Værtilstanden oversatt av HA selv (hass.formatEntityState → «Overskyet»); uoversatt (rå tilstand) → egen tabell.
+  const condOf = (h, w) => {
+    let t = '';
+    if (h && h.formatEntityState) { try { t = String(h.formatEntityState(w) || ''); } catch (e) { t = ''; } }
+    if (!t || t === w.state) t = M.hjemCond(w.state);
+    return t.toLowerCase();
+  };
   const pnum = (v) => parseFloat(String(v == null ? '' : v).replace(',', '.'));
 
   // Kalenderhendelser i dag (hentes sjelden, deles mellom kort).
@@ -82,11 +93,11 @@
     const w = E.weather && rd(E.weather);
     if (w && !M.unavailable(w)) {
       const t = w.attributes.temperature;
-      S.weather = [`${M.hjemCond(w.state).toLowerCase()}${t != null ? ' og ' + nb(Number(t), 1) + '°' : ''}`, t != null ? Number(t) : null, null, E.weather];
+      S.weather = [`${condOf(h, w)}${t != null && M.isNum(t) ? ' og ' + deg(t) : ''}`, t != null ? Number(t) : null, null, E.weather];
     }
     const ts = E.temp && rd(E.temp);
-    if (ts && M.isNum(ts.state)) S.temp = [`${nb(Number(ts.state), 1)}°`, Number(ts.state), null, E.temp];
-    else if (w && w.attributes.temperature != null) S.temp = [`${nb(Number(w.attributes.temperature), 1)}°`, Number(w.attributes.temperature), null, E.weather];
+    if (ts && M.isNum(ts.state)) S.temp = [deg(ts.state), Number(ts.state), null, E.temp];
+    else if (w && M.isNum(w.attributes.temperature)) S.temp = [deg(w.attributes.temperature), Number(w.attributes.temperature), null, E.weather];
     const p = E.price && rd(E.price);
     if (p && M.isNum(p.state)) {
       // Pris som vises / enhet / SEK→kr fra power_price; egen entitet i boblen (overrides.price / ent_override) overstyrer bare sensoren
@@ -96,14 +107,14 @@
       if (v != null) S.price = [P ? P.fmt(v) : `${nb(v, 2)} kr`, v, lvlP(v), E.price];
     }
     const wt = E.watt && rd(E.watt);
-    if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${nb(v, 0)} W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
+    if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${Math.round(v)}W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
     const ls = E.lights && rd(E.lights);
     if (ls && M.isNum(ls.state)) { const v = Number(ls.state); S.lights = [`${v} lys`, v, C.orange, E.lights]; }
     else {
       const all = M.all(h, 'light');
       if (all.length) { const v = all.filter((id) => { const s = rd(id); return s && s.state === 'on'; }).length; S.lights = [`${v} lys`, v, C.orange, null]; }
     }
-    if (E.calendars.length) { const n = EV.n; S.events = [n == null ? '– hendelser' : `${n} ${n === 1 ? 'hendelse' : 'hendelser'}`, n, C.blue, E.calendars[0]]; }
+    if (E.calendars.length) { const n = EV.n; S.events = [n == null ? '– hendelser' : n === 0 ? 'ingen hendelser' : `${n} ${n === 1 ? 'hendelse' : 'hendelser'}`, n, C.blue, E.calendars[0]]; }
     if (E.persons.length) { const n = E.persons.filter((id) => { const s = rd(id); return s && s.state === 'home'; }).length; S.home = [`${n} hjemme`, n, C.green, E.persons[0]]; }
     const lk = E.lock && rd(E.lock);
     if (lk) { const L = lk.state === 'locked'; S.lock = [L ? 'låst' : lk.state === 'jammed' ? 'fastlåst' : M.unavailable(lk) ? '–' : 'ulåst', L ? 1 : 0, L ? C.green : C.orange, E.lock]; }
@@ -153,13 +164,13 @@
     const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', link: '', cop: 'alltid', ...(extra || {}) });
     if (S.weather) row('p1', 'Ute er det', 'weather', '.', { link: '#vaer' });
     const P = !!S.price, W = !!S.watt, L = !!S.lights;
-    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
+    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
     else if (P && W) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', '.'); }
-    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
-    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
+    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
+    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
     else if (P) row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' });
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
-    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '💡', link: '#lys' });
+    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', link: '#lys' });
     if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', act: 'more' });
     return out;
   }
@@ -203,133 +214,30 @@
   }
 
   const chipHTML = (v) => `${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
-  // Hele prosaen som én flytende tekst. Ord og piller er «atomer»; mellom dem settes vanlig mellomrom eller &nbsp;:
-  //  · korte ord (≤ 3 bokstaver, uten sluttegn) bindes til neste atom («det&nbsp;[pille]», «i&nbsp;dag.», «Vi&nbsp;har»)
-  //  · ord på 1–2 bokstaver rett etter en pille bindes til pillen («[pille]&nbsp;i&nbsp;dag.»)
-  //  · siste ord i en setning (≤ 4 bokstaver, «dag.», «på.») og siste ord i prosaen bindes til forrige; slutter prosaen
-  //    med bare korte ord («i dag.»), bindes de til ordet foran («kalenderen&nbsp;i&nbsp;dag.»)
-  //  · kort setningsstart (1–2 bokstaver) bindes til forrige setning («på.&nbsp;Vi&nbsp;har»)
-  //  · én pille per bundet gruppe (en binding som ville slått sammen to piller droppes)
-  //  · tegnsetting rett etter en pille limes til pillen (ingen «.» alene på neste linje).
-  // Chromium bryter linjen ved &nbsp; inntil en inline-flex-pille, så bundne grupper med pille pakkes i én nowrap-bit
-  // (.pzg). Blir en slik gruppe bredere enn kortet, deles den i fitProsa (ingen horisontal overflyt).
-  // Tallformatet røres ikke (verdiene kommer ferdig formatert, norsk).
-  const letters = (w) => w.replace(/[^\p{L}\p{N}]/gu, '').length;
-  const ends = (w) => /[.!?…]["»)\]]*$/.test(w);
+  // Hele prosaen som én flytende tekst (MySmartHome): ord og piller skilles med vanlige mellomrom og brytes naturlig –
+  // ingen &nbsp;-binding eller text-wrap: pretty/balance (Fiks 15.3). Eneste unntak: tegnsetting rett etter en pille
+  // limes til pillen (nowrap-bit .pzg), så «.» aldri havner alene på neste linje.
   function prosaHTML(vis, pill) {
-    const A = []; // { w } ord · { p } pille-HTML
-    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push({ w }));
+    const A = [];
+    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push(esc(w)));
     vis.forEach((v) => {
       words(v.pre);
       let post = String(v.post || '').trim();
       if (v.hasChip) {
         const m = /^[.,!?:;…»)\]]+/.exec(post), pu = m ? m[0] : '';
         if (pu) post = post.slice(pu.length);
-        A.push({ p: `${pill(v)}${pu ? esc(pu) : ''}`, end: /[.!?…]/.test(pu) });
+        A.push(pu ? `<span class="pzg">${pill(v)}${esc(pu)}</span>` : pill(v));
       }
       words(post);
     });
-    const sh = (a, n) => !!a && !!a.w && letters(a.w) > 0 && letters(a.w) <= n && !ends(a.w);
-    // bind[i] = atom i henger sammen med atom i-1
-    const bind = A.map((a, i) => {
-      if (!i) return false;
-      const b = A[i - 1];
-      if (sh(b, 3)) return true;
-      if (b.p && !b.end && sh(a, 2)) return true;
-      if (a.w && ends(a.w) && letters(a.w) <= 4 && !b.end && !(b.w && ends(b.w))) return true;
-      if (sh(a, 2) && (b.end || (b.w && ends(b.w)))) return true; // «på.&nbsp;Vi»
-      return i === A.length - 1 && !!a.w;
-    });
-    // Slutten av prosaen: består siste bundne kjede bare av korte ord («i dag.»), bindes den også til ordet foran
-    let k = A.length - 1;
-    while (k > 0 && bind[k]) k--;
-    if (k > 0 && A.slice(k).every((a) => a.w && letters(a.w) <= 4)) bind[k] = true;
-    // Én pille per gruppe: en binding som ville slått sammen to piller droppes («på.&nbsp;Vi&nbsp;har [pille]» brytes før pillen)
-    const groups = [];
-    A.forEach((a, i) => { const g = groups[groups.length - 1]; if (bind[i] && !(a.p && g.some((x) => x.p))) g.push(a); else groups.push([a]); });
-    return groups.map((g) => {
-      if (!g.some((a) => a.p)) return g.map((a) => esc(a.w)).join('&nbsp;');
-      return `<span class="pzg">${g.map((a) => a.p || `<span class="pzw">${esc(a.w)}</span>`).join('<span class="pzs">&nbsp;</span>')}</span>`;
-    }).join(' ');
+    return A.join(' ');
   }
-  // Linjeanalyse av ferdig tegnet prosa → antall «foreldreløse» brudd (brukes av fitProsa for å velge beste deling):
-  // ett ord alene på en linje, linje som slutter/starter med et løst kort ord, eller &nbsp;-binding brutt over linjeskift.
-  function prosaScore(pz) {
-    const A = [];
-    let st = '';
-    const walk = (node) => node.childNodes.forEach((c) => {
-      if (c.nodeType === 3) {
-        const base = st.length; st += c.data;
-        const re = /[^\s ]+/g; let m;
-        while ((m = re.exec(c.data))) {
-          const prev = st[base + m.index - 1];
-          if (!/[\p{L}\p{N}]/u.test(m[0]) && A.length && prev === '\u0001') continue; // tegnsetting limt til pillen
-          const rg = document.createRange(); rg.setStart(c, m.index); rg.setEnd(c, m.index + m[0].length);
-          const r = rg.getClientRects()[0]; if (r) A.push({ y: r.top + r.height / 2, x: r.left, bp: prev === ' ', s: letters(m[0]) <= 3 });
-        }
-      } else if (c.nodeType === 1 && c.classList.contains('chip')) { const r = c.getBoundingClientRect(); A.push({ y: r.top + r.height / 2, x: r.left, bp: st.endsWith(' '), p: 1 }); st += '\u0001'; }
-      else if (c.nodeType === 1) walk(c);
-    });
-    walk(pz);
-    const lh = parseFloat(getComputedStyle(pz).lineHeight) || 40, L = [];
-    A.forEach((a, i) => { a.i = i; const l = L.find((x) => Math.abs(x.y - a.y) < lh / 2); if (l) l.a.push(a); else L.push({ y: a.y, a: [a] }); });
-    let bad = 0;
-    L.forEach((l, k) => {
-      const a = l.a.sort((u, v) => u.x - v.x), f = a[0], z = a[a.length - 1], nx = A[z.i + 1];
-      if (a.length === 1 && !f.p) bad++;
-      if (nx && nx.bp) bad += 3;
-      if (nx && a.length > 1 && z.s && !z.p && !z.bp) bad++;
-      if (k && a.length > 1 && f.s && !f.p && !a[1].bp) bad++;
-    });
-    return bad;
-  }
-  // Grupper med pille som er bredere enn prosaen (smal skjerm / stor tekst) deles: alle kombinasjoner av «slipp ordene
-  // før pillen fra skille i» × «slipp ordene etter pillen fra skille j» prøves, og den med færrest foreldreløse brudd
-  // (prosaScore) vinner. Ordene som slippes holder fortsatt sammen seg imellom (&nbsp;). Er pillen alene fortsatt for
-  // bred, får gruppen bryte fritt (ingen horisontal overflyt).
-  const isSep = (n) => n.nodeType === 1 && n.classList.contains('pzs');
-  const isPill = (n) => n.nodeType === 1 && !n.classList.contains('pzw') && !isSep(n);
-  function splitGroup(g, l, r) { // l/r = indeks for skillet til venstre/høyre for pillen (-1 = ikke del)
-    const kids = [...g.childNodes], pi = kids.findIndex(isPill);
-    const Ls = kids.slice(0, pi).filter(isSep), Rs = kids.slice(pi + 1).filter(isSep);
-    // kutt rett etter et kort ord som skulle bundet seg framover («i», «og») straffes – ordet blir hengende på linjeslutt
-    const loose = (sep) => { const w = sep && sep.previousSibling; return w && w.nodeType === 1 && w.classList.contains('pzw') && letters(w.textContent) <= 3 && !ends(w.textContent) ? (letters(w.textContent) <= 2 ? 2 : 1) : 0; }; // «i»/«er» verst
-    const pen = (r >= 0 ? loose(Rs[r]) : 0) + (l >= 0 ? loose(Ls[l]) : 0);
-    if (r >= 0 && Rs[r]) { const k = kids.indexOf(Rs[r]), out = kids.slice(k + 1); Rs[r].remove(); g.after(' ', ...out); }
-    if (l >= 0 && Ls[l]) { const k = kids.indexOf(Ls[l]), out = kids.slice(0, k); Ls[l].remove(); g.before(...out, ' '); }
-    return pen;
-  }
-  M.fitProsa = function (pz) {
-    if (!pz) return;
-    const W = pz.clientWidth;
-    if (!W) return;
-    const wide = (g) => g.getBoundingClientRect().width > W + 0.5;
-    const n = pz.querySelectorAll('.pzg').length;
-    for (let gi = 0; gi < n; gi++) {
-      let g = pz.querySelectorAll('.pzg')[gi];
-      g.classList.remove('wrap');
-      if (!wide(g)) continue;
-      const kids = [...g.childNodes], pi = kids.findIndex(isPill);
-      const nl = kids.slice(0, pi).filter(isSep).length, nr = kids.slice(pi + 1).filter(isSep).length;
-      const base = pz.innerHTML;
-      let best = null;
-      for (let l = -1; l < nl; l++) for (let r = -1; r < nr; r++) {
-        if (l < 0 && r < 0) continue;
-        pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
-        const pen = splitGroup(g, l, r);
-        if (wide(g)) continue;
-        const sc = (prosaScore(pz) + pen) * 100 + (l + 1) + (r < 0 ? 0 : nr - r);
-        if (!best || sc < best.sc) best = { l, r, sc };
-      }
-      pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
-      if (best) splitGroup(g, best.l, best.r);
-      else { splitGroup(g, nl - 1, 0); if (wide(g)) g.classList.add('wrap'); }
-    }
-  };
+  // Tidligere gruppedeling (Fiks 13) – ikke lenger nødvendig; beholdes som no-op for eldre kall.
+  M.fitProsa = function () {};
   M.prosaHTML = prosaHTML;
   // Samme utseende i kortet, i GUI-editorens forhåndsvisning og i «Tilpass Hjem» → Tekst (00-base legger font på :host).
   M.PROSA_CSS = `
-    .pz{margin:0;padding:4px 0 12px 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
+    .pz{margin:0;padding:4px 0 0 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
     /* Pille: 1,6em høy av 0,8em tekst (≈ 0,82 × linjehøyden 1,55) – endrer ikke linjerytmen */
     .pz .chip{display:inline-flex;align-items:center;gap:8px;height:1.6em;margin:0;padding:0 .55em;border:0;border-radius:999px;box-shadow:none;background:#fafafa;color:#2f2f2f;font:inherit;font-size:.8em;font-weight:600;line-height:1;letter-spacing:0;white-space:nowrap;vertical-align:.08em;font-variant-numeric:tabular-nums;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
     .pz .chip.press:active{transform:scale(.96)}
@@ -337,13 +245,14 @@
     .pz .chip .em{font-size:.9em;line-height:1;flex:none}
     .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
     .pz .pzg{white-space:nowrap}
-    .pz .pzw{white-space:nowrap}
-    .pz .pzg.wrap{white-space:normal}
   `;
-  const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs}em;line-height:${T.lh}`; };
+  // Standard: clamp(22px, 7,4cqi, 34px) – kortet (eller forhåndsvisningen) er container (container-type: inline-size)
+  const AUTO_FS = 'clamp(22px, 7.4cqi, 34px)';
+  M.PROSA_AUTO_FS = AUTO_FS;
+  const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px)}.xpz .pzg{white-space:normal}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -496,11 +405,6 @@
       }
       return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`)}</div>`;
     }
-    afterRender() {
-      M.fitProsa(this.shadowRoot.querySelector('.pz'));
-      // ny bredde → tegn på nytt (morph gjenoppretter gruppene) og del dem på nytt
-      if (!this._fro && window.ResizeObserver) { this._fw = this.clientWidth; this._fro = new ResizeObserver(() => { const w = this.clientWidth; if (w !== this._fw) { this._fw = w; this.update(); } }); this._fro.observe(this); }
-    }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
       if (name === 'chip') {
@@ -512,8 +416,8 @@
     }
     get styles() {
       return `
-        /* Grunnstørrelse = HA-kortets 14 px; teksten er 2,15em / 1,55 (MySmartHome), ingen margin på kortet */
-        :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
+        /* Grunnstørrelse = HA-kortets 14 px; kortet er container → prosaen clamp(22px, 7,4cqi, 34px) / 1,55 (MySmartHome) */
+        :host{display:flow-root;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}
         ${M.PROSA_CSS}
         .pick{vertical-align:baseline}
       `;

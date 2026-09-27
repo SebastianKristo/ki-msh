@@ -49,6 +49,33 @@
     try { Object.defineProperty(M, 'glassDrag', { configurable: true, enumerable: true, get: () => inner, set: (fn) => { inner = wrap(fn); } }); } catch (e) { /* */ }
   })();
 
+  // Liquid Glass-FLATEN på fanerader/segmenter (Fiks 15.2): bare med Liquid Glass-temaet (MSH.glassOn()). Drag-/linse-
+  // effekten (MSH.glassDrag, MSH.glassTap/glassMorph, tabReorder glass) er ALLTID på – uavhengig av temaet.
+  // Temaet speiles som arvede CSS-variabler på <html> (arver inn i alle shadow roots, byttes live uten ny render):
+  //   --ki-tr-bg / --ki-tr-blur / --ki-tr-sh  (udefinert uten temaet → kortets standardflate)
+  // Bruk: `.tbox{${MSH.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)')}}` → standardflaten uten tema,
+  // glass (rgba(255,255,255,.06) + blur(22px) saturate(190%) + glasskant) med tema.
+  M.TAB_GLASS_VARS = {
+    '--ki-tr-bg': 'linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0) 45%),rgba(255,255,255,0.06)',
+    '--ki-tr-blur': 'blur(22px) saturate(190%)',
+    '--ki-tr-sh': 'inset 0 0 0 0.5px rgba(255,255,255,0.14),inset 0 1px 0 rgba(255,255,255,0.22)',
+  };
+  M.tabSurface = (bg, sh) => `background:var(--ki-tr-bg,${bg || 'transparent'});-webkit-backdrop-filter:var(--ki-tr-blur,none);backdrop-filter:var(--ki-tr-blur,none);box-shadow:var(--ki-tr-sh,${sh || 'none'});`;
+  M.tabGlassSync = function () {
+    const s = document.documentElement && document.documentElement.style;
+    if (!s) return;
+    let on = false;
+    try { on = !!(M.glassOn && M.glassOn()); } catch (e) { /* */ }
+    Object.entries(M.TAB_GLASS_VARS).forEach(([k, v]) => { if (on) s.setProperty(k, v); else s.removeProperty(k); });
+  };
+  window.addEventListener('ki-glass-change', M.tabGlassSync);
+  M.tabGlassSync();
+  // ki-store lastes asynkront (theme.liquid_glass) – følg endringer også uten åpne ark
+  (function sub(n) {
+    if (M.store && M.store.subscribe) { M.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) { M.tabGlassSync(); if (M.glassNotify) M.glassNotify(); } }); M.tabGlassSync(); return; }
+    if (n < 40) setTimeout(() => sub(n + 1), 250);
+  })(0);
+
   const SLOP = 8;
   let lastHap = 0;
   const hap = (type) => { lastHap = Date.now(); M.haptic(type); };

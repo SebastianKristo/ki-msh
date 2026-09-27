@@ -9,6 +9,7 @@
     "test": "node test/smoke.mjs",
     "checklist": "node test/checklist.mjs",
     "strategy": "node test/strategy-check.mjs",
+    "klima": "node test/klima-check.mjs",
     "device": "node test/device-check.mjs",
     "picker": "node test/picker-check.mjs",
     "hold": "node test/hold-check.mjs"

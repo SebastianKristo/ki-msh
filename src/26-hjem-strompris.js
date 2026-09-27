@@ -4,8 +4,8 @@
  * Data: MSH.powerPrice (15-strompris-kilde.js) – én felles kilde/config (ki-store `power_price`, «Tilpass Hjem» → Popups →
  * Strømpris) for kortet, prosa-boblen og strøm-sliden. Profil Norge (spot / totalpris m/ nettleie / Norgespris, kr eller
  * øre) eller Sverige (SEK, alltid kr/kWh, graf i öre, ingen Norgespris – høyre verdi = snitt). Nettleie i morgen (↑/↓ +
- * differanse) som rad under verdiene når Pris som vises = Norgespris/Totalpris. Fane «I dag / I morgen»: liquid glass eller
- * standard, tekststørrelse/høyde/bredde fra power_price.tab. Kortets YAML: threshold, show_norgespris (+ valgfritt
+ * differanse) som rad under verdiene når Pris som vises = Norgespris/Totalpris. Fane «I dag / I morgen»: standard utseende (glassflate
+ * bare med stil glass + Liquid Glass-tema), alltid Liquid Glass-drag; tekststørrelse/høyde/bredde fra power_price.tab. Kortets YAML: threshold, show_norgespris (+ valgfritt
  * power_price / gamle entity, norgespris_entity, norgespris som grunnlag under ki-store). GUI-editoren viser samme
  * power_price-felt (msh-strompris-editor) og skriver dem til ki-store. Mangler data → «–» og tom graf (bare rutenettet).
  */
@@ -40,21 +40,22 @@
     return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? RED : dn ? GREEN : '#979797', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
   };
   // Fanen «I dag / I morgen» (kortet og forhåndsvisningen i editoren): { style, font, height, padding }
+  // Fiks 15.2: standard utseende (spor #2f2f2f, rosa aktiv pille, ingen blur/glasskant) uavhengig av temaet.
+  // «Stil» styrer bare utseendet: glass = glassflate KUN når Liquid Glass-temaet er på (MSH.tabSurface-variablene).
+  // Liquid Glass-drag-effekten (data-glass-drag, MSH.glassDrag: linse/strekk ved trykk og dra) er alltid på.
   M.powerTabHTML = function (tab, isToday, hasM, attrs) {
-    const t = tab || {}, glass = t.style !== 'standard';
-    return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" ${glass ? 'data-glass-drag="x"' : ''} ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
+    const t = tab || {}, glass = t.style === 'glass';
+    return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" data-glass-drag="x" ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
       const on = (k === 'today') === isToday;
       return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
     }).join('')}</div>`;
   };
   M.powerTabCSS = (t) => {
     const h = t.height, f = t.font, p = t.padding;
-    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y}
-      .seg.std{background:#303030}
-      .seg.glass{background:rgba(255,255,255,0.06);backdrop-filter:blur(22px) saturate(190%);-webkit-backdrop-filter:blur(22px) saturate(190%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),inset 0 1px 0 rgba(255,255,255,.12)}
-      ${M.glassFallback ? M.glassFallback('.seg.glass', 'row') : ''}
-      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
-      .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y;background:var(--gray100,#2f2f2f);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+      .seg.glass{${M.tabSurface ? M.tabSurface('var(--gray100,#2f2f2f)', 'none') : ''}}
+      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s,opacity .25s}
+      .sg.on{background:${M.C.accent};color:var(--gray100,#2f2f2f)}
       .sg:disabled{opacity:.4;cursor:default}`;
   };
 
@@ -88,7 +89,7 @@
             { type: 'info', label: P ? P.status + (tr ? ` · nettleie i morgen ${tr.arrow} ${tr.text}` : '') : '' },
           ] },
           { type: 'section', id: 'fane', label: 'Fane «I dag / I morgen»', icon: 'mdi:tab', fields: [
-            { type: 'select', name: pf('tab.style'), label: 'Stil', options: [['glass', 'Liquid glass'], ['standard', 'Standard']], default: 'glass' },
+            { type: 'select', name: pf('tab.style'), label: 'Stil', options: [['standard', 'Standard'], ['glass', 'Liquid glass']], default: 'standard', help: 'Liquid glass-flaten vises bare med Liquid Glass-temaet. Dra-effekten er alltid på.' },
             { type: 'range', name: pf('tab.font'), label: 'Tekststørrelse', min: 11, max: 18, default: 14, presets: [[12, 'Liten'], [14, 'Standard'], [16, 'Stor']] },
             { type: 'range', name: pf('tab.height'), label: 'Høyde', min: 24, max: 48, default: 30, presets: [[26, 'Lav'], [30, 'Standard'], [38, 'Høy']] },
             { type: 'range', name: pf('tab.padding'), label: 'Bredde (sidemarg per knapp)', min: 8, max: 40, default: 20, presets: [[12, 'Smal'], [20, 'Standard'], [30, 'Bred']] },
@@ -215,8 +216,9 @@
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      const seg = this.shadowRoot.querySelector('.seg.glass');
-      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', enabled: () => seg.classList.contains('glass') });
+      // Liquid Glass-drag alltid (Fiks 15.2) – touch-action pan-y + stopPropagation ligger i glassDrag (fallgruve 2)
+      const seg = this.shadowRoot.querySelector('.seg');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' });
       const p = this.shadowRoot.querySelector('.plot');
       if (!p || p.__sc) return;
       p.__sc = true;

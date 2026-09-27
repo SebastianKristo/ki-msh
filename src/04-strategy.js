@@ -151,6 +151,32 @@
   }
   M.popupIconColor = (cfg) => { const m = cfg && typeof cfg.styles === 'string' && ICON_RX.exec(cfg.styles); return m ? m[2].trim() : null; };
   const SRC_RANK = { yaml: 3, custom: 2, auto: 1 };
+  /* Fiks 15.1 · generert popup med ødelagt kortliste etter overstyring/sammenslåing → rettes, aldri tom popup:
+   *   tom/manglende cards → det genererte kortet; gammelt kortnavn (ki-klima-card for msh-klima-card), et msh-kort som
+   *   ikke finnes lenger, eller separat toppkort (msh-klima-hero-card) → slås sammen til ETT hovedkort (innstillinger beholdes).
+   *   Egne kort (andre typer) røres ikke. Returnerer ny config eller null (ingenting å rette). */
+  const tagOf = (c) => String((c && c.type) || '').replace(/^custom:/, '');
+  function repairCards(cfg, gen) {
+    const want = gen && Array.isArray(gen.cards) && gen.cards.length === 1 && isObj(gen.cards[0]) ? gen.cards[0] : null;
+    if (!want || !isObj(cfg)) return null;
+    const tag = tagOf(want), heroTag = (M.HEROES || {})[tag];
+    if (!/^msh-/.test(tag)) return null;
+    const list = Array.isArray(cfg.cards) ? cfg.cards.filter(isObj) : [];
+    if (!list.length) return { ...cfg, cards: [clone(want)] };
+    const loaded = typeof customElements !== 'undefined' && !!customElements.get(tag); // bundelen er lastet → msh-navn kan sjekkes
+    const isMain = (c) => tagOf(c) === tag, isHero = (c) => !!heroTag && tagOf(c) === heroTag;
+    const isOld = (c) => { const t = tagOf(c); return t === tag.replace(/^msh-/, 'ki-') || (loaded && /^msh-.*-card$/.test(t) && !customElements.get(t)); };
+    const ours = list.filter((c) => isMain(c) || isHero(c) || isOld(c));
+    if (!ours.length || (ours.length === 1 && isMain(ours[0]) && list.length === (cfg.cards || []).length)) return null;
+    const base = ours.find(isMain) || ours.find(isOld) || ours[0];
+    const strip = ({ type, card_id, ...r }) => r;
+    const merged = Object.assign({}, ...ours.filter((c) => c !== base).map(strip), { ...base }, { type: 'custom:' + tag });
+    if (!merged.card_id) merged.card_id = want.card_id;
+    const cards = list.filter((c) => !ours.includes(c));
+    cards.splice(list.slice(0, list.indexOf(ours[0])).filter((c) => !ours.includes(c)).length, 0, merged);
+    return { ...cfg, cards };
+  }
+  M.repairPopupCards = repairCards;
   /* auto: [{ config, group, color?, person? }] · yaml/custom: lister med Bubble-config · *Overrides: { '#hash': {…} | { replace, config } | false }
    * → { popups: [config …] (synlige, i rekkefølge), report: { entries, collisions, invalid } }
    *   entries[i] = { hash, key, source: auto|yaml|custom, index, group: rom|fn|egne, name, icon, color, gen (generert config),
@@ -200,6 +226,8 @@
         cfg.hash = hash;
         overrideFrom = from;
       });
+      let repaired = false;
+      if (gen && w.source === 'auto' && !hidden) { const fx = repairCards(cfg, gen.config); if (fx) { console.warn('[ki-msh] popup', hash, 'hadde tom/ugyldig kortliste – rettet til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } }
       const up = UP[hash.slice(1)] || UP[hash];
       if (!hidden && up && up.hidden) { hidden = true; hiddenBy = 'user'; }
       const view = cfg || {};
@@ -208,7 +236,7 @@
         group: w.source === 'auto' ? (w.meta.group || 'fn') : 'egne', person: !!w.meta.person,
         name: view.name || hash, icon: view.icon || 'mdi:card-outline', color: M.popupIconColor(view) || w.meta.color || null,
         gen: gen ? clone(gen.config) : null, base: clone(w.config), config: hidden ? null : cfg,
-        override, overrideFrom, hidden, hiddenBy, losers: list.filter((x) => x !== w).map((x) => x.source),
+        override, overrideFrom, hidden, hiddenBy, repaired, losers: list.filter((x) => x !== w).map((x) => x.source),
       });
       if (!hidden) popups.push(cfg);
     });

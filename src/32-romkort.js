@@ -10,6 +10,8 @@
   const PAL = [C.orange, C.blue, C.green, C.purple, C.pink, C.yellow, C.red, C.lime, C.lightBlue, C.brown];
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  // Termostat-stepper: ventende mål per climate-entitet { t, at, sent, timer } (debounce 800 ms → climate.set_temperature)
+  const SETP = {};
 
   /* ------------------------------------------------------------ romdata */
   // Standardfarge per rom: temapalett (oransje, blå, grønn, lilla, rosa, gul, rød, lime …) etter rommets indeks i
@@ -66,7 +68,9 @@
     const ts = card.s(thermo), temp = RC ? val(RC.temp, tempId) : card.n(tempId), hum = RC ? val(RC.hum, humId) : card.n(humId);
     const lightsOn = lights.filter((id) => { const s = card.s(id); return s && s.state === 'on'; }).length;
     const mediaOn = media.filter((id) => { const s = card.s(id); return s && s.state === 'playing'; }).length;
-    const set = ts && M.isNum(ts.attributes.temperature) ? Number(ts.attributes.temperature) : null;
+    let set = ts && M.isNum(ts.attributes.temperature) ? Number(ts.attributes.temperature) : null;
+    const pend = ts && SETP[thermo];
+    if (pend) { if (pend.sent && (set === pend.t || Date.now() - pend.at > 5000)) delete SETP[thermo]; else set = pend.t; } // stepper: vis målet før HA svarer
     const cur = ts && M.isNum(ts.attributes.current_temperature) ? Number(ts.attributes.current_temperature) : temp;
     const heating = !!ts && (ts.attributes.hvac_action === 'heating' || (ts.attributes.hvac_action == null && ts.state === 'heat' && cur != null && set != null && cur < set));
     const wattId = M.kiRomId(hass, area, 'effekt');
@@ -151,7 +155,9 @@
   };
 
   /* ------------------------------------------------------------ render */
-  // Temperatur: «23°» ved hel grad, ellers én desimal med komma («22,5°»). Fukt: heltall.
+  // Temperatur (graf-varianten): «23°» ved hel grad, ellers én desimal med komma («22,5°»). Fukt: heltall.
+  // Hjem-romkortene (karusell/L/M/S) viser heltall som MySmartHome: «22°» og «49%» (Fiks 15.3) – degI.
+  const degI = (v) => (v == null || isNaN(v) ? '–' : String(Math.round(Number(v))));
   const deg = (v, d = 1) => {
     if (v == null || isNaN(v)) return '–';
     if (d === 0) return M.nf(v, 0);
@@ -169,7 +175,8 @@
     const act = r.iconTap === 'open_popup' ? `data-act="rk-open" data-hash="${esc(r.hash)}" title="Åpne ${esc(r.name)}"` : `data-act="rk-light" data-area="${esc(r.id)}" title="Lys"`;
     return `<button class="${cls}" ${act} style="${st}">${inner}</button>`;
   };
-  const kv = (r) => `<div class="rk-kv"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" title="Opp">${M.icon('expand_less', 20)}</button><span class="num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" title="Ned">${M.icon('expand_more', 20)}</button></div>`;
+  // Termostat-stepper (MySmartHome): vertikal pille nede til høyre under ikon-sirkelen – ⌃ / mål / ⌄.
+  const kv = (r) => `<div class="rk-kv" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 22)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 22)}</button></div>`;
   const openAttrs = (r, key) => `data-act="rk-open" data-hash="${esc(r.hash)}" ${r.ent ? `data-ent="${esc(r.ent)}"` : ''} data-key="${esc(key || 'rk-' + r.id)}"`;
 
   // r: M.romData(...). o: { variant, klima, alert, key, graph:{t:[],h:[]}, ui:{gTab,gSel}, cfg, motes }
@@ -179,17 +186,17 @@
     if (v === 'karusell') {
       return `<div class="rk rk-car ${kl ? 'kl' : ''}" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num">${deg(r.temp)}°</span><span class="rk-h">${deg(r.hum, 0)} %</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num">${degI(r.temp)}°</span><span class="rk-h">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
     }
     if (v === 'S') {
       return `<div class="rk rk-s" ${openAttrs(r, o.key)}>${lightBtn(r, 'rk-ic rk-ics', alert)}
-        <div class="rk-sx"><span class="rk-sn ell">${esc(r.name)}</span><span class="rk-sl">${deg(r.temp)}° · ${deg(r.hum, 0)}%</span></div></div>`;
+        <div class="rk-sx"><span class="rk-sn ell">${esc(r.name)}</span><span class="rk-sl">${degI(r.temp)}° · ${degI(r.hum)}%</span></div></div>`;
     }
     if (v === 'M' || v === 'L') {
       const h = v === 'L' ? 246 : kl ? 210 : 140;
       return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 44 : 40}px">${deg(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${deg(r.hum, 0)}%</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
     }
     // graf (Romkort.dc.html)
     const cfg = o.cfg || {}, ui = o.ui || {}, g = o.graph || { t: [], h: [] };
@@ -239,21 +246,24 @@
     .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
     .rk-car{flex:none;width:100%;height:220px;border-radius:36px}
     .rk-car,.rk-big{container-type:inline-size}
-    @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}}
-    .rk-name{position:absolute;left:18px;top:18px;right:70px;font-size:15px;font-weight:500;line-height:1.3}
-    .rk-ic{position:absolute;right:6px;top:6px;width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
+    @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}.rk-t{font-size:44px}}
+    .rk-name{position:absolute;left:18px;top:18px;right:72px;font-size:15px;font-weight:500;line-height:1.3}
+    /* Ikon-sirkel 60 px i romfarge, 4 px fra kanten (MySmartHome) */
+    .rk-ic{position:absolute;right:4px;top:4px;width:60px;height:60px;border-radius:30px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
     .rk-ic:active{transform:scale(.92)}
     .rk-notap{pointer-events:none}
     .rk-notap:active{transform:none}
     .rk-ics{position:relative;right:auto;top:auto;flex:none}
     .rk-bang{position:absolute;right:-3px;top:-6px;width:24px;height:24px;border-radius:12px;background:var(--red,#f28073);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 0 0 3px var(--gray000,#232323);z-index:2;line-height:1}
     .rk-tv{position:absolute;left:18px;bottom:16px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
-    .rk-t{font-size:40px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-    .rk-h{font-size:12px;color:var(--gray600,#7f7f7f)}
-    .rk-kv{position:absolute;right:10px;bottom:10px;width:52px;height:116px;border-radius:26px;background:rgba(255,255,255,0.04);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.24);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0;box-sizing:border-box}
-    .rk-kv .rk-kb{width:52px;height:36px;display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
-    .rk-kv .rk-kb:active{transform:scale(.88)}
-    .rk-kv span{font-size:14px}
+    .rk-t{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:1}
+    .rk-h{font-size:13px;color:var(--gray600,#7f7f7f)}
+    .kl .rk-tv{right:72px}
+    /* Termostat-stepper: vertikal pille #2f2f2f med tynn kant, full høyde under ikon-sirkelen (4 px luft) */
+    .rk-kv{position:absolute;right:4px;top:68px;bottom:4px;width:60px;border-radius:30px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    .rk-kv .rk-kb{width:60px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:var(--gray900,#c7c7c7);touch-action:manipulation;transition:transform .15s}
+    .rk-kv .rk-kb:active{transform:scale(.86)}
+    .rk-kv .rk-kt{font-size:15px;font-weight:500;flex:none}
     .rk-s{display:flex;align-items:center;gap:12px;height:66px;padding:0 6px 0 4px;border-radius:33px;box-shadow:none}
     .rk-sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .rk-sn{font-size:15px;font-weight:500}
@@ -287,7 +297,7 @@
   `;
 
   // Felles handlinger for romkort (returnerer true når håndtert).
-  M.romkortAction = function (card, name, el) {
+  M.romkortAction = function (card, name, el, ev) {
     const d = el.dataset, hass = card.hass, toastOn = card.config.toasts !== false;
     if (name === 'rk-open') { M.openPopup(d.hash); return true; }
     if (name === 'rk-light') {
@@ -298,17 +308,26 @@
       if (toastOn) M.toast(`Lys i ${r.name} ${on ? 'av' : 'på'}`);
       return true;
     }
+    // Termostat-stepper: ±steg (target_temp_step, standard 0,5°) per trykk, vist med én gang; tjenestekallet sendes
+    // 800 ms etter siste trykk. Haptic per trykk kommer fra basekortet (data-haptic="selection"). Trykket stoppes her,
+    // så romkortet ikke åpner popupen.
     if (name === 'rk-set') {
+      if (ev) { ev.stopPropagation(); ev.preventDefault(); }
       const s = hass && hass.states[d.id];
       if (!s) return true;
-      const step = Number(s.attributes.target_temp_step) || 0.5, cur = Number(s.attributes.temperature);
+      const P = SETP[d.id] && !SETP[d.id].sent ? SETP[d.id] : null;
+      const step = Number(s.attributes.target_temp_step) || 0.5, cur = P ? P.t : Number(s.attributes.temperature);
       if (isNaN(cur)) return true;
       const mn = Number(s.attributes.min_temp), mx = Number(s.attributes.max_temp);
       let t = Math.round((cur + Number(d.d) * step) * 10) / 10;
       if (!isNaN(mn)) t = Math.max(mn, t);
       if (!isNaN(mx)) t = Math.min(mx, t);
-      M.haptic('selection');
-      M.call(hass, 'climate', 'set_temperature', { entity_id: d.id, temperature: t });
+      if (P) clearTimeout(P.timer);
+      const id = d.id, p = { t, at: Date.now(), sent: false };
+      p.timer = setTimeout(() => { p.sent = true; p.at = Date.now(); M.call(card.hass || hass, 'climate', 'set_temperature', { entity_id: id, temperature: t }).catch(() => { delete SETP[id]; card.update && card.update(); }); }, 800);
+      SETP[id] = p;
+      const kv = el.closest && el.closest('.rk-kv'), lab = kv && kv.querySelector('.rk-kt');
+      if (lab) lab.textContent = setTxt(t) + '°';
       return true;
     }
     return false;
@@ -374,7 +393,7 @@
     }
     onAction(name, el, ev) {
       if (name === 'rk-gt') { ev.stopPropagation(); return this.setUI({ gTab: el.dataset.t, gSel: null }); }
-      if (M.romkortAction(this, name, el)) return;
+      if (M.romkortAction(this, name, el, ev)) return;
       return super.onAction(name, el, ev);
     }
     afterRender() {
