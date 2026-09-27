@@ -10,6 +10,8 @@
  * første spiller i fanen vises. Valgt fane/spiller er UI-tilstand (setUI/uiPersist → localStorage
  * ki:<card_id>:ui) og lagres aldri i Lovelace; bare tab_order (omorganisering) er config.
  * Hero kan ligge innebygd i hovedkortets shadow DOM (config.embedded: true, config fra hovedkortet).
+ * Fjernkontroll (TV): sveip på styreflaten (config.remote_swipe, std på) og hold-handlinger på Tilbake/Hjem/Meny
+ * (players.<obj>.back_hold_action / home_hold_action / menu_hold_action, HA action-format).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -64,8 +66,55 @@
   };
   const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + p.obj] ? 'remote.' + p.obj : null);
   const REMOTE = {
-    apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', hold: { command: 'home_hold' } },
-    google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', hold: { command: 'HOME', hold_secs: 1 } },
+    apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', hold: { command: 'home', hold_secs: 1 } },
+    google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', hold: { command: 'KEYCODE_HOME', hold_secs: 1 } },
+  };
+  /* Hold-handlinger på Tilbake/Hjem/Meny (config <knapp>_hold_action, HA action-format, per TV under
+   * players.<obj> eller felles på rotnivå). Hjem uten verdi = plattform-standard (Apple TV: `home` hold_secs 1 =
+   * Kontrollsenter, Google TV: KEYCODE_HOME langt trykk = Dashbord); Tilbake/Meny uten verdi = ingen.
+   * { action:'none' } = ingen. perform-action media_player.select_source / remote.send_command uten target =
+   * «Åpne app» / «Send kommando» (kortet fyller inn spiller/remote). Alt annet = HA-handling. */
+  const HOLD_KEYS = ['back', 'home', 'menu'];
+  const HOLD_MS = 450;
+  const SW_MIN = 10, SW_STEP = 34; // sveip: terskel før det er et sveip, px per kommando
+  const actLabel = (h, a) => {
+    const pa = a.perform_action || a.service, ent = a.entity || (a.target && [].concat(a.target.entity_id || [])[0]) || (a.data && [].concat(a.data.entity_id || [])[0]);
+    if (a.action === 'navigate') return 'Gå til ' + (a.navigation_path || '–');
+    if (a.action === 'url') return 'Åpne lenke';
+    if (a.action === 'more-info') return ent ? M.name(h, ent) : 'Detaljer';
+    if (a.action === 'toggle') return ent ? 'Slå av/på ' + M.name(h, ent) : 'Slå av/på';
+    if (pa) { const sc = [ent, pa].find((x) => /^(script|scene)\.[a-z0-9_]+$/.test(x || '') && h.states[x]); return sc ? M.name(h, sc) : pa; }
+    return 'HA-handling';
+  };
+  const holdOf = (cfg, p, c) => { const k = c + '_hold_action', v = p.pc[k] !== undefined ? p.pc[k] : (cfg || {})[k]; return v && typeof v === 'object' ? v : null; };
+  // → { kind: 'std' | 'app' | 'cmd' | 'ha', a, label } eller null (ingen hold-handling)
+  const holdPlan = (h, cfg, p, c) => {
+    if (!HOLD_KEYS.includes(c)) return null;
+    const a = holdOf(cfg, p, c);
+    if (!a) return c === 'home' ? { kind: 'std', label: REMOTE[platOf(h, p)].holdLabel } : null;
+    if (a.action === 'none' || !a.action) return null;
+    const svc = a.action === 'perform-action' || a.action === 'call-service', pa = a.perform_action || a.service;
+    const tgt = a.target && Object.keys(a.target).length, d = a.data || a.service_data || {};
+    if (svc && pa === 'media_player.select_source' && !tgt) return { kind: 'app', a, label: d.source ? 'Åpne ' + d.source : 'Åpne app' };
+    if (svc && pa === 'remote.send_command' && !tgt) return { kind: 'cmd', a, label: d.command ? 'Send ' + [].concat(d.command).join(', ') : 'Send kommando' };
+    return { kind: 'ha', a, label: actLabel(h, a) };
+  };
+  // Utfør en HA-handling (tap_action-format) fra kortet. ent = standard-entitet for more-info/toggle.
+  const runAction = (card, a, ent) => {
+    const h = card.hass, e = a.entity || ent;
+    switch (a.action) {
+      case 'perform-action': case 'call-service': {
+        const [dm, sv] = String(a.perform_action || a.service || '').split('.');
+        if (!dm || !sv) return M.toast('Mangler tjeneste i hold-handlingen');
+        return M.call(h, dm, sv, { ...(a.data || a.service_data || {}), ...(a.target || {}) });
+      }
+      case 'navigate': return M.navigate(a.navigation_path);
+      case 'url': return a.url_path && window.open(a.url_path, '_blank');
+      case 'more-info': return M.moreInfo(card, e);
+      case 'toggle': return e && M.toggle(h, e);
+      case 'fire-dom-event': return card.dispatchEvent(new CustomEvent('ll-custom', { detail: a, bubbles: true, composed: true }));
+      default:
+    }
   };
   const autoPlat = (hass, p) => {
     const rem = remoteOf(hass, p);
@@ -152,7 +201,14 @@
           const pl = autoPlat(h, p), rem = remoteOf(h, { ...p, pc: {} });
           fields.push(
             { type: 'select', name: b + '.platform', label: 'Plattform', options: [['apple', 'Apple TV'], ['google', 'Google TV']], default: pl },
-            { type: 'entity', name: b + '.remote', label: 'Fjernkontroll (remote)', domain: 'remote', auto: () => rem, help: `Hold Hjem-knappen for ${REMOTE[platOf(h, p)].holdLabel.toLowerCase()} · ${rem || 'ingen remote funnet'}` },
+            { type: 'entity', name: b + '.remote', label: 'Fjernkontroll (remote)', domain: 'remote', auto: () => rem, help: `${REMOTE[platOf(h, p)].hw} · ${rem || 'ingen remote funnet'}` },
+            ...HOLD_KEYS.map((k) => {
+              const hp = holdPlan(h, c, p, k), apps = ((h.states[p.id] || {}).attributes || {}).source_list;
+              return { type: 'action', name: `${b}.${k}_hold_action`, label: 'Hold ' + KEYL[k], apps: Array.isArray(apps) ? apps : [],
+                std: k === 'home' ? `Standard · ${REMOTE[platOf(h, p)].holdLabel}` : undefined,
+                cmdPlaceholder: platOf(h, p) === 'apple' ? 'f.eks. top_menu, skip_forward' : 'f.eks. KEYCODE_SETTINGS, MENU',
+                help: hp ? `Hold ${KEYL[k].toLowerCase()} (≥ ${HOLD_MS} ms): ${hp.label}` : `Hold ${KEYL[k].toLowerCase()}: ingen handling – vanlig trykk` };
+            }),
             { type: 'select', name: b + '.volume', label: 'Volum styres av', options: [['media', 'Mediaspiller'], ['buttons', 'Knapper']], default: 'media' },
             { type: 'entity', name: b + '.volume_up', label: 'Volum opp', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_up' },
             { type: 'entity', name: b + '.volume_down', label: 'Volum ned', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_down' },
@@ -171,6 +227,7 @@
         }
         return { type: 'section', id: 'p_' + p.obj, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, fields };
       }),
+      { type: 'boolean', name: 'remote_swipe', label: 'Sveip på styreflaten', default: true, help: 'Dra på fjernkontrollens runde flate for Opp/Ned/Venstre/Høyre (én kommando per 34 px)' },
       { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
     ];
   };
@@ -391,7 +448,7 @@
       const cfg = this.config, R = M.mediaResolve(this.hass, cfg, this.key), h = this.hass;
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
-      const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
+      const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" role="tab" aria-selected="${k === R.tab}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
       const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
@@ -438,16 +495,21 @@
       </div>`;
       // Fjernkontroll (TV)
       const rem = I.tv ? remoteOf(h, p) : null;
+      const swipe = cfg.remote_swipe !== false;
       const remote = !I.tv ? '' : `<div class="rm">
-        <div class="dp">
+        <div class="dp ${swipe ? 'swipe' : ''}" ${swipe ? 'title="Trykk eller sveip"' : ''}>
           <button class="d du" data-act="rk" data-c="up" title="Opp">${M.icon('keyboard_arrow_up', 30)}</button>
           <button class="d dd" data-act="rk" data-c="down" title="Ned">${M.icon('keyboard_arrow_down', 30)}</button>
           <button class="d dl" data-act="rk" data-c="left" title="Venstre">${M.icon('keyboard_arrow_left', 30)}</button>
           <button class="d dr" data-act="rk" data-c="right" title="Høyre">${M.icon('keyboard_arrow_right', 30)}</button>
           <button class="ok" data-act="rk" data-c="ok">OK</button>
+          ${swipe ? '<span class="glow" aria-hidden="true"></span>' : ''}
         </div>
         <div class="keys">
-          ${KEYS.map(([c, ic, l]) => `<button class="key ${c === 'home' ? 'hold' : ''}" data-act="rk" data-c="${c}" title="${esc(c === 'home' ? `${l} · hold for ${RC.holdLabel}` : l)}">${M.icon(ic, 24)}${c === 'home' ? '<span class="hb"></span>' : ''}</button>`).join('')}
+          ${KEYS.map(([c, ic, l]) => {
+            const hp = I.tv && holdPlan(h, cfg, p, c), t = hp ? `${l} · hold for ${hp.label}` : l;
+            return `<button class="key ${hp ? 'hold' : ''}" data-act="rk" data-c="${c}" ${hp ? 'data-hold="1"' : ''} title="${esc(t)}" aria-label="${esc(t)}">${M.icon(ic, 24)}${hp ? '<span class="hb"></span>' : ''}</button>`;
+          }).join('')}
           <div class="lk ell">${esc(ui.lastKey || `${RC.hw} · ${rem || 'mangler remote.* – velg i oppsett'}`)}</div>
         </div>
       </div>`;
@@ -499,10 +561,7 @@
         case 'next': return mp('media_next_track');
         case 'repeat': { const nx = { off: 'all', all: 'one', one: 'off' }[a.repeat || 'off'] || 'off'; return mp('repeat_set', { repeat: nx }); }
         case 'shuffle': return mp('shuffle_set', { shuffle: !a.shuffle });
-        case 'rk': {
-          if (this._held) { this._held = false; return; }
-          return this._remote(p, el.dataset.c, false);
-        }
+        case 'rk': return this._remote(p, el.dataset.c, false);
         case 'vb': {
           const k = el.dataset.k, ent = p.pc['volume_' + k];
           if (ent) { const [dm, sv] = svcFor(ent); M.call(h, dm, sv, { entity_id: ent }); this.setUI({ lastKey: `${dm}.${sv} → ${ent}` }); return; }
@@ -513,17 +572,44 @@
       }
       return super.onAction(name, el, ev);
     }
-    _remote(p, c, hold) {
+    // hold: plattform-standard for langt trykk (Hjem). swipe: kommandoen kom fra sveip på styreflaten.
+    _remote(p, c, hold, swipe) {
       const h = this.hass, RC = REMOTE[platOf(h, p)], rem = remoteOf(h, p);
+      const lbl = swipe ? `${KEYL[c]} · sveip` : hold ? `${RC.hw} · ${RC.holdLabel}` : `${RC.hw} · ${KEYL[c]}`;
       if (!rem) {
-        if (c === 'play') M.call(h, 'media_player', 'media_play_pause', { entity_id: p.id });
-        this.setUI({ lastKey: `${RC.hw} · ${KEYL[c]}${c === 'play' ? '' : ' · mangler remote.*'}` });
+        if (c === 'play' && !hold) M.call(h, 'media_player', 'media_play_pause', { entity_id: p.id });
+        this.setUI({ lastKey: `${lbl}${c === 'play' && !hold ? '' : ' · mangler remote.*'}` });
         return;
       }
       const data = { entity_id: rem, command: hold ? RC.hold.command : RC[c] };
       if (hold && RC.hold.hold_secs) data.hold_secs = RC.hold.hold_secs;
       M.call(h, 'remote', 'send_command', data);
-      this.setUI({ lastKey: hold ? `${RC.hw} · ${RC.holdLabel}` : `${RC.hw} · ${KEYL[c]}` });
+      this.setUI({ lastKey: lbl });
+    }
+    // Langt trykk (≥ 450 ms) på Tilbake/Hjem/Meny: utfør knappens hold-handling.
+    _holdRun(p, c) {
+      const h = this.hass, hp = holdPlan(h, this.config, p, c), RC = REMOTE[platOf(h, p)];
+      if (!hp) return false;
+      M.haptic('medium');
+      const d = hp.a ? hp.a.data || hp.a.service_data || {} : {};
+      if (hp.kind === 'std') return this._remote(p, c, true), true;
+      if (hp.kind === 'app') {
+        if (d.source) M.call(h, 'media_player', 'select_source', { entity_id: p.id, source: d.source });
+      } else if (hp.kind === 'cmd') {
+        const rem = remoteOf(h, p);
+        if (!rem || !d.command) { this.setUI({ lastKey: `${RC.hw} · ${hp.label} · ${rem ? 'mangler kommando' : 'mangler remote.*'}` }); return true; }
+        M.call(h, 'remote', 'send_command', { ...d, entity_id: rem });
+      } else runAction(this, hp.a, p.id);
+      this.setUI({ lastKey: `${RC.hw} · ${hp.label}` });
+      return true;
+    }
+    // Styreflaten: glød-sirkel (52 px) følger fingeren. Posisjon via CSS-variabler på verten, så morph ikke nullstiller den.
+    _glow(dp, e) {
+      if (!dp || !e) { this.style.setProperty('--msh-glow-o', '0'); return; }
+      const r = dp.getBoundingClientRect();
+      this.style.setProperty('--msh-gx', (e.clientX - r.left - 26).toFixed(1) + 'px');
+      this.style.setProperty('--msh-gy', (e.clientY - r.top - 26).toFixed(1) + 'px');
+      this.style.setProperty('--msh-glow-o', '1');
     }
     afterRender() {
       const root = this.shadowRoot;
@@ -546,19 +632,69 @@
         ch.addEventListener('touchmove', stop, { passive: true });
         ch.addEventListener('pointerdown', stop);
       }
-      // Hjem-knapp: hold for kontrollsenter/dashbord
+      // Hold-handlinger (Tilbake/Hjem/Meny) + sveip på styreflaten. Delegert på shadowRoot, så de overlever morph/fanebytte.
       if (!this.__hb) {
         this.__hb = true;
-        const clear = () => clearTimeout(this._ht);
+        const clear = () => { clearTimeout(this._ht); this._ht = null; };
+        const swOn = () => this.config.remote_swipe !== false;
         root.addEventListener('pointerdown', (e) => {
-          const k = this._el(e, '.key.hold');
-          if (!k) return;
           this._held = false;
           clear();
-          this._ht = setTimeout(() => { const p = this._R && this._R.p; if (!p) return; this._held = true; k.setAttribute('data-haptic', 'off'); setTimeout(() => k.removeAttribute('data-haptic'), 700); M.haptic('medium'); this._remote(p, 'home', true); }, 550);
+          const k = this._el(e, '.key[data-hold]');
+          if (!k || e.button) return;
+          this._hx0 = e.clientX; this._hy0 = e.clientY;
+          this._ht = setTimeout(() => { this._ht = null; const p = this._R && this._R.p; if (p && this._holdRun(p, k.dataset.c)) this._held = true; }, HOLD_MS);
         });
-        ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => root.addEventListener(t, clear));
-        root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab')) e.preventDefault(); });
+        root.addEventListener('pointermove', (e) => { if (this._ht && Math.hypot(e.clientX - this._hx0, e.clientY - this._hy0) > SW_MIN) clear(); });
+        ['pointerup', 'pointercancel'].forEach((t) => root.addEventListener(t, clear));
+        // Etter hold, og 60 ms etter et sveip: svelg klikket (ingen ekstra kommando/haptic ved slipp).
+        root.addEventListener('click', (e) => {
+          if (this._held || Date.now() - (this._swEnd || 0) < 60) { this._held = false; e.stopPropagation(); e.preventDefault(); }
+        }, true);
+        root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab,.dp')) e.preventDefault(); });
+        // Sveip på D-paden: < 10 px = trykk (knappene virker som før), deretter én kommando per 34 px i dominerende
+        // retning, og startpunktet nullstilles (ett langt sveip = flere steg). Bubble Card skal ikke få gesten
+        // (swipe-to-close/scroll): touch-action:none på flaten + stopPropagation/preventDefault.
+        root.addEventListener('pointerdown', (e) => {
+          const dp = this._el(e, '.dp.swipe');
+          if (!dp || !swOn() || (e.pointerType === 'mouse' && e.button)) return;
+          e.stopPropagation(); e.preventDefault();
+          this._sw = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, dp };
+          this._glow(dp, e);
+        });
+        root.addEventListener('pointermove', (e) => {
+          const s = this._sw;
+          if (!s || e.pointerId !== s.id) return;
+          e.stopPropagation(); e.preventDefault();
+          this._glow(s.dp, e);
+          if (!s.on) {
+            if (Math.hypot(e.clientX - s.x0, e.clientY - s.y0) < SW_MIN) return;
+            s.on = true;
+            try { s.dp.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+          }
+          const dx = e.clientX - s.x, dy = e.clientY - s.y;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) < SW_STEP) return;
+          const c = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+          s.x = e.clientX; s.y = e.clientY;
+          const p = this._R && this._R.p;
+          if (!p) return;
+          M.haptic('selection');
+          this._remote(p, c, false, true);
+        });
+        const end = (e) => {
+          const s = this._sw;
+          if (!s || e.pointerId !== s.id) return;
+          this._sw = null;
+          if (s.on) { this._swEnd = Date.now(); e.stopPropagation(); }
+          try { s.dp.releasePointerCapture(e.pointerId); } catch (x) { /* */ }
+          this._glow(null);
+        };
+        root.addEventListener('pointerup', end);
+        root.addEventListener('pointercancel', end);
+        const tstop = (e) => { if (swOn() && this._el(e, '.dp.swipe')) { e.stopPropagation(); if (e.type === 'touchmove' && e.cancelable) e.preventDefault(); } };
+        // touchstart: bare stopPropagation – preventDefault her ville fjerne klikket på pilene/OK på touch.
+        root.addEventListener('touchstart', tstop, { passive: true });
+        root.addEventListener('touchmove', tstop, { passive: false });
       }
       // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
@@ -616,7 +752,9 @@
         .play:active{transform:scale(.94)}
         button[disabled]{opacity:.35;cursor:default}
         .rm{display:flex;align-items:center;gap:14px}
-        .dp{position:relative;width:188px;height:188px;flex:none;border-radius:94px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+        .dp{position:relative;width:188px;height:188px;flex:none;border-radius:94px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .dp.swipe{touch-action:none}
+        .glow{position:absolute;left:0;top:0;width:52px;height:52px;border-radius:26px;background:rgba(255,255,255,0.14);box-shadow:0 0 24px rgba(255,255,255,0.14);pointer-events:none;transform:translate(var(--msh-gx,68px),var(--msh-gy,68px));opacity:var(--msh-glow-o,0);transition:opacity .18s}
         .d{position:absolute;width:56px;height:56px;display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .d:active{color:var(--white,#fafafa)}
         .du{left:66px;top:4px} .dd{left:66px;bottom:4px} .dl{top:66px;left:4px} .dr{top:66px;right:4px}

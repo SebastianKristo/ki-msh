@@ -20,6 +20,15 @@ window.mockExtend(({ add, areas }) => {
   const Q = []; SPOT.forEach((v) => { for (let q = 0; q < 4; q++) Q.push(Math.round((v + (q - 1.5) * 0.02) * 1000) / 1000); });
   add('sensor.strompris_uten_morgen', SPOT[new Date().getHours()], { unit_of_measurement: 'NOK/kWh', friendly_name: 'Spot uten i morgen', today: Q, tomorrow: [], raw_tomorrow: [], tomorrow_valid: false });
 
+  // Sverige: Nord Pool i SEK med priser i öre (unit_of_measurement öre/kWh + currency SEK) – vises som kr/kWh
+  const SE = SPOT.map((v) => Math.round(v * 0.93 * 100 * 10) / 10), SE_T = TMR.map((v) => Math.round(v * 0.93 * 100 * 10) / 10);
+  add('sensor.nordpool_kwh_se3_sek_3_10_025', SE[new Date().getHours()], { unit_of_measurement: 'öre/kWh', currency: 'SEK', region: 'SE3', price_in_cents: true, friendly_name: 'Nord Pool SE3', today: SE, tomorrow: SE_T, tomorrow_valid: true }, { platform: 'nordpool' });
+  // Nettleie (kr/kWh) med today/tomorrow – i morgen dyrere (↑)
+  const GRID = Array.from({ length: 24 }, (_, h) => (h >= 6 && h < 22 ? 0.4625 : 0.3625));
+  add('sensor.nettleie', GRID[new Date().getHours()], { unit_of_measurement: 'NOK/kWh', friendly_name: 'Nettleie', today: GRID, tomorrow: GRID.map((v) => Math.round((v + 0.05) * 10000) / 10000) });
+  // Nettleie uten i morgen-data (raden skal skjules)
+  add('sensor.nettleie_uten_morgen', 0.4625, { unit_of_measurement: 'NOK/kWh', friendly_name: 'Nettleie uten i morgen', today: GRID });
+
   // KI Rom: temperatur som TALL (kontor) og som entity_id-STRENG + fukt som liste (vaskerom)
   areas.kontor = { area_id: 'kontor', name: 'Kontor', icon: 'mdi:desk', floor_id: 'andre', picture: null };
   areas.vaskerom = { area_id: 'vaskerom', name: 'Vaskerom', icon: 'mdi:washing-machine', floor_id: 'andre', picture: null };

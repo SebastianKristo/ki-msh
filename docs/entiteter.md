@@ -50,7 +50,7 @@ include:
 | Klima | alle `climate.*` + `fan.*`, gruppert per område |
 | Basseng | entiteter i område «Basseng»/`pool` (temperatur, pumpe-switch, pH/klor) |
 | Ruter | plattform `entur` (avganger) + `entur_sx` (avvik) |
-| Strøm | `sensor` med `device_class: power`/`energy` + plattform `nordpool`/`tibber` for pris |
+| Strøm | `sensor` med `device_class: power`/`energy` + plattform `nordpool`/`tibber` for pris · pris via `MSH.powerPrice` (ki-store `power_price`): auto = beste pris-sensor (…/kWh) for profil/kilde/område (nordpool → tibber → strompris → energi_data_service; Norge aldri SEK, Sverige bare SEK), Norgespris = `sensor.*norgespris*`, nettleie velges aldri automatisk (bare forslag) |
 | Vær | første `weather.*` |
 | Gjøremål | alle `todo.*` |
 | Sikkerhet | `alarm_control_panel.*`, `lock.*`, `binary_sensor` door/window/motion |

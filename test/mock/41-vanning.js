@@ -45,3 +45,10 @@ window.mockExtend(({ add }) => {
     return h;
   };
 })();
+// Innstillinger (4.5 · systemets velgere): tall og klokkeslett i hageområdet
+window.mockExtend(({ add }) => {
+  add('number.vanning_regnpause', 24, { unit_of_measurement: 'h', min: 0, max: 96, step: 1, mode: 'box', friendly_name: 'Vanning regnpause' }, { area: 'hage' });
+  add('input_number.vanning_kjoretid', 12.5, { unit_of_measurement: 'min', min: 0, max: 600, step: 0.5, friendly_name: 'Vanning kjøretid' }, { area: 'hage' });
+  add('time.vanning_start', '05:30:00', { friendly_name: 'Vanning start' }, { area: 'hage' });
+  add('input_datetime.vanning_neste', '2026-10-02 06:00:00', { has_date: true, has_time: true, friendly_name: 'Vanning neste' }, { area: 'hage' });
+});

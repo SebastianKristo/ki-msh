@@ -74,6 +74,10 @@
     const osProg = os.filter((id) => /^switch\..+_program_enabled$/.test(id));
     const autos = M.all(hass, ['automation', 'script'], (s, id) => KW.test(T(id)) && (explicit ? inA(id) : true));
     o.programs = [...osProg, ...autos];
+    // innstillinger (tall/klokkeslett) → steppere med systemets velger i Program-fanen
+    // uten hageområde: bare tydelige vanningsnavn (ikke «varmtvann», «sone» o.l. fra f.eks. KI Energi)
+    const KW_SET = /vanning|sprinkl|spreder|drypp|drip|irrig|hageslange/;
+    o.settings = M.all(hass, ['number', 'input_number', 'time', 'input_datetime'], (s, id) => (os.includes(id) || inA(id) || (!explicit && KW_SET.test(T(id)))) && !/basseng|pool|varmtvann|bereder|vvb/.test(T(id)));
     return o;
   };
   M.vanEnts = function (hass, cfg) {
@@ -81,6 +85,7 @@
     ['system', 'os_controller', 'rain', 'skip', 'reset', 'current', 'power', 'water', 'flow', 'moisture', 'calendar'].forEach((k) => { e[k] = M.pick(cfg, k, a[k] && !ex.has(a[k]) ? a[k] : null); });
     e.zoneIds = M.applyLists(cfg, 'soner', a.zones);
     e.progIds = M.applyLists(cfg, 'program', a.programs);
+    e.setIds = M.applyLists(cfg, 'innstillinger', a.settings);
     return e;
   };
   // Én sone → modell. g(id) leser state (registrerer avhengighet i kortet).
@@ -223,7 +228,7 @@
   const SCHEMA_BASE = [
     { type: 'area', name: 'area', label: 'Område', help: 'Tomt = «Hage»/«garden». Satt område = kun entiteter derfra (+ OpenSprinkler)', auto: (h) => M.vanArea(h, {}) },
     { type: 'boolean', name: 'opensprinkler', label: 'Bruk OpenSprinkler-integrasjonen', default: true },
-    { type: 'lists', label: 'Soner og programmer', lists: (h, c) => { const a = M.vanAuto(h, c); return [{ key: 'soner', label: 'Soner', ids: a.zones, domains: ['valve', 'switch', 'sensor'] }, { key: 'program', label: 'Programmer', ids: a.programs, domains: ['switch', 'automation', 'script'] }]; } },
+    { type: 'lists', label: 'Soner og programmer', lists: (h, c) => { const a = M.vanAuto(h, c); return [{ key: 'soner', label: 'Soner', ids: a.zones, domains: ['valve', 'switch', 'sensor'] }, { key: 'program', label: 'Programmer', ids: a.programs, domains: ['switch', 'automation', 'script'] }, { key: 'innstillinger', label: 'Innstillinger', ids: a.settings || [], domains: ['number', 'input_number', 'time', 'input_datetime'] }]; } },
     { type: 'overrides', label: 'Entiteter', fields: [
       ['system', 'Anlegget på/av', ['switch', 'input_boolean']], ['rain', 'Regnpause', ['binary_sensor', 'input_boolean', 'switch']], ['skip', 'Hopp over neste', ['input_boolean', 'switch']], ['reset', 'Nullstill', ['button', 'input_button', 'script']],
       ['calendar', 'Vanningskalender (plan)', 'calendar'], ['water', 'Vannmåler', 'sensor', 'water'], ['moisture', 'Jordfuktighet', 'sensor', 'moisture'], ['current', 'Strømtrekk (mA)', 'sensor'], ['power', 'Effekt', 'sensor', 'power'], ['flow', 'Vannføring', 'sensor'],
@@ -462,6 +467,8 @@
           </div>`;
         }).join('')}</div>`;
       } else out += M.emptyState('Fant ingen vanningsprogrammer (OpenSprinkler, automasjon eller skript)', 'entities');
+      const sets = (m.e.setIds || []).filter((id) => this.s(id));
+      if (sets.length) out += `<div class="col" style="gap:8px" data-key="innst"><div class="cap" style="padding:0 4px">Innstillinger</div><div class="zl stpl">${sets.map((id) => M.stepperHTML(this.hass, id, { label: cap(M.name(this.hass, id, m.e.area ? M.areaName(this.hass, m.e.area) : '')), key: 'stp-' + id })).join('')}</div></div>`;
       out += `<div class="col" style="gap:8px"><div class="cap" style="padding:0 4px">Kommende vanninger</div>`;
       if (m.upcoming.length) {
         out += `<div class="zl" style="padding:4px 16px">${m.upcoming.map((d, i) => `<div data-key="${d.k}" style="padding:12px 0;${i ? 'border-top:1px solid rgba(255,255,255,0.06);' : ''}opacity:${m.skipOn && i === 0 ? 0.4 : 1}">
@@ -647,7 +654,9 @@
       if ((!running || !this.isOpen) && this._tick) { clearInterval(this._tick); this._tick = null; }
     }
     get styles() {
-      return `
+      return (M.STEPPER_CSS || '') + `
+        .stpl{padding:0}
+        .stpl>.msh-stp-row+.msh-stp-row{border-top:1px solid rgba(255,255,255,0.06)}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,16px)}
         .ctrls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;container-type:inline-size}
         .ct{height:76px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;transition:background .2s,color .2s;min-width:0}

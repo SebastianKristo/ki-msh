@@ -8,6 +8,7 @@
  *   synkes med teksten. Validering (MSH.yaml + type/card_type/hash/unik) med linjenummer; «Ferdig» er av til alt er gyldig.
  *   Skjema-modus: navn, ikon, hash, bredde, bg_opacity, bg_blur, bakgrunn, ikonfarge, header-bakgrunn.
  *   Forhåndsvis åpner popupen via hash uten å lagre (midlertidig popup / setConfig på den levende), «Tilbake» gjenåpner arket.
+ *   «Strømpris» → felles strømpris-kilde (power_price, 29-strompris-editor.js · MSH.powerPricePanel, visning u.pv = 'strom').
  *   ⋮ → «Eksporter alle som YAML» (custom_popups + popup_overrides, klart til å lime inn under strategy:).
  */
 (function () {
@@ -267,7 +268,7 @@
     const bar = `<div class="ppbar">
         <div class="pgs">${GROUPS.map(([id, icn, l]) => `<button class="pg ${g === id ? 'on' : ''}" data-a="popg" data-v="${id}" data-h="selection">${ic(icn, 18)}${l}</button>`).join('')}</div>
       </div>
-      <div class="ppbar"><button class="ppnew press" data-a="ppnew" data-key="ppnew">${ic('mdi:plus', 18)}Ny popup</button><span style="flex:1"></span>
+      <div class="ppbar"><button class="ppnew press" data-a="ppnew" data-key="ppnew">${ic('mdi:plus', 18)}Ny popup</button>${M.powerPricePanel ? `<button class="b40 press" style="display:flex;align-items:center;gap:6px;flex:none" data-a="ppstrom" data-key="ppstrom">${ic('mdi:lightning-bolt', 18)}Strømpris</button>` : ''}<span style="flex:1"></span>
         <div class="ppmn"><button class="sq" style="width:40px;height:40px;border-radius:20px;background:var(--gray200,#3a3a3a)" data-a="ppmenu" title="Mer">${ic('mdi:dots-vertical', 20)}</button>
         ${u.ppMenu ? `<div class="ppmenu"><button data-a="ppexport">${ic('mdi:export-variant', 20)}Eksporter alle som YAML</button></div>` : ''}</div>
       </div>`;
@@ -470,15 +471,18 @@
       }
       const u = ed.u;
       try {
+        if (u.pv === 'strom' && M.powerPricePanel) return M.powerPricePanel.render(ed); // 29-strompris-editor.js
         if (u.pv === 'new') return renderNew(ed);
         if (u.pv === 'export' && u.pd) return renderExport(ed);
         if (u.pv === 'item' && u.pd) return renderItem(ed);
       } catch (e) { console.error('[ki-msh] popups', e); }
       return renderList(ed);
     },
-    after(ed) { if (ed.u.pd && (ed.u.pv === 'item' || ed.u.pv === 'export')) mount(ed); },
+    after(ed) { if (ed.u.pv === 'strom' && M.powerPricePanel) return M.powerPricePanel.after(ed); if (ed.u.pd && (ed.u.pv === 'item' || ed.u.pv === 'export')) mount(ed); },
     act(ed, a, d) {
       const u = ed.u;
+      if (a === 'ppstrom') { u.pv = 'strom'; u.pd = null; u.ppMenu = false; ed.render(); return true; }
+      if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
       switch (a) {
         case 'popg': u.popG = d.v; u.ppMenu = false; ed.render(); return true;
         case 'ppmenu': u.ppMenu = !u.ppMenu; ed.render(); return true;
@@ -541,6 +545,7 @@
       }
     },
     input(ed, el, kind) {
+      if (ed.u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.input(ed, el, kind)) return true;
       const k = el.dataset.in, u = ed.u, d = u.pd;
       if (k === 'pparea') { if (kind === 'change') u.ppArea = el.value; return true; }
       if (!d) return false;

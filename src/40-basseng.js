@@ -331,7 +331,7 @@
         return `<button class="tile press" data-key="${k}" data-act="ctl" data-k="${k}" ${id ? `data-ent="${esc(id)}"` : ''} title="${esc(l)}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'};${id ? '' : 'opacity:.55'}">${M.icon(ic, 24)}</button>`;
       }).join('');
       const idx = Math.max(0, tl.indexOf(cur)), n = tl.length || 1;
-      const tabs = tl.map((k, i) => `<span class="gti" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
+      const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
       return `<div class="wrap">
         ${cl.length ? `<div class="ctl" style="grid-template-columns:repeat(${cl.length},minmax(0,1fr))">${ctrls}</div>` : ''}
@@ -454,6 +454,7 @@
       return `
         <div class="g2">${cards}</div>
         <div class="g5">${temps}</div>
+        ${/^(number|input_number)\./.test(e.target || '') ? `<div class="stpc">${M.stepperHTML(this.hass, e.target, { label: 'Måltemperatur', key: 'stp-target' })}</div>` : ''}
         <div class="prose">${prose}</div>
         <div class="hc" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
           <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Endring siste døgn</span><span class="num" style="font-size:22px;color:${dcol}">${esc(delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(mx)}<br>${esc(mn)}</span></div>
@@ -511,7 +512,7 @@
       const id = e.spr, s = this.s(id), on = M.onState(s);
       const durs = nums(this._v('spr_durs'), '5 10 15 20 30').slice(0, 5);
       const ds = this.s(e.spr_duration);
-      let dur = this.ui.dur;
+      let dur = ds && M.isNum(ds.state) ? null : this.ui.dur; // varighets-entitet er sannheten (stepperen skriver til den)
       if (dur == null && ds && M.isNum(ds.state)) dur = Number(ds.state) / (/s$|sek/.test(ds.attributes.unit_of_measurement || '') ? 60 : 1);
       if (dur == null) dur = durs[0];
       this._dur = dur;
@@ -528,6 +529,7 @@
         </div>
         <button class="sb press" data-act="sprstart" data-haptic="success"><span class="sbi">${M.icon(on ? 'stop' : 'play_arrow', 22)}</span>${s ? (on ? 'Stopp' : `Start i ${M.nf(dur, 0)} min`) : 'Velg spreder'}</button>
         <div class="g5">${durs.map((d) => `<button class="sq press" data-key="${d}" data-act="dur" data-v="${d}" data-haptic="selection" style="${d === dur ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(d, 0)}</button>`).join('')}</div>
+        ${e.spr_duration ? `<div class="stpc">${M.stepperHTML(this.hass, e.spr_duration, { label: 'Varighet', sub: 'Hvor lenge spreder går hver gang', key: 'stp-spr' })}</div>` : ''}
         ${rows}`;
     }
     /* ---------------- handlinger */
@@ -597,12 +599,14 @@
           gt.querySelectorAll('.gti').forEach((s, i) => { s.style.color = i === nr ? '#fff' : '#afafaf'; });
           if (nr !== near) { if (near >= 0) M.haptic('selection'); near = nr; }
         };
-        gt.addEventListener('pointerdown', (ev) => { if (ev.button) return; drag = { x: xOf(ev) }; near = -1; this._busy = true; try { gt.setPointerCapture(ev.pointerId); } catch (x) { /* */ } paint(drag.x); });
-        gt.addEventListener('pointermove', (ev) => { if (!drag) return; ev.preventDefault(); drag.x = xOf(ev); paint(drag.x); });
+        // Dra (≥ 8 px) = glassboblen følger fingeren; vanlig trykk = linse-animasjon (MSH.glassMorph, Fiks 4 · 3)
+        gt.addEventListener('pointerdown', (ev) => { if (ev.button) return; drag = { x: xOf(ev), cx: ev.clientX, on: false }; near = -1; this._busy = true; try { gt.setPointerCapture(ev.pointerId); } catch (x) { /* */ } });
+        gt.addEventListener('pointermove', (ev) => { if (!drag) return; ev.preventDefault(); drag.x = xOf(ev); if (!drag.on && Math.abs(ev.clientX - drag.cx) < 8) return; drag.on = true; paint(drag.x); });
         const up = (ev, cancel) => {
           if (!drag) return;
-          const n = this._tl.length, i = Math.max(0, Math.min(n - 1, Math.floor(drag.x * n)));
+          const n = this._tl.length, i = Math.max(0, Math.min(n - 1, Math.floor(drag.x * n))), tap = !drag.on;
           drag = null; this._busy = false;
+          if (tap && !cancel && this._tl[i] && this._tl[i] !== this._cur && M.glassMorph) { const sp = gt.querySelectorAll('.gti'); M.glassMorph(g(), sp[this._tl.indexOf(this._cur)], sp[i], { axis: 'x' }); }
           const ind = gt.querySelector('.ind');
           ind.removeAttribute('style');
           gt.querySelectorAll('.gti').forEach((s) => s.removeAttribute('style'));
@@ -614,7 +618,8 @@
       this.shadowRoot.querySelectorAll('.hs').forEach((el) => M.guardScroll(el));
     }
     get styles() {
-      return `
+      return (M.STEPPER_CSS || '') + `
+        .stpc{border-radius:24px;background:${C.card}}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px)}
         .ctl{display:grid;gap:8px}
         .tile{height:64px;border-radius:22px;display:grid;place-items:center;transition:background .2s,color .2s}

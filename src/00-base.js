@@ -220,6 +220,13 @@
     if (h[0] !== '#') h = '#' + h;
     location.hash = h;
   };
+  // Lukk åpen Bubble Card-popup uten å navigere (Fiks 4 · 1): fjern hashen med replaceState + location-changed,
+  // så Bubble Card lukker. Aldri history.back() – den kan navigere ut av dashbordet.
+  MSH.closePopup = function () {
+    if (!location.hash) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    window.dispatchEvent(new Event('location-changed'));
+  };
 
   /* ------------------------------------------------------------ autokonfig */
   // Entitetsregister-oppslag med samme regler som KI Rom: hopp over skjulte/deaktiverte,
@@ -466,6 +473,97 @@
   // (aktivt segment), --ki-g-t2 (sekundærtekst). Uten glass er de udefinert → editorene faller tilbake til standardfargene.
   MSH.GLASS_VARS = '--ki-glass:1;--ki-g-row:rgba(255,255,255,0.06);--ki-g-ring:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-g-seg:rgba(0,0,0,0.25);--ki-g-in:rgba(0,0,0,0.25);'
     + '--ki-g-on:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));--ki-g-on-c:#fafafa;--ki-g-on-sh:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);--ki-g-t2:rgba(255,255,255,0.62);';
+  // Liquid glass ved TRYKK (Fiks 4 · 3, fasit glass-drag.js · tapMorph). Én felles hjelper for alle fanerader og
+  // segmentvelgere:
+  //   MSH.glassTap(row, { items, active, enabled, host, axis })   – kobler raden på (idempotent, kall gjerne etter hver render)
+  //     items()  → knappene (standard: button/[data-glass-item] i raden)
+  //     active() → aktiv knapp (standard: [aria-selected="true"] / [data-active] / .on / .on-pk, ellers knappen med bakgrunn)
+  //     enabled()→ false = ingen animasjon (f.eks. bare i glassmodus)
+  //     host     → containeren linsen legges i (standard: raden)
+  //   MSH.glassMorph(host, fromEl, toEl, { axis }) – spill animasjonen direkte (rader uten click, f.eks. Basseng).
+  // Aktiv knapp bør merkes eksplisitt med aria-selected="true" (eller data-active) når raden rendres.
+  // Én global click-lytter (capture, window) finner rad og knapp via composedPath – FØR kortet bytter state, så
+  // linsen starter over den gamle aktive fanen, strekker seg (bredde ×1,36, scale(1.04, .9)) mens den glir til den nye,
+  // overskyter ±3 px (scale(1.08, 1.04)), setter seg og tones ut: 560 ms, cubic-bezier(.3,.9,.3,1). Linsen er
+  // position:absolute i radens container (aldri fixed – fallgruve 1) og overlever morph (__mshKeep).
+  // Ingen animasjon: allerede aktiv fane, rett etter glass-dra/fane-dra (MSH.glassDragEnd()), prefers-reduced-motion.
+  // Ingen haptic her – kortets egen haptic('selection') ved fanebytte er den eneste.
+  const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0' };
+  MSH.GLASS_LENS = LENS_CSS;
+  let gdEndT = 0;
+  MSH.glassDragEnd = () => { gdEndT = Date.now(); }; // kalles av glass-dra og fane-dra ved slipp
+  const reduced = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  MSH.glassMorph = function (host, from, to, opt = {}) {
+    if (!host || !from || !to || from === to || reduced() || !host.isConnected || !to.animate) return null;
+    if (host.__gtLens) { try { host.__gtLens.cancel(); } catch (e) { /* */ } }
+    const l = document.createElement('span');
+    l.className = 'gt-lens';
+    l.setAttribute('aria-hidden', 'true');
+    l.__mshKeep = true;
+    Object.assign(l.style, LENS_CSS);
+    host.appendChild(l);
+    host.__mshKeepN = (host.__mshKeepN || 0) + 1;
+    // klient-rect → lokale koordinater i linsens containing block (skala fra Bubble-transform + scroll)
+    const op = l.offsetParent || host, orr = op.getBoundingClientRect(), k = op.offsetWidth ? orr.width / op.offsetWidth : 1;
+    const loc = (el) => { const r = el.getBoundingClientRect(); return { x: (r.left - orr.left) / k - op.clientLeft + op.scrollLeft, y: (r.top - orr.top) / k - op.clientTop + op.scrollTop, w: r.width / k, h: r.height / k }; };
+    const A = loc(from), B = loc(to);
+    const ax = opt.axis || (Math.abs(B.x + B.w / 2 - A.x - A.w / 2) >= Math.abs(B.y + B.h / 2 - A.y - A.h / 2) ? 'x' : 'y');
+    const dir = ax === 'x' ? Math.sign(B.x - A.x) || 1 : Math.sign(B.y - A.y) || 1;
+    const cx = (A.x + A.w / 2 + B.x + B.w / 2) / 2, cy = (A.y + A.h / 2 + B.y + B.h / 2) / 2;
+    const f = (x, y, w, h, t, o) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transform: t, opacity: o });
+    const W = ax === 'x' ? Math.max(A.w, B.w) * 1.36 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.36 : (A.h + B.h) / 2;
+    const frames = [
+      { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)', 0) },
+      { offset: 0.08, ...f(A.x, A.y, A.w, A.h, 'scale(1)', 1) },
+      { offset: 0.45, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.04, 0.9)' : 'scale(0.9, 1.04)', 1) },
+      { offset: 0.7, ...f(B.x + (ax === 'x' ? dir * 3 : 0), B.y + (ax === 'y' ? dir * 3 : 0), B.w, B.h, 'scale(1.08, 1.04)', 1) },
+      { offset: 0.86, ...f(B.x, B.y, B.w, B.h, 'scale(1)', 1) },
+      { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)', 0) },
+    ];
+    const an = l.animate(frames, { duration: 560, easing: 'cubic-bezier(.3,.9,.3,1)', fill: 'forwards' });
+    host.__gtLens = an;
+    const done = () => { if (host.__gtLens === an) host.__gtLens = null; l.remove(); host.__mshKeepN = Math.max(0, (host.__mshKeepN || 1) - 1); };
+    an.onfinish = done; an.oncancel = done;
+    return an;
+  };
+  const hasBg = (el) => { const cs = getComputedStyle(el); return (cs.backgroundImage && cs.backgroundImage !== 'none') || !/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor); };
+  const gtItems = (row) => {
+    const o = row.__gt || {};
+    const its = o.items ? Array.from(o.items() || []) : Array.from(row.querySelectorAll('button,[data-glass-item]'));
+    return its.filter((b) => b && b.isConnected && b.getClientRects().length);
+  };
+  const gtActive = (row, its) => {
+    const o = row.__gt || {};
+    if (o.active) { const a = o.active(); if (a && a.nodeType === 1) return a; if (a != null) return its.find((b) => (b.dataset.tabId || b.dataset.key || b.dataset.id || b.dataset.t || b.dataset.v) === a) || null; }
+    const ex = its.find((b) => b.getAttribute('aria-selected') === 'true' || (b.hasAttribute('data-active') && b.getAttribute('data-active') !== 'false'));
+    if (ex) return ex;
+    const cl = its.find((b) => b.classList.contains('on') || b.classList.contains('on-pk'));
+    if (cl) return cl;
+    const bg = its.filter(hasBg); // fasit: aktiv knapp er den som har bakgrunn
+    return bg.length === 1 ? bg[0] : null;
+  };
+  MSH.glassTap = function (row, opt = {}) {
+    if (!row) return;
+    row.__gt = { ...(row.__gt || {}), ...opt };
+    if (!row.hasAttribute('data-glass-tap')) row.setAttribute('data-glass-tap', '');
+  };
+  if (!window.__mshGlassTap) {
+    window.__mshGlassTap = true;
+    window.addEventListener('click', (e) => {
+      if (e.button || Date.now() - gdEndT < 450) return; // glass-dra har allerede vist bevegelsen
+      const path = e.composedPath ? e.composedPath() : [];
+      const ri = path.findIndex((n) => n && n.nodeType === 1 && (n.__gt || (n.hasAttribute && n.hasAttribute('data-glass-tap'))));
+      if (ri < 1) return;
+      const row = path[ri], o = row.__gt || {};
+      if (o.enabled && !o.enabled()) return;
+      const its = gtItems(row), to = path.slice(0, ri).reverse().find((n) => its.includes(n));
+      if (!to || to.disabled || to.getAttribute('aria-disabled') === 'true') return;
+      const from = gtActive(row, its);
+      if (!from || from === to) return;
+      MSH.glassMorph(o.host || row, from, to, { axis: o.axis });
+    }, true);
+  }
+
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
   MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true } = {}) {
     const host = document.createElement('div');
@@ -613,7 +711,23 @@
       }
     }
   }
+  // Noder med __mshKeep (glasslinsen under en trykk-animasjon) er usynlige for morph og blir liggende.
+  function patchKeep(a, b) {
+    const an = Array.from(a.childNodes).filter((n) => !n.__mshKeep), bn = Array.from(b.childNodes), cur = an.slice();
+    for (let i = 0; i < bn.length; i++) {
+      const nb = bn[i], na = cur[i];
+      if (!na) { const n = document.importNode(nb, true); a.appendChild(n); cur.push(n); continue; }
+      if (sameNode(na, nb)) { patchNode(na, nb); continue; }
+      const key = nb.nodeType === 1 && nb.getAttribute('data-key');
+      let j = -1;
+      if (key != null) j = cur.findIndex((c, x) => x > i && c.nodeType === 1 && c.getAttribute('data-key') === key && c.tagName === nb.tagName);
+      if (j > i) { const f = cur[j]; a.insertBefore(f, na); cur.splice(j, 1); cur.splice(i, 0, f); patchNode(f, nb); } else { const n = document.importNode(nb, true); a.replaceChild(n, na); cur[i] = n; }
+    }
+    while (cur.length > bn.length) a.removeChild(cur.pop());
+    return an;
+  }
   function patchChildren(a, b) {
+    if (a.__mshKeepN > 0) return patchKeep(a, b);
     const an = Array.from(a.childNodes), bn = Array.from(b.childNodes);
     let i = 0;
     for (; i < bn.length; i++) {
@@ -918,6 +1032,8 @@
       if (id && MSH.liveCards.get(id)) MSH.liveCards.get(id).delete(this);
       window.removeEventListener('hashchange', this._onHash);
       window.removeEventListener('location-changed', this._onHash);
+      // Bubble Card tar innholdet ut av DOM-en når popupen lukkes – neste åpning skal gi onOpen igjen
+      this._open = false;
       this.onClose && this.onClose();
     }
     _checkOpen() {
@@ -952,6 +1068,8 @@
     _render() {
       if (!this._config || !this._hass) return;
       if (this._busy && !this._force) return; // drag pågår
+      // Native velger (09-pickers) har fokus: ikke tegn på nytt før den slippes (_ventTegn-regelen, fiks-4 4.5)
+      if (this._pickerFocus || (MSH.pickerBusy && MSH.pickerBusy(this.shadowRoot))) { this._force = true; return; }
       this._force = false;
       this._deps = new Set();
       let body;
@@ -960,7 +1078,7 @@
       const heroTag = MSH.HEROES[this.localName];
       const slot = heroTag ? '<div class="msh-hero-slot" data-nomorph></div>' : '';
       const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}${this.styles || ''}</style><ha-card>${slot}${body}</ha-card>`;
-      if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; } else MSH.morph(this.shadowRoot, html);
+      if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
       if (gap != null) this.style.setProperty('--msh-gap', gap + 'px');
       if (heroTag) this._mountHero(heroTag);
       this.afterRender && this.afterRender();

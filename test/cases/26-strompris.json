@@ -1,7 +1,123 @@
 [
-  { "name": "Strømpris · i dag", "cards": [ { "type": "custom:msh-strompris-card" } ] },
-  { "name": "Strømpris · terskel", "cards": [ { "type": "custom:msh-strompris-card", "threshold": 1.6, "norgespris_entity": "sensor.finnes_ikke", "norgespris": 1.3 } ] },
-  { "name": "Strømpris · uten i morgen (96 kvarter)", "cards": [ { "type": "custom:msh-strompris-card", "entity": "sensor.strompris_uten_morgen" } ] },
-  { "name": "Strømpris · uten Norgespris", "cards": [ { "type": "custom:msh-strompris-card", "show_norgespris": false } ] },
-  { "name": "Strømpris · tom", "cards": [ { "type": "custom:msh-strompris-card", "entity": "sensor.finnes_ikke" } ] }
+  {
+    "name": "Strømpris · i dag",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card"
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · terskel",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "threshold": 1.6,
+        "norgespris_entity": "sensor.finnes_ikke",
+        "norgespris": 1.3
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · uten i morgen (96 kvarter)",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "entity": "sensor.strompris_uten_morgen"
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · uten Norgespris",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "show_norgespris": false
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · tom",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "entity": "sensor.finnes_ikke"
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · Norge Norgespris + nettleie i morgen",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "power_price": {
+          "profile": "no",
+          "mode": "norgespris",
+          "grid_entity": "sensor.nettleie",
+          "area": "NO1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · Norge totalpris i øre",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "power_price": {
+          "profile": "no",
+          "mode": "total",
+          "unit": "ore",
+          "grid_entity": "sensor.nettleie",
+          "norgespris_entity": "sensor.finnes_ikke",
+          "norgespris": 0.6
+        }
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · Norge nettleie uten i morgen",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "power_price": {
+          "mode": "total",
+          "grid_entity": "sensor.nettleie_uten_morgen"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · Sverige SEK i öre",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "power_price": {
+          "profile": "se",
+          "se_area": "SE3"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Strømpris · Sverige totalpris, standard fane",
+    "cards": [
+      {
+        "type": "custom:msh-strompris-card",
+        "power_price": {
+          "profile": "se",
+          "se_unit": "ore",
+          "se_entity": "sensor.nordpool_kwh_se3_sek_3_10_025",
+          "mode": "total",
+          "grid_entity": "sensor.nettleie",
+          "tab": {
+            "style": "standard",
+            "font": 16,
+            "height": 40,
+            "padding": 28
+          }
+        }
+      }
+    ]
+  }
 ]

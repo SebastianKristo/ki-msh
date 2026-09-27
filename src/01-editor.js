@@ -11,6 +11,9 @@
  *   { type:'lists', label, lists:(hass,cfg)=>[{ key, label, ids, domains }] }    → config.exclude / config.include
  *   { type:'order', name:'sections', hiddenName:'hidden_sections', label, options:[[key,label]] }
  *   { type:'gap' } → config.gap (4 / 8 / 18)
+ *   { type:'stepper', entity: id | (hass,cfg)=>id, label, help, unit, min, max, step } → «− verdi +» med systemets velger
+ *       (09-pickers); skriver entitetens verdi direkte (number/time/date/datetime-tjenestene), ikke til config
+ *   { type:'action', name, label, std, apps } → HA action-format (Standard · Åpne app · Send kommando · HA-handling · Ingen)
  */
 (function () {
   if (customElements.get('msh-editor')) return;
@@ -340,16 +343,17 @@
     }
     _render() {
       if (!this._config || !this._hass) return;
+      if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return; // native velger har fokus (09-pickers) – tegnes ved blur
       const cls = this.cardClass || {};
       const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
-      const html = `<style>${ED_CSS}</style><div class="wrap">
+      const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
         ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
-      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
@@ -383,11 +387,11 @@
         }
         case 'select': {
           const cur = val != null ? String(val) : f.default != null ? String(f.default) : '';
-          return `<div class="f">${lab}<div class="chips sg">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
+          return `<div class="f">${lab}<div class="chips sg">${(f.options || []).map(([v, l]) => `<button class="chip ${String(v) === cur ? 'on' : ''}" aria-selected="${String(v) === cur}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`).join('')}</div>${help}</div>`;
         }
         case 'gap': {
           const cur = c.gap != null ? Number(c.gap) : 8;
-          return `<div class="f"><label>Mellomrom</label><div class="chips sg">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
+          return `<div class="f"><label>Mellomrom</label><div class="chips sg">${[[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']].map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" aria-selected="${v === cur}" data-a="sel" data-name="gap" data-v="${v}" data-num="1">${l} ${v}</button>`).join('')}</div></div>`;
         }
         case 'range': {
           const cur = val != null ? Number(val) : f.default;
@@ -400,17 +404,21 @@
             <input type="range" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${cur != null ? cur : f.min}">
             ${pills ? `<div class="chips">${pills}</div>` : ''}${help}</div>`;
         }
+        case 'stepper': { // verdien til en entitet (number/input_number/time/date/datetime/input_datetime) – skrives rett til HA
+          const id = typeof f.entity === 'function' ? (() => { try { return f.entity(h, c); } catch (e) { return null; } })() : f.entity || val || auto;
+          return `<div class="f stp">${M.stepperHTML(h, id, { label: f.label || (id ? M.name(h, id) : 'Velg entitet'), sub: f.help, unit: f.unit, min: f.min, max: f.max, step: f.step, key: 'stp-' + key })}</div>`;
+        }
         case 'number':
-          return `<div class="f">${lab}<input class="inp" type="number" data-name="${esc(f.name)}" data-num="1" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || f.default || '')}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>${help}</div>`;
+          return `<div class="f">${lab}<input class="inp" type="number" inputmode="decimal" data-name="${esc(f.name)}" data-num="1" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || f.default || '')}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>${help}</div>`;
         case 'text':
-          return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
+          return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
         case 'hash': { // forslag: alle popups inkl. egne (MSH.allPopups)
           const dl = 'hl-' + key, opts = M.popupOptions ? M.popupOptions(this._hass) : [];
-          return `<div class="f">${lab}<input class="inp" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
+          return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
         }
         case 'icon':
           if (customElements.get('ha-icon-picker')) return `<div class="f">${lab}<ha-icon-picker data-name="${esc(f.name)}" data-nomorph placeholder="${esc(auto || f.placeholder || '')}"></ha-icon-picker>${help}</div>`;
-          return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;
+          return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;
         case 'color':
           return this._color(f, val, auto);
         case 'entity':
@@ -436,11 +444,46 @@
         case 'button':
           (this._btns = this._btns || {})[key] = f;
           return `<button class="btn" style="height:48px" data-a="run" data-k="${key}">${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}</button>${help}`;
+        case 'action':
+          return this._action(f, val, key);
         case 'info':
           return `<div class="small" style="padding:0 6px">${esc(f.label)}</div>`;
         default:
           return '';
       }
+    }
+    // Handling (HA action-format) med modusvalg: Standard · Åpne app · Send kommando · HA-handling · Ingen.
+    // f: { name, label, help, std: 'Standard-etikett' (utelat = ingen standard → «Ingen» er tom verdi), apps: [navn], cmdPlaceholder }
+    // Lagres som { action:'none' } | perform-action media_player.select_source {data.source} | remote.send_command {data.command}
+    // (uten target – kortet fyller inn spiller/remote) | vilkårlig HA-handling (ui_action-selector).
+    _action(f, val, key) {
+      const std = f.std != null, a = val && typeof val === 'object' ? val : null;
+      const pa = a && (a.perform_action || a.service), tgt = a && a.target && Object.keys(a.target).length;
+      const mode = !a ? (std ? 'std' : 'none') : a.action === 'none' ? 'none'
+        : (a.action === 'perform-action' || a.action === 'call-service') && pa === 'media_player.select_source' && !tgt ? 'app'
+          : (a.action === 'perform-action' || a.action === 'call-service') && pa === 'remote.send_command' && !tgt ? 'cmd' : 'ha';
+      const apps = (f.apps || []).filter(Boolean);
+      const V = {
+        std: undefined, none: std ? { action: 'none' } : undefined,
+        app: { action: 'perform-action', perform_action: 'media_player.select_source', data: { source: apps[0] || '' } },
+        cmd: { action: 'perform-action', perform_action: 'remote.send_command', data: { command: '' } },
+        ha: { action: 'perform-action', perform_action: '' },
+      };
+      const modes = [...(std ? [['std', f.std]] : []), ['app', 'Åpne app'], ['cmd', 'Send kommando'], ['ha', 'HA-handling'], ['none', 'Ingen']];
+      const chip = ([m, l]) => `<button class="chip ${m === mode ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-json="1" data-v="${esc(JSON.stringify(m === mode && a ? a : V[m] === undefined ? null : V[m]))}">${esc(l)}</button>`;
+      let sub = '';
+      if (mode === 'app') {
+        const cur = (a.data && a.data.source) || '';
+        sub = apps.length ? `<div class="chips">${[...new Set([...apps, ...(cur && !apps.includes(cur) ? [cur] : [])])].map((n) => `<button class="pill ${n === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}.data.source" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>`
+          : `<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}.data.source" value="${esc(cur)}" placeholder="Appnavn (source)">`;
+      } else if (mode === 'cmd') {
+        sub = `<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}.data.command" value="${esc((a.data && a.data.command) || '')}" placeholder="${esc(f.cmdPlaceholder || 'Kommando, f.eks. menu')}">`;
+      } else if (mode === 'ha') {
+        sub = customElements.get('ha-selector')
+          ? `<ha-selector data-name="${esc(f.name)}" data-nomorph data-selector="${esc(JSON.stringify({ ui_action: {} }))}" data-label=""></ha-selector>`
+          : `<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}.perform_action" value="${esc(pa || '')}" placeholder="domene.tjeneste, f.eks. script.tv_kveld">`;
+      }
+      return `<div class="f">${f.label ? `<label>${esc(f.label)}</label>` : ''}<div class="chips sg">${modes.map(chip).join('')}</div>${sub}${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
     }
     _entRow(id, tail, off) {
       const s = this._hass.states[id];
@@ -458,7 +501,7 @@
       const q = this._q[key] || '';
       const open = this._menu === key;
       const items = open ? this._matches(f, q) : [];
-      return `<div class="dd"><input class="inp" data-search="${key}" data-act="${act}" data-name="${esc(name)}" value="${esc(q)}" placeholder="${esc(placeholder || 'Søk eller skriv entity_id …')}" autocomplete="off">
+      return `<div class="dd"><input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-search="${key}" data-act="${act}" data-name="${esc(name)}" value="${esc(q)}" placeholder="${esc(placeholder || 'Søk eller skriv entity_id …')}" autocomplete="off">
         ${open ? `<div class="menu">${items.map((x) => `<button data-a="${act}" data-name="${esc(name)}" data-v="${esc(x.id)}" data-key="${esc(x.id)}"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></button>`).join('') || '<div class="small" style="padding:8px">Ingen treff – trykk Enter for å bruke teksten</div>'}</div>` : ''}</div>`;
     }
     _entity(f, name, val, auto, key) {
@@ -492,7 +535,7 @@
       return `<div class="f"><label>${esc(f.label || 'Farge')}</label>
         <span class="help">Tema (My SmartHome v3)</span><div class="sws">${theme}</div>
         <span class="help">HA-farger</span><div class="sws">${ha}</div>
-        <div class="line"><span class="dot" style="background:${esc(cur || auto || 'transparent')}"></span><input class="inp" data-name="${esc(f.name)}" value="${esc(cur)}" placeholder="${esc(auto || '#hex eller var(--navn)')}"><button class="ib" data-a="clear" data-name="${esc(f.name)}" title="Standard">${M.icon('mdi:restore', 18)}</button></div>
+        <div class="line"><span class="dot" style="background:${esc(cur || auto || 'transparent')}"></span><input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${esc(cur)}" placeholder="${esc(auto || '#hex eller var(--navn)')}"><button class="ib" data-a="clear" data-name="${esc(f.name)}" title="Standard">${M.icon('mdi:restore', 18)}</button></div>
         ${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
     }
     _lists(f, key) {
@@ -532,7 +575,7 @@
       switch (d.a) {
         case 'run': { const f = (this._btns || {})[d.k]; if (f && f.run) Promise.resolve(f.run(this._hass, this._config, this)).catch((e) => M.toast('Feil: ' + e.message)); return; }
         case 'bool': return this._set(d.name, d.v === '1');
-        case 'sel': return this._set(d.name, d.num === '1' ? Number(d.v) : d.v);
+        case 'sel': return this._set(d.name, d.json === '1' ? JSON.parse(d.v) : d.num === '1' ? Number(d.v) : d.v);
         case 'clear': this._menu = null; return this._set(d.name, undefined);
         case 'setent': this._menu = null; this._q = {}; return this._set(d.name, d.v);
         case 'addlist': { this._menu = null; this._q = {}; const l = [...(get(c, d.name) || [])]; if (!l.includes(d.v)) l.push(d.v); return this._set(d.name, l); }

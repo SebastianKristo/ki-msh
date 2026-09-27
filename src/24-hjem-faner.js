@@ -396,7 +396,7 @@
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
       return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
         <span class="ind" style="${ind}"></span>
-        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
+        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" role="tab" aria-selected="${i === idx}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
     }
 
@@ -567,14 +567,10 @@
         return { top: w ? a.friendly_name || 'Vær' : 'Vær', title: w && a.temperature != null ? `${M.nf(a.temperature, 1)}°` : '–', line1: w ? WX[w.state] || w.state : '–', line2: w ? [a.humidity != null ? `Fukt ${M.nf(a.humidity, 0)} %` : '', a.wind_speed != null ? `vind ${M.nf(a.wind_speed, 0)} ${a.wind_speed_unit || 'm/s'}` : ''].filter(Boolean).join(' · ') : '', hash: '#vaer' };
       }
       if (id === 'strom') {
-        this.n(E.price);
-        const p = M.priceNow ? M.priceNow(this.hass, E.price) : this.n(E.price), W = this.n(E.watt);
-        let cheap = '';
-        if (E.price && M.priceSeries) {
-          const h0 = new Date().getHours(), vals = M.priceSeries(this.hass, E.price).slice(0, 24).map((v, h) => [v, h]).filter(([v, h]) => v != null && h >= h0);
-          if (vals.length) { const m = vals.reduce((a, b) => (b[0] < a[0] ? b : a)); cheap = `Billigst kl. ${pad2(m[1])} · ${M.nf(m[0], 2)} kr`; }
-        }
-        return { top: 'Strøm nå', title: p != null ? `${M.nf(p, 2)} kr` : '–', line1: W != null ? `${M.nf(W, 0)} W` : '–', line2: cheap, hash: '#strom' };
+        // Felles strømpris-kilde (MSH.powerPrice): pris som vises, enhet og SEK→kr fra power_price; overrides.price bytter sensor
+        const P = M.powerPrice(this.hass, (c.overrides || {}).price ? M.powerPriceCfg(null, { spot_entity: c.overrides.price, se_entity: c.overrides.price }) : null, this), W = this.n(E.watt);
+        const m = P.cheapest();
+        return { top: 'Strøm nå', title: P.fmt(P.now), line1: W != null ? `${M.nf(W, 0)} W` : '–', line2: m ? `Billigst kl. ${pad2(m.h)} · ${P.fmt(m.v)}` : '', hash: '#strom' };
       }
       if (id === 'cal') {
         const k = s(E.calendar), a = k ? k.attributes : {}, st = a.start_time ? new Date(String(a.start_time).replace(' ', 'T')) : null, en = a.end_time ? new Date(String(a.end_time).replace(' ', 'T')) : null;
