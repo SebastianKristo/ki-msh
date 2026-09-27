@@ -4442,7 +4442,9 @@ try {
    * den er skjult eller har fått annen hash; egne knapper med hash), Hjem-flis (Tilpass Hjem → overrides.<id>) eller
    * en snarvei/lenke/popup_hash hvor som helst i kortconfigene (ki-store cards.* og strategiens home/navbar).
    * Mangler entitetene viser kortet tom-tilstanden (aldri skjult popup). */
-  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' } };
+  // Popups som lages når noe peker på dem (navbarens innebygde knapper, Hjem-flis, snarveier), også uten entiteter –
+  // kortene viser da tom-tilstand i stedet for at knappen peker på en popup som ikke finnes.
+  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#basseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
   const hasStr = (o, v, d) => (d > 12 || o == null ? false : typeof o === 'string' ? o.trim() === v : typeof o === 'object' ? Object.values(o).some((x) => hasStr(x, v, (d || 0) + 1)) : false);
   function popupRefs(hash, config, user) {
     const R = M.REF_POPUPS[hash];
@@ -23254,9 +23256,10 @@ try {
   const PINKG = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
   const SHEET_CSS = `
     .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding-top:4px}
-    .hd{display:flex;align-items:center;gap:8px;padding:0 4px 6px}
-    .tt{font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .st{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hd{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 4px 6px}
+    .hd>.col{flex:1 1 170px}
+    .tt{font-size:22px;font-weight:600;white-space:nowrap}
+    .st{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
     .nb{height:40px;padding:0 14px;border-radius:20px;background:var(--ki-g-row,var(--gray300,#404040));font-size:14px;font-weight:500;flex:none}
     .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINKG};color:#5a3a48;font-size:14px;font-weight:600;flex:none}
     .nb:active,.ok:active,.chip:active,.more:active{transform:scale(.96)}

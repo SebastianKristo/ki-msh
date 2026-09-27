@@ -71,7 +71,9 @@
    * den er skjult eller har fått annen hash; egne knapper med hash), Hjem-flis (Tilpass Hjem → overrides.<id>) eller
    * en snarvei/lenke/popup_hash hvor som helst i kortconfigene (ki-store cards.* og strategiens home/navbar).
    * Mangler entitetene viser kortet tom-tilstanden (aldri skjult popup). */
-  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' } };
+  // Popups som lages når noe peker på dem (navbarens innebygde knapper, Hjem-flis, snarveier), også uten entiteter –
+  // kortene viser da tom-tilstand i stedet for at knappen peker på en popup som ikke finnes.
+  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#basseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
   const hasStr = (o, v, d) => (d > 12 || o == null ? false : typeof o === 'string' ? o.trim() === v : typeof o === 'object' ? Object.values(o).some((x) => hasStr(x, v, (d || 0) + 1)) : false);
   function popupRefs(hash, config, user) {
     const R = M.REF_POPUPS[hash];

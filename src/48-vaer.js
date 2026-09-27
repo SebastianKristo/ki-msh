@@ -721,9 +721,10 @@
   const PINKG = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
   const SHEET_CSS = `
     .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding-top:4px}
-    .hd{display:flex;align-items:center;gap:8px;padding:0 4px 6px}
-    .tt{font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .st{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hd{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 4px 6px}
+    .hd>.col{flex:1 1 170px}
+    .tt{font-size:22px;font-weight:600;white-space:nowrap}
+    .st{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
     .nb{height:40px;padding:0 14px;border-radius:20px;background:var(--ki-g-row,var(--gray300,#404040));font-size:14px;font-weight:500;flex:none}
     .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINKG};color:#5a3a48;font-size:14px;font-weight:600;flex:none}
     .nb:active,.ok:active,.chip:active,.more:active{transform:scale(.96)}
