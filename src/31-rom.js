@@ -6,6 +6,11 @@
  * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}
  * (universal-rad, M.universal: mode, size, icon, main_text, sub_text, alt_text, symbol, background_color, text_color,
  * badge_condition/badge_color, bar_value/bar_color/bar_invert_colors, state_rule_1..3_*; legacy name/label/bg/cell/icon_color).
+ * Enheter (16.5): universal small-rad (som Sensorer), hele raden = dom.toggle, hold = more-info. Hvitevare-profiler (PROF)
+ * etter navn; looks.<dom>.<obj>.{profile, profile_color, active_text, run_threshold_w, profile_anim, animation}. Aktiv =
+ * på og effekt > terskel (eller status-sensor) → profilfarge + rist/spinn/puls; appliance_animation Full/Rolig/Av.
+ * Klima (16.8): klima_heat_w.<obj> (std 100 W) → rosa «varmer»-kort; vifter (liste «vifter», include.vifter) under
+ * klimakortene med −/+; klima_order ['cards','fans'] + klima_hidden. Topplinjen = sum W.
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
  * Lys: felles lys-rad (08-light-row.js, samme som Lys-popupen) per lys, gjenbrukt per entity. slider_height (32–56,
@@ -21,7 +26,7 @@
   // Seksjoner (design-rekkefølge; toppkortet er eget kort: msh-rom-klima-card)
   const SECS = [['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
   // Lister (config.include-nøkler) → domener for «legg til»-søk
-  const LISTS = [['gardiner', 'Rullegardin', ['cover']], ['scener', 'Scener', ['scene', 'script']], ['lys', 'Lys', ['light']], ['enheter', 'Enheter', ['switch', 'fan', 'input_boolean']], ['klima', 'Klima', ['climate']], ['media', 'Media', ['media_player']], ['sensorer', 'Sensorer', ['binary_sensor', 'sensor']]];
+  const LISTS = [['gardiner', 'Rullegardin', ['cover']], ['scener', 'Scener', ['scene', 'script']], ['lys', 'Lys', ['light']], ['enheter', 'Enheter', ['switch', 'fan', 'input_boolean']], ['klima', 'Klima', ['climate']], ['vifter', 'Vifter', ['fan', 'switch', 'input_boolean']], ['media', 'Media', ['media_player']], ['sensorer', 'Sensorer', ['binary_sensor', 'sensor']]];
   // «Åpen ved start» (sammenleggbare seksjoner, i designets rekkefølge). curtain = Gardiner (utvidet liste når
   // rommet har flere gardiner, ui.cvOpen); de andre = akkordeonene (ui.acc). Toppkortet og Scener er alltid synlige.
   // Config per rom: sections_open.<id> (true/false) + sections_mode 'single'|'multi' (std multi). Leser også
@@ -49,21 +54,36 @@
 
   // Apparatprofiler (fra designet): navn → ikon, farge, verb, terskel (W), animasjon
   const PROF = [
-    [/br(ø|o)drister|toaster/, 'breakfast_dining', 'red', 'Rister', 10, 'rist'],
-    [/kaffe/, 'coffee_maker', 'orange', 'Trakter kaffe', 10, 'puls'],
-    [/vannkoker|kettle/, 'emoji_food_beverage', 'blue', 'Koker vann', 10, 'rist'],
-    [/kj(ø|o)leskap|fridge/, 'kitchen', 'blue', 'Kjøler', 30, 'puls'],
-    [/fryse/, 'severe_cold', 'blue', 'Fryser', 30, 'puls'],
-    [/t(ø|o)rketrommel|dryer/, 'dry_cleaning', 'purple', 'Tørker', 10, 'spinn'],
-    [/vaskemaskin|washer/, 'local_laundry_service', 'blue', 'Vasker', 10, 'spinn'],
-    [/oppvask|dishwasher/, 'dishwasher_gen', 'green', 'Vasker opp', 10, 'puls'],
-    [/mikro/, 'microwave', 'orange', 'Varmer', 10, 'puls'],
-    [/platetopp|induksjon|cooktop/, 'mdi:pot-steam', 'red', 'Koker', 10, 'puls'],
-    [/komfyr|stekeovn|ovn\b|oven/, 'mdi:stove', 'orange', 'Steker', 10, 'puls'],
-    [/h(å|a)ndkle|towel/, 'heat', 'orange', 'Varmer håndklær', 10, 'puls'],
-    [/varmtvann|bereder|\bvvb\b/, 'shower', 'orange', 'Varmer vann', 50, 'puls'],
+    [/br(ø|o)drister|toaster/, 'breakfast_dining', 'red', 'Rister', 10, 'rist', 'Brødrister'],
+    [/kaffe/, 'coffee_maker', 'orange', 'Trakter kaffe', 10, 'puls', 'Kaffetrakter'],
+    [/vannkoker|kettle/, 'emoji_food_beverage', 'blue', 'Koker vann', 10, 'rist', 'Vannkoker'],
+    [/kj(ø|o)leskap|fridge/, 'kitchen', 'blue', 'Kjøler', 30, 'puls', 'Kjøleskap'],
+    [/fryse/, 'severe_cold', 'blue', 'Fryser', 30, 'puls', 'Fryseskap'],
+    [/t(ø|o)rketrommel|dryer/, 'dry_cleaning', 'purple', 'Tørker', 10, 'spinn', 'Tørketrommel'],
+    [/vaskemaskin|washer/, 'local_laundry_service', 'blue', 'Vasker', 10, 'spinn', 'Vaskemaskin'],
+    [/oppvask|dishwasher/, 'dishwasher_gen', 'green', 'Vasker opp', 10, 'puls', 'Oppvaskmaskin'],
+    [/mikro/, 'microwave', 'orange', 'Varmer', 10, 'puls', 'Mikrobølgeovn'],
+    [/platetopp|induksjon|cooktop/, 'mdi:pot-steam', 'red', 'Koker', 10, 'puls', 'Platetopp'],
+    [/komfyr|stekeovn|ovn\b|oven/, 'mdi:stove', 'orange', 'Steker', 10, 'puls', 'Komfyr'],
+    [/h(å|a)ndkle|towel/, 'heat', 'orange', 'Varmer håndklær', 10, 'puls', 'Håndklevarmer'],
+    [/varmtvann|bereder|\bvvb\b/, 'shower', 'orange', 'Varmer vann', 50, 'puls', 'Varmtvannsbereder'],
   ];
-  const profOf = (txt) => { const n = String(txt || '').toLowerCase(); const p = PROF.find((x) => x[0].test(n)); return p ? { icon: p[1], col: C[p[2]], verb: p[3], thr: p[4], anim: p[5] } : null; };
+  const profRow = (p) => ({ icon: p[1], col: C[p[2]], verb: p[3], thr: p[4], anim: p[5], name: p[6] });
+  const profOf = (txt) => { const n = String(txt || '').toLowerCase(); const p = PROF.find((x) => x[0].test(n)); return p ? profRow(p) : null; };
+  // Profil per enhet (16.5): looks.<id>.profile ('' = etter navn, 'none' = ingen, ellers profilnavnet) + egne felt
+  // profile_color / active_text / run_threshold_w / profile_anim ('rist'|'spinn'|'puls'|'none').
+  const profFor = (txt, lk) => {
+    const k = lk && lk.profile;
+    let P = k === 'none' ? null : k ? (PROF.find((x) => x[6] === k) ? profRow(PROF.find((x) => x[6] === k)) : null) : profOf(txt);
+    if (!P && (lk && (lk.profile_color || lk.active_text))) P = { icon: null, col: null, verb: 'På', thr: 10, anim: 'puls' };
+    if (!P) return null;
+    return { ...P, col: lk && lk.profile_color ? M.color(lk.profile_color) : P.col, verb: (lk && lk.active_text) || P.verb, anim: lk && lk.profile_anim ? lk.profile_anim : P.anim };
+  };
+  const PROF_OPTS = [['', 'Auto (etter navn)'], ['none', 'Ingen'], ...PROF.map((p) => [p[6], p[6]])];
+  const ANIM_KIND = [['', 'Auto (profil)'], ['rist', 'Rist'], ['spinn', 'Spinn'], ['puls', 'Puls'], ['none', 'Ingen']];
+  // Vifter (16.8): fan.* + switch/input_boolean med «vifte»/«fan» i navnet
+  const FAN_RX = /vifte|\bfan\b/;
+  const fanLike = (hass, id) => id.startsWith('fan.') || FAN_RX.test((obj(id).replace(/_/g, ' ') + ' ' + ((hass.states[id] && hass.states[id].attributes.friendly_name) || '')).toLowerCase());
   const ANIM_LV = [['full', 'Full'], ['calm', 'Rolig'], ['off', 'Av']];
   const ANIM = { spinn: '1.6s linear', rist: '.5s ease-in-out', puls: '1.4s ease-in-out' };
   const DEV_ICON = [[/\btv\b|fjernsyn/, 'tv'], [/server|rack|nas\b/, 'dns'], [/stikk|plugg|outlet/, 'outlet'], [/\bpc\b|data|computer/, 'desktop_windows'], [/skjerm|monitor/, 'monitor'], [/piano/, 'piano'], [/peis/, 'fireplace'], [/lader|charger/, 'mdi:battery-charging'], [/luftrens|avfukt/, 'air'], [/varmekabel|gulvvarme/, 'heat'], [/julelys/, 'star']];
@@ -109,11 +129,17 @@
     const used = new Set(ls.ids.map((id) => norm(ls.meta[id].navn)));
     a.scener = [...ls.ids, ...own.filter((id) => !ls.ids.includes(id) && !used.has(norm(M.name(hass, id, areaNm))))];
     a.lys = has('lys') ? M.ids(A.lys) : reg('light');
+    // Vifter (16.8) vises i Klima-seksjonen, ikke i Enheter
+    const effOf = (x) => { if (x.effekt) out.eff[x.entity] = typeof x.effekt === 'string' ? x.effekt : M.ids([x.effekt])[0]; };
     if (has('brytere', 'vifter')) {
-      const d = [...objs(A.brytere), ...objs(A.vifter)];
-      a.enheter = d.map((x) => x.entity);
-      d.forEach((x) => { if (x.effekt) out.eff[x.entity] = typeof x.effekt === 'string' ? x.effekt : M.ids([x.effekt])[0]; });
-    } else a.enheter = reg(['switch', 'fan']);
+      const d = objs(A.brytere), v = objs(A.vifter);
+      a.enheter = d.map((x) => x.entity).filter((id) => !id.startsWith('fan.'));
+      a.vifter = [...v.map((x) => x.entity), ...d.map((x) => x.entity).filter((id) => id.startsWith('fan.'))];
+      [...d, ...v].forEach(effOf);
+    } else {
+      a.vifter = [...reg('fan'), ...reg(['switch', 'input_boolean'], (st, id) => fanLike(hass, id))];
+      a.enheter = reg('switch').filter((id) => !a.vifter.includes(id));
+    }
     if (has('klima')) { const k = objs(A.klima); a.klima = k.map((x) => x.entity); k.forEach((x) => { if (x.effekt) out.eff[x.entity] = x.effekt; }); } else a.klima = reg('climate');
     a.media = has('media') ? M.ids(A.media) : reg('media_player');
     if (has('sensorer', 'lysniva')) {
@@ -130,7 +156,16 @@
     const th = cfg.overrides && (cfg.overrides.climate || cfg.overrides.termostat);
     if (th) out.lists.klima = [th, ...out.lists.klima.filter((x) => x !== th)];
     (((cfg.include || {}).climate) || []).forEach((id) => { if (!out.lists.klima.includes(id)) out.lists.klima.push(id); });
-    [...out.lists.enheter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
+    [...out.lists.enheter, ...out.lists.vifter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
+    // Termostater (16.8): bare sensor.<objekt-id>_power/_effekt eller strømsensor på samme HA-enhet (ikke prefiks-treff,
+    // «stue_» ville truffet alle strømsensorene i stua)
+    out.lists.klima.forEach((id) => {
+      if (out.eff[id]) return;
+      const E = hass.entities || {}, e = E[id];
+      const hit = ['_power', '_effekt'].map((x) => 'sensor.' + obj(id) + x).find((k) => hass.states[k])
+        || (e && e.device_id ? Object.keys(E).find((k) => k !== id && E[k].device_id === e.device_id && k.startsWith('sensor.') && hass.states[k] && hass.states[k].attributes.device_class === 'power') : null);
+      if (hit) out.eff[id] = hit;
+    });
     return out;
   };
   // KI Rom-lysscener for et rom (button.*). Kilde: sensor med integrasjon ki_lys + ki_type oversikt og
@@ -224,6 +259,9 @@
           { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.temp ? a.temp + (a.tempFallback ? ' (hus)' : '') : (a.tempVal != null ? `KI Rom · ${M.nf(a.tempVal, 1)}°` : null); } },
           { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.hum ? a.hum + (a.humFallback ? ' (hus)' : '') : (a.humVal != null ? `KI Rom · ${M.nf(a.humVal, 0)} %` : null); } },
           { type: 'entities', name: 'include.climate', label: 'Ekstra termostater', domain: 'climate', addLabel: '+ Legg til termostat', area: (hh, cc) => cc.area || area0 },
+          // 16.8: «varmer»-terskel per termostat (effekt over denne = rosa kort), og vifter under klimakortene
+          ...(L ? L.lists.klima.map((id) => ({ type: 'number', name: 'klima_heat_w.' + obj(id), label: `${cap(M.name(h, id, M.areaName(h, area)))} · varmer over (W)`, min: 0, max: 5000, placeholder: '100', help: 'Rosa «varmer»-kort når hvac_action er heating eller effekten er over dette' })) : []),
+          { type: 'entities', name: 'include.vifter', label: 'Ekstra vifter', domains: ['fan', 'switch', 'input_boolean'], addLabel: '+ Legg til vifte', area: (hh, cc) => cc.area || area0, help: 'Auto: fan.* i rommet + brytere med «vifte»/«fan» i navnet. Skjul under «Entiteter per seksjon» → Vifter' },
           { type: 'color', name: 'graph_t', label: 'Toppkort · graf temperatur', help: 'Tomt = romfargen' },
           { type: 'color', name: 'graph_h', label: 'Toppkort · graf fukt', auto: () => 'var(--blue, #73b9f2)' },
           { type: 'select', name: 'graph_fill', label: 'Toppkort · fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
@@ -238,6 +276,7 @@
           // «Åpen ved start» per sammenleggbar seksjon (bryter i raden) + «Én seksjon åpen om gangen» nederst
           openName: 'sections_open', openKeys: FOLD.map((x) => x[0]), openDefault: (cc, k) => openDefault(cc || {}, k, !!(L && L.lists.lys.length)),
           after: [{ type: 'boolean', name: 'sections_mode', label: 'Én seksjon åpen om gangen', on: 'single', off: 'multi', help: 'Åpner du én seksjon, lukkes de andre. Skjulte seksjoner ignorerer «Åpen ved start».' }] },
+        { type: 'order', name: 'klima_order', hiddenName: 'klima_hidden', label: 'Klima-seksjonen', options: [['cards', 'Klimakort'], ['fans', 'Vifter']] },
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
@@ -281,10 +320,15 @@
             ...items.map(([id, kind]) => {
               const p = 'looks.' + id, nm0 = cap(M.name(h, id, M.areaName(h, area)));
               return { type: 'section', label: `${nm0} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
-                ...(M.universalSchema ? M.universalSchema(p, { kind: kind === 'Enhet' ? 'toggle' : 'sensor', placeholders: { sub_text: nm0, main_text: kind === 'Enhet' ? '{w} W / På / Av' : '{state}', rule1: kind === 'Sensor' && h.states[id] && id.startsWith('binary_sensor.') ? 'Auto: aktiv (on)' : '' } }) : []),
-                ...(kind === 'Enhet' && M.applianceType && M.applianceType(id, h.states[id], h) ? [
-                  { type: 'select', name: p + '.animation', label: 'Animasjon', options: ANIM_LV, help: 'Tomt = som «Hvitevarer» under' },
-                  { type: 'number', name: p + '.run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto' },
+                ...(M.universalSchema ? M.universalSchema(p, { kind: 'sensor', placeholders: { sub_text: nm0, main_text: kind === 'Enhet' ? 'På · {w} W / Av' : '{state}', rule1: kind === 'Sensor' && h.states[id] && id.startsWith('binary_sensor.') ? 'Auto: aktiv (on)' : kind === 'Enhet' ? 'Auto: på → grønn (profil: aktiv → profilfarge)' : '' } }) : []),
+                // Hvitevare-profil (16.5): Auto = etter navnet (PROF-tabellen), egne verdier overstyrer
+                ...(kind === 'Enhet' ? [
+                  { type: 'select', name: p + '.profile', label: 'Hvitevare-profil', options: PROF_OPTS, help: 'Auto: ' + ((profOf(nm0 + ' ' + obj(id)) || {}).name || 'ingen') },
+                  { type: 'color', name: p + '.profile_color', label: 'Profilfarge', help: 'Bakgrunn når aktiv, ikonfarge ellers' },
+                  { type: 'text', name: p + '.active_text', label: 'Aktiv tekst', placeholder: (profOf(nm0 + ' ' + obj(id)) || {}).verb || 'Vasker' },
+                  { type: 'number', name: p + '.run_threshold_w', label: 'Aktiv over (W)', min: 0, max: 3000, placeholder: String((profOf(nm0 + ' ' + obj(id)) || {}).thr || 'Auto') },
+                  { type: 'select', name: p + '.profile_anim', label: 'Ikon-animasjon', options: ANIM_KIND },
+                  { type: 'select', name: p + '.animation', label: 'Animasjonsnivå', options: ANIM_LV, help: 'Tomt = som «Hvitevarer» under' },
                 ] : []),
               ] };
             }),
@@ -292,7 +336,7 @@
         }
       }
       out.push({ type: 'section', id: 'appliances', label: 'Hvitevarer', icon: 'mdi:washing-machine', meta: (hh, cc) => (ANIM_LV.find((x) => x[0] === (cc.appliance_animation || 'full')) || [])[1], fields: [
-        { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: ANIM_LV, default: 'full', help: 'Rolig = halv fart og utslag. Av = stillestående ikon' },
+        { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: ANIM_LV, default: 'full', help: 'Rist/spinn/puls på ikonet når enheten er aktiv. Rolig = halv fart. Av = stillestående ikon' },
         { type: 'number', name: 'run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto', help: 'Uten status-sensor: effekt over dette = kjører' },
       ] });
       out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: true });
@@ -485,36 +529,36 @@
         if (isOn) on++;
         if (w != null) { W += w; hasW = true; }
         if (!open) return '';
-        const nm = this._nm(id), fan = id.startsWith('fan.');
-        const P0 = profOf(nm + ' ' + obj(id)), lk0 = this._look(id);
-        // Hvitevarer: felles animerte ikoner (06-appliance-icons.js) – status/fase fra samme enhet, ellers effekt
-        const aT = M.applianceType ? M.applianceType(id, s, this.hass) : null, AP = aT ? M.APPLIANCES[aT] : null;
-        const aS = aT ? M.applianceStatus(this.hass, id, { card: this, type: aT, power: this._L.eff[id], run_threshold_w: lk0.run_threshold_w != null ? lk0.run_threshold_w : this.config.run_threshold_w != null ? this.config.run_threshold_w : P0 ? P0.thr : undefined }) : null;
-        const P = P0 || (AP && aT !== 'fan' ? { icon: AP.icon, col: AP.color, verb: AP.verb, thr: 5, anim: 'puls' } : null);
-        const pctF = fan && s && s.attributes.percentage != null ? ` · ${M.nf(s.attributes.percentage)} %` : '';
-        const icon0 = (s && s.attributes.icon) || (this.hass.entities && this.hass.entities[id] && this.hass.entities[id].icon) || (DEV_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1] || (fan ? 'mode_fan' : 'power');
-        let st;
-        if (P) {
-          const act = isOn && (aS && aS.source && aS.source !== 'door' ? aS.running : (w == null || w > P.thr));
-          st = { icon: P.icon, sub: unav ? 'Utilgjengelig' : act ? (w != null ? `${P.verb} · ${M.nf(w)} W` : P.verb) : isOn ? (w > 0 ? `Hviler · ${M.nf(w)} W` : w != null ? 'På · 0 W' : 'På') : 'Av',
-            bg: act ? (AP ? AP.color : P.col) : G.g300, col: act ? '#1f1f1f' : G.w, cell: act ? 'rgba(0,0,0,0.12)' : C.popup, icol: act ? '#1f1f1f' : (AP ? AP.color : P.col),
-            anim: act ? `${P.anim} ${ANIM[P.anim]} infinite` : 'none', run: aT === 'fridge' ? !!(aS && aS.source === 'door' && aS.running) : act, subCol: act ? 'rgba(31,31,31,0.8)' : G.g700, subW: act ? 600 : 400 };
-        } else {
-          st = { icon: icon0, sub: unav ? 'Utilgjengelig' : isOn ? (w != null ? `På · ${M.nf(w)} W` : 'På') + pctF : 'Av',
-            bg: isOn ? PINK : G.g300, col: isOn ? G.g200 : G.w, cell: isOn ? 'rgba(42,23,32,0.12)' : C.popup, icol: isOn ? G.g200 : G.g800,
-            anim: isOn && fan ? `spinn ${ANIM.spinn} infinite` : 'none', run: isOn, subCol: isOn ? 'rgba(42,23,32,0.75)' : G.g700, subW: 400 };
-        }
-        // Universal-rad (07-universal.js): toggle-variant, verdi = effekt eller På/Av, navn under. Legacy-nøkler (name/label/bg/cell) som reserve.
+        const nm = this._nm(id), lk0 = this._look(id);
+        // 16.5: universal small-rad som Sensorer (ingen toggle-kolonne). Hele raden er knappen (dom.toggle), hold → more-info.
+        // Hvitevare-profil (PROF, etter navn/objekt-id, overstyrbar i looks) → ikon/farge/aktiv tekst/terskel/animasjon.
+        const aT = M.applianceType ? M.applianceType(id, s, this.hass) : null, AP = aT && aT !== 'fan' ? M.APPLIANCES[aT] : null;
+        const P = profFor(nm + ' ' + obj(id), lk0) || (AP && !lk0.profile ? { icon: AP.icon, col: AP.color, verb: AP.verb, thr: 5, anim: 'puls' } : null);
+        const thr = lk0.run_threshold_w != null && lk0.run_threshold_w !== '' ? Number(lk0.run_threshold_w) : this.config.run_threshold_w != null ? Number(this.config.run_threshold_w) : P ? P.thr : 10;
+        // Status-sensor for samme enhet (06-appliance-icons) vinner over effekt; ellers aktiv = på og effekt > terskel
+        const aS = P && aT ? M.applianceStatus(this.hass, id, { card: this, type: aT, power: this._L.eff[id], run_threshold_w: thr }) : null;
+        const act = !!P && isOn && !unav && (aS && (aS.source === 'status' || aS.source === 'running') ? !!aS.running : w != null && w > thr);
+        const icon0 = (s && s.attributes.icon) || (this.hass.entities && this.hass.entities[id] && this.hass.entities[id].icon) || (DEV_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1] || 'power';
+        const Wt = w != null ? `${M.nf(w)} W` : '';
+        const status = unav ? 'Utilgjengelig' : act ? (Wt ? `${P.verb} · ${Wt}` : P.verb) : isOn ? (P ? (w > 0 ? `Hviler · ${Wt}` : w != null ? 'På · 0 W' : 'På') : (Wt ? `På · ${Wt}` : 'På')) : 'Av';
         const ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s }, lk = M.universalLook(lk0, ctx);
-        const icon = lk.icon || st.icon;
-        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 30 }) : '';
-        const alt = unav ? '' : P ? (st.bg !== G.g300 ? P.verb : '') : pctF.replace(' · ', '');
-        return M.universal({ ...lk, mode: lk.mode || 'toggle', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
-          icon_html: aIcon || M.icon(icon, 30, `animation:${st.anim}`),
-          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : unav ? 'Utilgjengelig' : w != null ? `${M.nf(w)} W` : isOn ? 'På' : 'Av'),
-          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : alt,
-          background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color,
-          toggle_on: lk.toggle_on_value ? undefined : isOn });
+        const ownRule = Object.keys(lk0).some((k) => /^state_rule_1_(value|condition)$/.test(k) && lk0[k] != null && lk0[k] !== '');
+        // Animasjon: rist .5 s · spinn 1,6 s lineær · puls 1,4 s. Nivå fra looks.animation / appliance_animation (Rolig = halv fart, Av = ingen)
+        const lvl = lk.animation || this.config.appliance_animation || 'full';
+        const kindA = P && ANIM[P.anim] ? P.anim : null;
+        const anim = act && kindA && lvl !== 'off' ? `animation:${kindA} ${lvl === 'calm' ? ANIM[kindA].replace(/^[\d.]+/, (x) => String(Number(x) * 2)) : ANIM[kindA]} infinite` : '';
+        const icon = lk.icon || (P && P.icon) || icon0;
+        return M.universal({
+          // Tilstandsregel 1 (som sensorene): på → grønn; hvitevare aktiv → profilfargen. Hvitevare på men hviler = vanlig rad.
+          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
+          ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
+          act: unav ? null : lk.mode && lk.mode !== 'sensor' ? undefined : 'dtoggle', id, haptic: 'success',
+          cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}`,
+          icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
+          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '',
+          background_color: lk.background_color || lk.bg, circle_color: lk.cell || (act ? 'rgba(0,0,0,0.12)' : undefined),
+          icon_color: lk.icon_color || (P && !act && P.col ? P.col : undefined) });
       }).join('');
       const sum = this._tekst('effekt', this._listChanged('enheter')) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-dev">${this._head('dev', 'radio', 'Enheter', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
@@ -522,22 +566,32 @@
 
     /* ------------ klima (termostater, +/−) */
     _klima() {
-      const ids = this._L.lists.klima;
-      if (!ids.length) return '';
+      const ids = this._L.lists.klima, fans = this._L.lists.vifter || [];
+      if (!ids.length && !fans.length) return '';
       const c = this.config, open = !!(this.ui.acc || {}).klima;
-      const first = this.s(ids[0]), fa = (first && first.attributes) || {};
+      const first = ids.length ? this.s(ids[0]) : null, fa = (first && first.attributes) || {};
       const heat0 = fa.hvac_action === 'heating';
-      const set0 = this._kv(ids[0]);
-      let sum = heat0 ? 'Varmer' : set0 != null ? `${M.nf(set0, 1)}°` : first ? (first.state === 'off' ? 'Av' : '') : '–';
-      if (ids.length > 1) sum = `${sum ? sum + ' · ' : ''}+${ids.length - 1}`;
+      const set0 = ids.length ? this._kv(ids[0]) : null;
+      // 16.8: topplinjen viser summen av effekt (termostater + vifter med strømsensor), ellers som før
+      let W = 0, hasW = false;
+      [...ids, ...fans].forEach((id) => { const w = this._w(id); if (w != null) { W += w; hasW = true; } });
+      let sum = hasW ? `${M.nf(W)} W` : heat0 ? 'Varmer' : set0 != null ? `${M.nf(set0, 1)}°` : first ? (first.state === 'off' ? 'Av' : '') : ids.length ? '–' : '';
+      if (!hasW && ids.length > 1) sum = `${sum ? sum + ' · ' : ''}+${ids.length - 1}`;
+      if (!ids.length && !hasW) { const n = fans.filter((id) => M.isOn(this.s(id))).length; sum = `${n} på - ${fans.length - n} av`; }
       let body = '';
       if (open) {
-        const bg = M.color(c.klima_bg, '#2a2a2a'), ringDef = 'rgba(255,255,255,0.22)', ring = M.color(c.klima_ring, ringDef), fill = c.klima_btn === 'fill';
+        const bg = M.color(c.klima_bg, M.INNER_ROW ? M.INNER_ROW.bg : 'var(--gray100, #2f2f2f)'), fill = c.klima_btn === 'fill';
+        // 16.1: stepperen er ett trinn lysere enn kortet (#404040 på #2f2f2f, #454545 på #3a3a3a) med kant .12 og hvite piler/mål.
+        // Egen knappfarge (klima_ring/klima_btn) i «Tilpass rom» vinner som før.
+        const lift = /3a3a3a|gray200/i.test(bg) ? '#454545' : 'var(--gray300, #404040)';
+        const ctl = c.klima_ring || fill ? (() => { const ring = M.color(c.klima_ring, 'rgba(255,255,255,0.22)'); return `box-shadow:${fill ? 'none' : `inset 0 0 0 1px ${ring}`};background:${fill ? ring : 'transparent'};color:${fill && c.klima_ring ? C.popup : G.w}`; })()
+          : `background:${lift};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);color:#fafafa`;
         const rc = M.roomClimate(this.hass, this._area, c);
         if (rc.hum.id) this.s(rc.hum.id);
         if (rc.temp.id) this.s(rc.temp.id);
         const roomHum = rc.hum.v, roomT = rc.temp.v;
-        const idx = Math.min(this.ui.kIdx || 0, ids.length - 1);
+        const idx = Math.min(this.ui.kIdx || 0, Math.max(0, ids.length - 1));
+        const HW = c.klima_heat_w || {};
         const cards = ids.map((id) => {
           const s = this.s(id), a = (s && s.attributes) || {};
           const t = a.current_temperature != null ? Number(a.current_temperature) : roomT;
@@ -546,19 +600,68 @@
           const act = a.hvac_action;
           let sub = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : s.state === 'off' || act === 'off' ? 'Av' : act === 'heating' ? 'Varmer' : act === 'cooling' ? 'Kjøler' : act === 'idle' ? 'Holder' : ({ heat: 'Varme', cool: 'Kjøling', auto: 'Auto', heat_cool: 'Auto', dry: 'Tørk', fan_only: 'Vifte' }[s.state] || s.state);
           if (w != null) sub += ` · ${M.nf(w)} W`;
-          const mc = c.klima_mode && sp != null && t != null ? (sp > t + 0.2 ? C.red : sp < t - 0.2 ? C.blue : null) : null;
+          // Varmer (16.8): hvac_action heating eller effekt > terskel (klima_heat_w.<objekt-id>, standard 100 W)
+          const thr = HW[obj(id)] != null && HW[obj(id)] !== '' ? Number(HW[obj(id)]) : 100;
+          const heat = !!s && !M.unavailable(s) && (act === 'heating' || (w != null && w > thr));
+          const mc = !heat && c.klima_mode && sp != null && t != null ? (sp > t + 0.2 ? C.red : sp < t - 0.2 ? C.blue : null) : null;
           const cbg = mc ? `linear-gradient(135deg, ${M.alpha(mc, 0.24)}, ${bg} 72%)` : bg;
-          const ctl = `box-shadow:${fill ? 'none' : `inset 0 0 0 1px ${ring}`};background:${fill ? ring : 'transparent'};color:${fill && c.klima_ring ? C.popup : G.w}`;
           const dec = sp != null && Number.isInteger(sp) ? 0 : 1;
-          return `<div class="kc" data-key="k-${esc(id)}" data-ent="${esc(id)}" style="background:${cbg}">
+          return `<div class="kc${heat ? ' heat' : ''}" data-key="k-${esc(id)}" data-ent="${esc(id)}" style="background:${cbg}"><span class="kpk"></span>
             <div class="kt"><span class="kn ell">${esc(this._nm(id))}</span><span class="ks ell">${esc(sub)}</span></div>
             <div class="kb"><span class="kv num">${t != null ? M.nf(t, 0) : '–'}°</span><span class="kh">${h != null ? M.nf(h, 0) : '–'}%</span></div>
-            <div class="kctl" style="${ctl}"><button class="kbtn" data-act="kset" data-d="1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_less', 24)}</button><span class="kset num">${sp != null ? M.nf(sp, dec) : '–'}°</span><button class="kbtn" data-act="kset" data-d="-1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_more', 24)}</button></div>
+            <div class="kctl" style="${heat ? '' : ctl}"><button class="kbtn" data-act="kset" data-d="1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_less', 24)}</button><span class="kset num">${sp != null ? M.nf(sp, dec) : '–'}°</span><button class="kbtn" data-act="kset" data-d="-1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_more', 24)}</button></div>
           </div>`;
         }).join('');
-        body = `<div class="cw"><div class="car noscroll" data-car="kIdx">${cards}</div>${this._dots(ids.length, idx)}</div>`;
+        const parts = {
+          cards: ids.length ? `<div class="cw"><div class="car noscroll" data-car="kIdx">${cards}</div>${this._dots(ids.length, idx)}</div>` : '',
+          fans: fans.length ? `<div class="bd"><div class="lst">${fans.map((id) => this._fanRow(id)).join('')}</div></div>` : '',
+        };
+        const ord = (Array.isArray(c.klima_order) ? c.klima_order.filter((k) => parts[k] != null) : []);
+        ['cards', 'fans'].forEach((k) => { if (!ord.includes(k)) ord.push(k); });
+        const hidK = new Set(c.klima_hidden || []);
+        body = ord.filter((k) => !hidK.has(k)).map((k) => parts[k]).join('');
       }
       return `<section class="box" data-key="sec-klima">${this._head('klima', 'thermostat', 'Klima', sum)}${body}</section>`;
+    }
+    /* ------------ vifter (16.8): universal small-rad, mdi:fan roterer etter hastighet, −/+ til høyre */
+    _fanInfo(id) {
+      const s = this.s(id), a = (s && s.attributes) || {}, fan = id.startsWith('fan.');
+      const isOn = M.isOn(s), unav = M.unavailable(s);
+      const speed = fan && (a.percentage != null || a.percentage_step != null || (Number(a.supported_features) & 1) === 1);
+      const step = Number(a.percentage_step) || (a.speed_count ? 100 / Number(a.speed_count) : 1);
+      const n = Math.max(1, Math.round(100 / step));
+      const pct = isOn ? this._v('fan', id, a.percentage != null ? Math.round(Number(a.percentage)) : 100, 6000) : 0;
+      return { s, isOn, unav, speed, step, n, pct, lvl: Math.max(1, Math.round(pct / step)) };
+    }
+    _fanRow(id) {
+      const F = this._fanInfo(id), nm = this._nm(id), lk0 = this._look(id);
+      const status = F.unav ? 'Utilgjengelig' : !F.isOn ? 'Av' : !F.speed ? 'På' : F.n <= 10 ? `På · ${Math.min(F.lvl, F.n)} av ${F.n}` : `${M.nf(F.pct)} %`;
+      // Rotasjon: 1,2 s ved lav → 0,5 s ved høy hastighet (uten hastighet: 0,8 s). Rolig = halv fart, Av = stille.
+      const lvlA = this.config.appliance_animation || 'full';
+      let dur = F.speed ? 1.2 - 0.7 * Math.max(0, Math.min(1, (F.pct - F.step) / Math.max(1, 100 - F.step))) : 0.8;
+      if (lvlA === 'calm') dur *= 2;
+      const anim = F.isOn && !F.unav && lvlA !== 'off' ? `animation:spinn ${dur.toFixed(2)}s linear infinite;` : '';
+      const lk = M.universalLook(lk0, { state: F.isOn ? 'på' : 'av', on: F.isOn, w: 0, name: nm, entity: F.s });
+      const btn = (d, ic, dis) => `<button class="fbtn msh-inner-c" data-act="fanstep" data-d="${d}" data-id="${esc(id)}" data-haptic="selection" ${dis ? 'disabled' : ''} aria-label="${d > 0 ? 'Øk' : 'Senk'} hastighet">${M.icon(ic, 22)}</button>`;
+      const side = F.speed && !F.unav ? btn(-1, 'mdi:minus', !F.isOn) + btn(1, 'mdi:plus', F.isOn && F.pct >= 100) : '';
+      return M.universal({
+        state_rule_1_condition: F.isOn && !F.unav, state_rule_1_background_color: 'var(--blue, rgb(115 185 242))', state_rule_1_text_color: 'var(--gray000)',
+        ...lk, mode: 'sensor', size: 'small', entity: id, st: F.s, key: 'f-' + id,
+        act: F.unav ? null : 'dtoggle', id, haptic: 'success', cls: `msh-inner fan${F.isOn ? ' on' : ''}${F.unav ? ' d-unav' : ''}`,
+        icon_html: M.icon(lk.icon || (F.isOn ? 'mdi:fan' : 'mdi:fan-off'), 30, anim),
+        main_text: lk.main_text || lk.sub_text || nm, sub_text: status, alt_text: '', side_html: side,
+        background_color: lk.background_color, icon_color: lk.icon_color });
+    }
+    _fanStep(id, d) {
+      const F = this._fanInfo(id), h = this.hass;
+      if (!F.s || !F.speed) return;
+      // − ved laveste slår av, + fra av slår på laveste; ellers set_percentage ± percentage_step
+      if (!F.isOn) { if (d < 0) return; this._pend['fan|' + id] = { v: Math.round(F.step), t: Date.now() }; this.update(); return M.call(h, 'fan', 'turn_on', { entity_id: id, percentage: Math.round(F.step) }).catch(() => {}); }
+      const v = Math.round(M.clamp(Math.round(F.pct / F.step) * F.step + d * F.step, 0, 100));
+      if (v <= 0) return M.call(h, 'fan', 'turn_off', { entity_id: id }).catch(() => {});
+      this._pend['fan|' + id] = { v, t: Date.now() };
+      this.update();
+      return M.call(h, 'fan', 'set_percentage', { entity_id: id, percentage: v }).catch(() => {});
     }
     _kv(id) {
       const s = this.s(id);
@@ -590,12 +693,12 @@
         const vol = this._v('vol', id, Math.round((a.volume_level || 0) * 100));
         const icon = a.device_class === 'tv' || /tv/i.test(id) ? 'tv' : 'speaker';
         return `<div class="mc" data-key="m-${esc(id)}">
-          <div class="mt" data-ent="${esc(id)}"><span class="mh"><span class="mn ell">${esc(this._nm(id))}</span><span class="ms ell">${esc(stTxt)}</span></span>
-            <span class="art">${M.icon(icon, 28)}</span>
+          <div class="mt msh-inner" data-ent="${esc(id)}"><span class="mh"><span class="mn ell">${esc(this._nm(id))}</span><span class="ms ell">${esc(stTxt)}</span></span>
+            <span class="art msh-inner-c">${M.icon(icon, 28)}</span>
             <div class="mctl">
               <button class="mb" data-act="mpower" data-id="${esc(id)}" data-haptic="medium">${M.icon('power_settings_new', 22)}</button>
               <button class="mb" data-act="mcmd" data-cmd="media_previous_track" data-id="${esc(id)}">${M.icon('skip_previous', 24)}</button>
-              <button class="mp press" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="success">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
+              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="success">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
               <button class="mb" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}">${M.icon('skip_next', 24)}</button>
               <button class="mb" data-act="more" data-id="${esc(id)}">${M.icon('more_horiz', 24)}</button>
             </div></div>
@@ -631,6 +734,7 @@
         return M.universal({
           state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || icon0,
+          cls: 'msh-inner', // 16.6: felles «indre rad-flate» (M.INNER_ROW)
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : dflt.symbol,
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
           background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color });
@@ -649,6 +753,9 @@
       if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
+      // 16.5/16.8: hele raden er knappen – switch/fan/input_boolean.toggle (andre domener: felles toggle)
+      if (name === 'dtoggle') { const dom = d.id.split('.')[0]; return (['switch', 'fan', 'input_boolean', 'light'].includes(dom) ? M.call(h, dom, 'toggle', { entity_id: d.id }) : M.toggle(h, d.id)).catch(() => {}); }
+      if (name === 'fanstep') { if (ev) ev.stopPropagation(); return this._fanStep(d.id, Number(d.d)); }
       if (name === 'mcmd') return M.call(h, 'media_player', d.cmd, { entity_id: d.id });
       if (name === 'mpower') { const s = h.states[d.id]; const off = !s || ['off', 'standby'].includes(s.state); return M.call(h, 'media_player', off ? 'turn_on' : 'turn_off', { entity_id: d.id }); }
       return super.onAction(name, el, ev);
@@ -732,6 +839,8 @@
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
       R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      // Vifte −/+ (16.8): egen handling – ikke radens toggle/hold, og ikke Bubble Cards sveip
+      R.querySelectorAll('.fbtn').forEach((el) => { if (el.__b) return; el.__b = true; el.addEventListener('pointerdown', (e) => { e.stopPropagation(); this._cancelHold(); }); el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true }); });
       this._mountLights();
       R.querySelectorAll('[data-car]').forEach((el) => {
         if (el.__b) return;
@@ -804,6 +913,16 @@
         @keyframes spinn{to{transform:rotate(360deg)}}
         ${M.APPLIANCE_CSS || ''}
         ${M.UNIVERSAL_CSS || ''}
+        ${M.INNER_ROW_CSS || ''}
+        /* enheter (16.5) / vifter (16.8) */
+        .u-act .u-l{font-weight:600}
+        .d-unav{opacity:.55}
+        .d-unav .u-l,.d-unav .u-i{opacity:1}
+        .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--gray1000, #e1e1e1);flex:none;transition:transform .15s,background .25s}
+        .fbtn:active{transform:scale(.92)}
+        .fbtn[disabled]{opacity:.35}
+        .fan.on .fbtn{background:rgba(0,0,0,0.12);border-color:transparent;color:var(--gray000, #232323)}
+        @media (prefers-reduced-motion:reduce){.u ha-icon{animation:none !important}}
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
@@ -811,28 +930,41 @@
         .dot{width:10px;height:10px;border-radius:6px;background:${G.g400};transition:background .2s}
         .dot.on{width:12px;height:12px;background:${G.g600}}
         /* klima */
-        .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;transition:background .4s}
+        .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;overflow:hidden;transition:background .4s,border-radius .3s}
+        /* 16.8: rosa «varmer»-lag (opasitet → 300 ms overgang), mørk tekst */
+        .kpk{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg, #f294c8, #f5cfd0);opacity:0;transition:opacity .3s;pointer-events:none}
+        .kc.heat{border-radius:28px}
+        .kc.heat .kpk{opacity:1}
         .kt{position:absolute;left:20px;top:18px;right:84px;display:flex;flex-direction:column;gap:2px}
-        .kn{font-size:14px;color:${G.g800}}
-        .ks{font-size:13px;color:${G.g600}}
+        .kn{font-size:14px;color:${G.g800};transition:color .3s}
+        .ks{font-size:13px;color:${G.g600};transition:color .3s}
         .kb{position:absolute;left:20px;bottom:18px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
-        .kv{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-        .kh{font-size:13px;color:${G.g700}}
-        .kctl{position:absolute;right:10px;top:10px;bottom:10px;width:64px;border-radius:32px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6px 0}
-        .kbtn{width:64px;height:44px;display:grid;place-items:center;color:inherit;transition:transform .15s}
-        .kbtn:active{transform:scale(.9)}
+        .kv{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;transition:color .3s,font-size .3s}
+        .kh{font-size:13px;color:${G.g700};transition:color .3s}
+        .kc.heat .kn{font-size:15px;font-weight:500;color:#2a1720}
+        .kc.heat .ks{color:rgba(42,23,32,0.6)}
+        .kc.heat .kv{font-size:56px;color:#2a1720}
+        .kc.heat .kh{font-size:14px;color:rgba(42,23,32,0.6)}
+        .kctl{position:absolute;right:10px;top:10px;bottom:10px;width:64px;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6px 0;transition:background .3s,box-shadow .3s,color .3s}
+        .kc.heat .kctl{background:rgba(255,255,255,0.18);box-shadow:inset 0 0 0 1px rgba(42,23,32,0.45);color:#1f1f1f}
+        /* 16.1: trykk = #4a4a4a på pilen (~120 ms) */
+        .kbtn{width:64px;height:44px;display:grid;place-items:center;color:inherit;transition:transform .15s,background .12s ease-out}
+        .kbtn:active{transform:scale(.9);background:#4a4a4a;transition:transform .15s,background 0s}
+        .kc.heat .kbtn:active{background:rgba(255,255,255,0.3)}
         .kbtn[disabled]{opacity:.35}
         .kset{font-size:17px;font-weight:500}
         /* media */
         .mc{display:flex;flex-direction:column;flex:none;width:100%;scroll-snap-align:start}
-        .mt{position:relative;padding:20px 20px 16px;border-radius:26px;background:#2a2a2a}
+        /* 16.6: spiller-flaten = «indre rad-flate» (M.INNER_ROW_CSS: .msh-inner / .msh-inner-c), som sensor-radene */
+        .mt{position:relative;padding:20px 20px 16px;border-radius:26px}
         .mh{display:flex;flex-direction:column;gap:6px;padding-right:64px}
         .mn{font-size:12px;color:${G.g800}}
         .ms{font-size:17px;font-weight:500}
-        .art{position:absolute;right:8px;top:8px;width:60px;height:60px;border-radius:30px;background:${G.g300};display:grid;place-items:center}
+        .art{position:absolute;right:8px;top:8px;width:60px;height:60px;border-radius:30px;display:grid;place-items:center}
         .mctl{display:flex;align-items:center;justify-content:space-between;margin-top:28px}
         .mb{width:44px;height:44px;display:grid;place-items:center}
-        .mp{width:64px;height:64px;border-radius:32px;background:${G.g300};display:grid;place-items:center}
+        .mp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center}
+        .vs .cvt{background:var(--gray000, #232323)}
         .mp:active{transform:scale(.94)}
         .mv{display:flex;align-items:center;gap:16px;padding:16px 12px 6px 20px}
         .mvl{font-size:14px;font-weight:500}

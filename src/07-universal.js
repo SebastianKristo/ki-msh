@@ -11,7 +11,8 @@
  * bar_symbol, bar_color, bar_invert_colors, show_timer, toggle_on_value, toggle_on, toggle_on_icon, toggle_off_icon,
  * toggle_icon_color_on/off, toggle_rotate, temp, lights, height (room), show_button_icon, match_value,
  * active_background_color, active_text_color (button), og handling: act, id, hash, path, ent (false = ingen hold),
- * haptic, key (data-key), attrs {navn: verdi}, icon_attrs {…} (ikonet blir egen knapp), cls, style.
+ * haptic, key (data-key), attrs {navn: verdi}, icon_attrs {…} (ikonet blir egen knapp), cls, style,
+ * side_html (liten sensor/bar: egne knapper i en kolonne til høyre, f.eks. vifte −/+ i Rom → Klima).
  */
 (function () {
   const M = window.MSH, esc = M.esc;
@@ -142,8 +143,10 @@
     /* ---- sensor · action · navigate · toggle · bar */
     const hasSub = sub !== '', smallName = name !== '';
     let areas, colT, rows;
+    const side = small && (mode === 'sensor' || mode === 'bar') && has(o.side_html);
     if (mode === 'sensor' || mode === 'bar') {
-      if (small) { areas = smallName ? `'i l' 'i n'` : `'i l'`; colT = '76px 1fr'; rows = smallName ? '1fr 1fr' : '1fr'; }
+      if (side) { areas = smallName ? `'i l s' 'i n s'` : `'i l s'`; colT = '76px 1fr min-content'; rows = smallName ? '1fr 1fr' : '1fr'; }
+      else if (small) { areas = smallName ? `'i l' 'i n'` : `'i l'`; colT = '76px 1fr'; rows = smallName ? '1fr 1fr' : '1fr'; }
       else if (mode === 'bar') { areas = alt ? `'i i i' 'n n n' 'l l alt' 'bar bar bar'` : `'i i i' 'n n n' 'l l l' 'bar bar bar'`; colT = '1fr 1fr min-content'; rows = '1fr min-content min-content min-content'; }
       else { areas = alt ? `'i i i' 'n n n' 'l l alt'` : `'i i i' 'n n n' 'l l l'`; colT = '1fr 1fr min-content'; rows = '1fr min-content min-content'; }
     } else {
@@ -179,8 +182,18 @@
       S.push('height:180px');
     }
     return `<div ${attrs(A)} style="${S.join(';')};grid-template-areas:${areas};grid-template-columns:${cols(colT)};grid-template-rows:${rows}${o.style ? ';' + o.style : ''}">
-      ${iconCell(30)}<div class="u-l"${center ? ' style="align-self:center"' : ''}>${label}</div>${(small ? smallName : hasSub) ? `<div class="u-n">${esc(name)}</div>` : ''}${!small && alt ? `<div class="u-alt">${esc(alt)}</div>` : ''}${modeHtml}${barHtml}${badgeHtml}</div>`;
+      ${iconCell(30)}<div class="u-l"${center ? ' style="align-self:center"' : ''}>${label}</div>${(small ? smallName : hasSub) ? `<div class="u-n">${esc(name)}</div>` : ''}${!small && alt ? `<div class="u-alt">${esc(alt)}</div>` : ''}${modeHtml}${side ? `<div class="u-side">${o.side_html}</div>` : ''}${barHtml}${badgeHtml}</div>`;
   };
+
+  // «Indre rad-flate» (fiks 16.6): én kilde for flaten til sensor-/enhets-/vifte-radene og Rom → Media-spilleren,
+  // så de alltid er like. bg = rad #2f2f2f på seksjon #3a3a3a, edge = tynn kant, circle/circleEdge = ikon-sirkelen.
+  M.INNER_ROW = { bg: BG, edge: 'inset 0 0 0 1px rgba(255,255,255,0.04)', circle: 'rgba(250,251,252,0.1)', circleEdge: '1px solid rgba(250,251,252,0.1)' };
+  // Klasser: .msh-inner (flaten) og .msh-inner-c (ikon-sirkel/rund knapp på flaten).
+  M.INNER_ROW_CSS = `
+    .msh-inner{background:${M.INNER_ROW.bg};box-shadow:${M.INNER_ROW.edge}}
+    .u.msh-inner{background:var(--u-bg);box-shadow:${M.INNER_ROW.edge}}
+    .msh-inner-c{background:${M.INNER_ROW.circle};border:${M.INNER_ROW.circleEdge};box-sizing:border-box}
+  `;
 
   // Felles CSS – kortene har shadow DOM og må ta med denne i styles.
   M.UNIVERSAL_CSS = `
@@ -195,6 +208,7 @@
     .u-sym{font-size:14px;line-height:1.5em;font-weight:500;opacity:.7;margin-left:2px}
     .u-mode{grid-area:mode;display:flex;align-items:center;justify-content:center;line-height:0;color:var(--u-fg);margin:0}
     .u-nav{rotate:-45deg}
+    .u-side{grid-area:s;display:flex;align-items:center;gap:8px;padding:0 9px 0 8px;align-self:center}
     .u-badge{position:absolute;top:0;right:0;width:9px;height:9px;padding:2px;box-sizing:content-box;border-radius:50%;pointer-events:none}
     .u-unav .u-l,.u-unav .u-i{opacity:.55}
     /* small */
