@@ -185,6 +185,28 @@
       else p.styles = `${p.styles || ''}\n.icon-container {background-color:${v}!important;}`;
     }
   }
+  // Live: romfarge/-ikon lagret i ki-store → oppdater Bubble-popupen som vises nå (strategien bruker det ved neste generering).
+  M.syncLivePopups = function (cfg) {
+    const t = tagOf(cfg);
+    const looks = [];
+    if (t === 'msh-rom-card' && cfg.look) looks.push([cfg.area || String(location.hash || '').replace(/^#/, ''), cfg.look.col, cfg.look.icon]);
+    if (t === 'msh-hjem-faner-card' && cfg.rooms) Object.keys(cfg.rooms).forEach((a) => looks.push([a, cfg.rooms[a].color, cfg.rooms[a].icon]));
+    if (!looks.length) return;
+    const bcs = [];
+    const w = (r, d) => { if (!r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => bcs.push(b)); r.querySelectorAll('*').forEach((e) => { if (e.shadowRoot) w(e.shadowRoot, d + 1); }); };
+    w(document, 0);
+    looks.forEach(([area, col, icon]) => {
+      if (!area || (!col && !icon)) return;
+      bcs.forEach((b) => {
+        const c = b.config || b._config;
+        if (!c || c.card_type !== 'pop-up' || c.hash !== '#' + area) return;
+        const lc = { views: [{ cards: [JSON.parse(JSON.stringify(c))] }] };
+        setRoomLook(lc, area, col, icon);
+        const n = lc.views[0].cards[0];
+        if (n.styles !== c.styles || n.icon !== c.icon) { try { b.setConfig(n); } catch (e) { /* */ } }
+      });
+    });
+  };
   M.syncPopups = function (lc, cfg, hass) {
     const t = tagOf(cfg);
     if (t === 'msh-rom-card') {

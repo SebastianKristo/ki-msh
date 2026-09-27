@@ -122,10 +122,10 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
             c.setConfig(got); await wait(60);
             if (/Feil i kortet/.test(c.shadowRoot.textContent)) mirror = 'render-feil';
             // kortets egen tilpasning skal vise samme config
-            const before = document.querySelectorAll('.msh-portal').length;
+            const before = window.MSH.portals().length;
             c.customize();
             await wait(80);
-            const portals = [...document.querySelectorAll('.msh-portal')];
+            const portals = window.MSH.portals();
             const inner = portals.length > before ? portals[portals.length - 1].shadowRoot.querySelector('.body').firstElementChild : null;
             if (!inner || !inner._config || JSON.stringify(inner._config) !== JSON.stringify(got)) mirror = 'ulik';
             portals.forEach((p) => p.remove());

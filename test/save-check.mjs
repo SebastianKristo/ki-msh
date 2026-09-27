@@ -1,5 +1,5 @@
-// Lagring uten navigering: lagre fra «Tilpass rom» → simulert HA-rebuild (popup gjenskapes, hash mistes)
-// → popupen, editoren og scroll skal være som før, og det nye kortet har den nye configen.
+// Lagring uten navigering: «Tilpass rom» lagrer i ki-store (frontend/set_user_data) – ingen Lovelace-lagring,
+// ingen rebuild. Eksplisitt Lovelace-lagring (opts.lovelace) → simulert rebuild → popup/editor/scroll gjenopprettes.
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -55,23 +55,24 @@ const out = await p.evaluate(async () => {
   res.scrollBefore = Math.round(sc().scrollTop);
   const first = rom();
   first.customize('spacing'); await wait(300);
-  const ed = [...document.querySelectorAll('.msh-portal')].pop().shadowRoot.querySelector('msh-editor');
+  const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
   [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click();
   await wait(200);
   res.liveGap = getComputedStyle(first).getPropertyValue('--msh-gap').trim();
   res.savesAfter200ms = saves;
   await wait(1800);
-  res.saves = saves;
+  res.lovelaceSaves = saves; // skal være 0 – editorene lagrer i ki-store
+  res.storeGap = (((window.__userData.ki_dashboard || {}).cards || {}).rom_stue || {}).gap;
   res.hash = location.hash;
   res.popupOpen = !!popEl() && popEl().classList.contains('is-popup-opened');
   res.newInstance = rom() !== first;
   res.newGap = rom() && rom()._rawConfig.gap;
-  res.editorOpen = !!document.querySelector('.msh-portal');
+  res.editorOpen = window.MSH.portals().length > 0;
   res.scrollAfter = sc() ? Math.round(sc().scrollTop) : null;
   res.savedGap = window.__lc.views[0].sections[0].cards[0].cards[0].gap;
   // romfarge → popupens styles og ikon oppdateres i samme lagring
   rom().setConfig({ ...rom()._rawConfig, look: { col: 'var(--red, #f28073)', icon: 'mdi:knife' } });
-  await window.MSH.saveCardConfig(hass, rom()._rawConfig, { ...rom()._rawConfig }, { immediate: true });
+  await window.MSH.saveCardConfig(hass, rom()._rawConfig, { ...rom()._rawConfig }, { lovelace: true, immediate: true }); // eksplisitt Lovelace-lagring (rom-look → popup-styles)
   await wait(500);
   const saved = window.__lc.views[0].sections[0].cards[0];
   res.popupStyles = saved.styles; res.popupIcon = saved.icon;
