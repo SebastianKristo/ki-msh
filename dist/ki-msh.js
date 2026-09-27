@@ -15959,6 +15959,8 @@ try {
     /* ---------------- animasjon (Web Animations API) */
     onOpen() { this.animateIn(); }
     onClose() { this._stopAnims(); this._introAt = 0; }
+    // Bubble Card tar popup-innholdet ut av DOM-en når den lukkes: neste tilkobling er en ny åpning
+    disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     animateIn() {
       if (reduced()) return;
       if (!this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
@@ -16203,6 +16205,7 @@ try {
     }
     onOpen() { if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); }
     onClose() { if (M.klimaOnClose) safe(() => M.klimaOnClose(this)); }
+    disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     afterRender() {
       const row = this.shadowRoot.querySelector('.tabs');
       if (row) {
