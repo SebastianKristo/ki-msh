@@ -5,7 +5,7 @@
  *                               ← ki-store `power_price` (én felles config, «Tilpass Hjem» → Popups → Strømpris) ← over.
  *   Config: { profile: no|se, source: nordpool|tibber|strompris|custom ('' = auto), spot_entity (alias entity),
  *     norgespris_entity, norgespris (kr/kWh, 0,50), grid_entity, area NO1–5, se_entity, se_area SE1–4, se_unit auto|ore|kr,
- *     mode spot|total|norgespris, unit kr|ore, tab: { style glass|standard, font 11–18, height 24–48, padding 8–40 } }
+ *     mode spot|total|norgespris, unit kr|ore, tab: { style standard|glass (standard: standard; glass-flate bare med Liquid Glass-temaet), font 11–18, height 24–48, padding 8–40 } }
  *   MSH.powerPrice(hass, cfg?, card?) → {
  *     profile 'no'|'se', source, area, mode 'spot'|'total'|'norgespris', currency 'NOK'|'SEK',
  *     entity (pris-/spot-sensoren som brukes), auto (om den er autokonfigurert),
@@ -101,7 +101,7 @@
   };
 
   /* ------------------------------------------------------------ config */
-  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', tab: { style: 'glass', font: 14, height: 30, padding: 20 } };
+  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', tab: { style: 'standard', font: 14, height: 30, padding: 20 } };
   M.POWER_PRICE_DEF = DEF;
   M.POWER_SOURCES = [['nordpool', 'Nord Pool'], ['tibber', 'Tibber'], ['strompris', 'Strømpris'], ['custom', 'Egen sensor']];
   M.POWER_AREAS = { no: ['NO1', 'NO2', 'NO3', 'NO4', 'NO5'], se: ['SE1', 'SE2', 'SE3', 'SE4'] };
@@ -118,7 +118,7 @@
     const c = { ...DEF, ...legacy, ...yaml, ...(isObj(st) ? st : {}), ...(isObj(over) ? over : {}) };
     if (!c.spot_entity && c.entity) c.spot_entity = c.entity; // «entity» (punkt 5) = spot-sensoren
     c.tab = { ...DEF.tab, ...(isObj(yaml.tab) ? yaml.tab : {}), ...(isObj(st.tab) ? st.tab : {}) };
-    c.tab.style = c.tab.style === 'standard' ? 'standard' : 'glass';
+    c.tab.style = c.tab.style === 'glass' ? 'glass' : 'standard'; // Fiks 15.2: standard = Standard (stilen styrer bare utseendet)
     c.tab.font = clampN(c.tab.font, 11, 18, 14); c.tab.height = clampN(c.tab.height, 24, 48, 30); c.tab.padding = clampN(c.tab.padding, 8, 40, 20);
     c.profile = c.profile === 'se' ? 'se' : 'no';
     if (!['spot', 'total', 'norgespris'].includes(c.mode)) c.mode = 'spot';

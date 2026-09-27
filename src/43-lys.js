@@ -35,6 +35,8 @@
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
+  // Fanerad-flate: standard transparent + ring, glass kun med Liquid Glass-temaet (05-tab-reorder.js, Fiks 15.2)
+  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);';
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -574,13 +576,15 @@
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
-        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme glass-flate og ring */
+        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme flate og ring.
+           Standard: transparent + ring. Glassflate (blur + glasskant) bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2);
+           glass-dra/trykk-linsen (MSH.tabReorder glass + glassTap) er alltid på. */
         .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);overflow:hidden}
+        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;${TRS}overflow:hidden}
         .tabs{gap:2px;border-radius:18px;overflow-x:auto;scrollbar-width:none}
         .tabs::-webkit-scrollbar{display:none}
         .tab{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;transition:background .2s}
-        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .gear:active{transform:scale(.92)}
         /* lys-rader (felles rad, 12 px mellom) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}

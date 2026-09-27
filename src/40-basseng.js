@@ -624,7 +624,7 @@
         .ctl{display:grid;gap:8px}
         .tile{height:64px;border-radius:22px;display:grid;place-items:center;transition:background .2s,color .2s}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}

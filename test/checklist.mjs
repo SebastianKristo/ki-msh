@@ -80,7 +80,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const icons = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('ha-icon')]);
       res.icons = !/\b(mdi|hass|phu|hue|fapro|si):[a-z]/.test(txt) && icons.every((i) => i.getAttribute('data-ok') === '1') ? `ok ${icons.length}` : 'FEIL';
       // 6. autokonfig: ingen kortfeil, minst ett kort med innhold utover tom-tilstand
-      res.auto = !/Feil i kortet/.test(txt) && cards.some((c) => c.shadowRoot.querySelectorAll('[data-act]:not([data-act="customize"]), [data-ent]').length > 0);
+      res.auto = !/Feil i kortet|kortet feilet/.test(txt) && cards.some((c) => c.shadowRoot.querySelectorAll('[data-act]:not([data-act="customize"]), [data-ent]').length > 0);
       // 7. haptic på trykk (første handlingsknapp i kortene)
       const btn = cards.map((c) => c.shadowRoot.querySelector('[data-act]:not([data-act="customize"])')).find(Boolean);
       if (btn) { btn.click(); await wait(80); }
@@ -120,7 +120,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
           let mirror = 'ok';
           if (got) {
             c.setConfig(got); await wait(60);
-            if (/Feil i kortet/.test(c.shadowRoot.textContent)) mirror = 'render-feil';
+            if (/Feil i kortet|kortet feilet/.test(c.shadowRoot.textContent)) mirror = 'render-feil';
             // kortets egen tilpasning skal vise samme config
             const before = window.MSH.portals().length;
             c.customize();

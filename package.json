@@ -1,6 +1,6 @@
 {
   "name": "ki-msh",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "My SmartHome v3-dashbord for Home Assistant: custom cards i Bubble Card-popups",
   "type": "module",
@@ -9,8 +9,10 @@
     "test": "node test/smoke.mjs",
     "checklist": "node test/checklist.mjs",
     "strategy": "node test/strategy-check.mjs",
+    "klima": "node test/klima-check.mjs",
     "device": "node test/device-check.mjs",
-    "picker": "node test/picker-check.mjs"
+    "picker": "node test/picker-check.mjs",
+    "hold": "node test/hold-check.mjs"
   },
   "license": "Apache-2.0"
 }

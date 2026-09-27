@@ -100,7 +100,7 @@
   const SRC = [['none', 'Ingen boble'], ['text', 'Fast tekst'], ['weather', 'Vær'], ['temp', 'Ute-temp'], ['price', 'Strømpris'], ['watt', 'Effekt'], ['lights', 'Lys på'], ['events', 'Hendelser'], ['home', 'Hjemme'], ['lock', 'Dørlås'], ['alarm', 'Alarm'], ['trash', 'Søppel'], ['todo', 'Gjøremål'], ['custom', 'Egendefinert']];
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
-  const PICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
+  const PICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['✨', '✨'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
   const PSW = [['hvit', C.white, 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
@@ -277,7 +277,7 @@
     .pe{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--gray300,#404040)}
     .pe .in{background:#282828}
     .pv2{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#232323}
-    .prev{padding:14px 16px;border-radius:24px;background:var(--gray000,#232323);font-size:16px;line-height:1.95;text-wrap:pretty}
+    .prev{padding:14px 16px;border-radius:24px;background:var(--gray000,#232323);font-size:16px;line-height:1.95}
     .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:#232323;font-weight:600;font-size:15px;vertical-align:middle;white-space:nowrap;line-height:1}
     .pc ha-icon{color:#232323}
     .pd{width:8px;height:8px;border-radius:4px;flex:none}
@@ -485,7 +485,6 @@
     _after() {
       if (this.u.sec === 'pop' && M.popupsPanel) M.popupsPanel.after(this);
       const r = this.root;
-      if (this.u.sec === 'tekst' && M.fitProsa) M.fitProsa(r.querySelector('[data-key="prev"] .pz')); // del for brede pille-grupper
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
       r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
       const ct = r.querySelector('.ct');
@@ -810,9 +809,9 @@
       const R = this._prose(), u = this.u, hass = this.hass;
       if (!R) return '<div class="hint">Prosa-kortet er ikke lastet.</div>';
       // Forhåndsvisning = samme rendering og CSS som prosa-kortet (M.prosaHTML / M.PROSA_CSS, 21-hjem-prosa.js)
-      const PC0 = customElements.get('msh-prosa-card'), T0 = PC0 && PC0.textSize ? PC0.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
+      const PC0 = customElements.get('msh-prosa-card'), T0 = PC0 && PC0.textSize ? PC0.textSize(this.P() || {}) : { fs: null, lh: 1.55 };
       const pill = (v) => `<span class="chip" style="background:${v.bg}">${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? ic(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span></span>`;
-      const prev = `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="font-size:${T0.fs}em;line-height:${T0.lh};padding:0">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+      const prev = `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="font-size:${T0.fs != null ? T0.fs + 'em' : M.PROSA_AUTO_FS || 'clamp(22px, 7.4cqi, 34px)'};line-height:${T0.lh};padding:0">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
       const P = R.rows || [];
       const areas = M.areas(hass).slice(0, 8), persons = M.all(hass, 'person');
       const toks = [...TOK, ...areas.map((a) => a.id + '.temp'), ...persons.map((p) => p.split('.')[1] + '.hjemme')];
@@ -862,13 +861,15 @@
         return row + ed;
       }).join('');
       // Tekststørrelse / linjehøyde (em, som originalens content_style) – samme felt som prosa-kortets GUI-editor
-      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
+      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: null, lh: 1.55 };
       const nfE = (x) => M.nf(x, 2).replace(/0$/, '');
       const szHTML = (PC && PC.sizeFields ? PC.sizeFields : []).map((f) => {
-        const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k];
-        return `<div class="fld" data-key="psz-${k}"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">${esc(f.label)}</span><span class="pszv-${k}" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${nfE(val)} em</span></div>
-          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${val}" data-in="psz" data-f="${f.name}" data-k="${k}" style="width:100%;touch-action:pan-y">
-          <div class="chs">${f.presets.map(([v, l]) => `<button class="o36 ${Math.abs(val - v) < 0.001 ? 'on-pk' : ''}" data-a="psize" data-f="${f.name}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div></div>`;
+        // Tekststørrelse uten verdi = Auto (tilpasses bredden); slideren står da på 2,15 em
+        const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k], auto = val == null, sv = auto ? 2.15 : val;
+        const on = (v) => (v === '' ? auto : !auto && Math.abs(val - v) < 0.001);
+        return `<div class="fld" data-key="psz-${k}"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">${esc(f.label)}</span><span class="pszv-${k}" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${auto ? 'Auto' : nfE(val) + ' em'}</span></div>
+          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${sv}" data-in="psz" data-f="${f.name}" data-k="${k}" style="width:100%;touch-action:pan-y">
+          <div class="chs">${f.presets.map(([v, l]) => `<button class="o36 ${on(v) ? 'on-pk' : ''}" data-a="psize" data-f="${f.name}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div></div>`;
       }).join('');
       return `${szHTML}${prev}${rows}
         <button class="big52 press" data-a="padd">${ic('add', 22)}Ny setning</button>
@@ -1126,7 +1127,7 @@
     _actTekst(a, d) {
       const u = this.u, i = Number(d.i);
       switch (a) {
-        case 'psize': { const PCf = customElements.get('msh-prosa-card'), F = ((PCf && PCf.sizeFields) || []).find((f) => f.name === d.f), def = F ? F.default : d.f === 'prose_font_size' ? 2.15 : 1.55, v = Number(d.v); return this.saveP({ [d.f]: Math.abs(v - def) < 0.001 ? undefined : v, prose_offset: undefined }); }
+        case 'psize': { const PCf = customElements.get('msh-prosa-card'), F = ((PCf && PCf.sizeFields) || []).find((f) => f.name === d.f), def = F && F.default != null ? F.default : null, v = d.v === '' ? undefined : Number(d.v); return this.saveP({ [d.f]: v === undefined || (def != null && Math.abs(v - def) < 0.001) ? undefined : v, prose_offset: undefined }); }
         case 'psel': u.proseSel = u.proseSel === i ? null : i; return this.render();
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));

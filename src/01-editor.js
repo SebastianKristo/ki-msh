@@ -391,12 +391,13 @@
       el.className = `stat ${this.statusKind}${this._statOn ? ' on' : ''}`;
     }
     connectedCallback() { this._glassSync(); }
-    // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
+    // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
+    // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
     _glassSync() {
       const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
       const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
       if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
-      if (glass && M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+      if (M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x' }));
     }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }

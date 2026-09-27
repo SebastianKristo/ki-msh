@@ -209,5 +209,20 @@
         }
       }
     ]
+  },
+  {
+    "name": "Hjem · prosa fast tekststørrelse + stor hilsen",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-header-card",
+        "mode": "stor",
+        "g_gap": -8
+      },
+      {
+        "type": "custom:msh-prosa-card",
+        "prose_font_size": 1.8,
+        "prose_line_height": 1.4
+      }
+    ]
   }
 ]

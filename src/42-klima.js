@@ -89,7 +89,7 @@
     if (M.klimaHasTab) { try { return !!M.klimaHasTab(card, id); } catch (e) { /* */ } }
     return id !== 'lading' || harLading(card);
   };
-  const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('[ki-msh] klima', e); return fb; } };
+  const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('msh-klima-card', e); return fb; } };
   const blockList = (card, tab) => (M.klimaBlockList ? safe(() => M.klimaBlockList(card, tab) || [], []) : []);
 
   // Layout (config.layout) med standardverdier. Eldre rotnøkler (tab_order, hidden_tabs, start_tab) leses fortsatt.
@@ -174,6 +174,9 @@
     Object.keys(r).forEach((k) => { if (r[k] !== undefined && r[k] !== null) S[k] = r[k]; });
     S.zone = ZONES[S.zone] ? S.zone : (ZONE_OF[S.zone] || 'none');
     if (S.minLeft != null) S.timeFrac = Math.min(1, Math.max(0, 1 - S.minLeft / 60));
+    // Ingen/utilgjengelig statussensor → «–» og flat ring (ikke «Motoren er av»/«Trygg fallback»)
+    const st = card.s(ST);
+    if (!st || M.unavailable(st)) S.zone = 'none';
     return S;
   }
   // Setningen under statusen (4.0)
@@ -266,14 +269,22 @@
     }
 
     /* ---------------- animasjon (Web Animations API) */
-    onOpen() { this.animateIn(); }
-    onClose() { this._stopAnims(); this._introAt = 0; }
+    // Animasjonen startes i requestAnimationFrame etter tegningen, bare når popupen er åpen (og på nytt ved ny åpning)
+    onOpen() { this._pendingIntro = true; this._introRaf(); }
+    onClose() { cancelAnimationFrame(this._iRaf); this._stopAnims(); this._introAt = 0; }
+    _introRaf() {
+      cancelAnimationFrame(this._iRaf);
+      this._iRaf = requestAnimationFrame(() => { if (this.isOpen && this.isConnected && this._pendingIntro) this.animateIn(); });
+    }
     // Bubble Card tar popup-innholdet ut av DOM-en når den lukkes: neste tilkobling er en ny åpning
     disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     animateIn() {
-      if (reduced()) return;
-      if (!this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
+      if (reduced()) { this._pendingIntro = false; return; }
+      if (!this.isConnected || !this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
       this._pendingIntro = false;
+      try { this._intro0(); } catch (e) { console.error('msh-klima-card', e); this._stopAnims(); }
+    }
+    _intro0() {
       this._stopAnims();
       const q = (s) => this.shadowRoot.querySelector(s), A = [];
       const an = (el, kf, o) => { if (el && el.animate) { const x = el.animate(kf, { fill: 'backwards', ...o }); A.push(x); return x; } return null; };
@@ -296,7 +307,10 @@
       this._loopT = setTimeout(() => this._loops(), 1500);
     }
     _loops() {
-      if (reduced() || !this.isOpen) return;
+      if (reduced() || !this.isOpen || !this.isConnected) return;
+      try { this._loops0(); } catch (e) { console.error('msh-klima-card', e); }
+    }
+    _loops0() {
       (this._loop || []).forEach((x) => { try { x.cancel(); } catch (e) { /* */ } });
       const L = [], ef = this.shadowRoot.querySelector('.ef'), pg = this.shadowRoot.querySelector('.bar .pg');
       if (ef && ef.animate && this._S && this._S.zone !== 'off') L.push(ef.animate([{ opacity: 1 }, { opacity: 0.72 }], { duration: 2600, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
@@ -329,7 +343,7 @@
       rec.raf = requestAnimationFrame(step);
     }
     afterRender() {
-      if (this._pendingIntro && this.isOpen) { this.animateIn(); return; }
+      if (this._pendingIntro && this.isOpen) { this._introRaf(); return; }
       // Live-oppdatering: nye verdier glir mykt (300 ms) i stedet for å hoppe
       this._shown = this._shown || {};
       this.shadowRoot.querySelectorAll('[data-n]').forEach((el) => {
@@ -401,6 +415,7 @@
     ].filter(([id]) => card.s(id));
   }
   const GLASS = 'background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0) 45%),rgba(255,255,255,0.06);-webkit-backdrop-filter:blur(22px) saturate(190%);backdrop-filter:blur(22px) saturate(190%);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.14),inset 0 1px 0 rgba(255,255,255,0.22);';
+  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : GLASS;
 
   class Klima extends M.Card {
     static get cardName() { return 'Klima'; }
@@ -517,8 +532,7 @@
     disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     afterRender() {
       const row = this.shadowRoot.querySelector('.tabs');
-      if (row) {
-        M.tabReorder(row, {
+      if (row && M.tabReorder) safe(() => M.tabReorder(row, {
           card: this, glass: true,
           items: () => Array.from(row.querySelectorAll('.tab')),
           active: () => this._curTab(),
@@ -528,8 +542,7 @@
             const rest = tabDefs().map((t) => t.id).filter((k) => !keys.includes(k) && !hid.includes(k));
             M.mshPatchConfig(this, { layout: { ...raw, tab_order: [...keys, ...rest, ...hid] } });
           },
-        });
-      }
+        }));
       if (M.klimaAfterRender) safe(() => M.klimaAfterRender(this));
     }
     get styles() {
@@ -545,8 +558,8 @@
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
         ${M.TAB_ROW_CSS || ''}
         .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:26px;${GLASS}overflow:hidden}
-        ${M.glassFallback ? M.glassFallback('.tbox', 'row') : ''}
+        /* Fiks 15.2: glassflate bare med Liquid Glass-temaet (MSH.tabSurface), ellers transparent + ring; glass-dra alltid */
+        .tbox{flex:1;min-width:0;padding:4px;border-radius:26px;${TRS}overflow:hidden}
         .tabs{position:relative;gap:2px;border-radius:22px}
         .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:54px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--gray700,#979797);background:transparent;transition:background .25s,color .25s}
         .tabs>.tab.on{background:${PINK};color:${INK}}
@@ -554,8 +567,7 @@
         .tabs.s-text .tl{font-size:13px}
         .tabs.s-icon>.tab{height:46px;padding:0 12px}
         .tl{font-size:10px;font-weight:500;white-space:nowrap}
-        .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${GLASS}color:var(--white,#fafafa)}
-        ${M.glassFallback ? M.glassFallback('.gear', 'row') : ''}
+        .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa)}
         .gear:active{transform:scale(.92)}
         .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
         ${M.KLIMA_BLOCK_CSS || ''}

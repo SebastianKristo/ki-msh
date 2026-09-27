@@ -1,5 +1,5 @@
-/*! KI MSH 1.1.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
-window.KI_MSH_VERSION = "1.1.0";
+/*! KI MSH 1.2.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
+window.KI_MSH_VERSION = "1.2.0";
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
@@ -1394,7 +1394,12 @@ try {
   };
   // Åpne HAs egen more-info (den ligger på rot-nivå, så transform i popupen påvirker den ikke).
   MSH.moreInfo = function (el, entityId) {
-    if (!entityId) return;
+    // Bare ekte entiteter: aldri interne plassholdere (__tilpass …) eller ID-er som ikke finnes i hass.states
+    const h = MSH.lastHass;
+    if (!entityId || String(entityId).startsWith('__') || !/^[a-z_]+\.[^\s]+$/.test(entityId) || (h && h.states && !h.states[entityId])) {
+      if (entityId) console.warn('[ki-msh] more-info ignorert for', entityId);
+      return;
+    }
     const ev = new CustomEvent('hass-more-info', { detail: { entityId }, bubbles: true, composed: true });
     (el || document.querySelector('home-assistant') || window).dispatchEvent(ev);
   };
@@ -2216,7 +2221,7 @@ try {
       if (!config) throw new Error('Mangler config');
       const prevId = this._rawConfig && this._rawConfig.card_id;
       if (config.__eff) { const { __eff, ...c } = config; config = c; } // live-utkast fra editoren
-      else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
+      else { this._yamlConfig = config; try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
@@ -2274,13 +2279,15 @@ try {
       window.removeEventListener('location-changed', this._onHash);
       // Bubble Card tar innholdet ut av DOM-en når popupen lukkes – neste åpning skal gi onOpen igjen
       this._open = false;
-      this.onClose && this.onClose();
+      this._safeCall('onClose');
     }
+    // onOpen/onClose vernet: en feil her skal ikke stoppe åpningen (fiks 15.1)
+    _safeCall(fn) { try { if (this[fn]) this[fn](); } catch (e) { console.error(this.localName, e); } }
     _checkOpen() {
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
-      if (open && !this._open) { this._open = true; this.onOpen && this.onOpen(); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
-      else if (!open && this._open) { this._open = false; this.onClose && this.onClose(); }
+      if (open && !this._open) { this._open = true; this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
+      else if (!open && this._open) { this._open = false; this._safeCall('onClose'); }
     }
     get isOpen() { return !!this._open; }
     _schedule(force) {
@@ -2312,23 +2319,54 @@ try {
       if (this._pickerFocus || (MSH.pickerBusy && MSH.pickerBusy(this.shadowRoot))) { this._force = true; return; }
       this._force = false;
       this._deps = new Set();
-      let body;
-      try { body = this.render(); } catch (e) { console.error('[ki-msh]', this.localName, e); body = `<div class="empty">Feil i kortet: ${MSH.esc(e.message)}</div>`; }
+      // Fiks 15.1: ALT i tegningen (render, styles, morph, hero, afterRender) er vernet – en feil gir et synlig
+      // feilkort («Klima-kortet feilet: …») i stedet for tom flate, og logges med console.error(<tag>, e).
+      let body, css = '';
+      try { body = this.render(); } catch (e) { body = this._failHTML(e); }
+      try { css = this.styles || ''; } catch (e) { body = this._failHTML(e) + body; }
       const gap = this._config.gap != null ? Number(this._config.gap) : null;
       const heroTag = MSH.HEROES[this.localName];
       const slot = heroTag ? '<div class="msh-hero-slot" data-nomorph></div>' : '';
-      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}${this.styles || ''}</style><ha-card>${slot}${body}</ha-card>`;
-      if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
+      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}.msh-fail{color:var(--red,#f28073);text-align:left;align-items:flex-start}${css}</style><ha-card>${slot}${body}</ha-card>`;
+      try {
+        this.shadowRoot.querySelectorAll('ha-card > .msh-fail[data-post]').forEach((x) => x.remove()); // feilkort fra forrige runde
+        if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
+      } catch (e) { console.error(this.localName, e); this.shadowRoot.innerHTML = html; this._firstRender = true; }
       if (gap != null) this.style.setProperty('--msh-gap', gap + 'px');
-      if (heroTag) this._mountHero(heroTag);
-      this.afterRender && this.afterRender();
-      if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
-      this._guardScrollers();
+      try { if (heroTag) this._mountHero(heroTag); } catch (e) { this._showFail(e); }
+      try { if (this.afterRender) this.afterRender(); } catch (e) { this._showFail(e); }
+      try {
+        if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
+        this._guardScrollers();
+      } catch (e) { console.error(this.localName, e); }
+    }
+    // Synlig feilkort: «<Kortnavn>-kortet feilet: <melding>» (aldri tom popup)
+    _failHTML(e) {
+      console.error(this.localName, e);
+      const name = this.constructor.cardName || this.localName;
+      return `<div class="empty msh-fail" role="alert">${MSH.icon('mdi:alert-circle-outline', 22)}<span>${MSH.esc(name)}-kortet feilet: ${MSH.esc((e && e.message) || String(e))}</span></div>`;
+    }
+    // Feil etter at innholdet er tegnet (hero, afterRender): legg feilkortet øverst i kortet (fjernes ved neste morph)
+    _showFail(e) {
+      const card = this.shadowRoot.querySelector('ha-card');
+      if (!card) { this.shadowRoot.innerHTML = `<style>${MSH.BASE_CSS}</style><ha-card>${this._failHTML(e)}</ha-card>`; return; }
+      const old = card.querySelector(':scope > .msh-fail[data-post]');
+      const t = document.createElement('template');
+      t.innerHTML = this._failHTML(e);
+      const el = t.content.firstElementChild;
+      el.setAttribute('data-post', '');
+      if (old) old.replaceWith(el); else card.prepend(el);
     }
     // Toppkort (hero) bygget inn som første seksjon i hovedkortet – ett kort per popup.
     _mountHero(tag) {
       const slot = this.shadowRoot.querySelector('.msh-hero-slot');
-      if (!slot || !customElements.get(tag)) return;
+      if (!slot) return;
+      if (!customElements.get(tag)) {
+        // Toppkortet skal aldri forsvinne stille: vis plassholder til elementet er registrert
+        if (!slot.firstChild) slot.innerHTML = `<div class="empty">${MSH.icon('mdi:timer-sand', 22)}<span>Toppkortet (${MSH.esc(tag)}) lastes …</span></div>`;
+        if (!this._heroWait) { this._heroWait = true; customElements.whenDefined(tag).then(() => { this._heroWait = false; slot.innerHTML = ''; this.update(); }); }
+        return;
+      }
       if (!this._heroEl) { this._heroEl = document.createElement(tag); this._heroEl._host = this; }
       const raw = this._rawConfig || {};
       if (this._heroSrc !== raw) {
@@ -2356,10 +2394,12 @@ try {
       if (last === this) { this.style.paddingBottom = MSH.popupBottomPad(bot); this.style.marginBottom = ''; }
       if (first === this) {
         this.style.marginTop = '';
-        const root = cont.getRootNode && cont.getRootNode();
-        const hdr = root && root.querySelector && root.querySelector('.bubble-header-container');
-        const fr = this.getBoundingClientRect();
-        if (hdr && fr.height) this.style.marginTop = (top - (fr.top - hdr.getBoundingClientRect().bottom)) + 'px';
+        // Headeren i DENNE popupen (ikke første popup i samme rot – da havner kortet utenfor synsfeltet)
+        const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
+        const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
+        const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
+        const mt = hr && hr.height ? top - (fr.top - hr.bottom) : null;
+        if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
       }
     }
     // Vannrett scrollbare lister (karuseller, chip-rader): stopp sveip mot Bubble Cards swipe-to-close.
@@ -2375,9 +2415,10 @@ try {
         el.addEventListener('pointerdown', stop);
       });
     }
-    _el(e, sel) {
+    // own = bare elementer i kortets egen shadow root (ikke inni innebygde kort, som har egne lyttere)
+    _el(e, sel, own) {
       const path = e.composedPath ? e.composedPath() : [];
-      for (const n of path) { if (n === this.shadowRoot) break; if (n.matches && n.matches(sel)) return n; }
+      for (const n of path) { if (n === this.shadowRoot) break; if (n.matches && n.matches(sel) && (!own || n.getRootNode() === this.shadowRoot)) return n; }
       return null;
     }
     _onClick(e) {
@@ -2396,7 +2437,9 @@ try {
     }
     _onDown(e) {
       if (e.button) return;
-      const el = this._el(e, '[data-ent]');
+      // Hold → more-info: bare egne elementer. Innebygde kort (header/prosa i Hjem) håndterer sitt eget hold,
+      // og interne plassholdere (data-ent="__tilpass") skal aldri nå HA (fiks 15.4).
+      const el = this._el(e, '[data-ent]', true);
       if (!el) return;
       this._hx = e.clientX; this._hy = e.clientY;
       this._cancelHold();
@@ -2961,12 +3004,13 @@ try {
       el.className = `stat ${this.statusKind}${this._statOn ? ' on' : ''}`;
     }
     connectedCallback() { this._glassSync(); }
-    // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
+    // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
+    // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
     _glassSync() {
       const rn = this.getRootNode && this.getRootNode(), gh = rn && rn.host;
       const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
       if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
-      if (glass && M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x', enabled: () => this.hasAttribute('glass') }));
+      if (M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x' }));
     }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
@@ -4522,6 +4566,32 @@ try {
   }
   M.popupIconColor = (cfg) => { const m = cfg && typeof cfg.styles === 'string' && ICON_RX.exec(cfg.styles); return m ? m[2].trim() : null; };
   const SRC_RANK = { yaml: 3, custom: 2, auto: 1 };
+  /* Fiks 15.1 · generert popup med ødelagt kortliste etter overstyring/sammenslåing → rettes, aldri tom popup:
+   *   tom/manglende cards → det genererte kortet; gammelt kortnavn (ki-klima-card for msh-klima-card), et msh-kort som
+   *   ikke finnes lenger, eller separat toppkort (msh-klima-hero-card) → slås sammen til ETT hovedkort (innstillinger beholdes).
+   *   Egne kort (andre typer) røres ikke. Returnerer ny config eller null (ingenting å rette). */
+  const tagOf = (c) => String((c && c.type) || '').replace(/^custom:/, '');
+  function repairCards(cfg, gen) {
+    const want = gen && Array.isArray(gen.cards) && gen.cards.length === 1 && isObj(gen.cards[0]) ? gen.cards[0] : null;
+    if (!want || !isObj(cfg)) return null;
+    const tag = tagOf(want), heroTag = (M.HEROES || {})[tag];
+    if (!/^msh-/.test(tag)) return null;
+    const list = Array.isArray(cfg.cards) ? cfg.cards.filter(isObj) : [];
+    if (!list.length) return { ...cfg, cards: [clone(want)] };
+    const loaded = typeof customElements !== 'undefined' && !!customElements.get(tag); // bundelen er lastet → msh-navn kan sjekkes
+    const isMain = (c) => tagOf(c) === tag, isHero = (c) => !!heroTag && tagOf(c) === heroTag;
+    const isOld = (c) => { const t = tagOf(c); return t === tag.replace(/^msh-/, 'ki-') || (loaded && /^msh-.*-card$/.test(t) && !customElements.get(t)); };
+    const ours = list.filter((c) => isMain(c) || isHero(c) || isOld(c));
+    if (!ours.length || (ours.length === 1 && isMain(ours[0]) && list.length === (cfg.cards || []).length)) return null;
+    const base = ours.find(isMain) || ours.find(isOld) || ours[0];
+    const strip = ({ type, card_id, ...r }) => r;
+    const merged = Object.assign({}, ...ours.filter((c) => c !== base).map(strip), { ...base }, { type: 'custom:' + tag });
+    if (!merged.card_id) merged.card_id = want.card_id;
+    const cards = list.filter((c) => !ours.includes(c));
+    cards.splice(list.slice(0, list.indexOf(ours[0])).filter((c) => !ours.includes(c)).length, 0, merged);
+    return { ...cfg, cards };
+  }
+  M.repairPopupCards = repairCards;
   /* auto: [{ config, group, color?, person? }] · yaml/custom: lister med Bubble-config · *Overrides: { '#hash': {…} | { replace, config } | false }
    * → { popups: [config …] (synlige, i rekkefølge), report: { entries, collisions, invalid } }
    *   entries[i] = { hash, key, source: auto|yaml|custom, index, group: rom|fn|egne, name, icon, color, gen (generert config),
@@ -4571,6 +4641,8 @@ try {
         cfg.hash = hash;
         overrideFrom = from;
       });
+      let repaired = false;
+      if (gen && w.source === 'auto' && !hidden) { const fx = repairCards(cfg, gen.config); if (fx) { console.warn('[ki-msh] popup', hash, 'hadde tom/ugyldig kortliste – rettet til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } }
       const up = UP[hash.slice(1)] || UP[hash];
       if (!hidden && up && up.hidden) { hidden = true; hiddenBy = 'user'; }
       const view = cfg || {};
@@ -4579,7 +4651,7 @@ try {
         group: w.source === 'auto' ? (w.meta.group || 'fn') : 'egne', person: !!w.meta.person,
         name: view.name || hash, icon: view.icon || 'mdi:card-outline', color: M.popupIconColor(view) || w.meta.color || null,
         gen: gen ? clone(gen.config) : null, base: clone(w.config), config: hidden ? null : cfg,
-        override, overrideFrom, hidden, hiddenBy, losers: list.filter((x) => x !== w).map((x) => x.source),
+        override, overrideFrom, hidden, hiddenBy, repaired, losers: list.filter((x) => x !== w).map((x) => x.source),
       });
       if (!hidden) popups.push(cfg);
     });
@@ -4846,6 +4918,33 @@ try {
     let inner = wrap(M.glassDrag);
     try { Object.defineProperty(M, 'glassDrag', { configurable: true, enumerable: true, get: () => inner, set: (fn) => { inner = wrap(fn); } }); } catch (e) { /* */ }
   })();
+
+  // Liquid Glass-FLATEN på fanerader/segmenter (Fiks 15.2): bare med Liquid Glass-temaet (MSH.glassOn()). Drag-/linse-
+  // effekten (MSH.glassDrag, MSH.glassTap/glassMorph, tabReorder glass) er ALLTID på – uavhengig av temaet.
+  // Temaet speiles som arvede CSS-variabler på <html> (arver inn i alle shadow roots, byttes live uten ny render):
+  //   --ki-tr-bg / --ki-tr-blur / --ki-tr-sh  (udefinert uten temaet → kortets standardflate)
+  // Bruk: `.tbox{${MSH.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)')}}` → standardflaten uten tema,
+  // glass (rgba(255,255,255,.06) + blur(22px) saturate(190%) + glasskant) med tema.
+  M.TAB_GLASS_VARS = {
+    '--ki-tr-bg': 'linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0) 45%),rgba(255,255,255,0.06)',
+    '--ki-tr-blur': 'blur(22px) saturate(190%)',
+    '--ki-tr-sh': 'inset 0 0 0 0.5px rgba(255,255,255,0.14),inset 0 1px 0 rgba(255,255,255,0.22)',
+  };
+  M.tabSurface = (bg, sh) => `background:var(--ki-tr-bg,${bg || 'transparent'});-webkit-backdrop-filter:var(--ki-tr-blur,none);backdrop-filter:var(--ki-tr-blur,none);box-shadow:var(--ki-tr-sh,${sh || 'none'});`;
+  M.tabGlassSync = function () {
+    const s = document.documentElement && document.documentElement.style;
+    if (!s) return;
+    let on = false;
+    try { on = !!(M.glassOn && M.glassOn()); } catch (e) { /* */ }
+    Object.entries(M.TAB_GLASS_VARS).forEach(([k, v]) => { if (on) s.setProperty(k, v); else s.removeProperty(k); });
+  };
+  window.addEventListener('ki-glass-change', M.tabGlassSync);
+  M.tabGlassSync();
+  // ki-store lastes asynkront (theme.liquid_glass) – følg endringer også uten åpne ark
+  (function sub(n) {
+    if (M.store && M.store.subscribe) { M.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) { M.tabGlassSync(); if (M.glassNotify) M.glassNotify(); } }); M.tabGlassSync(); return; }
+    if (n < 40) setTimeout(() => sub(n + 1), 250);
+  })(0);
 
   const SLOP = 8;
   let lastHap = 0;
@@ -7690,7 +7789,7 @@ try {
  *                               ← ki-store `power_price` (én felles config, «Tilpass Hjem» → Popups → Strømpris) ← over.
  *   Config: { profile: no|se, source: nordpool|tibber|strompris|custom ('' = auto), spot_entity (alias entity),
  *     norgespris_entity, norgespris (kr/kWh, 0,50), grid_entity, area NO1–5, se_entity, se_area SE1–4, se_unit auto|ore|kr,
- *     mode spot|total|norgespris, unit kr|ore, tab: { style glass|standard, font 11–18, height 24–48, padding 8–40 } }
+ *     mode spot|total|norgespris, unit kr|ore, tab: { style standard|glass (standard: standard; glass-flate bare med Liquid Glass-temaet), font 11–18, height 24–48, padding 8–40 } }
  *   MSH.powerPrice(hass, cfg?, card?) → {
  *     profile 'no'|'se', source, area, mode 'spot'|'total'|'norgespris', currency 'NOK'|'SEK',
  *     entity (pris-/spot-sensoren som brukes), auto (om den er autokonfigurert),
@@ -7786,7 +7885,7 @@ try {
   };
 
   /* ------------------------------------------------------------ config */
-  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', tab: { style: 'glass', font: 14, height: 30, padding: 20 } };
+  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', tab: { style: 'standard', font: 14, height: 30, padding: 20 } };
   M.POWER_PRICE_DEF = DEF;
   M.POWER_SOURCES = [['nordpool', 'Nord Pool'], ['tibber', 'Tibber'], ['strompris', 'Strømpris'], ['custom', 'Egen sensor']];
   M.POWER_AREAS = { no: ['NO1', 'NO2', 'NO3', 'NO4', 'NO5'], se: ['SE1', 'SE2', 'SE3', 'SE4'] };
@@ -7803,7 +7902,7 @@ try {
     const c = { ...DEF, ...legacy, ...yaml, ...(isObj(st) ? st : {}), ...(isObj(over) ? over : {}) };
     if (!c.spot_entity && c.entity) c.spot_entity = c.entity; // «entity» (punkt 5) = spot-sensoren
     c.tab = { ...DEF.tab, ...(isObj(yaml.tab) ? yaml.tab : {}), ...(isObj(st.tab) ? st.tab : {}) };
-    c.tab.style = c.tab.style === 'standard' ? 'standard' : 'glass';
+    c.tab.style = c.tab.style === 'glass' ? 'glass' : 'standard'; // Fiks 15.2: standard = Standard (stilen styrer bare utseendet)
     c.tab.font = clampN(c.tab.font, 11, 18, 14); c.tab.height = clampN(c.tab.height, 24, 48, 30); c.tab.padding = clampN(c.tab.padding, 8, 40, 20);
     c.profile = c.profile === 'se' ? 'se' : 'no';
     if (!['spot', 'total', 'norgespris'].includes(c.mode)) c.mode = 'spot';
@@ -8613,7 +8712,7 @@ try {
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: 4, pic_size: 60, persons_size: 46, title_size: 36 };
+      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
@@ -8631,7 +8730,7 @@ try {
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
             { type: 'range', name: 'g_avatar', label: 'Bilder', min: 36, max: 64, step: 1, default: D.g_avatar, fmt: (v) => `${v} px` },
             { type: 'range', name: 'g_badge', label: 'Merke', min: 14, max: 28, step: 1, default: D.g_badge, fmt: (v) => `${v} px` },
-            { type: 'range', name: 'g_gap', label: 'Avstand', min: 0, max: 16, step: 1, default: D.g_gap, fmt: (v) => `${v} px` },
+            { type: 'range', name: 'g_gap', label: 'Avstand (minus = overlapp)', min: -16, max: 16, step: 1, default: D.g_gap, fmt: (v) => `${v} px` },
             { type: 'info', label: 'Navnet blir så stort som skjermen tillater, opp til maks.' },
           ] },
           { type: 'section', id: 'psizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'profil', open: true, fields: [
@@ -8748,7 +8847,7 @@ try {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
       }
-      const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = Number(c.g_gap) || 0;
+      const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = c.g_gap != null && c.g_gap !== '' && !isNaN(Number(c.g_gap)) ? Number(c.g_gap) : -8;
       // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
       const szN = big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
       const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
@@ -8772,7 +8871,7 @@ try {
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
         else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 13, 'color:#fafafa'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
-        const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
+        const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
         return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
@@ -8788,7 +8887,7 @@ try {
         <div class="top">
           <div class="lc" data-gcol="1">
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
-              <span class="tx">${esc(title)}</span>${big ? '' : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
@@ -8957,7 +9056,8 @@ try {
         requestAnimationFrame(() => {
           const sp = this.shadowRoot.querySelector('.ttl .tx'), cl = this.shadowRoot.querySelector('.lc');
           if (!sp || !cl) return;
-          const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, w = sp.scrollWidth, avail = cl.clientWidth - 2;
+          // chevron ▾ etter navnet (0,5em + 6 px kolonnegap) trekkes fra tilgjengelig bredde
+          const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, w = sp.scrollWidth + fs * 0.5 + 6, avail = cl.clientWidth - 2;
           if (!w || !avail) return;
           const max = (Number(this.config.g_font) || 4.5) * 16, n = Math.max(20, Math.min(max, Math.floor(((fs * avail) / w) * 0.985 * 10) / 10));
           if (Math.abs(n - (this._gFit || fs)) > 0.4) { this._gFit = n; this.update(); }
@@ -8974,7 +9074,7 @@ try {
         .hd{display:flex;flex-direction:column;gap:18px;padding-top:8px}
         .top{container-type:inline-size;display:flex;align-items:center;justify-content:space-between;gap:10px}
         .lc{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 0}
-        .ttl{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:0;line-height:1;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden;text-align:left;color:var(--white,#fafafa);touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+        .ttl{display:flex;flex-wrap:nowrap;align-items:center;column-gap:6px;row-gap:0;line-height:1;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden;text-align:left;color:var(--white,#fafafa);touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
         .ttl .tx{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .sub{align-self:flex-start;font-size:15px;color:var(--gray700,#979797);white-space:nowrap;text-align:left}
         .sub:active{opacity:.6}
@@ -8992,7 +9092,8 @@ try {
         /* Profil. Personer → prosa: 22 px synlig avstand (containerens gap 22 + prosaens luft over første linje − 8) */
         .prof{gap:22px;margin-bottom:-8px}
         .prof .top{align-items:flex-start}
-        .prof .ttl{line-height:1.1;column-gap:10px}
+        .prof .ttl{line-height:1.1;column-gap:10px;flex-wrap:wrap}
+        /* chevron ▾ alltid rett etter navnet (samme linje); navnet kortes heller med … */
         .prof .sub{color:var(--gray800,#afafaf)}
         .prof .row2{gap:14px;padding:0}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
@@ -9014,12 +9115,12 @@ try {
  * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, act, link, cop/csrc/cval (betingelse),
  *   ent (entitet for src 'custom', påkrevd), ent_override (overstyr entiteten til en fast kilde, tom = automatisk),
  *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
- *   prose_font_size (em av kortets 14 px, 1,4–2,8, standard 2,15 ≈ 30 px – MySmartHome-størrelsen på mobil; følger
- *   HA-temaets --ha-font-size-m), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
+ *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
+ *   med kortet som container – MySmartHome), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
- * Utseende (Fiks 13 · MySmartHome): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst (≈ 0,82 × linjehøyden),
- * #fafafa/#2f2f2f/600, pris-prikk med glød, &nbsp; mot foreldreløse korte ord, tegnsetting limt til pillen.
- * Høyde: 2,15em × 1,55 av 14 px ≈ 46,6 px per linje, padding 4px 0 12px 0 → linjer × 46,6 + 16.
+ * Utseende (Fiks 15.3 · MySmartHome, overstyrer Fiks 13): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst,
+ * #fafafa/#2f2f2f/600, pris-prikk med glød. Teksten flyter naturlig (ingen &nbsp;/text-wrap), kun tegnsetting rett
+ * etter en pille limes til pillen. Tall: «15.2°» (vær, som HA-tilstanden), «2395W», «1,16 kr»; lys-pillen ✨.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -9028,15 +9129,16 @@ try {
   const SRC = [['none', 'Ingen boble'], ['text', 'Fast tekst'], ['weather', 'Vær'], ['temp', 'Ute-temp'], ['price', 'Strømpris'], ['watt', 'Effekt'], ['lights', 'Lys på'], ['events', 'Hendelser'], ['home', 'Hjemme'], ['lock', 'Dørlås'], ['alarm', 'Alarm'], ['trash', 'Søppel'], ['todo', 'Gjøremål'], ['custom', 'Egendefinert']];
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
-  const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
+  const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['✨', '✨'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
   const SIZE_FIELDS = [
-    { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.4, max: 2.8, step: 0.05, default: 2.15, unit: 'em', help: 'Relativt til kortets 14 px · standard 2,15 em ≈ 30 px', presets: [[1.8, 'Liten 1,8'], [2.15, 'Standard 2,15'], [2.5, 'Stor 2,5']] },
+    { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.4, max: 2.8, step: 0.05, unit: 'em', help: 'Auto = tilpasses kortets bredde (22–34 px, som MySmartHome) · ellers em av kortets 14 px', presets: [['', 'Auto'], [1.8, 'Liten 1,8'], [2.15, 'Middels 2,15'], [2.5, 'Stor 2,5']] },
     { type: 'range', name: 'prose_line_height', label: 'Linjehøyde', icon: 'mdi:format-line-spacing', min: 1.3, max: 2, step: 0.05, default: 1.55, unit: 'em', help: 'Ganger tekststørrelsen · standard 1,55 (≈ 46,6 px per linje)', presets: [[1.4, 'Tett 1,4'], [1.55, 'Standard 1,55'], [1.75, 'Luftig 1,75']] },
   ];
   function textSizeOf(c) {
     const n = (v, d, lo, hi) => { const x = Number(v); return v == null || v === '' || isNaN(x) ? d : M.clamp(x, lo, hi); };
     const [F, L] = SIZE_FIELDS;
-    return { fs: n(c && c.prose_font_size, F.default, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
+    // fs = null → automatisk størrelse etter kortets bredde (PROSA_AUTO_FS)
+    return { fs: n(c && c.prose_font_size, null, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
   }
   const PCOL = { hvit: '#fafafa', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
@@ -9045,6 +9147,16 @@ try {
   // Faste kilder som kan pekes til en annen entitet (prose[].ent_override)
   const FIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo'];
   const nb = (n, d) => M.nf(n, d);
+  // Tallformat som MySmartHome (Fiks 15.3): vær/ute-temp med én desimal og punktum som HA-tilstanden («15.2°»),
+  // effekt uten mellomrom/tusenskille («2395W»), pris med komma («1,16 kr», MSH.powerPrice.fmt).
+  const deg = (v) => `${Number(v).toFixed(1)}°`;
+  // Værtilstanden oversatt av HA selv (hass.formatEntityState → «Overskyet»); uoversatt (rå tilstand) → egen tabell.
+  const condOf = (h, w) => {
+    let t = '';
+    if (h && h.formatEntityState) { try { t = String(h.formatEntityState(w) || ''); } catch (e) { t = ''; } }
+    if (!t || t === w.state) t = M.hjemCond(w.state);
+    return t.toLowerCase();
+  };
   const pnum = (v) => parseFloat(String(v == null ? '' : v).replace(',', '.'));
 
   // Kalenderhendelser i dag (hentes sjelden, deles mellom kort).
@@ -9090,11 +9202,11 @@ try {
     const w = E.weather && rd(E.weather);
     if (w && !M.unavailable(w)) {
       const t = w.attributes.temperature;
-      S.weather = [`${M.hjemCond(w.state).toLowerCase()}${t != null ? ' og ' + nb(Number(t), 1) + '°' : ''}`, t != null ? Number(t) : null, null, E.weather];
+      S.weather = [`${condOf(h, w)}${t != null && M.isNum(t) ? ' og ' + deg(t) : ''}`, t != null ? Number(t) : null, null, E.weather];
     }
     const ts = E.temp && rd(E.temp);
-    if (ts && M.isNum(ts.state)) S.temp = [`${nb(Number(ts.state), 1)}°`, Number(ts.state), null, E.temp];
-    else if (w && w.attributes.temperature != null) S.temp = [`${nb(Number(w.attributes.temperature), 1)}°`, Number(w.attributes.temperature), null, E.weather];
+    if (ts && M.isNum(ts.state)) S.temp = [deg(ts.state), Number(ts.state), null, E.temp];
+    else if (w && M.isNum(w.attributes.temperature)) S.temp = [deg(w.attributes.temperature), Number(w.attributes.temperature), null, E.weather];
     const p = E.price && rd(E.price);
     if (p && M.isNum(p.state)) {
       // Pris som vises / enhet / SEK→kr fra power_price; egen entitet i boblen (overrides.price / ent_override) overstyrer bare sensoren
@@ -9104,14 +9216,14 @@ try {
       if (v != null) S.price = [P ? P.fmt(v) : `${nb(v, 2)} kr`, v, lvlP(v), E.price];
     }
     const wt = E.watt && rd(E.watt);
-    if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${nb(v, 0)} W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
+    if (wt && M.isNum(wt.state)) { const v = Number(wt.state); S.watt = [`${Math.round(v)}W`, v, v > 3000 ? C.red : v > 1500 ? C.yellow : C.green, E.watt]; }
     const ls = E.lights && rd(E.lights);
     if (ls && M.isNum(ls.state)) { const v = Number(ls.state); S.lights = [`${v} lys`, v, C.orange, E.lights]; }
     else {
       const all = M.all(h, 'light');
       if (all.length) { const v = all.filter((id) => { const s = rd(id); return s && s.state === 'on'; }).length; S.lights = [`${v} lys`, v, C.orange, null]; }
     }
-    if (E.calendars.length) { const n = EV.n; S.events = [n == null ? '– hendelser' : `${n} ${n === 1 ? 'hendelse' : 'hendelser'}`, n, C.blue, E.calendars[0]]; }
+    if (E.calendars.length) { const n = EV.n; S.events = [n == null ? '– hendelser' : n === 0 ? 'ingen hendelser' : `${n} ${n === 1 ? 'hendelse' : 'hendelser'}`, n, C.blue, E.calendars[0]]; }
     if (E.persons.length) { const n = E.persons.filter((id) => { const s = rd(id); return s && s.state === 'home'; }).length; S.home = [`${n} hjemme`, n, C.green, E.persons[0]]; }
     const lk = E.lock && rd(E.lock);
     if (lk) { const L = lk.state === 'locked'; S.lock = [L ? 'låst' : lk.state === 'jammed' ? 'fastlåst' : M.unavailable(lk) ? '–' : 'ulåst', L ? 1 : 0, L ? C.green : C.orange, E.lock]; }
@@ -9161,13 +9273,13 @@ try {
     const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', link: '', cop: 'alltid', ...(extra || {}) });
     if (S.weather) row('p1', 'Ute er det', 'weather', '.', { link: '#vaer' });
     const P = !!S.price, W = !!S.watt, L = !!S.lights;
-    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
+    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
     else if (P && W) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', '.'); }
-    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
-    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '💡', link: '#lys' }); }
+    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
+    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
     else if (P) row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' });
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
-    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '💡', link: '#lys' });
+    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', link: '#lys' });
     if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', act: 'more' });
     return out;
   }
@@ -9211,133 +9323,30 @@ try {
   }
 
   const chipHTML = (v) => `${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
-  // Hele prosaen som én flytende tekst. Ord og piller er «atomer»; mellom dem settes vanlig mellomrom eller &nbsp;:
-  //  · korte ord (≤ 3 bokstaver, uten sluttegn) bindes til neste atom («det&nbsp;[pille]», «i&nbsp;dag.», «Vi&nbsp;har»)
-  //  · ord på 1–2 bokstaver rett etter en pille bindes til pillen («[pille]&nbsp;i&nbsp;dag.»)
-  //  · siste ord i en setning (≤ 4 bokstaver, «dag.», «på.») og siste ord i prosaen bindes til forrige; slutter prosaen
-  //    med bare korte ord («i dag.»), bindes de til ordet foran («kalenderen&nbsp;i&nbsp;dag.»)
-  //  · kort setningsstart (1–2 bokstaver) bindes til forrige setning («på.&nbsp;Vi&nbsp;har»)
-  //  · én pille per bundet gruppe (en binding som ville slått sammen to piller droppes)
-  //  · tegnsetting rett etter en pille limes til pillen (ingen «.» alene på neste linje).
-  // Chromium bryter linjen ved &nbsp; inntil en inline-flex-pille, så bundne grupper med pille pakkes i én nowrap-bit
-  // (.pzg). Blir en slik gruppe bredere enn kortet, deles den i fitProsa (ingen horisontal overflyt).
-  // Tallformatet røres ikke (verdiene kommer ferdig formatert, norsk).
-  const letters = (w) => w.replace(/[^\p{L}\p{N}]/gu, '').length;
-  const ends = (w) => /[.!?…]["»)\]]*$/.test(w);
+  // Hele prosaen som én flytende tekst (MySmartHome): ord og piller skilles med vanlige mellomrom og brytes naturlig –
+  // ingen &nbsp;-binding eller text-wrap: pretty/balance (Fiks 15.3). Eneste unntak: tegnsetting rett etter en pille
+  // limes til pillen (nowrap-bit .pzg), så «.» aldri havner alene på neste linje.
   function prosaHTML(vis, pill) {
-    const A = []; // { w } ord · { p } pille-HTML
-    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push({ w }));
+    const A = [];
+    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push(esc(w)));
     vis.forEach((v) => {
       words(v.pre);
       let post = String(v.post || '').trim();
       if (v.hasChip) {
         const m = /^[.,!?:;…»)\]]+/.exec(post), pu = m ? m[0] : '';
         if (pu) post = post.slice(pu.length);
-        A.push({ p: `${pill(v)}${pu ? esc(pu) : ''}`, end: /[.!?…]/.test(pu) });
+        A.push(pu ? `<span class="pzg">${pill(v)}${esc(pu)}</span>` : pill(v));
       }
       words(post);
     });
-    const sh = (a, n) => !!a && !!a.w && letters(a.w) > 0 && letters(a.w) <= n && !ends(a.w);
-    // bind[i] = atom i henger sammen med atom i-1
-    const bind = A.map((a, i) => {
-      if (!i) return false;
-      const b = A[i - 1];
-      if (sh(b, 3)) return true;
-      if (b.p && !b.end && sh(a, 2)) return true;
-      if (a.w && ends(a.w) && letters(a.w) <= 4 && !b.end && !(b.w && ends(b.w))) return true;
-      if (sh(a, 2) && (b.end || (b.w && ends(b.w)))) return true; // «på.&nbsp;Vi»
-      return i === A.length - 1 && !!a.w;
-    });
-    // Slutten av prosaen: består siste bundne kjede bare av korte ord («i dag.»), bindes den også til ordet foran
-    let k = A.length - 1;
-    while (k > 0 && bind[k]) k--;
-    if (k > 0 && A.slice(k).every((a) => a.w && letters(a.w) <= 4)) bind[k] = true;
-    // Én pille per gruppe: en binding som ville slått sammen to piller droppes («på.&nbsp;Vi&nbsp;har [pille]» brytes før pillen)
-    const groups = [];
-    A.forEach((a, i) => { const g = groups[groups.length - 1]; if (bind[i] && !(a.p && g.some((x) => x.p))) g.push(a); else groups.push([a]); });
-    return groups.map((g) => {
-      if (!g.some((a) => a.p)) return g.map((a) => esc(a.w)).join('&nbsp;');
-      return `<span class="pzg">${g.map((a) => a.p || `<span class="pzw">${esc(a.w)}</span>`).join('<span class="pzs">&nbsp;</span>')}</span>`;
-    }).join(' ');
+    return A.join(' ');
   }
-  // Linjeanalyse av ferdig tegnet prosa → antall «foreldreløse» brudd (brukes av fitProsa for å velge beste deling):
-  // ett ord alene på en linje, linje som slutter/starter med et løst kort ord, eller &nbsp;-binding brutt over linjeskift.
-  function prosaScore(pz) {
-    const A = [];
-    let st = '';
-    const walk = (node) => node.childNodes.forEach((c) => {
-      if (c.nodeType === 3) {
-        const base = st.length; st += c.data;
-        const re = /[^\s ]+/g; let m;
-        while ((m = re.exec(c.data))) {
-          const prev = st[base + m.index - 1];
-          if (!/[\p{L}\p{N}]/u.test(m[0]) && A.length && prev === '\u0001') continue; // tegnsetting limt til pillen
-          const rg = document.createRange(); rg.setStart(c, m.index); rg.setEnd(c, m.index + m[0].length);
-          const r = rg.getClientRects()[0]; if (r) A.push({ y: r.top + r.height / 2, x: r.left, bp: prev === ' ', s: letters(m[0]) <= 3 });
-        }
-      } else if (c.nodeType === 1 && c.classList.contains('chip')) { const r = c.getBoundingClientRect(); A.push({ y: r.top + r.height / 2, x: r.left, bp: st.endsWith(' '), p: 1 }); st += '\u0001'; }
-      else if (c.nodeType === 1) walk(c);
-    });
-    walk(pz);
-    const lh = parseFloat(getComputedStyle(pz).lineHeight) || 40, L = [];
-    A.forEach((a, i) => { a.i = i; const l = L.find((x) => Math.abs(x.y - a.y) < lh / 2); if (l) l.a.push(a); else L.push({ y: a.y, a: [a] }); });
-    let bad = 0;
-    L.forEach((l, k) => {
-      const a = l.a.sort((u, v) => u.x - v.x), f = a[0], z = a[a.length - 1], nx = A[z.i + 1];
-      if (a.length === 1 && !f.p) bad++;
-      if (nx && nx.bp) bad += 3;
-      if (nx && a.length > 1 && z.s && !z.p && !z.bp) bad++;
-      if (k && a.length > 1 && f.s && !f.p && !a[1].bp) bad++;
-    });
-    return bad;
-  }
-  // Grupper med pille som er bredere enn prosaen (smal skjerm / stor tekst) deles: alle kombinasjoner av «slipp ordene
-  // før pillen fra skille i» × «slipp ordene etter pillen fra skille j» prøves, og den med færrest foreldreløse brudd
-  // (prosaScore) vinner. Ordene som slippes holder fortsatt sammen seg imellom (&nbsp;). Er pillen alene fortsatt for
-  // bred, får gruppen bryte fritt (ingen horisontal overflyt).
-  const isSep = (n) => n.nodeType === 1 && n.classList.contains('pzs');
-  const isPill = (n) => n.nodeType === 1 && !n.classList.contains('pzw') && !isSep(n);
-  function splitGroup(g, l, r) { // l/r = indeks for skillet til venstre/høyre for pillen (-1 = ikke del)
-    const kids = [...g.childNodes], pi = kids.findIndex(isPill);
-    const Ls = kids.slice(0, pi).filter(isSep), Rs = kids.slice(pi + 1).filter(isSep);
-    // kutt rett etter et kort ord som skulle bundet seg framover («i», «og») straffes – ordet blir hengende på linjeslutt
-    const loose = (sep) => { const w = sep && sep.previousSibling; return w && w.nodeType === 1 && w.classList.contains('pzw') && letters(w.textContent) <= 3 && !ends(w.textContent) ? (letters(w.textContent) <= 2 ? 2 : 1) : 0; }; // «i»/«er» verst
-    const pen = (r >= 0 ? loose(Rs[r]) : 0) + (l >= 0 ? loose(Ls[l]) : 0);
-    if (r >= 0 && Rs[r]) { const k = kids.indexOf(Rs[r]), out = kids.slice(k + 1); Rs[r].remove(); g.after(' ', ...out); }
-    if (l >= 0 && Ls[l]) { const k = kids.indexOf(Ls[l]), out = kids.slice(0, k); Ls[l].remove(); g.before(...out, ' '); }
-    return pen;
-  }
-  M.fitProsa = function (pz) {
-    if (!pz) return;
-    const W = pz.clientWidth;
-    if (!W) return;
-    const wide = (g) => g.getBoundingClientRect().width > W + 0.5;
-    const n = pz.querySelectorAll('.pzg').length;
-    for (let gi = 0; gi < n; gi++) {
-      let g = pz.querySelectorAll('.pzg')[gi];
-      g.classList.remove('wrap');
-      if (!wide(g)) continue;
-      const kids = [...g.childNodes], pi = kids.findIndex(isPill);
-      const nl = kids.slice(0, pi).filter(isSep).length, nr = kids.slice(pi + 1).filter(isSep).length;
-      const base = pz.innerHTML;
-      let best = null;
-      for (let l = -1; l < nl; l++) for (let r = -1; r < nr; r++) {
-        if (l < 0 && r < 0) continue;
-        pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
-        const pen = splitGroup(g, l, r);
-        if (wide(g)) continue;
-        const sc = (prosaScore(pz) + pen) * 100 + (l + 1) + (r < 0 ? 0 : nr - r);
-        if (!best || sc < best.sc) best = { l, r, sc };
-      }
-      pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
-      if (best) splitGroup(g, best.l, best.r);
-      else { splitGroup(g, nl - 1, 0); if (wide(g)) g.classList.add('wrap'); }
-    }
-  };
+  // Tidligere gruppedeling (Fiks 13) – ikke lenger nødvendig; beholdes som no-op for eldre kall.
+  M.fitProsa = function () {};
   M.prosaHTML = prosaHTML;
   // Samme utseende i kortet, i GUI-editorens forhåndsvisning og i «Tilpass Hjem» → Tekst (00-base legger font på :host).
   M.PROSA_CSS = `
-    .pz{margin:0;padding:4px 0 12px 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
+    .pz{margin:0;padding:4px 0 0 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
     /* Pille: 1,6em høy av 0,8em tekst (≈ 0,82 × linjehøyden 1,55) – endrer ikke linjerytmen */
     .pz .chip{display:inline-flex;align-items:center;gap:8px;height:1.6em;margin:0;padding:0 .55em;border:0;border-radius:999px;box-shadow:none;background:#fafafa;color:#2f2f2f;font:inherit;font-size:.8em;font-weight:600;line-height:1;letter-spacing:0;white-space:nowrap;vertical-align:.08em;font-variant-numeric:tabular-nums;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
     .pz .chip.press:active{transform:scale(.96)}
@@ -9345,13 +9354,14 @@ try {
     .pz .chip .em{font-size:.9em;line-height:1;flex:none}
     .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
     .pz .pzg{white-space:nowrap}
-    .pz .pzw{white-space:nowrap}
-    .pz .pzg.wrap{white-space:normal}
   `;
-  const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs}em;line-height:${T.lh}`; };
+  // Standard: clamp(22px, 7,4cqi, 34px) – kortet (eller forhåndsvisningen) er container (container-type: inline-size)
+  const AUTO_FS = 'clamp(22px, 7.4cqi, 34px)';
+  M.PROSA_AUTO_FS = AUTO_FS;
+  const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px)}.xpz .pzg{white-space:normal}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -9504,11 +9514,6 @@ try {
       }
       return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`)}</div>`;
     }
-    afterRender() {
-      M.fitProsa(this.shadowRoot.querySelector('.pz'));
-      // ny bredde → tegn på nytt (morph gjenoppretter gruppene) og del dem på nytt
-      if (!this._fro && window.ResizeObserver) { this._fw = this.clientWidth; this._fro = new ResizeObserver(() => { const w = this.clientWidth; if (w !== this._fw) { this._fw = w; this.update(); } }); this._fro.observe(this); }
-    }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
       if (name === 'chip') {
@@ -9520,8 +9525,8 @@ try {
     }
     get styles() {
       return `
-        /* Grunnstørrelse = HA-kortets 14 px; teksten er 2,15em / 1,55 (MySmartHome), ingen margin på kortet */
-        :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
+        /* Grunnstørrelse = HA-kortets 14 px; kortet er container → prosaen clamp(22px, 7,4cqi, 34px) / 1,55 (MySmartHome) */
+        :host{display:flow-root;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}
         ${M.PROSA_CSS}
         .pick{vertical-align:baseline}
       `;
@@ -10268,8 +10273,8 @@ try {
       const key = `${t.id}-${slot}`, n = stR.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
       return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + x.k)}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
     }
-    // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 72 px / radius 36
-    // på samme element som bakgrunnen, ikon-sirkel 60/30, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
+    // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 64 px / radius 32 (Fiks 15.3)
+    // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
       const o = { background_color: null, text_color: 'var(--white, #fafafa)', icon_color: null, circle_color: null, style: '' };
       if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
@@ -10425,7 +10430,7 @@ try {
       if (name === 'tile') return this._runTile(d.k, d.w);
       if (name === 'appl') { const A = this._appl(d.k, (this._E || {})[d.k]); if (A) this._applAct(A); return; }
       if (name === 'slide') { const x = this._slide(d.s, this._E || tileEnts(this.hass, this.config)); if (x.hash) return M.openPopup(x.hash); if (x.ent) return M.moreInfo(this, x.ent); return; }
-      if (M.romkortAction && M.romkortAction(this, name, el)) return;
+      if (M.romkortAction && M.romkortAction(this, name, el, ev)) return;
       return super.onAction(name, el, ev);
     }
     afterRender() {
@@ -10500,7 +10505,7 @@ try {
         ${M.TAB_ROW_CSS || ''}
         .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
-        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
         .tab.on{color:var(--gray100,#2f2f2f)}
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
@@ -10513,29 +10518,31 @@ try {
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
         .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
-        .tsw{width:100%;overflow:hidden;border-radius:36px;touch-action:pan-y}
+        .tsw{width:100%;overflow:hidden;border-radius:32px;touch-action:pan-y}
         ${M.UNIVERSAL_CSS || ''}
         .u-i[data-act]{cursor:pointer;transition:transform .2s,background .25s}
         .u-i[data-act]:active{transform:scale(.9)}
-        /* tileV (Hjem v2): pille med faste px – ikke tema-radius. Radius, bakgrunn og overflow på samme element. */
-        .u.ht{height:72px;padding:0 14px 0 6px;border-radius:36px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);grid-template-columns:60px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
+        /* tileV (Hjem v2 · Fiks 15.3 MySmartHome): pille 64 px høy, ikon-sirkel 56, 4 px til venstre – faste px, ikke
+           tema-radius. Radius, bakgrunn og overflow på samme element. */
+        .u.ht{height:64px;padding:0 14px 0 4px;border-radius:32px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);grid-template-columns:56px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
         .u.ht[data-act]:active{transform:scale(.97)}
-        .u.ht .u-i{width:60px;height:60px;border-radius:30px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
+        .u.ht .u-i{width:56px;height:56px;border-radius:28px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
         .u.ht .u-l{align-self:end !important;font-size:15px;font-weight:500;line-height:1.25}
-        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,var(--gray600,#7f7f7f))}
+        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f)}
         .u.ht:not(:has(.u-n)){grid-template-rows:1fr !important}
         .u.ht:not(:has(.u-n)) .u-l{align-self:center !important}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
-        .dots{display:flex;gap:8px;height:14px;align-items:center}
-        .dots span{width:10px;height:10px;border-radius:6px;background:var(--gray400,#545454);transition:background .2s,width .2s,height .2s}
-        .dots span.on{width:12px;height:12px;background:var(--gray600,#7f7f7f)}
-        .tile{display:flex;align-items:center;gap:12px;height:72px;padding:0 14px 0 6px;border-radius:36px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
-        .tic{width:60px;height:60px;border-radius:30px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
+        /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
+        .dots{display:flex;gap:10px;height:14px;align-items:center}
+        .dots span{width:9px;height:9px;border-radius:6px;background:var(--gray300,#404040);transition:background .2s,width .2s,height .2s}
+        .dots span.on{width:12px;height:12px;background:var(--gray500,#696969)}
+        .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
+        .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
         .tt{font-size:15px;font-weight:500}
-        .ts{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ts{font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{flex:none;width:100%;height:220px;padding:18px;display:flex;flex-direction:column}
         .sl-top{font-size:15px;color:var(--gray800,#afafaf)}
         .sl-ti{font-size:30px;font-weight:300;letter-spacing:-0.01em;line-height:1.15;text-transform:uppercase}
@@ -10826,8 +10833,8 @@ try {
  * Data: MSH.powerPrice (15-strompris-kilde.js) – én felles kilde/config (ki-store `power_price`, «Tilpass Hjem» → Popups →
  * Strømpris) for kortet, prosa-boblen og strøm-sliden. Profil Norge (spot / totalpris m/ nettleie / Norgespris, kr eller
  * øre) eller Sverige (SEK, alltid kr/kWh, graf i öre, ingen Norgespris – høyre verdi = snitt). Nettleie i morgen (↑/↓ +
- * differanse) som rad under verdiene når Pris som vises = Norgespris/Totalpris. Fane «I dag / I morgen»: liquid glass eller
- * standard, tekststørrelse/høyde/bredde fra power_price.tab. Kortets YAML: threshold, show_norgespris (+ valgfritt
+ * differanse) som rad under verdiene når Pris som vises = Norgespris/Totalpris. Fane «I dag / I morgen»: standard utseende (glassflate
+ * bare med stil glass + Liquid Glass-tema), alltid Liquid Glass-drag; tekststørrelse/høyde/bredde fra power_price.tab. Kortets YAML: threshold, show_norgespris (+ valgfritt
  * power_price / gamle entity, norgespris_entity, norgespris som grunnlag under ki-store). GUI-editoren viser samme
  * power_price-felt (msh-strompris-editor) og skriver dem til ki-store. Mangler data → «–» og tom graf (bare rutenettet).
  */
@@ -10862,21 +10869,22 @@ try {
     return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? RED : dn ? GREEN : '#979797', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
   };
   // Fanen «I dag / I morgen» (kortet og forhåndsvisningen i editoren): { style, font, height, padding }
+  // Fiks 15.2: standard utseende (spor #2f2f2f, rosa aktiv pille, ingen blur/glasskant) uavhengig av temaet.
+  // «Stil» styrer bare utseendet: glass = glassflate KUN når Liquid Glass-temaet er på (MSH.tabSurface-variablene).
+  // Liquid Glass-drag-effekten (data-glass-drag, MSH.glassDrag: linse/strekk ved trykk og dra) er alltid på.
   M.powerTabHTML = function (tab, isToday, hasM, attrs) {
-    const t = tab || {}, glass = t.style !== 'standard';
-    return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" ${glass ? 'data-glass-drag="x"' : ''} ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
+    const t = tab || {}, glass = t.style === 'glass';
+    return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" data-glass-drag="x" ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
       const on = (k === 'today') === isToday;
       return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
     }).join('')}</div>`;
   };
   M.powerTabCSS = (t) => {
     const h = t.height, f = t.font, p = t.padding;
-    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y}
-      .seg.std{background:#303030}
-      .seg.glass{background:rgba(255,255,255,0.06);backdrop-filter:blur(22px) saturate(190%);-webkit-backdrop-filter:blur(22px) saturate(190%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),inset 0 1px 0 rgba(255,255,255,.12)}
-      ${M.glassFallback ? M.glassFallback('.seg.glass', 'row') : ''}
-      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
-      .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y;background:var(--gray100,#2f2f2f);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+      .seg.glass{${M.tabSurface ? M.tabSurface('var(--gray100,#2f2f2f)', 'none') : ''}}
+      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s,opacity .25s}
+      .sg.on{background:${M.C.accent};color:var(--gray100,#2f2f2f)}
       .sg:disabled{opacity:.4;cursor:default}`;
   };
 
@@ -10910,7 +10918,7 @@ try {
             { type: 'info', label: P ? P.status + (tr ? ` · nettleie i morgen ${tr.arrow} ${tr.text}` : '') : '' },
           ] },
           { type: 'section', id: 'fane', label: 'Fane «I dag / I morgen»', icon: 'mdi:tab', fields: [
-            { type: 'select', name: pf('tab.style'), label: 'Stil', options: [['glass', 'Liquid glass'], ['standard', 'Standard']], default: 'glass' },
+            { type: 'select', name: pf('tab.style'), label: 'Stil', options: [['standard', 'Standard'], ['glass', 'Liquid glass']], default: 'standard', help: 'Liquid glass-flaten vises bare med Liquid Glass-temaet. Dra-effekten er alltid på.' },
             { type: 'range', name: pf('tab.font'), label: 'Tekststørrelse', min: 11, max: 18, default: 14, presets: [[12, 'Liten'], [14, 'Standard'], [16, 'Stor']] },
             { type: 'range', name: pf('tab.height'), label: 'Høyde', min: 24, max: 48, default: 30, presets: [[26, 'Lav'], [30, 'Standard'], [38, 'Høy']] },
             { type: 'range', name: pf('tab.padding'), label: 'Bredde (sidemarg per knapp)', min: 8, max: 40, default: 20, presets: [[12, 'Smal'], [20, 'Standard'], [30, 'Bred']] },
@@ -11037,8 +11045,9 @@ try {
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      const seg = this.shadowRoot.querySelector('.seg.glass');
-      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', enabled: () => seg.classList.contains('glass') });
+      // Liquid Glass-drag alltid (Fiks 15.2) – touch-action pan-y + stopPropagation ligger i glassDrag (fallgruve 2)
+      const seg = this.shadowRoot.querySelector('.seg');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' });
       const p = this.shadowRoot.querySelector('.plot');
       if (!p || p.__sc) return;
       p.__sc = true;
@@ -11259,7 +11268,7 @@ try {
   const SRC = [['none', 'Ingen boble'], ['text', 'Fast tekst'], ['weather', 'Vær'], ['temp', 'Ute-temp'], ['price', 'Strømpris'], ['watt', 'Effekt'], ['lights', 'Lys på'], ['events', 'Hendelser'], ['home', 'Hjemme'], ['lock', 'Dørlås'], ['alarm', 'Alarm'], ['trash', 'Søppel'], ['todo', 'Gjøremål'], ['custom', 'Egendefinert']];
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
-  const PICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
+  const PICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['✨', '✨'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
   const PSW = [['hvit', C.white, 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
@@ -11436,7 +11445,7 @@ try {
     .pe{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--gray300,#404040)}
     .pe .in{background:#282828}
     .pv2{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#232323}
-    .prev{padding:14px 16px;border-radius:24px;background:var(--gray000,#232323);font-size:16px;line-height:1.95;text-wrap:pretty}
+    .prev{padding:14px 16px;border-radius:24px;background:var(--gray000,#232323);font-size:16px;line-height:1.95}
     .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:#232323;font-weight:600;font-size:15px;vertical-align:middle;white-space:nowrap;line-height:1}
     .pc ha-icon{color:#232323}
     .pd{width:8px;height:8px;border-radius:4px;flex:none}
@@ -11644,7 +11653,6 @@ try {
     _after() {
       if (this.u.sec === 'pop' && M.popupsPanel) M.popupsPanel.after(this);
       const r = this.root;
-      if (this.u.sec === 'tekst' && M.fitProsa) M.fitProsa(r.querySelector('[data-key="prev"] .pz')); // del for brede pille-grupper
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
       r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
       const ct = r.querySelector('.ct');
@@ -11969,9 +11977,9 @@ try {
       const R = this._prose(), u = this.u, hass = this.hass;
       if (!R) return '<div class="hint">Prosa-kortet er ikke lastet.</div>';
       // Forhåndsvisning = samme rendering og CSS som prosa-kortet (M.prosaHTML / M.PROSA_CSS, 21-hjem-prosa.js)
-      const PC0 = customElements.get('msh-prosa-card'), T0 = PC0 && PC0.textSize ? PC0.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
+      const PC0 = customElements.get('msh-prosa-card'), T0 = PC0 && PC0.textSize ? PC0.textSize(this.P() || {}) : { fs: null, lh: 1.55 };
       const pill = (v) => `<span class="chip" style="background:${v.bg}">${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? ic(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span></span>`;
-      const prev = `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="font-size:${T0.fs}em;line-height:${T0.lh};padding:0">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+      const prev = `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="font-size:${T0.fs != null ? T0.fs + 'em' : M.PROSA_AUTO_FS || 'clamp(22px, 7.4cqi, 34px)'};line-height:${T0.lh};padding:0">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
       const P = R.rows || [];
       const areas = M.areas(hass).slice(0, 8), persons = M.all(hass, 'person');
       const toks = [...TOK, ...areas.map((a) => a.id + '.temp'), ...persons.map((p) => p.split('.')[1] + '.hjemme')];
@@ -12021,13 +12029,15 @@ try {
         return row + ed;
       }).join('');
       // Tekststørrelse / linjehøyde (em, som originalens content_style) – samme felt som prosa-kortets GUI-editor
-      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
+      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: null, lh: 1.55 };
       const nfE = (x) => M.nf(x, 2).replace(/0$/, '');
       const szHTML = (PC && PC.sizeFields ? PC.sizeFields : []).map((f) => {
-        const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k];
-        return `<div class="fld" data-key="psz-${k}"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">${esc(f.label)}</span><span class="pszv-${k}" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${nfE(val)} em</span></div>
-          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${val}" data-in="psz" data-f="${f.name}" data-k="${k}" style="width:100%;touch-action:pan-y">
-          <div class="chs">${f.presets.map(([v, l]) => `<button class="o36 ${Math.abs(val - v) < 0.001 ? 'on-pk' : ''}" data-a="psize" data-f="${f.name}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div></div>`;
+        // Tekststørrelse uten verdi = Auto (tilpasses bredden); slideren står da på 2,15 em
+        const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k], auto = val == null, sv = auto ? 2.15 : val;
+        const on = (v) => (v === '' ? auto : !auto && Math.abs(val - v) < 0.001);
+        return `<div class="fld" data-key="psz-${k}"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">${esc(f.label)}</span><span class="pszv-${k}" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${auto ? 'Auto' : nfE(val) + ' em'}</span></div>
+          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${sv}" data-in="psz" data-f="${f.name}" data-k="${k}" style="width:100%;touch-action:pan-y">
+          <div class="chs">${f.presets.map(([v, l]) => `<button class="o36 ${on(v) ? 'on-pk' : ''}" data-a="psize" data-f="${f.name}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div></div>`;
       }).join('');
       return `${szHTML}${prev}${rows}
         <button class="big52 press" data-a="padd">${ic('add', 22)}Ny setning</button>
@@ -12285,7 +12295,7 @@ try {
     _actTekst(a, d) {
       const u = this.u, i = Number(d.i);
       switch (a) {
-        case 'psize': { const PCf = customElements.get('msh-prosa-card'), F = ((PCf && PCf.sizeFields) || []).find((f) => f.name === d.f), def = F ? F.default : d.f === 'prose_font_size' ? 2.15 : 1.55, v = Number(d.v); return this.saveP({ [d.f]: Math.abs(v - def) < 0.001 ? undefined : v, prose_offset: undefined }); }
+        case 'psize': { const PCf = customElements.get('msh-prosa-card'), F = ((PCf && PCf.sizeFields) || []).find((f) => f.name === d.f), def = F && F.default != null ? F.default : null, v = d.v === '' ? undefined : Number(d.v); return this.saveP({ [d.f]: v === undefined || (def != null && Math.abs(v - def) < 0.001) ? undefined : v, prose_offset: undefined }); }
         case 'psel': u.proseSel = u.proseSel === i ? null : i; return this.render();
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));
@@ -13147,13 +13157,13 @@ try {
 /* KI MSH · «Tilpass Hjem» → Popups → Strømpris (fiks-4 punkt 5–6). Ark for den felles strømpris-kilden
  * (MSH.powerPrice, 15-strompris-kilde.js). Kobles inn i Popups-panelet (28-popup-editor.js) som visningen u.pv = 'strom'
  * via MSH.powerPricePanel { render, act, input, after }.
- *   Profil (glass-segment) Norge · Sverige
+ *   Profil (segment, glass-dra alltid) Norge · Sverige
  *   Norge:   kilde (Nord Pool · Tibber · Strømpris · Egen sensor), spotpris-sensor (msh-entity-picker, forslag for kilde/område),
  *            prisområde NO1–NO5, Norgespris-sensor + fast sats, nettleie-sensor (+ forhåndsvisning av nettleie i morgen),
  *            pris som vises (Spot · Totalpris m/ nettleie · Norgespris), enhet (kr/øre)
  *   Sverige: kilde (Nord Pool · Tibber · Egen), Nord Pool-sensor (SEK), elområde SE1–SE4, sensorens enhet (auto · öre · kr),
  *            nettleie, pris som vises (Spot · Totalpris) – alltid kr/kWh, ingen Norgespris
- *   Fane «I dag / I morgen»: Liquid glass · Standard, tekststørrelse 11–18, høyde 24–48, bredde 8–40 med live forhåndsvisning
+ *   Fane «I dag / I morgen»: Standard · Liquid glass (bare utseendet; glassflate kun med temaet, drag alltid), tekststørrelse 11–18, høyde 24–48, bredde 8–40 med live forhåndsvisning
  *   Statuslinje: «sensor.x · 24 timer i dag, 24 i morgen» / «Mangler i morgen-priser» / feil i rødt.
  * Lagres med MSH.store.set('power_price', …) – kortet, prosa-boblen og sliden oppdateres straks (store.subscribe).
  */
@@ -13220,7 +13230,8 @@ try {
     .pwst.err{color:${C.red}}
     msh-entity-picker{display:block}
   `;
-  const seg = (f, opts, val, glass) => `<div class="pwseg ${glass ? 'gl' : ''}" ${glass ? 'data-glass-drag="x"' : ''} data-key="pwseg-${f}">${opts.map(([v, l]) => `<button class="${String(v) === String(val) ? 'on' : ''}" ${String(v) === String(val) ? 'aria-selected="true" data-active="1"' : ''} data-a="pwset" data-f="${f}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
+  // Segmenter (Fiks 15.2): Liquid Glass-drag alltid; glass-utseendet (.gl) bare med Liquid Glass-temaet (MSH.glassOn()).
+  const seg = (f, opts, val) => `<div class="pwseg ${M.glassOn && M.glassOn() ? 'gl' : ''}" data-glass-drag="x" data-key="pwseg-${f}">${opts.map(([v, l]) => `<button class="${String(v) === String(val) ? 'on' : ''}" ${String(v) === String(val) ? 'aria-selected="true" data-active="1"' : ''} data-a="pwset" data-f="${f}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
   const fmtNow = (hass, id) => (hass && hass.states[id] ? M.fmtState(hass, id) : '');
 
   function render(ed) {
@@ -13241,10 +13252,10 @@ try {
     return `<div class="pw" data-key="pw"><style>${CSS}</style>
       <div class="pphd"><button class="b40" data-a="pwback" title="Tilbake">${ic('mdi:chevron-left', 18)}</button><span class="t">Strømpris</span></div>
       <span class="hint">Én felles kilde for strømpriskortet, prosa-boblen «Strømpris», strøm-sliden på Hjem og «billigst kl.» i Klima. Endringer vises straks.</span>
-      <div class="pwc" data-key="pw-prof"><div class="pwh">${ic('mdi:earth', 18)}Profil</div>${seg('profile', [['no', 'Norge'], ['se', 'Sverige']], c.profile, true)}</div>
+      <div class="pwc" data-key="pw-prof"><div class="pwh">${ic('mdi:earth', 18)}Profil</div>${seg('profile', [['no', 'Norge'], ['se', 'Sverige']], c.profile)}</div>
       <div class="pwc" data-key="pw-src">
         <div class="pwh">${ic('mdi:flash', 18)}${se ? 'Nord Pool-sensor (SEK)' : 'Spotpris'}<i>${esc(P.source ? (M.POWER_SOURCES.find((x) => x[0] === P.source) || [0, ''])[1] : '')}</i></div>
-        <span class="pwl">Kilde${c.source ? '' : ' · automatisk'}</span>${seg('source', srcOpts.map(([v, l]) => [v, v === 'custom' ? 'Egen' : l]), srcCur, true)}
+        <span class="pwl">Kilde${c.source ? '' : ' · automatisk'}</span>${seg('source', srcOpts.map(([v, l]) => [v, v === 'custom' ? 'Egen' : l]), srcCur)}
         <span class="pwl">${se ? 'Nord Pool-sensor (SEK)' : 'Prisentitet'}</span>
         ${M.entityPicker.html({ key: 'pk-pw-' + entF, value: entV, auto: autoId || '', autoMode: true, domains: 'sensor', placeholder: 'Velg pris-sensor …', attrs: `data-in="pwent" data-f="${entF}"` })}
         ${cand.length > 1 || (cand.length && entV && entV !== cand[0]) ? `<span class="pwl">Forslag${c.source && c.source !== 'custom' ? ' for ' + esc((srcOpts.find((x) => x[0] === c.source) || [0, ''])[1]) : ''}${c[areaF] ? ' · ' + esc(c[areaF]) : ''}</span>${sug(entF, cand)}` : ''}
@@ -13272,7 +13283,8 @@ try {
       </div>
       <div class="pwc" data-key="pw-tab">
         <div class="pwh">${ic('mdi:tab', 18)}Fane «I dag / I morgen»</div>
-        ${seg('tab.style', [['glass', 'Liquid glass'], ['standard', 'Standard']], t.style, true)}
+        ${seg('tab.style', [['standard', 'Standard'], ['glass', 'Liquid glass']], t.style)}
+        <span class="hint">Stil styrer bare utseendet: Liquid glass-flaten vises bare med Liquid Glass-temaet. Dra-effekten (linse ved trykk og dra) er alltid på.</span>
         ${rng('font', 'Tekststørrelse', 11, 18)}${rng('height', 'Høyde', 24, 48)}${rng('padding', 'Bredde (sidemarg per knapp)', 8, 40)}
         <div class="pwprev" data-nomorph data-key="pw-prev"></div>
       </div>
@@ -13290,7 +13302,7 @@ try {
     const s = sr.querySelector('.seg');
     if (s) {
       s.addEventListener('click', (e) => { const b = e.composedPath().find((n) => n.dataset && n.dataset.d); if (!b) return; M.haptic('selection'); ed.u.pwTmr = b.dataset.d === 'tomorrow'; paintPreview(ed, over); });
-      if (s.classList.contains('glass') && M.glassDrag) M.glassDrag(s, { axis: 'x' });
+      if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); // Liquid Glass-drag alltid (Fiks 15.2)
     }
   }
 
@@ -13305,7 +13317,7 @@ try {
           save(ed, { [el.dataset.f]: (e.detail && e.detail.value) || undefined });
         });
       }
-      ed.root.querySelectorAll('.pwseg.gl').forEach((s) => { if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); });
+      ed.root.querySelectorAll('.pwseg').forEach((s) => { if (M.glassDrag) M.glassDrag(s, { axis: 'x' }); });
       // Slidere: ikke la arket/Bubble scrolle eller lukke mens man drar (fallgruve 2)
       ed.root.querySelectorAll('.pwrg input[type=range]').forEach((r) => {
         if (r.__pwG) return;
@@ -14475,6 +14487,8 @@ try {
   const PAL = [C.orange, C.blue, C.green, C.purple, C.pink, C.yellow, C.red, C.lime, C.lightBlue, C.brown];
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  // Termostat-stepper: ventende mål per climate-entitet { t, at, sent, timer } (debounce 800 ms → climate.set_temperature)
+  const SETP = {};
 
   /* ------------------------------------------------------------ romdata */
   // Standardfarge per rom: temapalett (oransje, blå, grønn, lilla, rosa, gul, rød, lime …) etter rommets indeks i
@@ -14531,7 +14545,9 @@ try {
     const ts = card.s(thermo), temp = RC ? val(RC.temp, tempId) : card.n(tempId), hum = RC ? val(RC.hum, humId) : card.n(humId);
     const lightsOn = lights.filter((id) => { const s = card.s(id); return s && s.state === 'on'; }).length;
     const mediaOn = media.filter((id) => { const s = card.s(id); return s && s.state === 'playing'; }).length;
-    const set = ts && M.isNum(ts.attributes.temperature) ? Number(ts.attributes.temperature) : null;
+    let set = ts && M.isNum(ts.attributes.temperature) ? Number(ts.attributes.temperature) : null;
+    const pend = ts && SETP[thermo];
+    if (pend) { if (pend.sent && (set === pend.t || Date.now() - pend.at > 5000)) delete SETP[thermo]; else set = pend.t; } // stepper: vis målet før HA svarer
     const cur = ts && M.isNum(ts.attributes.current_temperature) ? Number(ts.attributes.current_temperature) : temp;
     const heating = !!ts && (ts.attributes.hvac_action === 'heating' || (ts.attributes.hvac_action == null && ts.state === 'heat' && cur != null && set != null && cur < set));
     const wattId = M.kiRomId(hass, area, 'effekt');
@@ -14616,7 +14632,9 @@ try {
   };
 
   /* ------------------------------------------------------------ render */
-  // Temperatur: «23°» ved hel grad, ellers én desimal med komma («22,5°»). Fukt: heltall.
+  // Temperatur (graf-varianten): «23°» ved hel grad, ellers én desimal med komma («22,5°»). Fukt: heltall.
+  // Hjem-romkortene (karusell/L/M/S) viser heltall som MySmartHome: «22°» og «49%» (Fiks 15.3) – degI.
+  const degI = (v) => (v == null || isNaN(v) ? '–' : String(Math.round(Number(v))));
   const deg = (v, d = 1) => {
     if (v == null || isNaN(v)) return '–';
     if (d === 0) return M.nf(v, 0);
@@ -14634,7 +14652,8 @@ try {
     const act = r.iconTap === 'open_popup' ? `data-act="rk-open" data-hash="${esc(r.hash)}" title="Åpne ${esc(r.name)}"` : `data-act="rk-light" data-area="${esc(r.id)}" title="Lys"`;
     return `<button class="${cls}" ${act} style="${st}">${inner}</button>`;
   };
-  const kv = (r) => `<div class="rk-kv"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" title="Opp">${M.icon('expand_less', 20)}</button><span class="num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" title="Ned">${M.icon('expand_more', 20)}</button></div>`;
+  // Termostat-stepper (MySmartHome): vertikal pille nede til høyre under ikon-sirkelen – ⌃ / mål / ⌄.
+  const kv = (r) => `<div class="rk-kv" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 22)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 22)}</button></div>`;
   const openAttrs = (r, key) => `data-act="rk-open" data-hash="${esc(r.hash)}" ${r.ent ? `data-ent="${esc(r.ent)}"` : ''} data-key="${esc(key || 'rk-' + r.id)}"`;
 
   // r: M.romData(...). o: { variant, klima, alert, key, graph:{t:[],h:[]}, ui:{gTab,gSel}, cfg, motes }
@@ -14644,17 +14663,17 @@ try {
     if (v === 'karusell') {
       return `<div class="rk rk-car ${kl ? 'kl' : ''}" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num">${deg(r.temp)}°</span><span class="rk-h">${deg(r.hum, 0)} %</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num">${degI(r.temp)}°</span><span class="rk-h">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
     }
     if (v === 'S') {
       return `<div class="rk rk-s" ${openAttrs(r, o.key)}>${lightBtn(r, 'rk-ic rk-ics', alert)}
-        <div class="rk-sx"><span class="rk-sn ell">${esc(r.name)}</span><span class="rk-sl">${deg(r.temp)}° · ${deg(r.hum, 0)}%</span></div></div>`;
+        <div class="rk-sx"><span class="rk-sn ell">${esc(r.name)}</span><span class="rk-sl">${degI(r.temp)}° · ${degI(r.hum)}%</span></div></div>`;
     }
     if (v === 'M' || v === 'L') {
       const h = v === 'L' ? 246 : kl ? 210 : 140;
       return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 44 : 40}px">${deg(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${deg(r.hum, 0)}%</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
     }
     // graf (Romkort.dc.html)
     const cfg = o.cfg || {}, ui = o.ui || {}, g = o.graph || { t: [], h: [] };
@@ -14704,21 +14723,24 @@ try {
     .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
     .rk-car{flex:none;width:100%;height:220px;border-radius:36px}
     .rk-car,.rk-big{container-type:inline-size}
-    @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}}
-    .rk-name{position:absolute;left:18px;top:18px;right:70px;font-size:15px;font-weight:500;line-height:1.3}
-    .rk-ic{position:absolute;right:6px;top:6px;width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
+    @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}.rk-t{font-size:44px}}
+    .rk-name{position:absolute;left:18px;top:18px;right:72px;font-size:15px;font-weight:500;line-height:1.3}
+    /* Ikon-sirkel 60 px i romfarge, 4 px fra kanten (MySmartHome) */
+    .rk-ic{position:absolute;right:4px;top:4px;width:60px;height:60px;border-radius:30px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
     .rk-ic:active{transform:scale(.92)}
     .rk-notap{pointer-events:none}
     .rk-notap:active{transform:none}
     .rk-ics{position:relative;right:auto;top:auto;flex:none}
     .rk-bang{position:absolute;right:-3px;top:-6px;width:24px;height:24px;border-radius:12px;background:var(--red,#f28073);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 0 0 3px var(--gray000,#232323);z-index:2;line-height:1}
     .rk-tv{position:absolute;left:18px;bottom:16px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
-    .rk-t{font-size:40px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-    .rk-h{font-size:12px;color:var(--gray600,#7f7f7f)}
-    .rk-kv{position:absolute;right:10px;bottom:10px;width:52px;height:116px;border-radius:26px;background:rgba(255,255,255,0.04);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.24);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0;box-sizing:border-box}
-    .rk-kv .rk-kb{width:52px;height:36px;display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
-    .rk-kv .rk-kb:active{transform:scale(.88)}
-    .rk-kv span{font-size:14px}
+    .rk-t{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:1}
+    .rk-h{font-size:13px;color:var(--gray600,#7f7f7f)}
+    .kl .rk-tv{right:72px}
+    /* Termostat-stepper: vertikal pille #2f2f2f med tynn kant, full høyde under ikon-sirkelen (4 px luft) */
+    .rk-kv{position:absolute;right:4px;top:68px;bottom:4px;width:60px;border-radius:30px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    .rk-kv .rk-kb{width:60px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:var(--gray900,#c7c7c7);touch-action:manipulation;transition:transform .15s}
+    .rk-kv .rk-kb:active{transform:scale(.86)}
+    .rk-kv .rk-kt{font-size:15px;font-weight:500;flex:none}
     .rk-s{display:flex;align-items:center;gap:12px;height:66px;padding:0 6px 0 4px;border-radius:33px;box-shadow:none}
     .rk-sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .rk-sn{font-size:15px;font-weight:500}
@@ -14752,7 +14774,7 @@ try {
   `;
 
   // Felles handlinger for romkort (returnerer true når håndtert).
-  M.romkortAction = function (card, name, el) {
+  M.romkortAction = function (card, name, el, ev) {
     const d = el.dataset, hass = card.hass, toastOn = card.config.toasts !== false;
     if (name === 'rk-open') { M.openPopup(d.hash); return true; }
     if (name === 'rk-light') {
@@ -14763,17 +14785,26 @@ try {
       if (toastOn) M.toast(`Lys i ${r.name} ${on ? 'av' : 'på'}`);
       return true;
     }
+    // Termostat-stepper: ±steg (target_temp_step, standard 0,5°) per trykk, vist med én gang; tjenestekallet sendes
+    // 800 ms etter siste trykk. Haptic per trykk kommer fra basekortet (data-haptic="selection"). Trykket stoppes her,
+    // så romkortet ikke åpner popupen.
     if (name === 'rk-set') {
+      if (ev) { ev.stopPropagation(); ev.preventDefault(); }
       const s = hass && hass.states[d.id];
       if (!s) return true;
-      const step = Number(s.attributes.target_temp_step) || 0.5, cur = Number(s.attributes.temperature);
+      const P = SETP[d.id] && !SETP[d.id].sent ? SETP[d.id] : null;
+      const step = Number(s.attributes.target_temp_step) || 0.5, cur = P ? P.t : Number(s.attributes.temperature);
       if (isNaN(cur)) return true;
       const mn = Number(s.attributes.min_temp), mx = Number(s.attributes.max_temp);
       let t = Math.round((cur + Number(d.d) * step) * 10) / 10;
       if (!isNaN(mn)) t = Math.max(mn, t);
       if (!isNaN(mx)) t = Math.min(mx, t);
-      M.haptic('selection');
-      M.call(hass, 'climate', 'set_temperature', { entity_id: d.id, temperature: t });
+      if (P) clearTimeout(P.timer);
+      const id = d.id, p = { t, at: Date.now(), sent: false };
+      p.timer = setTimeout(() => { p.sent = true; p.at = Date.now(); M.call(card.hass || hass, 'climate', 'set_temperature', { entity_id: id, temperature: t }).catch(() => { delete SETP[id]; card.update && card.update(); }); }, 800);
+      SETP[id] = p;
+      const kv = el.closest && el.closest('.rk-kv'), lab = kv && kv.querySelector('.rk-kt');
+      if (lab) lab.textContent = setTxt(t) + '°';
       return true;
     }
     return false;
@@ -14839,7 +14870,7 @@ try {
     }
     onAction(name, el, ev) {
       if (name === 'rk-gt') { ev.stopPropagation(); return this.setUI({ gTab: el.dataset.t, gSel: null }); }
-      if (M.romkortAction(this, name, el)) return;
+      if (M.romkortAction(this, name, el, ev)) return;
       return super.onAction(name, el, ev);
     }
     afterRender() {
@@ -15494,7 +15525,7 @@ try {
         .ctl{display:grid;gap:8px}
         .tile{height:64px;border-radius:22px;display:grid;place-items:center;transition:background .2s,color .2s}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
@@ -18235,7 +18266,7 @@ try {
     if (M.klimaHasTab) { try { return !!M.klimaHasTab(card, id); } catch (e) { /* */ } }
     return id !== 'lading' || harLading(card);
   };
-  const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('[ki-msh] klima', e); return fb; } };
+  const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('msh-klima-card', e); return fb; } };
   const blockList = (card, tab) => (M.klimaBlockList ? safe(() => M.klimaBlockList(card, tab) || [], []) : []);
 
   // Layout (config.layout) med standardverdier. Eldre rotnøkler (tab_order, hidden_tabs, start_tab) leses fortsatt.
@@ -18320,6 +18351,9 @@ try {
     Object.keys(r).forEach((k) => { if (r[k] !== undefined && r[k] !== null) S[k] = r[k]; });
     S.zone = ZONES[S.zone] ? S.zone : (ZONE_OF[S.zone] || 'none');
     if (S.minLeft != null) S.timeFrac = Math.min(1, Math.max(0, 1 - S.minLeft / 60));
+    // Ingen/utilgjengelig statussensor → «–» og flat ring (ikke «Motoren er av»/«Trygg fallback»)
+    const st = card.s(ST);
+    if (!st || M.unavailable(st)) S.zone = 'none';
     return S;
   }
   // Setningen under statusen (4.0)
@@ -18412,14 +18446,22 @@ try {
     }
 
     /* ---------------- animasjon (Web Animations API) */
-    onOpen() { this.animateIn(); }
-    onClose() { this._stopAnims(); this._introAt = 0; }
+    // Animasjonen startes i requestAnimationFrame etter tegningen, bare når popupen er åpen (og på nytt ved ny åpning)
+    onOpen() { this._pendingIntro = true; this._introRaf(); }
+    onClose() { cancelAnimationFrame(this._iRaf); this._stopAnims(); this._introAt = 0; }
+    _introRaf() {
+      cancelAnimationFrame(this._iRaf);
+      this._iRaf = requestAnimationFrame(() => { if (this.isOpen && this.isConnected && this._pendingIntro) this.animateIn(); });
+    }
     // Bubble Card tar popup-innholdet ut av DOM-en når den lukkes: neste tilkobling er en ny åpning
     disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     animateIn() {
-      if (reduced()) return;
-      if (!this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
+      if (reduced()) { this._pendingIntro = false; return; }
+      if (!this.isConnected || !this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
       this._pendingIntro = false;
+      try { this._intro0(); } catch (e) { console.error('msh-klima-card', e); this._stopAnims(); }
+    }
+    _intro0() {
       this._stopAnims();
       const q = (s) => this.shadowRoot.querySelector(s), A = [];
       const an = (el, kf, o) => { if (el && el.animate) { const x = el.animate(kf, { fill: 'backwards', ...o }); A.push(x); return x; } return null; };
@@ -18442,7 +18484,10 @@ try {
       this._loopT = setTimeout(() => this._loops(), 1500);
     }
     _loops() {
-      if (reduced() || !this.isOpen) return;
+      if (reduced() || !this.isOpen || !this.isConnected) return;
+      try { this._loops0(); } catch (e) { console.error('msh-klima-card', e); }
+    }
+    _loops0() {
       (this._loop || []).forEach((x) => { try { x.cancel(); } catch (e) { /* */ } });
       const L = [], ef = this.shadowRoot.querySelector('.ef'), pg = this.shadowRoot.querySelector('.bar .pg');
       if (ef && ef.animate && this._S && this._S.zone !== 'off') L.push(ef.animate([{ opacity: 1 }, { opacity: 0.72 }], { duration: 2600, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
@@ -18475,7 +18520,7 @@ try {
       rec.raf = requestAnimationFrame(step);
     }
     afterRender() {
-      if (this._pendingIntro && this.isOpen) { this.animateIn(); return; }
+      if (this._pendingIntro && this.isOpen) { this._introRaf(); return; }
       // Live-oppdatering: nye verdier glir mykt (300 ms) i stedet for å hoppe
       this._shown = this._shown || {};
       this.shadowRoot.querySelectorAll('[data-n]').forEach((el) => {
@@ -18547,6 +18592,7 @@ try {
     ].filter(([id]) => card.s(id));
   }
   const GLASS = 'background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0) 45%),rgba(255,255,255,0.06);-webkit-backdrop-filter:blur(22px) saturate(190%);backdrop-filter:blur(22px) saturate(190%);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.14),inset 0 1px 0 rgba(255,255,255,0.22);';
+  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : GLASS;
 
   class Klima extends M.Card {
     static get cardName() { return 'Klima'; }
@@ -18663,8 +18709,7 @@ try {
     disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
     afterRender() {
       const row = this.shadowRoot.querySelector('.tabs');
-      if (row) {
-        M.tabReorder(row, {
+      if (row && M.tabReorder) safe(() => M.tabReorder(row, {
           card: this, glass: true,
           items: () => Array.from(row.querySelectorAll('.tab')),
           active: () => this._curTab(),
@@ -18674,8 +18719,7 @@ try {
             const rest = tabDefs().map((t) => t.id).filter((k) => !keys.includes(k) && !hid.includes(k));
             M.mshPatchConfig(this, { layout: { ...raw, tab_order: [...keys, ...rest, ...hid] } });
           },
-        });
-      }
+        }));
       if (M.klimaAfterRender) safe(() => M.klimaAfterRender(this));
     }
     get styles() {
@@ -18691,8 +18735,8 @@ try {
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
         ${M.TAB_ROW_CSS || ''}
         .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:26px;${GLASS}overflow:hidden}
-        ${M.glassFallback ? M.glassFallback('.tbox', 'row') : ''}
+        /* Fiks 15.2: glassflate bare med Liquid Glass-temaet (MSH.tabSurface), ellers transparent + ring; glass-dra alltid */
+        .tbox{flex:1;min-width:0;padding:4px;border-radius:26px;${TRS}overflow:hidden}
         .tabs{position:relative;gap:2px;border-radius:22px}
         .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:54px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--gray700,#979797);background:transparent;transition:background .25s,color .25s}
         .tabs>.tab.on{background:${PINK};color:${INK}}
@@ -18700,8 +18744,7 @@ try {
         .tabs.s-text .tl{font-size:13px}
         .tabs.s-icon>.tab{height:46px;padding:0 12px}
         .tl{font-size:10px;font-weight:500;white-space:nowrap}
-        .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${GLASS}color:var(--white,#fafafa)}
-        ${M.glassFallback ? M.glassFallback('.gear', 'row') : ''}
+        .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa)}
         .gear:active{transform:scale(.92)}
         .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
         ${M.KLIMA_BLOCK_CSS || ''}
@@ -18953,6 +18996,8 @@ try {
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
+  // Fanerad-flate: standard transparent + ring, glass kun med Liquid Glass-temaet (05-tab-reorder.js, Fiks 15.2)
+  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);';
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -19492,13 +19537,15 @@ try {
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
-        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme glass-flate og ring */
+        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme flate og ring.
+           Standard: transparent + ring. Glassflate (blur + glasskant) bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2);
+           glass-dra/trykk-linsen (MSH.tabReorder glass + glassTap) er alltid på. */
         .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);overflow:hidden}
+        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;${TRS}overflow:hidden}
         .tabs{gap:2px;border-radius:18px;overflow-x:auto;scrollbar-width:none}
         .tabs::-webkit-scrollbar{display:none}
         .tab{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;transition:background .2s}
-        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .gear:active{transform:scale(.92)}
         /* lys-rader (felles rad, 12 px mellom) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
@@ -20685,7 +20732,8 @@ try {
       // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
       if (seg) M.tabReorder(seg, {
-        card: this,
+        card: this, glass: true, // Liquid Glass-drag (linse ved sideveis dra) alltid – uavhengig av temaet (Fiks 15.2)
+        onSelect: (k) => { const b = seg.querySelector(`.tab[data-t="${k}"]`); if (b && !b.classList.contains('on')) this.onAction('tab', b); },
         items: () => Array.from(seg.querySelectorAll('.tab')),
         idOf: (b) => b.dataset.t,
         active: () => this._R && this._R.tab,
@@ -20715,7 +20763,8 @@ try {
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
         ${M.TAB_ROW_CSS || ''}
         .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
-        .seg{gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
+        /* standard: transparent + ring; glassflate bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2) */
+        .seg{gap:2px;padding:4px;border-radius:22px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.14)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);'}justify-self:center}
         .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);background:transparent}
         .tab.on{background:${PINK};color:var(--gray200,#3a3a3a)}
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
@@ -23318,4 +23367,4 @@ try {
 
 } catch (e) { console.error('[ki-msh] 99-ui-persist.js', e); }
 
-console.info('%c KI MSH %c 1.1.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
+console.info('%c KI MSH %c 1.2.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
