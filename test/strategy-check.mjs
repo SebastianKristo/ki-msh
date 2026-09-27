@@ -2,13 +2,28 @@
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node22/lib/node_modules/playwright'); }
 const BC = resolve('test/.vendor/bubble-card.js');
 if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
 const bundle = resolve(`test/.build/strategy-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
+// Fiks 15.5/15.8 · fixturene (TextEdit/Cocoa-HTML) og fasit fra PyYAML (json per popup-dokument / hele malfilen)
+const FX = { popups: readFileSync('test/fixtures/popups.html', 'utf8'), deps: readFileSync('test/fixtures/dependencies_dash.html', 'utf8') };
+{
+  const ctx = { window: { MSH: {} } }; vm.createContext(ctx);
+  vm.runInContext(readFileSync('src/02-yaml.js', 'utf8'), ctx);
+  const Y = ctx.window.MSH.yaml, tmp = resolve('test/.build/py-' + process.pid);
+  mkdirSync(tmp, { recursive: true });
+  const docs = Y.splitDocs(Y.toText(FX.popups)).map((d) => d.text);
+  docs.push(Y.toText(FX.deps));
+  docs.forEach((t, i) => writeFileSync(`${tmp}/${i}.yaml`, t));
+  let py = null;
+  try { py = JSON.parse(execFileSync('python3', ['-c', `import yaml,json\nprint(json.dumps([yaml.safe_load(open('${tmp}/%d.yaml' % i)) for i in range(${docs.length})],ensure_ascii=False))`]).toString()); } catch (e) { console.warn('(PyYAML mangler – sammenligner ikke mot PyYAML)'); }
+  FX.py = py; FX.nDocs = docs.length;
+}
 const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 let fail = 0;
 for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 900, sb: 256 }]) {
@@ -20,7 +35,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
   await p.addScriptTag({ path: bundle });
   await p.addScriptTag({ path: BC, type: 'module' });
   await p.waitForFunction(() => customElements.get('bubble-card'));
-  const r = await p.evaluate(async (vp) => {
+  const r = await p.evaluate(async ([vp, FX]) => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     document.documentElement.style.setProperty('--sb', vp.sb + 'px');
     const hass = window.mockHass();
@@ -226,14 +241,104 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     E.tilbakeMedUtkast = !!edRoot() && /#utkast/.test((q('.ppcode textarea') || {}).value || '') && location.hash === '' && liveHash('#utkast') === 0;
     res.editor = E;
     M.portals().forEach((x) => x.remove());
+
+    console.log('STEG // import 15.5/15.8'); // popups.html + dependencies_dash.html via «Importer»
+    history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await wait(300);
+    M.store.set('custom_popups', undefined); M.store.set('popup_overrides', undefined); M.store.set('dashboard_globals', undefined); await M.store.save();
+    await S.generate({}, hass); await wait(500);
+    const I = {};
+    const sortK = (v) => (Array.isArray(v) ? v.map(sortK) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortK(v[k])])) : v);
+    const docs = M.yaml.splitDocs(M.yaml.toText(FX.popups));
+    I.html2yaml = docs.length === 10 && docs.map((d) => M.yaml.parse(d.text).hash).join(' ') === '#rolf #server #settings #kalender #tesla #3d #vanning #norgespris #stromregning #planter';
+    I.pyyaml = !FX.py || (FX.py.length === 11 && docs.every((d, i) => JSON.stringify(sortK(M.yaml.parse(d.text))) === JSON.stringify(sortK(FX.py[i]))) && JSON.stringify(sortK(M.yaml.parse(M.yaml.toText(FX.deps)))) === JSON.stringify(sortK(FX.py[10])));
+    const openPop = async () => {
+      let he = M.openHomeEditor({ focus: 'pop' });
+      if (!M.portals().some((x) => x.isConnected && x.shadowRoot === he.root)) { try { he.ov.close(); } catch (e) { /* */ } M.portals().forEach((x) => x.remove()); await wait(300); he = M.openHomeEditor({ focus: 'pop' }); }
+      he.u.pv = null; he.u.pd = null; he.u.popG = 'alle'; he.render(); await wait(700);
+    };
+    const paste = async (txt) => { const ta = q('[data-in="ppimptext"]'); ta.value = txt; ta.dispatchEvent(new Event('input', { bubbles: true })); await act('ppimpread'); await wait(200); };
+    // 1) popups først (uten maler) → advarsel om manglende maler
+    await openPop(); await act('ppimport');
+    await paste(FX.popups);
+    I.forhandsvis10 = qa('.ppchk').length === 10 && qa('.ppchk.on').length === 10 && /Importer 10/.test(q('[data-a="ppimpdo"]').textContent);
+    I.erstatterAuto = qa('.ppchk').filter((x) => /erstatter autogenerert/.test(x.textContent)).length >= 2;
+    await act('ppimpdo'); await wait(1600);
+    const CP = M.store.get('custom_popups') || [];
+    I.lagret10 = CP.length === 10 && CP.every((c, i) => typeof c.yaml === 'string' && c.yaml === docs[i].text && c.hash === M.yaml.parse(docs[i].text).hash && c.id && c.imported);
+    I.malAdvarsel = /Popupene bruker maler som mangler/.test((q('[data-key="pptpl"]') || {}).textContent || '') && /template_sensor_big|universal_/.test(q('[data-key="pptpl"]').textContent);
+    // 2) maler (dependencies_dash.html) via «Importer maler»
+    await act('ppimport', 'globals');
+    await paste(FX.deps);
+    I.malForhandsvis = qa('.ppchk').length === 1 && /40 button_card_templates/.test(q('.ppchk').textContent) && /6 decluttering_templates/.test(q('.ppchk').textContent);
+    await act('ppimpdo'); await wait(1600);
+    const DG = M.store.get('dashboard_globals') || {};
+    I.malerUendret = DG.yaml === M.yaml.toText(FX.deps);
+    I.malAdvarselBorte = !q('[data-key="pptpl"]');
+    // generert dashbord: popups i stacken + globale nøkler på rotnivå
+    const dI = await S.generate({}, hass);
+    const stI = dI.views[0].cards[0], pI = stI.cards.filter((c) => c.card_type === 'pop-up'), byI = (h) => pI.filter((c) => c.hash === h);
+    const want = ['#rolf', '#server', '#settings', '#kalender', '#tesla', '#3d', '#vanning', '#norgespris', '#stromregning', '#planter'];
+    I.tiIStacken = want.every((h) => byI(h).length === 1) && want.every((h, i) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.yaml.parse(docs[i].text)));
+    I.stackRekkefolge = pI.map((c) => c.hash).slice(-10).join() === want.join();
+    I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && !byI('#settings')[0].cards.some((c) => c.type === 'custom:msh-settings-card') && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')
+      && ['#vanning', '#settings'].every((h) => (M.popupReport.replaced || []).some((x) => x.hash === h)) && !(M.popupReport.collisions || []).some((c) => c.kind !== 'replace');
+    I.globaleRot = Object.keys(dI.button_card_templates || {}).length === 40 && Object.keys(dI.decluttering_templates || {}).length === 6 && Object.keys(dI.paper_buttons_row || {}).length === 1 && !!dI.paper_buttons_row.presets.weather && Array.isArray(dI.views) && dI.views.length === 1
+      && /\[\[\[/.test(JSON.stringify(dI.button_card_templates.universal_base));
+    await wait(900);
+    I.levende = want.every((h) => liveHash(h) === 1);
+    // editoren: Egne popups-liste, erstattet-rader, manglende kort, maler-raden
+    await openPop();
+    const rowOf = (h) => qa('.ppr').find((r) => r.querySelector('.pn i') && r.querySelector('.pn i').textContent.startsWith(h + ' ') && r.querySelector('[data-a="ppopen"]'));
+    I.listeKort = /\d+ kort/.test(rowOf('#rolf').textContent) && /Egen/.test(rowOf('#rolf').textContent);
+    I.manglerKort = /Mangler kort: .*ki-k2-card/.test(rowOf('#3d').textContent);
+    I.erstattetRader = ['#vanning', '#settings'].every((h) => !!q(`[data-key="pprep-${h}"]`) && /Erstattet av egen popup/.test(q(`[data-key="pprep-${h}"]`).textContent));
+    I.malerRad = /40 button-card · 6 decluttering · paper-buttons-row/.test(q('[data-key="ppglob"]').textContent);
+    I.hacsListe = /Mangler: button-card.*\(HACS\)/.test((q('[data-key="pphacs"]') || {}).textContent || '') && !/bubble-card,|bubble-card \(/.test(q('[data-key="pphacs"]').textContent);
+    // «Bruk autogenerert» → #vanning blir generert igjen, egen popup står som av
+    q('[data-key="pprep-#vanning"] [data-a="ppprefer"]').click(); await wait(900);
+    const dA = await S.generate({}, hass), vA = dA.views[0].cards[0].cards.filter((c) => c.hash === '#vanning');
+    I.brukAuto = vA.length === 1 && vA[0].cards.length === 1 && vA[0].cards[0].type === 'custom:msh-vanning-card' && (M.popupReport.inactive || []).some((x) => x.hash === '#vanning');
+    await wait(400);
+    const ina = q('[data-key="ppina-#vanning"] [data-a="ppprefer"]'); if (ina) { ina.click(); await wait(900); }
+    const dB = await S.generate({}, hass);
+    I.brukEgen = !!ina && dB.views[0].cards[0].cards.filter((c) => c.hash === '#vanning')[0].cards.length > 1;
+    // redigering: navn-feltet endrer bare name-linjen, resten av YAML-teksten er uendret
+    await act('ppopen', '#rolf');
+    const t0 = q('.ppcode textarea').value;
+    I.editorTekstUendret = t0 === docs[0].text && !!q('[data-a="ppgo"]') && !!q('[data-a="ppdup"]') && !!q('[data-a="ppdl1"]') && !!q('[data-a="ppdelask"]') && !!q('[data-key="ppicf"]');
+    const nmI = q('[data-in="ppname"]'); nmI.value = 'Rolf'; nmI.dispatchEvent(new Event('input', { bubbles: true })); await wait(300);
+    const t1 = q('.ppcode textarea').value;
+    I.navnSynk = t1 === t0.replace(/^name: Sir Sweeps$/m, 'name: Rolf');
+    await type(t1.replace(/^hash: '#rolf'$/m, "hash: '#Rolf X'"));
+    I.hashValidering = /Linje \d+/.test(q('.pperrw').textContent) && q('[data-key="ppsave"]').disabled;
+    await type(t1.replace(/^card_type: pop-up$/m, 'card_type: pop-up\n  feil: innrykk'));
+    I.yamlFeilLinje = /Linje \d+/.test(q('.pperrw').textContent) && q('[data-key="ppsave"]').disabled;
+    await type(t1);
+    await act('ppsave'); await wait(1400);
+    const rolf = (M.store.get('custom_popups') || []).find((c) => c.hash === '#rolf');
+    I.lagretYaml = !!rolf && rolf.name === 'Rolf' && rolf.yaml === t1 && rolf.imported;
+    // dupliser
+    await act('ppopen', '#planter'); await act('ppdup');
+    I.dupliser = /hash: '#planter-kopi'/.test(q('.ppcode textarea').value) && !q('[data-key="ppsave"]').disabled;
+    await act('ppback');
+    // maler-editoren: ugyldig YAML stoppes, gyldig lagres
+    await act('ppglobals');
+    I.malEditor = /universal_base:/.test(q('.ppcode textarea').value) && !q('[data-key="ppsave"]').disabled;
+    await type('button_card_templates:\n  a: [1\n');
+    I.malFeil = q('[data-key="ppsave"]').disabled && /Linje/.test(q('.pperrw').textContent);
+    await act('ppback');
+    I.malUendretEtterAvbryt = (M.store.get('dashboard_globals') || {}).yaml === M.yaml.toText(FX.deps);
+    res.import = I;
+    M.portals().forEach((x) => x.remove());
     return res;
-  }, vp);
+  }, [vp, FX]);
   const hashes = r.popups.split(' '); const unique = new Set(hashes).size === hashes.length;
   const ok = !errs.length && unique && r.oneCardEach && r.newArea && r.excluded && r.opened.every((x) => /åpen\/1kort\/header\/innhold/.test(x)) && r.editors.every((x) => /åpen z=9000/.test(x)) && r.saveCalls === 'frontend/set_user_data' && r.storeGap === 18 && r.hashAfter === '#stue' && r.editorStillOpen
-    && Object.values(r.ruter).every(Boolean) && Object.values(r.merge).every(Boolean) && Object.values(r.live).every(Boolean) && Object.values(r.editor).every((v) => v === true || typeof v === 'number' || typeof v === 'string');
+    && Object.values(r.ruter).every(Boolean) && Object.values(r.merge).every(Boolean) && Object.values(r.live).every(Boolean) && Object.values(r.editor).every((v) => v === true || typeof v === 'number' || typeof v === 'string') && Object.values(r.import).every(Boolean);
   if (!ok) fail++;
   console.log(`${ok ? '✔' : '✘'} [${vp.n}]`, JSON.stringify(r, null, 1), errs.slice(0, 3).join(' | '));
   await p.close();
 }
 await b.close();
+try { rmSync(resolve('test/.build/py-' + process.pid), { recursive: true, force: true }); } catch (e) { /* */ }
 process.exit(fail ? 1 : 0);

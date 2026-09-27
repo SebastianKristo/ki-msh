@@ -20,6 +20,17 @@
  *   Kollisjoner og ugyldige oppføringer rapporteres i MSH.popupReport (collisions/invalid) → advarsel i editoren.
  *   Rekkefølge: rom, funksjoner, strategi-YAML-popups, ki-store-popups (i listens rekkefølge – dra i editoren).
  *   «Ett kort per popup» gjelder bare de genererte.
+ *   ki-store custom_popups[i] er enten en Bubble-config (laget i editoren) eller en importert popup (fiks 15.5):
+ *     { id, hash, name, icon, yaml: '<YAML-teksten, uendret>', imported?: 'popups.html' }  → parses (MSH.yaml) ved generering;
+ *     hash/name/icon er speil av YAML-en for lister (YAML-en er sannheten). Ugyldig YAML → report.invalid, popupen hoppes over.
+ *   Egen popup med samme hash som en autogenerert vinner (report.replaced → «Erstattet av egen popup» i editoren);
+ *   ki-store popups.<key>.prefer = 'auto' («Bruk autogenerert») snur det (report.inactive).
+ * Dashbord-globale nøkler (fiks 15.8): ki-store dashboard_globals = { yaml: '<tekst>' } (eller nøklene direkte:
+ *   { button_card_templates, decluttering_templates, paper_buttons_row, … }) → returneres på rotnivå fra
+ *   generate(): { ...globals, title, views }. button-card/decluttering-card/paper-buttons-row leser dem fra lovelace.config.
+ *   NB: button-card slår opp malene når kortet får config (setConfig), så endrede maler krever at kortene lages på nytt:
+ *   ved endring av dashboard_globals oppdateres lovelace.config straks og HA bes regenerere (config-refresh, som
+ *   «Oppdater» i menyen – ingen omlasting av nettleseren, men åpen popup lukkes). Popup-endringer går uten refresh.
  * Re-generering uten omlasting: HA kjører strategien på nytt bare ved «Oppdater» (hui-root → config-refresh →
  *   ha-panel-lovelace._fetchConfig(true)), og det bygger hele visningen på nytt (alle kort lages på nytt, åpen popup
  *   lukkes/animeres). I stedet abonnerer strategien på ki-store (custom_popups/popup_overrides/popups): ved endring
@@ -151,6 +162,39 @@
   }
   M.popupIconColor = (cfg) => { const m = cfg && typeof cfg.styles === 'string' && ICON_RX.exec(cfg.styles); return m ? m[2].trim() : null; };
   const SRC_RANK = { yaml: 3, custom: 2, auto: 1 };
+  /* Importert/egen popup lagret som YAML-tekst → Bubble-config. Mellomlagres per tekst.
+   * → { cfg, err: null } | { cfg: null, err: { msg, line } } */
+  const yCache = new Map();
+  M.customPopupConfig = function (entry) {
+    if (!isObj(entry)) return { cfg: null, err: { msg: 'er ikke et objekt', line: null } };
+    if (typeof entry.yaml !== 'string' || entry.type) return { cfg: entry, err: null };
+    const t = entry.yaml;
+    if (yCache.has(t)) return yCache.get(t);
+    let r;
+    try {
+      const cfg = M.yaml.parse(t);
+      r = isObj(cfg) ? { cfg, err: null } : { cfg: null, err: { msg: 'YAML-en er ikke et objekt', line: null } };
+    } catch (e) { r = { cfg: null, err: { msg: e.reason || e.message, line: e.line || null } }; }
+    if (yCache.size > 200) yCache.clear();
+    yCache.set(t, r);
+    return r;
+  };
+  /* Dashbord-globale nøkler (button_card_templates, decluttering_templates, paper_buttons_row …) fra ki-store.
+   * → { globals: {…}, err } – nøkler som tilhører strategien/visningene (views, strategy, title) tas aldri med. */
+  const RESERVED_ROOT = new Set(['views', 'strategy', 'title', 'yaml']);
+  M.dashboardGlobals = function (raw) {
+    const g = raw === undefined ? (M.store && M.store.get('dashboard_globals')) : raw;
+    if (!isObj(g)) return { globals: {}, err: null };
+    let obj = g, err = null;
+    if (typeof g.yaml === 'string') {
+      const r = M.customPopupConfig({ yaml: g.yaml });
+      if (r.err) return { globals: {}, err: r.err };
+      obj = r.cfg;
+    }
+    const out = {};
+    Object.keys(obj).forEach((k) => { if (!RESERVED_ROOT.has(k) && obj[k] != null) out[k] = obj[k]; });
+    return { globals: out, err };
+  };
   /* Fiks 15.1 · generert popup med ødelagt kortliste etter overstyring/sammenslåing → rettes, aldri tom popup:
    *   tom/manglende cards → det genererte kortet; gammelt kortnavn (ki-klima-card for msh-klima-card), et msh-kort som
    *   ikke finnes lenger, eller separat toppkort (msh-klima-hero-card) → slås sammen til ETT hovedkort (innstillinger beholdes).
@@ -195,15 +239,30 @@
     };
     (auto || []).forEach((a, i) => push('auto', a.config, i, a));
     (Array.isArray(yaml) ? yaml : []).forEach((c, i) => push('yaml', c, i));
-    (Array.isArray(custom) ? custom : []).forEach((c, i) => push('custom', c, i));
+    (Array.isArray(custom) ? custom : []).forEach((c, i) => {
+      const r = M.customPopupConfig(c);
+      if (r.err) { report.invalid.push({ source: 'custom', index: i, hash: isObj(c) ? normHash(c.hash) : '', reason: `har ugyldig YAML${r.err.line ? ` (linje ${r.err.line})` : ''}: ${r.err.msg}` }); return; }
+      push('custom', r.cfg, i, isObj(c) && typeof c.yaml === 'string' ? { id: c.id, stored: 'yaml' } : {});
+    });
     const YO = isObj(yamlOverrides) ? yamlOverrides : {}, SO = isObj(storeOverrides) ? storeOverrides : {}, UP = isObj(userPopups) ? userPopups : {};
     const ovOf = (O, hash) => (Object.prototype.hasOwnProperty.call(O, hash) ? O[hash] : Object.prototype.hasOwnProperty.call(O, hash.slice(1)) ? O[hash.slice(1)] : undefined);
     const winners = new Map();
+    report.replaced = []; report.inactive = [];
+    const upOf = (hash) => UP[hash.slice(1)] || UP[hash] || null;
     cand.forEach((list, hash) => {
-      // høyest kilde vinner; innen samme kilde vinner første
-      const w = list.slice().sort((a, b) => SRC_RANK[b.source] - SRC_RANK[a.source] || a.index - b.index)[0];
+      // høyest kilde vinner; innen samme kilde vinner første. Egen over auto, med mindre brukeren har valgt «Bruk autogenerert».
+      const hasAuto = list.some((x) => x.source === 'auto'), pAuto = hasAuto && !!(upOf(hash) && upOf(hash).prefer === 'auto');
+      const rank = (x) => (x.source === 'custom' && pAuto ? 0.5 : SRC_RANK[x.source]);
+      const w = list.slice().sort((a, b) => rank(b) - rank(a) || a.index - b.index)[0];
       winners.set(hash, w);
-      if (list.length > 1) report.collisions.push({ hash, winner: w.source, losers: list.filter((x) => x !== w).map((x) => x.source) });
+      if (list.length < 2) return;
+      const losers = list.filter((x) => x !== w);
+      // egen ↔ generert er en bevisst erstatning, ikke en konflikt
+      const kind = (w.source === 'custom' && losers.every((x) => x.source === 'auto')) || (w.source === 'auto' && pAuto && losers.every((x) => x.source === 'custom')) ? 'replace' : 'conflict';
+      report.collisions.push({ hash, winner: w.source, losers: losers.map((x) => x.source), kind });
+      const a = list.find((x) => x.source === 'auto'), c = list.find((x) => x.source === 'custom');
+      if (w.source === 'custom' && a) report.replaced.push({ hash, key: hash.slice(1), group: a.meta.group || 'fn', name: (a.config && a.config.name) || hash, icon: (a.config && a.config.icon) || 'mdi:card-outline', index: c.index });
+      if (w.source === 'auto' && pAuto && c) report.inactive.push({ hash, key: hash.slice(1), index: c.index, name: (c.config && c.config.name) || hash, icon: (c.config && c.config.icon) || 'mdi:card-outline' });
     });
     const popups = [];
     order.forEach(([hash, source, index]) => {
@@ -237,6 +296,7 @@
         name: view.name || hash, icon: view.icon || 'mdi:card-outline', color: M.popupIconColor(view) || w.meta.color || null,
         gen: gen ? clone(gen.config) : null, base: clone(w.config), config: hidden ? null : cfg,
         override, overrideFrom, hidden, hiddenBy, repaired, losers: list.filter((x) => x !== w).map((x) => x.source),
+        replacesAuto: w.source === 'custom' && !!gen, preferAuto: w.source === 'auto' && list.some((x) => x.source === 'custom'), stored: w.meta.stored || null, id: w.meta.id || null,
       });
       if (!hidden) popups.push(cfg);
     });
@@ -335,10 +395,36 @@
   };
   // Endring i ki-store (egne popups, overstyringer, skjul/navn/ikon) → oppdater popupene (debounce 250 ms)
   const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null]); } catch (e) { return ''; } };
-  let lastSig = null, sigTimer = null;
+  const gSigOf = (d) => { try { return JSON.stringify(d.dashboard_globals || null); } catch (e) { return ''; } };
+  let lastSig = null, sigTimer = null, lastG = null, gTimer = null;
+  /* Maler/globale nøkler endret → skriv dem inn i den levende lovelace.config (så nye kort finner dem straks) og be HA
+   * regenerere dashbordet (config-refresh = «Oppdater»): button-card slår opp maler i setConfig, så eksisterende kort må lages på nytt. */
+  M.applyDashboardGlobals = function () {
+    const G = M.dashboardGlobals().globals;
+    try {
+      const ha = document.querySelector('home-assistant');
+      const panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const ll = panel && panel.lovelace;
+      if (ll && ll.config && typeof ll.config === 'object') {
+        const prev = M.__kiGlobalKeys || [];
+        prev.forEach((k) => { if (!(k in G)) delete ll.config[k]; });
+        Object.keys(G).forEach((k) => { ll.config[k] = G[k]; });
+        M.__kiGlobalKeys = Object.keys(G);
+      }
+      const root = panel && M.deep(panel.shadowRoot || panel, 'hui-root');
+      if (root) root.dispatchEvent(new CustomEvent('config-refresh', { bubbles: true, composed: true }));
+      return !!root;
+    } catch (e) { console.warn('[ki-msh] dashboard_globals', e); return false; }
+  };
   if (M.store && M.store.subscribe) {
     M.store.subscribe((d, path) => {
-      if (!M.strategyConfig || (path && !/^(custom_popups|popup_overrides|popups|devices)(\.|$)/.test(path))) return;
+      if (!M.strategyConfig) return;
+      if (!path || /^dashboard_globals(\.|$)/.test(path)) {
+        const g = gSigOf(d || {});
+        if (M.strategyIsDashboard && g !== lastG) { lastG = g; clearTimeout(gTimer); gTimer = setTimeout(() => M.applyDashboardGlobals(), 300); }
+        else lastG = g;
+      }
+      if (path && !/^(custom_popups|popup_overrides|popups|devices)(\.|$)/.test(path)) return;
       const sig = sigOf(d || {});
       if (sig === lastSig) return;
       lastSig = sig;
@@ -346,7 +432,7 @@
       sigTimer = setTimeout(() => M.refreshPopups(), 250);
     });
   }
-  const remember = (config) => { M.strategyConfig = config || {}; lastSig = sigOf((M.store && M.store.get()) || {}); };
+  const remember = (config, dash) => { M.strategyConfig = config || {}; if (dash) M.strategyIsDashboard = true; const d = (M.store && M.store.get()) || {}; lastSig = sigOf(d); lastG = gSigOf(d); };
 
   // «Tilpass rom»-verdiene (ki-store rooms.<area>) tas med i kortets config, så GUI-editoren viser dem
   const roomCfg = (area) => { const r = (M.store && M.store.eff('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
@@ -397,8 +483,12 @@
   class KiDashboardStrategy extends HTMLElement {
     static async generate(config, hass) {
       const view = await M.generateDashboardView(config, hass);
-      remember(config);
-      return { title: (config && config.title) || 'Hjem', views: [view] };
+      remember(config, true);
+      // maler og andre dashbord-globale nøkler (fiks 15.8) på rotnivå – der button-card/decluttering-card/paper-buttons-row leter
+      const G = M.dashboardGlobals();
+      if (G.err) console.warn('[ki-msh] dashboard_globals har ugyldig YAML – maler tas ikke med:', G.err.msg, G.err.line ? 'linje ' + G.err.line : '');
+      M.__kiGlobalKeys = Object.keys(G.globals);
+      return { ...G.globals, title: (config && config.title) || 'Hjem', views: [view] };
     }
     static async getConfigElement() { return document.createElement('ki-dashboard-strategy-editor'); }
     static noEditor = false;

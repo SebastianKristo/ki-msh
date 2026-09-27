@@ -13,6 +13,9 @@ window.mockExtend(({ add, S }) => {
   add('person.emma', 'Skole', { friendly_name: 'Emma', entity_picture: '' });
   add('input_boolean.emma_hjemme', 'off', { friendly_name: 'Emma hjemme' });
   add('input_boolean.rune_hjemme', 'on', { friendly_name: 'Rune hjemme' });
+  // Fiks 15.11: forslag i «· hjemme»-velgeren (*_presence / *_home)
+  add('binary_sensor.emma_presence', 'off', { friendly_name: 'Emma tilstede' });
+  add('switch.sebastian_home', 'on', { friendly_name: 'Sebastian hjemme (bryter)' });
   add('calendar.familie', 'off', { friendly_name: 'Familie', message: 'Tannlege' });
   add('sensor.soppel_type', 'Restavfall', { friendly_name: 'Søppel type', types: ['Restavfall', 'Plastavfall'] });
 });

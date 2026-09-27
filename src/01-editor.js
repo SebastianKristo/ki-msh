@@ -1,6 +1,9 @@
 /* KI MSH · felles editor (msh-editor)
  * Brukes både som HA GUI-editor (getConfigElement → config-changed) og som kortets egen
  * tilpasningsmeny (MshCard.customize → msh-save). Samme skjema, samme config – config er sannheten.
+ * Som tilpasningsmeny (inline, MSH.openEditor) redigerer den et UTKAST (MSH.draftEditor, fiks 15.13): msh-change =
+ * bare utkast + live forhåndsvisning, msh-save («Ferdig») = én lagring, msh-cancel («Avbryt») = forkast.
+ * _setBusy(true) deaktiverer Ferdig (spinner) mens lagringen pågår; setConfig() kalles bare ved åpning og «Last inn».
  *
  * Skjemafelt (cardClass.schema, evt. funksjon (hass, config) → array):
  *   { type:'text'|'number'|'boolean'|'select'|'icon'|'color'|'entity'|'entities'|'area'|'hash',
@@ -13,6 +16,9 @@
  *   { type:'gap' } → config.gap (4 / 8 / 18)
  *   { type:'stepper', entity: id | (hass,cfg)=>id, label, help, unit, min, max, step } → «− verdi +» med systemets velger
  *       (09-pickers); skriver entitetens verdi direkte (number/time/date/datetime-tjenestene), ikke til config
+ *   'icon': inline (dashbordets ark) = felles søkbar ikonvelger MSH.iconPicker (09-icon-picker); HA GUI-editor = ha-icon-picker
+ *   { type:'tap', name, label, modes:['popup','hash','path','url','more','lock','none'], auto } → trykk-handling i HA-format
+ *       ({ action: navigate, navigation_path: '#tesla' } …) via <msh-tap-picker> (09-tap-picker)
  *   { type:'action', name, label, std, apps } → HA action-format (Standard · Åpne app · Send kommando · HA-handling · Ingen)
  */
 (function () {
@@ -266,6 +272,9 @@
     .btn{height:52px;border-radius:26px;background:#3a3a3a;font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
     .actions .btn{height:48px;border-radius:24px}
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
+    .btn.pri[disabled]{opacity:.7;cursor:progress}
+    .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(42,23,32,0.25);border-top-color:#2a1720;animation:edspin .8s linear infinite;flex:none}
+    @keyframes edspin{to{transform:rotate(360deg)}}
     .small{font-size:12px;color:#979797}
     .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
     ha-icon-picker,ha-selector{display:block}
@@ -390,6 +399,15 @@
       if (el.textContent !== (t || '')) el.textContent = t || '';
       el.className = `stat ${this.statusKind}${this._statOn ? ' on' : ''}`;
     }
+    // Ferdig mens lagringen pågår: deaktivert + spinner (MSH.draftBusy). Settes direkte, og tegnes likt ved ny render.
+    _setBusy(b) {
+      this._busy = !!b;
+      const el = this.shadowRoot && this.shadowRoot.querySelector('[data-a="save"]');
+      if (!el) return;
+      el.disabled = this._busy; el.toggleAttribute('aria-busy', this._busy);
+      el.innerHTML = this._saveBtnInner();
+    }
+    _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : `${M.icon('mdi:check', 20)}Ferdig`; }
     connectedCallback() { this._glassSync(); }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
     // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
@@ -426,7 +444,7 @@
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}<span class="tt">${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
-        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
+        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
@@ -496,8 +514,13 @@
           return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
         }
         case 'icon':
-          if (customElements.get('ha-icon-picker')) return `<div class="f">${lab}<ha-icon-picker data-name="${esc(f.name)}" data-nomorph placeholder="${esc(auto || f.placeholder || '')}"></ha-icon-picker>${help}</div>`;
+          // HAs GUI-editor: ha-icon-picker. Dashbordets egne ark (inline): felles søkbar ikonvelger (09-icon-picker, Fiks 15.7)
+          if (!this._inline && customElements.get('ha-icon-picker')) return `<div class="f">${lab}<ha-icon-picker data-name="${esc(f.name)}" data-nomorph placeholder="${esc(auto || f.placeholder || '')}"></ha-icon-picker>${help}</div>`;
+          if (M.iconPicker) return `<div class="f">${lab}${M.iconPicker.html({ key: 'ic-' + key, name: f.name, value: val || '', placeholder: auto || f.placeholder || '', label: f.label })}${help}</div>`;
           return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;
+        case 'tap': // trykk-handling i HA-format (09-tap-picker, Fiks 15.6): { action: navigate|url|more-info|none … }; auto = standard
+          if (M.tap) return `<div class="f">${lab}${M.tap.html({ key: 'tap-' + key, value: val || auto || null, modes: f.modes, labels: f.labels, attrs: `data-name="${esc(f.name)}"` })}${help}</div>`;
+          return '';
         case 'color':
           return this._color(f, val, auto);
         case 'entity':
@@ -681,7 +704,7 @@
         case 'hideall': { const ex = new Set(c.exclude || []); d.ids.split(',').filter(Boolean).forEach((x) => ex.add(x)); return this._set('exclude', [...ex]); }
         case 'mv': { const o = d.ord.split(','), i = Number(d.i), j = i + Number(d.d); if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; M.haptic('selection'); return this._set(d.name, o); }
         case 'hid': { const hs = new Set(get(c, d.name) || []); hs.has(d.v) ? hs.delete(d.v) : hs.add(d.v); return this._set(d.name, [...hs]); }
-        case 'save': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
+        case 'save': if (this._busy || b.disabled) return; return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
         case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
         default:
       }

@@ -452,7 +452,7 @@
       const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" role="tab" aria-selected="${k === R.tab}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
       const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
-      const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
+      const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
       // Chips: apper (TV) / snarveier + kilder (musikk)
       const hide = String(p.pc.hide_sources || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -494,7 +494,6 @@
         <button class="rnd ${shuf ? 'on' : ''}" data-act="shuffle" data-haptic="selection" title="Tilfeldig" ${has(32768) ? '' : 'disabled'}>${M.icon('shuffle', 22)}</button>
       </div>`;
       // Fjernkontroll (TV)
-      const rem = I.tv ? remoteOf(h, p) : null;
       const swipe = cfg.remote_swipe !== false;
       const remote = !I.tv ? '' : `<div class="rm">
         <div class="dp ${swipe ? 'swipe' : ''}" ${swipe ? 'title="Trykk eller sveip"' : ''}>

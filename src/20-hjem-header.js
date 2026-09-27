@@ -115,6 +115,36 @@
     .xpill span{overflow:hidden;text-overflow:ellipsis}
     .xpill select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;background:transparent;color:#232323}
     .xtsel{display:flex;flex-direction:column;gap:8px}
+    /* Personer (Fiks 15.11): rad = avatar 40 · navn/status · ▲▼ · vis/skjul · chevron; utvidet innhold innrykket under avataren */
+    .xpl{display:flex;flex-direction:column;gap:2px;padding:4px 10px;border-radius:24px;background:#2f2f2f}
+    .xp{display:flex;flex-direction:column}
+    .xp+.xp{border-top:1px solid rgba(255,255,255,0.05)}
+    .xph{display:flex;align-items:center;gap:6px;min-height:56px;padding:8px 0}
+    .xpo{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left}
+    .xpw{position:relative;flex:none;display:block}
+    .xpa{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;overflow:hidden;background:#545454;font-weight:600;color:#232323}
+    .xpa img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+    .xpbd{position:absolute;right:-3px;top:-3px;width:18px;height:18px;border-radius:9px;display:grid;place-items:center;box-shadow:0 0 0 2px #2f2f2f;transition:background .3s}
+    .xpt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .xpt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xpt i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xph .sw{transform:scale(.9)}
+    .xph .sw.on,.xnz .sw.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)}
+    .xpc{background:transparent;color:#979797}
+    .xpc ha-icon{transition:transform .2s}
+    .xpc.on ha-icon{transform:rotate(180deg)}
+    .xpb{display:flex;flex-direction:column;gap:8px;padding:0 0 12px 50px}
+    .xpb .f{background:#282828;border-radius:18px}
+    .xpb .f .inp{background:#3a3a3a}
+    .xnf{display:flex;flex-direction:column;gap:4px}
+    .xnl{font-size:12px;color:#afafaf;padding:0 4px}
+    .xnp{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 12px;border-radius:18px;background:#282828;width:100%;text-align:left;cursor:pointer}
+    .xnp:active{transform:scale(.99)}
+    .xnm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .xnm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xnm i{font-style:normal;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .xnp select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;background:transparent;color:#232323}
+    .xpdel{height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;background:rgb(242 128 115 / 0.16);color:var(--red,#f28073)}
   `;
   let XSHEET = null;
   const Base = customElements.get('msh-editor');
@@ -122,7 +152,8 @@
     class HjemEditor extends Base {
       constructor() {
         super(); this._ropen = {}; this._btns = {};
-        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && e.target.dataset.tact) M.haptic('selection'); });
+        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.np)) M.haptic('selection'); });
+        this.shadowRoot.addEventListener('focusout', (e) => { if (this._pend && e.target && e.target.tagName === 'SELECT') { this._pend = false; setTimeout(() => this._render(), 0); } });
       }
       _css() {
         if (this._cssOk || !this.shadowRoot) return;
@@ -135,7 +166,17 @@
       _render() {
         this._css();
         this._btns = {};
-        super._render();
+        this._scHold = null; this._rendering = true;
+        try { super._render(); } finally { this._rendering = false; this._scHold = null; }
+        if (this.shadowRoot) this.shadowRoot.querySelectorAll('select[data-np]').forEach((el) => { if (el.value !== el.dataset.v) el.value = el.dataset.v; });
+        // Personbilde som ikke laster → ikon/initialer (huskes per URL, som i headeren)
+        if (this.shadowRoot) this.shadowRoot.querySelectorAll('.xpa img[data-pic]').forEach((img) => {
+          if (img.__e) return;
+          img.__e = true;
+          const fail = () => { if ((this._picBad = this._picBad || new Set()).has(img.dataset.pic)) return; this._picBad.add(img.dataset.pic); this._render(); };
+          img.addEventListener('error', fail);
+          if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) setTimeout(fail, 0);
+        });
         if (this.shadowRoot) {
           const A = M.hjemTitleActions(this._config || {});
           this.shadowRoot.querySelectorAll('[data-tact]').forEach((el) => { const v = A[el.dataset.tact]; if (el.value !== v) el.value = v; });
@@ -152,10 +193,13 @@
         return null;
       }
       _rowsOf(f) {
-        const v = get(this._config || {}, f.name);
-        if (Array.isArray(v)) return v;
-        if (v && typeof v === 'object' && f.toList) { try { return f.toList(v, this._hass); } catch (e) { return []; } }
-        try { return (f.defaults && f.defaults(this._hass, this._config || {})) || []; } catch (e) { return []; }
+        const c = this._config || {}, v = get(c, f.name);
+        let list;
+        if (Array.isArray(v)) list = v;
+        else if (v && typeof v === 'object' && f.toList) { try { list = f.toList(v, this._hass); } catch (e) { list = []; } }
+        else { try { list = (f.defaults && f.defaults(this._hass, c)) || []; } catch (e) { list = []; } }
+        if (f.norm) { try { list = f.norm(list, c); } catch (e) { /* */ } }
+        return list;
       }
       _val(path) {
         const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
@@ -175,7 +219,51 @@
         return super._set(path, v, commit);
       }
       // Rader lagres som liste, eller i feltets eget format (fromList, f.eks. zones-map)
-      _rowsSave(f, list, commit) { return super._set(f.name, f.fromList ? f.fromList(list) : list, commit); }
+      _rowsSave(f, list, commit) {
+        if (f.kind === 'people') {
+          // Én kanonisk modell: people[]. Eldre overrides.hjemme_/sover_<id> er flyttet inn i radene (norm) og fjernes her.
+          const ov = { ...((this._config || {}).overrides || {}) };
+          let ch = false;
+          list = list.map((r) => {
+            const o = { ...(r || {}) };
+            delete o.home_switch;
+            if (o.zone === true) delete o.zone;
+            if (o.person) ['hjemme_', 'sover_'].forEach((k) => { const key = k + objId(o.person); if (key in ov) { delete ov[key]; ch = true; } });
+            return o;
+          });
+          if (ch) this._config = { ...this._config, overrides: ov };
+        }
+        return super._set(f.name, f.fromList ? f.fromList(list) : list, commit);
+      }
+      // Live status i Personer-radene: tegn på nytt når personene, bryterne, søvn eller sonene endrer seg.
+      set hass(h) {
+        const first = !this._hass;
+        super.hass = h;
+        if (first || !this._config) return;
+        let sig = '';
+        try { sig = this._liveSig(h); } catch (e) { sig = ''; }
+        if (sig === this._sig) return;
+        this._sig = sig;
+        const a = this.shadowRoot && this.shadowRoot.activeElement;
+        if (a && a.tagName === 'SELECT') { this._pend = true; return; } // OS-velgeren er åpen – tegnes ved blur
+        this._render();
+      }
+      get hass() { return this._hass; }
+      _liveSig(h) {
+        const f = this._findRows('people');
+        if (!f || !h) return '';
+        const ids = [];
+        this._rowsOf(f).forEach((r) => { if (r && r.person) ids.push(r.person, r.home, r.sleep || M.hjemSleepAuto(h, r.person)); });
+        Object.keys(h.states).forEach((id) => { if (id.startsWith('zone.')) ids.push(id); });
+        return ids.map((id) => (id && h.states[id] ? id + '=' + h.states[id].state : '')).join('|');
+      }
+      // Skjemaet regnes ut én gang per tegning (felt med rad-stier slår opp radene flere ganger)
+      get schema() {
+        if (this._rendering && this._scHold) return this._scHold;
+        const sc = super.schema;
+        if (this._rendering) this._scHold = sc;
+        return sc;
+      }
       // Handlinger på tittelen: tre rader med en pille som er en usynlig native <select> (OS-velgeren).
       // HA GUI-editoren: ha-selector select per gest.
       _titleActs() {
@@ -190,6 +278,15 @@
         }).join('')}</div>`;
       }
       _field(f, key) {
+        // Felt med rad-sti (people.0.home) utenfor radene («Bytt entiteter»): les fra radlisten (også standardradene)
+        const rm = f.name && !this._inRows ? /^(\w+)\.\d+\./.exec(f.name) : null;
+        const rf = rm ? this._findRows(rm[1]) : null;
+        if (rf) {
+          const saved = this._config;
+          this._config = { ...saved, [rf.name]: this._rowsOf(rf) };
+          this._inRows = true;
+          try { return this._field(f, key); } finally { this._inRows = false; this._config = saved; }
+        }
         const h = this._hass, c = this._config || {};
         if (f.when) { let ok = true; try { ok = f.when(h, c); } catch (e) { /* */ } if (!ok) return ''; }
         const lab = f.label ? `<label>${esc(f.label)}</label>` : '';
@@ -221,6 +318,7 @@
         }
       }
       _rows(f, key) {
+        if (f.kind === 'people') return this._peopleRows(f, key);
         const h = this._hass, saved = this._config || {};
         const list = this._rowsOf(f);
         const open = this._ropen[f.name];
@@ -253,6 +351,76 @@
         return `<div class="f" style="background:transparent;padding:4px 0">${f.label ? `<label>${esc(f.label)}</label>` : ''}<div class="xrows">${body || '<span class="small">Ingen</span>'}
           ${f.newRow ? `<button class="xadd" data-a="x-radd" data-n="${esc(f.name)}">${M.icon('mdi:plus', 20)}${esc(f.addLabel || 'Legg til')}</button>` : ''}</div>${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
       }
+      /* Entitetsvelger med usynlig native <select> over (OS-velgeren): ikon · navn · entity_id · chevron.
+       * o: { name, value, label, auto, autoLabel, autoSub, domains, re, slugs, required, placeholder, key }
+       * Valg: «Automatisk (auto)» (ikke required) → Forslag (id matcher re og navnet) → resten alfabetisk. */
+      _natPick(o) {
+        const h = this._hass, cur = o.value || '', st = cur ? h.states[cur] : null;
+        const nm = (id) => (h.states[id] && h.states[id].attributes.friendly_name) || id;
+        const ids = Object.keys(h.states).filter((id) => o.domains.includes(id.split('.')[0]));
+        const byName = (a, b) => nm(a).localeCompare(nm(b), 'nb') || a.localeCompare(b);
+        const sug = o.re ? ids.filter((id) => o.re.test(id) && (!o.slugs || o.slugs.some((x) => x && id.includes(x)))).sort(byName) : [];
+        const rest = ids.filter((id) => !sug.includes(id)).sort(byName);
+        const opt = (id) => `<option value="${esc(id)}"${id === cur ? ' selected' : ''}>${esc(nm(id) + ' · ' + id)}</option>`;
+        const first = o.required ? `<option value=""${cur ? '' : ' selected'} disabled>${esc(o.placeholder || 'Velg …')}</option>` : `<option value=""${cur ? '' : ' selected'}>${esc(`${o.autoLabel || 'Automatisk'} (${o.auto || 'fant ingen'})`)}</option>`;
+        const miss = cur && !st ? `<option value="${esc(cur)}" selected>${esc(cur + ' · finnes ikke')}</option>` : '';
+        const opts = first + miss + (sug.length ? `<optgroup label="Forslag">${sug.map(opt).join('')}</optgroup>` : '') + (rest.length ? `<optgroup label="${sug.length ? 'Alle' : 'Velg'}">${rest.map(opt).join('')}</optgroup>` : '');
+        const ic = cur ? M.domainIcon(cur, st) : o.required ? 'mdi:magnify' : 'mdi:auto-fix';
+        const b = cur ? nm(cur) : o.required ? (o.placeholder || 'Velg …') : (o.autoLabel || 'Automatisk');
+        const i = cur ? cur + (st ? '' : ' · finnes ikke') : o.required ? '' : (o.autoSub || o.auto || 'fant ingen');
+        return `<div class="xnf" data-key="${esc(o.key)}">${o.label ? `<span class="xnl">${esc(o.label)}</span>` : ''}<label class="xnp">${M.icon(ic, 22, 'color:#afafaf;flex:none')}<span class="xnm"><b>${esc(b)}</b>${i ? `<i>${esc(i)}</i>` : ''}</span>${M.icon('mdi:chevron-down', 20, 'color:#979797;flex:none')}<select data-name="${esc(o.name)}" data-np="1" data-v="${esc(cur)}" aria-label="${esc(o.label || b)}">${opts}</select></label></div>`;
+      }
+      // Personer (dashbordets ark og GUI-editoren): avatar · navn · live status · ▲▼ · vis/skjul · chevron. Én rad åpen om gangen.
+      _peopleRows(f, key) {
+        const h = this._hass, saved = this._config || {};
+        const list = this._rowsOf(f);
+        const open = this._ropen[f.name];
+        const cfg = { ...saved, [f.name]: list };
+        this._config = cfg;
+        this._inRows = true;
+        let body = '';
+        try {
+          body = list.map((r, i) => {
+            r = r || {};
+            const pid = r.person && h.states[r.person] ? r.person : null;
+            const p = pid ? M.hjemPersonInfo(h, pid, cfg) : null;
+            const name = r.person ? M.name(h, r.person) || objId(r.person) : 'Velg person';
+            const first = firstName(name);
+            const status = !r.person ? 'person.*' : !p ? 'Finnes ikke' : p.sleep ? 'Sover' : p.status.kind === 'unknown' ? '–' : p.place;
+            const isOpen = open === i, hid = !!r.hidden;
+            const av = p ? `<span class="xpa" style="background:${p.bg};font-size:${faceTxt(p, this._picBad) ? 16 : 0}px">${faceInner(p, 40, this._picBad)}</span>` : `<span class="xpa">${M.icon('mdi:account', 22, 'color:#979797')}</span>`;
+            const bd = p && p.badge ? `<span class="xpbd" style="background:${p.sleep ? C.purple : p.stCol}">${M.icon(p.glyph, 11, 'color:#fafafa')}</span>` : '';
+            const sq = (d, on) => `<button class="xsq" data-a="x-rmv" data-n="${esc(f.name)}" data-i="${i}" data-d="${d}" ${on ? '' : 'disabled'}>${M.icon(d < 0 ? 'mdi:chevron-up' : 'mdi:chevron-down', 20)}</button>`;
+            const head = `<div class="xph" style="${hid ? 'opacity:.55' : ''}">
+                <button class="xpo" data-a="x-ropen" data-n="${esc(f.name)}" data-i="${i}"><span class="xpw">${av}${bd}</span><span class="xpt"><b>${esc(name)}</b><i class="xps">${esc(status)}${hid ? ' · skjult' : ''}</i></span></button>
+                ${sq(-1, i > 0)}${sq(1, i < list.length - 1)}
+                <button class="sw ${hid ? '' : 'on'}" role="switch" aria-checked="${!hid}" aria-label="Vis ${esc(name)}" data-a="x-rhide" data-n="${esc(f.name)}" data-i="${i}"></button>
+                <button class="xsq xpc ${isOpen ? 'on' : ''}" data-a="x-ropen" data-n="${esc(f.name)}" data-i="${i}" aria-expanded="${isOpen}" aria-label="Utvid ${esc(name)}">${M.icon('mdi:chevron-down', 22)}</button></div>`;
+            if (!isOpen) return `<div class="xp" data-key="${esc(f.name)}-${i}">${head}</div>`;
+            const pre = `${f.name}.${i}`;
+            const slugs = r.person ? [objId(r.person), M.slug(first)] : null;
+            const sa = r.person ? M.hjemSleepAuto(h, r.person) : null;
+            const zOn = r.zone !== false;
+            const extra = (f.fields || []).filter((sf) => { try { return !sf.rowWhen || sf.rowWhen(r, h, saved); } catch (e) { return true; } }).map((sf, j) => {
+              const nf = { ...sf, rowWhen: undefined };
+              if (sf.name) nf.name = `${pre}.${sf.name}`;
+              if (sf.auto) nf.auto = (hh) => sf.auto(r, hh || h, saved);
+              return this._field(nf, `${key}_${i}_${j}`);
+            }).join('');
+            const inner = [
+              this._natPick({ key: `np-${i}-home`, name: `${pre}.home`, value: r.home, label: `${first || name} · hjemme`, auto: r.person || 'person.*', autoSub: `${r.person || 'person.*'} · GPS og soner`, domains: HOME_DOMS, re: PRES_RE, slugs }),
+              this._natPick({ key: `np-${i}-sleep`, name: `${pre}.sleep`, value: r.sleep, label: `${first || name} · søvn`, auto: sa, domains: SLEEP_DOMS, re: SLEEP_RE, slugs }),
+              `<div class="xnf" data-key="np-${i}-zone"><button class="xnp xnz" data-a="x-pzone" data-n="${esc(f.name)}" data-i="${i}" role="switch" aria-checked="${zOn}">${M.icon('mdi:map-marker-radius', 22, 'color:#afafaf;flex:none')}<span class="xnm"><b>Bruk HA-sone når borte</b><i>${zOn ? 'Bryter av + i en sone → sonens ikon og farge' : 'Av → vanlig «Borte»'}</i></span><span class="sw ${zOn ? 'on' : ''}"></span></button></div>`,
+              this._natPick({ key: `np-${i}-person`, name: `${pre}.person`, value: r.person, label: 'Person', domains: ['person'], required: true, placeholder: 'Velg person …' }),
+              extra,
+              `<button class="xpdel" data-a="x-rdel" data-n="${esc(f.name)}" data-i="${i}">${M.icon('mdi:delete', 18)}Fjern fra headeren</button>`,
+            ].join('');
+            return `<div class="xp on" data-key="${esc(f.name)}-${i}">${head}<div class="xpb" data-key="${esc(f.name)}-b${i}">${inner}</div></div>`;
+          }).join('');
+        } finally { this._config = saved; this._inRows = false; }
+        return `<div class="f" style="background:transparent;padding:4px 0">${f.label ? `<label>${esc(f.label)}</label>` : ''}<div class="xpl">${body || '<span class="small">Ingen</span>'}</div>
+          ${f.newRow ? `<button class="xadd" style="margin-top:6px" data-a="x-radd" data-n="${esc(f.name)}">${M.icon('mdi:account-plus', 20)}${esc(f.addLabel || 'Legg til')}</button>` : ''}</div>`;
+      }
       _click(e) {
         const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
         if (!b || b.dataset.a.indexOf('x-') !== 0) return super._click(e);
@@ -263,6 +431,7 @@
         switch (d.a) {
           case 'x-ropen': this._ropen[d.n] = this._ropen[d.n] === i ? null : i; return this._render();
           case 'x-rmv': { const j = i + Number(d.d); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; if (this._ropen[d.n] === i) this._ropen[d.n] = j; M.haptic('selection'); return this._rowsSave(f, list); }
+          case 'x-pzone': if (list[i].zone === false) delete list[i].zone; else list[i].zone = false; return this._rowsSave(f, list);
           case 'x-rhide': list[i].hidden = !list[i].hidden; if (!list[i].hidden) delete list[i].hidden; return this._rowsSave(f, list);
           case 'x-rdel': list.splice(i, 1); if (this._ropen[d.n] === i) this._ropen[d.n] = null; return this._rowsSave(f, list);
           case 'x-radd': { let r = {}; try { r = f.newRow(this._hass, this._config || {}, list) || {}; } catch (x) { /* */ } list.push(r); this._ropen[d.n] = list.length - 1; return this._rowsSave(f, list); }
@@ -454,46 +623,80 @@
     return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
   };
   const DISPLAYS = ['picture', 'icon', 'initials'];
-  // people: [{ person, home_switch, use_gps_when_off, display, picture, hidden }] – raden for en person (eller null).
+  const HOME_DOMS = ['switch', 'input_boolean', 'binary_sensor'], SLEEP_DOMS = ['input_boolean', 'binary_sensor', 'switch'];
+  /* Personoppsett (Fiks 15.11) – kanonisk modell: people: [{ person, home, sleep, zone, use_gps_when_off, display, picture, hidden }]
+   *   home  = hjemme-bryter (switch/input_boolean/binary_sensor; tom = Automatisk → person.* og sonene)
+   *   sleep = søvn-entitet (tom = Automatisk → *_sover/*_sleep ved siden av personen)
+   *   zone  = «Bruk HA-sone når borte» (standard på; lagres bare som false)
+   * Leses bakoverkompatibelt: people[].home_switch, overrides.hjemme_<id> / overrides.sover_<id> og
+   * persons: { <id>: { home, sleep, zone, display, picture } } (map). Editorene skriver alltid til people[]. */
+  const personsMap = (c) => (c && c.persons && typeof c.persons === 'object' && !Array.isArray(c.persons) ? c.persons : null);
+  const pmOf = (c, id) => { const m = personsMap(c); return (m && (m[objId(id)] || m[id])) || {}; };
+  // people-rad → normalisert rad (eldre felt flyttet inn, home_switch fjernet). Ren funksjon.
+  M.hjemPeopleNorm = function (c, r) {
+    if (!r || typeof r !== 'object') return r;
+    const { home_switch: hs, ...o } = r;
+    if (!o.person) { if (!o.home && hs) o.home = hs; return o; }
+    const pm = pmOf(c, o.person), ov = (c && c.overrides) || {}, k = objId(o.person);
+    if (!o.home) { const v = hs || pm.home || ov['hjemme_' + k]; if (v) o.home = v; }
+    if (!o.sleep) { const v = pm.sleep || ov['sover_' + k]; if (v) o.sleep = v; }
+    if (o.zone == null && pm.zone === false) o.zone = false;
+    if (o.zone === true) delete o.zone;
+    return o;
+  };
+  // people: [{ person, home, sleep, zone, … }] – raden for en person (eller null).
   M.hjemPeopleRow = (c, id) => (Array.isArray(c && c.people) ? c.people : []).find((r) => r && r.person === id) || null;
+  // Effektive valg for én person: { home, sleep, zone, use_gps_when_off } (home/sleep = null → Automatisk).
+  M.hjemPersonOpts = function (c, id) {
+    const r = M.hjemPeopleNorm(c, M.hjemPeopleRow(c, id) || { person: id }) || {};
+    return { home: r.home || null, sleep: r.sleep || null, zone: r.zone !== false, use_gps_when_off: r.use_gps_when_off === true };
+  };
   M.hjemPersonCfg = function (c, id) {
     const o = objId(id), list = Array.isArray(c && c.persons) ? c.persons : [];
     const y = list.find((x) => x && (x.entity === id || x.entity === o)) || {};
     const g = (c && c.persons_cfg && c.persons_cfg[o]) || {};
+    const pm = pmOf(c, id);
     const r = M.hjemPeopleRow(c, id) || {};
     const out = { ...y };
-    [g, { display: r.display, picture: r.picture }].forEach((src) => Object.keys(src).forEach((k) => { if (src[k] != null && src[k] !== '') out[k] = src[k]; }));
+    [{ display: pm.display, picture: pm.picture }, g, { display: r.display, picture: r.picture }].forEach((src) => Object.keys(src).forEach((k) => { if (src[k] != null && src[k] !== '') out[k] = src[k]; }));
     return out;
   };
-  // Hjemme-bryteren til en person: people[].home_switch (eldre: overrides.hjemme_<id>). Aldri gjettet.
-  M.hjemHomeSwitch = function (c, id) {
-    const r = M.hjemPeopleRow(c, id);
-    if (r && r.home_switch) return r.home_switch;
-    const ov = (c && c.overrides) || {};
-    return ov['hjemme_' + objId(id)] || null;
+  // Hjemme-bryteren til en person (se hjemPersonOpts). Aldri gjettet.
+  M.hjemHomeSwitch = (c, id) => M.hjemPersonOpts(c, id).home;
+  // Søvn-entiteten til en person: valgt (people[].sleep / eldre overrides.sover_<id>) eller søsken-entitet (*_sover, *_sleep …).
+  M.hjemSleepAuto = (hass, id) => (hass ? sibling(hass, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) : null);
+  // «Borte · annen sone» (Soner-seksjonen): zone_away: { icon, color } (designets zAway leses også).
+  const awayCfg = (c) => (c && (c.zone_away || c.zAway)) || {};
+  M.hjemAwayStyle = function (c) {
+    const z = awayCfg(c), own = !!(z.icon || z.color);
+    return { icon: z.icon || AWAY_ICON, color: M.color(z.color, null) || AWAY_COL, badge: c && c.away_marker != null ? c.away_marker === true : own };
   };
   /* Status for én person (ren funksjon – testbar). p = 'person.x' eller en people-rad. rd = state-leser (valgfri).
    * 1) Hjemme-bryter på → Hjemme (vinner over GPS/sone).
-   * 2) person.* i en annen sone enn home → sonens ikon + farge (config → standardpalett).
-   * 3) not_home, eller bryter av + GPS «home» (uten use_gps_when_off) → Borte: dempet, ingen merke (away_marker: grå markør).
+   * 2) person.* i en annen sone enn home og «Bruk HA-sone når borte» på (zone ≠ false) → sonens ikon + farge
+   *    (Soner-seksjonen → standardpalett). zone: false → vanlig Borte.
+   * 3) not_home, eller bryter av + GPS «home» (uten use_gps_when_off) → Borte: dempet, «Borte · annen sone»-utseendet
+   *    (zone_away; merke bare med away_marker eller eget ikon/farge).
    * 4) Mangler person og bryter → ingen merke, aldri gjettet status.
    * → { kind: home|zone|away|unknown, src: switch|gps|none, icon, color, place, zone, badge, dim, switchId } */
   M.personStatus = function (hass, p, cfg, rd) {
     cfg = cfg || {};
     rd = rd || ((x) => (hass && hass.states[x]) || null);
     const pid = typeof p === 'string' ? p : p && p.person;
-    const row = { ...(pid ? M.hjemPeopleRow(cfg, pid) || {} : {}), ...(typeof p === 'object' && p ? p : {}) };
-    const swId = row.home_switch || (pid ? M.hjemHomeSwitch(cfg, pid) : null);
+    const base = pid ? M.hjemPeopleRow(cfg, pid) || { person: pid } : {};
+    const row = M.hjemPeopleNorm(cfg, { ...base, ...(typeof p === 'object' && p ? p : {}) }) || {};
+    const swId = row.home || null;
     const s = pid ? rd(pid) : null;
     const sw = swId ? rd(swId) : null;
     const swOk = !!sw && !M.unavailable(sw);
+    const A = M.hjemAwayStyle(cfg);
     const home = { kind: 'home', icon: HOME_ST.icon, color: HOME_ST.color, place: 'Hjemme', zone: 'zone.home', badge: true, dim: false, switchId: swId };
-    const away = { kind: 'away', icon: AWAY_ICON, color: AWAY_COL, place: 'Borte', zone: null, badge: cfg.away_marker === true, dim: true, switchId: swId };
+    const away = { kind: 'away', icon: A.icon, color: A.color, place: 'Borte', zone: null, badge: A.badge, dim: true, switchId: swId };
     if (swOk && sw.state === 'on') return { ...home, src: 'switch' };
     const pOk = !!s && !M.unavailable(s);
     if (!pOk) return swOk ? { ...away, src: 'switch' } : { kind: 'unknown', src: 'none', icon: null, color: null, place: '–', zone: null, badge: false, dim: false, switchId: swId };
     if (s.state === 'home') return swOk && row.use_gps_when_off !== true ? { ...away, src: 'switch' } : { ...home, src: 'gps' };
-    if (s.state === 'not_home') return { ...away, src: swOk ? 'switch' : 'gps' };
+    if (s.state === 'not_home' || row.zone === false) return { ...away, src: swOk ? 'switch' : 'gps' };
     const all = hass && hass.states ? Object.keys(hass.states) : [];
     const zid = all.find((z) => z.startsWith('zone.') && z !== 'zone.home' && hass.states[z].attributes.friendly_name === s.state)
       || all.find((z) => z.startsWith('zone.') && z !== 'zone.home' && objId(z) === M.slug(s.state)) || null;
@@ -530,8 +733,10 @@
     const P = M.hjemPersons(hass, { ...c, people: undefined }), hid = new Set(c.hidden_persons || []);
     return P.ids.map((id) => {
       const pc = M.hjemPersonCfg(c, id), r = { person: id };
-      const sw = (c.overrides || {})['hjemme_' + objId(id)];
-      if (sw) r.home_switch = sw;
+      const o = M.hjemPersonOpts(c, id);
+      if (o.home) r.home = o.home;
+      if (o.sleep) r.sleep = o.sleep;
+      if (!o.zone) r.zone = false;
       if (pc.display && pc.display !== 'picture') r.display = pc.display;
       if (pc.picture) r.picture = pc.picture;
       if (hid.has(id)) r.hidden = true;
@@ -542,7 +747,7 @@
     rd = rd || ((x) => hass.states[x]);
     const s = rd(id), a = (s && s.attributes) || {};
     const o = objId(id);
-    const sleepId = M.pick(c, 'sover_' + o, sibling(hass, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']));
+    const sleepId = M.hjemPersonOpts(c, id).sleep || M.hjemSleepAuto(hass, id);
     const st = M.personStatus(hass, id, c, rd);
     // Hurtigarket: Hjemme/Borte skriver til hjemme-bryteren (eller en manuell input_boolean ved siden av personen)
     const presId = st.switchId || sibling(hass, id, PRES_RE, ['input_boolean']);
@@ -580,7 +785,8 @@
     static get schema() {
       return (hass, c) => {
         const D = HjemHeader.defaults;
-        const P = hass ? M.hjemPersons(hass, c || {}) : { all: [], ids: [] };
+        // Samme liste (og indekser) som Personer-radene i editoren: lagret people[] eller standardrader
+        const PL = (Array.isArray(c && c.people) ? c.people : peopleDefaults(hass, c || {})).map((r) => M.hjemPeopleNorm(c || {}, r));
         return [
           { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
           { type: 'section', id: 'title_actions', label: 'Handlinger på tittelen', icon: 'mdi:gesture-tap', meta: (h, cc) => { const A = M.hjemTitleActions(cc); return TACT_L[A.tap]; }, fields: [
@@ -601,15 +807,14 @@
             { type: 'range', name: 'title_size', label: 'Tittel', min: 28, max: 48, step: 1, default: D.title_size, fmt: (v) => `${v} px` },
           ] },
           { type: 'section', id: 'people', label: 'Personer', icon: 'mdi:account-multiple', fields: [
-            { type: 'rows', name: 'people', label: 'Personer i headeren', defaults: (h, cc) => peopleDefaults(h, cc), addLabel: 'Legg til person', hide: true,
+            // kind 'people': egne rader (avatar · navn · live status · ▲▼ · vis/skjul · chevron) – se HjemEditor._peopleRows.
+            // Utvidet: «{fornavn} · hjemme», «{fornavn} · søvn», «Bruk HA-sone når borte», deretter feltene under.
+            { type: 'rows', kind: 'people', name: 'people', label: 'Personer i headeren', defaults: (h, cc) => peopleDefaults(h, cc), addLabel: 'Legg til person', hide: true,
+              norm: (list, cc) => list.map((r) => M.hjemPeopleNorm(cc, r)),
               title: (r, i, h) => (r.person ? M.name(h, r.person) : '') || 'Velg person',
-              sub: (r, i, h, cc) => { if (!r.person) return 'person.*'; const st = M.personStatus(h, r, cc); return `${st.place}${r.home_switch ? ' · bryter ' + (h.states[r.home_switch] ? (h.states[r.home_switch].state === 'on' ? 'på' : 'av') : 'mangler') : ''}`; },
-              chip: (r, i, h, cc) => { const st = M.personStatus(h, r, cc); return `<span class="xchip" style="background:${st.badge ? st.color : 'var(--gray400,#545454)'};opacity:${st.dim ? 0.55 : 1}">${M.icon(st.badge ? st.icon : 'mdi:account', 18, 'color:#fafafa')}</span>`; },
               newRow: (h, cc, list) => { const used = new Set(list.map((x) => x.person)); return { person: M.all(h, 'person').find((x) => !used.has(x)) || '' }; },
               fields: [
-                { type: 'entity', name: 'person', label: 'Person', domain: 'person', required: true },
-                { type: 'entity', name: 'home_switch', label: 'Hjemme-bryter', domain: ['switch', 'input_boolean', 'binary_sensor'], domains: ['switch', 'input_boolean', 'binary_sensor'], placeholder: 'Ingen bryter', help: 'På = hjemme, av = borte. Bryteren vinner over GPS. Uten bryter brukes person.* og sonene.' },
-                { type: 'boolean', name: 'use_gps_when_off', label: 'Bruk GPS når bryteren er av', default: false, help: 'Av: bryter av = Borte selv om GPS sier hjemme. Andre soner vises alltid.', rowWhen: (r) => !!r.home_switch },
+                { type: 'boolean', name: 'use_gps_when_off', label: 'Bruk GPS når bryteren er av', default: false, help: 'Av: bryter av = Borte selv om GPS sier hjemme.', rowWhen: (r) => !!r.home },
                 { type: 'select', name: 'display', label: 'Visning', options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: 'picture' },
                 { type: 'text', name: 'picture', label: 'Bilde', auto: (r, h) => (r.person && h && h.states[r.person] && h.states[r.person].attributes.entity_picture) || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', rowWhen: (r) => (r.display || 'picture') === 'picture' },
               ] },
@@ -629,8 +834,11 @@
                 { type: 'select', name: 'icon', label: 'Hurtigvalg', options: ZICONS.map((ic) => [M.iconName(ic), ic.replace(/_/g, ' ')]) },
                 { type: 'color', name: 'color', label: 'Farge', auto: (r) => M.hjemZonePal(r.zone), help: 'Tom = fast farge fra paletten for sonen' },
               ] },
-            { type: 'info', label: 'Hjemme (zone.home) har alltid grønt hus.' },
-            { type: 'boolean', name: 'away_marker', label: 'Borte · vis grå markør', default: false, help: 'Av: borte-personer vises dempet uten merke.' },
+            { type: 'info', label: 'Hjemme (zone.home) har alltid grønt hus. Personer med «Bruk HA-sone når borte» på (Personer) vises med sonens ikon og farge.' },
+            { type: 'info', label: 'Borte · annen sone – brukes når personen ikke er i en av sonene over, eller «Bruk HA-sone når borte» er av.' },
+            { type: 'icon', name: 'zone_away.icon', label: 'Borte · ikon', auto: () => AWAY_ICON },
+            { type: 'color', name: 'zone_away.color', label: 'Borte · farge', auto: () => AWAY_COL, help: 'Tom = grå' },
+            { type: 'boolean', name: 'away_marker', label: 'Borte · vis merke', default: M.hjemAwayStyle(c || {}).badge, help: 'Av: borte-personer vises dempet uten merke. Standard på når Borte har eget ikon eller farge.' },
           ] },
           { type: 'section', label: 'Hilsen', icon: 'mdi:hand-wave', fields: [
             { type: 'text', name: 'greeting', label: 'Hilsen', placeholder: D.greeting },
@@ -656,11 +864,18 @@
               fields: [{ type: 'text', name: 'name', label: 'Navn' }, { type: 'text', name: 'url', label: 'Adresse', placeholder: 'https://…' }, { type: 'icon', name: 'icon', label: 'Ikon' }, { type: 'color', name: 'color', label: 'Farge' }] },
             { type: 'text', name: 'place_name', label: 'Navn på dette stedet', auto: (h) => (h && h.config && h.config.location_name) || 'Hjem' },
           ] },
-          { type: 'overrides', label: 'Bytt entiteter', fields: [
-            { name: 'weather', label: 'Vær', domain: 'weather', auto: (h) => M.all(h, 'weather')[0] },
-            ...P.ids.flatMap((id) => [
-              { name: 'sover_' + objId(id), label: `${M.name(hass, id)} · søvn`, domains: ['input_boolean', 'binary_sensor', 'switch'], auto: (h) => sibling(h, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) },
-            ]),
+          // «Bytt entiteter»: vær + per person «· hjemme», «· søvn» og «Sone når borte» (samme people[]-felt som Personer).
+          { type: 'section', id: 'overrides', label: 'Bytt entiteter', icon: 'mdi:swap-horizontal', fields: [
+            { type: 'entity', name: 'overrides.weather', label: 'Vær', domain: 'weather', auto: (h) => M.all(h, 'weather')[0], help: (() => { const w = hass && M.all(hass, 'weather')[0]; return w ? 'Auto: ' + w : 'Auto: fant ingen'; })() },
+            ...PL.flatMap((r, i) => {
+              if (!r || !r.person) return [];
+              const nm = hass ? M.name(hass, r.person) : r.person, sa = M.hjemSleepAuto(hass, r.person);
+              return [
+                { type: 'entity', name: `people.${i}.home`, label: `${nm} · hjemme`, domain: HOME_DOMS, domains: HOME_DOMS, auto: () => r.person, help: 'På = hjemme, av = borte. Automatisk = ' + r.person + ' og sonene.' },
+                { type: 'entity', name: `people.${i}.sleep`, label: `${nm} · søvn`, domain: SLEEP_DOMS, domains: SLEEP_DOMS, auto: () => sa, help: sa ? 'Auto: ' + sa : 'Auto: fant ingen' },
+                { type: 'boolean', name: `people.${i}.zone`, label: `${nm} · sone når borte`, default: true, help: 'Bryter av og personen i en HA-sone → sonens ikon og farge. Av → vanlig «Borte».' },
+              ];
+            }),
           ] },
         ];
       };

@@ -15,7 +15,8 @@
   const SLOTS = [['off', 'Av'], ['L-top', 'Venstre · over rom'], ['L-bottom', 'Venstre · under rom'], ['R-top', 'Høyre · over rom'], ['R-bottom', 'Høyre · under rom']];
   const KINDS = { lock: ['key', 'Dørlås'], garage: ['garage', 'Garasjeport'], alarm: ['shield', 'Alarm'], cam: ['videocam', 'Kamera'], ruter: ['tram', 'Ruter'], todo: ['handyman', 'Gjøremål'], dish: ['dishwasher_gen', 'Oppvaskmaskin'], vacr: ['robot_2', 'Støvsuger'], tv: ['tv', 'TV'], wash: ['local_laundry_service', 'Vaskemaskin'], dry: ['dry_cleaning', 'Tørketrommel'], jul: ['park', 'Jul'] };
   const KIND_ORDER = Object.keys(KINDS);
-  const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: { dish: 'L-top', vacr: 'L-top', tv: 'R-top', wash: 'R-top', dry: 'R-top' } };
+  // Aktuelt har ingen faste snarveier lenger (fiks 15.10): apparater, TV, dører, batterier og avvik vises dynamisk etter tabs.aktuelt.types.
+  const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: {} };
   const STACK_DEF = { hjem: { cam: true, ruter: true } };
   const APPL = { dish: [/oppvask|dish.?wash/i, 'dishwasher_gen', 'Oppvaskmaskin', 180], wash: [/vaskemaskin|washing.?machine|washer/i, 'local_laundry_service', 'Vaskemaskin', 120], dry: [/t[øo]rketrommel|tumble|dryer/i, 'dry_cleaning', 'Tørketrommel', 90] };
   const SLIDES = { cal: ['calendar_month', 'Kalender'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
@@ -105,7 +106,7 @@
   function allTabs(hass, c) {
     const A = autoTabs(hass, c), ord = Array.isArray(c.tab_order) ? c.tab_order : [];
     const out = [...ord.map((id) => A.find((t) => t.id === id)).filter(Boolean), ...A.filter((t) => !ord.includes(t.id))];
-    return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id) }));
+    return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id), hc: t.kind === 'hjem' ? hjemHC(hass, c) : null }));
   }
   // Rom som hører til fanen (før skjuling): etasjens rom + rom hentet fra andre etasjer.
   function floorRank(hass) {
@@ -116,11 +117,13 @@
   function baseRooms(hass, c, t) {
     const rk = floorRank(hass);
     const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || a.name.localeCompare(b.name, 'nb'));
-    let base = t.kind === 'floor' ? areas.filter((a) => a.floor === t.floor) : t.kind === 'andre' ? areas.filter((a) => !a.floor) : t.kind === 'custom' ? [] : areas;
+    // Etasjefaner autofylles fra HA-etasjen (tabs.<fane>.auto_fill, standard på). Hjem: kuratert liste (t.hc = M.hjemCards).
+    const fill = get(c, `tabs.${t.id}.auto_fill`) !== false;
+    let base = t.kind === 'floor' ? (fill ? areas.filter((a) => a.floor === t.floor) : []) : t.kind === 'andre' ? (fill ? areas.filter((a) => !a.floor) : []) : t.kind === 'custom' ? [] : t.hc ? t.hc.cards.filter((x) => /^rom:/.test(x)).map((x) => areas.find((a) => a.id === x.slice(4))).filter(Boolean) : areas;
     const add = Object.values(get(c, `layout.${t.id}.add`) || {}).filter(Boolean);
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
-    // Hjem: rom med klimadata først (som favorittene i designet), deretter resten
-    if (t.kind === 'hjem' && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
+    // Hjem med autofyll (gammelt oppsett): rom med klimadata først (som favorittene i designet), deretter resten
+    if (t.kind === 'hjem' && !t.hc && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
     const ord = get(c, `layout.${t.id}.order`) || [];
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
@@ -166,7 +169,15 @@
   }
   const availKinds = (E, c) => [...KIND_ORDER.filter((k) => k === 'jul' || E[k]), ...Object.keys(c.links || {}).filter((k) => c.links[k] && c.links[k].title).sort()];
   const kindLabel = (k, c) => (KINDS[k] ? KINDS[k][1] : ((c.links || {})[k] || {}).title || 'Snarvei');
-  const tileSlot = (c, t, k) => get(c, `tiles.${t.id}.${k}.slot`) || (TILE_DEF[t.kind] || {})[k] || 'off';
+  // Hjem med kuratert liste (t.hc): bare kort i tabs.hjem.cards vises; plass = lagret plass eller standard (apparater o.l.: høyre, over rom).
+  const tileSlot = (c, t, k) => {
+    if (t.hc) {
+      const sl = get(c, `tiles.${t.id}.${k}.slot`), set = !!sl && sl !== 'off';
+      if (!t.hc.cards.includes(k) && !(set && !t.hc.exclude.includes(k))) return 'off';
+      return set ? sl : TILE_DEF.hjem[k] || 'R-top';
+    }
+    return get(c, `tiles.${t.id}.${k}.slot`) || (TILE_DEF[t.kind] || {})[k] || 'off';
+  };
   const seasonOk = (c, t, k) => {
     const f = get(c, `tiles.${t.id}.${k}.fra`) ?? (k === 'jul' ? '11-01' : ''), tl = get(c, `tiles.${t.id}.${k}.til`) ?? (k === 'jul' ? '03-01' : '');
     if (!/^\d\d-\d\d$/.test(f) || !/^\d\d-\d\d$/.test(tl)) return true;
@@ -186,6 +197,75 @@
     // «Tilpass rom» (ki-store rooms.<area>) vinner – slås opp i M.romData.
     return { overrides: ov, look: { icon: rc.icon, color: rc.color || rc.col }, icon_color_default: c.icon_color_mode, icon_tap_default: c.icon_tap };
   };
+
+  /* ------------------------------------------------------------ Hjem kuratert · Aktuelt dynamisk (fiks 15.10) */
+  // tabs.hjem    = { auto_fill: false, cards: ['lock', 'alarm', 'cam', 'todo', 'rom:stue', …], exclude: [...], seen: [...] }
+  // tabs.aktuelt = { auto_fill: false, types: ['appliances', 'doors', 'battery', 'lights', 'media', 'alerts'] }
+  // tabs.<etasje>.auto_fill = true (standard): etasjefanene fylles fra HA-områder/etasjer.
+  // Kort-ID: snarvei = kind (lock, alarm, cam, todo, dish …, egen lenke l01), rom = 'rom:<area_id>'.
+  // Autofyll én gang: kortet lagrer den kuraterte listen første gang (ki-store lastet, card_id finnes). Fjernede kort
+  // legges i exclude og kommer ikke tilbake; nye rom/enheter (ikke i seen) blir «Forslag» i «Tilpass Hjem» → Kort.
+  // Bakoverkompatibelt: har Hjem lagret oppsett fra før (layout/tiles/tile_order/tile_hidden.hjem) og ingen tabs.hjem,
+  // gjelder autofyll (alle rom + standard snarveier) som før.
+  const HJEM_TILES = ['lock', 'alarm', 'cam', 'todo'];
+  const HJEM_MAX = 4;
+  const DYN = ['dish', 'vacr', 'tv', 'wash', 'dry'];
+  const AKT_TYPES = [['appliances', 'Apparat kjører eller er ferdig', 'mdi:washing-machine'], ['doors', 'Dør eller vindu åpen', 'mdi:door-open'], ['battery', 'Lavt batteri', 'mdi:battery-alert'], ['lights', 'Lys på i tomt rom', 'mdi:lightbulb-on-outline'], ['media', 'Media spiller', 'mdi:play-circle-outline'], ['alerts', 'Avvik (fukt, temperatur, lekkasje, røyk, feil)', 'mdi:alert-circle-outline']];
+  M.AKT_TYPES = AKT_TYPES;
+  M.aktTypes = (c) => { const t = get(c, 'tabs.aktuelt.types'); return Array.isArray(t) ? t : AKT_TYPES.map((x) => x[0]); };
+  const DOOR_DC = ['door', 'window', 'garage_door', 'opening'];
+  const PROB_DC = ['moisture', 'smoke', 'gas', 'carbon_monoxide', 'problem', 'safety', 'tamper'];
+  const PRES_DC = ['motion', 'occupancy', 'presence'];
+  const ROOM_RX = [[/stue|living/, 40], [/kj(o|oe)kken|kitchen/, 35], [/soverom|bedroom|master/, 30]];
+  const legacyHjem = (c) => ['layout', 'tiles', 'tile_order', 'tile_hidden'].some((k) => get(c, k + '.hjem') != null);
+  const statsC = new WeakMap();
+  const areaStats = (hass) => {
+    const S = hass.states;
+    if (statsC.has(S)) return statsC.get(S);
+    const out = {};
+    Object.keys(S).forEach((id) => {
+      const ar = M.areaOf(hass, id);
+      if (!ar || !regOk(hass, id)) return;
+      const o = out[ar] || (out[ar] = { n: 0, light: 0, sensor: 0, climate: 0 }), d = id.split('.')[0];
+      o.n++;
+      if (d === 'light') o.light++; else if (d === 'sensor' || d === 'binary_sensor') o.sensor++; else if (d === 'climate') o.climate++;
+    });
+    statsC.set(S, out);
+    return out;
+  };
+  const isFav = (hass, id) => { const a = hass.areas && hass.areas[id]; return !!a && (a.labels || []).some((l) => /favorit|favourite|favorite/i.test(l + ' ' + ((hass.labels && hass.labels[l] && hass.labels[l].name) || ''))); };
+  // Rom rangert for Hjem: favoritter (områdeetikett «favoritt»), climate.*, mest aktivitet (lys, sensorer, entiteter),
+  // Stue/Kjøkken/Soverom. Uterom nederst.
+  M.hjemRoomRank = function (hass) {
+    const st = areaStats(hass);
+    return M.areas(hass).map((a, i) => {
+      const x = st[a.id] || {}, nm = M.slug(a.name) + ' ' + a.id, fl = a.floorName ? M.slug(a.floorName) : '';
+      let sc = (isFav(hass, a.id) ? 1000 : 0) + (x.climate ? 100 : 0) + (x.light || 0) * 3 + (x.sensor || 0) + (x.n || 0) * 0.5;
+      ROOM_RX.forEach(([rx, p]) => { if (rx.test(nm)) sc += p; });
+      if (OUT_RX.test(M.slug(a.name)) || OUT_RX.test(a.id) || (fl && fl.split(' ').some((w) => OUT_RX.test(w)))) sc -= 200;
+      return { id: a.id, sc, i };
+    }).sort((x, y) => y.sc - x.sc || x.i - y.i).map((x) => x.id);
+  };
+  M.hjemCards = function (hass, c) {
+    const H = get(c, 'tabs.hjem') || {}, stored = Array.isArray(H.cards);
+    const auto = H.auto_fill != null ? !!H.auto_fill : !stored && legacyHjem(c);
+    const E = tileEnts(hass, c), exclude = Array.isArray(H.exclude) ? H.exclude : [];
+    const candidates = [...M.areas(hass).map((a) => 'rom:' + a.id), ...availKinds(E, c).filter((k) => k !== 'jul')];
+    const curated = () => [...HJEM_TILES.filter((k) => E[k]), ...M.hjemRoomRank(hass).slice(0, HJEM_MAX).map((id) => 'rom:' + id)];
+    const cards = stored ? H.cards.filter((x) => typeof x === 'string') : curated().filter((x) => !exclude.includes(x));
+    const seen = Array.isArray(H.seen) ? H.seen : stored ? cards : candidates;
+    const suggest = candidates.filter((x) => !cards.includes(x) && !exclude.includes(x) && !seen.includes(x));
+    return { auto, stored, cards, exclude, seen, candidates, suggest, curated, E };
+  };
+  const hcC = new WeakMap();
+  function hjemHC(hass, c) {
+    if (!hass || !c) return null;
+    const o = hcC.get(c);
+    if (o && o.S === hass.states && o.h === hass) return o.v;
+    const r = M.hjemCards(hass, c), v = r.auto ? null : r;
+    hcC.set(c, { S: hass.states, h: hass, v });
+    return v;
+  }
 
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
@@ -221,6 +301,10 @@
         ];
         T.filter((t) => t.view !== 'batterier').forEach((t) => {
           const base = baseRooms(hass, c, t), f = [];
+          const openEd = { type: 'button', label: 'Åpne «Tilpass Hjem» → Kort', icon: 'mdi:pencil', run: () => { if (M.openHomeEditor) M.openHomeEditor({ focus: 'tab-' + t.id }); } };
+          if (t.kind === 'hjem') f.push({ type: 'info', label: t.hc ? `Kuratert: ${t.hc.cards.length} kort (tabs.hjem.cards). Legg til, fjern og se forslag i «Tilpass Hjem» → Kort.` : 'Autofyll: alle rom og standard snarveier vises.' }, { type: 'boolean', name: 'tabs.hjem.auto_fill', label: 'Autofyll Hjem med alle rom', default: !t.hc }, openEd);
+          if (t.kind === 'aktuelt') f.push({ type: 'info', label: 'Aktuelt er dynamisk: kort vises bare når noe er aktuelt. Velg typer (tabs.aktuelt.types) i «Tilpass Hjem» → Kort.' }, openEd);
+          if (t.kind === 'floor' || t.kind === 'andre') f.push({ type: 'boolean', name: `tabs.${t.id}.auto_fill`, label: 'Autofyll fra HA-områder/etasjen', default: true });
           f.push({ type: 'order', name: `layout.${t.id}.order`, hiddenName: `layout.${t.id}.hidden`, label: t.kind === 'aktuelt' ? 'Rom (vises når lys er på eller media spiller)' : 'Rom på fanen', options: base.map((a) => [a.id, a.name + (t.kind === 'floor' && a.floor !== t.floor && a.floorName ? ' · ' + a.floorName : '')]) });
           if (['floor', 'custom', 'andre'].includes(t.kind)) {
             const add = get(c, `layout.${t.id}.add`) || {}, keys = Object.keys(add).sort(), nx = 'a' + pad2(keys.reduce((m, k) => Math.max(m, parseInt(k.slice(1), 10) || 0), 0) + 1);
@@ -228,7 +312,7 @@
           }
           base.forEach((a) => f.push({ type: 'select', name: `layout.${t.id}.side.${a.id}`, label: `Kolonne · ${a.name}`, options: [['L', 'Venstre'], ['R', 'Høyre']], help: get(c, `layout.${t.id}.side.${a.id}`) ? '' : 'Auto' }));
           if (t.view === 'karusell') Object.keys(SLIDES).forEach((s) => ['L', 'R'].forEach((sd) => f.push({ type: 'boolean', name: `slides.${t.id}.${sd}.${s}`, label: `Sveip-kort · ${sd === 'L' ? 'venstre' : 'høyre'} karusell · ${SLIDES[s][1]}` })));
-          avail.forEach((k) => {
+          avail.filter((k) => !(t.kind === 'aktuelt' && DYN.includes(k))).forEach((k) => {
             const on = tileSlot(c, t, k) !== 'off';
             f.push({ type: 'select', name: `tiles.${t.id}.${k}.slot`, label: `Snarvei · ${kindLabel(k, c)}`, options: SLOTS, default: (TILE_DEF[t.kind] || {})[k] || 'off' });
             if (on) {
@@ -522,7 +606,7 @@
     }
     _tilesAt(t, side, pos, E) {
       const c = this.config, slot = side + '-' + pos, hid = get(c, `tile_hidden.${t.id}`) || [], ord = get(c, `tile_order.${t.id}`) || [];
-      const kinds = availKinds(E, c).filter((k) => tileSlot(c, t, k) === slot && !hid.includes(k) && seasonOk(c, t, k) && !(APPL[k] && t.kind === 'aktuelt'));
+      const kinds = availKinds(E, c).filter((k) => tileSlot(c, t, k) === slot && !hid.includes(k) && seasonOk(c, t, k) && !(DYN.includes(k) && t.kind === 'aktuelt'));
       kinds.sort((a, b) => { const ia = ord.indexOf(a), ib = ord.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
       const raw = kinds.map((k) => ({ k, m: this._tileModel(k, E) })).filter((x) => x.m && !x.m.hide);
       const all = get(c, `swipe.${t.id}.${slot}`) ?? (t.kind === 'hjem' && slot === 'L-top');
@@ -545,6 +629,7 @@
         icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
     }
     _runTile(kind, w) {
+      if (/^akt:/.test(kind)) return this._runAkt(kind);
       const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c));
       if (!t) return;
       const tp = get(c, 'tap.' + kind) || {};
@@ -593,7 +678,12 @@
     _rooms(t) {
       const c = this.config, hid = get(c, `layout.${t.id}.hidden`) || [];
       const list = baseRooms(this.hass, c, t).filter((a) => !hid.includes(a.id)).map((a) => M.romData(this, a.id, this.roomCfg(a.id))).filter(Boolean);
-      return t.kind === 'aktuelt' ? list.filter((r) => r.lightsOn > 0 || r.mediaOn > 0) : list;
+      if (t.kind !== 'aktuelt') return list;
+      // Aktuelt: rom vises bare når de er aktuelle – media spiller, lys på i tomt rom, eller avvik (romvarsel).
+      const on = M.aktTypes(c), hass = this.hass;
+      const busy = (r) => M.all(hass, 'binary_sensor', (s, id) => PRES_DC.includes(s.attributes.device_class) && M.areaOf(hass, id) === r.id).some((id) => M.isOn(this.s(id)));
+      const alert = (r) => { const rc = get(c, 'rooms.' + r.id) || {}; return !!(M.romAlert && M.romAlert(this, r, rc.badges_own, rc.badges)); };
+      return list.filter((r) => (on.includes('media') && r.mediaOn > 0) || (on.includes('lights') && r.lightsOn > 0 && !busy(r)) || (on.includes('alerts') && alert(r)));
     }
     _size(r) { return get(this.config, `rooms.${r.id}.size`) || (r.temp != null || r.thermo ? 'M' : 'S'); }
     _klima(r) { return (get(this.config, `rooms.${r.id}.klima`) ?? true) && !!r.thermo && r.set != null; }
@@ -619,6 +709,54 @@
       if (!items.length) return '';
       const key = `${t.id}-car-${side}`, n = items.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
       return `<div class="carw" data-key="car-${esc(key)}"><div class="car" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${items.map((h) => `<div class="slot">${h}</div>`).join('')}</div></div>${this._dots(n, i)}</div>`;
+    }
+    // Aktuelt: dynamiske snarvei-fliser (bare når noe er aktuelt) etter tabs.aktuelt.types.
+    _aktItems(E, B) {
+      const hass = this.hass, c = this.config, on = M.aktTypes(c), hidT = get(c, 'tile_hidden.aktuelt') || [], out = [];
+      const put = (m) => { if (m && !m.hide) out.push(m); };
+      const bins = (dcs) => Object.keys(hass.states).filter((id) => id.startsWith('binary_sensor.') && dcs.includes(hass.states[id].attributes.device_class) && regOk(hass, id));
+      const where = (id) => { const a = M.areaOf(hass, id); return a ? M.areaName(hass, a) : ''; };
+      this._akt = {};
+      const dyn = (id, o) => { const k = 'akt:' + id; this._akt[k] = o; put({ kind: k, ...o }); };
+      if (on.includes('appliances') && E.vacr && !hidT.includes('vacr')) { const st = this.s(E.vacr), m = this._tileModel('vacr', E); if (m && st && /cleaning|paused|returning|error/.test(st.state)) put(m); }
+      if (on.includes('media') && !hidT.includes('tv')) put(this._tileModel('tv', E));
+      if (on.includes('doors')) {
+        bins(DOOR_DC).forEach((id) => {
+          const st = this.s(id);
+          if (!M.isOn(st)) return;
+          const win = st.attributes.device_class === 'window';
+          dyn(id, { ent: id, icon: win ? 'mdi:window-open-variant' : 'mdi:door-open', title: M.name(hass, id), sub: [win ? 'Vindu åpent' : 'Åpen', where(id)].filter(Boolean).join(' · '), tone: C.orange });
+        });
+        if (E.garage) { const st = this.s(E.garage); if (st && st.state === 'open') dyn(E.garage, { ent: E.garage, icon: 'mdi:garage-open', title: M.name(hass, E.garage), sub: 'Garasjeporten er åpen', tone: C.orange }); }
+      }
+      if (on.includes('battery')) {
+        const low = B.list.filter((b) => b.low);
+        if (low.length) dyn('batterier', { ent: low[0].id, icon: 'mdi:battery-alert', title: `${low.length} ${low.length === 1 ? 'batteri' : 'batterier'} lavt`, sub: low.slice(0, 2).map((b) => b.name).join(', ') + (low.length > 2 ? ' …' : ''), tone: C.red, tab: 'batterier' });
+      }
+      if (on.includes('alerts')) {
+        bins(PROB_DC).forEach((id) => { const st = this.s(id); if (M.isOn(st)) dyn(id, { ent: id, icon: 'mdi:alert-circle', title: M.name(hass, id), sub: ['Avvik', where(id)].filter(Boolean).join(' · '), tone: C.red, solid: true }); });
+        if (E.alarm) { const st = this.s(E.alarm); if (st && st.state === 'triggered') dyn(E.alarm, { ent: E.alarm, icon: 'shield', title: 'Alarm utløst', sub: M.name(hass, E.alarm), tone: C.red, solid: true, hash: '#sikkerhet' }); }
+        if (E.lock) { const st = this.s(E.lock); if (st && st.state === 'jammed') dyn(E.lock, { ent: E.lock, icon: 'lock_open', title: 'Dørlås feil', sub: M.name(hass, E.lock), tone: C.red, hash: '#sikkerhet' }); }
+      }
+      return out;
+    }
+    _runAkt(kind) {
+      const x = (this._akt || {})[kind];
+      if (!x) return;
+      if (x.tab) { const i = (this._TV || []).findIndex((t) => t.id === x.tab); if (i >= 0) return this._pickTab(i); }
+      if (x.hash) return M.openPopup(x.hash);
+      if (x.ent) M.moreInfo(this, x.ent);
+    }
+    // Autofyll én gang (første oppsett): lagre kuratert Hjem og Aktuelt-typer når ki-store er lastet og kortet har card_id.
+    _autoFillOnce() {
+      const c = this.config, hass = this.hass;
+      if (this._afDone || !this.isConnected || !c.card_id || !hass || !hass.entities || !M.store || !M.store.loaded || get(c, 'tabs.hjem')) return;
+      if (!M.areas(hass).length) return;
+      this._afDone = true;
+      const hc = M.hjemCards(hass, c), tabs = { ...(c.tabs || {}) };
+      tabs.hjem = hc.auto ? { auto_fill: true } : { auto_fill: false, cards: hc.cards, seen: hc.candidates };
+      if (!tabs.aktuelt) tabs.aktuelt = { auto_fill: false, types: M.aktTypes(c) };
+      setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }); }, 0);
     }
     _applCards(E) {
       const cards = ['dish', 'wash', 'dry'].map((k) => this._appl(k, E[k])).filter((A) => A && A.mode !== 'idle');
@@ -667,20 +805,23 @@
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
       const B = this._batteries(), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
+      this._autoFillOnce();
       this._cur = cur;
       let view = '';
       if (cur.view === 'batterier') view = this._batView(B);
       else {
         const rooms = this._rooms(cur), car = cur.view === 'karusell', S = this._sides(cur, rooms, car);
+        const akt = cur.kind === 'aktuelt' ? this._aktItems(E, B) : [];
         const col = (side) => {
-          const top = this._tilesAt(cur, side, 'top', E), bot = this._tilesAt(cur, side, 'bottom', E);
+          const dyn = akt.filter((x, i) => (i % 2 ? 'R' : 'L') === side).map((x) => this._tileHTML(x, 'ak-' + x.kind)).join('');
+          const top = dyn + this._tilesAt(cur, side, 'top', E), bot = this._tilesAt(cur, side, 'bottom', E);
           const mid = car ? this._carousel(cur, side, S[side], E) : S[side].map((r) => this._roomHTML(r, this._size(r))).join('');
           return `<div class="col">${top}${mid}${bot}</div>`;
         };
-        const appl = cur.kind === 'aktuelt' ? this._applCards(E) : '';
+        const appl = cur.kind === 'aktuelt' && M.aktTypes(c).includes('appliances') ? this._applCards(E) : '';
         const cols = col('L') + col('R');
         const empty = !rooms.length && !/class="(tile|slot|rk|u u-)/.test(cols);
-        view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen lys på, ingenting spiller.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
+        view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen apparater, åpne dører, lave batterier eller avvik.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
       }
       return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${view}</section>`);
     }

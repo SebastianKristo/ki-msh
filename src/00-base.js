@@ -939,13 +939,13 @@
       Object.keys(rest).forEach((k) => { if (!same(rest[k], base[k])) rec[k] = rest[k]; });
       Object.keys(base).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id' && base[k] != null) rec[k] = null; });
       const dk = MSH.store.devKey(key);
-      const res = await MSH.store.set(dk, Object.keys(rec).length ? rec : undefined, { immediate: opts.immediate });
+      const res = await MSH.store.set(dk, Object.keys(rec).length ? rec : undefined, { immediate: opts.immediate, confirm: opts.confirm, src: opts.src });
       return { ...res, store: true, key: dk, config: newCfg };
     }
     Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     const prev = MSH.store.get(key) || {};
     Object.keys(prev).forEach((k) => { if (!(k in newCfg) && !(k in rest) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet siden forrige lagring
-    const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
+    const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate, confirm: opts.confirm, src: opts.src });
     return { ...res, store: true, key, config: newCfg };
   };
   // Oppsett per enhet finnes bare for Kamera og Person (static perDevice = true, eller card_id med kamera/person)
@@ -1030,7 +1030,14 @@
       if (!config) throw new Error('Mangler config');
       const prevId = this._rawConfig && this._rawConfig.card_id;
       if (config.__eff) { const { __eff, ...c } = config; config = c; } // live-utkast fra editoren
-      else { this._yamlConfig = config; try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } }
+      else {
+        this._yamlConfig = config;
+        // Et tilpass-ark med utkast er åpent for dette kortet: vis fortsatt utkastet (ny config overskriver det ikke –
+        // arket får vite om endringen og viser «Endret et annet sted – Last inn»). Fiks 15.13.
+        const dc = this._rawConfig && MSH.draftOf(this);
+        if (dc) { if (dc.previewing) { config = { ...dc.draft }; } else { try { config = MSH.effectiveConfig(config, this); } catch (e) { /* */ } } dc.check(); }
+        else { try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } }
+      }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
@@ -1070,6 +1077,7 @@
           const key = this._yamlConfig && MSH.storeKey(this._yamlConfig, this);
           if (path && String(path).startsWith('devices.')) path = String(path).split('.').slice(2).join('.'); // enhetslaget
           if (!key || (path && path !== key && !String(path).startsWith(key + '.') && !key.startsWith(path + '.'))) return;
+          if (MSH.drafts.has(key)) return; // utkast åpent: arket bestemmer (egen lagring ignoreres, annen kilde → banner)
           const eff = MSH.effectiveConfig(this._yamlConfig, this);
           if (JSON.stringify(eff) !== JSON.stringify(this._rawConfig)) this.setConfig(this._yamlConfig);
         });
@@ -1234,6 +1242,9 @@
       if (this._swallow) { this._swallow = false; e.stopPropagation(); e.preventDefault(); return; }
       const el = this._el(e, '[data-act]');
       if (!el || el.disabled) return;
+      // Tannhjul i et innebygd toppkort: klikket bobler også til vertskortet, som ville åpnet det samme arket én gang
+      // til (to «Tilpass rom»-ark oppå hverandre → Ferdig viste det gamle under). Fiks 15.13.
+      if (el.dataset.act === 'customize') { if (e.__mshCustomize) return; e.__mshCustomize = true; }
       const h = el.getAttribute('data-haptic');
       if (h !== 'off') MSH.haptic(h || 'light');
       this.onAction(el.dataset.act, el, e);
@@ -1308,11 +1319,176 @@
     'msh-person-card': 'msh-person-hero-card',
   };
 
-  // Kortets egen editor (samme skjema som GUI-editoren). Endringer vises live i alle instanser av
-  // kortet og lagres automatisk (debounce 600 ms; slidere når man slipper). «Ferdig» lukker,
-  // «Avbryt» tilbakestiller til configen fra da editoren ble åpnet. Popupen blir stående åpen.
+  /* ------------------------------------------------------------ utkast-editor (fiks 15.13) */
+  // Én felles flyt for ALLE «Tilpass …»-ark (msh-editor via MSH.openEditor – Rom, navbar, header, Kamera og alle kort –
+  // og egne ark: Lys, Klima, Vær …). «Tilpass Hjem» skriver mange nøkler og bruker MSH.store.transaction (samme regler).
+  //   Åpne:   draft = structuredClone(config). Kortet viser utkastet live (setConfig({...draft, __eff: 1})).
+  //   Endre:  bare draft + forhåndsvisning. INGEN autolagring.
+  //   Ferdig: ctl.done() → await save(draft) ÉN gang (MSH.saveCardConfig, confirm: ki-store cacher/varsler først når HA
+  //           har svart) → lukk, toast «Lagret», haptic success. Feil → arket står med utkastet, feilmelding + failure.
+  //           Mens lagringen pågår er Ferdig deaktivert (onBusy) og nye trykk ignoreres. Uendret utkast → bare lukk.
+  //   Avbryt: ctl.cancel() → utkastet forkastes, kortet settes tilbake til lagret config. Lukking via bakteppe/Esc = Avbryt.
+  //   Innkommende config (ki-store fra annen enhet/GUI-editoren, eller setConfig fra HA) overskriver ALDRI utkastet:
+  //           egen lagring kjennes igjen (src-merke) og ignoreres; endring fra en annen kilde → banner «Endret et annet
+  //           sted – Last inn» (ctl.reload()). Er utkastet uendret, tas endringen inn stille.
+  //   Mens arket er åpent følger kortet utkastet: MshCard-abonnementet på ki-store og setConfig fra HA hopper over
+  //   nøkkelen (MSH.drafts), så lagring → ekko → setConfig ikke kan nullstille visningen.
+  // MSH.draftEditor(card, { key, config, saved, current, prepare, save, saveOpts, live, banner, close, onBusy, onError,
+  //   onReload, toast }) → ctl { draft, saved, busy, dirty, external, closed, set(next), preview(), done(), cancel(),
+  //   reload(), dispose() }. Ett ark per nøkkel: MSH.draftFor(key|kort) gir et åpent ark (openEditor gjenbruker det).
+  MSH.drafts = MSH.drafts || new Map();
+  MSH.draftFor = (k) => { const c = k != null && MSH.drafts.get(k); return c && !c.closed ? c : null; };
+  MSH.draftOf = function (card) {
+    if (!MSH.drafts.size || !card) return null;
+    for (const c of MSH.drafts.values()) if (c.card === card && !c.closed) return c;
+    let k = null; try { k = card._yamlConfig && MSH.store ? MSH.storeKey(card._yamlConfig, card) : null; } catch (e) { /* */ }
+    return (k && MSH.draftFor(k)) || null;
+  };
+  const dclone = (v) => { if (v == null) return v; try { return structuredClone(v); } catch (e) { return JSON.parse(JSON.stringify(v)); } };
+  // Ferdig-knappen i et ark: deaktivert + spinner mens lagringen pågår (editorer uten egen _setBusy)
+  MSH.draftBusy = function (ed, busy) {
+    if (!ed) return;
+    if (ed._setBusy) return ed._setBusy(busy);
+    const r = ed.shadowRoot || ed;
+    r.querySelectorAll && r.querySelectorAll('[data-a="save"],[data-a="done"]').forEach((b) => { b.disabled = !!busy; b.toggleAttribute('aria-busy', !!busy); b.style.opacity = busy ? '0.6' : ''; });
+  };
+  const BANNER_CSS = 'display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 8px 8px 16px;border-radius:22px;background:rgba(242,181,115,0.16);color:var(--orange,#f2b573);font-size:13px;font-weight:500;line-height:1.3;';
+  const BANNER_BTN = 'flex:none;height:32px;padding:0 14px;border-radius:16px;border:0;background:var(--orange,#f2b573);color:#232323;font:inherit;font-weight:600;cursor:pointer;';
+  // Banner «Endret et annet sted – Last inn» øverst i et ark (host = arkets innhold; before = element det legges foran)
+  MSH.draftBanner = function (host, onReload, before) {
+    if (!host) return null;
+    const el = document.createElement('div');
+    el.className = 'msh-draft-banner';
+    el.setAttribute('role', 'status');
+    el.style.cssText = BANNER_CSS;
+    el.innerHTML = `${MSH.icon('mdi:sync-alert', 20)}<span style="flex:1;min-width:0">Endret et annet sted</span><button type="button" style="${BANNER_BTN}">Last inn</button>`;
+    el.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); MSH.haptic('light'); onReload && onReload(); });
+    host.insertBefore(el, before || host.firstChild);
+    return el;
+  };
+  MSH.draftEditor = function (card, o = {}) {
+    const S = MSH.store;
+    const key = o.key !== undefined ? o.key : (S ? MSH.storeKey(card._yamlConfig || card._rawConfig || card.config, card) : null);
+    const reg = key || card;
+    const J = (v) => JSON.stringify(v === undefined ? null : v);
+    const src = 'draft:' + MSH.uid();
+    const current = o.current || (() => (card._yamlConfig && S ? MSH.effectiveConfig(card._yamlConfig, card, { shared: S.scope === 'shared' }) : (card._rawConfig || card.config || {})));
+    const prep = o.prepare || ((d) => d);
+    let saved = dclone(o.saved || card._rawConfig || card.config || {});
+    let draft = dclone(o.config || saved);
+    let base = J(current());
+    let busy = false, external = false, finished = false, bannerEl = null;
+    const canPreview = () => !finished && (o.live ? o.live() : true);
+    const liveId = () => (draft && draft.card_id) || (saved && saved.card_id) || (card._rawConfig && card._rawConfig.card_id);
+    const others = (fn) => { const id = liveId(), set = id && MSH.liveCards.get(id); if (set) [...set].forEach((c) => { if (c !== card && c.isConnected) fn(c); }); };
+    const preview = () => {
+      if (!canPreview()) return;
+      const d = draft;
+      try { card.setConfig({ ...d, __eff: 1 }); } catch (e) { console.error('[ki-msh] utkast', e); }
+      others((c) => c.setConfig({ ...d, __eff: 1 }));
+    };
+    // Kortet (og andre instanser) tilbake til lagret config – etter Ferdig er det den nye
+    const restore = (ok) => {
+      const re = (c) => { try { if (ok && !S) c.setConfig({ ...saved, __eff: 1 }); else if (c._yamlConfig) c.setConfig(c._yamlConfig); else c.setConfig({ ...saved, __eff: 1 }); } catch (e) { /* */ } };
+      re(card); others(re);
+    };
+    const dirty = () => J(prep(dclone(draft))) !== J(saved);
+    const showBanner = (on) => {
+      if (!on) { if (bannerEl) bannerEl.remove(); bannerEl = null; return; }
+      const host = typeof o.banner === 'function' ? o.banner() : o.banner;
+      if (!host || (bannerEl && bannerEl.isConnected)) return;
+      bannerEl = MSH.draftBanner(host, () => ctl.reload());
+    };
+    const setBusy = (b) => { busy = b; if (o.onBusy) try { o.onBusy(b); } catch (e) { /* */ } };
+    // Innkommende config: egen lagring er allerede filtrert bort (src), så en forskjell her kommer fra en annen kilde
+    const check = () => {
+      if (finished || busy) return;
+      let now; try { now = J(current()); } catch (e) { return; }
+      if (now === base) return;
+      if (!dirty()) { base = now; Promise.resolve().then(() => ctl.reload(true)); return; } // ingen egne endringer: ta inn stille
+      if (!external) { external = true; showBanner(true); if (o.onExternal) o.onExternal(true); }
+    };
+    const inKey = (path) => {
+      if (!path) return true;
+      let p = String(path);
+      if (p.startsWith('devices.')) p = p.split('.').slice(2).join('.');
+      return !!p && (p === key || p.startsWith(key + '.') || key.startsWith(p + '.'));
+    };
+    const off = S && key ? S.subscribe((d, path, from) => { if (from !== src && inKey(path)) check(); }) : null;
+    const finish = (ok) => {
+      if (finished) return;
+      finished = true;
+      if (off) off();
+      if (MSH.drafts.get(reg) === ctl) MSH.drafts.delete(reg);
+      showBanner(false);
+      restore(ok);
+      if (o.close) try { o.close(); } catch (e) { /* */ }
+      if (o.onFinish) try { o.onFinish(ok); } catch (e) { /* */ }
+    };
+    const ctl = {
+      card, key, src,
+      get draft() { return draft; },
+      get saved() { return saved; },
+      get busy() { return busy; },
+      get dirty() { return dirty(); },
+      get external() { return external; },
+      get closed() { return finished; },
+      get previewing() { return canPreview(); },
+      set(next) { if (finished || busy || !next) return; draft = next; preview(); },
+      preview,
+      check,
+      // «Last inn» (og bytte av omfang for Kamera/Person): utkastet = lagret config nå
+      reload(silent) {
+        if (finished || busy) return;
+        saved = dclone(current()); draft = dclone(saved); base = J(saved);
+        external = false; showBanner(false);
+        preview();
+        if (o.onReload) try { o.onReload(draft); } catch (e) { console.error('[ki-msh] utkast', e); }
+        if (!silent) MSH.toast('Lastet inn');
+      },
+      async done() {
+        if (finished) return { ok: true };
+        if (busy) return null; // dobbelttrykk: lagringen pågår allerede
+        const next = prep(dclone(draft));
+        if (J(next) === J(saved)) { finish(true); return { ok: true, unchanged: true }; }
+        setBusy(true);
+        let r;
+        try {
+          r = await (o.save ? o.save(next, saved, ctl)
+            : MSH.saveCardConfig(card.hass, saved, next, { card, immediate: true, confirm: true, src, ...(key ? { key } : {}), ...(o.saveOpts || {}) }));
+        } catch (e) { r = { ok: false, error: (e && e.message) || String(e) }; }
+        setBusy(false);
+        if (finished) return r;
+        if (!r || r.ok === false) {
+          const msg = 'Kunne ikke lagre' + (r && r.error ? ' – ' + r.error : '');
+          MSH.haptic('failure');
+          if (o.onError) try { o.onError(msg); } catch (e) { /* */ }
+          MSH.toast(msg);
+          return r || { ok: false };
+        }
+        saved = dclone((r && r.config) || next);
+        MSH.haptic('success');
+        if (o.toast !== false && next.toasts !== false) MSH.toast('Lagret');
+        finish(true);
+        return r;
+      },
+      cancel() { finish(false); },
+      dispose() { finish(false); },
+    };
+    const prev = MSH.drafts.get(reg);
+    if (prev && prev !== ctl && !prev.closed) prev.dispose();
+    MSH.drafts.set(reg, ctl);
+    return ctl;
+  };
+
+  // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark med sticky bunnlinje (Avbryt/Ferdig).
+  // Utkastflyten over (MSH.draftEditor): endringer vises live i alle instanser av kortet, men lagres først ved Ferdig.
+  // Er arket for samme kort/nøkkel allerede åpent, gis det åpne tilbake (aldri to ark oppå hverandre).
   MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
     if (!customElements.get(tag || 'msh-editor')) return null;
+    const key = MSH.store ? MSH.storeKey(card._yamlConfig || card._rawConfig || card.config, card) : null;
+    const open = MSH.draftFor(key || card);
+    if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
     const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, footer: true });
     const ed = document.createElement(tag || 'msh-editor');
@@ -1323,74 +1499,41 @@
     if (title) ed.title = title;
     ed.hass = card.hass;
     if (MSH.store && card.hass) MSH.store.refresh(card.hass);
-    let orig = card._rawConfig || card.config;
-    let cur = orig, dirty = false, seq = 0;
     // Oppsett per enhet (bare Kamera/Person): «Denne enheten · Alle enheter» øverst (standard: denne enheten).
     // Alle andre kort har én felles config – ingen omfangsvelger.
-    const key = MSH.store ? MSH.storeKey(card._yamlConfig || orig, card) : null;
-    const perDev = !!(key && MSH.isPerDevice(card._yamlConfig || orig, card, key));
+    const perDev = !!(key && MSH.isPerDevice(card._yamlConfig || card._rawConfig || card.config, card, key));
     if (MSH.store) MSH.store.scope = perDev ? 'device' : 'shared';
     const own = () => key && MSH.store.hasOwn(key);
-    const cfgFor = () => (card._yamlConfig ? MSH.effectiveConfig(card._yamlConfig, card, { shared: MSH.store.scope === 'shared' }) : orig);
-    if (perDev && customElements.get('msh-scope-bar')) {
-      const bar = document.createElement('msh-scope-bar');
-      bar.hass = card.hass; bar.storeKey = key;
-      bar.addEventListener('scope-change', () => {
-        if (dirty && MSH.store) MSH.store.flush();
-        orig = cur = cfgFor(); dirty = false;
-        ed.setConfig(orig);
-      });
-      ov.body.appendChild(bar);
-    }
-    ed.setConfig(orig);
-    // UI-tilstand for editoren (åpne seksjoner) – per kort, ikke i config
-    const uiKey = (orig && orig.card_id) || (card._yamlConfig && card._yamlConfig.card_id) || null;
-    if (uiKey) ed.uiKey = uiKey;
-    // Status («Lagrer …» → «Lagret») er en liten pille øverst i arket – oppdateres direkte, arket tegnes IKKE på nytt
-    // (åpne seksjoner, scroll og håndtak står). Editorer uten _setStatus faller tilbake til morph (aldri innerHTML).
+    // Status i arket: «Lagrer …» mens Ferdig lagrer, «Kunne ikke lagre – …» ved feil. Oppdateres direkte (ingen ny
+    // tegning av arket); editorer uten _setStatus faller tilbake til morph (aldri innerHTML).
     const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._setStatus) ed._setStatus(t, kind || ''); else if (ed._render) ed._render(); };
     // Felles oppsett endres mens enheten har eget: ikke vis utkastet live her (enhetens oppsett gjelder)
     const live = () => !(MSH.store && MSH.store.scope === 'shared' && own());
-    // Autolagring (600 ms) – stille; status i arket: «Lagrer …» → «Lagret» / «Kunne ikke lagre»
-    const save = async (immediate) => {
-      const my = ++seq;
-      status('Lagrer …');
-      const r = await MSH.saveCardConfig(card.hass, orig, cur, { immediate, card });
-      if (my !== seq) return r;
-      if (r && r.ok === false) { status('Kunne ikke lagre' + (r.error ? ' – ' + r.error : ''), 'err'); MSH.haptic('failure'); }
-      else status('Lagret', 'ok');
-      return r;
-    };
-    ed.addEventListener('msh-change', (ev) => {
-      cur = ev.detail.config;
-      if (live()) {
-        if (cur.card_id) MSH.applyLive(cur.card_id, cur);
-        if (card._rawConfig !== cur) card.setConfig({ ...cur, __eff: 1 });
-      }
-      if (ev.detail.commit !== false) { dirty = true; save(false); }
+    const ctl = MSH.draftEditor(card, {
+      key, live,
+      banner: () => ov.body,
+      close: () => ov.close(),
+      onBusy: (b) => { if (b) status('Lagrer …'); else if (ed.status === 'Lagrer …') status(''); MSH.draftBusy(ed, b); },
+      onError: (msg) => status(msg, 'err'),
+      onReload: (d) => { status(''); ed.setConfig(d); },
     });
-    // Lagre/Ferdig: samler ventende endringer, lagrer én gang og venter på svar
-    ed.addEventListener('msh-save', async (ev) => {
-      cur = (ev.detail && ev.detail.config) || cur;
-      if (!dirty && cur === orig) { ov.close(); return; }
-      const r = await save(true);
-      if (r && r.ok === false) return; // endringen beholdes i skjemaet
-      MSH.haptic('success');
-      if (cur.toasts !== false) MSH.toast('Lagret');
-      dirty = false;
-      ov.close();
-    });
-    ed.addEventListener('msh-cancel', () => {
-      if (cur !== orig) {
-        if (live()) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); }
-        if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true, card });
-      }
-      dirty = false;
-      ov.close();
-    });
-    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'shared'; };
+    ctl.ui = { overlay: ov, editor: ed, draft: ctl };
+    if (perDev && customElements.get('msh-scope-bar')) {
+      const bar = document.createElement('msh-scope-bar');
+      bar.hass = card.hass; bar.storeKey = key;
+      bar.addEventListener('scope-change', () => ctl.reload(true));
+      ov.body.appendChild(bar);
+    }
+    ed.setConfig(ctl.draft);
+    // UI-tilstand for editoren (åpne seksjoner) – per kort, ikke i config
+    const uiKey = (ctl.draft && ctl.draft.card_id) || (card._yamlConfig && card._yamlConfig.card_id) || null;
+    if (uiKey) ed.uiKey = uiKey;
+    ed.addEventListener('msh-change', (ev) => ctl.set(ev.detail.config)); // bare utkast + forhåndsvisning
+    ed.addEventListener('msh-save', (ev) => { if (ev.detail && ev.detail.config) ctl.set(ev.detail.config); ctl.done(); });
+    ed.addEventListener('msh-cancel', () => ctl.cancel());
+    ov.onClosed = () => { ctl.dispose(); if (MSH.store) MSH.store.scope = 'shared'; };
     ov.body.appendChild(ed);
-    return { overlay: ov, editor: ed };
+    return ctl.ui;
   };
 
   // Registrer kort + oppføring i kortvelgeren.

@@ -4,8 +4,9 @@
  * Tannhjulet åpner «Tilpass lys»: eget bunnark (MSH.overlay → document.body; solid, frosted med Liquid Glass-tema) med navigasjonsrad Avbryt · tittel ·
  * Ferdig, Visning (Mellomrom/Kolonner/Størrelse/Slider-høyde, live bak arket), Innhold (Faner · Scener · Rom og lys ·
  * Utelys som undersider med «‹ Tilpass») og «Tilbakestill til standard». Ingen omfangsvelger – én felles config.
- * Utkastet vises live (setConfig({...utkast, __eff: 1})); Ferdig lagrer (MSH.saveCardConfig, scope 'shared', venter på
- * svar), Avbryt/utenfor/Esc forkaster. getConfigElement() bruker samme nøkler (static schema).
+ * Utkastflyten er den felles MSH.draftEditor (fiks 15.13): utkastet vises live, ingen autolagring; Ferdig lagrer én gang
+ * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Avbryt/utenfor/Esc forkaster.
+ * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
  * Config-nøkler (arket ⇄ GUI-editoren):
  *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, columns (1|2),
  *             size (compact|standard → slider 32|40 px), slider_height (32–56, std 40; overstyrer size), pad_top, pad_bottom
@@ -679,9 +680,20 @@
   function openSheet(card, focus) {
     if (card._sheet && !card._sheet.ov.closed) return card._sheet;
     const orig = card._rawConfig || card.config;
-    const st = { draft: migrateOutdoor(clone(orig)), page: PAGE_OF[focus] || 'main', saved: false, busy: false, adding: false, q: '' };
+    const st = { page: PAGE_OF[focus] || 'main', busy: false, adding: false, q: '' };
     let ov = null;
-    const preview = () => card.setConfig({ ...st.draft, __eff: 1 });
+    // Felles utkast (MSH.draftEditor): st.draft er utkastet, «Last inn» bytter det ut
+    const ctl = M.draftEditor(card, {
+      config: migrateOutdoor(clone(orig)), saved: orig,
+      prepare: (d) => migrateOutdoor(clone(d)),
+      saveOpts: { scope: 'shared' },
+      banner: () => ov && ov.body,
+      close: () => ov && ov.close(),
+      onBusy: (b) => { st.busy = b; draw(); },
+      onReload: () => draw(),
+    });
+    Object.defineProperty(st, 'draft', { get: () => ctl.draft, set: (v) => ctl.set(v) });
+    const preview = () => ctl.preview();
     const upd = (fn, hap) => { fn(st.draft); preview(); if (hap) M.haptic(hap); draw(); };
     const hass = () => card.hass;
 
@@ -805,22 +817,10 @@
     const go = (p) => { st.page = p; st.keepScroll = false; st.adding = false; M.haptic('light'); draw(); const sh = ov.root.querySelector('.sh'); if (sh) sh.scrollTop = 0; };
 
     // ---------- lagring
-    const done = async () => {
-      if (st.busy) return;
-      const next = migrateOutdoor(clone(st.draft));
-      if (JSON.stringify(next) === JSON.stringify(orig)) { st.saved = true; ov.close(); return; }
-      st.busy = true; draw();
-      let r = null;
-      try { r = await M.saveCardConfig(hass(), orig, next, { card, immediate: true, scope: 'shared' }); } catch (e) { r = { ok: false, error: e && e.message }; }
-      if (r && r.ok === false) { st.busy = false; draw(); M.haptic('failure'); M.toast('Kunne ikke lagre' + (r.error ? ' – ' + r.error : '')); return; }
-      st.saved = true;
-      if (!M.store) card.setConfig({ ...next, __eff: 1 });
-      M.haptic('success');
-      if (next.toasts !== false) M.toast('Lagret');
-      ov.close();
-    };
+    // Ferdig: én lagring (dobbelttrykk ignoreres mens den pågår); feil → arket står med utkastet
+    const done = () => ctl.done();
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const R = ov.root;
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
