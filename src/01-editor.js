@@ -216,10 +216,17 @@
     button,input,select{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
     input,select{cursor:text;outline:none}
     select{cursor:pointer}
-    .wrap{display:flex;flex-direction:column;gap:10px;padding:${'4px 0'};background:transparent}
+    .wrap{display:flex;flex-direction:column;gap:10px;padding:4px 0 0;background:transparent}
     :host(:not([inline])) .wrap{padding:12px;border-radius:24px;background:#282828}
-    .ttl{font-size:18px;font-weight:500;padding:4px 4px 6px;display:flex;align-items:center;gap:10px}
-    .sec{border-radius:20px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden}
+    /* Tittelrad: sticky rett under håndtaket (arkets flate fra MSH.sheetVars), med «Lagret»-pillen til høyre (Fiks 11) */
+    .ttl{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;font-size:18px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;
+      margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 0;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg, transparent);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
+    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
+    .ttl .stat.on{opacity:1;transform:none}
+    .ttl .stat.ok{background:var(--green,#66d19e);color:#12291d}
+    .ttl .stat.err{background:var(--red,#f28073);color:#2c1411}
+    .sec{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
     .sec>summary{list-style:none;display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;font-size:14px;font-weight:500;cursor:pointer}
     .sec>summary::-webkit-details-marker{display:none}
     .sec>summary .chev{margin-left:auto;transition:transform .2s;color:#979797}
@@ -252,23 +259,31 @@
     .menu button{display:flex;width:100%;text-align:left;flex-direction:column;padding:8px 10px;border-radius:10px}
     .menu button:hover{background:#3a3a3a}
     .menu b{font-weight:500;font-size:13px} .menu i{font-style:normal;font-size:11px;color:#7f7f7f}
-    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;position:sticky;bottom:0;padding-top:6px}
+    /* Sticky bunnlinje (Fiks 11): egen flate (#282828 / glass med Liquid Glass-tema), toppskille, safe-area. Tar plass i flyten,
+       så siste rad kan scrolles helt fram over den. */
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;position:sticky;bottom:0;z-index:5;margin:0 calc(-1 * var(--ki-sh-px, 0px));
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
     .btn{height:52px;border-radius:26px;background:#3a3a3a;font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+    .actions .btn{height:48px;border-radius:24px}
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .small{font-size:12px;color:#979797}
-    .stat{font-size:12px;color:#979797;text-align:center;padding:2px 0}.stat.ok{color:var(--green,#66d19e)}.stat.err{color:var(--red,#f28073)}
     .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
     ha-icon-picker,ha-selector{display:block}
     .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
     .sec>summary .meta+.chev{margin-left:8px}
     msh-entity-picker{display:block}
-    /* slider med snarvalg */
+    /* slider med snarvalg – egen pekerstyrt slider (Fiks 11): tar bare over ved bevisst vannrett drag (> 6 px og mer
+       vannrett enn loddrett), trykk på sporet endrer ingenting, loddrett bevegelse scroller arket (touch-action: pan-y).
+       Den skjulte <input type=range> gir tastatur/skjermleser (piltaster) og samme input/change-hendelser. */
     .rg .rv{font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
-    .rg input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;touch-action:pan-y;cursor:pointer}
-    .rg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#545454}
-    .rg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#545454}
-    .rg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    .rg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
+    .sl{position:relative;height:32px;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+    .sl.drag{cursor:grabbing}
+    .sl .tr{position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:#545454;overflow:hidden}
+    .sl .fi{position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:#afafaf}
+    .sl .th{position:absolute;top:5px;left:calc((100% - 22px) * var(--f, 0));width:22px;height:22px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .15s}
+    .sl.drag .th{transform:scale(1.15)}
+    .sl input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;pointer-events:none}
+    .sl:focus-within .th{box-shadow:0 0 0 3px rgba(242,133,201,.55),0 2px 6px rgba(0,0,0,.4)}
     .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:#545454;color:#fafafa}
     .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
     /* Liquid glass (navbar-stil glass, attributtet settes når editoren ligger i et glassark fra MSH.overlay):
@@ -277,7 +292,7 @@
     :host([glass]){--ed-bg:transparent}
     :host([glass]) .sec,:host([glass]) .f,:host([glass]) .ent,:host([glass]) .ordrow{${M.glassSurface('row')}}
     :host([glass]) .inp{background:rgba(0,0,0,0.25)}
-    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .stat,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:rgba(255,255,255,0.62)}
+    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:rgba(255,255,255,0.62)}
     :host([glass]) .chips.sg{${M.glassSurface('segment')}padding:3px;border-radius:19px;gap:2px;touch-action:pan-y}
     :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
     :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
@@ -286,8 +301,7 @@
     :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
     :host([glass]) .menu{${M.glassSurface('menu')}}
     ${M.glassFallback(':host([glass]) .menu', 'menu')}
-    :host([glass]) .sw:not(.on),:host([glass]) .rg input[type=range]::-webkit-slider-runnable-track{background:rgba(255,255,255,0.18)}
-    :host([glass]) .rg input[type=range]::-moz-range-track{background:rgba(255,255,255,0.18)}
+    :host([glass]) .sw:not(.on),:host([glass]) .sl .tr{background:rgba(255,255,255,0.18)}
   `;
 
   class MshEditor extends HTMLElement {
@@ -300,9 +314,14 @@
       this.shadowRoot.addEventListener('input', (e) => this._input(e));
       this.shadowRoot.addEventListener('change', (e) => this._change(e));
       this.shadowRoot.addEventListener('focusin', (e) => { const t = e.target; if (t.dataset && t.dataset.search) { this._menu = t.dataset.search; this._render(); } });
-      this.shadowRoot.addEventListener('toggle', (e) => { const d = e.target; if (d.dataset && d.dataset.sec != null) this._open[d.dataset.sec] = d.open; }, true);
-      // Slidere: ikke la Bubble Card lukke/scrolle popupen mens man drar
-      ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.target && e.target.type === 'range') e.stopPropagation(); }, { passive: true }));
+      // Åpne seksjoner = UI-tilstand (per kort i localStorage ki:<card_id>:ed:ui, aldri i config) – overlever lagring og ny åpning
+      this.shadowRoot.addEventListener('toggle', (e) => {
+        const d = e.target;
+        if (!d.dataset || d.dataset.sec == null || this._open[d.dataset.sec] === d.open) return;
+        this._open[d.dataset.sec] = d.open;
+        if (this._uiKey) M.uiStore(this._uiKey + ':ed', { open: this._open });
+      }, true);
+      this._bindSliders();
       this.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.target;
         if (t.dataset && t.dataset.name) {
@@ -315,6 +334,62 @@
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
+    set uiKey(k) { this._uiKey = k || null; if (k) { const u = M.uiLoad(k + ':ed'); if (u && u.open) this._open = { ...u.open, ...this._open }; } }
+    get uiKey() { return this._uiKey; }
+    // Slider (Fiks 11): pekerstyrt, relativt drag. pointerdown noterer bare startpunktet; draget tas over først når
+    // bevegelsen er > 6 px og mer vannrett enn loddrett (da: pointer capture + stopPropagation, fallgruve 2). Loddrett →
+    // slippes, og arket scroller (touch-action: pan-y → nettleseren sender pointercancel). Trykk uten drag endrer ingenting.
+    // Live under drag (commit=false), lagres ved slipp.
+    _bindSliders() {
+      const R = this.shadowRoot;
+      const end = (e) => {
+        const g = this._sl;
+        if (!g || (e && e.pointerId !== g.id)) return;
+        this._sl = null;
+        if (g.el.isConnected) g.el.classList.remove('drag');
+        if (g.taken) { if (e) e.stopPropagation(); this._set(g.name, g.v, true); }
+      };
+      R.addEventListener('pointerdown', (e) => {
+        const el = e.composedPath().find((n) => n.classList && n.classList.contains('sl'));
+        if (!el || e.button) return;
+        const d = el.dataset, v0 = Number(d.v);
+        this._sl = { el, id: e.pointerId, x0: e.clientX, y0: e.clientY, v0, v: v0, name: d.name, min: Number(d.min), max: Number(d.max), step: Number(d.step) || 1, w: Math.max(40, el.getBoundingClientRect().width - 22), taken: false };
+      });
+      R.addEventListener('pointermove', (e) => {
+        const g = this._sl;
+        if (!g || e.pointerId !== g.id) return;
+        const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+        if (!g.taken) {
+          if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+            g.taken = true; g.x0 = e.clientX; // ingen hopp ved overtakelse
+            try { g.el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+            g.el.classList.add('drag');
+          } else if (Math.abs(dy) > 6) { this._sl = null; return; } // loddrett: arket scroller
+          else return;
+        }
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        const raw = g.v0 + ((e.clientX - g.x0) / g.w) * (g.max - g.min);
+        const v = M.clamp(Math.round((raw - g.min) / g.step) * g.step + g.min, g.min, g.max);
+        const vv = Number(v.toFixed(4));
+        if (vv !== g.v) { g.v = vv; this._set(g.name, vv, false); }
+      });
+      R.addEventListener('pointerup', end);
+      R.addEventListener('pointercancel', (e) => { const g = this._sl; if (g && e.pointerId === g.id && !g.taken) { this._sl = null; return; } end(e); });
+      // Etter overtakelse: ikke la Bubble Card / arket få touch-bevegelsen
+      ['touchmove'].forEach((t) => R.addEventListener(t, (e) => { if (this._sl && this._sl.taken) e.stopPropagation(); }, { passive: true }));
+    }
+    // «Lagrer …» / «Lagret» / «Kunne ikke lagre»: liten pille i tittelraden – oppdateres direkte uten ny render.
+    // «Lagret» vises i 1,5 s. Pillen har fast plass (bare opasitet endres), så den dytter ingenting.
+    _setStatus(t, kind) {
+      this.status = t; this.statusKind = kind || '';
+      this._statOn = !!t;
+      clearTimeout(this._statT);
+      if (kind === 'ok') this._statT = setTimeout(() => { this._statOn = false; const e = this.shadowRoot && this.shadowRoot.querySelector('.stat'); if (e) e.classList.remove('on'); }, 1500);
+      const el = this.shadowRoot && this.shadowRoot.querySelector('.stat');
+      if (!el) return;
+      if (el.textContent !== (t || '')) el.textContent = t || '';
+      el.className = `stat ${this.statusKind}${this._statOn ? ' on' : ''}`;
+    }
     connectedCallback() { this._glassSync(); }
     // Liquid glass: kun i et glassark (MSH.overlay med navbar-stil glass → vertens data-glass). Segmentvelgerne får glass-dra.
     _glassSync() {
@@ -347,10 +422,9 @@
       const cls = this.cardClass || {};
       const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
+        ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}<span class="tt">${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
-        ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
@@ -367,7 +441,7 @@
       if (this.focusSection && !this._focused) {
         this._focused = true;
         const el = this.shadowRoot.querySelector(`[data-focus="${CSS.escape ? CSS.escape(this.focusSection) : this.focusSection}"]`);
-        if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); }
+        if (el) { el.open = true; if (el.dataset.sec) this._open[el.dataset.sec] = true; el.scrollIntoView({ block: 'start' }); }
       }
     }
     _field(f, key) {
@@ -378,8 +452,9 @@
       const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
       switch (f.type) {
         case 'section': {
-          const open = this._open[key] != null ? this._open[key] : (f.open || (this.focusSection && f.id === this.focusSection));
-          return `<details class="sec" data-sec="${key}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${(f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('')}</div></details>`;
+          const sk = f.id ? 'id:' + f.id : key; // stabil nøkkel for åpen-tilstanden
+          const open = (!this._focused && this.focusSection && f.id === this.focusSection) || (this._open[sk] != null ? this._open[sk] : !!f.open);
+          return `<details class="sec" data-sec="${esc(sk)}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${(f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('')}</div></details>`;
         }
         case 'boolean': {
           const on = val != null ? !!val : !!f.default;
@@ -400,8 +475,11 @@
             return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-def="${f.default != null ? f.default : ''}" data-selector="${esc(JSON.stringify(sel))}" data-label="${esc(f.label || '')}" data-helper="${esc(f.help || (f.default != null ? 'Standard ' + f.default + ' ' + (f.unit || 'px') : ''))}"></ha-selector></div>`;
           }
           const pills = (f.presets || []).map(([v, l]) => `<button class="pill ${Number(v) === cur ? 'on' : ''}" data-a="sel" data-num="1" data-name="${esc(f.name)}" data-v="${v}">${esc(l)}</button>`).join('');
+          const v = cur != null ? cur : f.min, fr = f.max > f.min ? M.clamp((v - f.min) / (f.max - f.min), 0, 1) : 0;
+          const drag = this._sl && this._sl.taken && this._sl.name === f.name;
           return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:#afafaf') : ''}<span style="flex:1;font-size:13px">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
-            <input type="range" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${cur != null ? cur : f.min}">
+            <div class="sl${drag ? ' drag' : ''}" data-key="sl-${esc(f.name)}" data-name="${esc(f.name)}" data-v="${v}" data-min="${f.min}" data-max="${f.max}" data-step="${f.step || 1}" style="--f:${fr.toFixed(4)};--p:${(fr * 100).toFixed(2)}%"><div class="tr"><div class="fi"></div></div><div class="th"></div>
+              <input type="range" aria-label="${esc(f.label || f.name)}" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}"></div>
             ${pills ? `<div class="chips">${pills}</div>` : ''}${help}</div>`;
         }
         case 'stepper': { // verdien til en entitet (number/input_number/time/date/datetime/input_datetime) – skrives rett til HA
@@ -426,6 +504,11 @@
           return this._entity(f, f.name, val, auto, key);
         case 'entities': {
           const list = Array.isArray(val) ? val : [];
+          // f.multiple: HA GUI-editor → ha-selector entity { domain: [...], multiple: true } (kortets eget ark har egen velger)
+          if (f.multiple && !this._inline && customElements.get('ha-selector')) {
+            const sel = { entity: { multiple: true, ...(f.domains || f.domain ? { domain: [].concat(f.domains || f.domain) } : {}) } };
+            return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-selector="${esc(JSON.stringify(sel))}" data-label="${esc(f.label || '')}" data-helper="${esc(f.help || '')}"></ha-selector></div>`;
+          }
           if (f.addLabel) {
             return `<div class="f">${lab}${list.map((id, i) => this._entRow(id, `<button class="ib" data-a="rmlist" data-name="${esc(f.name)}" data-i="${i}" title="Fjern">${M.icon('mdi:minus-circle-outline', 20)}</button>`)).join('')}
               ${this._picker(f, f.name, '', null, key, 'add')}${help}</div>`;
@@ -560,12 +643,22 @@
       keys.forEach((k) => { if (!order.includes(k)) order.push(k); });
       const hid = new Set(get(c, f.hiddenName) || []);
       const lab = Object.fromEntries(f.options);
+      // Valgfritt: f.openName/openKeys/openDefault(cfg, key) → bryter «Åpen ved start» per rad; f.after = felt under radene
+      const opn = (k) => {
+        if (!f.openName || !(f.openKeys || []).includes(k)) return '';
+        const v = get(c, f.openName + '.' + k), on = v != null ? !!v : !!(f.openDefault && f.openDefault(c, k));
+        return `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" title="Åpen ved start" aria-label="${esc(lab[k])}: åpen ved start" data-a="bool" data-name="${esc(f.openName + '.' + k)}" data-v="${on ? 0 : 1}" ${hid.has(k) ? 'disabled' : ''} style="transform:scale(.85)"></button>`;
+      };
+      const after = (f.after || []).map((x, j) => (x.type === 'boolean' && x.on != null
+        ? (() => { const on = get(c, x.name) === x.on; return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">${esc(x.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="sel" data-name="${esc(x.name)}" data-v="${esc(on ? x.off : x.on)}"></button></div>${x.help ? `<div class="small">${esc(x.help)}</div>` : ''}</div>`; })()
+        : this._field(x, 'ord_' + f.name + '_' + j))).join('');
       return `<details class="sec" data-sec="ord_${esc(f.name)}" data-focus="sections" ${this._open['ord_' + f.name] || this.focusSection === 'sections' ? 'open' : ''}><summary>${M.icon('mdi:view-agenda-outline', 20)}${esc(f.label || 'Seksjoner')}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">
-        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(lab[k])}</span>
+        ${f.openName ? '<div class="small" style="padding:0 6px">Bryteren = «Åpen ved start»: seksjonen er utvidet hver gang popupen åpnes. Øye = vis/skjul, piler = rekkefølge.</div>' : ''}
+        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(lab[k])}</span>${opn(k)}
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="-1" ${i ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-up', 20)}</button>
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="1" ${i < order.length - 1 ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-down', 20)}</button>
           <button class="ib" data-a="hid" data-name="${esc(f.hiddenName)}" data-v="${esc(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`).join('')}
-        </div></details>`;
+        ${after}</div></details>`;
     }
     _click(e) {
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
@@ -588,7 +681,7 @@
         case 'mv': { const o = d.ord.split(','), i = Number(d.i), j = i + Number(d.d); if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; M.haptic('selection'); return this._set(d.name, o); }
         case 'hid': { const hs = new Set(get(c, d.name) || []); hs.has(d.v) ? hs.delete(d.v) : hs.add(d.v); return this._set(d.name, [...hs]); }
         case 'save': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
-        case 'cancel': return this.dispatchEvent(new CustomEvent('msh-cancel'));
+        case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
         default:
       }
     }

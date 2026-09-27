@@ -3,7 +3,7 @@
 (function () {
   const KEYS = {
     'msh-hjem-faner-card': ['tab', 'sw'],
-    'msh-rom-card': ['acc', 'cvOpen'],
+    // msh-rom-card: ingen – seksjonene starter fra «Åpen ved start» (config) ved hver åpning (Fiks 7)
     'msh-klima-card': ['tab', 'zone', 'water'],
     'msh-lys-card': ['tab', 'fold'],
     'msh-basseng-card': ['tab'],

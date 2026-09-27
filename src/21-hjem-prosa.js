@@ -6,9 +6,12 @@
  * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, act, link, cop/csrc/cval (betingelse),
  *   ent (entitet for src 'custom', påkrevd), ent_override (overstyr entiteten til en fast kilde, tom = automatisk),
  *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
- *   prose_font_size (em, 1,1–1,8, standard 1,4), prose_line_height (em, 1,6–2,4, standard 2,0),
+ *   prose_font_size (em av kortets 14 px, 1,4–2,8, standard 2,15 ≈ 30 px – MySmartHome-størrelsen på mobil; følger
+ *   HA-temaets --ha-font-size-m), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
- * Høyde: font-size 1,4em + line-height 2em av HA-kortets 14 px = 39,2 px per linje, padding 4px 0 12px 0 → linjer × 39,2 + 16.
+ * Utseende (Fiks 13 · MySmartHome): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst (≈ 0,82 × linjehøyden),
+ * #fafafa/#2f2f2f/600, pris-prikk med glød, &nbsp; mot foreldreløse korte ord, tegnsetting limt til pillen.
+ * Høyde: 2,15em × 1,55 av 14 px ≈ 46,6 px per linje, padding 4px 0 12px 0 → linjer × 46,6 + 16.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -18,7 +21,16 @@
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
-  const PCOL = { hvit: 'var(--white, #fafafa)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
+  const SIZE_FIELDS = [
+    { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.4, max: 2.8, step: 0.05, default: 2.15, unit: 'em', help: 'Relativt til kortets 14 px · standard 2,15 em ≈ 30 px', presets: [[1.8, 'Liten 1,8'], [2.15, 'Standard 2,15'], [2.5, 'Stor 2,5']] },
+    { type: 'range', name: 'prose_line_height', label: 'Linjehøyde', icon: 'mdi:format-line-spacing', min: 1.3, max: 2, step: 0.05, default: 1.55, unit: 'em', help: 'Ganger tekststørrelsen · standard 1,55 (≈ 46,6 px per linje)', presets: [[1.4, 'Tett 1,4'], [1.55, 'Standard 1,55'], [1.75, 'Luftig 1,75']] },
+  ];
+  function textSizeOf(c) {
+    const n = (v, d, lo, hi) => { const x = Number(v); return v == null || v === '' || isNaN(x) ? d : M.clamp(x, lo, hi); };
+    const [F, L] = SIZE_FIELDS;
+    return { fs: n(c && c.prose_font_size, F.default, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
+  }
+  const PCOL = { hvit: '#fafafa', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
@@ -180,7 +192,7 @@
     };
     const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p)).map(({ p, i }) => {
       const post = fill(p.post), sv = valOf(p);
-      const bg = p.color === 'auto' ? (sv && sv[2]) || C.white : PCOL[p.color] || M.color(p.color, C.white);
+      const bg = p.color === 'auto' ? (sv && sv[2]) || '#fafafa' : PCOL[p.color] || M.color(p.color, '#fafafa');
       return { i, row: p, pre: p.pre ? fill(p.pre) + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post) + ' ' : ' ', hasChip: (p.src || 'none') !== 'none',
         chip: p.src === 'text' ? fill(p.fmt) : fill(String(p.fmt || '{v}').replace(/\{v\}/g, sv ? sv[0] : '–')),
         dot: p.icon === 'dot' ? (sv && sv[2]) || C.green : null, emoji: p.icon && p.icon !== 'dot' ? p.icon : '', bg, id: sv ? sv[3] : null, tap: !!(p.act || p.link) };
@@ -190,15 +202,148 @@
     return { S, getS, rows, vis, test, valOf, valFor, autoOf, fill };
   }
 
-  const chipHTML = (v, cls) => `${v.dot ? `<span class="${cls.dot}" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
-  // Pille + etterfølgende tegnsetting i én nowrap-bit, så «.» eller «,» aldri brytes alene til neste linje.
-  const glue = (pill, post) => {
-    const m = /^[.,!?:;…»)\]]+/.exec(post || ''), p = m ? m[0] : '';
-    return `<span style="white-space:nowrap">${pill}${p ? `<span>${esc(p)}</span>` : ''}</span><span>${esc(String(post || '').slice(p.length))}</span>`;
+  const chipHTML = (v) => `${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
+  // Hele prosaen som én flytende tekst. Ord og piller er «atomer»; mellom dem settes vanlig mellomrom eller &nbsp;:
+  //  · korte ord (≤ 3 bokstaver, uten sluttegn) bindes til neste atom («det&nbsp;[pille]», «i&nbsp;dag.», «Vi&nbsp;har»)
+  //  · ord på 1–2 bokstaver rett etter en pille bindes til pillen («[pille]&nbsp;i&nbsp;dag.»)
+  //  · siste ord i en setning (≤ 4 bokstaver, «dag.», «på.») og siste ord i prosaen bindes til forrige; slutter prosaen
+  //    med bare korte ord («i dag.»), bindes de til ordet foran («kalenderen&nbsp;i&nbsp;dag.»)
+  //  · kort setningsstart (1–2 bokstaver) bindes til forrige setning («på.&nbsp;Vi&nbsp;har»)
+  //  · én pille per bundet gruppe (en binding som ville slått sammen to piller droppes)
+  //  · tegnsetting rett etter en pille limes til pillen (ingen «.» alene på neste linje).
+  // Chromium bryter linjen ved &nbsp; inntil en inline-flex-pille, så bundne grupper med pille pakkes i én nowrap-bit
+  // (.pzg). Blir en slik gruppe bredere enn kortet, deles den i fitProsa (ingen horisontal overflyt).
+  // Tallformatet røres ikke (verdiene kommer ferdig formatert, norsk).
+  const letters = (w) => w.replace(/[^\p{L}\p{N}]/gu, '').length;
+  const ends = (w) => /[.!?…]["»)\]]*$/.test(w);
+  function prosaHTML(vis, pill) {
+    const A = []; // { w } ord · { p } pille-HTML
+    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push({ w }));
+    vis.forEach((v) => {
+      words(v.pre);
+      let post = String(v.post || '').trim();
+      if (v.hasChip) {
+        const m = /^[.,!?:;…»)\]]+/.exec(post), pu = m ? m[0] : '';
+        if (pu) post = post.slice(pu.length);
+        A.push({ p: `${pill(v)}${pu ? esc(pu) : ''}`, end: /[.!?…]/.test(pu) });
+      }
+      words(post);
+    });
+    const sh = (a, n) => !!a && !!a.w && letters(a.w) > 0 && letters(a.w) <= n && !ends(a.w);
+    // bind[i] = atom i henger sammen med atom i-1
+    const bind = A.map((a, i) => {
+      if (!i) return false;
+      const b = A[i - 1];
+      if (sh(b, 3)) return true;
+      if (b.p && !b.end && sh(a, 2)) return true;
+      if (a.w && ends(a.w) && letters(a.w) <= 4 && !b.end && !(b.w && ends(b.w))) return true;
+      if (sh(a, 2) && (b.end || (b.w && ends(b.w)))) return true; // «på.&nbsp;Vi»
+      return i === A.length - 1 && !!a.w;
+    });
+    // Slutten av prosaen: består siste bundne kjede bare av korte ord («i dag.»), bindes den også til ordet foran
+    let k = A.length - 1;
+    while (k > 0 && bind[k]) k--;
+    if (k > 0 && A.slice(k).every((a) => a.w && letters(a.w) <= 4)) bind[k] = true;
+    // Én pille per gruppe: en binding som ville slått sammen to piller droppes («på.&nbsp;Vi&nbsp;har [pille]» brytes før pillen)
+    const groups = [];
+    A.forEach((a, i) => { const g = groups[groups.length - 1]; if (bind[i] && !(a.p && g.some((x) => x.p))) g.push(a); else groups.push([a]); });
+    return groups.map((g) => {
+      if (!g.some((a) => a.p)) return g.map((a) => esc(a.w)).join('&nbsp;');
+      return `<span class="pzg">${g.map((a) => a.p || `<span class="pzw">${esc(a.w)}</span>`).join('<span class="pzs">&nbsp;</span>')}</span>`;
+    }).join(' ');
+  }
+  // Linjeanalyse av ferdig tegnet prosa → antall «foreldreløse» brudd (brukes av fitProsa for å velge beste deling):
+  // ett ord alene på en linje, linje som slutter/starter med et løst kort ord, eller &nbsp;-binding brutt over linjeskift.
+  function prosaScore(pz) {
+    const A = [];
+    let st = '';
+    const walk = (node) => node.childNodes.forEach((c) => {
+      if (c.nodeType === 3) {
+        const base = st.length; st += c.data;
+        const re = /[^\s ]+/g; let m;
+        while ((m = re.exec(c.data))) {
+          const prev = st[base + m.index - 1];
+          if (!/[\p{L}\p{N}]/u.test(m[0]) && A.length && prev === '\u0001') continue; // tegnsetting limt til pillen
+          const rg = document.createRange(); rg.setStart(c, m.index); rg.setEnd(c, m.index + m[0].length);
+          const r = rg.getClientRects()[0]; if (r) A.push({ y: r.top + r.height / 2, x: r.left, bp: prev === ' ', s: letters(m[0]) <= 3 });
+        }
+      } else if (c.nodeType === 1 && c.classList.contains('chip')) { const r = c.getBoundingClientRect(); A.push({ y: r.top + r.height / 2, x: r.left, bp: st.endsWith(' '), p: 1 }); st += '\u0001'; }
+      else if (c.nodeType === 1) walk(c);
+    });
+    walk(pz);
+    const lh = parseFloat(getComputedStyle(pz).lineHeight) || 40, L = [];
+    A.forEach((a, i) => { a.i = i; const l = L.find((x) => Math.abs(x.y - a.y) < lh / 2); if (l) l.a.push(a); else L.push({ y: a.y, a: [a] }); });
+    let bad = 0;
+    L.forEach((l, k) => {
+      const a = l.a.sort((u, v) => u.x - v.x), f = a[0], z = a[a.length - 1], nx = A[z.i + 1];
+      if (a.length === 1 && !f.p) bad++;
+      if (nx && nx.bp) bad += 3;
+      if (nx && a.length > 1 && z.s && !z.p && !z.bp) bad++;
+      if (k && a.length > 1 && f.s && !f.p && !a[1].bp) bad++;
+    });
+    return bad;
+  }
+  // Grupper med pille som er bredere enn prosaen (smal skjerm / stor tekst) deles: alle kombinasjoner av «slipp ordene
+  // før pillen fra skille i» × «slipp ordene etter pillen fra skille j» prøves, og den med færrest foreldreløse brudd
+  // (prosaScore) vinner. Ordene som slippes holder fortsatt sammen seg imellom (&nbsp;). Er pillen alene fortsatt for
+  // bred, får gruppen bryte fritt (ingen horisontal overflyt).
+  const isSep = (n) => n.nodeType === 1 && n.classList.contains('pzs');
+  const isPill = (n) => n.nodeType === 1 && !n.classList.contains('pzw') && !isSep(n);
+  function splitGroup(g, l, r) { // l/r = indeks for skillet til venstre/høyre for pillen (-1 = ikke del)
+    const kids = [...g.childNodes], pi = kids.findIndex(isPill);
+    const Ls = kids.slice(0, pi).filter(isSep), Rs = kids.slice(pi + 1).filter(isSep);
+    // kutt rett etter et kort ord som skulle bundet seg framover («i», «og») straffes – ordet blir hengende på linjeslutt
+    const loose = (sep) => { const w = sep && sep.previousSibling; return w && w.nodeType === 1 && w.classList.contains('pzw') && letters(w.textContent) <= 3 && !ends(w.textContent) ? (letters(w.textContent) <= 2 ? 2 : 1) : 0; }; // «i»/«er» verst
+    const pen = (r >= 0 ? loose(Rs[r]) : 0) + (l >= 0 ? loose(Ls[l]) : 0);
+    if (r >= 0 && Rs[r]) { const k = kids.indexOf(Rs[r]), out = kids.slice(k + 1); Rs[r].remove(); g.after(' ', ...out); }
+    if (l >= 0 && Ls[l]) { const k = kids.indexOf(Ls[l]), out = kids.slice(0, k); Ls[l].remove(); g.before(...out, ' '); }
+    return pen;
+  }
+  M.fitProsa = function (pz) {
+    if (!pz) return;
+    const W = pz.clientWidth;
+    if (!W) return;
+    const wide = (g) => g.getBoundingClientRect().width > W + 0.5;
+    const n = pz.querySelectorAll('.pzg').length;
+    for (let gi = 0; gi < n; gi++) {
+      let g = pz.querySelectorAll('.pzg')[gi];
+      g.classList.remove('wrap');
+      if (!wide(g)) continue;
+      const kids = [...g.childNodes], pi = kids.findIndex(isPill);
+      const nl = kids.slice(0, pi).filter(isSep).length, nr = kids.slice(pi + 1).filter(isSep).length;
+      const base = pz.innerHTML;
+      let best = null;
+      for (let l = -1; l < nl; l++) for (let r = -1; r < nr; r++) {
+        if (l < 0 && r < 0) continue;
+        pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
+        const pen = splitGroup(g, l, r);
+        if (wide(g)) continue;
+        const sc = (prosaScore(pz) + pen) * 100 + (l + 1) + (r < 0 ? 0 : nr - r);
+        if (!best || sc < best.sc) best = { l, r, sc };
+      }
+      pz.innerHTML = base; g = pz.querySelectorAll('.pzg')[gi];
+      if (best) splitGroup(g, best.l, best.r);
+      else { splitGroup(g, nl - 1, 0); if (wide(g)) g.classList.add('wrap'); }
+    }
   };
+  M.prosaHTML = prosaHTML;
+  // Samme utseende i kortet, i GUI-editorens forhåndsvisning og i «Tilpass Hjem» → Tekst (00-base legger font på :host).
+  M.PROSA_CSS = `
+    .pz{margin:0;padding:4px 0 12px 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
+    /* Pille: 1,6em høy av 0,8em tekst (≈ 0,82 × linjehøyden 1,55) – endrer ikke linjerytmen */
+    .pz .chip{display:inline-flex;align-items:center;gap:8px;height:1.6em;margin:0;padding:0 .55em;border:0;border-radius:999px;box-shadow:none;background:#fafafa;color:#2f2f2f;font:inherit;font-size:.8em;font-weight:600;line-height:1;letter-spacing:0;white-space:nowrap;vertical-align:.08em;font-variant-numeric:tabular-nums;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
+    .pz .chip.press:active{transform:scale(.96)}
+    .pz .chip ha-icon{color:#2f2f2f;--mdc-icon-size:.9em !important;width:.9em !important;height:.9em !important}
+    .pz .chip .em{font-size:.9em;line-height:1;flex:none}
+    .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
+    .pz .pzg{white-space:nowrap}
+    .pz .pzw{white-space:nowrap}
+    .pz .pzg.wrap{white-space:normal}
+  `;
+  const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs}em;line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
+    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px)}.xpz .pzg{white-space:normal}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -263,18 +408,10 @@
   class Prosa extends M.Card {
     static get cardName() { return 'Hjem · prosa'; }
     static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet' }; }
-    // Tekststørrelse og linjehøyde i em (som originalens content_style: font-size 1.4em, line-height 2em, relativt til
-    // HA-kortets 14 px → 19,6 px tekst og 39,2 px per linje). Delt med «Tilpass Hjem» → Tekst.
-    static get sizeFields() {
-      return [
-        { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.1, max: 1.8, step: 0.05, default: 1.4, unit: 'em', help: 'Relativt til kortets 14 px · standard 1,4 em = 19,6 px', presets: [[1.2, 'Liten 1,2'], [1.4, 'Standard 1,4'], [1.6, 'Stor 1,6']] },
-        { type: 'range', name: 'prose_line_height', label: 'Linjehøyde', icon: 'mdi:format-line-spacing', min: 1.6, max: 2.4, step: 0.05, default: 2, unit: 'em', help: 'Ganger tekststørrelsen · standard 2,0 em = 39,2 px per linje', presets: [[1.8, 'Tett 1,8'], [2, 'Standard 2,0'], [2.2, 'Luftig 2,2']] },
-      ];
-    }
-    static textSize(c) {
-      const n = (v, d, lo, hi) => { const x = Number(v); return v == null || v === '' || isNaN(x) ? d : M.clamp(x, lo, hi); };
-      return { fs: n(c && c.prose_font_size, 1.4, 1.1, 1.8), lh: n(c && c.prose_line_height, 2, 1.6, 2.4) };
-    }
+    // Tekststørrelse i em av HA-kortets 14 px (standard 2,15 em ≈ 30 px = MySmartHome på mobil, skaleres med temaets
+    // tekststørrelse) og linjehøyde som faktor av tekststørrelsen (standard 1,55). Delt med «Tilpass Hjem» → Tekst.
+    static get sizeFields() { return SIZE_FIELDS; }
+    static textSize(c) { return textSizeOf(c); }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
       return (hass) => {
@@ -353,12 +490,16 @@
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
       this._sheets && this._sheets.forEach((sh) => sh.update());
-      const T = Prosa.textSize(this.config);
-      const pzS = `style="font-size:${T.fs}em;line-height:${T.lh}em"`;
+      const pzS = `style="${textStyle(this.config)}"`;
       if (!R.vis.length) {
         return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('')}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`)}</div>`;
+    }
+    afterRender() {
+      M.fitProsa(this.shadowRoot.querySelector('.pz'));
+      // ny bredde → tegn på nytt (morph gjenoppretter gruppene) og del dem på nytt
+      if (!this._fro && window.ResizeObserver) { this._fw = this.clientWidth; this._fro = new ResizeObserver(() => { const w = this.clientWidth; if (w !== this._fw) { this._fw = w; this.update(); } }); this._fro.observe(this); }
     }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
@@ -371,14 +512,9 @@
     }
     get styles() {
       return `
-        /* Grunnstørrelse = HA-kortets 14 px; teksten er 1,4em / 2em (originalens content_style), ingen margin på kortet */
+        /* Grunnstørrelse = HA-kortets 14 px; teksten er 2,15em / 1,55 (MySmartHome), ingen margin på kortet */
         :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
-        .pz{margin:0;padding:4px 0 12px 0;font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
-        /* Pillene endrer ikke linjehøyden: inline-flex på grunnlinjen, høyde 1,53em (≈30 px) < linjehøyden */
-        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--white,#fafafa);color:var(--gray000,#232323);font-size:inherit;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
-        .chip ha-icon{color:var(--gray000,#232323);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
-        .chip .em{font-size:14px;line-height:1;flex:none}
-        .dot{width:10px;height:10px;border-radius:5px;flex:none;margin:0 2px;transition:background .3s}
+        ${M.PROSA_CSS}
         .pick{vertical-align:baseline}
       `;
     }

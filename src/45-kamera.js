@@ -229,7 +229,8 @@
       if (r) {
         r.editor.card = this;
         const sh = r.overlay && r.overlay.root && r.overlay.root.querySelector('.sh');
-        if (sh) { sh.style.background = '#282828'; sh.style.padding = '16px 8px calc(24px + env(safe-area-inset-bottom))'; }
+        // flaten (solid #282828 / Liquid Glass) kommer fra MSH.overlay – her bare padding (egen bunnrad, ikke sticky)
+        if (sh) { sh.style.setProperty('--ki-sh-pt', '16px'); sh.style.setProperty('--ki-sh-px', '8px'); sh.style.setProperty('--ki-sh-pb', 'calc(24px + env(safe-area-inset-bottom, 0px))'); }
       }
       return r;
     }

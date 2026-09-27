@@ -61,7 +61,7 @@
     ['#media', 'Media', 'mdi:cast', 'msh-media-card'],
     ['#klima', 'Klima', 'mdi:thermostat', 'msh-klima-card'],
     ['#basseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'],
-    ['#ruter', 'Ruter', 'mdi:tram', 'msh-ruter-card'],
+    ['#ruter', 'Ruter', 'mdi:bus', 'msh-ruter-card'],
     ['#vanning', 'Vanning', 'mdi:sprinkler', 'msh-vanning-card'],
     ['#sikkerhet', 'Sikkerhet', 'mdi:shield-home', 'msh-sikkerhet-card'],
     ['#vaer', 'Vær', 'mdi:weather-partly-cloudy', 'msh-vaer-card'],

@@ -12,7 +12,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | mobil | Media #media | ja | ok 354 | ja | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 14 | ja | ok | 1 · mal A |
 | ✔ | mobil | Vanning #vanning | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 16 | ja | ok | 1 · mal A |
 | ✔ | mobil | Sikkerhet #sikkerhet | ja | ok 354 | ja | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 23 | ja | ok | 1 · mal A |
-| ✔ | mobil | Vær #vaer | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 32 | ja | ok | 1 · mal A |
+| ✔ | mobil | Vær #vaer | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 49 | ja | ok | 1 · mal A |
 | ✔ | mobil | Lys #lys | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | mobil | Kamera #kamera | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 20 | ja | ok | 1 · mal A |
 | ✔ | mobil | Gjøremål #gjoremal | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 3 | ja | ok | 1 · mal A |
@@ -25,7 +25,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | PC | Media #media | ja | ok 504 | ja | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 14 | ja | ok | 1 · mal A |
 | ✔ | PC | Vanning #vanning | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 16 | ja | ok | 1 · mal A |
 | ✔ | PC | Sikkerhet #sikkerhet | ja | ok 504 | ja | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 23 | ja | ok | 1 · mal A |
-| ✔ | PC | Vær #vaer | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 32 | ja | ok | 1 · mal A |
+| ✔ | PC | Vær #vaer | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 49 | ja | ok | 1 · mal A |
 | ✔ | PC | Lys #lys | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | PC | Kamera #kamera | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 20 | ja | ok | 1 · mal A |
 | ✔ | PC | Gjøremål #gjoremal | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 3 | ja | ok | 1 · mal A |
