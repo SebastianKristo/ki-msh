@@ -139,6 +139,7 @@
           ${row('nav', 'mdi:cog', 'Home Assistant', 'Innstillinger', 'data-path="/config"')}
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
+        ${M.store ? `<div class="gh">Utseende</div><div class="grp"><button class="r press" data-act="glass" role="switch" aria-checked="${M.glassOn()}"><span class="ic">${M.icon('mdi:blur', 22)}</span><span class="tx"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><i></i></span></button></div>` : ''}
         ${this._devices()}
         <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg på alle enhetene dine${M.store ? ' · denne enheten: ' + M.esc(M.store.deviceName) : ''}</div>
       </div>`;
@@ -165,7 +166,7 @@
       return `<div class="gh">Enheter</div><div class="grp">${rows}</div>`;
     }
     onInput(name, el) { if (name === 'devname') this._devName = el.value; }
-    connectedCallback() { super.connectedCallback(); if (M.store && !this._devOff) this._devOff = M.store.subscribe((d, p) => { if (!p || String(p).startsWith('devices')) this.update(); }); }
+    connectedCallback() { super.connectedCallback(); if (M.store && !this._devOff) this._devOff = M.store.subscribe((d, p) => { if (!p || /^(devices|theme)(\.|$)/.test(String(p))) this.update(); }); }
     disconnectedCallback() { super.disconnectedCallback(); if (this._devOff) { this._devOff(); this._devOff = null; } }
     async _devAct(name, id) {
       const S = M.store;
@@ -187,6 +188,7 @@
     }
     onAction(name, el, ev) {
       if (name === 'ed') return M.openDashEditor({ editor: el.dataset.e });
+      if (name === 'glass') { M.setGlassTheme(!M.glassOn()); return this.update(); } // ki-store theme.liquid_glass (per bruker)
       if (/^dev/.test(name)) return this._devAct(name, el.dataset.id);
       if (name === 'nav') return M.navigate(el.dataset.path);
       return super.onAction(name, el, ev);
@@ -203,6 +205,10 @@
         .dv{cursor:default}.tx em{font-style:normal;font-size:11px;font-weight:600;padding:2px 7px;border-radius:9px;background:rgb(115 185 242);color:#1f2a36;margin-left:6px;vertical-align:1px}
         .dva{display:flex;gap:6px;flex:none}
         .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+        .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+        .trk.on{background:var(--green,#66d19e)}
+        .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;transition:left .2s}
+        .trk.on i{left:23px}
         .sm.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}
         form.tx input{height:40px;border-radius:14px;background:var(--gray300,#404040);padding:0 12px;font-size:15px;width:100%}`;
     }

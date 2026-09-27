@@ -40,6 +40,27 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const dash2 = await S.generate({}, hass);
     res.newArea = dash2.views[0].cards[0].cards.some((c) => c.hash === '#loft');
     res.excluded = !(await S.generate({ exclude_areas: ['loft'] }, hass)).views[0].cards[0].cards.some((c) => c.hash === '#loft');
+    console.log('STEG // #ruter uten entur'); // Fiks 12: popupen lages når navbar/flis/snarvei peker dit, nøyaktig én
+    const M0 = window.MSH;
+    const h0 = { ...hass, states: Object.fromEntries(Object.entries(hass.states).filter(([id]) => !/entur|ruter_avvik/.test(id))) };
+    const nR = (d) => d.views[0].cards[0].cards.filter((c) => c.hash === '#ruter');
+    const g0 = await S.generate({}, h0), r0 = nR(g0);
+    const gHid = await S.generate({ navbar: { hidden: ['ruter'] } }, h0);
+    const gFlis = await S.generate({ navbar: { hidden: ['ruter'] }, home: { cards: { faner: { links: { l01: { title: 'Buss', hash: '#ruter' } } } } } }, h0);
+    const gNavEgen = await S.generate({ navbar: { hidden: ['ruter'], buttons: { buss: { custom: true, label: 'Buss', icon: 'directions_bus', hash: 'ruter' } } } }, h0);
+    const gYaml = await S.generate({ custom_popups: [{ type: 'custom:bubble-card', card_type: 'pop-up', hash: 'ruter', name: 'Ruter YAML', cards: [] }] }, h0);
+    const gAv = await S.generate({ popups: { ruter: false } }, h0);
+    res.ruter = {
+      utenEntur: r0.length === 1 && r0[0].icon === 'mdi:bus' && r0[0].name === 'Ruter' && r0[0].bg_opacity === '98' && r0[0].bg_blur === '5' && r0[0].cards.length === 1 && r0[0].cards[0].type === 'custom:msh-ruter-card',
+      iNavbar: [...g0.views[0].cards[0].cards[1].bar, ...g0.views[0].cards[0].cards[1].more].includes('ruter'),
+      skjultNavbarIngenRef: nR(gHid).length === 0,
+      flisSnarvei: nR(gFlis).length === 1,
+      egenNavKnapp: nR(gNavEgen).length === 1,
+      yamlKollisjonEn: nR(gYaml).length === 1 && nR(gYaml)[0].name === 'Ruter YAML',
+      popupsFalse: nR(gAv).length === 0,
+      medEntur: nR(await S.generate({ navbar: { hidden: ['ruter'] } }, hass)).length === 1,
+    };
+    await S.generate({}, hass); // tilbake til full generering (MSH.popupReport)
     console.log('STEG // render stacken'); // render stacken (panel = ett kort) og test popups
     const root = document.getElementById('dash');
     for (const c of stack.cards) { const tag = c.type.replace('custom:', ''); const el = document.createElement(tag); el.setConfig(c); el.hass = hass; root.appendChild(el); }
@@ -209,7 +230,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
   }, vp);
   const hashes = r.popups.split(' '); const unique = new Set(hashes).size === hashes.length;
   const ok = !errs.length && unique && r.oneCardEach && r.newArea && r.excluded && r.opened.every((x) => /åpen\/1kort\/header\/innhold/.test(x)) && r.editors.every((x) => /åpen z=9000/.test(x)) && r.saveCalls === 'frontend/set_user_data' && r.storeGap === 18 && r.hashAfter === '#stue' && r.editorStillOpen
-    && Object.values(r.merge).every(Boolean) && Object.values(r.live).every(Boolean) && Object.values(r.editor).every((v) => v === true || typeof v === 'number' || typeof v === 'string');
+    && Object.values(r.ruter).every(Boolean) && Object.values(r.merge).every(Boolean) && Object.values(r.live).every(Boolean) && Object.values(r.editor).every((v) => v === true || typeof v === 'number' || typeof v === 'string');
   if (!ok) fail++;
   console.log(`${ok ? '✔' : '✘'} [${vp.n}]`, JSON.stringify(r, null, 1), errs.slice(0, 3).join(' | '));
   await p.close();

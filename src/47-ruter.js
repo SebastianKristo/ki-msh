@@ -221,8 +221,36 @@
           <div class="sh"><span class="sn">${M.icon(s.icon, 20, 'color:var(--gray800, #afafaf)')}<span class="ell">${esc(s.name)}</span></span><span class="sw">${esc(s.walk)}</span></div>
           ${s.D.map((d, i) => `<div class="dep" data-key="d${i}">${this._badge(d.line, d.mode || 'bus')}<span class="dest grow ell">${esc(d.dest)}</span>${c.realtime !== false && d.rt ? M.icon('sensors', 14, `color:${C.green}`) : ''}<span class="tm num" style="color:${d.min != null && d.min <= 2 ? C.orange : 'var(--white, #fafafa)'}">${esc(d.min == null ? d.at || '–' : d.min <= 1 ? 'Nå' : d.min >= 60 && d.at ? String(d.at).replace('.', ':') : `${d.min} min`)}</span></div>`).join('')}
           ${s.D.length ? '' : '<span class="none">Ingen avganger for valgte linjer</span>'}
-        </div>`).join('') : M.emptyState('Fant ingen stopp fra Entur (entur_public_transport)', 'entities');
+        </div>`).join('') : this._empty();
       return `<div class="wrap">${dis}${hdr}${body}</div>`;
+    }
+    // Tom-tilstand (ingen entur-stopp): popupen vises alltid, med «Legg til stopp» via felles entitetssøk
+    _empty() {
+      const pk = M.entityPicker ? M.entityPicker.html({ key: 'pk-addstop', mode: 'add', domains: 'sensor', placeholder: 'Legg til stopp', attrs: 'data-addstop="1"' }) : '';
+      return `<div class="nostop" data-key="nostop">
+        <span class="nsi">${M.icon('mdi:bus-stop', 26)}</span>
+        <span class="nst">Ingen stoppesteder funnet</span>
+        <span class="nss">Fant ingen stopp fra Entur-integrasjonen (entur_public_transport). Legg til en avgangssensor, eller installer Entur-integrasjonen.</span>
+        ${pk ? `<div class="nsp">${pk}</div>` : `<button class="pick press" data-act="customize" data-section="stops">${M.icon('mdi:plus', 18)}Legg til stopp</button>`}
+      </div>`;
+    }
+    afterRender() {
+      const pk = this.shadowRoot && this.shadowRoot.querySelector('msh-entity-picker[data-addstop]');
+      if (!pk) return;
+      if (this.hass && pk.hass !== this.hass) pk.hass = this.hass;
+      if (pk.__ruter) return;
+      pk.__ruter = true;
+      pk.addEventListener('value-changed', (e) => { e.stopPropagation(); this._addStop(e.detail && e.detail.value); });
+    }
+    // Legg til stopp: include.stopp (+ fjern fra exclude) og legg sist i rekkefølgen – lagres i kortets config (ki-store)
+    async _addStop(id) {
+      if (!id) return;
+      const old = this._rawConfig || this.config, inc = { ...(old.include || {}) };
+      inc.stopp = [...new Set([...(inc.stopp || []), id])];
+      const n = { ...old, include: inc, exclude: (old.exclude || []).filter((x) => x !== id) };
+      if (Array.isArray(old.stop_order)) n.stop_order = [...old.stop_order.filter((x) => x !== id), id];
+      this.setConfig(n);
+      try { const r = await M.saveCardConfig(this.hass, old, n, { card: this }); if (r && r.config) this.setConfig(r.config); } catch (e) { console.warn('[ki-msh] Ruter', e); }
     }
     onAction(name, el, ev) {
       if (name === 'dis') return this.setUI({ disOpen: !this.ui.disOpen });
@@ -254,6 +282,11 @@
         .dest{font-size:14px}
         .tm{font-size:14px;font-weight:600;white-space:nowrap;min-width:48px;text-align:right}
         .none{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .nostop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 16px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:center}
+        .nsi{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
+        .nst{font-size:15px;font-weight:600}
+        .nss{font-size:12px;color:var(--gray700,#979797);line-height:1.45;max-width:320px;text-wrap:pretty}
+        .nsp{align-self:stretch;margin-top:6px;text-align:left}
       `;
     }
   }

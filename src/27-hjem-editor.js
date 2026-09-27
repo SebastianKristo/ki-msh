@@ -117,8 +117,9 @@
 
   /* ------------------------------------------------------------ stil */
   const CSS = `
-    .bg{background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-    .sh{padding:22px 16px 40px;border-radius:38px 38px 0 0;max-height:calc(100% - 52px);scrollbar-width:none;background:var(--gray100,#2f2f2f);box-shadow:0 -20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)}
+    /* Arket og bakteppet kommer fra MSH.overlay (MSH.sheetStyle/scrimStyle, Fiks 6): solid #282828 som standard,
+       frosted glass bare med Liquid Glass-temaet. Her bare innholdspadding. */
+    .sh{--ki-sh-pt:22px;--ki-sh-px:16px;--ki-sh-pb:40px;scrollbar-width:none}
     .sh::-webkit-scrollbar{display:none}
     .ed{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:14px;font-family:${M.FONT};-webkit-user-select:none;user-select:none}
     input,textarea{-webkit-user-select:text;user-select:text}
@@ -484,6 +485,7 @@
     _after() {
       if (this.u.sec === 'pop' && M.popupsPanel) M.popupsPanel.after(this);
       const r = this.root;
+      if (this.u.sec === 'tekst' && M.fitProsa) M.fitProsa(r.querySelector('[data-key="prev"] .pz')); // del for brede pille-grupper
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
       r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
       const ct = r.querySelector('.ct');
@@ -807,7 +809,10 @@
     _tekst() {
       const R = this._prose(), u = this.u, hass = this.hass;
       if (!R) return '<div class="hint">Prosa-kortet er ikke lastet.</div>';
-      const prev = `<div class="prev" data-key="prev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<span class="pc" style="background:${v.bg}">${v.dot ? `<span class="pd" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? ic(v.emoji, 16) : `<span>${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span></span>` : ''}<span>${esc(v.post)}</span>`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
+      // Forhåndsvisning = samme rendering og CSS som prosa-kortet (M.prosaHTML / M.PROSA_CSS, 21-hjem-prosa.js)
+      const PC0 = customElements.get('msh-prosa-card'), T0 = PC0 && PC0.textSize ? PC0.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
+      const pill = (v) => `<span class="chip" style="background:${v.bg}">${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? ic(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span></span>`;
+      const prev = `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="font-size:${T0.fs}em;line-height:${T0.lh};padding:0">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
       const P = R.rows || [];
       const areas = M.areas(hass).slice(0, 8), persons = M.all(hass, 'person');
       const toks = [...TOK, ...areas.map((a) => a.id + '.temp'), ...persons.map((p) => p.split('.')[1] + '.hjemme')];
@@ -857,7 +862,7 @@
         return row + ed;
       }).join('');
       // Tekststørrelse / linjehøyde (em, som originalens content_style) – samme felt som prosa-kortets GUI-editor
-      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: 1.4, lh: 2 };
+      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: 2.15, lh: 1.55 };
       const nfE = (x) => M.nf(x, 2).replace(/0$/, '');
       const szHTML = (PC && PC.sizeFields ? PC.sizeFields : []).map((f) => {
         const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k];
@@ -1121,7 +1126,7 @@
     _actTekst(a, d) {
       const u = this.u, i = Number(d.i);
       switch (a) {
-        case 'psize': { const def = d.f === 'prose_font_size' ? 1.4 : 2, v = Number(d.v); return this.saveP({ [d.f]: Math.abs(v - def) < 0.001 ? undefined : v, prose_offset: undefined }); }
+        case 'psize': { const PCf = customElements.get('msh-prosa-card'), F = ((PCf && PCf.sizeFields) || []).find((f) => f.name === d.f), def = F ? F.default : d.f === 'prose_font_size' ? 2.15 : 1.55, v = Number(d.v); return this.saveP({ [d.f]: Math.abs(v - def) < 0.001 ? undefined : v, prose_offset: undefined }); }
         case 'psel': u.proseSel = u.proseSel === i ? null : i; return this.render();
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));
@@ -1155,7 +1160,7 @@
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
         if (k === 'blimit') { const l = this.root.querySelector('[data-lim]'); if (l) l.textContent = v + ' %'; return; }
         if (k === 'tabpx') { const s = el.parentNode.querySelector('.stp span'); if (s) s.textContent = v + ' px'; return; }
-        if (k === 'psz') { const s = this.root.querySelector('.pszv-' + d.k); if (s) s.textContent = M.nf(Number(v), 2).replace(/0$/, '') + ' em'; const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, [d.f]: Number(v), __eff: 1 }); return; }
+        if (k === 'psz') { const s = this.root.querySelector('.pszv-' + d.k); if (s) s.textContent = M.nf(Number(v), 2).replace(/0$/, '') + ' em'; const pz = this.root.querySelector('[data-key="prev"] .pz'); if (pz) { if (d.k === 'fs') pz.style.fontSize = Number(v) + 'em'; else pz.style.lineHeight = String(Number(v)); } const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, [d.f]: Number(v), __eff: 1 }); return; }
         return;
       }
       if (el.type === 'color' || el.tagName === 'SELECT' || el.type === 'range') M.haptic('selection');

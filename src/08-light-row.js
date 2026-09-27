@@ -79,6 +79,14 @@
       <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%"></span></div></div>`;
   };
 
+  // Utelamper kan være switch/input_boolean/group/script: raden kaller light.turn_on/off → send via homeassistant.*
+  const proxies = new WeakMap();
+  const hassFor = (id, h) => {
+    if (!h || String(id).startsWith('light.')) return h;
+    let p = proxies.get(h);
+    if (!p) { p = Object.create(h); p.callService = (d, s, data, ...r) => h.callService(d === 'light' ? 'homeassistant' : d, s, data, ...r); proxies.set(h, p); }
+    return p;
+  };
   M.mountLightRows = function (card, cfgOf) {
     const R = card.shadowRoot, h = card.hass;
     if (!R || !h) return;
@@ -111,12 +119,13 @@
       if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
       const cfg = cfgOf(id, wrap), json = JSON.stringify(cfg);
       if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
-      if (rec.el.hass !== h) rec.el.hass = h;
+      const hh = hassFor(id, h);
+      if (rec.el.hass !== hh) rec.el.hass = hh;
       if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
     });
   };
   M.lightRowsHass = function (card, h) {
-    if (card._lc) card._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    if (card._lc) card._lc.forEach((rec, id) => { const hh = hassFor(id, h); if (rec.el.isConnected && rec.el.hass !== hh) rec.el.hass = hh; });
   };
   M.LIGHT_ROW_CSS = `
     .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,40px) + 28px)}

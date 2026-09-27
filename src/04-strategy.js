@@ -67,7 +67,29 @@
       .sort((a, b) => (lvl[a.floor_id] ?? 99) - (lvl[b.floor_id] ?? 99) || a.name.localeCompare(b.name, 'nb'))
       .map((a) => ({ id: a.area_id, name: a.name, icon: a.icon }));
   }
-  // Funksjons-popups: bare når det finnes entiteter for dem (entiteter.md)
+  /* Popups som alltid lages når noe peker på dem (Fiks 12 · #ruter): navbar-knapp (innebygd id = hash uten #, med mindre
+   * den er skjult eller har fått annen hash; egne knapper med hash), Hjem-flis (Tilpass Hjem → overrides.<id>) eller
+   * en snarvei/lenke/popup_hash hvor som helst i kortconfigene (ki-store cards.* og strategiens home/navbar).
+   * Mangler entitetene viser kortet tom-tilstanden (aldri skjult popup). */
+  // Popups som lages når noe peker på dem (navbarens innebygde knapper, Hjem-flis, snarveier), også uten entiteter –
+  // kortene viser da tom-tilstand i stedet for at knappen peker på en popup som ikke finnes.
+  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#basseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
+  const hasStr = (o, v, d) => (d > 12 || o == null ? false : typeof o === 'string' ? o.trim() === v : typeof o === 'object' ? Object.values(o).some((x) => hasStr(x, v, (d || 0) + 1)) : false);
+  function popupRefs(hash, config, user) {
+    const R = M.REF_POPUPS[hash];
+    if (!R) return false;
+    const I = M.CARD_IDS || {}, cards = (user && user.cards) || {};
+    const nav = { ...(config.navbar || {}), ...(cards[I.navbar] || {}) };
+    const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
+    const oh = own.hash != null && own.hash !== '' ? '#' + String(own.hash).trim().replace(/^#/, '') : hash;
+    if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
+    if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && B[k].hash != null && '#' + String(B[k].hash).trim().replace(/^#/, '') === hash)) return true;
+    const faner = { ...(((config.home || {}).cards || {}).faner || {}), ...(cards[I.faner] || {}) };
+    if (R.tile && faner.overrides && faner.overrides[R.tile]) return true; // Hjem-flis med valgt entitet
+    return hasStr(cards, hash) || hasStr(config.home, hash);
+  }
+  M.popupRefs = popupRefs;
+  // Funksjons-popups: når det finnes entiteter for dem (entiteter.md), eller noe peker på dem (M.REF_POPUPS)
   function buildFunctionPopups(R, hass, config, user) {
     const has = (dom, f) => M.all(hass, dom, f).length > 0;
     const plat = (...p) => R.entities.some((e) => p.includes(e.platform) && hass.states[e.entity_id]);
@@ -89,7 +111,7 @@
     M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => {
       const key = hash.slice(1);
       if (hide[key] === false) return;
-      if (cond[hash] && !cond[hash]()) return;
+      if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
       out.push({ hash, name, icon, tag });
     });
     M.all(hass, 'person').forEach((pid) => {
@@ -163,6 +185,7 @@
       if (!w || w.source !== source || w.index !== index) return;
       const list = cand.get(hash), gen = list.find((x) => x.source === 'auto');
       let cfg = clone(w.config), override = null, overrideFrom = null, hidden = false, hiddenBy = null;
+      if (cfg.hash !== hash) cfg.hash = hash; // 'ruter' / ' #ruter' → '#ruter' (Bubble Card sammenligner med location.hash)
       [['store', ovOf(SO, hash)], ['yaml', ovOf(YO, hash)]].forEach(([from, ov]) => {
         if (ov === undefined || ov === null || ov === true) return;
         if (ov === false || (isObj(ov) && ov.hidden === true && Object.keys(ov).length === 1)) { hidden = true; hiddenBy = from; return; }

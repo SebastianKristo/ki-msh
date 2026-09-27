@@ -156,13 +156,57 @@
     "cards": [
       {
         "type": "custom:msh-prosa-card",
-        "prose_font_size": 1.8,
-        "prose_line_height": 2.4
+        "prose_font_size": 2.8,
+        "prose_line_height": 2
       },
       {
         "type": "custom:msh-prosa-card",
-        "prose_font_size": 1.1,
-        "prose_line_height": 1.6
+        "prose_font_size": 1.4,
+        "prose_line_height": 1.3
+      }
+    ]
+  },
+  {
+    "name": "Hjem · header soner og tittelhandlinger",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-header-card",
+        "people": [
+          {
+            "person": "person.emma",
+            "home_switch": "input_boolean.emma_hjemme"
+          },
+          {
+            "person": "person.rune",
+            "home_switch": "input_boolean.rune_hjemme"
+          },
+          {
+            "person": "person.sebastian"
+          },
+          {
+            "person": "person.cybele"
+          }
+        ],
+        "zones": {
+          "zone.skole": {
+            "icon": "mdi:school",
+            "color": "var(--blue)"
+          }
+        },
+        "title_actions": {
+          "tap": "server",
+          "double_tap": "config",
+          "hold": "kiosk"
+        },
+        "kiosk_entity": "input_boolean.kiosk_mode"
+      },
+      {
+        "type": "custom:msh-hjem-header-card",
+        "mode": "profil",
+        "away_marker": true,
+        "title_actions": {
+          "double_tap": "none"
+        }
       }
     ]
   }

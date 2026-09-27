@@ -22,6 +22,29 @@
   const SECS = [['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
   // Lister (config.include-nøkler) → domener for «legg til»-søk
   const LISTS = [['gardiner', 'Rullegardin', ['cover']], ['scener', 'Scener', ['scene', 'script']], ['lys', 'Lys', ['light']], ['enheter', 'Enheter', ['switch', 'fan', 'input_boolean']], ['klima', 'Klima', ['climate']], ['media', 'Media', ['media_player']], ['sensorer', 'Sensorer', ['binary_sensor', 'sensor']]];
+  // «Åpen ved start» (sammenleggbare seksjoner, i designets rekkefølge). curtain = Gardiner (utvidet liste når
+  // rommet har flere gardiner, ui.cvOpen); de andre = akkordeonene (ui.acc). Toppkortet og Scener er alltid synlige.
+  // Config per rom: sections_open.<id> (true/false) + sections_mode 'single'|'multi' (std multi). Leser også
+  // prompt-/YAML-formen sections.<navn>.open_on_start når sections er et objekt (ellers er sections rekkefølgen).
+  // Global standard: ki-store room_defaults.open_on_start [ids] («Tilpass Hjem» → Popups). Rom-config overstyrer.
+  // Uten noe valgt: alle lukket, unntatt Lys når rommet har lys. Ingenting av dette lagres i localStorage.
+  const FOLD = [['lys', 'Lys'], ['curtain', 'Gardiner'], ['klima', 'Klima'], ['dev', 'Enheter'], ['sens', 'Sensorer'], ['media', 'Medier']];
+  const FOLD_ALIAS = { lys: 'lys', curtain: 'curtain', gardiner: 'curtain', rullegardin: 'curtain', klima: 'klima', dev: 'dev', enheter: 'dev', sens: 'sens', sensorer: 'sens', media: 'media', medier: 'media' };
+  M.ROOM_FOLD = FOLD;
+  M.roomOpenDefaults = function () {
+    const g = M.store && M.store.get ? M.store.get('room_defaults') : null;
+    const l = g && Array.isArray(g.open_on_start) ? g.open_on_start : null;
+    return l ? l.map((k) => FOLD_ALIAS[k]).filter(Boolean) : null;
+  };
+  // Startverdi for én seksjon (uten single-modus). hasLys = rommet har lys.
+  const openDefault = (c, k, hasLys) => {
+    const own = c.sections_open && typeof c.sections_open === 'object' ? c.sections_open : {};
+    if (own[k] != null) return !!own[k];
+    const obj = c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : null;
+    if (obj) { const a = Object.keys(obj).find((x) => FOLD_ALIAS[x] === k && obj[x] && obj[x].open_on_start != null); if (a) return !!obj[a].open_on_start; }
+    const g = M.roomOpenDefaults();
+    return g ? g.includes(k) : k === 'lys' && !!hasLys;
+  };
   const LT_NAMES = [['', 'Auto'], ['dim', 'Dimbar'], ['ct', 'Dimbar + temperatur'], ['color', 'Dimbar + farge'], ['onoff', 'Kun av/på']];
 
   // Apparatprofiler (fra designet): navn → ikon, farge, verb, terskel (W), animasjon
@@ -211,7 +234,10 @@
           { type: 'select', name: 'klima_btn', label: 'Klima-kort · knapp', options: [['outline', 'Kontur'], ['fill', 'Fylt']], default: 'outline' },
           { type: 'boolean', name: 'klima_mode', label: 'Farg etter modus', help: 'Rød ved oppvarming, blå ved kjøling' },
         ] },
-        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner', options: SECS.map((s) => [s[0], s[1]]) },
+        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner', options: SECS.map((s) => [s[0], s[1]]),
+          // «Åpen ved start» per sammenleggbar seksjon (bryter i raden) + «Én seksjon åpen om gangen» nederst
+          openName: 'sections_open', openKeys: FOLD.map((x) => x[0]), openDefault: (cc, k) => openDefault(cc || {}, k, !!(L && L.lists.lys.length)),
+          after: [{ type: 'boolean', name: 'sections_mode', label: 'Én seksjon åpen om gangen', on: 'single', off: 'multi', help: 'Åpner du én seksjon, lukkes de andre. Skjulte seksjoner ignorerer «Åpen ved start».' }] },
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
@@ -330,6 +356,18 @@
       const open = !!(this.ui.acc || {})[k];
       return `<button class="acc" data-act="acc" data-k="${k}">${M.icon(icon, 24)}<span class="acct">${esc(title)}</span><span class="accs">${esc(sum || '')}</span>${this._chev(open)}</button>`;
     }
+    // Seksjonenes utgangspunkt fra config. Settes ved hver åpning (onOpen) og når innstillingen endres.
+    _startAcc(order, L) {
+      const c = this.config, hasLys = !!(L && L.lists.lys.length), st = {};
+      const fold = order.filter((k) => FOLD_ALIAS[k]);
+      fold.forEach((k) => { st[k] = openDefault(c, k, hasLys); });
+      if (c.sections_mode === 'single') { let seen = false; fold.forEach((k) => { if (st[k] && seen) st[k] = false; if (st[k]) seen = true; }); }
+      const sig = JSON.stringify(st);
+      if (this._accSig === sig && this._ui.acc) return;
+      this._accSig = sig;
+      const { curtain, ...acc } = st;
+      this._ui = { ...this._ui, acc, cvOpen: !!curtain };
+    }
     _listChanged(key) { const a = this._L.auto[key] || [], l = this._L.lists[key] || []; return a.length !== l.length || a.some((x, i) => x !== l[i]); }
 
     render() {
@@ -346,6 +384,7 @@
       const order = (Array.isArray(c.sections) ? c.sections.filter((k) => keys.includes(k)) : []);
       keys.forEach((k) => { if (!order.includes(k)) order.push(k); });
       const hid = new Set(c.hidden_sections || []);
+      this._startAcc(order.filter((k) => !hid.has(k)), L);
       const R = { curtain: () => this._curtain(), scenes: () => this._scenes(), lys: () => this._lights(), dev: () => this._devices(), klima: () => this._klima(), media: () => this._media(), sens: () => this._sensors() };
       const secs = order.filter((k) => !hid.has(k)).map((k) => R[k]()).filter(Boolean).join('');
       const any = LISTS.some(([k]) => L.lists[k].length);
@@ -603,8 +642,10 @@
     /* ------------ handlinger */
     onAction(name, el, ev) {
       const d = el.dataset, h = this.hass;
-      if (name === 'acc') { const acc = { ...(this.ui.acc || {}) }; acc[d.k] = !acc[d.k]; return this.setUI({ acc }); }
-      if (name === 'cvx') return this.setUI({ cvOpen: !this.ui.cvOpen });
+      // sections_mode: single → åpner man én, lukkes de andre (også gardin-listen)
+      const single = this.config.sections_mode === 'single';
+      if (name === 'acc') { const on = !(this.ui.acc || {})[d.k]; const acc = single && on ? {} : { ...(this.ui.acc || {}) }; acc[d.k] = on; return this.setUI(single && on ? { acc, cvOpen: false } : { acc }); }
+      if (name === 'cvx') { const on = !this.ui.cvOpen; return this.setUI(single && on ? { cvOpen: true, acc: {} } : { cvOpen: on }); }
       if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
@@ -682,7 +723,8 @@
       this._applySpacing();
     }
     _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom, icon_color_mode: c.icon_color_mode, icon_tap: c.icon_tap }; }
-    onOpen() { if (M.store) M.store.refresh(this.hass); this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
+    // Hver åpning via hash starter fra «Åpen ved start» – det som var åpent sist huskes ikke.
+    onOpen() { this._ui.acc = null; this._accSig = null; this._schedule(true); if (M.store) M.store.refresh(this.hass); this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
     afterRender() {
       const R = this.shadowRoot;
       const area = M.roomArea(this);
@@ -738,6 +780,9 @@
         .acct{flex:1;font-size:16px;font-weight:500}
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
+        .box>.bd,.box>.cw,.cvo{animation:accin .22s cubic-bezier(.3,.9,.3,1)}
+        @keyframes accin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+        @media (prefers-reduced-motion:reduce){.box>.bd,.box>.cw,.cvo{animation:none}}
         /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
         .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}

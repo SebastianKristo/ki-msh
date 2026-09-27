@@ -185,7 +185,7 @@ views:
           - type: custom:bubble-card
             card_type: pop-up
             name: Ruter
-            icon: mdi:tram
+            icon: mdi:bus
             state: null
             hash: '#ruter'
             is_sidebar_hidden: true

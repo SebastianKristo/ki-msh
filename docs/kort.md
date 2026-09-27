@@ -73,6 +73,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `mode` | Oppsett (familie \| sted \| navn \| under \| kompakt \| hjem \| stor \| profil) · modes |  |
+| `kiosk_entity` | Kiosk-modus-entitet · entity | Handlinger på tittelen |
 | `g_font` | Maks tekst · range | Størrelser |
 | `g_avatar` | Bilder · range | Størrelser |
 | `g_badge` | Merke · range | Størrelser |
@@ -80,17 +81,10 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `pic_size` | Profilbilde · range | Størrelser |
 | `persons_size` | Personer · range | Størrelser |
 | `title_size` | Tittel · range | Størrelser |
+| `people` | Personer i headeren · rows | Personer |
 | `zones` | Soner med eget ikon og farge · rows | Soner |
-| `zone_away.icon` | Borte · annen sone – ikon · icon | Soner |
-| `zone_away.color` | Borte · annen sone – farge · color | Soner |
+| `away_marker` | Borte · vis grå markør · boolean | Soner |
 | `greeting` | Hilsen | Hilsen |
-| `person_order · hidden_persons` | rekkefølge/synlighet: person.cybele, person.rune, person.sebastian |  |
-| `persons_cfg.cybele.display` | Cybele · visning (picture \| icon \| initials) | Personer · visning |
-| `persons_cfg.cybele.picture` | Cybele · bilde-URL | Personer · visning |
-| `persons_cfg.rune.display` | Rune · visning (picture \| icon \| initials) | Personer · visning |
-| `persons_cfg.rune.picture` | Rune · bilde-URL | Personer · visning |
-| `persons_cfg.sebastian.display` | Sebastian · visning (picture \| icon \| initials) | Personer · visning |
-| `persons_cfg.sebastian.picture` | Sebastian · bilde-URL | Personer · visning |
 | `size` | Størrelse (S \| M \| L) | Bilder |
 | `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
 | `show_name` | Vis navn · boolean | Bilder |
@@ -101,8 +95,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `person_tap` | Trykk på person (quick \| popup) | Bilder |
 | `servers` | Bytt sted – Home Assistant-installasjoner (også denne) · rows | Steder (servermeny) |
 | `place_name` | Navn på dette stedet | Steder (servermeny) |
-| `overrides.{weather, kiosk, sover_cybele, hjemme_cybele, sover_rune, hjemme_rune, sover_sebastian, hjemme_sebastian}` | bytt entitet |  |
-| `exclude · include.{personer}` | skjul / legg til |  |
+| `overrides.{weather, sover_cybele, sover_emma, sover_rune, sover_sebastian}` | bytt entitet |  |
 
 ## `msh-prosa-card`
 
@@ -1213,29 +1206,32 @@ Avvik (Entur SX) og avganger per stopp (Entur). #ruter
 
 ## `msh-vaer-hero-card`
 
-Været nå med animasjon, sol/måne/UV og pollen i en sveipbar karusell. Først i #vaer.
+Været nå med værbakgrunn, sol/måne/UV og pollen i en sveipbar karusell. Innebygd i msh-vaer-card.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `name` | Stedsnavn |  |
-| `overrides.{weather, sol, mane}` | bytt entitet |  |
+| `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
 | `exclude · include.{pollen}` | skjul / legg til |  |
-| `show_extras` | Side 2 · Andre varsler (sol, måne, UV) · boolean | Visning |
-| `show_pollen` | Side 3 · Pollen i dag · boolean | Visning |
+| `show_extras` | Toppkort side 2 · Andre varsler (sol, måne, UV) · boolean | Visning |
+| `show_pollen` | Toppkort side 3 · Pollen i dag · boolean | Visning |
 
 ## `msh-vaer-card`
 
-Farevarsler, time for time, dagskort, detaljkort og månefase. Prognose abonneres kun mens #vaer er åpen.
+Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Tilpass været». Prognose abonneres kun mens #vaer er åpen.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `overrides.{weather, sol, mane}` | bytt entitet |  |
-| `sections · hidden_sections` | rekkefølge/synlighet: alerts, hours, graph, days, tiles, moon, edit |  |
+| `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
+| `sections · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
 | `tiles · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain |  |
+| `name` | Stedsnavn | Toppkort |
+| `show_extras` | Toppkort side 2 · Andre varsler (sol, måne, UV) · boolean | Toppkort |
+| `show_pollen` | Toppkort side 3 · Pollen i dag · boolean | Toppkort |
 | `hours` | Timer i «Time for time» · number | Prognose |
 | `days` | Antall dagskort · number | Prognose |
-| `show_graph` | Temperaturgraf med scrub (neste 24 t) · boolean | Prognose |
-| `exclude · include.{varsler}` | skjul / legg til |  |
+| `show_graph` | Temperaturgraf med scrub (etter Time for time) · boolean | Prognose |
+| `exclude · include.{varsler, pollen}` | skjul / legg til |  |
 | `gap` | 4 / 8 / 18 px |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |

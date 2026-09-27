@@ -20,6 +20,22 @@
   const toasts = (card) => ({ enabled: !(card && card.config && card.config.toasts === false) });
   M.hjemToast = (card, text) => M.toast(text, toasts(card));
 
+  /* ------------------------------------------------------------ handlinger på tittelen (Fiks 9) */
+  // title_actions: { tap, double_tap, hold } – hver er én av TACTS. kiosk_entity: input_boolean (standard input_boolean.kiosk_mode).
+  const TACTS = [['server', 'Bytt sted', 'mdi:swap-horizontal'], ['kiosk', 'Kiosk-modus av/på', 'mdi:fullscreen'], ['config', 'Innstillinger', 'mdi:cog'], ['edit', 'Rediger dashbord', 'mdi:pencil'], ['header', 'Tilpass header', 'mdi:page-layout-header'], ['vaer', 'Åpne Vær', 'mdi:weather-partly-cloudy'], ['none', 'Ingen', 'mdi:cancel']];
+  const TACT_L = Object.fromEntries(TACTS.map(([k, l]) => [k, l]));
+  const TGESTS = [['tap', 'Trykk', 'mdi:gesture-tap'], ['double_tap', 'Dobbelttrykk', 'mdi:gesture-double-tap'], ['hold', 'Hold', 'mdi:gesture-tap-hold']];
+  const TACT_DEF = { tap: 'server', double_tap: 'config', hold: 'kiosk' };
+  const KIOSK_DEF = 'input_boolean.kiosk_mode';
+  M.HJEM_TITLE_ACTIONS = TACTS;
+  // Effektive handlinger (ukjente/manglende verdier → standard). Ren funksjon.
+  M.hjemTitleActions = function (c) {
+    const t = (c && c.title_actions) || {}, out = {};
+    Object.keys(TACT_DEF).forEach((k) => { out[k] = TACT_L[t[k]] ? t[k] : TACT_DEF[k]; });
+    return out;
+  };
+  M.hjemKioskEntity = (c) => (c && c.kiosk_entity) || (c && c.overrides && c.overrides.kiosk) || KIOSK_DEF;
+
   /* ------------------------------------------------------------ vær */
   const COND = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Styrtregn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
   M.hjemCond = M.hjemCond || function (state) { return COND[state] || (state ? String(state) : '–'); };
@@ -90,12 +106,24 @@
     .xprev .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums}
     .xprev .pd{width:8px;height:8px;border-radius:4px;display:inline-block}
     .xchip{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#fff}
+    .xta{display:flex;flex-direction:column;gap:6px}
+    .xtr{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 8px 0 10px;border-radius:26px;background:#2f2f2f}
+    .xtr .ti{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:#232323;color:#afafaf}
+    .xtr b{flex:1;min-width:0;font-size:14px;font-weight:500}
+    .xpill{position:relative;flex:none;display:flex;align-items:center;gap:6px;height:38px;max-width:62%;padding:0 8px 0 14px;border-radius:19px;background:#545454;color:#fafafa;font-size:13px;font-weight:500;white-space:nowrap}
+    .xpill.none{background:transparent;color:#979797;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
+    .xpill span{overflow:hidden;text-overflow:ellipsis}
+    .xpill select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;background:transparent;color:#232323}
+    .xtsel{display:flex;flex-direction:column;gap:8px}
   `;
   let XSHEET = null;
   const Base = customElements.get('msh-editor');
   if (Base && !customElements.get('msh-hjem-editor')) {
     class HjemEditor extends Base {
-      constructor() { super(); this._ropen = {}; this._btns = {}; }
+      constructor() {
+        super(); this._ropen = {}; this._btns = {};
+        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && e.target.dataset.tact) M.haptic('selection'); });
+      }
       _css() {
         if (this._cssOk || !this.shadowRoot) return;
         try {
@@ -108,6 +136,10 @@
         this._css();
         this._btns = {};
         super._render();
+        if (this.shadowRoot) {
+          const A = M.hjemTitleActions(this._config || {});
+          this.shadowRoot.querySelectorAll('[data-tact]').forEach((el) => { const v = A[el.dataset.tact]; if (el.value !== v) el.value = v; });
+        }
         if (this._cssFallback && this.shadowRoot && !this.shadowRoot.getElementById('xcss')) {
           const s = document.createElement('style'); s.id = 'xcss'; s.textContent = XCSS; this.shadowRoot.appendChild(s);
         }
@@ -122,6 +154,7 @@
       _rowsOf(f) {
         const v = get(this._config || {}, f.name);
         if (Array.isArray(v)) return v;
+        if (v && typeof v === 'object' && f.toList) { try { return f.toList(v, this._hass); } catch (e) { return []; } }
         try { return (f.defaults && f.defaults(this._hass, this._config || {})) || []; } catch (e) { return []; }
       }
       _val(path) {
@@ -136,10 +169,25 @@
           if (f) {
             const list = this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {})));
             if (list[+m[2]]) setIn(list[+m[2]], m[3], v);
-            return super._set(m[1], list, commit);
+            return this._rowsSave(f, list, commit);
           }
         }
         return super._set(path, v, commit);
+      }
+      // Rader lagres som liste, eller i feltets eget format (fromList, f.eks. zones-map)
+      _rowsSave(f, list, commit) { return super._set(f.name, f.fromList ? f.fromList(list) : list, commit); }
+      // Handlinger på tittelen: tre rader med en pille som er en usynlig native <select> (OS-velgeren).
+      // HA GUI-editoren: ha-selector select per gest.
+      _titleActs() {
+        const A = M.hjemTitleActions(this._config || {});
+        if (!this._inline && customElements.get('ha-selector')) {
+          const sel = JSON.stringify({ select: { mode: 'dropdown', options: TACTS.map(([v, l]) => ({ value: v, label: l })) } });
+          return `<div class="xtsel">${TGESTS.map(([g, l]) => `<div class="f"><ha-selector data-name="title_actions.${g}" data-tact="${g}" data-nomorph data-selector="${esc(sel)}" data-label="${esc(l)}" data-helper="Standard: ${esc(TACT_L[TACT_DEF[g]])}"></ha-selector></div>`).join('')}</div>`;
+        }
+        return `<div class="xta">${TGESTS.map(([g, l, ic]) => {
+          const v = A[g];
+          return `<div class="xtr" data-key="ta-${g}"><span class="ti">${M.icon(ic, 20)}</span><b>${esc(l)}</b><label class="xpill ${v === 'none' ? 'none' : ''}"><span>${esc(TACT_L[v])}</span>${M.icon('mdi:unfold-more-horizontal', 16, 'color:#afafaf;flex:none')}<select data-name="title_actions.${g}" data-tact="${g}" aria-label="${esc(l)}">${TACTS.map(([k, kl]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(kl)}</option>`).join('')}</select></label></div>`;
+        }).join('')}</div>`;
       }
       _field(f, key) {
         const h = this._hass, c = this._config || {};
@@ -148,6 +196,7 @@
         const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
         switch (f.type) {
           case 'rows': return this._rows(f, key);
+          case 'titleacts': return this._titleActs();
           case 'modes': {
             const cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
             return `<div class="f" style="background:transparent;padding:4px 0">${lab}<div class="xmodes">${f.options.map(([v, l, ic, sub]) => `<button class="xmode ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"><span class="iw">${M.icon(ic, 20)}</span><b>${esc(l)}</b><i>${esc(sub || '')}</i></button>`).join('')}</div>${help}</div>`;
@@ -213,10 +262,10 @@
         const i = Number(d.i);
         switch (d.a) {
           case 'x-ropen': this._ropen[d.n] = this._ropen[d.n] === i ? null : i; return this._render();
-          case 'x-rmv': { const j = i + Number(d.d); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; if (this._ropen[d.n] === i) this._ropen[d.n] = j; M.haptic('selection'); return super._set(d.n, list); }
-          case 'x-rhide': list[i].hidden = !list[i].hidden; if (!list[i].hidden) delete list[i].hidden; return super._set(d.n, list);
-          case 'x-rdel': list.splice(i, 1); if (this._ropen[d.n] === i) this._ropen[d.n] = null; return super._set(d.n, list);
-          case 'x-radd': { let r = {}; try { r = f.newRow(this._hass, this._config || {}, list) || {}; } catch (x) { /* */ } list.push(r); this._ropen[d.n] = list.length - 1; return super._set(d.n, list); }
+          case 'x-rmv': { const j = i + Number(d.d); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; if (this._ropen[d.n] === i) this._ropen[d.n] = j; M.haptic('selection'); return this._rowsSave(f, list); }
+          case 'x-rhide': list[i].hidden = !list[i].hidden; if (!list[i].hidden) delete list[i].hidden; return this._rowsSave(f, list);
+          case 'x-rdel': list.splice(i, 1); if (this._ropen[d.n] === i) this._ropen[d.n] = null; return this._rowsSave(f, list);
+          case 'x-radd': { let r = {}; try { r = f.newRow(this._hass, this._config || {}, list) || {}; } catch (x) { /* */ } list.push(r); this._ropen[d.n] = list.length - 1; return this._rowsSave(f, list); }
           case 'x-tok': { const cur = String(this._val(d.name) || ''); const v = d.pre === '1' ? d.v + cur : `${cur} ${d.v}`.trim(); return this._set(d.name, v); }
           case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
           default:
@@ -239,7 +288,6 @@
 
   /* ------------------------------------------------------------ hurtigark: felles ramme */
   const SHEET_CSS = `
-    .bg{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
     .sh{overflow:visible;width:calc(100% - 40px);max-width:300px;padding:62px 14px 14px;border-radius:30px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 30px 60px rgba(0,0,0,0.5)}
     .body{display:flex;flex-direction:column;gap:10px}
     .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
@@ -369,10 +417,33 @@
 
   /* ------------------------------------------------------------ personer og soner */
   const PCOLS = ['orange', 'pink', 'blue', 'green', 'purple', 'yellow', 'red', 'light-blue'].map((k) => C[k.replace(/-(\w)/g, (_, x) => x.toUpperCase())]);
-  const ZCOLS = [C.purple, C.red, C.blue, C.yellow, C.green, C.orange, C.pink, C.gray700];
+  // Standardpalett for soner uten egen farge: stabil hash av sone-ID → My SmartHome-farge (grønn er forbeholdt Hjemme).
+  // (rekkefølgen gir f.eks. zone.skole → blå)
+  const ZPAL = [C.purple, C.orange, C.pink, C.yellow, C.red, C.lightBlue, C.blue, C.lime].filter(Boolean);
+  const ZCOLS = ZPAL;
   const ZICONS = ['location_city', 'stethoscope', 'apartment', 'agriculture', 'sailing', 'work', 'school', 'cottage', 'fitness_center', 'flight', 'home', 'shopping_cart', 'restaurant', 'local_hospital', 'directions_car', 'logout'];
-  const autoZones = (hass) => M.all(hass, 'zone', (s, id) => id !== 'zone.home').map((id, i) => ({ zone: id, icon: hass.states[id].attributes.icon || 'mdi:map-marker', color: ZCOLS[i % ZCOLS.length] }));
-  const zonesOf = (hass, c) => (Array.isArray(c.zones) ? c.zones : autoZones(hass));
+  const HOME_ST = { icon: 'mdi:home', color: C.green };
+  const AWAY_ICON = 'mdi:map-marker-off', AWAY_COL = 'var(--gray500, #696969)';
+  M.hjemZonePal = function (zid) {
+    let h = 0;
+    for (const ch of String(zid || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+    return ZPAL[h % ZPAL.length];
+  };
+  // Sone-oppsett i config: zones: { 'zone.skole': { icon, color } } (også eldre liste [{ zone, icon, color }]).
+  const zoneCfg = (c, zid) => {
+    const z = c && c.zones;
+    if (!z || !zid) return {};
+    if (Array.isArray(z)) return z.find((x) => x && x.zone === zid) || {};
+    return (typeof z === 'object' && (z[zid] || z[String(zid).replace(/^zone\./, '')])) || {};
+  };
+  // Ikon og farge for en sone. zone.home er låst til Hjemme-stilen (grønt hus).
+  M.hjemZoneStyle = function (hass, c, zid, rd) {
+    if (zid === 'zone.home') return { ...HOME_ST };
+    const st = zid ? (rd ? rd(zid) : hass && hass.states[zid]) : null;
+    const z = zoneCfg(c, zid);
+    return { icon: z.icon || (st && st.attributes.icon) || 'mdi:map-marker', color: M.color(z.color, null) || M.hjemZonePal(zid) };
+  };
+  const autoZones = (hass) => M.all(hass, 'zone', (s, id) => id !== 'zone.home').map((id) => ({ zone: id }));
   const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
   const clampN = (v, lo, hi, d) => { const n = Number(v); return v === '' || v == null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); };
   const objId = (id) => String(id).split('.')[1];
@@ -383,13 +454,51 @@
     return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
   };
   const DISPLAYS = ['picture', 'icon', 'initials'];
+  // people: [{ person, home_switch, use_gps_when_off, display, picture, hidden }] – raden for en person (eller null).
+  M.hjemPeopleRow = (c, id) => (Array.isArray(c && c.people) ? c.people : []).find((r) => r && r.person === id) || null;
   M.hjemPersonCfg = function (c, id) {
     const o = objId(id), list = Array.isArray(c && c.persons) ? c.persons : [];
     const y = list.find((x) => x && (x.entity === id || x.entity === o)) || {};
     const g = (c && c.persons_cfg && c.persons_cfg[o]) || {};
+    const r = M.hjemPeopleRow(c, id) || {};
     const out = { ...y };
-    Object.keys(g).forEach((k) => { if (g[k] != null && g[k] !== '') out[k] = g[k]; });
+    [g, { display: r.display, picture: r.picture }].forEach((src) => Object.keys(src).forEach((k) => { if (src[k] != null && src[k] !== '') out[k] = src[k]; }));
     return out;
+  };
+  // Hjemme-bryteren til en person: people[].home_switch (eldre: overrides.hjemme_<id>). Aldri gjettet.
+  M.hjemHomeSwitch = function (c, id) {
+    const r = M.hjemPeopleRow(c, id);
+    if (r && r.home_switch) return r.home_switch;
+    const ov = (c && c.overrides) || {};
+    return ov['hjemme_' + objId(id)] || null;
+  };
+  /* Status for én person (ren funksjon – testbar). p = 'person.x' eller en people-rad. rd = state-leser (valgfri).
+   * 1) Hjemme-bryter på → Hjemme (vinner over GPS/sone).
+   * 2) person.* i en annen sone enn home → sonens ikon + farge (config → standardpalett).
+   * 3) not_home, eller bryter av + GPS «home» (uten use_gps_when_off) → Borte: dempet, ingen merke (away_marker: grå markør).
+   * 4) Mangler person og bryter → ingen merke, aldri gjettet status.
+   * → { kind: home|zone|away|unknown, src: switch|gps|none, icon, color, place, zone, badge, dim, switchId } */
+  M.personStatus = function (hass, p, cfg, rd) {
+    cfg = cfg || {};
+    rd = rd || ((x) => (hass && hass.states[x]) || null);
+    const pid = typeof p === 'string' ? p : p && p.person;
+    const row = { ...(pid ? M.hjemPeopleRow(cfg, pid) || {} : {}), ...(typeof p === 'object' && p ? p : {}) };
+    const swId = row.home_switch || (pid ? M.hjemHomeSwitch(cfg, pid) : null);
+    const s = pid ? rd(pid) : null;
+    const sw = swId ? rd(swId) : null;
+    const swOk = !!sw && !M.unavailable(sw);
+    const home = { kind: 'home', icon: HOME_ST.icon, color: HOME_ST.color, place: 'Hjemme', zone: 'zone.home', badge: true, dim: false, switchId: swId };
+    const away = { kind: 'away', icon: AWAY_ICON, color: AWAY_COL, place: 'Borte', zone: null, badge: cfg.away_marker === true, dim: true, switchId: swId };
+    if (swOk && sw.state === 'on') return { ...home, src: 'switch' };
+    const pOk = !!s && !M.unavailable(s);
+    if (!pOk) return swOk ? { ...away, src: 'switch' } : { kind: 'unknown', src: 'none', icon: null, color: null, place: '–', zone: null, badge: false, dim: false, switchId: swId };
+    if (s.state === 'home') return swOk && row.use_gps_when_off !== true ? { ...away, src: 'switch' } : { ...home, src: 'gps' };
+    if (s.state === 'not_home') return { ...away, src: swOk ? 'switch' : 'gps' };
+    const all = hass && hass.states ? Object.keys(hass.states) : [];
+    const zid = all.find((z) => z.startsWith('zone.') && z !== 'zone.home' && hass.states[z].attributes.friendly_name === s.state)
+      || all.find((z) => z.startsWith('zone.') && z !== 'zone.home' && objId(z) === M.slug(s.state)) || null;
+    const zs = zid ? (rd(zid), M.hjemZoneStyle(hass, cfg, zid, rd)) : { icon: 'mdi:map-marker', color: M.hjemZonePal('zone.' + M.slug(s.state)) };
+    return { kind: 'zone', src: 'gps', icon: zs.icon, color: zs.color, place: zid ? hass.states[zid].attributes.friendly_name || s.state : s.state, zone: zid, badge: true, dim: false, switchId: swId };
   };
   // Bilde-URL: /local/… og /api/… via hass.hassUrl (riktig base i appen / ekstern tilgang).
   M.hjemPicUrl = function (hass, u) {
@@ -398,8 +507,15 @@
     if (u[0] === '/' && u[1] !== '/' && hass && typeof hass.hassUrl === 'function') { try { return hass.hassUrl(u) || u; } catch (e) { return u; } }
     return u;
   };
+  // Personer som vises: people-listen (rekkefølge + skjult) når den finnes, ellers autokonfig (person.*, include/exclude, person_order).
   M.hjemPersons = function (hass, c) {
     const all = M.all(hass, 'person');
+    if (Array.isArray(c.people)) {
+      const rows = c.people.filter((r) => r && typeof r.person === 'string' && r.person.startsWith('person.'));
+      const ids = [...new Set(rows.map((r) => r.person))];
+      const hid = new Set(rows.filter((r) => r.hidden).map((r) => r.person));
+      return { all, ids, visible: ids.filter((x) => !hid.has(x)) };
+    }
     const inc = (c.include && c.include.personer) || [];
     let ids = M.applyLists(c, 'personer', all);
     inc.forEach((x) => { if (!ids.includes(x)) ids.push(x); });
@@ -408,33 +524,41 @@
     const hid = new Set(c.hidden_persons || []);
     return { all, ids, visible: ids.filter((x) => !hid.has(x)) };
   };
+  // Standardrader for «Personer» i editoren (før people er lagret): dagens personer med eldre valg.
+  const peopleDefaults = (hass, c) => {
+    if (!hass) return [];
+    const P = M.hjemPersons(hass, { ...c, people: undefined }), hid = new Set(c.hidden_persons || []);
+    return P.ids.map((id) => {
+      const pc = M.hjemPersonCfg(c, id), r = { person: id };
+      const sw = (c.overrides || {})['hjemme_' + objId(id)];
+      if (sw) r.home_switch = sw;
+      if (pc.display && pc.display !== 'picture') r.display = pc.display;
+      if (pc.picture) r.picture = pc.picture;
+      if (hid.has(id)) r.hidden = true;
+      return r;
+    });
+  };
   M.hjemPersonInfo = function (hass, id, c, rd) {
     rd = rd || ((x) => hass.states[x]);
     const s = rd(id), a = (s && s.attributes) || {};
     const o = objId(id);
     const sleepId = M.pick(c, 'sover_' + o, sibling(hass, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']));
-    const presId = M.pick(c, 'hjemme_' + o, sibling(hass, id, PRES_RE, ['input_boolean']));
+    const st = M.personStatus(hass, id, c, rd);
+    // Hurtigarket: Hjemme/Borte skriver til hjemme-bryteren (eller en manuell input_boolean ved siden av personen)
+    const presId = st.switchId || sibling(hass, id, PRES_RE, ['input_boolean']);
     const sl = sleepId ? rd(sleepId) : null;
-    const home = !!s && s.state === 'home';
+    const home = st.kind === 'home';
     const sleep = !!sl && sl.state === 'on';
-    let zone = null, place = home ? 'Hjemme' : 'Borte';
-    if (s && !home && s.state !== 'not_home' && !M.unavailable(s)) {
-      const zid = Object.keys(hass.states).find((z) => z.startsWith('zone.') && (hass.states[z].attributes.friendly_name === s.state || objId(z) === M.slug(s.state)));
-      place = zid ? (hass.states[zid].attributes.friendly_name || s.state) : s.state;
-      if (zid) zone = zonesOf(hass, c).find((z) => z.zone === zid) || null;
-    }
-    const away = { icon: 'mdi:airplane', color: C.purple, ...(c.zone_away || {}) };
-    const zc = !home && !sleep ? (zone || away) : null;
-    const stCol = sleep ? C.purple : home ? C.green : M.color(zc.color, C.purple);
-    const glyph = sleep ? 'bedtime' : home ? 'home' : zc.icon || 'logout';
+    const stCol = sleep ? C.purple : st.color || 'transparent';
+    const glyph = sleep ? 'bedtime' : st.icon || 'mdi:account';
     const all = M.all(hass, 'person');
     const me = !!(hass.user && a.user_id && a.user_id === hass.user.id);
-    // Visning per person: persons_cfg.<object_id> (editorene) over persons: [{ entity, display, picture }] (YAML).
+    // Visning per person: people[] / persons_cfg.<object_id> (editorene) over persons: [{ entity, display, picture }] (YAML).
     const pc = M.hjemPersonCfg(c, id);
     const display = DISPLAYS.includes(pc.display) ? pc.display : 'picture';
     const raw = pc.picture || a.entity_picture || null;
     const pic = display === 'picture' && raw ? M.hjemPicUrl(hass, raw) : null;
-    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: st.place, stCol, glyph, badge: sleep || st.badge, dim: !sleep && st.dim, status: st, me, sleepId, presId };
   };
 
   /* ------------------------------------------------------------ header-kortet */
@@ -459,6 +583,11 @@
         const P = hass ? M.hjemPersons(hass, c || {}) : { all: [], ids: [] };
         return [
           { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
+          { type: 'section', id: 'title_actions', label: 'Handlinger på tittelen', icon: 'mdi:gesture-tap', meta: (h, cc) => { const A = M.hjemTitleActions(cc); return TACT_L[A.tap]; }, fields: [
+            { type: 'titleacts' },
+            { type: 'entity', name: 'kiosk_entity', label: 'Kiosk-modus-entitet', domain: 'input_boolean', auto: (h, cc) => ((cc.overrides || {}).kiosk) || KIOSK_DEF },
+            { type: 'info', label: 'Standard: trykk åpner «Bytt sted», hold slår kiosk-modus av/på, dobbelttrykk åpner innstillinger.' },
+          ] },
           { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'stor', open: true, fields: [
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
             { type: 'range', name: 'g_avatar', label: 'Bilder', min: 36, max: 64, step: 1, default: D.g_avatar, fmt: (v) => `${v} px` },
@@ -471,35 +600,43 @@
             { type: 'range', name: 'persons_size', label: 'Personer', min: 32, max: 56, step: 1, default: D.persons_size, fmt: (v) => `${v} px` },
             { type: 'range', name: 'title_size', label: 'Tittel', min: 28, max: 48, step: 1, default: D.title_size, fmt: (v) => `${v} px` },
           ] },
+          { type: 'section', id: 'people', label: 'Personer', icon: 'mdi:account-multiple', fields: [
+            { type: 'rows', name: 'people', label: 'Personer i headeren', defaults: (h, cc) => peopleDefaults(h, cc), addLabel: 'Legg til person', hide: true,
+              title: (r, i, h) => (r.person ? M.name(h, r.person) : '') || 'Velg person',
+              sub: (r, i, h, cc) => { if (!r.person) return 'person.*'; const st = M.personStatus(h, r, cc); return `${st.place}${r.home_switch ? ' · bryter ' + (h.states[r.home_switch] ? (h.states[r.home_switch].state === 'on' ? 'på' : 'av') : 'mangler') : ''}`; },
+              chip: (r, i, h, cc) => { const st = M.personStatus(h, r, cc); return `<span class="xchip" style="background:${st.badge ? st.color : 'var(--gray400,#545454)'};opacity:${st.dim ? 0.55 : 1}">${M.icon(st.badge ? st.icon : 'mdi:account', 18, 'color:#fafafa')}</span>`; },
+              newRow: (h, cc, list) => { const used = new Set(list.map((x) => x.person)); return { person: M.all(h, 'person').find((x) => !used.has(x)) || '' }; },
+              fields: [
+                { type: 'entity', name: 'person', label: 'Person', domain: 'person', required: true },
+                { type: 'entity', name: 'home_switch', label: 'Hjemme-bryter', domain: ['switch', 'input_boolean', 'binary_sensor'], domains: ['switch', 'input_boolean', 'binary_sensor'], placeholder: 'Ingen bryter', help: 'På = hjemme, av = borte. Bryteren vinner over GPS. Uten bryter brukes person.* og sonene.' },
+                { type: 'boolean', name: 'use_gps_when_off', label: 'Bruk GPS når bryteren er av', default: false, help: 'Av: bryter av = Borte selv om GPS sier hjemme. Andre soner vises alltid.', rowWhen: (r) => !!r.home_switch },
+                { type: 'select', name: 'display', label: 'Visning', options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: 'picture' },
+                { type: 'text', name: 'picture', label: 'Bilde', auto: (r, h) => (r.person && h && h.states[r.person] && h.states[r.person].attributes.entity_picture) || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', rowWhen: (r) => (r.display || 'picture') === 'picture' },
+              ] },
+          ] },
           { type: 'section', id: 'zones', label: 'Soner', icon: 'mdi:map-marker-radius', fields: [
             { type: 'rows', name: 'zones', label: 'Soner med eget ikon og farge', defaults: (h) => autoZones(h), addLabel: 'Legg til sone',
+              // Lagres som map: zones: { 'zone.skole': { icon, color } } (eldre liste leses også)
+              toList: (v) => Object.keys(v).map((k) => ({ zone: k.includes('.') ? k : 'zone.' + k, ...(v[k] || {}) })),
+              fromList: (list) => { const o = {}; list.forEach((r) => { if (!r) return; const { zone, ...rest } = r; o[zone || ''] = rest; }); return o; },
               title: (r, i, h) => (r.zone && h.states[r.zone] ? h.states[r.zone].attributes.friendly_name : r.zone) || 'Velg sone',
-              sub: (r) => r.zone || '',
-              chip: (r) => `<span class="xchip" style="background:${M.color(r.color, C.purple)}">${M.icon(r.icon || 'mdi:map-marker', 18)}</span>`,
-              newRow: (h, cc, list) => { const used = new Set(list.map((z) => z.zone)); const z = M.all(h, 'zone', (s, id) => id !== 'zone.home' && !used.has(id))[0]; return { zone: z || '', icon: (z && h.states[z].attributes.icon) || 'mdi:map-marker', color: ZCOLS[list.length % ZCOLS.length] }; },
+              sub: (r, i, h, cc) => (r.zone ? r.zone + (r.icon || r.color ? '' : ' · standard') : ''),
+              chip: (r, i, h) => { const z = M.hjemZoneStyle(h, { zones: [r] }, r.zone); return `<span class="xchip" style="background:${z.color};transition:background .3s">${M.icon(z.icon, 18, 'color:#fafafa')}</span>`; },
+              newRow: (h, cc, list) => { const used = new Set(list.map((z) => z.zone)); const z = M.all(h, 'zone', (s, id) => id !== 'zone.home' && !used.has(id))[0]; return { zone: z || '' }; },
               fields: [
-                { type: 'entity', name: 'zone', label: 'Sone', domain: 'zone' },
-                { type: 'icon', name: 'icon', label: 'Ikon' },
+                { type: 'entity', name: 'zone', label: 'Sone', domain: 'zone', required: true },
+                { type: 'icon', name: 'icon', label: 'Ikon', auto: (r, h) => (r.zone && h && h.states[r.zone] && h.states[r.zone].attributes.icon) || 'mdi:map-marker', help: 'Tom = sonens eget ikon i HA' },
                 { type: 'select', name: 'icon', label: 'Hurtigvalg', options: ZICONS.map((ic) => [M.iconName(ic), ic.replace(/_/g, ' ')]) },
-                { type: 'color', name: 'color', label: 'Farge' },
+                { type: 'color', name: 'color', label: 'Farge', auto: (r) => M.hjemZonePal(r.zone), help: 'Tom = fast farge fra paletten for sonen' },
               ] },
-            { type: 'icon', name: 'zone_away.icon', label: 'Borte · annen sone – ikon', placeholder: 'mdi:airplane', help: 'Brukes når personen ikke er i en av sonene over' },
-            { type: 'color', name: 'zone_away.color', label: 'Borte · annen sone – farge' },
+            { type: 'info', label: 'Hjemme (zone.home) har alltid grønt hus.' },
+            { type: 'boolean', name: 'away_marker', label: 'Borte · vis grå markør', default: false, help: 'Av: borte-personer vises dempet uten merke.' },
           ] },
           { type: 'section', label: 'Hilsen', icon: 'mdi:hand-wave', fields: [
             { type: 'text', name: 'greeting', label: 'Hilsen', placeholder: D.greeting },
             { type: 'tokens', target: 'greeting', tokens: [['+ Fornavn', '{name}'], ['+ Sted', '{server}'], ['+ 👋', '👋 ', true]] },
             { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på.' },
           ] },
-          { type: 'order', name: 'person_order', hiddenName: 'hidden_persons', label: 'Personer · rekkefølge og synlighet', options: P.ids.map((id) => [id, M.name(hass, id)]) },
-          { type: 'section', id: 'persons', label: 'Personer · visning', icon: 'mdi:account-box-outline', fields: P.ids.length ? P.ids.flatMap((id) => {
-            const o = objId(id), y = (Array.isArray((c || {}).persons) ? c.persons : []).find((x) => x && (x.entity === id || x.entity === o)) || {};
-            const ep = hass && hass.states[id] && hass.states[id].attributes.entity_picture;
-            return [
-              { type: 'select', name: `persons_cfg.${o}.display`, label: `${M.name(hass, id)} · visning`, options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: DISPLAYS.includes(y.display) ? y.display : 'picture' },
-              { type: 'text', name: `persons_cfg.${o}.picture`, label: `${M.name(hass, id)} · bilde-URL`, placeholder: y.picture || ep || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', when: (h, cc) => (M.hjemPersonCfg(cc, id).display || 'picture') === 'picture' },
-            ];
-          }) : [{ type: 'info', label: 'Fant ingen personer.' }] },
           { type: 'section', label: 'Bilder', icon: 'mdi:account-circle', fields: [
             { type: 'select', name: 'size', label: 'Størrelse', options: [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], default: D.size },
             { type: 'select', name: 'badge', label: 'Merke', options: [['icon', 'Ikon'], ['dot', 'Prikk'], ['ring', 'Ring'], ['none', 'Ingen']], default: D.badge },
@@ -512,7 +649,7 @@
           ] },
           { type: 'section', label: 'Steder (servermeny)', icon: 'mdi:swap-horizontal', fields: [
             { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-installasjoner (også denne)', defaults: () => [], addLabel: 'Legg til sted',
-              help: 'Trykk på stedsnavnet/hilsenen åpner menyen. «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
+              help: 'Trykk på stedsnavnet/hilsenen åpner menyen (se «Handlinger på tittelen»). «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
               title: (r) => r.name || 'Nytt sted', sub: (r) => r.url || '',
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length], url: '' }),
@@ -521,13 +658,10 @@
           ] },
           { type: 'overrides', label: 'Bytt entiteter', fields: [
             { name: 'weather', label: 'Vær', domain: 'weather', auto: (h) => M.all(h, 'weather')[0] },
-            { name: 'kiosk', label: 'Kiosk-modus (hold i headeren, hold_kiosk: true)', domain: 'input_boolean', auto: (h) => M.all(h, 'input_boolean', (s, id) => /kiosk/.test(id))[0] },
             ...P.ids.flatMap((id) => [
               { name: 'sover_' + objId(id), label: `${M.name(hass, id)} · søvn`, domains: ['input_boolean', 'binary_sensor', 'switch'], auto: (h) => sibling(h, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) },
-              { name: 'hjemme_' + objId(id), label: `${M.name(hass, id)} · manuell hjemme/borte`, domain: 'input_boolean', auto: (h) => sibling(h, id, PRES_RE, ['input_boolean']) },
             ]),
           ] },
-          { type: 'lists', label: 'Personer', lists: (h) => [{ key: 'personer', label: 'Personer', ids: M.all(h, 'person'), domains: ['person'] }] },
         ];
       };
     }
@@ -583,19 +717,21 @@
       const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big;
       const face = (p, k, dress) => {
-        const ring = c.badge === 'ring' && !dress ? `, 0 0 0 5px ${p.stCol}` : '';
+        const ring = c.badge === 'ring' && !dress && p.badge ? `, 0 0 0 5px ${p.stCol}` : '';
         const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
         const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? '50%' : RAD, n = dress ? dress.sz : szN;
         // Profil: runde bilder; uten bilde → initialer 18 px/500 på grå 300 (ikon bare når visning = Ikon).
         const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
         const av = ini
-          ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.home ? 1 : 0.6};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
-          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s`;
+          ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.dim ? 0.55 : 1};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
         let bd = '', bi = '';
         // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
-        if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.sleep ? C.purple : p.home ? 'var(--green,' + C.green + ')' : 'var(--gray700,#979797)'}`); }
-        else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.68), 'color:#fff'); }
-        else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 14, 'color:#fff'); }
+        // Merke = status (M.personStatus): hjemme-bryter → sone → borte. Borte uten away_marker / ukjent → ingen merke.
+        if (!p.badge) { /* ingen merke */ }
+        else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
+        else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
+        else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 13, 'color:#fafafa'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
@@ -607,10 +743,12 @@
       const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('');
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
+      const TA = M.hjemTitleActions(c);
+      const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
       return `<header class="hd${prof ? ' prof' : ''}" data-ent="__tilpass">
         <div class="top">
           <div class="lc" data-gcol="1">
-            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" aria-haspopup="menu" title="Bytt sted">
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
               <span class="tx">${esc(title)}</span>${big ? '' : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
@@ -620,12 +758,70 @@
         ${row2.length ? `<div class="row2">${row2.map((p) => face(p, 0, { sz: pPers, bs: 21 })).join('')}</div>` : ''}
       </header>`;
     }
+    constructor() {
+      super();
+      // Tittel-gester: hold avbrytes ved slipp / flytt > 8 px / pointercancel
+      const stop = () => { if (this._tHold) { clearTimeout(this._tHold); this._tHold = null; } };
+      this.shadowRoot.addEventListener('pointerup', stop);
+      this.shadowRoot.addEventListener('pointercancel', stop);
+      this.shadowRoot.addEventListener('pointermove', (e) => { if (this._tHold && (Math.abs(e.clientX - this._tx) > 8 || Math.abs(e.clientY - this._ty) > 8)) stop(); });
+      this.shadowRoot.addEventListener('contextmenu', (e) => { if (this._el(e, '.ttl')) e.preventDefault(); });
+      this.shadowRoot.addEventListener('selectstart', (e) => { if (this._el(e, '.ttl')) e.preventDefault(); });
+    }
+    // Tittelen har egne gester (title_actions); resten av headeren bruker basekortets hold (→ «Tilpass header»).
+    _onDown(e) {
+      const t = this._el(e, '.ttl');
+      if (!t) return super._onDown(e);
+      this._cancelHold();
+      if (e.button) return;
+      this._tHeld = false;
+      if (this._tHold) clearTimeout(this._tHold);
+      this._tHold = null;
+      const A = M.hjemTitleActions(this.config);
+      if (A.hold === 'none') return;
+      this._tx = e.clientX; this._ty = e.clientY;
+      this._tHold = setTimeout(() => {
+        this._tHold = null;
+        this._tHeld = true; // slippet etter hold utløser ikke trykk
+        if (this._tTap) { clearTimeout(this._tTap); this._tTap = null; }
+        M.haptic('medium');
+        this._titleRun(A.hold);
+      }, 500);
+    }
+    // Trykk (click): med dobbelttrykk = Ingen kjøres trykket med én gang, ellers venter det maks 260 ms.
+    // Én haptic per gest: ved første trykk (ikke igjen ved dobbelttrykk / når handlingen kjøres).
+    _titleTap() {
+      if (this._tHeld) { this._tHeld = false; return; }
+      const A = M.hjemTitleActions(this.config);
+      if (this._tTap) { clearTimeout(this._tTap); this._tTap = null; this._titleRun(A.double_tap); return; }
+      if (A.tap !== 'none' || A.double_tap !== 'none') M.haptic('light');
+      if (A.double_tap === 'none') { this._titleRun(A.tap); return; }
+      this._tTap = setTimeout(() => { this._tTap = null; this._titleRun(A.tap); }, 260);
+    }
+    _titleRun(act) {
+      const c = this.config;
+      switch (act) {
+        case 'server': { if (this._srv) return this._srvClose(); const t = this.shadowRoot.querySelector('.ttl'); if (t) this._serverMenu(t); return; }
+        case 'kiosk': return this._kiosk();
+        case 'config': this._srvClose(); return M.navigate('/config');
+        case 'edit': this._srvClose(); return M.navigate(location.pathname + '?edit=1');
+        case 'header': this._srvClose(); window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return;
+        case 'vaer': this._srvClose(); return M.openPopup(c.weather_hash || '#vaer');
+        default:
+      }
+    }
+    // Kiosk-modus av/på: veksler kiosk_entity (standard input_boolean.kiosk_mode) – samme entitet som kiosk-mode / UIX bruker.
+    _kiosk() {
+      const id = M.hjemKioskEntity(this.config), s = this.hass && this.hass.states[id];
+      if (!s) { M.hjemToast(this, 'Velg kiosk-entitet i Tilpass header'); return; }
+      const on = s.state === 'on', d = id.split('.')[0];
+      M.call(this.hass, d === 'input_boolean' ? 'input_boolean' : 'homeassistant', 'toggle', { entity_id: id });
+      M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
+    }
     onAction(name, el, ev) {
       if (name === 'title') {
-        // Ett vanlig trykk (click) åpner «Bytt sted» med én gang – ingen hold/dobbelttrykk på stedsnavnet.
         if (ev) ev.stopPropagation();
-        if (this._srv) this._srvClose(); else this._srvOpen(el);
-        return;
+        return this._titleTap();
       }
       if (name === 'person') {
         const id = el.dataset.id;
@@ -634,26 +830,14 @@
       }
       return super.onAction(name, el, ev);
     }
-    // Langt trykk i headeren (ikke på stedsnavnet) → «Tilpass header», eller kiosk-modus med hold_kiosk: true.
+    // Langt trykk ellers i headeren (ikke tittelen – den har egne gester) → «Tilpass header».
     onHold(id) {
       if (id !== '__tilpass') return undefined;
-      const t = this.shadowRoot.querySelector('.ttl'), r = t && t.getBoundingClientRect();
-      if (r && this._hx >= r.left && this._hx <= r.right && this._hy >= r.top && this._hy <= r.bottom) { this._swallow = false; return true; }
-      if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return true; }
-      const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, i) => /kiosk/.test(i))[0]);
-      if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return true; }
-      const on = this.hass.states[k] && this.hass.states[k].state === 'on';
-      M.call(this.hass, 'input_boolean', on ? 'turn_off' : 'turn_on', { entity_id: k });
-      M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
+      window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } }));
       return true;
     }
-    // Eksplisitt åpne/lukke. Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet
-    // (touch → click) aldri lukker menyen igjen. Én haptic ved åpning, ingen ved lukking via bakteppet.
-    _srvOpen(anchor) {
-      if (this._srv) return;
-      M.haptic('light');
-      this._serverMenu(anchor);
-    }
+    // Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet (touch → click) aldri lukker menyen igjen.
+    // Haptic gis av gesten (_titleTap), ingen ved lukking via bakteppet.
     _srvClose() { if (this._srv) this._srv.close(); }
     _serverMenu(anchor) {
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
@@ -741,13 +925,17 @@
         });
       } else if (this._ro) { this._ro.disconnect(); this._ro = null; this._gFit = null; }
     }
-    disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      clearTimeout(this._tHold); clearTimeout(this._tTap); this._tHold = this._tTap = null;
+    }
     get styles() {
       return `
         .hd{display:flex;flex-direction:column;gap:18px;padding-top:8px}
         .top{container-type:inline-size;display:flex;align-items:center;justify-content:space-between;gap:10px}
         .lc{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 0}
-        .ttl{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:0;line-height:1;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden;text-align:left;color:var(--white,#fafafa)}
+        .ttl{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:0;line-height:1;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden;text-align:left;color:var(--white,#fafafa);touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
         .ttl .tx{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .sub{align-self:flex-start;font-size:15px;color:var(--gray700,#979797);white-space:nowrap;text-align:left}
         .sub:active{opacity:.6}
@@ -757,7 +945,7 @@
         .av{display:grid;place-items:center;overflow:hidden;position:relative}
         .av img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;-webkit-user-drag:none;user-select:none;pointer-events:none}
         .bd{z-index:1}
-        .bd{position:absolute;display:grid;place-items:center}
+        .bd{position:absolute;display:grid;place-items:center;transition:background-color .3s,color .3s}
         .lb{display:flex;flex-direction:column;align-items:center}
         .ln{font-size:11px;font-weight:500}
         .lp{font-size:10px;color:var(--gray700,#979797)}

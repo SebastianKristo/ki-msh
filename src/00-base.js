@@ -438,13 +438,54 @@
     }
     return r.shadowRoot.querySelector('.slot');
   };
-  // Liquid glass (navbar-stil «glass»). Kilden er navbarens config (style: 'glass'): msh-navbar-card speiler den
-  // til <html data-ki-glass="1|0"> ved hver render; uten navbar leses ki-store (cards.ki-navbar.style). Ikke localStorage.
+  // Liquid Glass-tema (Fiks 6): ÉN kilde for alle Tilpass-ark – ki-store → theme.liquid_glass (per bruker, felles config,
+  // synkes mellom enhetene). Ikke satt → bakoverkompatibelt: navbar-stilen «glass» (msh-navbar-card speiler den til
+  // <html data-ki-glass="1|0">; uten navbar leses ki-store cards.ki-navbar.style). Standard: av. Ikke localStorage.
+  // Bytte (MSH.setGlassTheme / navbar-stil) sender 'ki-glass-change' → åpne ark bytter straks (MSH.overlay).
   MSH.glassOn = function () {
+    try { const t = MSH.store && MSH.store.get && MSH.store.get('theme.liquid_glass'); if (t === true || t === false) return t; } catch (e) { /* */ }
     const d = document.documentElement.dataset.kiGlass;
     if (d === '1' || d === '0') return d === '1';
     try { const c = MSH.store && MSH.store.card && MSH.store.card('ki-navbar'); return !!(c && c.style === 'glass'); } catch (e) { return false; }
   };
+  let glassLast = null;
+  MSH.glassNotify = function () {
+    const g = MSH.glassOn();
+    if (g === glassLast) return;
+    glassLast = g;
+    window.dispatchEvent(new CustomEvent('ki-glass-change', { detail: { glass: g } }));
+  };
+  MSH.setGlassTheme = function (on) {
+    const r = MSH.store ? MSH.store.set('theme.liquid_glass', !!on) : null;
+    MSH.glassNotify();
+    return r;
+  };
+  // Felles tilpass-ark (Fiks 6). Alle «Tilpass …»-ark (MSH.overlay, MSH.openEditor, Lys, Klima, Hjem, navbar, header,
+  // kamera, vær, ruter …) får flaten herfra – ingen ark hardkoder blur.
+  //   MSH.sheetStyle(glass?) / MSH.scrimStyle(glass?) → CSS-deklarasjoner for arket / bakteppet (glass = MSH.glassOn())
+  //   MSH.sheetVars(glass?) → CSS-variabler som arver inn i arkets innhold (også egne editorer i shadow roots):
+  //     --ki-sheet-bg / --ki-sheet-blur (sticky nav/footer/håndtak), --ki-sheet-grp / --ki-sheet-grp-sh (grupper),
+  //     --ki-sheet-in (indre flate), --ki-sheet-seg (segmentspor), --ki-sheet-line (skillelinje)
+  //   Standard: bakteppe rgba(0,0,0,.5) uten blur; ark #282828 radius 28 28 0 0, grupper #3a3a3a r24, indre #404040.
+  //   Liquid Glass: bakteppe rgba(0,0,0,.35) + blur(6px); ark rgba(34,34,37,.72) + blur(22px) saturate(190%) brightness(1.1),
+  //   radius 32 32 0 0 (som «Tilpass klima» i Klima v3).
+  const SH_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
+  const SH = {
+    solid: {
+      scrim: 'background:rgba(0,0,0,0.5);backdrop-filter:none;-webkit-backdrop-filter:none;',
+      sheet: 'background:var(--gray050,#282828);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 -12px 40px rgba(0,0,0,0.5);color:#fafafa;',
+      vars: '--ki-sheet-bg:var(--gray050,#282828);--ki-sheet-blur:none;--ki-sheet-grp:var(--gray200,#3a3a3a);--ki-sheet-grp-sh:none;--ki-sheet-in:var(--gray300,#404040);--ki-sheet-seg:var(--gray050,#282828);--ki-sheet-line:rgba(255,255,255,0.06);--ki-sheet-grab:var(--gray400,#545454);',
+    },
+    glass: {
+      scrim: 'background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);',
+      sheet: `background:rgba(34,34,37,0.72);backdrop-filter:${SH_BLUR};-webkit-backdrop-filter:${SH_BLUR};border-radius:32px 32px 0 0;box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 -12px 40px rgba(0,0,0,0.5);color:#fafafa;`,
+      vars: `--ki-sheet-bg:rgba(34,34,37,0.72);--ki-sheet-blur:${SH_BLUR};--ki-sheet-grp:rgba(255,255,255,0.06);--ki-sheet-grp-sh:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-sheet-in:rgba(0,0,0,0.25);--ki-sheet-seg:rgba(0,0,0,0.25);--ki-sheet-line:rgba(255,255,255,0.1);--ki-sheet-grab:rgba(255,255,255,0.3);`,
+    },
+  };
+  const shOf = (glass) => SH[(glass == null ? MSH.glassOn() : glass) ? 'glass' : 'solid'];
+  MSH.sheetStyle = (glass) => shOf(glass).sheet;
+  MSH.scrimStyle = (glass) => shOf(glass).scrim;
+  MSH.sheetVars = (glass) => shOf(glass).vars;
   // Felles glassflater (Fiks 3 · 7c) → CSS-deklarasjoner (uten selektor), f.eks. `.box{${MSH.glassSurface('menu')}}`.
   //   menu    = «Mer»-meny/nedtrekk: rgba(40,40,44,.38), blur 22 saturate 190 % brightness 1.1, overlegg + kant, skygge
   //   sheet   = Tilpass-ark: rgba(34,34,37,.72) + samme blur/overlegg/kant
@@ -458,7 +499,7 @@
   MSH.glassSurface = function (level) {
     switch (level) {
       case 'menu': return `background:${GL_SHEEN},rgba(40,40,44,0.38);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgba(0,0,0,0.45);color:#fafafa;`;
-      case 'sheet': return `background:${GL_SHEEN},rgba(34,34,37,0.72);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 -20px 50px rgba(0,0,0,0.5);color:#fafafa;`;
+      case 'sheet': return MSH.sheetStyle(true).replace(/border-radius:[^;]*;/, ''); // = glassarket i MSH.sheetStyle
       case 'row': return 'background:rgba(255,255,255,0.06);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.08);';
       case 'segment': return 'background:rgba(0,0,0,0.25);';
       default: return '';
@@ -564,28 +605,36 @@
     }, true);
   }
 
+  let glassSub = null;
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true } = {}) {
+  // Ark/overlegg i ki-overlay-root. Flaten kommer fra MSH.sheetStyle/scrimStyle/sheetVars (Fiks 6) og følger Liquid
+  // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
+  // (max-height 100 % − 24 px − safe-area-top, «Tilpass …»-editorene), footer = arket har egen sticky bunnlinje
+  // (ingen bunnpadding; bunnlinjen tar safe-area selv). Padding styres med --ki-sh-pt / --ki-sh-px / --ki-sh-pb.
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false } = {}) {
     const host = document.createElement('div');
     host.className = 'msh-portal';
-    // Liquid glass (navbar-stil glass): arket = glassSurface('sheet'), bakteppe rgba(0,0,0,.35) + blur(6px); variablene
-    // (MSH.GLASS_VARS) arver inn i editorene så rader/grupper/segmenter blir glass. glass: false = alltid standard.
     const gl = glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
+    if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
     const R = MSH.dashRect();
     Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
+    const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
-      .bg{position:absolute;inset:0;background:rgba(0,0,0,0.55);opacity:0;transition:opacity .2s}
-      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translateY(-40%) scale(.96);border-radius:32px;' : 'bottom:0;transform:translateY(30px);border-radius:32px 32px 0 0;'}max-width:${Math.min(maxWidth, 440)}px;margin:0 auto;box-sizing:border-box;max-height:${center ? '90%' : '88%'};overflow:auto;overscroll-behavior:contain;
-        padding:12px 18px calc(28px + env(safe-area-inset-bottom));background:var(--gray100,#2f2f2f);box-shadow:0 -20px 50px rgba(0,0,0,0.5);opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;color:#fafafa;font-family:${MSH.FONT}}
+      :host{${MSH.sheetVars(false)}--ki-grab-h:25px}
+      .bg{position:absolute;inset:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
+      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translateY(-40%) scale(.96);' : 'bottom:0;transform:translateY(30px);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(28px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
+        ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
+      .sh.ft{--ki-sh-pb:0px}
       :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translateY(-50%) scale(1)' : 'translateY(0)'}}
-      .grab{width:40px;height:5px;border-radius:3px;background:var(--gray400,#545454);margin:0 auto 12px}
-</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}}
-      .bg{background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-      .sh{${MSH.glassSurface('sheet')}border-radius:${center ? '32px' : '32px 32px 0 0'}}
-      .grab{background:rgba(255,255,255,0.3)}
-      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh" part="sheet">${sheet && !center ? '<div class="grab"></div>' : ''}<div class="body">${html}</div></div>`;
+      .gz{position:sticky;top:calc(-1 * var(--ki-sh-pt));z-index:6;box-sizing:border-box;height:var(--ki-grab-h);margin:calc(-1 * var(--ki-sh-pt)) calc(-1 * var(--ki-sh-px)) 0;padding:10px 0;background:var(--ki-sheet-bg);-webkit-backdrop-filter:var(--ki-sheet-blur);backdrop-filter:var(--ki-sheet-blur)}
+      .grab{width:40px;height:5px;border-radius:3px;background:var(--ki-sheet-grab);margin:0 auto}
+</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
+      .bg{${MSH.scrimStyle(true)}}
+      .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
+      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -611,7 +660,7 @@
     bgEl.addEventListener('click', () => { if (guard > 0 && Date.now() - t0 < guard) return; if (bgHaptic) MSH.haptic('light'); close(); });
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', onHash);
-    // Navbar-stilen byttes mens arket er åpent (f.eks. i «Tilpass navbar») → glass av/på live
+    // Liquid Glass-temaet (eller navbar-stilen) byttes mens arket er åpent → glass av/på live, uten reload
     const onGlass = () => {
       const g = MSH.glassOn();
       host.classList.toggle('glass', g); host.toggleAttribute('data-glass', g);
@@ -1221,7 +1270,8 @@
   // «Avbryt» tilbakestiller til configen fra da editoren ble åpnet. Popupen blir stående åpen.
   MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
     if (!customElements.get(tag || 'msh-editor')) return null;
-    const ov = MSH.overlay({ html: '', maxWidth: 520 });
+    // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, footer: true });
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;
@@ -1250,7 +1300,12 @@
       ov.body.appendChild(bar);
     }
     ed.setConfig(orig);
-    const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._render) ed._render(); };
+    // UI-tilstand for editoren (åpne seksjoner) – per kort, ikke i config
+    const uiKey = (orig && orig.card_id) || (card._yamlConfig && card._yamlConfig.card_id) || null;
+    if (uiKey) ed.uiKey = uiKey;
+    // Status («Lagrer …» → «Lagret») er en liten pille øverst i arket – oppdateres direkte, arket tegnes IKKE på nytt
+    // (åpne seksjoner, scroll og håndtak står). Editorer uten _setStatus faller tilbake til morph (aldri innerHTML).
+    const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._setStatus) ed._setStatus(t, kind || ''); else if (ed._render) ed._render(); };
     // Felles oppsett endres mens enheten har eget: ikke vis utkastet live her (enhetens oppsett gjelder)
     const live = () => !(MSH.store && MSH.store.scope === 'shared' && own());
     // Autolagring (600 ms) – stille; status i arket: «Lagrer …» → «Lagret» / «Kunne ikke lagre»

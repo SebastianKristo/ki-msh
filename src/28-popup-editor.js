@@ -300,9 +300,21 @@
     } else rows = E.map(row).join('') || `<div class="hint" data-key="ppnone">${g === 'egne' ? 'Ingen egne popups ennå – trykk «Ny popup».' : 'Ingen popups her.'}</div>`;
     return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops"><style>${CSS}</style>
       ${bar}${warns}
-      <div class="pl">${rows}</div>
+      <div class="pl">${rows}</div>${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
       <span class="hint">Trykk en popup for å redigere navn, ikon og farge – eller hele YAML-en. Egne popups kan ha alle Bubble Card-valg og vilkårlige kort${nCustom > 1 ? '; dra i ⠿ for rekkefølge' : ''}. Endringer tas i bruk straks.</span>
     </div>`;
+  }
+
+  // Rom-popups · «Åpen ved start» (Fiks 7): global standard i ki-store room_defaults.open_on_start [ids].
+  // Ikke satt = bare Lys (når rommet har lys). Rommets egen «Tilpass rom» → Seksjoner overstyrer per seksjon.
+  function roomDefaults() {
+    const F = M.ROOM_FOLD || [];
+    if (!F.length) return '';
+    const rd = store().room_defaults, l = rd && Array.isArray(rd.open_on_start) ? rd.open_on_start : null;
+    const on = (k) => (l ? l.includes(k) : k === 'lys');
+    return `<div class="ppf" data-key="pprd"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">Rom-popups · åpen ved start</b><span class="hint">Seksjonene som er utvidet hver gang en rom-popup åpnes. Rommets egen «Tilpass rom» → Seksjoner overstyrer.</span></span>
+      <div class="ppacts">${F.map(([k, lbl]) => `<button class="ppb" aria-pressed="${on(k)}" data-a="pprdopen" data-v="${esc(k)}" data-h="selection" style="${on(k) ? `background:rgb(242 210 111 / 0.18);color:${C.yellow || '#f2d26f'}` : ''}">${ic(on(k) ? 'mdi:chevron-down-circle' : 'mdi:chevron-right-circle-outline', 18)}${esc(lbl)}</button>`).join('')}
+      ${l ? `<button class="ppb" data-a="pprdreset">${ic('mdi:restore', 18)}Standard</button>` : ''}</div></div>`;
   }
 
   function renderNew(ed) {
@@ -485,6 +497,12 @@
       if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
       switch (a) {
         case 'popg': u.popG = d.v; u.ppMenu = false; ed.render(); return true;
+        case 'pprdopen': {
+          const rd = store().room_defaults || {}, cur = Array.isArray(rd.open_on_start) ? rd.open_on_start : ['lys'];
+          const nx = cur.includes(d.v) ? cur.filter((k) => k !== d.v) : [...cur, d.v];
+          save(ed, 'room_defaults', { ...rd, open_on_start: nx }); ed.render(); return true;
+        }
+        case 'pprdreset': { const { open_on_start, ...rd } = store().room_defaults || {}; save(ed, 'room_defaults', Object.keys(rd).length ? rd : undefined); ed.render(); return true; }
         case 'ppmenu': u.ppMenu = !u.ppMenu; ed.render(); return true;
         case 'ppexport': u.ppMenu = false; u.pv = 'export'; u.pd = { id: 'x' + ++seq, text: exportText(), ro: true, src: 'export' }; ed.render(); return true;
         case 'ppdl': download(u.pd ? u.pd.text : exportText(), 'ki-popups.yaml'); return true;

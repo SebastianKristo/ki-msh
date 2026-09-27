@@ -572,11 +572,13 @@
         this.setUI({ compact: false });
         // Popupen til knappen er allerede åpen → lukk den (fasit Hjem v2: isOpen ? closePop() : open…).
         // Gjelder bunn, glass (slipp etter dra), rail og «Mer»-menyen – alle går via denne handlingen.
-        if (this._isOpen(id)) { M.closePopup(); this._schedule(true); return; }
+        // Dobbel hendelse ved åpning (f.eks. klikk + syntetisk klikk etter glass-slipp, dobbelttrykk): samme knapp < 400 ms
+        // etter at den åpnet popupen lukker ikke – ellers fjernes hashen med én gang (Fiks 12).
+        if (this._isOpen(id)) { if (this._opened && this._opened.id === id && Date.now() - this._opened.t < 400) return; M.closePopup(); this._schedule(true); return; }
         const b = N.B[id] || {};
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
-        if (h) M.openPopup(h);
+        if (h) { this._opened = { id, t: Date.now() }; M.openPopup(h); }
         return;
       }
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
@@ -617,7 +619,7 @@
       const g = this.config && this.config.style === 'glass' ? '1' : '0', ds = document.documentElement.dataset;
       if (ds.kiGlass === g) return;
       ds.kiGlass = g;
-      window.dispatchEvent(new CustomEvent('ki-glass-change', { detail: { glass: g === '1' } }));
+      M.glassNotify(); // Tilpass-arkene følger navbar-stilen bare når Liquid Glass-temaet (theme.liquid_glass) ikke er satt
     }
 
     // Handlinger for egne knapper (autokonfig: første lås/alarm/garasjeport/TV/støvsuger).
@@ -713,6 +715,9 @@
     .rsb{height:44px;border-radius:22px;background:#232323;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
     .add{height:54px;border-radius:27px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
     .tg{height:54px;padding:0 14px 0 16px;border-radius:27px;background:#3a3a3a;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;width:100%}
+    .tg .tx2{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left}
+    .tg .tx2 b{font-size:15px;font-weight:500} .tg .tx2 i{font-style:normal;font-size:12px;font-weight:400;color:#979797}
+    .tg:has(.tx2){height:auto;min-height:62px;padding-top:8px;padding-bottom:8px;border-radius:24px;gap:10px}
     .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
     .trk.on{background:${C.green}}
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
@@ -847,6 +852,7 @@
         <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
           <span class="pft"><span class="x"><b>${l}</b><i>${sub}</i></span>${M.icon('check_circle', 24, `color:${C.pink};opacity:${style === k ? 1 : 0}`)}</span></button>`).join('')}</div>
+        ${M.store ? `<button class="tg" data-a="nbtheme" data-v="${M.glassOn() ? 0 : 1}"><span class="tx2"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark · gjelder deg på alle enheter</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><span class="knb"></span></span></button>` : ''}
       </div>`;
     }
     _click(e) {
@@ -875,6 +881,7 @@
         case 'nbtog': return this._set(d.k, d.v === '1');
         case 'nbw': return this._set('width', d.v);
         case 'nbstyle': return this._set('style', d.v);
+        case 'nbtheme': M.setGlassTheme(d.v === '1'); return this._render(); // ki-store theme.liquid_glass – ikke kortets config
         default:
       }
       return undefined;

@@ -9,7 +9,7 @@
  *   · Modus-bobler (Borte · Alle borte · Hjemkomst · Sommer · <person> ferie) → switch.ki_* i integrasjonen.
  *   · Glass-fanerad (scroller, min 58 px per fane, MSH.tabReorder = dra/omorganiser + glass-linse ved trykk) +
  *     tannhjul (46 px, samme glass) som åpner «Tilpass klima».
- *   · «Tilpass klima»: eget glass-ark (MSH.overlay({ glass: true })) med Visning / Faner / Blokker. Tilbakestill
+ *   · «Tilpass klima»: eget bunnark (MSH.overlay – solid, frosted med Liquid Glass-tema) med Visning / Faner / Blokker. Tilbakestill
  *     øverst til venstre, Ferdig lagrer (MSH.saveCardConfig, scope 'shared'). Utkastet vises live bak arket.
  * Blokkene (faneinnholdet) bygges i 42-klima-blokker.js (lastes før denne): MSH.KLIMA_TABS, klimaHasTab,
  * klimaBlockList, klimaTabHTML, klimaAct, klimaInput, klimaAfterRender, klimaOnOpen/OnClose, KLIMA_BLOCK_CSS,
@@ -680,7 +680,7 @@
       ov.close();
     };
 
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, glass: true, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'klima-sheet';
@@ -727,22 +727,17 @@
     draw();
     return card._sheet;
   }
-  // Glass-bunnark (samme materiale som «Tilpass lys»): grupper = glassSurface('row'), segmentspor = glassSurface('segment'),
-  // aktivt segment = GLASS_BUBBLE. Reserve uten backdrop-filter via glassFallback.
-  const GS = (lvl, d) => (M.glassSurface ? M.glassSurface(lvl) : d);
+  // Bunnark (Fiks 6, som «Tilpass lys»): flaten kommer fra MSH.overlay (MSH.sheetStyle/sheetVars) – solid #282828 som
+  // standard, frosted glass bare med Liquid Glass-temaet (byttes live). Grupper = --ki-sheet-grp, segmentspor = --ki-sheet-seg.
   const SHEET_CSS = `
-    .sh{${GS('sheet', '')}background:linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.04)),rgba(40,40,40,0.84);-webkit-backdrop-filter:blur(28px) saturate(1.6);backdrop-filter:blur(28px) saturate(1.6);border-radius:28px 28px 0 0;max-height:88vh;overscroll-behavior:contain;padding:8px 16px calc(28px + env(safe-area-inset-bottom))}
-    ${M.glassFallback ? M.glassFallback('.sh', 'sheet') : ''}
-    .grab{background:rgba(255,255,255,0.3);margin:0 auto 4px}
-    .nav{position:sticky;top:-8px;z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:rgba(40,40,40,0.72);-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6)}
-    ${M.glassFallback ? M.glassFallback('.nav', 'sheet') : ''}
+    .sh{--ki-sh-pt:8px;--ki-sh-px:16px}
+    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--red,#f28073)}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .nd{justify-self:end;height:36px;padding:0 18px;border-radius:18px;background:${PINK};color:${INK};font-size:14px;font-weight:600}
     .nd:disabled{opacity:.6}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
-    .grp{${GS('row', 'background:var(--gray200,#3a3a3a);')}border-radius:24px;overflow:hidden}
-    ${M.glassFallback ? M.glassFallback('.grp', 'row') : ''}
+    .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
     .grp>*+*{border-top:1px solid rgba(255,255,255,0.06)}
     .r{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 8px 6px 16px;width:100%;text-align:left;box-sizing:border-box}
     .r.tr,.r.br{padding-left:8px}
@@ -756,10 +751,11 @@
     .tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:7px;font-size:10px;font-weight:600;vertical-align:middle}
     .tag.ber{background:${M.alpha('var(--orange, #f2b573)', 0.18)};color:var(--orange,#f2b573)}
     .tag.bad{background:${M.alpha('var(--blue, #73b9f2)', 0.18)};color:var(--blue,#73b9f2)}
-    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;${GS('segment', 'background:#282828;')}flex:none;position:relative}
+    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,#282828);flex:none;position:relative}
     .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf));white-space:nowrap;transition:background .2s}
-    .seg button.on,.bseg button.on{${M.GLASS_BUBBLE || `background:${PINK};color:${INK};`}}
-    .bseg{position:relative;display:flex;gap:2px;padding:3px;margin-bottom:8px;border-radius:19px;${GS('segment', 'background:#282828;')}overflow-x:auto;touch-action:pan-x}
+    .seg button.on,.bseg button.on{background:${PINK};color:${INK}}
+    :host(.glass) .seg button.on,:host(.glass) .bseg button.on{${M.GLASS_BUBBLE}}
+    .bseg{position:relative;display:flex;gap:2px;padding:3px;margin-bottom:8px;border-radius:19px;background:var(--ki-sheet-seg,#282828);overflow-x:auto;touch-action:pan-x}
     .bseg button{flex:none;height:34px;padding:0 13px;border-radius:17px;font-size:13px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf));white-space:nowrap;transition:background .2s}
     .note{margin:0;padding:10px 10px 0;font-size:12px;line-height:1.45;color:var(--gray700,#979797)}
     .note.top{padding:0 8px 4px;color:var(--orange,#f2b573)}
