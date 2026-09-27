@@ -211,7 +211,19 @@
         if (s && el && el.parentNode !== s) s.appendChild(el);
       });
       // skjulte blokker: fjern fra DOM (beholdes i minnet)
-      Object.keys(this._kids).forEach((k) => { if (!(this._vis || []).includes(k) && this._kids[k].parentNode) this._kids[k].remove(); });
+      Object.keys(this._kids).forEach((k) => { if (!(this._vis || []).includes(k) && this._kids[k].parentNode) this._kids[k].remove(); });      this._proseGap();
+    }
+    // Fiks 16.2: «Avstand til prosa» (header.prose_gap, −20–60 px, standard 16) = synlig mellomrom mellom header og prosa,
+    // som margin-top på prosa-sloten når den står rett under headeren (mobil og bred). Kilden er header-kortets config
+    // (også utkastet mens «Tilpass header»/«Tilpass Hjem» er åpent); headeren kaller denne etter hver tegning.
+    _proseGap() {
+      const s = this.shadowRoot && this.shadowRoot.querySelector('[data-slot="prosa"]');
+      if (!s) return;
+      const hd = this._kids.header, prev = s.previousElementSibling;
+      const on = !!(hd && prev && prev.dataset && prev.dataset.slot === 'header');
+      const gap = on && M.hjemProseGap ? M.hjemProseGap(hd.config) : null;
+      const mt = gap == null ? '' : `${gap - 22}px`; // containerens gap er 22 px
+      if (s.style.marginTop !== mt) s.style.marginTop = mt;
     }
     get styles() {
       return `

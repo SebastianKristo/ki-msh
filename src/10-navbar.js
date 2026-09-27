@@ -117,6 +117,7 @@
       L = Math.max(cr.left + 2, Math.min(cr.right - w - 2, L)); T = Math.max(cr.top + 2, Math.min(cr.bottom - h - 2, T));
       const p = local(st.lens, L, T);
       Object.assign(st.lens.style, { left: p.x + 'px', top: p.y + 'px', width: w / p.k + 'px', height: h / p.k + 'px', borderRadius: Math.min(w, h) / p.k / 2 + 'px' });
+      if (st.fw) st.fw.reset(); // ferske mål → nytt utgangspunkt for følgingen (Fiks 16.10)
     };
     const stop = (e) => e.stopPropagation();
     c.addEventListener('touchstart', stop, { passive: true });
@@ -136,6 +137,7 @@
         if (across > 12 && across > along) { st = null; return; }
         if (along < 8) return;
         st.on = true; st.items = itemsOf(); st.hit = pick(st.items, st.sx, st.sy); st.lens = lensEl();
+        st.fw = M.lensFollow ? M.lensFollow(st.lens, c) : null; // linsen følger sporet hver frame (layout-endring under, Fiks 16.10)
         try { c.setPointerCapture(e.pointerId); } catch (x) { /* */ }
         place(st.sx, st.sy, true); // start der fingeren var, så glir den etter
         const l = st.lens;
@@ -154,7 +156,7 @@
       if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
       l.style.transition += ', opacity .22s';
       l.style.opacity = '0'; l.style.transform = 'scale(1)';
-      setTimeout(() => l.remove(), 220);
+      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, 220);
       suppress = true; setTimeout(() => { suppress = false; }, 350);
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic

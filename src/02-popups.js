@@ -67,7 +67,11 @@
     ['#vaer', 'Vær', 'mdi:weather-partly-cloudy', 'msh-vaer-card'],
     ['#lys', 'Lys', 'mdi:lightbulb-group', 'msh-lys-card'],
     ['#gjoremal', 'Gjøremål', 'mdi:format-list-checks', 'msh-gjoremal-card'],
+    ['#dorlas', 'Dørlås', 'mdi:lock', 'msh-las-card'], // fiks 16.7 – bare når lock.* finnes (M.popupNeeds)
   ];
+  // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
+  M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0 };
+  const needOk = (hash, hass) => !M.popupNeeds[hash] || !hass || M.popupNeeds[hash](hass);
   // Alle popups som kan velges som mål (navbar, «Mer», Hjem-kort popup_hash, prosa-bobler): [{ hash, name, icon, group, source }]
   // group: rom | fn | egne · source: auto | yaml | custom. Fra siste strategi-generering (MSH.popupReport); uten strategi
   // (manuelt dashbord) → rom/funksjoner/personer fra hass + egne popups i ki-store. opts.hidden: ta med skjulte.
@@ -78,7 +82,7 @@
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
     if (hass) M.areas(hass).forEach((a) => add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'));
-    M.FUNCTION_POPUPS.forEach(([h, n, i]) => add(h, n, i, 'fn', 'auto'));
+    M.FUNCTION_POPUPS.forEach(([h, n, i]) => { if (needOk(h, hass)) add(h, n, i, 'fn', 'auto'); });
     if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
     const cp = (M.store && M.store.get('custom_popups')) || [];
     (Array.isArray(cp) ? cp : []).forEach((c) => { if (c && c.hash) add(String(c.hash)[0] === '#' ? c.hash : '#' + c.hash, c.name, c.icon, 'egne', 'custom'); });
@@ -183,7 +187,7 @@
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });
     // Funksjoner (mal A)
-    M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => put(hash, (card) => M.popupTemplateA({ name, icon, hash, card }), tag));
+    M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => { if (needOk(hash, hass)) put(hash, (card) => M.popupTemplateA({ name, icon, hash, card }), tag); });
     // Personer
     M.all(hass, 'person').forEach((pid) => {
       const o = pid.split('.')[1], hash = '#person-' + o;

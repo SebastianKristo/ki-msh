@@ -16,11 +16,40 @@
   customElements.define('ha-icon', class extends HTMLElement { connectedCallback(){ this._r(); } static get observedAttributes(){return['icon']} attributeChangedCallback(){ this._r(); } _r(){ const i=this.getAttribute('icon')||''; this.setAttribute('data-ok', /^[a-z]+:[a-z0-9-]+$/.test(i)?'1':'0'); if(!this.shadowRoot){this.attachShadow({mode:'open'}).innerHTML='<span style="display:block;width:100%;height:100%;border-radius:4px;background:currentColor;opacity:.35"></span>';} } });
   customElements.define('ha-card', class extends HTMLElement {});
   // hui-card-stub (HA bygger kort med denne; Bubble Card bruker den for pop-up-innhold)
-  customElements.define('hui-card', class extends HTMLElement {
+  if (!/huiekte/.test(location.search)) customElements.define('hui-card', class extends HTMLElement {
     set config(c) { this._c = c; this._mk(); } get config() { return this._c; }
     set hass(h) { this._h = h; if (this._el) this._el.hass = h; } get hass() { return this._h; }
     load() { this._mk(); }
     _mk() { if (!this._c || this._el) return; const el = document.createElement(this._c.type.replace('custom:', '')); el.setConfig(this._c); if (this._h) el.hass = this._h; this._el = el; this.appendChild(el); this.style.display = 'block'; }
+  });
+  // Fiks 16.13 (?huiekte): oppførselen til HAs ekte hui-card (frontend src/panels/lovelace/cards/hui-card.ts): egenskaper
+  // settes samlet i en mikrooppgave når elementet er koblet til, kortet lages i load() (setConfig på en kopi), og
+  // _loadElement setter element.hass/.layout/.preview/.editMode UTEN try/catch (et kort med bare getter for layout/preview
+  // kaster her → Bubble logger «Failed to create card element» og popupen blir tom). Kortet legges inn i DOM-en først
+  // når hass finnes (_updateVisibility). Skjult kort (element.hidden) tas ut av DOM-en.
+  else customElements.define('hui-card', class extends HTMLElement {
+    constructor() { super(); this._ch = new Set(); }
+    set config(c) { this._c = c; this._req('config'); } get config() { return this._c; }
+    set hass(h) { this._h = h; this._req('hass'); } get hass() { return this._h; }
+    set preview(p) { this._p = !!p; } get preview() { return !!this._p; }
+    set layout(l) { this._l = l; this._req('layout'); } get layout() { return this._l; }
+    load() { if (!this._c) throw new Error('Cannot build card without config'); this._load(this._c); }
+    _load(c) {
+      const tag = c.type.replace('custom:', ''), el = document.createElement(tag);
+      try { el.setConfig(JSON.parse(JSON.stringify(c))); } catch (e) { console.error('hui-card', e); }
+      this._el = el; if (this._h) el.hass = this._h;
+      el.layout = this._l; el.preview = this.preview; el.editMode = this.preview;
+      while (this.lastChild) this.removeChild(this.lastChild);
+      this._vis();
+    }
+    connectedCallback() { this._vis(); if (this._ch.size) this._req(); }
+    _req(k) { if (k) this._ch.add(k); if (this._q) return; this._q = true; queueMicrotask(() => { this._q = false; if (!this.isConnected) return; const ch = this._ch; this._ch = new Set(); if (this._el && ch.has('hass') && this._h) this._el.hass = this._h; if (this._el && ch.has('layout')) { try { this._el.layout = this._l; this._el.isPanel = this._l === 'panel'; } catch (e) { console.error(this._c && this._c.type, e); } } if (ch.has('hass')) this._vis(); }); }
+    _vis() {
+      if (!this._el || !this._h) return;
+      const vis = !this._el.hidden;
+      this.style.setProperty('display', vis ? '' : 'none'); this.toggleAttribute('hidden', !vis);
+      if (!vis && this._el.parentElement) this.removeChild(this._el); else if (vis && !this._el.parentElement) this.appendChild(this._el);
+    }
   });
 </script>
 <script src="mock-hass.js"></script>

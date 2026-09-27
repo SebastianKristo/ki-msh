@@ -539,6 +539,31 @@
   let gdEndT = 0;
   MSH.glassDragEnd = () => { gdEndT = Date.now(); }; // kalles av glass-dra og fane-dra ved slipp
   const reduced = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  // Fiks 16.10: linsen følger sporet (anchor) HVER frame – endres layouten under animasjonen (innhold med annen høyde,
+  // scroll, hero som vokser), flyttes linsen med CSS `translate` (virker sammen med transform-animasjonen), så den
+  // aldri lander på et gammelt mål. Virker både for position:absolute (offsetParent) og position:fixed (viewport).
+  //   const f = MSH.lensFollow(lens, sporet); f.reset() – nytt utgangspunkt (etter ny plassering); f.stop()
+  MSH.lensFollow = function (l, anchor) {
+    const fixed = l.style.position === 'fixed';
+    const pos = () => {
+      if (!anchor || !anchor.isConnected) return null;
+      const a = anchor.getBoundingClientRect();
+      if (fixed) return { x: a.left, y: a.top };
+      const op = l.offsetParent;
+      if (!op) return null;
+      const o = op.getBoundingClientRect(), k = op.offsetWidth ? o.width / op.offsetWidth : 1;
+      return { x: (a.left - o.left) / k + op.scrollLeft, y: (a.top - o.top) / k + op.scrollTop };
+    };
+    const st = { base: pos(), raf: 0 };
+    const tick = () => {
+      if (!l.isConnected) { st.raf = 0; return; }
+      const p = pos();
+      if (p && st.base) { const v = `${(p.x - st.base.x).toFixed(2)}px ${(p.y - st.base.y).toFixed(2)}px`; if (l.style.translate !== v) l.style.translate = v; }
+      st.raf = requestAnimationFrame(tick);
+    };
+    st.raf = requestAnimationFrame(tick);
+    return { reset() { st.base = pos(); l.style.translate = ''; }, stop() { cancelAnimationFrame(st.raf); st.raf = 0; } };
+  };
   MSH.glassMorph = function (host, from, to, opt = {}) {
     if (!host || !from || !to || from === to || reduced() || !host.isConnected || !to.animate) return null;
     if (host.__gtLens) { try { host.__gtLens.cancel(); } catch (e) { /* */ } }
@@ -568,7 +593,8 @@
     ];
     const an = l.animate(frames, { duration: 560, easing: 'cubic-bezier(.3,.9,.3,1)', fill: 'forwards' });
     host.__gtLens = an;
-    const done = () => { if (host.__gtLens === an) host.__gtLens = null; l.remove(); host.__mshKeepN = Math.max(0, (host.__mshKeepN || 1) - 1); };
+    const fw = MSH.lensFollow(l, host); // rammene er regnet fra startmålet – følg raden hvis layouten flytter seg
+    const done = () => { fw.stop(); if (host.__gtLens === an) host.__gtLens = null; l.remove(); host.__mshKeepN = Math.max(0, (host.__mshKeepN || 1) - 1); };
     an.onfinish = done; an.oncancel = done;
     return an;
   };
@@ -1035,7 +1061,7 @@
         // Et tilpass-ark med utkast er åpent for dette kortet: vis fortsatt utkastet (ny config overskriver det ikke –
         // arket får vite om endringen og viser «Endret et annet sted – Last inn»). Fiks 15.13.
         const dc = this._rawConfig && MSH.draftOf(this);
-        if (dc) { if (dc.previewing) { config = { ...dc.draft }; } else { try { config = MSH.effectiveConfig(config, this); } catch (e) { /* */ } } dc.check(); }
+        if (dc) { if (dc.previewing) { config = { ...dc.draft }; } else { try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } } dc.check(); }
         else { try { config = MSH.effectiveConfig(config, this); } catch (e) { console.error(this.localName, e); } }
       }
       this._rawConfig = config;
@@ -1549,8 +1575,24 @@
     const add = (arr, self) => ((arr || []).some((f) => f && f.type === 'section' && (f.id === 'spacing' || f.label === 'Mellomrom')) ? arr : [...(arr || []), MSH.spacingSchema(self.spacingDefaults)]);
     Object.defineProperty(cls, 'schema', { configurable: true, get() { const b = orig.call(this); return typeof b === 'function' ? (h, c) => add(b(h, c), this) : add(b, this); } });
   };
+  // Fiks 16.13: HAs hui-card (_loadElement) setter element.hass/.layout/.preview/.editMode UTEN try/catch. Har kortet bare
+  // en getter for en av dem, kaster tildelingen («Cannot set property layout … which has only a getter»), Bubble logger bare
+  // «Failed to create card element» (console.warn) og popupen blir tom uten feilkort. Vakt: legg til en setter og logg.
+  const HA_PROPS = ['hass', 'layout', 'preview', 'editMode', 'isPanel'];
+  const guardHaProps = (tag, cls) => HA_PROPS.forEach((k) => {
+    for (let p = cls.prototype; p && p !== HTMLElement.prototype; p = Object.getPrototypeOf(p)) {
+      const d = Object.getOwnPropertyDescriptor(p, k);
+      if (!d) continue;
+      if (d.get && !d.set) {
+        console.error(tag, `«${k}» har bare getter, men HA/Bubble setter den – setter lagt til (fiks 16.13)`);
+        Object.defineProperty(cls.prototype, k, { configurable: true, get: d.get, set(v) { this['_ha_' + k] = v; } });
+      }
+      break;
+    }
+  });
   MSH.define = function (tag, cls, name, description) {
     if (customElements.get(tag)) return;
+    guardHaProps(tag, cls);
     if (MSH.POPUP_CARDS.includes(tag)) withSpacing(cls);
     customElements.define(tag, cls);
     window.customCards = window.customCards || [];

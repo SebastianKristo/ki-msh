@@ -376,7 +376,7 @@
   /* ------------------------------------------------------------ import: TextEdit/Cocoa-HTML og flere dokumenter (fiks 15.5/15.8) */
   // YAML lagret som «Cocoa HTML Writer» (TextEdit): én linje per <p>, <p …><br></p> = tom linje,
   // <span class="Apple-converted-space"> og &nbsp;/U+00A0 → vanlige mellomrom, entiteter dekodes, andre tagger fjernes.
-  const isCocoaHtml = (t) => /<p[\s>]/i.test(t) && (/Cocoa HTML Writer/i.test(t) || /^\s*(<!DOCTYPE|<html)/i.test(t));
+  const isCocoaHtml = (t) => /<p[\s>]/i.test(t) && (/Cocoa HTML Writer/i.test(t) || /^\s*(<!DOCTYPE|<html|<body)/i.test(t) || /<body[\s>]/i.test(t));
   const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
   const decode = (s) => s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, e) => {
     if (e[0] === '#') { const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return n === 160 ? ' ' : String.fromCodePoint(n); }
@@ -391,8 +391,8 @@
     while ((m = rx.exec(body))) {
       const inner = m[1].replace(/\r?\n/g, '');
       if (/^\s*<br\s*\/?>\s*$/i.test(inner)) { out.push(''); continue; }
-      const txt = decode(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).replace(/ /g, ' ');
-      txt.split('\n').forEach((l) => out.push(l));
+      // én <p> = én YAML-linje: kildelinjeskift inni <p> (TextEdit bryter lange linjer) og <br> fjernes
+      out.push(decode(inner.replace(/<br\s*\/?>/gi, '').replace(/<[^>]+>/g, '')).replace(/\u00a0/g, ' ').replace(/\n/g, ''));
     }
     return out.join('\n') + '\n';
   }

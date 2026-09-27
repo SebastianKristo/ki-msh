@@ -129,7 +129,8 @@
         const st = this.st;
         if (st && st.phase === 'hold' && st.type !== 'mouse') this._abortHold(); // native scroll → ikke langt trykk
       }, { passive: true });
-      if (window.ResizeObserver) { this._ro = new ResizeObserver(() => this.fade()); this._ro.observe(row); }
+      // Fiks 16.10: sporet endrer størrelse/plass under et glass-dra (innhold med annen høyde) → mål på nytt, ikke gamle rects
+      if (window.ResizeObserver) { this._ro = new ResizeObserver(() => { this.fade(); const st = this.st; if (st && st.phase === 'glass' && st.x != null) this._glassMove(st.x); }); this._ro.observe(row); }
     }
     _bindBtn(b) {
       if (b.__trB === this) return;
@@ -341,7 +342,7 @@
       st.phase = 'glass';
       if (this.o.card) this.o.card._busy = true;
       this._glassOff(true);
-      if (!this.o.onGlassMove) st.lens = lensEl();
+      if (!this.o.onGlassMove) { st.lens = lensEl(); st.fw = M.lensFollow ? M.lensFollow(st.lens, this.row) : null; } // linsen følger raden hver frame
       if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
     }
     _nearest(x) {
@@ -357,12 +358,19 @@
       const r = hit.getBoundingClientRect(), cr = this.row.getBoundingClientRect();
       const L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, x - r.width / 2));
       Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' });
+      if (st.fw) st.fw.reset();
     }
     _glassEnd(st, commit) {
-      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
+      const hit = commit ? st.hit : null;
+      if (st.lens) {
+        // Slipp: linsen snapper til valgt knapp (ferske mål) og tones ut der – følger raden hvis innholdet under endrer høyde
+        const l = st.lens, r = hit && hit.isConnected ? hit.getBoundingClientRect() : null;
+        if (r) { Object.assign(l.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }); if (st.fw) st.fw.reset(); }
+        setTimeout(() => { l.style.opacity = '0'; l.style.transform = 'scale(.9)'; }, r ? 160 : 0);
+        setTimeout(() => { l.remove(); if (st.fw) st.fw.stop(); }, r ? 380 : 220);
+      }
       this._glassOff(false);
       if (this.o.card) this.o.card._busy = false;
-      const hit = commit ? st.hit : null;
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
     }

@@ -30,7 +30,7 @@
     const next = { ...old, ...patch };
     Object.keys(patch).forEach((k) => { if (patch[k] === undefined || patch[k] === null) delete next[k]; });
     card.setConfig(next);
-    try { const res = await M.saveCardConfig(card.hass, old, next); if (res && res.config && res.config.card_id !== next.card_id) card.setConfig(res.config); } catch (e) { /* */ }
+    try { const res = await M.saveCardConfig(card.hass, old, next); if (res && res.config && res.config.card_id !== next.card_id) card.setConfig(res.config); } catch (e) { console.error('msh-klima-card', 'lagring feilet', e); }
   };
   // Bakoverkompatibel tynn wrapper rundt MSH.tabReorder (05-tab-reorder.js): langt trykk + dra = omorganiser
   // (onReorder(keys)); valgfritt «liquid glass»-valg (onSelect(key), glass: true). Knappene må ha data-key.
@@ -90,7 +90,7 @@
     return !!s && !['ingen', 'unavailable', 'unknown'].includes(s.state);
   };
   const hasTab = (card, id) => {
-    if (M.klimaHasTab) { try { return !!M.klimaHasTab(card, id); } catch (e) { /* */ } }
+    if (M.klimaHasTab) { try { return !!M.klimaHasTab(card, id); } catch (e) { console.error('msh-klima-card', e); } }
     return id !== 'lading' || harLading(card);
   };
   const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('msh-klima-card', e); return fb; } };
@@ -296,12 +296,22 @@
       if (reduced()) { this._pendingIntro = false; return; }
       if (!this.isConnected || !this.shadowRoot.querySelector('.kh')) { this._pendingIntro = true; return; }
       this._pendingIntro = false;
+      // Fiks 16.13: bare når popupen er åpen, fanen synlig og kortet har størrelse – ellers står innholdet statisk (synlig)
+      const r = this.getBoundingClientRect();
+      if (!this.isOpen || document.hidden || !r.width || !r.height) return;
       try { this._intro0(); } catch (e) { console.error('msh-klima-card', e); this._stopAnims(); }
     }
     _intro0() {
       this._stopAnims();
       const q = (s) => this.shadowRoot.querySelector(s), A = [];
-      const an = (el, kf, o) => { if (el && el.animate) { const x = el.animate(kf, { fill: 'backwards', ...o }); A.push(x); return x; } return null; };
+      // Fiks 16.13: ingen fill (tidligere 'backwards' holdt opacity 0/scaleX(0) i forsinkelsen). Forsinkelsen bakes inn i
+      // nøkkelrammene, så elementet står i sin CSS-tilstand (synlig) før start, etter slutt og etter cancel().
+      const an = (el, kf, o) => {
+        if (!el || !el.animate) return null;
+        const d = o.delay || 0, tot = d + o.duration, a = kf[0], b = kf[kf.length - 1];
+        const frames = d ? [{ ...a, offset: 0 }, { ...a, offset: d / tot, easing: o.easing }, { ...b, offset: 1 }] : [{ ...a, easing: o.easing }, b];
+        const x = el.animate(frames, { duration: tot, fill: 'none' }); A.push(x); return x;
+      };
       // Ringene tegnes opp (tid-ringen +150, effekt-ringen +350)
       [['.tm', 150], ['.ef', 350]].forEach(([s, delay]) => { const el = q(s); if (el) an(el, [{ strokeDashoffset: el.dataset.c + 'px' }, { strokeDashoffset: getComputedStyle(el).strokeDashoffset }], { duration: 1100, delay, easing: EASE }); });
       // Status og setning fader inn fra 8 px under
@@ -314,6 +324,9 @@
       const nl = q('.bar .nl'); if (nl) an(nl, [{ left: '0%' }, { left: nl.style.left }], { duration: 1000, delay: 550, easing: EASE });
       this._intro = A;
       this._introAt = Date.now();
+      // Vakt: en animasjon som ikke er ferdig etter forventet tid (tidslinje stoppet, skjult fane …) spoles til slutt
+      clearTimeout(this._introT);
+      this._introT = setTimeout(() => A.forEach((x) => { if (x.playState !== 'finished' && x.playState !== 'idle') { console.warn('msh-klima-hero-card', 'animasjon hang – spoles til slutt', x.playState, x.currentTime); try { x.finish(); } catch (e) { console.warn('msh-klima-hero-card', e); x.cancel(); } } }), 2200);
       // Tall teller opp fra 0 (1100 ms, ease-out, norsk komma)
       this.shadowRoot.querySelectorAll('[data-n]').forEach((el) => { const v = num(el.dataset.v); if (v != null) this._tween(el, 0, v, 1100, 0); });
       // Etterpå, i løkke: effekt-ringen pulserer rolig, prognosen «puster»
@@ -325,7 +338,7 @@
       try { this._loops0(); } catch (e) { console.error('msh-klima-card', e); }
     }
     _loops0() {
-      (this._loop || []).forEach((x) => { try { x.cancel(); } catch (e) { /* */ } });
+      (this._loop || []).forEach((x) => { try { x.cancel(); } catch (e) { console.warn('msh-klima-hero-card', e); } });
       const L = [], ef = this.shadowRoot.querySelector('.ef'), pg = this.shadowRoot.querySelector('.bar .pg');
       if (ef && ef.animate && this._S && this._S.zone !== 'off') L.push(ef.animate([{ opacity: 1 }, { opacity: 0.72 }], { duration: 2600, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
       if (pg && pg.animate) L.push(pg.animate([{ opacity: 1 }, { opacity: 0.45 }], { duration: 2200, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
@@ -333,7 +346,8 @@
     }
     _stopAnims() {
       clearTimeout(this._loopT);
-      [...(this._intro || []), ...(this._loop || [])].forEach((x) => { try { x.cancel(); } catch (e) { /* */ } });
+      [...(this._intro || []), ...(this._loop || [])].forEach((x) => { try { x.cancel(); } catch (e) { console.warn('msh-klima-hero-card', e); } });
+      clearTimeout(this._introT);
       this._intro = []; this._loop = [];
       Object.values(this._tw || {}).forEach((t) => cancelAnimationFrame(t.raf));
       this._tw = {};
@@ -470,6 +484,78 @@
     }
     get cardSize() { return 14; }
     get layout() { return layoutOf(this.config); }
+    // Fiks 16.13 – ÅRSAKEN til tom #klima: HAs hui-card (_loadElement) gjør `element.layout = 'grid'` uten try/catch. Med bare
+    // getter kastet det («Cannot set property layout of #<Klima> which has only a getter»), Bubble logget bare en advarsel
+    // («Failed to create card element») og popupen ble tom. HAs verdi lagres separat; this.layout er fortsatt kortets layout.
+    set layout(v) { this._haLayout = v; }
+    setConfig(c) { super.setConfig(c); this._skeleton(); }
+    connectedCallback() {
+      this._skeleton();
+      if (!this._hass) {
+        const ha = document.querySelector('home-assistant');
+        if (ha && ha.hass) { console.info('msh-klima-card', 'hass hentet fra <home-assistant>'); this.hass = ha.hass; }
+      }
+      super.connectedCallback();
+      this._armWatch();
+    }
+    // Diagnoseskjelett (hero med «–» + faner) før alt annet: synlig fra første øyeblikk, også uten hass/data
+    _skeleton() {
+      if (this._firstRender || !this.shadowRoot || this.shadowRoot.childElementCount) return;
+      const tabs = tabDefs().map((t) => `<span class="sk-t">${esc(t.label)}</span>`).join('');
+      this.shadowRoot.innerHTML = `<style>${M.BASE_CSS}.sk{display:flex;flex-direction:column;gap:8px}.sk-h{display:flex;align-items:center;gap:18px;min-height:170px;box-sizing:border-box;padding:20px 18px;border-radius:32px;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);font-size:13px}.sk-r{flex:0 0 auto;width:110px;height:110px;border-radius:50%;box-shadow:inset 0 0 0 12px var(--gray300,#404040);display:grid;place-items:center;font-size:30px;font-weight:300;color:var(--white,#fafafa)}.sk-s{font-size:20px;color:var(--white,#fafafa)}.sk-ts{display:flex;gap:6px;overflow:hidden}.sk-t{flex:0 0 auto;padding:12px 14px;border-radius:22px;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);font-size:13px}</style><ha-card><div class="sk" data-skeleton><div class="sk-h"><div class="sk-r">–</div><div><div class="sk-s">–</div><div>Klima lastes …</div></div></div><div class="sk-ts">${tabs}</div></div></ha-card>`;
+    }
+    // Vakt: 3 s etter tilkobling/åpning – er kortet fortsatt usynlig (høyde 0 / opacity 0), tegnes et feilkort med diagnosen
+    _armWatch() { clearTimeout(this._watchT); this._watchT = setTimeout(() => this._watch(), 3000); }
+    _watch() {
+      if (!this.isConnected) return;
+      const cont = M.popupContainer(this);
+      // Popupen er lukket/skjult (Bubble viser den ikke): høyde 0 er riktig – ny sjekk ved neste åpning
+      if (!M.isPopupOpen(this) || document.hidden || (cont && !cont.getBoundingClientRect().height)) return;
+      const d = this.diagnose();
+      if (d.synlig) { if (this._blank) { this._blank = null; this.update(); } return; }
+      const first = !this._blank;
+      this._blank = d;
+      if (first) console.error('msh-klima-card', 'ingenting synlig etter 3 s', JSON.stringify(d));
+      const hc = this.shadowRoot.querySelector('ha-card');
+      if (hc) { hc.querySelectorAll(':scope > [data-blank]').forEach((x) => x.remove()); hc.insertAdjacentHTML('afterbegin', this._blankHTML(true)); }
+      else this.shadowRoot.innerHTML = `<style>${M.BASE_CSS}</style><ha-card>${this._blankHTML(true)}</ha-card>`;
+      this._armWatch();
+    }
+    _blankHTML(post) {
+      if (!this._blank) return '';
+      return `<div class="empty msh-fail" data-blank ${post ? 'data-post' : ''} role="alert" style="color:var(--red,#f28073);text-align:left;align-items:flex-start;flex-direction:column">${M.icon('mdi:alert-circle-outline', 22)}<span>Klima-kortet viser ingenting etter 3 s. Diagnose (send denne):</span><pre style="margin:0;max-width:100%;max-height:300px;overflow:auto;white-space:pre-wrap;font-size:11px;color:var(--gray900,#c7c7c7)">${esc(JSON.stringify(this._blank, null, 1))}</pre></div>`;
+    }
+    // Diagnoseobjektet (samme felter som docs/klima-diagnose.md): størrelse, opasitet og animasjoner
+    diagnose() {
+      const sr = this.shadowRoot, hs = this._heroEl && this._heroEl.shadowRoot;
+      const op = (el) => {
+        let o = 1;
+        for (let n = el, i = 0; n && n.nodeType === 1 && i < 40; i++) {
+          const c = getComputedStyle(n);
+          if (c.display === 'none' || c.visibility === 'hidden') return 0;
+          o *= Number(c.opacity);
+          if (n === this) break;
+          n = n.parentNode && n.parentNode.nodeType === 11 ? n.parentNode.host : n.parentNode;
+        }
+        return Math.round(o * 1000) / 1000;
+      };
+      const box = (el) => (el ? { h: Math.round(el.getBoundingClientRect().height), op: op(el) } : null);
+      const vis = (b) => !!b && b.h > 0 && b.op > 0.05;
+      const anims = [];
+      [sr, hs].forEach((root) => { if (root && root.getAnimations) root.getAnimations().forEach((a) => { const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : {}, tg = a.effect && a.effect.target; anims.push({ el: tg ? tg.localName + (tg.getAttribute('class') ? '.' + tg.getAttribute('class').split(' ')[0] : '') : null, playState: a.playState, fill: t.fill, delay: t.delay, currentTime: a.currentTime == null ? null : Math.round(a.currentTime), progress: t.progress }); }); });
+      const r = this.getBoundingClientRect(), cs = getComputedStyle(this);
+      const tabs = sr.querySelector('.trow') || sr.querySelector('.sk-ts'), fail = sr.querySelector('.msh-fail:not([data-blank])');
+      const kh = hs && hs.querySelector('.kh');
+      const st = M.kiEnergi ? safe(() => M.kiEnergi(this), null) : null;
+      const d = {
+        versjon: window.KI_MSH_VERSION || '', open: !!this._open, firstRender: !!this._firstRender, hasHass: !!this._hass, config: !!this._config,
+        host: { h: Math.round(r.height), w: Math.round(r.width), op: Number(cs.opacity), vis: cs.visibility, display: cs.display },
+        haCard: box(sr.querySelector('ha-card')), hero: box(kh), tabs: box(tabs), feilkort: box(fail), html: sr.innerHTML.length,
+        anims, hidden: document.hidden, status: st && st.status ? st.status.state : null,
+      };
+      d.synlig = r.height > 0 && (vis(d.tabs) || vis(d.feilkort)) && (!kh || vis(d.hero) || vis(d.feilkort));
+      return d;
+    }
     customize(focus) { return openSheet(this, focus); }
     _render() {
       const ae = this._firstRender && this.shadowRoot.activeElement;
@@ -493,7 +579,7 @@
       const body = !tab ? '' : M.klimaTabHTML
         ? safe(() => M.klimaTabHTML(this, tab, L), `<div class="empty">Kunne ikke tegne fanen</div>`)
         : `<div class="empty">${M.icon('mdi:timer-sand', 22)}<span>Innholdet i «${esc((T[tab] || {}).label || tab)}» lastes …</span></div>`;
-      return `<div class="wrap">
+      return `<div class="wrap">${this._blankHTML(false)}
         ${c.title ? `<div class="ttl">${esc(c.title)}</div>` : ''}
         ${L.show_modes !== false ? this._modes() : ''}
         <div class="trow">
@@ -543,9 +629,9 @@
     onInput(name, el, ev, kind) {
       if (M.klimaInput && safe(() => M.klimaInput(this, name, el, ev, kind), false)) return;
     }
-    onOpen() { if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); }
+    onOpen() { if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch(); }
     onClose() { if (M.klimaOnClose) safe(() => M.klimaOnClose(this)); }
-    disconnectedCallback() { super.disconnectedCallback(); this._open = false; }
+    disconnectedCallback() { super.disconnectedCallback(); this._open = false; clearTimeout(this._watchT); }
     afterRender() {
       const row = this.shadowRoot.querySelector('.tabs');
       if (row && M.tabReorder) safe(() => M.tabReorder(row, {

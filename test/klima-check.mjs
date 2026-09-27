@@ -98,7 +98,8 @@ for (const [navn, mut] of Object.entries(SETS)) {
   p.on('console', async (m) => { if (m.type() === 'info' && /msh-klima-card/.test(m.text())) { try { info.push(await Promise.all(m.args().map((a) => a.jsonValue()))); } catch (e) { info.push([m.text()]); } } });
   p.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(m.text()) && !/TVUNGET/.test(m.text())) errs.push(m.text().slice(0, 200)); });
-  await p.goto('file://' + resolve('test/harness-bubble.html'));
+  // Fiks 16.13: ekte hui-card-oppførsel (?huiekte) – stubben skjulte at kortet kastet i HAs _loadElement (element.layout = …)
+  await p.goto('file://' + resolve('test/harness-bubble.html') + '?huiekte');
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   // Opptaket + WS-svar (config_entries/get, config/entity_registry/list) for datasettene som bruker det
   await p.evaluate(({ F, opptak }) => {

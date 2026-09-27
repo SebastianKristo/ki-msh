@@ -118,6 +118,7 @@
       '#vaer': () => has('weather'),
       '#lys': () => has('light'),
       '#gjoremal': () => has('todo'),
+      '#dorlas': () => has('lock'), // fiks 16.7
     };
     const hide = (config.popups || {});
     const out = [];
@@ -125,6 +126,7 @@
       const key = hash.slice(1);
       if (hide[key] === false) return;
       if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
+      if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
       out.push({ hash, name, icon, tag });
     });
     M.all(hass, 'person').forEach((pid) => {
@@ -184,18 +186,10 @@
   /* Dashbord-globale nøkler (button_card_templates, decluttering_templates, paper_buttons_row …) fra ki-store.
    * → { globals: {…}, err } – nøkler som tilhører strategien/visningene (views, strategy, title) tas aldri med. */
   const RESERVED_ROOT = new Set(['views', 'strategy', 'title', 'yaml']);
+  // Én kilde (fiks 16.9): MSH.globalsInfo/getGlobals (03-templates.js) – editoren, advarselen og mal-løseren leser det samme
   M.dashboardGlobals = function (raw) {
-    const g = raw === undefined ? (M.store && M.store.get('dashboard_globals')) : raw;
-    if (!isObj(g)) return { globals: {}, err: null };
-    let obj = g, err = null;
-    if (typeof g.yaml === 'string') {
-      const r = M.customPopupConfig({ yaml: g.yaml });
-      if (r.err) return { globals: {}, err: r.err };
-      obj = r.cfg;
-    }
-    const out = {};
-    Object.keys(obj).forEach((k) => { if (!RESERVED_ROOT.has(k) && obj[k] != null) out[k] = obj[k]; });
-    return { globals: out, err };
+    const r = M.globalsInfo ? M.globalsInfo(raw) : { globals: {}, err: null };
+    return { globals: r.globals, err: r.err };
   };
   /* Fiks 15.1 · generert popup med ødelagt kortliste etter overstyring/sammenslåing → rettes, aldri tom popup:
    *   tom/manglende cards → det genererte kortet; gammelt kortnavn (ki-klima-card for msh-klima-card), et msh-kort som
@@ -476,10 +470,38 @@
     const S = M.store ? M.store.get() || {} : {};
     const res = M.mergePopups({ auto, yaml: config.custom_popups, custom: S.custom_popups, yamlOverrides: config.popup_overrides, storeOverrides: S.popup_overrides, userPopups: (user && user.popups) || {} });
     M.popupReport = res.report;
+    // Fiks 16.12 · maler løses her (button-card/decluttering-card/paper-buttons-row), så kortene ikke er avhengige av at
+    // lovelace.config har rotnøklene når de lages. Rotnøklene returneres i tillegg (for kort lagt til manuelt).
+    if (M.resolveTemplates) {
+      const G = M.getGlobals();
+      if (Object.keys(G).length) res.popups = res.popups.map((p) => { try { return M.resolveTemplates(p, G); } catch (e) { console.warn('[ki-msh] maler', p && p.hash, e); return p; } });
+    }
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => f.hash.slice(1));
     const navbar = { type: 'custom:msh-navbar-card', card_id: I.navbar, bar: fk.slice(0, 5), more: fk.slice(5), ...(config.navbar || {}) };
     return { title: 'Hjem', path: 'hjem', icon: 'mdi:home', panel: true, cards: [{ type: 'vertical-stack', cards: [home, navbar, ...res.popups] }] };
+  };
+
+  // Logg getGlobals()-antallet (ved oppstart og når malene endres) + diagnose: finner button-card malene i lovelace.config?
+  let loggedG = null;
+  function logGlobals() {
+    const info = M.globalsInfo ? M.globalsInfo() : null;
+    if (!info) return;
+    const s = M.globalsSummary(info.counts);
+    if (s === loggedG) return;
+    loggedG = s;
+    console.info('[ki-msh] maler (ki-store dashboard_globals):', s);
+    setTimeout(() => { try { console.info('[ki-msh] maler i lovelace.config:', JSON.stringify(M.templateDiagnose())); } catch (e) { /* */ } }, 4000);
+  }
+  // hui-root → lovelace.config: er det den genererte configen (ikke rawConfig med bare strategy:) og har den rotnøklene?
+  M.templateDiagnose = function () {
+    const ha = document.querySelector('home-assistant');
+    const panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+    const root = panel && M.deep(panel.shadowRoot || panel, 'hui-root');
+    const ll = (root && root.lovelace) || (panel && panel.lovelace);
+    const c = ll && ll.config;
+    const n = (o) => (o && typeof o === 'object' ? Object.keys(o).length : 0);
+    return { store: M.globalsInfo().counts, lovelace: c ? { generated: !c.strategy && Array.isArray(c.views), bct: n(c.button_card_templates), dct: n(c.decluttering_templates), pbr: n(c.paper_buttons_row && c.paper_buttons_row.presets) } : null };
   };
 
   class KiDashboardStrategy extends HTMLElement {
@@ -489,6 +511,7 @@
       // maler og andre dashbord-globale nøkler (fiks 15.8) på rotnivå – der button-card/decluttering-card/paper-buttons-row leter
       const G = M.dashboardGlobals();
       if (G.err) console.warn('[ki-msh] dashboard_globals har ugyldig YAML – maler tas ikke med:', G.err.msg, G.err.line ? 'linje ' + G.err.line : '');
+      logGlobals();
       M.__kiGlobalKeys = Object.keys(G.globals);
       return { ...G.globals, title: (config && config.title) || 'Hjem', views: [view] };
     }

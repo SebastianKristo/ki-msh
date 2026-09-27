@@ -24,6 +24,40 @@
   const TSW = [['ingen', 'Grå'], ['gronn', 'Grønn'], ['gul', 'Gul'], ['oransje', 'Oransje'], ['rod', 'Rød'], ['bla', 'Blå'], ['rosa', 'Rosa']];
   const WX = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Kraftig regn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
   const pad2 = (n) => String(n).padStart(2, '0');
+  /* Fiks 16.11 · snarvei-fliser med egen entitet, navn, ikon, undertekst og fire handlinger.
+   * Config per flis: tile_cfg.<id> = { kind, entity, name, icon, sub, tap_icon, tap_card, hold_icon, hold_card, side, pos }
+   *   id = typen for første flis (lock, alarm, cam …), ekstra fliser av samme type: <type>_<n> (lock_2) med kind.
+   *   Plassen per fane ligger som før i tiles.<fane>.<id>.slot (side-pos, f.eks. L-top); side/pos i tile_cfg er standard
+   *   for en ny flis. Handlingene er HA-format ({ action: toggle | navigate | more-info | perform-action | none }),
+   *   tom = standard fra DEF_TAP. Bakoverkompatibelt: overrides.<type> (entitet) og tap.<type> (card_hash/icon) leses
+   *   når tile_cfg mangler. Fiks 16.7-aliaser (Dørlås): tap_action (begge trykk), hold_action, icon_hold_action. */
+  const NAV = (h) => ({ action: 'navigate', navigation_path: h });
+  // Standardhandlinger (Hjem v3 · DEF_TAP): ic = trykk på ikonet, card = trykk på kortet, hold_ic / hold_card = hold.
+  // Mangler en nøkkel: ikon → typens veksling (ellers som kortet), kort → typens popup (ellers more-info),
+  // hold på kortet → more-info, hold på ikonet → ingen.
+  const DEF_TAP = {
+    lock: { ic: { action: 'toggle' }, card: { action: 'toggle' }, hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } },
+    alarm: { ic: { action: 'toggle' }, card: NAV('#sikkerhet') },
+    jul: { ic: { action: 'none' }, card: { action: 'none' } },
+  };
+  const TAP_KEYS = { ic: 'tap_icon', card: 'tap_card', hold_ic: 'hold_icon', hold_card: 'hold_card' };
+  const TAP_FIELDS = [['ic', 'Trykk på ikonet'], ['card', 'Trykk på kortet'], ['hold_ic', 'Hold på ikonet'], ['hold_card', 'Hold på kortet']];
+  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'more', 'service', 'none'];
+  // Entitetsdomene per flis-type (søkbar velger i «Tilpass Hjem» → Kort og GUI-editoren). Apparater: status-sensor.
+  const TILE_DOM = { lock: 'lock', alarm: 'alarm_control_panel', cam: 'camera', todo: 'todo', garage: 'cover', ruter: 'sensor', tv: 'media_player', vacr: 'vacuum', dish: ['sensor', 'binary_sensor', 'switch'], wash: ['sensor', 'binary_sensor', 'switch'], dry: ['sensor', 'binary_sensor', 'switch'] };
+  const tapLabel = (a, w) => {
+    if (!a) return w === 'ic' ? 'typens handling' : w === 'card' ? 'typens popup / detaljer' : w === 'hold_card' ? 'More-info' : 'Ingen';
+    if (a.action === 'toggle') return 'Veksle';
+    if (a.action === 'more-info') return 'More-info';
+    if (a.action === 'none') return 'Ingen';
+    if (a.action === 'navigate') return a.navigation_path;
+    return M.tap ? M.tap.label(a) : a.action;
+  };
+  // Ny id for en ekstra flis av samme type: lock_2, lock_3 …
+  M.hjemNewTileId = (c, kd) => { let n = 2; while (tileCfg(c, kd + '_' + n).kind || (c.links || {})[kd + '_' + n]) n++; return kd + '_' + n; };
+  const tileCfg = (c, id) => ((c && c.tile_cfg) || {})[id] || {};
+  const kindOf = (c, id) => (KINDS[id] ? id : (KINDS[tileCfg(c, id).kind] && id !== 'jul' ? tileCfg(c, id).kind : null));
+  const extraIds = (c) => Object.keys((c && c.tile_cfg) || {}).filter((id) => !KINDS[id] && kindOf(c, id) && kindOf(c, id) !== 'jul').sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }));
   const regOk = (hass, id) => { const e = M.regEntry(hass, id); return !e || !(e.hidden || e.hidden_by || e.disabled_by); };
 
   /* ------------------------------------------------------------ adaptiv layout */
@@ -167,16 +201,20 @@
       trash: o.trash || c.trash_sensor || first(Object.keys(hass.states).filter((id) => id.startsWith('sensor.') && /s(ø|o)ppel|avfall|renovasjon|trash|waste|garbage/i.test(id) && M.isNum(hass.states[id].state)).sort()),
     };
   }
-  const availKinds = (E, c) => [...KIND_ORDER.filter((k) => k === 'jul' || E[k]), ...Object.keys(c.links || {}).filter((k) => c.links[k] && c.links[k].title).sort()];
-  const kindLabel = (k, c) => (KINDS[k] ? KINDS[k][1] : ((c.links || {})[k] || {}).title || 'Snarvei');
+  const availKinds = (E, c) => [...KIND_ORDER.filter((k) => k === 'jul' || E[k] || tileCfg(c, k).entity), ...extraIds(c).filter((id) => tileCfg(c, id).entity || E[kindOf(c, id)]), ...Object.keys(c.links || {}).filter((k) => c.links[k] && c.links[k].title).sort()];
+  const kindLabel = (k, c) => { const kd = kindOf(c, k); if (!kd) return ((c.links || {})[k] || {}).title || 'Snarvei'; const n = tileCfg(c, k).name; return n || KINDS[kd][1] + (k !== kd ? ' ' + String(k).slice(kd.length + 1) : ''); };
+  const kindIcon = (k, c) => { const kd = kindOf(c, k); return kd ? tileCfg(c, k).icon || KINDS[kd][0] : ((c.links || {})[k] || {}).icon || 'mdi:star'; };
+  // Standardplass for en flis: tile_cfg.<id>.side/pos (ny flis) → standard for typen
+  const defSlot = (c, tk, k) => { const x = tileCfg(c, k); if (/^[LR]$/.test(x.side || '') && /^(top|bottom)$/.test(x.pos || '')) return x.side + '-' + x.pos; return (TILE_DEF[tk] || {})[kindOf(c, k) || k]; };
+  M.hjemTiles = { KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
   // Hjem med kuratert liste (t.hc): bare kort i tabs.hjem.cards vises; plass = lagret plass eller standard (apparater o.l.: høyre, over rom).
   const tileSlot = (c, t, k) => {
     if (t.hc) {
       const sl = get(c, `tiles.${t.id}.${k}.slot`), set = !!sl && sl !== 'off';
       if (!t.hc.cards.includes(k) && !(set && !t.hc.exclude.includes(k))) return 'off';
-      return set ? sl : TILE_DEF.hjem[k] || 'R-top';
+      return set ? sl : defSlot(c, 'hjem', k) || 'R-top';
     }
-    return get(c, `tiles.${t.id}.${k}.slot`) || (TILE_DEF[t.kind] || {})[k] || 'off';
+    return get(c, `tiles.${t.id}.${k}.slot`) || defSlot(c, t.kind, k) || 'off';
   };
   const seasonOk = (c, t, k) => {
     const f = get(c, `tiles.${t.id}.${k}.fra`) ?? (k === 'jul' ? '11-01' : ''), tl = get(c, `tiles.${t.id}.${k}.til`) ?? (k === 'jul' ? '03-01' : '');
@@ -328,16 +366,26 @@
           if (en.length > 1) f.push({ type: 'order', name: `tile_order.${t.id}`, hiddenName: `tile_hidden.${t.id}`, label: 'Snarveier · rekkefølge', options: en.map((k) => [k, kindLabel(k, c)]) });
           fields.push({ type: 'section', id: 'tab-' + t.id, label: `Rom og snarveier · ${t.label}`, icon: 'mdi:view-grid-outline', fields: f });
         });
-        // Snarveier: handlinger ved trykk
-        const tapF = [];
-        KIND_ORDER.filter((k) => avail.includes(k)).forEach((k) => {
-          const L = KINDS[k][1], ic = get(c, `tap.${k}.icon`) || 'auto';
-          tapF.push({ type: 'hash', name: `tap.${k}.card_hash`, label: `${L} · trykk på kortet åpner popup`, placeholder: 'Standard' });
-          tapF.push({ type: 'select', name: `tap.${k}.icon`, label: `${L} · trykk på ikonet`, options: [['auto', 'Standard'], ['popup', 'Åpne popup'], ['more', 'Mer info'], ['script', 'Kjør script'], ['none', 'Ingen']], default: 'auto' });
-          if (ic === 'popup') tapF.push({ type: 'hash', name: `tap.${k}.icon_hash`, label: `${L} · popup for ikonet`, placeholder: '#sikkerhet' });
-          if (ic === 'script') tapF.push({ type: 'entity', name: `tap.${k}.script`, label: `${L} · script`, domain: 'script' });
+        // Snarveier: entitet, navn, ikon, undertekst og fire handlinger per flis (fiks 16.11 – samme som «Tilpass Hjem» → Kort)
+        const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk låser/låser opp, hold på ikonet åpner #dorlas, hold på kortet viser detaljer.' }];
+        avail.filter((k) => kindOf(c, k) && kindOf(c, k) !== 'jul').forEach((k) => {
+          const kd = kindOf(c, k), L = kindLabel(k, c), P = `tile_cfg.${k}`, dom = TILE_DOM[kd];
+          tapF.push({ type: 'section', id: 'tile-' + k, label: L, icon: 'mdi:gesture-tap-hold', fields: [
+            ...(dom ? [{ type: 'entity', name: P + '.entity', label: 'Entitet', domain: dom, auto: (h, cc) => { const e = tileEnts(h, { ...cc, overrides: k === kd ? cc.overrides : {} })[kd]; return e && typeof e === 'object' ? e.status : e; } }] : []),
+            { type: 'text', name: P + '.name', label: 'Navn', placeholder: KINDS[kd][1] },
+            { type: 'icon', name: P + '.icon', label: 'Ikon', placeholder: M.iconName(KINDS[kd][0]) },
+            { type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] },
+            ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })),
+            ...(k !== kd ? [{ type: 'button', label: 'Slett denne flisen', icon: 'mdi:delete', run: (h, cc, ed) => { ed._set(P, undefined); const hc = get(cc, 'tabs.hjem.cards'); if (Array.isArray(hc)) ed._set('tabs.hjem.cards', hc.filter((x) => x !== k)); } }] : []),
+          ] });
         });
-        fields.push({ type: 'section', id: 'tap', label: 'Snarveier · handlinger', icon: 'mdi:gesture-tap', fields: tapF });
+        KIND_ORDER.filter((kd) => TILE_DOM[kd]).forEach((kd) => tapF.push({ type: 'button', label: '+ Legg til ' + KINDS[kd][1].toLowerCase(), icon: 'mdi:plus', run: (h, cc, ed) => {
+          const id = M.hjemNewTileId(cc, kd);
+          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom' });
+          const hc = get(cc, 'tabs.hjem.cards');
+          if (Array.isArray(hc)) ed._set('tabs.hjem.cards', [...hc, id]);
+        } }));
+        fields.push({ type: 'section', id: 'tap', label: 'Snarveier · entitet og handlinger', icon: 'mdi:gesture-tap', fields: tapF });
         fields.push({ type: 'overrides', label: 'Bytt entiteter for snarveier og sveip-kort', fields: [
           ['lock', 'Dørlås', 'lock'], ['garage', 'Garasjeport', 'cover'], ['alarm', 'Alarm', 'alarm_control_panel'], ['cam', 'Kamera', 'camera'], ['ruter', 'Ruter (avganger)', 'sensor'], ['todo', 'Gjøremål', 'todo'], ['tv', 'TV', 'media_player'], ['vacr', 'Støvsuger', 'vacuum'],
           ['dish', 'Oppvaskmaskin (status)', null], ['wash', 'Vaskemaskin (status)', null], ['dry', 'Tørketrommel (status)', null], ['weather', 'Vær', 'weather'], ['price', 'Strømpris', 'sensor'], ['watt', 'Effekt (hele huset)', 'sensor'], ['calendar', 'Kalender', 'calendar'], ['trash', 'Søppel (dager til tømming)', 'sensor'],
@@ -485,15 +533,39 @@
     }
 
     /* ---------- snarvei-fliser */
-    _tileModel(kind, E) {
+    // Flis-modell for en flis-id (type eller ekstra flis lock_2 …): egen entitet/navn/ikon/undertekst fra tile_cfg.<id>.
+    _tileModel(id, E) {
+      const c = this.config, kd = kindOf(c, id);
+      if (!kd) return this._kindModel(id, E);
+      const cfg = tileCfg(c, id);
+      let E2 = E;
+      if (cfg.entity || id !== kd) {
+        E2 = { ...E };
+        if (cfg.entity && this.hass.states[cfg.entity]) {
+          E2[kd] = APPL[kd] ? applFind(this.hass, kd, cfg.entity) : cfg.entity;
+          if (kd === 'todo') E2.todos = [cfg.entity];
+        }
+      }
+      const m = this._kindModel(kd, E2, id);
+      if (!m) return null;
+      m.kind = id; m.type = kd;
+      if (cfg.icon) { m.icon = cfg.icon; m.aIcon = null; }
+      const nm = cfg.name;
+      if (nm && ['tv', 'vacr', 'cam', 'ruter', 'dish', 'wash', 'dry', 'jul'].includes(kd)) m.title = nm;
+      if (!m.confirm && (cfg.sub || nm) && !(nm && !cfg.sub && m.title === nm)) m.sub = cfg.sub || nm;
+      return m;
+    }
+    _kindModel(kind, E, tid) {
       const hass = this.hass, c = this.config, s = (id) => this.s(id);
       const T = (o) => ({ kind, icon: (KINDS[kind] || [])[0], ...o });
       switch (kind) {
         case 'lock': {
+          // Fiks 16.7: farger via universal-regler (_tileHTML), trykk = lås / lås opp med bekreftelse (trykk igjen / PIN)
           const id = E.lock, st = s(id); if (!id) return null;
-          const L = !!st && st.state === 'locked', jam = !!st && st.state === 'jammed';
-          return T({ ent: id, icon: L || !st ? 'key' : 'lock_open', title: !st ? '–' : jam ? 'Feil' : L ? 'Låst' : st.state === 'locking' ? 'Låser' : st.state === 'unlocking' ? 'Låser opp' : 'Ulåst', sub: 'Dørlås', tone: !st || L ? null : jam ? C.red : C.green, solid: !!st && !L && !jam, cardHash: '#sikkerhet',
-            ic: () => { M.toggle(hass, id); this._toast(L ? 'Dørlås låst opp' : 'Dørlås låst'); } });
+          const v = st ? st.state : '', L = v === 'locked', jam = v === 'jammed', nm = tileCfg(c, tid || 'lock').name || 'Dørlås';
+          const ask = this._lkAsk && this._lkAsk.id === id && this._lkAsk.t > Date.now();
+          return T({ ent: id, st, lock: v, icon: L || !st ? 'key' : 'lock_open', title: !st || M.unavailable(st) ? '–' : jam ? 'Feil' : L ? 'Låst' : v === 'locking' ? 'Låser' : v === 'unlocking' ? 'Låser opp' : v === 'open' ? 'Åpen' : 'Ulåst', sub: ask ? 'Trykk igjen for å låse opp' : 'Dørlås', confirm: ask, cardHash: '#sikkerhet',
+            ic: () => this._lockTap(id, nm) });
         }
         case 'alarm': {
           const id = E.alarm, st = s(id); if (!id) return null;
@@ -543,6 +615,7 @@
         }
         case 'dish': case 'wash': case 'dry': {
           const A = this._appl(kind, E[kind]); if (!A) return null;
+          if (tid && tileCfg(c, tid).name) A.name = tileCfg(c, tid).name;
           const left = A.secs != null ? `${Math.ceil(A.secs / 60)} min igjen` : '';
           const sub = A.mode === 'run' ? [left, A.prog].filter(Boolean).join(' · ') || 'Kjører' : A.mode === 'done' ? 'Ferdig · klar til å tømmes' : A.mode === 'paused' ? ['Pauset', left].filter(Boolean).join(' · ') : 'Av';
           return T({ ent: A.ent, title: A.name, sub, aIcon: this._applIcon(A), tone: A.mode === 'run' ? C.blue : A.mode === 'done' ? C.green : A.mode === 'paused' ? C.orange : null, solid: A.mode === 'done', hide: A.mode === 'idle', cardHash: A.area ? '#' + A.area : null,
@@ -624,24 +697,136 @@
       if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
       else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(42,23,32,0.1)', style: 'box-shadow:none;--ht-sub:rgba(42,23,32,0.7)' });
       else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
-      return M.universal({ ...o, mode: 'sensor', size: 'small', st: null, cls: 'ht', icon: t.icon, icon_html: t.aIcon || M.icon(t.icon || 'mdi:link', 24), main_text: t.title, sub_text: t.sub || '',
-        act: 'tile', id: null, ent: t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card' },
+      // Dørlås (fiks 16.7): universal_sensor-farger – #2f2f2f, hvit-tonet ikon-sirkel, #e1e1e1-tekst. Tilstandsregler:
+      // unlocked/open → var(--orange) + var(--gray000)-tekst, jammed → var(--red), locked → standard.
+      let rules = {}, st = null;
+      if (t.lock != null) {
+        st = t.st || null;
+        const hit = /^(unlocked|open|unlocking|opening|jammed)$/.test(t.lock);
+        Object.assign(o, { background_color: null, text_color: 'var(--gray1000, #e1e1e1)', icon_color: null, circle_color: hit ? 'rgba(35,35,35,0.12)' : 'rgba(250,251,252,0.1)', style: hit ? 'box-shadow:none;--ht-sub:rgba(35,35,35,0.72)' : '' });
+        if (t.confirm) o.style += ';--ht-sub:' + (hit ? 'rgba(35,35,35,0.85)' : 'var(--orange, #f2b573)');
+        rules = { state_rule_1_value: 'jammed', state_rule_1_background_color: 'var(--red)', state_rule_1_text_color: 'var(--gray000)',
+          state_rule_2_value: 'unlocked|open|unlocking|opening', state_rule_2_background_color: 'var(--orange)', state_rule_2_text_color: 'var(--gray000)' };
+      }
+      // Innebygde fliser (lås, alarm, kamera …) har to soner med egne hold-handlinger (_bindTileHold) – ingen data-ent.
+      const zones = !!t.type;
+      const ring = zones && this._tapFor(t.kind, 'hold_ic', t).action !== 'none' ? '<svg class="hr" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26.5" pathLength="100"></circle></svg>' : '';
+      return M.universal({ ...o, ...rules, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '',
+        act: 'tile', id: null, ent: zones ? false : t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card', 'data-hz': zones ? '1' : null },
         icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
+    }
+    // Handling for en flis og sone (ic | card | hold_ic | hold_card): tile_cfg.<id> → 16.7-aliaser → gammel tap.<type> → DEF_TAP.
+    _tapFor(id, w, t) {
+      const c = this.config, kd = kindOf(c, id), cfg = tileCfg(c, id);
+      let a = cfg[TAP_KEYS[w]];
+      if (a == null || a === '') a = w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action;
+      a = M.tap ? M.tap.norm(a) : null;
+      if (a) return a;
+      const tp = get(c, 'tap.' + id) || {};
+      if (w === 'card' && tp.card_hash) return NAV(tp.card_hash);
+      if (w === 'ic' && tp.icon && tp.icon !== 'auto') {
+        if (tp.icon === 'none') return { action: 'none' };
+        if (tp.icon === 'more') return { action: 'more-info' };
+        if (tp.icon === 'popup') { const h = tp.icon_hash || tp.card_hash || (t && t.cardHash); return h ? NAV(h) : { action: 'none' }; }
+        if (tp.icon === 'script') return tp.script ? { action: 'perform-action', perform_action: 'script.turn_on', data: { entity_id: tp.script } } : { action: 'none' };
+      }
+      const d = (DEF_TAP[kd] || {})[w];
+      if (d) return d;
+      if (w === 'ic') return t && t.ic ? { action: 'toggle' } : this._tapFor(id, 'card', t);
+      if (w === 'card') { const h = tp.card_hash || (t && t.cardHash); return h ? NAV(h) : { action: 'more-info' }; }
+      if (w === 'hold_card') return { action: 'more-info' };
+      return { action: 'none' };
+    }
+    // #dorlas finnes bare når det er lås(er) (og popupen ikke er skjult) – ellers faller ikon-holdet tilbake til more-info
+    _hasPopup(hash) {
+      if (hash === '#dorlas' && !M.all(this.hass, 'lock').length) return false;
+      const R = M.popupReport;
+      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((e) => e.hash === hash && !e.hidden);
+      return true;
+    }
+    _doTap(t, a) {
+      const ent = t.ent || null;
+      if (!a || a.action === 'none') return;
+      if (a.action === 'toggle') { if (t.ic) return t.ic(); if (ent) M.toggle(this.hass, ent); return; }
+      if (a.action === 'more-info') { const e = a.entity || ent; if (e) M.moreInfo(this, e); return; }
+      if (a.action === 'navigate' && /^#/.test(a.navigation_path) && !this._hasPopup(a.navigation_path)) { if (ent) M.moreInfo(this, ent); return; }
+      if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
+      if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }
     _runTile(kind, w) {
       if (/^akt:/.test(kind)) return this._runAkt(kind);
       const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c));
       if (!t) return;
-      const tp = get(c, 'tap.' + kind) || {};
-      if (w === 'card') { const h = tp.card_hash || t.cardHash; if (h) return M.openPopup(h); if (t.ent) return M.moreInfo(this, t.ent); return; }
-      const mode = tp.icon || 'auto';
-      if (mode === 'none') return;
-      if (mode === 'popup') return M.openPopup(tp.icon_hash || tp.card_hash || t.cardHash);
-      if (mode === 'more') return t.ent && M.moreInfo(this, t.ent);
-      if (mode === 'script') { if (tp.script) { M.call(this.hass, 'script', 'turn_on', { entity_id: tp.script }); this._toast('Kjørte ' + M.name(this.hass, tp.script)); } return; }
+      if (kindOf(c, kind)) return this._doTap(t, this._tapFor(kind, w, t));
+      // egne snarveier (lenker)
+      if (w === 'card') { if (t.cardHash) return M.openPopup(t.cardHash); if (t.ent) return M.moreInfo(this, t.ent); return; }
       if (t.ic) return t.ic();
-      if (tp.card_hash || t.cardHash) return M.openPopup(tp.card_hash || t.cardHash);
+      if (t.cardHash) return M.openPopup(t.cardHash);
       if (t.ent) M.moreInfo(this, t.ent);
+    }
+    // Dørlås: låse = straks; låse opp = bekreft (trykk igjen innen 3 s, PIN-tastatur hvis låsen har code_format).
+    _lockTap(id, name) {
+      const hass = this.hass, st = hass.states[id], nm = name || 'Dørlås';
+      if (!st || M.unavailable(st)) return;
+      if (st.state !== 'locked' && st.state !== 'locking') {
+        this._lkAsk = null;
+        M.call(hass, 'lock', 'lock', { entity_id: id }).catch(() => {});
+        this._toast(`${nm} låst`);
+        return this.update();
+      }
+      const a = this._lkAsk;
+      clearTimeout(this._lkT);
+      if (!a || a.id !== id || a.t < Date.now()) {
+        this._lkAsk = { id, t: Date.now() + 3000 };
+        this._lkT = setTimeout(() => { this._lkAsk = null; this.update(); }, 3000);
+        return this.update();
+      }
+      this._lkAsk = null;
+      this.update();
+      if (M.lockUnlock) return M.lockUnlock(this, id, { name: nm, toast: (m) => this._toast(m) });
+      M.call(hass, 'lock', 'unlock', { entity_id: id }).catch(() => {});
+      this._toast(`${nm} låst opp`);
+    }
+    // Fiks 16.7 · to soner per flis: ikon-sirkelen og resten av kortet. Hold 500 ms → hold_ic / hold_card (én haptic
+    // medium; klikket etterpå svelges). Mens ikonet holdes fylles en tynn ring 0 → 100 %. > 8 px bevegelse avbryter
+    // (sveip i flis-stabelen / scroll). contextmenu og tekstmarkering blokkeres (CSS + preventDefault).
+    _bindTileHold() {
+      if (this._thB) return;
+      this._thB = true;
+      const R = this.shadowRoot;
+      let st = null;
+      const end = () => {
+        if (!st) return;
+        clearTimeout(st.t);
+        if (st.ic) st.ic.classList.remove('holding');
+        st = null;
+        if (this._busy === 'hold') { this._busy = false; this._schedule(); }
+      };
+      R.addEventListener('pointerdown', (e) => {
+        if (e.button) return;
+        const tile = this._el(e, '.u.ht[data-hz]', true);
+        if (!tile) return;
+        end();
+        const icEl = this._el(e, '[data-w="ic"]', true), zone = icEl && tile.contains(icEl) ? 'hold_ic' : 'hold_card', k = tile.dataset.k;
+        const t = this._tileModel(k, this._E || tileEnts(this.hass, this.config));
+        if (!t) return;
+        const a = this._tapFor(k, zone, t);
+        if (!a || a.action === 'none') return;
+        const s0 = (st = { x: e.clientX, y: e.clientY, ic: zone === 'hold_ic' ? icEl : null });
+        if (!this._busy) this._busy = 'hold'; // ingen ny tegning midt i holdet (ringen skal ikke nullstilles)
+        if (s0.ic) { void s0.ic.offsetWidth; s0.ic.classList.add('holding'); }
+        s0.t = setTimeout(() => {
+          if (st !== s0) return;
+          end();
+          this._swallow = true;
+          setTimeout(() => { this._swallow = false; }, 700);
+          M.haptic('medium');
+          this._runTile(k, zone);
+        }, 500);
+      }, true);
+      R.addEventListener('pointermove', (e) => { if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 8) end(); }, true);
+      ['pointerup', 'pointercancel'].forEach((ty) => R.addEventListener(ty, end, true));
+      R.addEventListener('contextmenu', (e) => { if (this._el(e, '.u.ht[data-hz]', true)) e.preventDefault(); });
     }
     _dots(n, i) { return n > 1 ? `<div class="dots">${Array.from({ length: n }, (_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>` : ''; }
 
@@ -837,6 +1022,7 @@
     afterRender() {
       const root = this.shadowRoot;
       root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } })));
+      this._bindTileHold();
       this._bindTabs();
       this._placeTabs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
@@ -931,6 +1117,14 @@
         .u.ht .u-l{align-self:end !important;font-size:15px;font-weight:500;line-height:1.25}
         .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f)}
         .u.ht:not(:has(.u-n)){grid-template-rows:1fr !important}
+        /* Fiks 16.7: to soner (ikon/kort) med hold – ingen tekstmarkering eller kontekstmeny, ring på ikonet under holdet */
+        .u.ht.hz{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .tsw .u.ht.hz{touch-action:pan-y}
+        .u.ht .u-i{position:relative}
+        .u.ht .hr{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none;opacity:0;transition:opacity .15s}
+        .u.ht .hr circle{fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100}
+        .u.ht .u-i.holding .hr{opacity:1}
+        .u.ht .u-i.holding .hr circle{stroke-dashoffset:0;transition:stroke-dashoffset .5s linear}
         .u.ht:not(:has(.u-n)) .u-l{align-self:center !important}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
