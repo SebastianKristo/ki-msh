@@ -72,15 +72,18 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `mode` | Oppsett (familie \| sted \| navn \| under \| kompakt \| hjem \| stor \| profil) · modes |  |
+| `mode` | Oppsett (familie \| sted \| navn \| hjem \| stor \| profil) · modes |  |
 | `kiosk_entity` | Kiosk-modus-entitet · entity | Handlinger på tittelen |
 | `g_font` | Maks tekst · range | Størrelser |
 | `g_avatar` | Bilder · range | Størrelser |
 | `g_badge` | Merke · range | Størrelser |
 | `g_gap` | Avstand (minus = overlapp) · range | Størrelser |
+| `prose_gap` | Avstand til prosa · range | Størrelser |
 | `pic_size` | Profilbilde · range | Størrelser |
 | `persons_size` | Personer · range | Størrelser |
 | `title_size` | Tittel · range | Størrelser |
+| `prose_gap` | Avstand til prosa · range | Størrelser |
+| `prose_gap` | Avstand til prosa · range | Størrelser |
 | `people` | Personer i headeren · rows | Personer |
 | `zones` | Soner med eget ikon og farge · rows | Soner |
 | `zone_away.icon` | Borte · ikon · icon | Soner |
@@ -95,8 +98,10 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `weather_tap` | Trykk på været åpner Vær · gjelder «Hjem» og «Profil» · boolean | Bilder |
 | `weather_hash` | Vær-popup · hash | Bilder |
 | `person_tap` | Trykk på person (quick \| popup) | Bilder |
-| `servers` | Bytt sted – Home Assistant-installasjoner (også denne) · rows | Steder (servermeny) |
-| `place_name` | Navn på dette stedet | Steder (servermeny) |
+| `this_server.name` | Navn på dette stedet | Steder |
+| `this_server.icon` | Ikon for dette stedet · icon | Steder |
+| `this_server.color` | Farge for dette stedet · color | Steder |
+| `servers` | Bytt sted – andre Home Assistant-servere · rows | Steder |
 | `overrides.weather` | Vær · entity | Bytt entiteter |
 | `people.0.home` | Cybele · hjemme · entity | Bytt entiteter |
 | `people.0.sleep` | Cybele · søvn · entity | Bytt entiteter |
@@ -181,10 +186,10 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `battery.cond` | Vis fanen når denne er på · entity | Batterier |
 | `appliance_animation` | Animasjon (full \| calm \| off) | Hvitevarer |
 | `tabs.hjem.auto_fill` | Autofyll Hjem med alle rom · boolean | Rom og snarveier · Hjem |
-| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: stue, kjokken, soverom, bad | Rom og snarveier · Hjem |
+| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: stue, soverom, kjokken, bad | Rom og snarveier · Hjem |
 | `layout.hjem.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
 | `slides.hjem.L.cal` | Sveip-kort · venstre karusell · Kalender · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
@@ -305,28 +310,86 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.aktuelt.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
 | `tiles.aktuelt.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
 | `tiles.aktuelt.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tap.lock.card_hash` | Dørlås · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.lock.icon` | Dørlås · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.garage.card_hash` | Garasjeport · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.garage.icon` | Garasjeport · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.alarm.card_hash` | Alarm · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.alarm.icon` | Alarm · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.cam.card_hash` | Kamera · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.cam.icon` | Kamera · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.ruter.card_hash` | Ruter · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.ruter.icon` | Ruter · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.todo.card_hash` | Gjøremål · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.todo.icon` | Gjøremål · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.dish.card_hash` | Oppvaskmaskin · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.dish.icon` | Oppvaskmaskin · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.vacr.card_hash` | Støvsuger · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.vacr.icon` | Støvsuger · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.tv.card_hash` | TV · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.tv.icon` | TV · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.wash.card_hash` | Vaskemaskin · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.wash.icon` | Vaskemaskin · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
-| `tap.jul.card_hash` | Jul · trykk på kortet åpner popup · hash | Snarveier · handlinger |
-| `tap.jul.icon` | Jul · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
+| `tile_cfg.lock.entity` | Entitet · entity | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.name` | Navn | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.icon` | Ikon · icon | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.sub` | Undertekst | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.lock.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Dørlås |
+| `tile_cfg.garage.entity` | Entitet · entity | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.name` | Navn | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.icon` | Ikon · icon | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.sub` | Undertekst | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.garage.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Garasjeport |
+| `tile_cfg.alarm.entity` | Entitet · entity | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.name` | Navn | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.icon` | Ikon · icon | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.sub` | Undertekst | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.alarm.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Alarm |
+| `tile_cfg.cam.entity` | Entitet · entity | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.name` | Navn | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.icon` | Ikon · icon | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.sub` | Undertekst | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.cam.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Kamera |
+| `tile_cfg.ruter.entity` | Entitet · entity | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.name` | Navn | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.icon` | Ikon · icon | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.sub` | Undertekst | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.ruter.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Ruter |
+| `tile_cfg.todo.entity` | Entitet · entity | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.name` | Navn | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.icon` | Ikon · icon | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.sub` | Undertekst | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.todo.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Gjøremål |
+| `tile_cfg.dish.entity` | Entitet · entity | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.name` | Navn | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.icon` | Ikon · icon | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.sub` | Undertekst | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.dish.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Oppvaskmaskin |
+| `tile_cfg.vacr.entity` | Entitet · entity | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.name` | Navn | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.icon` | Ikon · icon | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.sub` | Undertekst | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.vacr.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Støvsuger |
+| `tile_cfg.tv.entity` | Entitet · entity | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.name` | Navn | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.icon` | Ikon · icon | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.sub` | Undertekst | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.tv.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › TV |
+| `tile_cfg.wash.entity` | Entitet · entity | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.name` | Navn | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.icon` | Ikon · icon | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.sub` | Undertekst | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.tap_icon` | Trykk på ikonet · tap | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.tap_card` | Trykk på kortet · tap | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.hold_icon` | Hold på ikonet · tap | Snarveier · entitet og handlinger › Vaskemaskin |
+| `tile_cfg.wash.hold_card` | Hold på kortet · tap | Snarveier · entitet og handlinger › Vaskemaskin |
 | `overrides.{lock, garage, alarm, cam, ruter, todo, tv, vacr, dish, wash, dry, weather, price, watt, calendar, trash}` | bytt entitet |  |
 | `links.l01.title` | Ny snarvei · tittel | Egne snarveier |
 | `trash_hash` | Popup · hash | Sveip-kort · søppel |
@@ -494,6 +557,7 @@ Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – aut
 | `overrides.temperature` | Temperatursensor · entity | Klima |
 | `overrides.humidity` | Fuktsensor · entity | Klima |
 | `include.climate` | Ekstra termostater · entities | Klima |
+| `include.vifter` | Ekstra vifter · entities | Klima |
 | `graph_t` | Toppkort · graf temperatur · color | Klima |
 | `graph_h` | Toppkort · graf fukt · color | Klima |
 | `graph_fill` | Toppkort · fyll (0 \| 0.2 \| 0.4) | Klima |
@@ -504,6 +568,7 @@ Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – aut
 | `klima_btn` | Klima-kort · knapp (outline \| fill) | Klima |
 | `klima_mode` | Farg etter modus · boolean | Klima |
 | `sections · hidden_sections` | rekkefølge/synlighet: curtain, scenes, lys, dev, klima, media, sens |  |
+| `klima_order · klima_hidden` | rekkefølge/synlighet: cards, fans |  |
 | `exclude · include.{}` | skjul / legg til |  |
 | `appliance_animation` | Animasjon (full \| calm \| off) | Hvitevarer |
 | `run_threshold_w` | Kjører over (W) · number | Hvitevarer |
@@ -1219,6 +1284,30 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 | `show_graph` | Temperaturgraf med scrub (etter Time for time) · boolean | Prognose |
 | `exclude · include.{varsler, pollen}` | skjul / legg til |  |
 | `gap` | 4 / 8 / 18 px |  |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-las-card`
+
+Dørlås-popup (#dorlas): status, lås/lås opp med hold eller PIN, batteri, automatikk og siste hendelser.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{laser}` | skjul / legg til |  |
+| `locks_cfg.bod.name` | Navn | Lås · Boddør |
+| `locks_cfg.bod.battery` | Batterisensor · entity | Lås · Boddør |
+| `locks_cfg.bod.auto_lock` | Auto-lås etter (minutter) · entity | Lås · Boddør |
+| `locks_cfg.bod.auto_lock_switch` | Auto-lås av/på · entity | Lås · Boddør |
+| `locks_cfg.inngangsdor.name` | Navn | Lås · Inngangsdør |
+| `locks_cfg.inngangsdor.battery` | Batterisensor · entity | Lås · Inngangsdør |
+| `locks_cfg.inngangsdor.auto_lock` | Auto-lås etter (minutter) · entity | Lås · Inngangsdør |
+| `locks_cfg.inngangsdor.auto_lock_switch` | Auto-lås av/på · entity | Lås · Inngangsdør |
+| `overrides.{away_lock, night_lock}` | bytt entitet |  |
+| `confirm` | Bekreftelse (auto \| hold \| pin) | Opplåsing |
+| `code_length` | PIN-lengde (auto \| 4 \| 6) | Opplåsing |
+| `sections · hidden_sections` | rekkefølge/synlighet: battery, auto, log |  |
+| `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |

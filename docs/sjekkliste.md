@@ -16,6 +16,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | mobil | Lys #lys | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | mobil | Kamera #kamera | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 20 | ja | ok | 1 · mal A |
 | ✔ | mobil | Gjøremål #gjoremal | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 3 | ja | ok | 1 · mal A |
+| ✔ | mobil | Dørlås #dorlas | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | mobil | Sebastian #person-sebastian | ja | ok 354 | ja | ja | ja / ja | ingen knapp | ingen drag | ok (bunn x=14) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | PC | Stue #stue | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 18 | ja | ok | 1 · mal B |
 | ✔ | PC | Kjøkken #kjokken | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 14 | ja | ok | 1 · mal B |
@@ -29,4 +30,5 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | PC | Lys #lys | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | PC | Kamera #kamera | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 20 | ja | ok | 1 · mal A |
 | ✔ | PC | Gjøremål #gjoremal | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 3 | ja | ok | 1 · mal A |
+| ✔ | PC | Dørlås #dorlas | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | PC | Sebastian #person-sebastian | ja | ok 504 | ja | ja | ja / ja | ingen knapp | ingen drag | ok (rail x=276) | ok 8 | ja | ok | 1 · mal A |
