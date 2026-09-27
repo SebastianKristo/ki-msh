@@ -3,7 +3,7 @@
  * områder, sender hass videre og gir hvert barn egen config under `cards.<navn>` (type + card_id → barnas egen «Tilpass»
  * lagrer via MSH.saveCardConfig, som finner kortet via card_id hvor som helst i lovelace-configen).
  *
- * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 (navbar), 22 px mellom blokkene, maks 420 px sentrert i
+ * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 + (--ki-nav-bottom − 8) (navbar, følger navbarens avstand), 22 px mellom blokkene, maks 420 px sentrert i
  * dashbordflaten. Bred (≥1000 px, iPad ≥700 px): to kolonner .9fr/1.2fr, gap 22/20, venstre 108 (navbar-rail), høyre 24.
  * ≥1500 px: tre kolonner .95fr/1.35fr/1.05fr, gap 32/20, venstre 120, høyre 36; zoom som designet (maks 1,8).
  * Marger måles mot dashbord-containeren (ikke vinduet): kortet bryter ut av HA sections-viewets egen padding
@@ -52,10 +52,29 @@
     };
   }
 
+  // Grid-områder for bred layout ut fra hvilke blokker som vises – skjulte blokker (f.eks. gjøremål) gir ingen tom celle.
+  function wideAreas(used, pc) {
+    const has = (a) => used.includes(a), q = (rows) => rows.map((r) => `'${r.join(' ')}'`).join(' ');
+    if (!pc) {
+      const left = ['head', 'trash', 'strom', 'todo'].filter(has);
+      if (!has('rooms')) return `grid-template-columns:minmax(0,1fr);grid-template-areas:${q(left.map((a) => [a]))};grid-template-rows:${left.map(() => 'auto').join(' ')}`;
+      if (!left.length) return `grid-template-columns:minmax(0,1fr);grid-template-areas:'rooms';grid-template-rows:auto`;
+      return `grid-template-areas:${q(left.map((a) => [a, 'rooms']))};grid-template-rows:${left.map((a, i) => (i === left.length - 1 ? '1fr' : 'auto')).join(' ')}`;
+    }
+    // tre kolonner: venstre head/trash, midten rooms, høyre strom/todo
+    const L = ['head', 'trash'].filter(has), R = ['strom', 'todo'].filter(has);
+    const cols = [L.length ? 'L' : null, has('rooms') ? 'M' : null, R.length ? 'R' : null].filter(Boolean);
+    const n = Math.max(L.length, R.length, 1);
+    const colOf = (list, i) => (list.length ? list[Math.min(i, list.length - 1)] : null);
+    const rows = Array.from({ length: n + 1 }, (_, i) => cols.map((cc) => (cc === 'M' ? 'rooms' : colOf(cc === 'L' ? L : R, i))));
+    const W = { L: 'minmax(0,.95fr)', M: 'minmax(0,1.35fr)', R: 'minmax(0,1.05fr)' };
+    return `grid-template-columns:${cols.map((cc) => W[cc]).join(' ')};grid-template-areas:${q(rows)};grid-template-rows:${Array.from({ length: n + 1 }, (_, i) => (i < n ? 'auto' : '1fr')).join(' ')}`;
+  }
+
   class Hjem extends M.Card {
     constructor() { super(); this._kids = {}; this._geo = null; }
     static get cardName() { return 'Hjem'; }
-    static get defaults() { return { layout_mode: 'auto', zoom: true, breakout: true }; }
+    static get defaults() { return { layout_mode: 'auto', zoom: true, breakout: true, show_todo: true }; }
     static getStubConfig() {
       const cards = {};
       BLOCKS.forEach(([k, tag]) => { cards[k] = { type: 'custom:' + tag, card_id: M.uid() }; });
@@ -69,6 +88,9 @@
           { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
           { type: 'boolean', name: 'breakout', label: 'Mål margene mot dashbordflaten (bryt ut av seksjonens padding)', default: true },
+        ] },
+        { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:view-dashboard-outline', open: true, fields: [
+          { type: 'boolean', name: 'show_todo', label: 'Vis gjøremål', help: 'Av = gjøremål-kortet vises ikke og tar ingen plass', default: true },
         ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
         { type: 'section', id: 'popups', label: 'Popups', icon: 'mdi:layers-outline', fields: [
@@ -132,7 +154,7 @@
     _order() {
       const c = this.config, hid = Array.isArray(c.hidden) ? c.hidden : [];
       const ord = Array.isArray(c.order) ? c.order.filter((k) => KEYS.includes(k)) : [];
-      return [...ord, ...KEYS.filter((k) => !ord.includes(k))].filter((k) => !hid.includes(k));
+      return [...ord, ...KEYS.filter((k) => !ord.includes(k))].filter((k) => !hid.includes(k) && !(k === 'gjoremal' && c.show_todo === false));
     }
     _kidCfg(k) {
       const [, tag] = byKey(k);
@@ -173,10 +195,11 @@
       else {
         const head = vis.filter((k) => byKey(k)[3] === 'head');
         const area = (a) => vis.filter((k) => byKey(k)[3] === a).map(slot).join('');
-        inner = `<div class="a a-head" data-key="a-head">${head.map(slot).join('')}</div>`
-          + ['rooms', 'trash', 'strom', 'todo'].map((a) => `<div class="a a-${a}" data-key="a-${a}">${area(a)}</div>`).join('');
+        const used = ['head', 'rooms', 'trash', 'strom', 'todo'].filter((a) => vis.some((k) => byKey(k)[3] === a));
+        inner = used.map((a) => (a === 'head' ? `<div class="a a-head" data-key="a-head">${head.map(slot).join('')}</div>` : `<div class="a a-${a}" data-key="a-${a}">${area(a)}</div>`)).join('');
+        this._areas = wideAreas(used, G.pc);
       }
-      const gs = G.wide ? `zoom:${G.zoom};width:${(G.w / G.zoom).toFixed(2)}px` : '';
+      const gs = G.wide ? `zoom:${G.zoom};width:${(G.w / G.zoom).toFixed(2)}px;${this._areas}` : '';
       return `<div class="out" style="margin:${-G.offT}px ${-G.offR}px 0 ${-G.offL}px">
         <div class="g ${G.wide ? 'wide' : 'mob'} ${G.pc ? 'pc' : ''}" style="${gs}">${inner}</div>
       </div>`;
@@ -196,7 +219,7 @@
         ha-card{display:flow-root}
         .out{position:relative}
         .g{box-sizing:border-box}
-        .g.mob{width:100%;max-width:420px;margin:0 auto;padding:20px 18px 120px;display:flex;flex-direction:column;gap:22px}
+        .g.mob{width:100%;max-width:420px;margin:0 auto;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
         .s{display:block;min-width:0}
         .s>*{display:block;width:100%}
         .g.wide{display:grid;margin:0;padding:24px 24px 40px 108px;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);grid-template-rows:auto auto auto 1fr;

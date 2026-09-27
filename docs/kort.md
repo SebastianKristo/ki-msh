@@ -17,6 +17,7 @@ Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `layout` | Oppsett (auto \| mobil \| stor) | Plassering og oppførsel |
+| `bottom_offset` | Avstand fra bunnen · range | Plassering og oppførsel |
 | `reserve_space` | Gi innholdet plass (padding i bunnen / til venstre) · boolean | Plassering og oppførsel |
 | `toasts` | Bekreftelsesmeldinger · boolean | Plassering og oppførsel |
 | `admin_tools` | Vis «Tilpass» i Mer-menyen · boolean | Plassering og oppførsel |
@@ -73,6 +74,12 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `zone_away.color` | Borte · annen sone – farge · color | Soner |
 | `greeting` | Hilsen | Hilsen |
 | `person_order · hidden_persons` | rekkefølge/synlighet: person.cybele, person.rune, person.sebastian |  |
+| `persons_cfg.cybele.display` | Cybele · visning (picture \| icon \| initials) | Personer · visning |
+| `persons_cfg.cybele.picture` | Cybele · bilde-URL | Personer · visning |
+| `persons_cfg.rune.display` | Rune · visning (picture \| icon \| initials) | Personer · visning |
+| `persons_cfg.rune.picture` | Rune · bilde-URL | Personer · visning |
+| `persons_cfg.sebastian.display` | Sebastian · visning (picture \| icon \| initials) | Personer · visning |
+| `persons_cfg.sebastian.picture` | Sebastian · bilde-URL | Personer · visning |
 | `size` | Størrelse (S \| M \| L) | Bilder |
 | `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
 | `show_name` | Vis navn · boolean | Bilder |
@@ -92,6 +99,7 @@ Setninger med live verdier i bobler (vær, strømpris, effekt, lys …) og handl
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `prose_offset` | Avstand over teksten · range |  |
 | `prose` | Setninger · rows |  |
 | `overrides.{weather, temp, price, watt, lights, lock, alarm, trash, garage, tv, vacuum}` | bytt entitet |  |
 | `exclude · include.{kalendere, lister}` | skjul / legg til |  |
@@ -432,6 +440,7 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
 | `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
 | `breakout` | Mål margene mot dashbordflaten (bryt ut av seksjonens padding) · boolean | Layout |
+| `show_todo` | Vis gjøremål · boolean | Kort |
 | `order · hidden` | rekkefølge/synlighet: header, prosa, faner, soppel, strom, gjoremal |  |
 
 ## `msh-strompris-card`
