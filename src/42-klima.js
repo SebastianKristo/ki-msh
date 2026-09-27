@@ -16,7 +16,8 @@
  * Blokkene (faneinnholdet) bygges i 42-klima-blokker.js (lastes før denne): MSH.KLIMA_TABS, klimaHasTab,
  * klimaBlockList, klimaTabHTML, klimaAct, klimaInput, klimaAfterRender, klimaOnOpen/OnClose, KLIMA_BLOCK_CSS,
  * klimaToast, klimaStatus. Alt kalles defensivt – mangler fila, vises en plassholder.
- * Config: title, remember_tab, toasts, layout: { show_hero, show_modes, tab_style: both|text|icon, tab_order[],
+ * Config: title, remember_tab, toasts, hero_style: ring|hus|batteri|maaler|puls|blokker (17.29), gap/pad_top/pad_bottom (17.28,
+ *   standard 16/20/40), layout: { show_hero, show_modes, tab_style: both|text|icon, tab_order[],
  *   hidden_tabs[], default_tab, block_order: { fane: [id] }, hidden_blocks: { fane: [id] } }.
  */
 (function () {
@@ -95,6 +96,20 @@
   };
   const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error('msh-klima-card', e); return fb; } };
   const blockList = (card, tab) => (M.klimaBlockList ? safe(() => M.klimaBlockList(card, tab) || [], []) : []);
+
+  // 17.28 · Mellomrom (samme komponent og felter som Rom: gap, pad_top, pad_bottom; MSH._applySpacing + MSH.popupBottomPad)
+  const SPACING = { gap: 16, pad_top: 20, pad_bottom: 40 };
+  const SPACING_FIELDS = [
+    { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: SPACING.gap, presets: [[8, 'Tett 8'], [16, 'Standard 16'], [24, 'Luftig 24']] },
+    { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: SPACING.pad_top, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']], help: 'Negativ verdi trekker innholdet opp mot popup-headeren' },
+    { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']], help: 'Kommer i tillegg til navbaren og safe area' },
+  ];
+  M.KLIMA_SPACING = SPACING;
+  // 17.29 · Toppkort-stil (hero_style). Alle viser samme data; «ring» er standard.
+  const HERO_STYLES = [['ring', 'Ringer', 'mdi:circle-double'], ['hus', 'Hus', 'mdi:home-lightning-bolt-outline'], ['batteri', 'Batteri', 'mdi:battery-charging-medium'],
+    ['maaler', 'Måler', 'mdi:speedometer'], ['puls', 'Puls', 'mdi:pulse'], ['blokker', 'Klosser', 'mdi:view-grid-outline']];
+  const heroStyleOf = (c) => { const v = c && c.hero_style; return HERO_STYLES.some(([k]) => k === v) ? v : 'ring'; };
+  M.KLIMA_HERO_STYLES = HERO_STYLES;
 
   // Layout (config.layout) med standardverdier. Eldre rotnøkler (tab_order, hidden_tabs, start_tab) leses fortsatt.
   const LAY_DEF = { show_hero: true, show_modes: true, tab_style: 'both' };
@@ -239,6 +254,10 @@
       const pill = awayId
         ? `<button class="away press" data-act="kaway" data-id="${esc(awayId)}" data-ent="${esc(awayId)}" data-haptic="success" style="background:${away ? M.alpha('var(--blue, #73b9f2)', 0.22) : 'var(--gray100,#2f2f2f)'};color:${away ? '#e6eef8' : 'var(--gray800,#afafaf)'}">${M.icon(away ? 'mdi:bag-suitcase' : 'mdi:home', 16)}${esc(away ? (hytte ? 'Tom hytte · frostsikring' : 'Borte · bortemodus') : (tt || 'Hjemme · normal komfort'))}</button>`
         : ts ? `<button class="away press" data-act="more" data-id="${esc(tsId)}" data-ent="${esc(tsId)}" style="background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf)">${M.icon('mdi:home-account', 16)}${esc(tt || ts.state)}</button>` : '';
+      // 17.29: alternative toppkort (samme data, egen visualisering)
+      const hs = heroStyleOf(this.config);
+      this._hs = hs;
+      if (hs !== 'ring') return this._altHero(hs, S, Z, { lim, used, fc, usedPct, fcPct, tFrac, off, pill });
       const ring = (cls, r, w, C, frac) => `<circle class="${cls}" cx="100" cy="100" r="${r}" stroke-width="${w}" data-c="${C.toFixed(2)}" style="stroke-dasharray:${C.toFixed(2)}px;stroke-dashoffset:${(C * (1 - frac)).toFixed(2)}px;opacity:${frac > 0.001 ? 1 : 0}"></circle>`;
       const crit = S.zone === 'critical';
       return `<section class="kh${crit ? ' crit' : ''}${off ? ' dull' : ''}" style="--zc:${col}" data-zone="${S.zone}">
@@ -271,6 +290,121 @@
         ${pill ? `<div class="pw">${pill}</div>` : ''}
       </section>`;
     }
+
+    /* ---------------- 17.29 · alternative toppkort (Hus · Batteri · Måler · Puls · Klosser) */
+    // Felles: status (Z.t) i statusfarge, «N min igjen av timen», nøkkeltall Brukt · Prognose · Grense og borte-pillen.
+    // Mangler data: «–» og flat/tom visualisering – kortet vises alltid. Animasjonene er CSS-@keyframes (styles), står
+    // stille når popupen er lukket (:host(:not([data-run]))) og er av ved prefers-reduced-motion.
+    _altHero(hs, S, Z, o) {
+      const st = mapId(ST), crit = S.zone === 'critical';
+      const minTxt = `${S.minLeft != null ? Math.round(S.minLeft) : '–'} min igjen av timen`;
+      const ml = `<div class="ml">${M.icon('mdi:clock-outline', 14)}<span class="num">${minTxt}</span></div>`;
+      const setup = S.zone === 'none' && S.venter ? `<button class="setup press" data-act="nav" data-path="${esc(M.KI_ENERGI_OPPSETT || '/config/integrations/integration/ki_energi')}" data-haptic="light">${M.icon('mdi:cog-outline', 14)}Sett opp KI Energi</button>` : '';
+      const keys = `<div class="kk num">${[[o.used, 'Brukt'], [o.fc, 'Prognose'], [o.lim, 'Grense']].map(([v, l]) => `<div><b>${kwTxt(v)}<small> kWh</small></b><span>${l}</span></div>`).join('')}</div>`;
+      const pill = o.pill ? `<div class="pw">${o.pill}</div>` : '';
+      const kwNum = (cls) => `<span class="${cls} num" data-n="kw" data-v="${S.kw != null ? S.kw : ''}">${kwTxt(S.kw)}</span>`;
+      const more = `data-act="more" data-id="${esc(st)}" data-ent="${esc(st)}"`;
+      const head = (inner) => `<section class="kh alt a-${hs}${crit ? ' crit' : ''}${o.off ? ' dull' : ''}" style="--zc:${Z.c}" data-zone="${S.zone}" data-style="${hs}">${inner}</section>`;
+      const cl = (v) => Math.min(1, Math.max(0, v));
+      switch (hs) {
+        case 'hus': {
+          // Fyllnivå = prognose mot grense (grensen = toppen av veggene, over 100 % stiger det inn i taket)
+          const lv = o.lim && o.fc != null ? Math.min(1.35, Math.max(0, o.fc / o.lim)) : 0;
+          return head(`<div class="top">
+            <div class="hus press" ${more} role="img" aria-label="Effekt nå ${kwTxt(S.kw)} kW, prognose ${kwTxt(o.fc)} av ${kwTxt(o.lim)} kWh" style="--lv:${lv.toFixed(3)}">
+              <span class="pipe"></span><span class="smoke"><i></i><i></i><i></i></span>
+              <div class="hb">${lv > 0 ? '<span class="wv w2"></span><span class="wv w1"></span><span class="bb" style="left:30%"></span><span class="bb" style="left:48%;animation-delay:1.4s"></span><span class="bb" style="left:64%;animation-delay:2.6s"></span><span class="bb" style="left:40%;animation-delay:3.5s"></span><span class="fl"></span>' : ''}
+                <div class="hc">${kwNum('kw')}<span class="kl">kW nå</span></div></div>
+            </div>
+            <div class="tx"><div class="stt">${esc(Z.t)}</div><div class="sen">${sentence(S)}</div>${setup}${ml}</div>
+          </div>${keys}${pill}`);
+        }
+        case 'batteri': {
+          // Ladningen = det som er igjen av timebudsjettet etter prognosen; hvit markør = brukt
+          const ch = o.lim && o.fc != null ? cl((o.lim - o.fc) / o.lim) : 0;
+          return head(`<div class="bh2"><div class="bbig press" ${more}><span class="big num" data-n="free" data-v="${S.freeKw != null ? S.freeKw : ''}">${kwTxt(S.freeKw)}</span><span class="bu">kW</span><span class="bl">ledig i timen</span></div>
+              <div class="tx r"><div class="stt">${esc(Z.t)}</div>${ml}</div></div>
+            <div class="batt" role="img" aria-label="Igjen av timebudsjettet etter prognosen: ${Math.round(ch * 100)} %"><div class="bcell"><div class="bc" style="width:${(ch * 100).toFixed(1)}%">${ch > 0 ? '<span class="gl"></span>' : ''}</div>
+              ${o.usedPct != null ? `<span class="bm" style="left:${o.usedPct.toFixed(1)}%"></span>` : ''}<span class="bolt">${M.icon('mdi:lightning-bolt', 22)}</span></div><span class="tip"></span></div>
+            <div class="sen">${sentence(S)}</div>${setup}${keys}${pill}`);
+        }
+        case 'maaler': {
+          const T = thresholds(this), p = S.pct != null ? cl(S.pct / 100) : 0;
+          const pt = (f, r) => { const a = Math.PI * (1 - f); return [(100 + r * Math.cos(a)).toFixed(2), (100 - r * Math.sin(a)).toFixed(2)]; };
+          const arc = (f0, f1, c) => { if (f1 <= f0) return ''; const [x0, y0] = pt(f0, 80), [x1, y1] = pt(f1, 80); return `<path d="M${x0} ${y0} A80 80 0 0 1 ${x1} ${y1}" stroke="${c}"></path>`; };
+          const g = cl(T.yellow / 100), r0 = cl(T.red / 100);
+          const ticks = Array.from({ length: 11 }, (_, i) => { const f = i / 10, big = i % 5 === 0, [x0, y0] = pt(f, big ? 58 : 62), [x1, y1] = pt(f, 68); return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" class="${big ? 'tb' : ''}"></line>`; }).join('');
+          const deg = ((p - 0.5) * 180).toFixed(1);
+          return head(`<div class="gauge press" ${more} role="img" aria-label="Effekt nå ${kwTxt(S.kw)} kW av ${kwTxt(S.allowed)} kW tillatt">
+              <svg viewBox="0 0 200 112" aria-hidden="true"><g class="zn">${arc(0, g, 'var(--green, rgb(102 209 158))')}${arc(g, r0, 'var(--orange, rgb(242 181 115))')}${arc(r0, 1, 'var(--red, rgb(242 128 115))')}</g>
+                <g class="tk">${ticks}</g>
+                <g class="nd${S.pct != null ? ' sway' : ''}" style="--a:${deg}deg"><line x1="100" y1="100" x2="100" y2="38"></line></g><circle class="hub" cx="100" cy="100" r="7"></circle></svg>
+            </div>
+            <div class="gv">${kwNum('big')}<span class="bu">kW av ${kwTxt(S.allowed)} kW</span></div>
+            <div class="gs"><div class="stt">${esc(Z.t)}</div><div class="sen">${sentence(S)}</div>${setup}${ml}</div>${keys}${pill}`);
+        }
+        case 'puls': {
+          const bars = this._pulsBars(S), allowed = S.allowed;
+          const top = Math.max(0.5, ...(bars.filter((v) => v != null)), allowed != null ? allowed * 1.15 : 0);
+          const bh = (v) => (v == null ? 0 : cl(v / top) * 100);
+          const barHTML = bars.map((v) => `<i class="${allowed && v != null && v > allowed * 0.7 ? 'hi' : ''}" style="height:${Math.max(v == null ? 0 : 3, bh(v)).toFixed(1)}%"></i>`).join('');
+          return head(`<div class="ph"><span class="live"><i></i>Live effekt</span><span class="chip">${esc(Z.t)}</span></div>
+            <div class="gv press" ${more}>${kwNum('big')}<span class="bu">kW nå</span></div>
+            <div class="chart" role="img" aria-label="Effekt siste 60 minutter"><div class="bars">${barHTML}</div>${allowed != null ? `<span class="lim" style="bottom:${bh(allowed).toFixed(1)}%"><em>${kwTxt(allowed)} kW</em></span>` : ''}</div>
+            <div class="ax"><span>−60 min</span><span>nå</span></div>
+            <div class="sen">${sentence(S)}</div>${setup}
+            <div class="tb2"><span style="width:${o.usedPct != null ? o.usedPct.toFixed(1) : 0}%"></span>${o.fcPct != null ? `<i style="left:${o.fcPct.toFixed(1)}%"></i>` : ''}</div>
+            ${ml}${keys}${pill}`);
+        }
+        case 'blokker': {
+          // 0,5 kWh per kloss (antall = grense / 0,5); brukt = fylt, prognose = striper, kant = nå i timen
+          const n = o.lim ? Math.max(1, Math.min(24, Math.round(o.lim / 0.5))) : 11;
+          const now = Math.min(n - 1, Math.floor((o.tFrac || 0) * n));
+          const cells = Array.from({ length: n }, (_, i) => {
+            const a = i * 0.5, u = o.used != null ? cl((o.used - a) / 0.5) : 0, f = o.fc != null ? cl((o.fc - a) / 0.5) : 0;
+            const cls = u >= 1 ? 'u' : f > 0 ? 'p' : '';
+            const part = u > 0 && u < 1 ? `<span class="pu" style="width:${(u * 100).toFixed(0)}%"></span>` : '';
+            return `<span class="kc ${cls}${i === now ? ' now' : ''}" style="animation-delay:${i * 45}ms">${part}</span>`;
+          }).join('');
+          return head(`<div class="bh2"><div class="bbig press" ${more}>${kwNum('big')}<span class="bu">kW nå</span></div><div class="tx r"><div class="stt">${esc(Z.t)}</div>${ml}</div></div>
+            <div class="kgrid" role="img" aria-label="Timebudsjett ${kwTxt(o.used)} av ${kwTxt(o.lim)} kWh brukt, prognose ${kwTxt(o.fc)}" style="grid-template-columns:repeat(${Math.min(n, 12)},minmax(0,1fr))">${cells}</div>
+            <div class="lg"><span><i class="d1"></i>Brukt</span><span><i class="d2"></i>Prognose</span><span><i class="d4"></i>Nå i timen</span><span>1 kloss = 0,5 kWh</span></div>
+            <div class="sen">${sentence(S)}</div>${setup}${keys}${pill}`);
+        }
+        default: return '';
+      }
+    }
+    // Puls: 30 søyler à 2 min (siste 60 min). Historikk (uregulert + styrt effekt, W) hentes bare når popupen er åpen;
+    // mangler den, brukes live-verdier samlet mens kortet er åpent. Siste søyle = effekt nå.
+    _pulsBars(S) {
+      const NB = 30, now = Date.now(), t0 = now - 3600000, out = new Array(NB).fill(null);
+      const H = this._plHist;
+      if (H && H.series.some((x) => x.length)) {
+        for (let i = 0; i < NB; i++) {
+          const end = t0 + (i + 1) * 120000;
+          let sum = null;
+          H.series.forEach((pts) => { let v = null; for (const p of pts) { if (p.t <= end) v = p.v; else break; } if (v != null) sum = (sum || 0) + v / 1000; });
+          out[i] = sum;
+        }
+      }
+      const L = (this._plLive = (this._plLive || []).filter((p) => p.t > t0));
+      if (S.kw != null && (!L.length || now - L[L.length - 1].t > 20000)) L.push({ t: now, v: S.kw });
+      L.forEach((p) => { const i = Math.min(NB - 1, Math.floor((p.t - t0) / 120000)); if (out[i] == null || !H) out[i] = p.v; });
+      if (S.kw != null) out[NB - 1] = S.kw;
+      return out;
+    }
+    _pulsFetch() {
+      if (this._hs !== 'puls' || !this.isOpen || !M.history || this._plBusy) return;
+      if (this._plHist && Date.now() - this._plHist.t < 120000) return;
+      const ids = ['sensor.ki_uregulert_effekt', 'sensor.ki_styrt_effekt'].map(mapId).filter((id) => this.s(id));
+      if (!ids.length) { this._plHist = { t: Date.now(), series: [] }; return; }
+      this._plBusy = true;
+      M.history(this.hass, ids, 1).then((d) => {
+        this._plHist = { t: Date.now(), series: ids.map((id) => ((d && d[id]) || []).slice().sort((a, b) => a.t - b.t)) };
+      }).catch((e) => { console.warn('msh-klima-hero-card', e); this._plHist = { t: Date.now(), series: [] }; })
+        .then(() => { this._plBusy = false; if (this.isOpen) this.update(); });
+    }
+    _run() { this.toggleAttribute('data-run', !!this.isOpen && !document.hidden); }
     onAction(name, el, ev) {
       if (name === 'kaway') {
         const id = el.dataset.id, on = M.isOn(this.s(id));
@@ -284,8 +418,8 @@
 
     /* ---------------- animasjon (Web Animations API) */
     // Animasjonen startes i requestAnimationFrame etter tegningen, bare når popupen er åpen (og på nytt ved ny åpning)
-    onOpen() { this._pendingIntro = true; this._introRaf(); }
-    onClose() { cancelAnimationFrame(this._iRaf); this._stopAnims(); this._introAt = 0; }
+    onOpen() { this._pendingIntro = true; this._introRaf(); this._run(); this._pulsFetch(); }
+    onClose() { cancelAnimationFrame(this._iRaf); this._stopAnims(); this._introAt = 0; this._run(); }
     _introRaf() {
       cancelAnimationFrame(this._iRaf);
       this._iRaf = requestAnimationFrame(() => { if (this.isOpen && this.isConnected && this._pendingIntro) this.animateIn(); });
@@ -371,6 +505,8 @@
       rec.raf = requestAnimationFrame(step);
     }
     afterRender() {
+      this._run();
+      this._pulsFetch();
       if (this._pendingIntro && this.isOpen) { this._introRaf(); return; }
       // Live-oppdatering: nye verdier glir mykt (300 ms) i stedet for å hoppe
       this._shown = this._shown || {};
@@ -423,7 +559,93 @@
         .pw{display:flex;justify-content:center}
         .away{height:36px;padding:0 14px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap;transition:background .3s}
         @media (max-width:360px){.stt{font-size:22px}.top{gap:12px}}
-        @media (prefers-reduced-motion: reduce){.kh *,.kh{transition:none!important}}
+        /* 17.29 · alternative toppkort */
+        .alt .kk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .alt .kk>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
+        .alt .kk b{font-size:17px;font-weight:500;color:#fafafa;white-space:nowrap}
+        .alt .kk b small{font-size:11px;font-weight:400;color:var(--gray700,#979797)}
+        .alt .kk span{font-size:11px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .alt .big{font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1;white-space:nowrap}
+        .alt .bu{font-size:13px;color:var(--gray700,#979797);white-space:nowrap}
+        .alt .tx.r{flex:0 1 auto;align-items:flex-end;text-align:right}
+        .alt .tx.r .stt{white-space:nowrap;font-size:20px}
+        .alt .bh2{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-width:0}
+        .alt .bbig{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;min-width:0;cursor:pointer}
+        .alt .bbig .bl{flex-basis:100%;font-size:12px;color:var(--gray700,#979797)}
+        .alt .stt{font-size:22px}
+        /* Hus */
+        .hus{position:relative;width:132px;height:132px;flex:none;cursor:pointer}
+        .hus .pipe{position:absolute;left:66%;top:12%;width:11%;height:22%;border-radius:2px 2px 0 0;background:var(--gray100,#2f2f2f)}
+        .hus .smoke{position:absolute;left:66%;top:0;width:11%;height:14%}
+        .hus .smoke i{position:absolute;left:25%;bottom:0;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.28);opacity:0;animation:khSmoke 4.5s ease-out infinite}
+        .hus .smoke i:nth-child(2){animation-delay:1.5s}.hus .smoke i:nth-child(3){animation-delay:3s}
+        .hus .hb{position:absolute;inset:0;overflow:hidden;background:var(--gray100,#2f2f2f);clip-path:polygon(50% 4%,97% 45%,88% 45%,88% 96%,12% 96%,12% 45%,3% 45%)}
+        .hus .wv{position:absolute;left:50%;width:280%;height:280%;margin-left:-140%;top:calc(96% - var(--lv) * 51% - 6px);border-radius:43%;background:var(--zc);opacity:.9;animation:khSpin 9s linear infinite;transition:top .6s ease-out,background-color .4s}
+        .hus .wv.w2{border-radius:40%;opacity:.4;top:calc(96% - var(--lv) * 51% - 10px);animation-duration:13s;animation-direction:reverse}
+        .hus .bb{position:absolute;bottom:6%;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.55);opacity:0;animation:khBub 4.4s ease-in infinite}
+        .hus .fl{position:absolute;left:12%;right:12%;top:calc(96% - var(--lv) * 51%);border-top:1.5px dashed rgba(255,255,255,0.75);transition:top .6s ease-out}
+        .hus .hc{position:absolute;left:12%;right:12%;top:44%;bottom:4%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 6px rgba(0,0,0,.45)}
+        .hus .hc .kw{font-size:26px}
+        .hus .hc .kl{color:#e1e1e1}
+        /* Batteri */
+        .batt{position:relative;display:flex;align-items:center;gap:4px}
+        .bcell{position:relative;flex:1;height:64px;border-radius:18px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 2px rgba(255,255,255,0.08);overflow:hidden}
+        .bc{position:absolute;top:5px;bottom:5px;left:5px;max-width:calc(100% - 10px);border-radius:13px;background:var(--zc);overflow:hidden;transition:width .6s ease-out,background-color .4s}
+        .bc .gl{position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,0.38) 50%,transparent 70%);transform:translateX(-100%);animation:khGlint 3.4s ease-in-out infinite}
+        .bm{position:absolute;top:0;bottom:0;width:3px;margin-left:-1.5px;background:#fafafa;box-shadow:0 0 6px rgba(255,255,255,.8);transition:left .6s ease-out}
+        .bolt{position:absolute;inset:0;display:grid;place-items:center;color:#fafafa;pointer-events:none;animation:khBolt 1.8s ease-in-out infinite;filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}
+        .tip{width:7px;height:24px;border-radius:0 4px 4px 0;background:var(--gray100,#2f2f2f);flex:none}
+        /* Måler */
+        .gauge{position:relative;width:100%;max-width:300px;align-self:center;cursor:pointer}
+        .gauge svg{display:block;width:100%;height:auto;overflow:visible}
+        .gauge .zn path{fill:none;stroke-width:14;opacity:.9}
+        .gauge .tk line{stroke:rgba(255,255,255,0.35);stroke-width:1.5;stroke-linecap:round}
+        .gauge .tk line.tb{stroke:rgba(255,255,255,0.7);stroke-width:2}
+        .gauge .nd{transform-box:view-box;transform-origin:100px 100px;transform:rotate(var(--a));transition:transform .6s ease-out}
+        .gauge .nd.sway{animation:khSway 4s ease-in-out infinite alternate}
+        .gauge .nd line{stroke:var(--zc);stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 0 4px var(--zc))}
+        .gauge .hub{fill:#fafafa}
+        .alt .gv{display:flex;align-items:baseline;justify-content:center;gap:6px;margin-top:-6px}
+        .a-puls .gv{justify-content:flex-start;margin:0;cursor:pointer}
+        .alt .gs{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+        /* Puls */
+        .ph{display:flex;align-items:center;justify-content:space-between;gap:10px}
+        .live{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf)}
+        .live i{position:relative;width:9px;height:9px;border-radius:50%;background:var(--zc)}
+        .live i::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--zc);animation:khPing 1.8s ease-out infinite}
+        .chip{height:26px;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;color:var(--zc);background:color-mix(in srgb, var(--zc) 18%, transparent);white-space:nowrap}
+        .chart{position:relative;height:84px;overflow:hidden;border-radius:12px}
+        .bars{position:absolute;inset:0 0 0 0;display:flex;align-items:flex-end;gap:3px;width:calc(100% + 100% / 30);animation:khScroll 120s linear infinite}
+        .bars i{flex:1;min-width:0;border-radius:3px 3px 1px 1px;background:color-mix(in srgb, var(--zc) 75%, transparent);transition:height .4s ease-out}
+        .bars i.hi{background:var(--orange,#f2b573)}
+        .bars i:last-child{background:var(--zc);box-shadow:0 0 8px var(--zc)}
+        .lim{position:absolute;left:0;right:0;border-top:1.5px dashed rgb(240 86 110)}
+        .lim em{position:absolute;right:0;bottom:2px;font-style:normal;font-size:10px;color:rgb(240 86 110)}
+        .ax{display:flex;justify-content:space-between;font-size:10px;color:var(--gray600,#7f7f7f);margin-top:-10px}
+        .tb2{position:relative;height:4px;border-radius:2px;background:var(--gray100,#2f2f2f)}
+        .tb2 span{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--zc)}
+        .tb2 i{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:color-mix(in srgb, var(--zc) 55%, #fafafa)}
+        /* Klosser */
+        .kgrid{display:grid;gap:5px}
+        .kc{position:relative;height:30px;border-radius:8px;background:var(--gray100,#2f2f2f);overflow:hidden;animation:khPop .55s cubic-bezier(.34,1.6,.64,1) backwards}
+        .kc.u{background:var(--zc)}
+        .kc.p{background:repeating-linear-gradient(-45deg,color-mix(in srgb, var(--zc) 45%, transparent) 0 5px,color-mix(in srgb, var(--zc) 18%, transparent) 5px 10px);background-size:14.14px 14.14px;animation:khPop .55s cubic-bezier(.34,1.6,.64,1) backwards,khStripe 1.2s linear infinite}
+        .kc .pu{position:absolute;left:0;top:0;bottom:0;background:var(--zc)}
+        .kc.now{box-shadow:inset 0 0 0 2px #fafafa}
+        .lg .d4{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1.5px #fafafa}
+        .a-blokker .lg .d2{background:repeating-linear-gradient(-45deg,color-mix(in srgb, var(--zc) 60%, transparent) 0 2px,transparent 2px 4px)}
+        @keyframes khSpin{to{transform:rotate(360deg)}}
+        @keyframes khBub{0%{opacity:0;transform:translateY(0)}20%{opacity:.8}100%{opacity:0;transform:translateY(calc(var(--lv) * -58px))}}
+        @keyframes khSmoke{0%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:.7}100%{opacity:0;transform:translate(6px,-18px) scale(1.8)}}
+        @keyframes khGlint{0%,35%{transform:translateX(-100%)}75%,100%{transform:translateX(100%)}}
+        @keyframes khBolt{0%,100%{opacity:.75;transform:scale(.94)}50%{opacity:1;transform:scale(1.08)}}
+        @keyframes khSway{from{transform:rotate(calc(var(--a) - 2.5deg))}to{transform:rotate(calc(var(--a) + 2.5deg))}}
+        @keyframes khPing{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+        @keyframes khScroll{from{transform:translateX(0)}to{transform:translateX(calc(-100% / 31))}}
+        @keyframes khPop{from{transform:scale(.4) translateY(8px);opacity:0}}
+        @keyframes khStripe{from{background-position:0 0}to{background-position:14.14px 0}}
+        :host(:not([data-run])) .kh *,:host(:not([data-run])) .kh *::after{animation-play-state:paused!important}
+        @media (prefers-reduced-motion: reduce){.kh *,.kh{transition:none!important}.alt *,.alt *::after{animation:none!important}}
       `;
     }
   }
@@ -464,6 +686,7 @@
           { type: 'text', name: 'title', label: 'Tittel (valgfri)', placeholder: 'Bubble-headeren viser navnet' },
           { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
             { type: 'boolean', name: 'layout.show_hero', label: 'Hero-kort', default: true },
+            { type: 'select', name: 'hero_style', label: 'Toppkort-stil', options: HERO_STYLES.map(([k, l]) => [k, l]), default: 'ring' },
             { type: 'boolean', name: 'layout.show_modes', label: 'Modus-bobler', default: true },
             { type: 'select', name: 'layout.tab_style', label: 'Fanestil', options: [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], default: 'both' },
           ] },
@@ -473,6 +696,7 @@
             { type: 'order', name: 'layout.tab_order', hiddenName: 'layout.hidden_tabs', label: 'Faner (rekkefølge og synlighet)', options: T.map((t) => [t.id, t.label]) },
           ] },
           ...(blocks.length ? [{ type: 'section', id: 'blokker', label: 'Blokker', icon: 'mdi:view-agenda-outline', fields: blocks }] : []),
+          { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : SPACING.gap} px mellom`, fields: SPACING_FIELDS },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
         ];
       };
@@ -482,13 +706,15 @@
       // Ikke tegn på nytt mens et felt har fokus (som _ventTegn i JS-kortet) – tegn når feltet forlates
       this.shadowRoot.addEventListener('focusout', () => { if (this._waitDraw) { this._waitDraw = false; setTimeout(() => this.update(), 250); } });
     }
+    // 17.28: standard mellomrom i Bubble-popupen (MSH.Card._applySpacing)
+    static get spacingDefaults() { return SPACING; }
     get cardSize() { return 14; }
     get layout() { return layoutOf(this.config); }
     // Fiks 16.13 – ÅRSAKEN til tom #klima: HAs hui-card (_loadElement) gjør `element.layout = 'grid'` uten try/catch. Med bare
     // getter kastet det («Cannot set property layout of #<Klima> which has only a getter»), Bubble logget bare en advarsel
     // («Failed to create card element») og popupen ble tom. HAs verdi lagres separat; this.layout er fortsatt kortets layout.
     set layout(v) { this._haLayout = v; }
-    setConfig(c) { super.setConfig(c); this._skeleton(); }
+    setConfig(c) { super.setConfig(c); this._skeleton(); this._applySpacing(); }
     connectedCallback() {
       this._skeleton();
       if (!this._hass) {
@@ -651,7 +877,8 @@
       const L = this.layout;
       return `
         ${L.show_hero === false ? '.msh-hero-slot{display:none!important}' : ''}
-        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
+        .msh-hero-slot{margin-bottom:var(--msh-gap,${SPACING.gap}px)}
+        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,${SPACING.gap}px)}
         .ttl{font-size:15px;font-weight:500;color:var(--gray800,#afafaf);padding:0 6px}
         .modes{display:flex;gap:12px;overflow-x:auto;padding:4px 2px;margin:0}
         .mode{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:66px}
@@ -671,7 +898,7 @@
         .tl{font-size:10px;font-weight:500;white-space:nowrap}
         .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa)}
         .gear:active{transform:scale(.92)}
-        .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
+        .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,${SPACING.gap}px);min-width:0}
         ${M.KLIMA_BLOCK_CSS || ''}
         ${M.STEPPER_CSS || ''}
       `;
@@ -768,12 +995,24 @@
         </div>`;
       }).join('');
       const style = ['both', 'text', 'icon'].includes(L.tab_style) ? L.tab_style : 'both';
+      // 17.29: toppkort-stil (3×2, valgt = rosa)
+      const hs = heroStyleOf(d);
+      const heroGrid = `<div class="hsg" role="radiogroup" aria-label="Toppkort-stil">${HERO_STYLES.map(([k, l, ic]) => `<button class="hso${k === hs ? ' on' : ''}" data-a="hero" data-v="${k}" role="radio" aria-checked="${k === hs}">${M.icon(ic, 24)}<span>${esc(l)}</span></button>`).join('')}</div>`;
+      // 17.28: Mellomrom (slider + forvalg, live bak arket)
+      const spRows = SPACING_FIELDS.map((f) => {
+        const cur = d[f.name] != null && isFinite(Number(d[f.name])) ? Number(d[f.name]) : f.default;
+        return `<div class="r sp" data-key="sp-${f.name}"><div class="spl"><span class="ti">${M.icon(f.icon, 18)}</span><span class="rl">${esc(f.label)}</span><span class="spv" data-spv="${f.name}">${cur} px</span></div>
+          <input type="range" min="${f.min}" max="${f.max}" step="1" value="${cur}" data-sp="${f.name}" aria-label="${esc(f.label)}">
+          <div class="spp">${f.presets.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" data-a="sp" data-k="${f.name}" data-v="${v}">${esc(l)}</button>`).join('')}</div>
+          ${f.help ? `<span class="rs">${esc(f.help)}</span>` : ''}</div>`;
+      }).join('');
       box.innerHTML = `<div class="nav"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         ${st.reset ? '<p class="note top">Tilbakestilt til standardoppsett i utkastet – trykk Ferdig for å lagre.</p>' : ''}
         <span class="cap">Visning</span>
         <div class="grp">
           ${swRow('Hero-kort', 'Ring, status og timebudsjett øverst', 'show_hero', L.show_hero !== false)}
           ${swRow('Modus-bobler', 'Borte · Alle borte · Hjemkomst · Sommer …', 'show_modes', L.show_modes !== false)}
+          <div class="r col2"><span class="rl">Toppkort-stil</span>${heroGrid}</div>
           <div class="r"><span class="rl">Fanestil</span><div class="seg" data-glass-drag="x">${[['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']].map(([v, l]) => `<button class="${v === style ? 'on' : ''}" data-a="style" data-v="${v}" aria-selected="${v === style}">${esc(l)}</button>`).join('')}</div></div>
         </div>
         <span class="cap">Faner</span>
@@ -782,7 +1021,10 @@
         <span class="cap">Blokker</span>
         <div class="bseg noscroll" data-glass-drag="x">${T.map((t) => `<button class="${t.id === st.btab ? 'on' : ''}" data-a="btab" data-v="${esc(t.id)}" aria-selected="${t.id === st.btab}">${esc(t.label)}</button>`).join('')}</div>
         <div class="grp">${blkRows || `<div class="r"><span class="rl rs">${M.klimaBlockList ? 'Ingen blokker i denne fanen' : 'Blokkene lastes …'}</span></div>`}</div>
-        <p class="note">Faste toppblokker kan skjules, men ikke flyttes. Skjulte blokker kan vises igjen her.</p>`;
+        <p class="note">Faste toppblokker kan skjules, men ikke flyttes. Skjulte blokker kan vises igjen her.</p>
+        <span class="cap">Mellomrom</span>
+        <div class="grp">${spRows}</div>
+        <p class="note">Endringene vises live bak arket. Luften i bunnen kommer i tillegg til navbaren.</p>`;
       const bs = box.querySelector('.bseg'), on = bs && bs.querySelector('.on');
       if (bs && M.glassTap) { M.glassTap(bs); M.glassTap(box.querySelector('.seg')); }
       if (on && bs && st.scrollSeg !== st.btab) { st.scrollSeg = st.btab; bs.scrollLeft = Math.max(0, on.offsetLeft - bs.clientWidth / 2 + on.offsetWidth / 2); }
@@ -799,6 +1041,24 @@
     box.className = 'klima-sheet';
     Object.defineProperty(box, '_config', { get: () => st.draft });
     ov.body.appendChild(box);
+    // 17.28: slider – live mens man drar (ingen ny tegning under drag), full tegning ved slipp
+    const spInput = (e, end) => {
+      const el = e.target;
+      if (!el || !el.dataset || !el.dataset.sp) return;
+      const f = SPACING_FIELDS.find((x) => x.name === el.dataset.sp), v = Number(el.value);
+      if (!f || !isFinite(v)) return;
+      const dr = st.draft;
+      if (v === f.default) delete dr[f.name]; else dr[f.name] = v;
+      const lab = box.querySelector(`[data-spv="${f.name}"]`);
+      if (lab) lab.textContent = v + ' px';
+      box.querySelectorAll(`[data-a="sp"][data-k="${f.name}"]`).forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === v));
+      preview();
+      if (end) { M.haptic('selection'); draw(); }
+    };
+    ov.root.addEventListener('input', (e) => spInput(e, false));
+    ov.root.addEventListener('change', (e) => spInput(e, true));
+    // Sliderne skal ikke dra arket (swipe-to-close) eller Bubble-popupen bak
+    ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => ov.root.addEventListener(t, (e) => { if (e.target && e.target.dataset && e.target.dataset.sp) e.stopPropagation(); }, { passive: true }));
     ov.root.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el || el.disabled) return;
@@ -806,7 +1066,9 @@
       const T = tabDefs(), all = T.map((t) => t.id);
       switch (a) {
         case 'done': return done();
-        case 'reset': st.reset = true; return upd((d) => { delete d.layout; delete d.remember_tab; delete d.tab_order; delete d.hidden_tabs; delete d.start_tab; }, 'warning');
+        case 'reset': st.reset = true; return upd((d) => { delete d.layout; delete d.remember_tab; delete d.tab_order; delete d.hidden_tabs; delete d.start_tab; delete d.hero_style; delete d.gap; delete d.pad_top; delete d.pad_bottom; }, 'warning');
+        case 'hero': return upd((d) => { if (el.dataset.v === 'ring') delete d.hero_style; else d.hero_style = el.dataset.v; }, 'selection');
+        case 'sp': return upd((d) => { const f = SPACING_FIELDS.find((x) => x.name === k), v = Number(el.dataset.v); if (!f) return; if (v === f.default) delete d[k]; else d[k] = v; }, 'selection');
         case 'sw': return upd((d) => { const L = lay(d); if (el.dataset.v === '1') delete L[k]; else L[k] = false; }, 'selection');
         case 'style': return upd((d) => { const L = lay(d); if (el.dataset.v === 'both') delete L.tab_style; else L.tab_style = el.dataset.v; }, 'selection');
         case 'star': return upd((d) => { const L = lay(d); L.default_tab = k; if (Array.isArray(L.hidden_tabs)) L.hidden_tabs = L.hidden_tabs.filter((x) => x !== k); }, 'selection');
@@ -876,5 +1138,17 @@
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
     .sw.on{background:var(--green,#66d19e)} .sw.on span{left:26px;background:#2a2a2c}
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
+    .r.col2{flex-direction:column;align-items:stretch;gap:10px;padding:12px 12px 12px 16px}
+    .hsg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .hso{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:72px;border-radius:18px;background:var(--ki-sheet-seg,#282828);color:var(--ki-g-t2,var(--gray800,#afafaf));font-size:12px;font-weight:500;transition:background .2s,color .2s,transform .15s}
+    .hso:active{transform:scale(.96)}
+    .hso.on{background:${PINK};color:${INK}}
+    .r.sp{flex-direction:column;align-items:stretch;gap:8px;padding:12px 12px 12px 16px}
+    .spl{display:flex;align-items:center;gap:10px}
+    .spv{flex:none;font-size:13px;font-weight:600;color:var(--white,#fafafa);font-variant-numeric:tabular-nums}
+    .r.sp input[type=range]{width:100%;margin:0;accent-color:rgb(242 133 201);touch-action:pan-y;height:28px}
+    .spp{display:flex;flex-wrap:wrap;gap:6px}
+    .spp button{height:30px;padding:0 12px;border-radius:15px;background:var(--ki-sheet-seg,#282828);font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf))}
+    .spp button.on{background:${PINK};color:${INK}}
   `;
 })();

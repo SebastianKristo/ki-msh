@@ -182,7 +182,7 @@
       S.push('height:180px');
     }
     return `<div ${attrs(A)} style="${S.join(';')};grid-template-areas:${areas};grid-template-columns:${cols(colT)};grid-template-rows:${rows}${o.style ? ';' + o.style : ''}">
-      ${iconCell(30)}<div class="u-l"${center ? ' style="align-self:center"' : ''}>${label}</div>${(small ? smallName : hasSub) ? `<div class="u-n">${esc(name)}</div>` : ''}${!small && alt ? `<div class="u-alt">${esc(alt)}</div>` : ''}${modeHtml}${side ? `<div class="u-side">${o.side_html}</div>` : ''}${barHtml}${badgeHtml}</div>`;
+      ${iconCell(30)}<div class="u-l"${center ? ' style="align-self:center"' : ''}>${label}</div>${(small ? smallName : hasSub) ? `<div class="u-n">${small && o.sub_html && !alt ? o.sub_html : esc(name)}</div>` : ''}${!small && alt ? `<div class="u-alt">${esc(alt)}</div>` : ''}${modeHtml}${side ? `<div class="u-side">${o.side_html}</div>` : ''}${barHtml}${badgeHtml}</div>`;
   };
 
   // «Indre rad-flate» (fiks 16.6): én kilde for flaten til sensor-/enhets-/vifte-radene og Rom → Media-spilleren,
@@ -194,6 +194,16 @@
     .u.msh-inner{background:var(--u-bg);box-shadow:${M.INNER_ROW.edge}}
     .msh-inner-c{background:${M.INNER_ROW.circle};border:${M.INNER_ROW.circleEdge};box-sizing:border-box}
   `;
+
+  // 17.5: lux-sensorer (sensor.* med device_class illuminance eller enhet lx) får egen oransje rad. Returnerer
+  // standard-opts for M.universal (kaller lar egne valg vinne), eller null (ikke lux / utilgjengelig → vanlig grå rad «–»).
+  // Verdi: én desimal under 10, ellers heltall («6.3 lx», «240 lx»). Klassen u-lux bytter navn (16/500) og verdi (14, .7).
+  M.isLux = (st) => !!st && /^sensor\./.test(st.entity_id || 'sensor.') && (st.attributes.device_class === 'illuminance' || st.attributes.unit_of_measurement === 'lx');
+  M.luxOpts = function (st) {
+    if (!M.isLux(st) || st.state === 'unavailable' || st.state === 'unknown' || isNaN(parseFloat(st.state))) return null;
+    const v = parseFloat(st.state);
+    return { cls: 'u-lux', background_color: 'var(--orange, rgb(242 181 115))', text_color: 'var(--gray000, #232323)', icon: 'mdi:brightness-7', icon_color: '#232323', circle_color: 'rgba(255,255,255,0.18)', main_text: v < 10 ? v.toFixed(1) : String(Math.round(v)), symbol: ' lx' };
+  };
 
   // Felles CSS – kortene har shadow DOM og må ta med denne i styles.
   M.UNIVERSAL_CSS = `
@@ -218,6 +228,11 @@
     .u-small .u-n{align-self:start;padding-top:2px}
     .u-small .u-mode{justify-self:center;align-self:center}
     .u-small .u-tg{justify-self:start;margin:0 4px 0 0}
+    /* 17.5: lux-rad – oransje, ingen kant, ikon-sirkel .18 + lys kant, navn øverst (16/500), verdi under (14, .7) */
+    .u.u-lux.u-lux{box-shadow:none}
+    .u-lux .u-i{border:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)}
+    .u-small.u-lux .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:14px;font-weight:400;opacity:.7}
+    .u-small.u-lux .u-n{grid-area:l;align-self:end;padding-top:0;font-size:16px;font-weight:500;opacity:1}
     /* big */
     .u-big{height:160px;padding:20px}
     .u-big .u-i{width:52px;height:52px;translate:-10px -10px}

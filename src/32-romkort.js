@@ -176,7 +176,7 @@
     return `<button class="${cls}" ${act} style="${st}">${inner}</button>`;
   };
   // Termostat-stepper (MySmartHome): vertikal pille nede til høyre under ikon-sirkelen – ⌃ / mål / ⌄.
-  const kv = (r) => `<div class="rk-kv" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 22)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 22)}</button></div>`;
+  const kv = (r) => `<div class="rk-kv" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 20)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 20)}</button></div>`;
   const openAttrs = (r, key) => `data-act="rk-open" data-hash="${esc(r.hash)}" ${r.ent ? `data-ent="${esc(r.ent)}"` : ''} data-key="${esc(key || 'rk-' + r.id)}"`;
 
   // r: M.romData(...). o: { variant, klima, alert, key, graph:{t:[],h:[]}, ui:{gTab,gSel}, cfg, motes }
@@ -259,12 +259,13 @@
     .rk-t{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:1}
     .rk-h{font-size:13px;color:var(--gray600,#7f7f7f)}
     .kl .rk-tv{right:72px}
-    /* Termostat-stepper: vertikal pille ett trinn lysere enn kortet (16.1: #404040 på #2f2f2f; på #3a3a3a-flate
-       settes --rk-kv-bg: #454545) med tynn kant, full høyde under ikon-sirkelen (4 px luft). Trykk: #4a4a4a ~120 ms. */
-    .rk-kv{position:absolute;right:4px;top:68px;bottom:4px;width:60px;border-radius:30px;background:var(--rk-kv-bg, var(--gray300,#404040));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);color:#fafafa;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
-    .rk-kv .rk-kb{width:60px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:#fafafa;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
+    /* Termostat-stepper (17.1, Hjem v3 r.hasSet/r.klimaV): vertikal pille forankret under ikon-sirkelen (ikonet slutter
+       på 64 px → top 76 = 12 px luft), høyden følger kortet. Gradient #484848→#3f3f3f, lys kant, høylys-linje øverst og
+       lett skygge. Pilene øverst/nederst, målet i midten. Trykk: #4a4a4a ~120 ms (16.1). */
+    .rk-kv{position:absolute;right:10px;top:76px;bottom:10px;width:52px;border-radius:26px;background:linear-gradient(180deg,#484848 0%,#3f3f3f 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16),inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(0,0,0,0.28);color:#fafafa;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    .rk-kv .rk-kb{width:52px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:#fafafa;--mdc-icon-size:20px;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
     .rk-kv .rk-kb:active{transform:scale(.86);background:#4a4a4a;transition:transform .15s,background 0s}
-    .rk-kv .rk-kt{font-size:15px;font-weight:500;flex:none;color:#fafafa}
+    .rk-kv .rk-kt{font-size:14px;font-weight:500;flex:none;color:#fafafa;font-variant-numeric:tabular-nums}
     .rk-s{display:flex;align-items:center;gap:12px;height:66px;padding:0 6px 0 4px;border-radius:33px;box-shadow:none}
     .rk-sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .rk-sn{font-size:15px;font-weight:500}

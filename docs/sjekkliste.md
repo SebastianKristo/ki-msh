@@ -9,7 +9,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | mobil | Basseng #basseng | ja | ok 354 | ja | ja | ja / ja | ja | ok 2 | ok (bunn x=14) | ok 23 | ja | ok | 1 · mal A |
 | ✔ | mobil | Ruter #ruter | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 10 | ja | ok | 1 · mal A |
 | ✔ | mobil | Klima #klima | ja | ok 354 | ja | ja | ja / ja | ja | ok 3 | ok (bunn x=14) | ok 40 | ja | ok | 1 · mal A |
-| ✔ | mobil | Media #media | ja | ok 354 | ja | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 14 | ja | ok | 1 · mal A |
+| ✔ | mobil | Media #media | ja | ok 354 | ja | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 18 | ja | ok | 1 · mal A |
 | ✔ | mobil | Vanning #vanning | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 16 | ja | ok | 1 · mal A |
 | ✔ | mobil | Sikkerhet #sikkerhet | ja | ok 354 | ja | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 23 | ja | ok | 1 · mal A |
 | ✔ | mobil | Vær #vaer | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 49 | ja | ok | 1 · mal A |
@@ -23,7 +23,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-27), med moc
 | ✔ | PC | Basseng #basseng | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 23 | ja | ok | 1 · mal A |
 | ✔ | PC | Ruter #ruter | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 10 | ja | ok | 1 · mal A |
 | ✔ | PC | Klima #klima | ja | ok 504 | ja | ja | ja / ja | ja | ok 3 | ok (rail x=276) | ok 40 | ja | ok | 1 · mal A |
-| ✔ | PC | Media #media | ja | ok 504 | ja | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 14 | ja | ok | 1 · mal A |
+| ✔ | PC | Media #media | ja | ok 504 | ja | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 18 | ja | ok | 1 · mal A |
 | ✔ | PC | Vanning #vanning | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 16 | ja | ok | 1 · mal A |
 | ✔ | PC | Sikkerhet #sikkerhet | ja | ok 504 | ja | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 23 | ja | ok | 1 · mal A |
 | ✔ | PC | Vær #vaer | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 49 | ja | ok | 1 · mal A |

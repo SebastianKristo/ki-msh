@@ -59,13 +59,95 @@
   const kindOf = (c, id) => (KINDS[id] ? id : (KINDS[tileCfg(c, id).kind] && id !== 'jul' ? tileCfg(c, id).kind : null));
   const extraIds = (c) => Object.keys((c && c.tile_cfg) || {}).filter((id) => !KINDS[id] && kindOf(c, id) && kindOf(c, id) !== 'jul').sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }));
   const regOk = (hass, id) => { const e = M.regEntry(hass, id); return !e || !(e.hidden || e.hidden_by || e.disabled_by); };
+  // Tidsvindu «HH:MM»–«HH:MM» (over midnatt er lov). Mangler en av dem → false.
+  const hmMin = (v) => { const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(String(v == null ? '' : v).trim()); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; };
+  const inWin = (from, to, d) => { const f = hmMin(from), t = hmMin(to); if (f == null || t == null || f === t) return false; const n = (d || new Date()).getHours() * 60 + (d || new Date()).getMinutes(); return f < t ? n >= f && n < t : n >= f || n < t; };
+  const hhmm = (t) => { const d = new Date(t); return isNaN(d) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const listOf = (x) => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.keys(x).sort().map((k) => x[k]) : []);
+
+  /* Fiks 17.11 · Ruter-flisen: neste avgang fra entur-sensoren (M.enturDepartures fra 47-ruter.js, lastes før render).
+   * Minutter telles ned lokalt: due_at (HH:MM) regnes mot klokka, due_in/state minus tiden siden last_updated. */
+  const ruterInfo = (st) => {
+    if (!st) return null;
+    const A = st.attributes || {}, D = M.enturDepartures ? M.enturDepartures(st) : [];
+    const since = Math.max(0, (Date.now() - Date.parse(st.last_updated || st.last_changed || Date.now())) / 60000) || 0;
+    const live = (v, at) => (v == null ? null : at ? v : Math.max(0, v - since));
+    const d0 = D[0], d1 = D[1];
+    let due = d0 ? live(d0.min, !!d0.at) : M.isNum(st.state) ? live(Number(st.state), false) : null;
+    const route = d0 ? d0.line : String(A.route || A.line || '').split(' ')[0];
+    const next = d1 ? live(d1.min, !!d1.at) : null;
+    const delay = M.isNum(A.delay) ? Number(A.delay) : 0;
+    if (due != null) due = Math.max(0, due);
+    return { due, route, next: next != null ? Math.max(0, next) : null, delay, mode: String((d0 && d0.mode) || A.transport_mode || '').toLowerCase() };
+  };
+  M.hjemRuterInfo = ruterInfo;
+  const RUTER_IC = { bus: 'mdi:bus', coach: 'mdi:bus', tram: 'mdi:tram', metro: 'mdi:subway-variant', rail: 'mdi:train', water: 'mdi:ferry', air: 'mdi:airplane' };
+  const RUTER_FMT = 'Linje {route} om {due_in} min';
+  // Undertekst etter format med tokens {route} {due_in} {delay} {next} {avvik}. Mangler tokenet i formatet, legges
+  // forsinkelse / neste / avvik til bak (neste bare med show_next). Returnerer { text, html }.
+  const ruterSub = (R, nAv, fmt, showNext) => {
+    const f = String(fmt || RUTER_FMT);
+    const now = R.due != null && R.due < 1;
+    const part = { route: R.route || '', due_in: R.due == null ? '–' : now ? 'nå' : String(Math.round(R.due)) };
+    const dl = R.delay > 0 ? `+${Math.round(R.delay)} min` : '', nx = showNext !== false && R.next != null ? `${Math.round(R.next)} min` : '', av = nAv ? `${nAv} avvik` : '';
+    const tx = (s) => s.replace(/om \{due_in\} min/g, now ? 'nå' : 'om {due_in} min').replace(/\{due_in\} min/g, now ? 'nå' : '{due_in} min')
+      .replace(/\{(route|due_in)\}/g, (m, k) => part[k]).replace(/Linje\s+(om|nå)/, '$1').trim();
+    let text = tx(f), html = M.esc(text);
+    const put = (tok, val, col, pre) => {
+      if (f.includes('{' + tok + '}')) { text = text.replace('{' + tok + '}', val); html = html.replace('{' + tok + '}', val ? `<span style="color:${col}">${M.esc(val)}</span>` : ''); return; }
+      if (!val) return;
+      text += pre + val; html += M.esc(pre) + (col ? `<span style="color:${col}">${M.esc(val)}</span>` : M.esc(val));
+    };
+    put('delay', dl, 'var(--orange, #f2b573)', ' · ');
+    put('next', nx ? nx : '', '', ', deretter ');
+    put('avvik', av, 'var(--red, #f28073)', ' · ');
+    return { text: text.replace(/\s+·\s*$/, ''), html };
+  };
+
+  /* Fiks 17.16 · Kamera-flisen: aktiv-tilstand styrt av brukerens regler (tile_cfg.<id>.active).
+   * active = { mode: any|all, triggers: [{ entity, attribute, op, value }], hold_min, only_when: [away|home|night|armed|entity],
+   *   night: { from, to }, only_entity, quiet: { from, to }, style: tint|solid|pink|icon, color, icon, pulse, sub_active,
+   *   sub_after, on_activate: none|haptic|popup|top }. Tom triggers = autokonfig (bevegelse/tilstedeværelse ved kameraet). */
+  const CAM_ONLY = [['away', 'Alle borte'], ['home', 'Noen hjemme'], ['night', 'Natt'], ['armed', 'Alarm armert'], ['entity', 'Egen entitet']];
+  const CAM_STYLES = [['tint', 'Tonet'], ['solid', 'Fylt'], ['pink', 'Rosa'], ['icon', 'Bare ikon']];
+  const CAM_ACT = [['none', 'Ingen'], ['haptic', 'Haptic'], ['popup', 'Åpne #kamera'], ['top', 'Vis øverst']];
+  const CAM_OPS = [['=', 'er'], ['!=', 'er ikke'], ['>', 'over'], ['<', 'under']];
+  const camAuto = (hass, cam) => {
+    if (!hass || !cam) return [];
+    const area = M.areaOf(hass, cam), dev = (M.regEntry(hass, cam) || {}).device_id;
+    return M.all(hass, 'binary_sensor', (x, i) => {
+      const e = M.regEntry(hass, i) || {}, sameDev = !!dev && e.device_id === dev;
+      const mot = ['motion', 'occupancy'].includes(x.attributes.device_class) || /_(person|bevegelse|motion)(_|$)/.test(i);
+      return mot && (sameDev || (!!area && M.areaOf(hass, i) === area));
+    });
+  };
+  /* Fiks 17.7 · Kalender-kortet (sveip-kortet «cal»): calendar = { entities: [], all_day: true, tap_action, hold_action }.
+   * Handlingene lagres i HA-format (M.tap); spec-formen { action: default|popup|navigate|url, hash, navigation_path, url }
+   * leses også. null = Standard (trykk: kalender-arket/more-info, hold: ingen). */
+  const calNorm = (a) => {
+    if (a && typeof a === 'object') {
+      if (a.action === 'default') return null;
+      if (a.action === 'popup') { const h = String(a.hash || a.navigation_path || '').trim(); return h ? { action: 'navigate', navigation_path: h[0] === '#' ? h : '#' + h } : null; }
+      if (a.action === 'url' && !a.url_path && a.url) return { action: 'url', url_path: a.url };
+      if (a.action === 'navigate' && /^https?:\/\//i.test(a.navigation_path || '')) return { action: 'url', url_path: a.navigation_path };
+    }
+    return M.tap ? M.tap.norm(a) : null;
+  };
+  M.hjemCalNorm = calNorm;
+  M.hjemCam = { CAM_ONLY, CAM_STYLES, CAM_ACT, CAM_OPS, camAuto, listOf };
+  const trigHit = (st, t) => {
+    if (!st || M.unavailable(st)) return false;
+    const raw = t.attribute ? st.attributes[t.attribute] : st.state, op = t.op || '=', val = t.value == null || t.value === '' ? 'on' : String(t.value);
+    if (op === '>' || op === '<') { const a = Number(raw), b = Number(val); return !isNaN(a) && !isNaN(b) && (op === '>' ? a > b : a < b); }
+    const eq = val.split('|').map((x) => x.trim()).includes(String(raw));
+    return op === '!=' ? !eq : eq;
+  };
 
   /* ------------------------------------------------------------ adaptiv layout */
   // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), bred = to kolonner, ≥1500 px = tre; zoom opptil 1,8×.
   M.hjemLayout = M.hjemLayout || function (mode, vw) {
     const w = vw || M.dashRect().width, vh = window.innerHeight || 900;
-    const ipad = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const wide = mode === 'stor' ? true : mode === 'mobil' ? false : w >= 1000 || (ipad && w >= 700);
+    const wide = mode === 'stor' ? true : mode === 'mobil' ? false : M.isWide(w); // Fiks 17.20: samme regel som header/navbar
     const pc = wide && w >= 1500;
     const zoom = !wide ? 1 : pc ? M.clamp(Math.min(w / 1480, vh / 820), 1, 1.8) : M.clamp(Math.min(w / 1024, vh / 760), 1, 1.4);
     return { wide, pc, cols: pc ? 3 : wide ? 2 : 1, zoom: Math.round(zoom * 100) / 100, vw: w };
@@ -75,11 +157,27 @@
   // Horisontal sveip med touch-action: pan-y + stopPropagation (Bubble Card lukker/scroller ikke). Klikk etter drag svelges.
   // Ingen haptic ved sveip/snap – bare trykk (åpne romkort) gir haptic.
   M.hjemSwiper = M.hjemSwiper || function (card, vp, onIndex) {
+    const track = () => vp.firstElementChild;
+    const n = () => Number(vp.dataset.n) || 1, idx = () => Number(vp.dataset.i) || 0;
+    const dotsEl = () => { const d = vp.nextElementSibling; return d && d.classList.contains('msh-dots') ? d : null; };
+    // Fiks 17.17: ny side settes rett i DOM-en (track + prikker) og lagres stille (onIndex → setUI(…, true)).
+    // Kortet tegnes IKKE på nytt ved slipp, og hass-oppdateringer venter til snap-animasjonen (.45 s) er ferdig.
+    const go = (i) => {
+      i = M.clamp(i, 0, n() - 1);
+      const tr = track();
+      tr.style.transition = '';
+      tr.style.transform = `translateX(${-i * 100}%)`;
+      vp.dataset.i = i;
+      M.setDots(dotsEl(), i);
+      card._busy = true;
+      clearTimeout(vp.__snapT);
+      vp.__snapT = setTimeout(() => { card._busy = false; if (card._skipped) { card._skipped = false; card._schedule(); } }, 480);
+      onIndex(i);
+    };
+    M.bindDots(dotsEl(), go); // 17.12: trykk på prikk → den siden
     if (vp.__sw) return;
     vp.__sw = true;
     M.guardDrag(vp, 'x');
-    const track = () => vp.firstElementChild;
-    const n = () => Number(vp.dataset.n) || 1, idx = () => Number(vp.dataset.i) || 0;
     let st = null, wheel = 0, wt = 0;
     vp.addEventListener('pointerdown', (e) => { if (card._onDown) card._onDown(e); if (e.button || n() < 2) return; st = { x: e.clientX, y: e.clientY, t: Date.now(), w: vp.clientWidth || 1, lock: null, dx: 0, id: e.pointerId }; });
     vp.addEventListener('pointermove', (e) => {
@@ -105,11 +203,7 @@
       const v = s0.dx / Math.max(1, Date.now() - s0.t);
       let i = idx();
       if (e.type === 'pointerup') { if (s0.dx < -s0.w * 0.2 || v < -0.45) i++; else if (s0.dx > s0.w * 0.2 || v > 0.45) i--; }
-      i = M.clamp(i, 0, n() - 1);
-      const tr = track();
-      tr.style.transition = '';
-      tr.style.transform = `translateX(${-i * 100}%)`;
-      onIndex(i); // ingen haptic ved sveip – kun trykk på et romkort gir haptic
+      go(i); // ingen haptic ved sveip – kun trykk på et romkort gir haptic
 
     };
     vp.addEventListener('pointerup', end);
@@ -119,7 +213,7 @@
       e.preventDefault();
       wheel += e.deltaX;
       const now = Date.now();
-      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) onIndex(i); }
+      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) go(i); }
     }, { passive: false });
   };
 
@@ -190,8 +284,14 @@
       garage: o.garage || first(M.all(hass, 'cover', (s) => ['garage', 'gate'].includes(s.attributes.device_class))),
       alarm: o.alarm || first(M.all(hass, 'alarm_control_panel')),
       cam: o.cam || first(M.all(hass, 'camera')),
-      ruter: o.ruter || first([...M.byPlatform(hass, 'entur_public_transport', 'sensor'), ...M.byPlatform(hass, 'entur', 'sensor')]),
-      ruterSx: first(M.byPlatform(hass, 'entur_sx')),
+      ruter: o.ruter || (() => {
+        // Fiks 17.11: entur-sensoren med kortest due_in (ellers sensorer med route + due_in/due_at-attributter)
+        let L = [...M.byPlatform(hass, 'entur_public_transport', 'sensor'), ...M.byPlatform(hass, 'entur', 'sensor')];
+        if (!L.length) L = M.all(hass, 'sensor', (x) => x.attributes.route != null && (x.attributes.due_in != null || x.attributes.due_at != null));
+        const due = (id) => { const R = ruterInfo(hass.states[id]); return R && R.due != null ? R.due : 1e9; };
+        return L.slice().sort((a, b) => due(a) - due(b))[0] || null;
+      })(),
+      ruterSx: hass.states['sensor.ruter_avvik_summary'] ? 'sensor.ruter_avvik_summary' : first(M.byPlatform(hass, 'entur_sx')),
       todo: o.todo || first(M.all(hass, 'todo')), todos: M.all(hass, 'todo'),
       tv: o.tv || (() => { const L = tvs.length ? tvs : M.all(hass, 'media_player', (s, id) => /(^|[_\s.-])tv($|[_\s-])/i.test(id + ' ' + (s.attributes.friendly_name || ''))); return L.find((id) => !['off', 'standby', 'unavailable', 'unknown'].includes(hass.states[id].state)) || first(L); })(),
       vacr: o.vacr || first(M.all(hass, 'vacuum')),
@@ -245,7 +345,7 @@
   // legges i exclude og kommer ikke tilbake; nye rom/enheter (ikke i seen) blir «Forslag» i «Tilpass Hjem» → Kort.
   // Bakoverkompatibelt: har Hjem lagret oppsett fra før (layout/tiles/tile_order/tile_hidden.hjem) og ingen tabs.hjem,
   // gjelder autofyll (alle rom + standard snarveier) som før.
-  const HJEM_TILES = ['lock', 'alarm', 'cam', 'todo'];
+  const HJEM_TILES = ['lock', 'alarm', 'cam', 'todo', 'ruter']; // 17.11: Ruter-flisen kommer med når en Entur-sensor finnes
   const HJEM_MAX = 4;
   const DYN = ['dish', 'vacr', 'tv', 'wash', 'dry'];
   const AKT_TYPES = [['appliances', 'Apparat kjører eller er ferdig', 'mdi:washing-machine'], ['doors', 'Dør eller vindu åpen', 'mdi:door-open'], ['battery', 'Lavt batteri', 'mdi:battery-alert'], ['lights', 'Lys på i tomt rom', 'mdi:lightbulb-on-outline'], ['media', 'Media spiller', 'mdi:play-circle-outline'], ['alerts', 'Avvik (fukt, temperatur, lekkasje, røyk, feil)', 'mdi:alert-circle-outline']];
@@ -305,6 +405,32 @@
     return v;
   }
 
+  // 17.16 · «Aktiv-tilstand» for en kamera-flis i GUI-editoren (samme felt som «Tilpass Hjem» → Kort). Tre utløser-plasser.
+  function camFields(hass, c, k, P) {
+    const A = P + '.active', a = get(c, A) || {}, ow = listOf(a.only_when), auto = camAuto(hass, get(c, P + '.entity') || tileEnts(hass, c).cam);
+    const f = [{ type: 'info', label: 'Aktiv-tilstand · når flisen vises som aktiv. Tomme utløsere = automatisk: ' + (auto.length ? auto.join(', ') : 'fant ingen bevegelsessensor ved kameraet') }];
+    f.push({ type: 'select', name: A + '.mode', label: 'Utløsere', options: [['any', 'Hvilken som helst'], ['all', 'Alle']], default: 'any' });
+    const trig = listOf(a.triggers);
+    [0, 1, 2].slice(0, Math.min(3, trig.filter((t) => t && t.entity).length + 1)).forEach((i) => {
+      const tp = `${A}.triggers.${i}`;
+      f.push({ type: 'entity', name: tp + '.entity', label: `Utløser ${i + 1} · entitet` });
+      if (trig[i] && trig[i].entity) f.push({ type: 'text', name: tp + '.attribute', label: 'Attributt (valgfri)' }, { type: 'select', name: tp + '.op', label: 'Betingelse', options: CAM_OPS, default: '=' }, { type: 'text', name: tp + '.value', label: 'Verdi', placeholder: 'on' });
+    });
+    f.push({ type: 'number', name: A + '.hold_min', label: 'Hold aktiv i (min etter at utløseren slutter)', min: 0, max: 30, placeholder: '2' });
+    CAM_ONLY.forEach(([v, l]) => f.push({ type: 'button', label: (ow.includes(v) ? '✓ ' : '+ ') + 'Bare når · ' + l, icon: ow.includes(v) ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline', run: (h, cc, ed) => { const cur = listOf(get(cc, A + '.only_when')); ed._set(A + '.only_when', cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]); } }));
+    if (ow.includes('night')) f.push({ type: 'text', name: A + '.night.from', label: 'Natt fra', placeholder: '22:00' }, { type: 'text', name: A + '.night.to', label: 'Natt til', placeholder: '06:00' });
+    if (ow.includes('entity')) f.push({ type: 'entity', name: A + '.only_entity', label: 'Egen entitet (på = tillatt)' });
+    f.push({ type: 'text', name: A + '.quiet.from', label: 'Stille-periode fra (ikke aktiver)', placeholder: '07:00' }, { type: 'text', name: A + '.quiet.to', label: 'Stille-periode til', placeholder: '16:00' });
+    f.push({ type: 'select', name: A + '.style', label: 'Stil', options: CAM_STYLES, default: 'tint' },
+      { type: 'color', name: A + '.color', label: 'Farge', placeholder: 'var(--blue)' },
+      { type: 'icon', name: A + '.icon', label: 'Ikon når aktiv', placeholder: M.iconName('videocam') },
+      { type: 'boolean', name: A + '.pulse', label: 'Puls rundt ikonet' },
+      { type: 'text', name: A + '.sub_active', label: 'Undertekst mens aktiv', placeholder: 'Bevegelse nå', help: 'Tokens: {tid} {siden} {entitet} {sone}' },
+      { type: 'text', name: A + '.sub_after', label: 'Undertekst i holdetiden', placeholder: 'Bevegelse for {siden} siden' },
+      { type: 'select', name: A + '.on_activate', label: 'Ved aktivering', options: CAM_ACT, default: 'none' });
+    return f;
+  }
+
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
     static get cardName() { return 'Hjem · faner og romkort'; }
@@ -318,6 +444,8 @@
           { type: 'order', name: 'tab_order', hiddenName: 'tab_hidden', label: 'Faner · rekkefølge og synlighet', options: T.map((t) => [t.id, t.label]) },
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             { type: 'info', label: 'Dra sideveis over fanene for å bytte. Hold inne en fane og dra for å flytte den. Etasjer fra HA dukker opp automatisk.' },
+            // Fiks 17.18: global, lagres i ki-store ui.glass_anim (ikke i kort-configen) – samme bryter som «Tilpass Hjem» → Faner
+            { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
             ...T.map((t) => ({ type: 'text', name: `tab_labels.${t.id}`, label: `Navn · ${t.autoLabel}`, placeholder: t.autoLabel })),
             ...T.filter((t) => t.kind !== 'batterier').map((t) => ({ type: 'select', name: `tab_views.${t.id}`, label: `Visning · ${t.label}`, options: VIEWS, default: t.defView })),
             { type: 'text', name: 'custom_tabs', label: 'Egne faner', placeholder: 'Favoritter, Barn', help: 'Kommaseparert. Legg rom på fanen under «Rom og snarveier».' },
@@ -366,26 +494,62 @@
           if (en.length > 1) f.push({ type: 'order', name: `tile_order.${t.id}`, hiddenName: `tile_hidden.${t.id}`, label: 'Snarveier · rekkefølge', options: en.map((k) => [k, kindLabel(k, c)]) });
           fields.push({ type: 'section', id: 'tab-' + t.id, label: `Rom og snarveier · ${t.label}`, icon: 'mdi:view-grid-outline', fields: f });
         });
-        // Snarveier: entitet, navn, ikon, undertekst og fire handlinger per flis (fiks 16.11 – samme som «Tilpass Hjem» → Kort)
+        // Snarveier: entitet, navn, ikon, undertekst og fire handlinger per flis (fiks 16.11 – samme som «Tilpass Hjem» → Kort).
+        // Fiks 17.10: gruppert i fire soner (Hjem-fanen) som i «Tilpass Hjem» → Kort. Config er uendret (tiles.hjem.<id>.slot, swipe.hjem.<sone>).
+        const HT0 = T.find((t) => t.kind === 'hjem'), ZONES = [['L-top', 'Venstre · over rommene'], ['R-top', 'Høyre · over rommene'], ['L-bottom', 'Venstre · under rommene'], ['R-bottom', 'Høyre · under rommene']];
+        const tileF = (k) => {
+          const kd = kindOf(c, k), L = kindLabel(k, c), P = `tile_cfg.${k}`, dom = TILE_DOM[kd], out = [];
+          if (HT0) out.push({ type: 'select', name: `tiles.hjem.${k}.slot`, label: 'Plassering', options: ZONES.map(([v, l]) => [v, l]), default: HT0 ? tileSlot(c, HT0, k) : 'R-bottom' });
+          if (!kd) { // egen snarvei (lenke)
+            const lp = `links.${k}`;
+            out.push({ type: 'text', name: lp + '.title', label: 'Tittel' }, { type: 'text', name: lp + '.sub', label: 'Undertekst' }, { type: 'icon', name: lp + '.icon', label: 'Ikon', placeholder: 'mdi:star' },
+              { type: 'select', name: lp + '.color', label: 'Farge', options: TSW, default: 'ingen' }, { type: 'hash', name: lp + '.hash', label: 'Trykk på kortet åpner popup', placeholder: '#strom' },
+              { type: 'entity', name: lp + '.entity', label: 'Entitet (ikon-trykk / mer info)' }, { type: 'select', name: lp + '.act', label: 'Trykk på ikonet', options: [['toggle', 'Veksle entitet'], ['popup', 'Åpne popup'], ['more', 'Mer info'], ['none', 'Ingen']], default: 'toggle' });
+          } else if (kd !== 'jul') {
+            out.push(
+              ...(dom ? [{ type: 'entity', name: P + '.entity', label: kd === 'ruter' ? 'Stopp (Entur-sensor)' : 'Entitet', domain: dom, auto: (h, cc) => { const e = tileEnts(h, { ...cc, overrides: k === kd ? cc.overrides : {} })[kd]; return e && typeof e === 'object' ? e.status : e; } }] : []),
+              { type: 'text', name: P + '.name', label: 'Navn', placeholder: kd === 'ruter' ? 'Stoppnavn / Ruter' : KINDS[kd][1] },
+              { type: 'icon', name: P + '.icon', label: 'Ikon', placeholder: M.iconName(KINDS[kd][0]) },
+              ...(kd === 'ruter' ? [
+                { type: 'entity', name: P + '.avvik_entity', label: 'Avvik-sensor (valgfri)', domain: 'sensor', auto: (h) => tileEnts(h, {}).ruterSx },
+                { type: 'boolean', name: P + '.show_next', label: 'Vis neste etter («, deretter 7 min»)', default: true },
+                { type: 'text', name: P + '.sub_format', label: 'Undertekst · format', placeholder: RUTER_FMT, help: 'Tokens: {route} {due_in} {delay} {next} {avvik}' },
+              ] : [{ type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] }]),
+              ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
+              ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
+          }
+          out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
+            const hc = get(cc, 'tabs.hjem.cards'), extra = kd && k !== kd;
+            if (extra) ed._set(P, undefined);
+            if (Array.isArray(hc)) { ed._set('tabs.hjem.cards', hc.filter((x) => x !== k)); if (!extra) ed._set('tabs.hjem.exclude', [...(get(cc, 'tabs.hjem.exclude') || []).filter((x) => x !== k), k]); } else if (!extra) ed._set(`tiles.hjem.${k}.slot`, 'off');
+          } });
+          return { type: 'section', id: 'tile-' + k, label: L, icon: kindIcon(k, c), fields: out };
+        };
         const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk låser/låser opp, hold på ikonet åpner #dorlas, hold på kortet viser detaljer.' }];
-        avail.filter((k) => kindOf(c, k) && kindOf(c, k) !== 'jul').forEach((k) => {
-          const kd = kindOf(c, k), L = kindLabel(k, c), P = `tile_cfg.${k}`, dom = TILE_DOM[kd];
-          tapF.push({ type: 'section', id: 'tile-' + k, label: L, icon: 'mdi:gesture-tap-hold', fields: [
-            ...(dom ? [{ type: 'entity', name: P + '.entity', label: 'Entitet', domain: dom, auto: (h, cc) => { const e = tileEnts(h, { ...cc, overrides: k === kd ? cc.overrides : {} })[kd]; return e && typeof e === 'object' ? e.status : e; } }] : []),
-            { type: 'text', name: P + '.name', label: 'Navn', placeholder: KINDS[kd][1] },
-            { type: 'icon', name: P + '.icon', label: 'Ikon', placeholder: M.iconName(KINDS[kd][0]) },
-            { type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] },
-            ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })),
-            ...(k !== kd ? [{ type: 'button', label: 'Slett denne flisen', icon: 'mdi:delete', run: (h, cc, ed) => { ed._set(P, undefined); const hc = get(cc, 'tabs.hjem.cards'); if (Array.isArray(hc)) ed._set('tabs.hjem.cards', hc.filter((x) => x !== k)); } }] : []),
-          ] });
+        const onHjem = HT0 ? avail.filter((k) => tileSlot(c, HT0, k) !== 'off' && !(get(c, 'tile_hidden.hjem') || []).includes(k)) : [];
+        ZONES.forEach(([sl, lab]) => {
+          const inZ = onHjem.filter((k) => tileSlot(c, HT0, k) === sl), zf = [];
+          if (inZ.length > 1) zf.push({ type: 'boolean', name: `swipe.hjem.${sl}`, label: 'Swipe · ett kort om gangen, sveip for neste', default: sl === 'L-top' });
+          if (!inZ.length) zf.push({ type: 'info', label: 'Tomt · legg til med knappene under' });
+          inZ.forEach((k) => zf.push(tileF(k)));
+          tapF.push({ type: 'section', id: 'zone-' + sl, label: lab, icon: 'mdi:view-grid-outline', meta: inZ.length ? `${inZ.length} kort` : 'Tom', fields: zf });
         });
+        const rest = avail.filter((k) => !onHjem.includes(k) && kindOf(c, k) && kindOf(c, k) !== 'jul');
+        if (rest.length) tapF.push({ type: 'section', id: 'zone-off', label: 'Ikke på Hjem', icon: 'mdi:eye-off', meta: `${rest.length} kort`, fields: rest.map(tileF) });
         KIND_ORDER.filter((kd) => TILE_DOM[kd]).forEach((kd) => tapF.push({ type: 'button', label: '+ Legg til ' + KINDS[kd][1].toLowerCase(), icon: 'mdi:plus', run: (h, cc, ed) => {
           const id = M.hjemNewTileId(cc, kd);
           ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom' });
           const hc = get(cc, 'tabs.hjem.cards');
           if (Array.isArray(hc)) ed._set('tabs.hjem.cards', [...hc, id]);
         } }));
-        fields.push({ type: 'section', id: 'tap', label: 'Snarveier · entitet og handlinger', icon: 'mdi:gesture-tap', fields: tapF });
+        fields.push({ type: 'section', id: 'tap', label: 'Snarveier · soner, entitet og handlinger', icon: 'mdi:gesture-tap', fields: tapF });
+        // Fiks 17.7 · Kalender-kortet (sveip-kort): kalendere, «Hele dagen» og trykk/hold
+        fields.push({ type: 'section', id: 'kalender', label: 'Sveip-kort · kalender', icon: 'mdi:calendar', fields: [
+          { type: 'entities', name: 'calendar.entities', label: 'Kalendere (tom = alle)', domain: 'calendar', domains: ['calendar'], multiple: true },
+          { type: 'boolean', name: 'calendar.all_day', label: 'Ta med «Hele dagen»-hendelser', default: true },
+          { type: 'tap', name: 'calendar.tap_action', label: 'Trykk', modes: ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'], labels: { path: 'Navigate' }, stdHint: 'Standard: kalender-arket (detaljer)' },
+          { type: 'tap', name: 'calendar.hold_action', label: 'Hold', modes: ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'], labels: { path: 'Navigate' }, stdHint: 'Standard: ingen' },
+        ] });
         fields.push({ type: 'overrides', label: 'Bytt entiteter for snarveier og sveip-kort', fields: [
           ['lock', 'Dørlås', 'lock'], ['garage', 'Garasjeport', 'cover'], ['alarm', 'Alarm', 'alarm_control_panel'], ['cam', 'Kamera', 'camera'], ['ruter', 'Ruter (avganger)', 'sensor'], ['todo', 'Gjøremål', 'todo'], ['tv', 'TV', 'media_player'], ['vacr', 'Støvsuger', 'vacuum'],
           ['dish', 'Oppvaskmaskin (status)', null], ['wash', 'Vaskemaskin (status)', null], ['dry', 'Tørketrommel (status)', null], ['weather', 'Vær', 'weather'], ['price', 'Strømpris', 'sensor'], ['watt', 'Effekt (hele huset)', 'sensor'], ['calendar', 'Kalender', 'calendar'], ['trash', 'Søppel (dager til tømming)', 'sensor'],
@@ -429,7 +593,7 @@
         fields.push({ type: 'section', id: 'utseende', label: 'Layout', icon: 'mdi:page-layout-body', fields: [
           { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
-          { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (f.eks. «Dørlås låst opp»)', default: true },
+          { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes»)', default: true },
         ] });
         return fields;
       };
@@ -447,6 +611,7 @@
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
+      if (this._mT) { clearInterval(this._mT); this._mT = null; }
       if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
     }
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
@@ -550,9 +715,10 @@
       if (!m) return null;
       m.kind = id; m.type = kd;
       if (cfg.icon) { m.icon = cfg.icon; m.aIcon = null; }
+      if (m.actIcon) m.icon = m.actIcon; // 17.16: ikon når kameraet er aktivt
       const nm = cfg.name;
       if (nm && ['tv', 'vacr', 'cam', 'ruter', 'dish', 'wash', 'dry', 'jul'].includes(kd)) m.title = nm;
-      if (!m.confirm && (cfg.sub || nm) && !(nm && !cfg.sub && m.title === nm)) m.sub = cfg.sub || nm;
+      if ((cfg.sub || nm) && !(nm && !cfg.sub && m.title === nm) && !(m.camOn && cfg.sub)) { m.sub = cfg.sub || nm; m.subHtml = null; }
       return m;
     }
     _kindModel(kind, E, tid) {
@@ -560,11 +726,11 @@
       const T = (o) => ({ kind, icon: (KINDS[kind] || [])[0], ...o });
       switch (kind) {
         case 'lock': {
-          // Fiks 16.7: farger via universal-regler (_tileHTML), trykk = lås / lås opp med bekreftelse (trykk igjen / PIN)
+          // Fiks 16.7/17.2: farger via universal-regler (_tileHTML), trykk = lås / lås opp med én gang (PIN bare ved code_format)
           const id = E.lock, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', L = v === 'locked', jam = v === 'jammed', nm = tileCfg(c, tid || 'lock').name || 'Dørlås';
-          const ask = this._lkAsk && this._lkAsk.id === id && this._lkAsk.t > Date.now();
-          return T({ ent: id, st, lock: v, icon: L || !st ? 'key' : 'lock_open', title: !st || M.unavailable(st) ? '–' : jam ? 'Feil' : L ? 'Låst' : v === 'locking' ? 'Låser' : v === 'unlocking' ? 'Låser opp' : v === 'open' ? 'Åpen' : 'Ulåst', sub: ask ? 'Trykk igjen for å låse opp' : 'Dørlås', confirm: ask, cardHash: '#sikkerhet',
+          const pend = this._lkPend && this._lkPend.id === id && this._lkPend.from === (st && st.state) && this._lkPend.t > Date.now() ? this._lkPend.to : null;
+          const v = pend || (st ? st.state : ''), L = v === 'locked', jam = v === 'jammed', nm = tileCfg(c, tid || 'lock').name || 'Dørlås';
+          return T({ ent: id, st, lock: v, icon: L || !st ? 'key' : 'lock_open', title: !st || M.unavailable(st) ? '–' : jam ? 'Feil' : L ? 'Låst' : v === 'locking' ? 'Låser …' : v === 'unlocking' ? 'Låser opp …' : v === 'open' ? 'Åpen' : 'Ulåst', sub: 'Dørlås', cardHash: '#sikkerhet',
             ic: () => this._lockTap(id, nm) });
         }
         case 'alarm': {
@@ -575,17 +741,20 @@
         }
         case 'cam': {
           const id = E.cam; if (!id) return null;
-          const area = M.areaOf(hass, id), cams = M.all(hass, 'camera');
-          const mot = M.all(hass, 'binary_sensor', (x, i) => ['motion', 'occupancy'].includes(x.attributes.device_class) && area && M.areaOf(hass, i) === area);
-          const on = mot.some((m) => M.isOn(s(m)));
-          return T({ ent: id, title: 'Kamera', sub: on ? 'Bevegelse nå' : mot.length ? 'Ingen bevegelse' : `${cams.length} ${cams.length === 1 ? 'kamera' : 'kameraer'}`, tone: on ? C.blue : null, cardHash: '#kamera' });
+          const cams = M.all(hass, 'camera'), A = this._camActive(id, tid || 'cam');
+          const idle = A.trig.length ? 'Ingen bevegelse' : `${cams.length} ${cams.length === 1 ? 'kamera' : 'kameraer'}`;
+          if (!A.on) return T({ ent: id, title: 'Kamera', sub: idle, tone: null, cardHash: '#kamera' });
+          return T({ ent: id, title: 'Kamera', sub: A.sub, tone: A.style === 'pink' ? 'pink' : A.color, camStyle: A.style, camOn: true, pulse: A.pulse, top: A.top, actIcon: A.icon || null, cardHash: '#kamera' });
         }
         case 'ruter': {
-          const id = E.ruter, st = s(id); if (!id) return null;
-          const sx = E.ruterSx ? s(E.ruterSx) : null, nAv = sx ? (M.isNum(sx.state) ? Number(sx.state) : (sx.attributes.meldinger || []).length) : 0;
-          const route = st ? String(st.attributes.route || st.attributes.line || '').split(' ')[0] : '';
-          const dep = st && M.isNum(st.state) ? `${route ? 'Linje ' + route + ' ' : ''}om ${Math.round(Number(st.state))} min` : '–';
-          return T({ ent: id, title: 'Ruter', sub: dep + (nAv ? ` · ${nAv} avvik` : ''), tone: null, cardHash: '#ruter' });
+          const id = E.ruter, st = s(id), rc = tileCfg(c, tid || 'ruter');
+          if (!id || !st) return T({ ent: null, title: 'Ruter', sub: 'Velg stopp', tone: null, cardHash: '#ruter' });
+          const sxId = rc.avvik_entity || E.ruterSx, sx = sxId ? s(sxId) : null;
+          const nAv = sx && !M.unavailable(sx) ? (M.isNum(sx.state) ? Number(sx.state) : listOf(sx.attributes.meldinger || sx.attributes.messages).length) : 0;
+          const R = ruterInfo(st), sub = ruterSub(R, nAv, rc.sub_format, rc.show_next);
+          const stop = String(st.attributes.stop_name || st.attributes.friendly_name || '').replace(/^entur\s+/i, '').trim();
+          this._minTick = true;
+          return T({ ent: id, title: stop || 'Ruter', sub: sub.text, subHtml: sub.html, icon: RUTER_IC[R.mode] || 'mdi:bus', tone: null, cardHash: '#ruter' });
         }
         case 'todo': {
           if (!E.todo) return null;
@@ -637,6 +806,48 @@
         }
       }
     }
+    // 17.16 · aktiv-tilstand for kamera-flisen tid. Holdetid: sist sett aktiv (minne) eller last_changed da utløseren slapp.
+    _camActive(cam, tid) {
+      const hass = this.hass, a = tileCfg(this.config, tid).active || {}, now = Date.now();
+      const own = listOf(a.triggers).filter((t) => t && t.entity);
+      const trig = own.length ? own : camAuto(hass, cam).map((e) => ({ entity: e, op: '=', value: 'on' }));
+      const hits = trig.map((t) => trigHit(this.s(t.entity), t));
+      let on = trig.length > 0 && (a.mode === 'all' ? hits.every(Boolean) : hits.some(Boolean));
+      const holdMs = M.clamp(Number(a.hold_min ?? 2) || 0, 0, 30) * 60000;
+      const mem = (this._camMem = this._camMem || {});
+      let after = false, endT = null, src = trig[hits.findIndex(Boolean)] || null;
+      if (on) mem[tid] = { t: now, ent: src && src.entity };
+      else if (holdMs && trig.length) {
+        const last = trig.map((t) => this.s(t.entity)).filter((x) => x && x.state === 'off').map((x) => Date.parse(x.last_changed));
+        const lc = last.length ? Math.max(...last) : 0;
+        endT = Math.max(mem[tid] ? mem[tid].t : 0, trig.every((t) => !t.attribute && (t.op || '=') === '=' && (t.value || 'on') === 'on') ? lc : 0);
+        if (endT && now - endT < holdMs) { after = true; src = trig.find((t) => mem[tid] && mem[tid].ent === t.entity) || trig[0]; this._minTick = true; }
+      }
+      // Bare når (minst én) og stille-periode
+      const ow = listOf(a.only_when).filter((x) => typeof x === 'string');
+      if ((on || after) && ow.length) {
+        const P = M.all(hass, 'person'), home = P.some((p) => this.s(p) && this.s(p).state === 'home');
+        const ok = { away: () => P.length > 0 && !home, home: () => home, night: () => inWin(get(a, 'night.from') || '22:00', get(a, 'night.to') || '06:00'), armed: () => M.all(hass, 'alarm_control_panel').some((x) => /^armed/.test((this.s(x) || {}).state || '')), entity: () => !!a.only_entity && M.isOn(this.s(a.only_entity)) };
+        if (!ow.some((k) => ok[k] && ok[k]())) { on = false; after = false; }
+      }
+      if ((on || after) && a.quiet && inWin(a.quiet.from, a.quiet.to)) { on = false; after = false; }
+      // Ved aktivering (stigende flanke; aldri ved første tegning eller i frakoblede editor-instanser)
+      const prev = (this._camPrev = this._camPrev || {});
+      if (this.isConnected && prev[tid] === false && on) {
+        const act = a.on_activate || 'none';
+        if (act === 'haptic') M.haptic('medium');
+        if (act === 'popup' && document.visibilityState === 'visible' && this.getClientRects().length && now - (this._camPop || 0) > 300000) { this._camPop = now; setTimeout(() => M.openPopup('#kamera'), 0); }
+      }
+      if (this.isConnected) prev[tid] = on;
+      const active = on || after;
+      if (!active) return { on: false, trig };
+      const sst = src ? this.s(src.entity) : null, t0 = on ? (sst ? Date.parse(sst.last_changed) : now) : endT;
+      const mins = Math.max(0, Math.floor((now - (after ? endT : t0)) / 60000));
+      const tok = { tid: hhmm(t0), siden: mins < 1 ? 'under 1 min' : `${mins} min`, entitet: src ? M.name(hass, src.entity) : '', sone: (() => { const ar = M.areaOf(hass, (src && src.entity) || cam) || M.areaOf(hass, cam); return ar ? M.areaName(hass, ar) : ''; })() };
+      const fill = (f) => String(f).replace(/\{(tid|siden|entitet|sone)\}/g, (m0, k) => tok[k]);
+      return { on: true, trig, style: a.style || 'tint', color: a.color || C.blue, icon: a.icon || null, pulse: !!a.pulse, top: a.on_activate === 'top',
+        sub: on ? fill(a.sub_active || 'Bevegelse nå') : fill(a.sub_after || 'Bevegelse for {siden} siden') };
+    }
     _appl(kind, info) {
       if (!info) return null;
       const st = this.s(info.status), pw = this.n(info.power), rem = info.remain ? this.s(info.remain) : null, prog = info.prog ? this.s(info.prog) : null;
@@ -682,6 +893,7 @@
       const kinds = availKinds(E, c).filter((k) => tileSlot(c, t, k) === slot && !hid.includes(k) && seasonOk(c, t, k) && !(DYN.includes(k) && t.kind === 'aktuelt'));
       kinds.sort((a, b) => { const ia = ord.indexOf(a), ib = ord.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
       const raw = kinds.map((k) => ({ k, m: this._tileModel(k, E) })).filter((x) => x.m && !x.m.hide);
+      raw.sort((x, y) => (y.m.top ? 1 : 0) - (x.m.top ? 1 : 0)); // 17.16: «Vis øverst» mens kameraet er aktivt
       const all = get(c, `swipe.${t.id}.${slot}`) ?? (t.kind === 'hjem' && slot === 'L-top');
       const stack = (k) => get(c, `tiles.${t.id}.${k}.stack`) ?? !!(STACK_DEF[t.kind] || {})[k];
       const stR = raw.filter((x) => all || stack(x.k)), useS = stR.length > 1;
@@ -696,6 +908,9 @@
       const o = { background_color: null, text_color: 'var(--white, #fafafa)', icon_color: null, circle_color: null, style: '' };
       if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
       else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(42,23,32,0.1)', style: 'box-shadow:none;--ht-sub:rgba(42,23,32,0.7)' });
+      else if (t.camStyle === 'icon' && t.tone) Object.assign(o, { icon_color: t.tone });
+      else if (t.camStyle === 'tint' && t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.16), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.35)}` });
+      else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(35,35,35,0.75)' });
       else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
       // Dørlås (fiks 16.7): universal_sensor-farger – #2f2f2f, hvit-tonet ikon-sirkel, #e1e1e1-tekst. Tilstandsregler:
       // unlocked/open → var(--orange) + var(--gray000)-tekst, jammed → var(--red), locked → standard.
@@ -704,14 +919,13 @@
         st = t.st || null;
         const hit = /^(unlocked|open|unlocking|opening|jammed)$/.test(t.lock);
         Object.assign(o, { background_color: null, text_color: 'var(--gray1000, #e1e1e1)', icon_color: null, circle_color: hit ? 'rgba(35,35,35,0.12)' : 'rgba(250,251,252,0.1)', style: hit ? 'box-shadow:none;--ht-sub:rgba(35,35,35,0.72)' : '' });
-        if (t.confirm) o.style += ';--ht-sub:' + (hit ? 'rgba(35,35,35,0.85)' : 'var(--orange, #f2b573)');
         rules = { state_rule_1_value: 'jammed', state_rule_1_background_color: 'var(--red)', state_rule_1_text_color: 'var(--gray000)',
           state_rule_2_value: 'unlocked|open|unlocking|opening', state_rule_2_background_color: 'var(--orange)', state_rule_2_text_color: 'var(--gray000)' };
       }
       // Innebygde fliser (lås, alarm, kamera …) har to soner med egne hold-handlinger (_bindTileHold) – ingen data-ent.
       const zones = !!t.type;
       const ring = zones && this._tapFor(t.kind, 'hold_ic', t).action !== 'none' ? '<svg class="hr" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26.5" pathLength="100"></circle></svg>' : '';
-      return M.universal({ ...o, ...rules, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '',
+      return M.universal({ ...o, ...rules, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : '') + (t.pulse ? ' hpulse' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '', sub_html: t.subHtml || null,
         act: 'tile', id: null, ent: zones ? false : t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card', 'data-hz': zones ? '1' : null },
         icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
     }
@@ -765,28 +979,18 @@
       if (t.cardHash) return M.openPopup(t.cardHash);
       if (t.ent) M.moreInfo(this, t.ent);
     }
-    // Dørlås: låse = straks; låse opp = bekreft (trykk igjen innen 3 s, PIN-tastatur hvis låsen har code_format).
+    // Dørlås (fiks 17.2): ett trykk låser / låser opp med én gang – ingen bekreftelse, ingen toast. PIN-tastatur bare når
+    // låsen har code_format (M.lockUnlock portaler det ut). Flisen viser «Låser …» / «Låser opp …» til ny state kommer.
     _lockTap(id, name) {
-      const hass = this.hass, st = hass.states[id], nm = name || 'Dørlås';
+      const hass = this.hass, st = hass.states[id];
       if (!st || M.unavailable(st)) return;
-      if (st.state !== 'locked' && st.state !== 'locking') {
-        this._lkAsk = null;
-        M.call(hass, 'lock', 'lock', { entity_id: id }).catch(() => {});
-        this._toast(`${nm} låst`);
-        return this.update();
-      }
-      const a = this._lkAsk;
+      const lock = st.state !== 'locked' && st.state !== 'locking';
+      if (lock) M.call(hass, 'lock', 'lock', { entity_id: id }).catch(() => {});
+      else if (M.lockUnlock) { M.lockUnlock(this, id, { name, toast: () => {} }); if (st.attributes.code_format) return; } else M.call(hass, 'lock', 'unlock', { entity_id: id }).catch(() => {});
+      this._lkPend = { id, from: st.state, to: lock ? 'locking' : 'unlocking', t: Date.now() + 20000 };
       clearTimeout(this._lkT);
-      if (!a || a.id !== id || a.t < Date.now()) {
-        this._lkAsk = { id, t: Date.now() + 3000 };
-        this._lkT = setTimeout(() => { this._lkAsk = null; this.update(); }, 3000);
-        return this.update();
-      }
-      this._lkAsk = null;
+      this._lkT = setTimeout(() => { this._lkPend = null; this.update(); }, 20000);
       this.update();
-      if (M.lockUnlock) return M.lockUnlock(this, id, { name: nm, toast: (m) => this._toast(m) });
-      M.call(hass, 'lock', 'unlock', { entity_id: id }).catch(() => {});
-      this._toast(`${nm} låst opp`);
     }
     // Fiks 16.7 · to soner per flis: ikon-sirkelen og resten av kortet. Hold 500 ms → hold_ic / hold_card (én haptic
     // medium; klikket etterpå svelges). Mens ikonet holdes fylles en tynn ring 0 → 100 %. > 8 px bevegelse avbryter
@@ -795,6 +999,7 @@
       if (this._thB) return;
       this._thB = true;
       const R = this.shadowRoot;
+      R.addEventListener('pointerdown', (e) => { this._pdXY = [e.clientX, e.clientY]; }, true); // 17.7: trykk vs. sveip
       let st = null;
       const end = () => {
         if (!st) return;
@@ -829,7 +1034,7 @@
       ['pointerup', 'pointercancel'].forEach((ty) => R.addEventListener(ty, end, true));
       R.addEventListener('contextmenu', (e) => { if (this._el(e, '.u.ht[data-hz]', true)) e.preventDefault(); });
     }
-    _dots(n, i) { return n > 1 ? `<div class="dots">${Array.from({ length: n }, (_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>` : ''; }
+    _dots(n, i) { return M.dotsHTML(n, i); } // felles trykkbare prikker (17.12)
 
     /* ---------- sveip-slides */
     _slide(id, E) {
@@ -845,9 +1050,15 @@
         return { top: 'Strøm nå', title: P.fmt(P.now), line1: W != null ? `${M.nf(W, 0)} W` : '–', line2: m ? `Billigst kl. ${pad2(m.h)} · ${P.fmt(m.v)}` : '', hash: '#strom' };
       }
       if (id === 'cal') {
-        const k = s(E.calendar), a = k ? k.attributes : {}, st = a.start_time ? new Date(String(a.start_time).replace(' ', 'T')) : null, en = a.end_time ? new Date(String(a.end_time).replace(' ', 'T')) : null;
+        // 17.7: valgte kalendere (standard: alle), tidligste hendelse; «Hele dagen» kan utelates
+        const K = c.calendar || {}, sel = listOf(K.entities).filter((x) => typeof x === 'string' && hass.states[x]);
+        const ids = sel.length ? sel : (c.overrides || {}).calendar && E.calendar ? [E.calendar] : M.all(hass, 'calendar');
+        const T0 = (x) => (x ? new Date(String(x).replace(' ', 'T')) : null);
+        let best = null;
+        ids.forEach((cid) => { const k = s(cid), a = k ? k.attributes : {}; const st = T0(a.start_time); if (!st || isNaN(st) || (K.all_day === false && a.all_day)) return; if (!best || st < best.st) best = { id: cid, a, st }; });
+        const a = best ? best.a : {}, st = best ? best.st : null, en = T0(a.end_time);
         const tm = (d) => `${d.getHours()}:${pad2(d.getMinutes())}`;
-        return { top: st ? st.toLocaleDateString('nb-NO', { weekday: 'long' }) : 'Kalender', title: st ? st.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }) : '–', line1: st ? (a.all_day ? 'Hele dagen' : tm(st) + (en ? ' · ' + tm(en) : '')) : 'Ingen hendelser', line2: a.message || '', ent: E.calendar };
+        return { top: st ? st.toLocaleDateString('nb-NO', { weekday: 'long' }) : 'Kalender', title: st ? st.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }) : '–', line1: st ? (a.all_day ? 'Hele dagen' : tm(st) + (en && !isNaN(en) ? ' · ' + tm(en) : '')) : 'Ingen hendelser', line2: a.message || '', ent: best ? best.id : ids[0] || E.calendar || null };
       }
       const d = this.n(E.trash), ty = c.trash_type_sensor ? s(c.trash_type_sensor) : null, ts = E.trash ? s(E.trash) : null;
       const type = ty ? ty.state : ts ? ts.attributes.type || ts.attributes.avfallstype || ts.attributes.friendly_name : '';
@@ -855,7 +1066,9 @@
     }
     _slideHTML(id, E) {
       const x = this._slide(id, E);
-      return `<div class="rk sl" data-act="slide" data-s="${id}" data-key="sl-${id}" ${x.ent ? `data-ent="${esc(x.ent)}"` : ''}>
+      // Kalender: hold gjør ingenting som standard (17.7) – data-ent (hold-timer) bare når hold-handling er valgt
+      const hold = id !== 'cal' || (calNorm(get(this.config, 'calendar.hold_action')) || { action: 'none' }).action !== 'none';
+      return `<div class="rk sl" data-act="slide" data-s="${id}" data-key="sl-${id}" ${x.ent && hold ? `data-ent="${esc(x.ent)}"` : ''}>
         <span class="sl-top ell">${esc(x.top)}</span><span class="sl-ti ell">${esc(x.title)}</span><span style="flex:1"></span><span class="sl-bar"></span>
         <span class="sl-l1 num">${esc(x.line1)}</span><span class="sl-l2 ell">${esc(x.line2)}</span></div>`;
     }
@@ -1016,19 +1229,36 @@
       if (name === 'tab') return this._pickTab(Number(d.i));
       if (name === 'tile') return this._runTile(d.k, d.w);
       if (name === 'appl') { const A = this._appl(d.k, (this._E || {})[d.k]); if (A) this._applAct(A); return; }
+      if (name === 'slide' && d.s === 'cal') {
+        // swipe mellom sidene er ikke trykk: pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
+        if (ev && ev.detail !== 0 && this._pdXY && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
+        return this._calRun('tap');
+      }
       if (name === 'slide') { const x = this._slide(d.s, this._E || tileEnts(this.hass, this.config)); if (x.hash) return M.openPopup(x.hash); if (x.ent) return M.moreInfo(this, x.ent); return; }
       if (M.romkortAction && M.romkortAction(this, name, el, ev)) return;
       return super.onAction(name, el, ev);
     }
+    onHold(ent, el) { if (el && el.dataset && el.dataset.s === 'cal') { this._calRun('hold'); return true; } return undefined; }
+    _calRun(w) {
+      const x = this._slide('cal', this._E || tileEnts(this.hass, this.config)), a = calNorm(get(this.config, `calendar.${w === 'hold' ? 'hold' : 'tap'}_action`));
+      if (!a) { if (w !== 'hold' && x.ent) M.moreInfo(this, x.ent); return; }
+      if (a.action === 'none') return;
+      if (a.action === 'more-info') { const e = a.entity || x.ent; if (e) M.moreInfo(this, e); return; }
+      if (M.tap) M.tap.run(this, a, { entity: x.ent, hass: this.hass });
+    }
     afterRender() {
       const root = this.shadowRoot;
-      root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } })));
+      root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } }, true)));
       this._bindTileHold();
       this._bindTabs();
       this._placeTabs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
+      // 17.11/17.16: lokal minutt-nedtelling (Ruter-avgang, kameraets holdetid) – bare ny tegning, ingen henting
+      const need = !!this._minTick; this._minTick = false;
+      if (need && !this._mT) this._mT = setInterval(() => { if (this.isConnected) this.update(); }, 60000);
+      else if (!need && this._mT) { clearInterval(this._mT); this._mT = null; }
     }
     _tickAppl() {
       if (!this.isConnected || !this._applT) return;
@@ -1122,6 +1352,9 @@
         .u.ht.hz{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
         .tsw .u.ht.hz{touch-action:pan-y}
         .u.ht .u-i{position:relative}
+        .u.ht.hpulse .u-i::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 2px currentColor;opacity:0;pointer-events:none;animation:htpulse 1.6s ease-out infinite}
+        @keyframes htpulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.28);opacity:0}}
+        @media (prefers-reduced-motion: reduce){.u.ht.hpulse .u-i::after{animation:none;opacity:0}}
         .u.ht .hr{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none;opacity:0;transition:opacity .15s}
         .u.ht .hr circle{fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100}
         .u.ht .u-i.holding .hr{opacity:1}
@@ -1131,8 +1364,7 @@
         .slot{flex:none;width:100%;min-width:0}
         /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
         .dots{display:flex;gap:10px;height:14px;align-items:center}
-        .dots span{width:9px;height:9px;border-radius:6px;background:var(--gray300,#404040);transition:background .2s,width .2s,height .2s}
-        .dots span.on{width:12px;height:12px;background:var(--gray500,#696969)}
+        .dots{--dot-w:9px;--dot-on-w:12px;--dot-bg:var(--gray300,#404040);--dot-on-bg:var(--gray500,#696969)}
         .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
         .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}

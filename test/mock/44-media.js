@@ -18,4 +18,8 @@ window.mockExtend(({ add, S, E, D }) => {
   S['media_player.kjokken_radio'].last_changed = ago(5);
   ['NRK P1', 'NRK Jazz', 'NRK P3', 'P24-7 Mix'].forEach((n, i) => add(`button.kjokken_radio_preset_${i + 1}`, 'unknown', { friendly_name: 'Kjøkken radio ' + n }, { platform: 'squeezebox', device: 'dev_sq' }));
   add('media_player.rn602_stue', 'on', { friendly_name: 'RN602 stue', device_class: 'receiver', source_list: ['Spotify', 'AirPlay', 'Net Radio', 'TV', 'Phono'], source: 'Spotify', volume_level: 0.32, supported_features: 152461 }, { platform: 'yamaha_musiccast', area: 'stue' });
+  // Fiks 17.22/17.24/17.25 (uten område, så rom-popupene ikke påvirkes): Spotify-spiller med varighet, gruppe og bitrate,
+  // og en TV med direkte-kanal (EPG-attributter).
+  add('media_player.spotify_jem', 'playing', { friendly_name: 'Spotify Jem', device_class: 'speaker', source: 'Spotify', media_title: "Choosin' Texas (Live from the Ryman Auditorium, Nashville)", media_artist: 'Ella Langley', media_album_name: 'Hungover', media_duration: 232, media_position: 84, media_position_updated_at: new Date().toISOString(), group_members: ['media_player.spotify_jem', 'media_player.kjokken_radio'], bitrate: 320, volume_level: 0.4, entity_picture: cover, supported_features: 152461 + 2 }, { platform: 'spotify' });
+  add('media_player.prosjektor', 'playing', { friendly_name: 'Prosjektor', device_class: 'tv', app_name: 'NRK TV', source: 'HDMI 1', media_title: 'Dagsrevyen', media_channel: 'NRK1', media_content_type: 'channel', next_title: 'Sportsrevyen', next_start: '19:45', end_time: '19:45', volume_level: 0.24, supported_features: 152461 }, { platform: 'webostv' });
 });

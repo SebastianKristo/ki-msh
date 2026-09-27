@@ -427,6 +427,13 @@
     }
     return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth };
   };
+  // Fiks 17.20: bred layout (designets isWide) = dashbordflaten ≥ 1000 px, eller ≥ 680 px på berøringsenheter
+  // (Pixel/Galaxy Fold åpen, Android-nettbrett, iPad – ikke bare iPad-UA). w = containerens bredde, ikke vinduets.
+  MSH.isWide = function (w) {
+    const W = w != null ? w : MSH.dashRect().width;
+    const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
+    return W >= 1000 || (touch && W >= 680);
+  };
 
   /* ------------------------------------------------------------ portal/overlegg */
   // Overlegg (ark, tastatur, tilpasning) portales til document.body og plasseres mot dashbordflaten,
@@ -529,10 +536,9 @@
   //   MSH.glassMorph(host, fromEl, toEl, { axis }) – spill animasjonen direkte (rader uten click, f.eks. Basseng).
   // Aktiv knapp bør merkes eksplisitt med aria-selected="true" (eller data-active) når raden rendres.
   // Én global click-lytter (capture, window) finner rad og knapp via composedPath – FØR kortet bytter state, så
-  // linsen starter over den gamle aktive fanen, strekker seg (bredde ×1,36, scale(1.04, .9)) mens den glir til den nye,
-  // overskyter ±3 px (scale(1.08, 1.04)), setter seg og tones ut: 560 ms, cubic-bezier(.3,.9,.3,1). Linsen er
-  // position:absolute i radens container (aldri fixed – fallgruve 1) og overlever morph (__mshKeep).
-  // Ingen animasjon: allerede aktiv fane, rett etter glass-dra/fane-dra (MSH.glassDragEnd()), prefers-reduced-motion.
+  // linsen starter som den rosa pillen på den gamle aktive fanen og morfer til den nye (MSH.glassMorph, Fiks 17.19:
+  // 300 ms, pillene skjult under morfen). Ingen animasjon: allerede aktiv fane, rett etter glass-dra/fane-dra
+  // (MSH.glassDragEnd()), MSH.animOff() (Liquid Glass-animasjon av i «Tilpass Hjem» → Faner, prefers-reduced-motion).
   // Ingen haptic her – kortets egen haptic('selection') ved fanebytte er den eneste.
   const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0' };
   MSH.GLASS_LENS = LENS_CSS;
@@ -564,38 +570,170 @@
     st.raf = requestAnimationFrame(tick);
     return { reset() { st.base = pos(); l.style.translate = ''; }, stop() { cancelAnimationFrame(st.raf); st.raf = 0; } };
   };
-  MSH.glassMorph = function (host, from, to, opt = {}) {
-    if (!host || !from || !to || from === to || reduced() || !host.isConnected || !to.animate) return null;
-    if (host.__gtLens) { try { host.__gtLens.cancel(); } catch (e) { /* */ } }
+  // Fiks 17.18: Liquid Glass-ANIMASJONEN (linse ved dra og trykk) kan slås av for hele dashbordet. Én kilde: ki-store
+  // ui.glass_anim (true|false, per bruker, standard på), speilet i localStorage ki:glass_anim (cache før ki-store er lastet).
+  // Leses i pointerdown og før hver trykk-animasjon (ikke bare ved lasting) → virker straks uten reload. Påvirker ikke
+  // Liquid Glass-temaet / navbar-utseendet – bare animasjonen.
+  //   MSH.glassAnimOn() · MSH.setGlassAnim(on) · MSH.animOff() (= av eller prefers-reduced-motion → ingen linse)
+  const GA_LS = 'ki:glass_anim';
+  MSH.glassAnimOn = function () {
+    const S = MSH.store;
+    let v;
+    try { v = S && S.get ? S.get('ui.glass_anim') : undefined; } catch (e) { v = undefined; }
+    if (v === true || v === false || (S && S.loaded)) {
+      const on = v !== false;
+      try { if (localStorage.getItem(GA_LS) !== (on ? '1' : '0')) localStorage.setItem(GA_LS, on ? '1' : '0'); } catch (e) { /* */ }
+      return on;
+    }
+    try { return localStorage.getItem(GA_LS) !== '0'; } catch (e) { return true; }
+  };
+  MSH.setGlassAnim = function (on) {
+    try { localStorage.setItem(GA_LS, on ? '1' : '0'); } catch (e) { /* */ }
+    const r = MSH.store && MSH.store.set ? MSH.store.set('ui.glass_anim', !!on, { now: true }) : null; // lagres straks, også mens Tilpass Hjem har utkast
+    if (!on) Array.from(LENSES.keys()).forEach((c) => MSH.glassKill(c)); // pågående linser forsvinner med én gang
+    return r;
+  };
+  MSH.animOff = () => reduced() || !MSH.glassAnimOn();
+
+  // Fiks 17.19 (fasit glass-drag.js, ny versjon): linsen ER den rosa pillen mens den beveger seg – ingen egen tidsbruk.
+  //   · fyllet til det aktive elementet leses (getComputedStyle → backgroundImage/backgroundColor), linsen tegnes som
+  //     glass-gradient + fyllet, og den ekte pillen skjules med data-gd-hide (transparent, ingen skygge, ingen overgang)
+  //   · linsen ligger i containeren bak knappenes innhold (z-index −1, containeren får isolation via data-gd-on), så
+  //     teksten alltid er lesbar; position:absolute (aldri fixed – fallgruve 1), overlever morph (__mshKeep)
+  //   · maks én linse per container (Map); ny drag/nytt trykk avbryter og rydder den forrige (MSH.glassKill)
+  //   · finish(): dobbel rAF (+ setTimeout 200 som reserve) → ekte pille vises (uten overgang), linsen tones ut på 120 ms
+  // data-gd-hide-regelen legges i roten til elementet (document.head / adoptedStyleSheets i shadow roots), og morph
+  // fjerner aldri data-gd-hide/data-gd-on (patchAttrs). En vakt hver frame holder pillene skjult også om kortet tegner
+  // nye noder under animasjonen (opt.active → gjeldende aktive knapp).
+  //   const s = MSH.glassLens(c, { from, active }); s.hide(el); s.place(x, y, w, h) (klient-rect); s.finish(); MSH.glassKill(c)
+  const GD_CSS = '[data-gd-hide]{background:transparent !important;box-shadow:none !important;transition:none !important}[data-gd-on]{isolation:isolate}';
+  let gdSheet = null;
+  const gdCss = (el) => {
+    const r = el && el.getRootNode ? el.getRootNode() : document;
+    if (!r || (r.__gdCss && (r.__gdCss === true || r.__gdCss.isConnected))) return;
+    if (!r.host) {
+      const s = document.createElement('style'); s.id = 'msh-gd-hide'; s.textContent = GD_CSS;
+      (document.head || document.documentElement).appendChild(s); document.__gdCss = s; return;
+    }
+    try { if (!gdSheet) { gdSheet = new CSSStyleSheet(); gdSheet.replaceSync(GD_CSS); } if (!r.adoptedStyleSheets.includes(gdSheet)) r.adoptedStyleSheets = [...r.adoptedStyleSheets, gdSheet]; r.__gdCss = true; } catch (e) { const s = document.createElement('style'); s.textContent = GD_CSS; s.__mshKeep = true; r.appendChild(s); r.__gdCss = s; }
+  };
+  MSH.glassHideCss = GD_CSS; // for kort som vil ha regelen i egne static styles
+  const fillOf = (el) => {
+    if (!el || el.nodeType !== 1) return '';
+    if (el.__gdFill != null && el.hasAttribute('data-gd-hide')) return el.__gdFill;
+    const cs = getComputedStyle(el), out = [];
+    if (cs.backgroundImage && cs.backgroundImage !== 'none') out.push(cs.backgroundImage);
+    if (!/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor)) out.push(cs.backgroundColor);
+    return out.join(', ');
+  };
+  const GD_GRAD = 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))';
+  const LENSES = new Map();
+  const unhide = (el) => {
+    if (!el.hasAttribute('data-gd-hide')) return;
+    const t = el.style.transition;
+    el.style.transition = 'none'; // ekte pille på plass straks, uten kortets egen bakgrunnsovergang
+    el.removeAttribute('data-gd-hide');
+    void getComputedStyle(el).backgroundColor;
+    requestAnimationFrame(() => { if (el.style.transition === 'none') el.style.transition = t; });
+  };
+  MSH.glassKill = function (c, only) {
+    const s = LENSES.get(c);
+    if (!s || (only && s !== only)) return;
+    LENSES.delete(c);
+    s.dead = true;
+    cancelAnimationFrame(s.raf);
+    s.timers.forEach(clearTimeout);
+    if (s.an) { s.an.onfinish = null; try { s.an.cancel(); } catch (e) { /* */ } }
+    if (s.fw) s.fw.stop();
+    s.hidden.forEach(unhide);
+    s.hidden.clear();
+    s.l.remove();
+    c.__mshKeepN = Math.max(0, (c.__mshKeepN || 1) - 1);
+    c.removeAttribute('data-gd-on');
+  };
+  MSH.glassLens = function (c, opt = {}) {
+    MSH.glassKill(c);
+    gdCss(c);
+    const from = opt.from || null, fill = fillOf(from);
     const l = document.createElement('span');
-    l.className = 'gt-lens';
+    l.className = 'gd-lens';
     l.setAttribute('aria-hidden', 'true');
     l.__mshKeep = true;
-    Object.assign(l.style, LENS_CSS);
-    host.appendChild(l);
-    host.__mshKeepN = (host.__mshKeepN || 0) + 1;
+    Object.assign(l.style, LENS_CSS, { zIndex: '-1', opacity: '1', transition: 'width .12s, height .12s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4)' });
+    if (fill) l.style.background = `${GD_GRAD}, ${fill}`;
+    if (from) { const br = getComputedStyle(from).borderRadius; if (br && br !== '0px') l.style.borderRadius = br; }
+    c.appendChild(l);
+    c.__mshKeepN = (c.__mshKeepN || 0) + 1;
+    c.setAttribute('data-gd-on', '');
+    const s = { c, l, from, hidden: new Set(), active: opt.active || null, an: null, fw: null, timers: [], raf: 0, dead: false, fin: false };
+    s.hide = (el) => {
+      if (!el || el.nodeType !== 1 || s.dead) return;
+      if (!el.hasAttribute('data-gd-hide')) { el.__gdFill = fillOf(el); gdCss(el); el.setAttribute('data-gd-hide', ''); }
+      s.hidden.add(el);
+    };
+    s.place = (x, y, w, h) => {
+      if (s.dead) return;
+      if (!l.isConnected) c.appendChild(l);
+      const op = l.offsetParent || c, r = op.getBoundingClientRect(), k = op.offsetWidth ? r.width / op.offsetWidth : 1;
+      Object.assign(l.style, { left: (x - r.left) / k - op.clientLeft + op.scrollLeft + 'px', top: (y - r.top) / k - op.clientTop + op.scrollTop + 'px', width: w / k + 'px', height: h / k + 'px' });
+      if (s.fw) s.fw.reset();
+    };
+    s.finish = () => {
+      if (s.fin || s.dead) return;
+      s.fin = true;
+      let done = false;
+      const go = () => {
+        if (done || s.dead) return;
+        done = true;
+        cancelAnimationFrame(s.raf); s.raf = 0;
+        if (s.an) { try { s.an.commitStyles(); } catch (e) { /* */ } s.an.onfinish = null; try { s.an.cancel(); } catch (e) { /* */ } s.an = null; }
+        s.hidden.forEach(unhide); s.hidden.clear();
+        l.style.transition = 'opacity .12s';
+        l.style.opacity = '0';
+        s.timers.push(setTimeout(() => MSH.glassKill(c, s), 140));
+      };
+      requestAnimationFrame(() => requestAnimationFrame(go));
+      s.timers.push(setTimeout(go, 200)); // reserve: pillen blir aldri liggende skjult
+    };
+    const guard = () => {
+      if (s.dead) return;
+      if (!c.isConnected) { MSH.glassKill(c, s); return; }
+      if (!c.hasAttribute('data-gd-on')) c.setAttribute('data-gd-on', '');
+      if (!l.isConnected) c.appendChild(l);
+      s.hidden.forEach((el) => { if (el.isConnected && !el.hasAttribute('data-gd-hide')) el.setAttribute('data-gd-hide', ''); });
+      if (s.active && !s.fin) { try { const a = s.active(); if (a && a.nodeType === 1 && !s.hidden.has(a)) s.hide(a); } catch (e) { /* */ } }
+      s.raf = requestAnimationFrame(guard);
+    };
+    s.raf = requestAnimationFrame(guard);
+    LENSES.set(c, s);
+    return s;
+  };
+  // Trykk: WAAPI-morf fra → til på 300 ms (cubic-bezier(.3,.8,.3,1), lett strekk midtveis), fill: forwards. Både fra- og
+  // til-knappen er skjult under morfen, så rosa bare finnes i linsen. Til slutt vises den ekte pillen og linsen fjernes.
+  MSH.glassMorph = function (host, from, to, opt = {}) {
+    if (!host || !from || !to || from === to || !host.isConnected || !to.animate) return null;
+    if (MSH.animOff()) { MSH.glassKill(host); return null; }
+    const s = MSH.glassLens(host, { from, active: opt.active });
+    const l = s.l;
+    s.hide(from); s.hide(to);
     // klient-rect → lokale koordinater i linsens containing block (skala fra Bubble-transform + scroll)
     const op = l.offsetParent || host, orr = op.getBoundingClientRect(), k = op.offsetWidth ? orr.width / op.offsetWidth : 1;
     const loc = (el) => { const r = el.getBoundingClientRect(); return { x: (r.left - orr.left) / k - op.clientLeft + op.scrollLeft, y: (r.top - orr.top) / k - op.clientTop + op.scrollTop, w: r.width / k, h: r.height / k }; };
     const A = loc(from), B = loc(to);
     const ax = opt.axis || (Math.abs(B.x + B.w / 2 - A.x - A.w / 2) >= Math.abs(B.y + B.h / 2 - A.y - A.h / 2) ? 'x' : 'y');
-    const dir = ax === 'x' ? Math.sign(B.x - A.x) || 1 : Math.sign(B.y - A.y) || 1;
     const cx = (A.x + A.w / 2 + B.x + B.w / 2) / 2, cy = (A.y + A.h / 2 + B.y + B.h / 2) / 2;
-    const f = (x, y, w, h, t, o) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transform: t, opacity: o });
-    const W = ax === 'x' ? Math.max(A.w, B.w) * 1.36 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.36 : (A.h + B.h) / 2;
+    const f = (x, y, w, h, t) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transform: t });
+    const W = ax === 'x' ? Math.max(A.w, B.w) * 1.15 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.15 : (A.h + B.h) / 2;
     const frames = [
-      { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)', 0) },
-      { offset: 0.08, ...f(A.x, A.y, A.w, A.h, 'scale(1)', 1) },
-      { offset: 0.45, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.04, 0.9)' : 'scale(0.9, 1.04)', 1) },
-      { offset: 0.7, ...f(B.x + (ax === 'x' ? dir * 3 : 0), B.y + (ax === 'y' ? dir * 3 : 0), B.w, B.h, 'scale(1.08, 1.04)', 1) },
-      { offset: 0.86, ...f(B.x, B.y, B.w, B.h, 'scale(1)', 1) },
-      { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)', 0) },
+      { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)') },
+      { offset: 0.5, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.02, 0.94)' : 'scale(0.94, 1.02)') },
+      { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)') },
     ];
-    const an = l.animate(frames, { duration: 560, easing: 'cubic-bezier(.3,.9,.3,1)', fill: 'forwards' });
-    host.__gtLens = an;
-    const fw = MSH.lensFollow(l, host); // rammene er regnet fra startmålet – følg raden hvis layouten flytter seg
-    const done = () => { fw.stop(); if (host.__gtLens === an) host.__gtLens = null; l.remove(); host.__mshKeepN = Math.max(0, (host.__mshKeepN || 1) - 1); };
-    an.onfinish = done; an.oncancel = done;
+    Object.assign(l.style, { transition: 'none', ...f(A.x, A.y, A.w, A.h, '') });
+    const an = l.animate(frames, { duration: 300, easing: 'cubic-bezier(.3,.8,.3,1)', fill: 'forwards' });
+    s.an = an;
+    s.fw = MSH.lensFollow(l, to); // rammene er regnet fra start – følg målet hvis raden scroller / layouten flytter seg
+    an.onfinish = () => s.finish();
     return an;
   };
   const hasBg = (el) => { const cs = getComputedStyle(el); return (cs.backgroundImage && cs.backgroundImage !== 'none') || !/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor); };
@@ -619,6 +757,7 @@
     row.__gt = { ...(row.__gt || {}), ...opt };
     if (!row.hasAttribute('data-glass-tap')) row.setAttribute('data-glass-tap', '');
   };
+  MSH.glassActive = (row, its) => gtActive(row, its || gtItems(row)); // aktiv knapp i en rad (glassDrag, Fiks 17.19)
   if (!window.__mshGlassTap) {
     window.__mshGlassTap = true;
     window.addEventListener('click', (e) => {
@@ -632,7 +771,7 @@
       if (!to || to.disabled || to.getAttribute('aria-disabled') === 'true') return;
       const from = gtActive(row, its);
       if (!from || from === to) return;
-      MSH.glassMorph(o.host || row, from, to, { axis: o.axis });
+      MSH.glassMorph(o.host || row, from, to, { axis: o.axis, active: () => gtActive(row, gtItems(row)) });
     }, true);
   }
 
@@ -730,6 +869,81 @@
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2200);
   };
 
+  /* ------------------------------------------------------------ karusell-prikker (Fiks 17.12/17.17/17.30) */
+  // Felles for ALLE sveip-karuseller (Hjem-romkort/flis-stabler, Rom → Klima/Media, Media-hero, Vær).
+  // Prikkene er knapper med 32×32 treffflate (synlig prikk via ::after, størrelse/farge via --dot-*-variabler).
+  // Trykk → go(i) (mykt, «auto» ved prefers-reduced-motion), haptic light, stopPropagation (åpner ikke kortet
+  // under), trykk på aktiv prikk gjør ingenting, ←/→ når raden har fokus. Aktiv prikk settes rett i DOM-en
+  // (MSH.setDots) – ALDRI re-render av kortet mens man sveiper (17.17).
+  MSH.reducedMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  MSH.dotsHTML = (n, i, cls = '') => (n > 1
+    ? `<div class="dots msh-dots ${cls}" role="group" aria-label="Sider" tabindex="0">${Array.from({ length: n }, (_, k) => `<button type="button" class="msh-dot${k === i ? ' on' : ''}" data-i="${k}" tabindex="-1" aria-label="Side ${k + 1} av ${n}"${k === i ? ' aria-current="true"' : ''}></button>`).join('')}</div>`
+    : '');
+  MSH.setDots = function (el, i) {
+    if (!el) return;
+    el.querySelectorAll('.msh-dot').forEach((d, k) => { d.classList.toggle('on', k === i); if (k === i) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
+  };
+  // go(i) flytter karusellen (idempotent binding – samme element bindes én gang, go byttes ved hver kall).
+  MSH.bindDots = function (el, go) {
+    if (!el) return;
+    el.__mshGo = go;
+    if (el.__mshDots) return;
+    el.__mshDots = true;
+    const cur = () => { const a = [...el.querySelectorAll('.msh-dot')]; return { n: a.length, i: Math.max(0, a.findIndex((d) => d.classList.contains('on'))) }; };
+    const to = (i) => { const c = cur(); i = MSH.clamp(i, 0, c.n - 1); if (i === c.i) return; MSH.haptic('light'); MSH.setDots(el, i); el.__mshGo(i); };
+    const stop = (e) => e.stopPropagation();
+    el.addEventListener('pointerdown', stop);
+    el.addEventListener('touchstart', stop, { passive: true });
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const d = e.target.closest && e.target.closest('.msh-dot');
+      if (d) to(Number(d.dataset.i));
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault(); e.stopPropagation();
+      to(cur().i + (e.key === 'ArrowRight' ? 1 : -1));
+    });
+  };
+  // Native scroll-snap-karusell (scroller med én slide per clientWidth). o: { dots(): prikkraden, index(): ønsket
+  // side ved første bredde/åpning, onIndex(i): ny side (lagre stille, ikke tegn på nytt), haptic, reset: sett
+  // tilbake til index() når en popup åpnes (hashchange) }. Aktiv side leses alltid fra faktisk scrollLeft.
+  MSH.snapCarousel = function (sc, o = {}) {
+    if (!sc) return null;
+    // Inline-stil settes ved hvert kall (morph fjerner attributter som ikke står i malen).
+    sc.style.overflowAnchor = 'none';
+    sc.style.scrollBehavior = 'auto';
+    if (sc.__mshCar) { sc.__mshCar.o = o; MSH.bindDots(o.dots && o.dots(), sc.__mshCar.go); return sc.__mshCar; }
+    const S = (sc.__mshCar = { o, i: -1, w: 0, raf: 0 });
+    const W = () => sc.clientWidth || 0, n = () => sc.children.length;
+    const set = (i, quiet) => {
+      if (i === S.i) return;
+      S.i = i;
+      MSH.setDots(S.o.dots && S.o.dots(), i);
+      if (!quiet && S.o.haptic) MSH.haptic(S.o.haptic);
+      if (S.o.onIndex) S.o.onIndex(i);
+    };
+    S.jump = (i) => { const w = W(); i = MSH.clamp(i || 0, 0, Math.max(0, n() - 1)); if (w) sc.scrollLeft = i * w; set(i, true); };
+    S.go = (i) => { const w = W(); if (!w) return; sc.scrollTo({ left: MSH.clamp(i, 0, n() - 1) * w, behavior: MSH.reducedMotion() ? 'auto' : 'smooth' }); };
+    sc.addEventListener('scroll', () => {
+      if (S.raf) return;
+      S.raf = requestAnimationFrame(() => { S.raf = 0; const w = W(); if (w) set(MSH.clamp(Math.round(sc.scrollLeft / w), 0, n() - 1)); });
+    }, { passive: true });
+    // Første bredde > 0 (popupen vist / animert inn) → start-siden; ny bredde (rotasjon, Fold) → hold samme side.
+    if (window.ResizeObserver) new ResizeObserver(() => { const w = W(); if (!w) { S.w = 0; return; } if (w === S.w) return; const first = !S.w; S.w = w; S.jump(first && S.o.index ? S.o.index() : S.i); }).observe(sc);
+    if (o.reset) {
+      const onHash = () => {
+        if (!sc.isConnected) return window.removeEventListener('hashchange', onHash);
+        const back = () => S.jump(S.o.index ? S.o.index() : 0);
+        back(); requestAnimationFrame(back); setTimeout(back, 400); // også etter Bubble Cards inn-animasjon
+      };
+      window.addEventListener('hashchange', onHash);
+    }
+    MSH.bindDots(o.dots && o.dots(), S.go);
+    S.jump(o.index ? o.index() : 0);
+    return S;
+  };
+
   /* ------------------------------------------------------------ drag-vern */
   // Alle drag-elementer: touch-action + stopPropagation så Bubble Card ikke lukker/scroller popupen.
   MSH.guardDrag = function (el, axis = 'both') {
@@ -782,7 +996,7 @@
   function patchAttrs(a, b) {
     const ba = b.attributes, aa = a.attributes;
     const custom = a.tagName.indexOf('-') > 0; // egne elementer kan sette attributter selv – ikke fjern dem
-    if (!custom) for (let i = aa.length - 1; i >= 0; i--) { const n = aa[i].name; if (!b.hasAttribute(n)) a.removeAttribute(n); }
+    if (!custom) for (let i = aa.length - 1; i >= 0; i--) { const n = aa[i].name; if (!b.hasAttribute(n) && n !== 'data-gd-hide' && n !== 'data-gd-on') a.removeAttribute(n); } // glass-linsen (Fiks 17.19) eier disse
     for (let i = 0; i < ba.length; i++) { const { name, value } = ba[i]; if (a.getAttribute(name) !== value) a.setAttribute(name, value); }
     if (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT') {
       if (a !== (a.getRootNode() && a.getRootNode().activeElement)) {
@@ -1020,6 +1234,11 @@
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:13px;text-align:center}
     .pick{height:36px;padding:0 14px;border-radius:18px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+    .dots.msh-dots{gap:0;justify-content:center;outline:none;border-radius:16px}
+    .msh-dots:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
+    .msh-dot{flex:none;width:32px;height:32px;display:grid;place-items:center;cursor:pointer;border-radius:16px;-webkit-tap-highlight-color:transparent}
+    .msh-dot::after{content:'';width:var(--dot-w,9px);height:var(--dot-h,var(--dot-w,9px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray300,#404040));transition:background .2s,width .2s,height .2s}
+    .msh-dot.on::after{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray500,#696969))}
   `;
 
   /* ------------------------------------------------------------ basekort */
@@ -1140,11 +1359,12 @@
     }
     update() { this._schedule(true); }
     static get uiPersist() { return []; }
-    setUI(p) {
+    // quiet: bare lagre tilstanden (f.eks. aktiv karusell-side, 17.17) – ingen ny tegning.
+    setUI(p, quiet) {
       this._ui = { ...this._ui, ...p };
       const keys = this.constructor.uiPersist || [], id = this._rawConfig && this._rawConfig.card_id;
       if (id && keys.some((k) => k in p)) { const o = {}; keys.forEach((k) => { if (this._ui[k] !== undefined) o[k] = this._ui[k]; }); MSH.uiStore(id, o); }
-      this._schedule(true);
+      if (!quiet) this._schedule(true);
     }
     _register(prevId) {
       const id = this._rawConfig && this._rawConfig.card_id;
@@ -1157,7 +1377,7 @@
     get ui() { return this._ui; }
     _render() {
       if (!this._config || !this._hass) return;
-      if (this._busy && !this._force) return; // drag pågår
+      if (this._busy && !this._force) { this._skipped = true; return; } // drag/sveip pågår – tegnes når den slipper
       // Native velger (09-pickers) har fokus: ikke tegn på nytt før den slippes (_ventTegn-regelen, fiks-4 4.5)
       if (this._pickerFocus || (MSH.pickerBusy && MSH.pickerBusy(this.shadowRoot))) { this._force = true; return; }
       this._force = false;
@@ -1322,7 +1542,7 @@
   MSH.SPACING = { gap: 8, pad_top: 20, pad_bottom: 24 };
   // Luft i bunnen av alle popups: navbarens faktiske høyde + avstand fra bunnen + safe area + ekstra luft.
   // --ki-nav-h / --ki-nav-bottom settes av msh-navbar-card (0 når navbaren er skjult eller vises som rail).
-  MSH.popupBottomPad = (extra) => `calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + ${extra != null ? Number(extra) + 'px' : 'var(--ki-pop-extra, 24px)'})`;
+  MSH.popupBottomPad = (extra) => `calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + var(--ki-mini-h, 0px) + env(safe-area-inset-bottom, 0px) + ${extra != null ? Number(extra) + 'px' : 'var(--ki-pop-extra, 24px)'})`;
   // Felles «Mellomrom»-seksjon for funksjons-popupenes editor (samme UI som i Rom)
   MSH.spacingSchema = (D) => {
     D = { ...MSH.SPACING, ...(D || {}) };

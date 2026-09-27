@@ -23,6 +23,8 @@
  *   badges:  { id: [{ entity, op: '>'|'<'|'='|'!=', value, text }] }
  *   show_names, menu_names, shrink, width (kompakt|std|full), style (white|glass), layout (auto|mobil|stor),
  *   reserve_space, toasts, admin_tools
+ *   mini: { on, cond: 'playing'|'always'|'entity', entity, state, hide_in_media, players: [] } – flytende mini-spiller over
+ *     navbaren (Fiks 17.26), eget lag i portalen; skjules i #media, hold på pause = skjult til neste avspilling (sessionStorage)
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -71,17 +73,17 @@
     if (st.getPropertyValue('--ki-nav-h') !== v) st.setProperty('--ki-nav-h', v);
     if (!h && st.getPropertyValue('--ki-nav-bottom') !== '0px') st.setProperty('--ki-nav-bottom', '0px');
   };
-  // Liquid glass-dra (Fiks 3 · 7b, fasit glass-drag.js) koblet direkte på containeren – virker i shadow DOM og i HA:
+  // Liquid glass-dra (Fiks 3 · 7b / 17.19, fasit glass-drag.js) koblet direkte på containeren – virker i shadow DOM og i HA:
   //  · composedPath (ikke closest på document) avgjør hva som er truffet
   //  · glass-sjekk fra config: opt.enabled() (navbaren: config.style === 'glass', editorene: glassarket), aldri localStorage
   //  · touch-action fra start: navbar/meny 'none' (CSS), horisontale segmenter 'pan-y' (opt.touchAction overstyrer);
-  //    stopPropagation på pointerdown/touchstart/touchmove så Bubble Card ikke scroller/lukker popupen
-  //  · linsen ligger i containeren (position:absolute, regnet fra containerens rect, også når den er skalert)
-  //  · hold og dra (8 px langs aksen) → glassboble følger fingeren med fjær, skala 1,1, snapper til nærmeste knapp,
-  //    haptic('selection') per ny knapp (M.haptic: maks én per 40 ms). Slipp → knappen aktiveres, haptic('light'),
-  //    boblen glir på plass og tones ut (220 ms). Vanlig trykk går som før (click).
+  //    stopPropagation på pointerdown/touchstart/touchmove/pointermove så Bubble Card ikke scroller/lukker popupen
+  //  · hold og dra (8 px langs aksen) → linsen ER den rosa pillen (MSH.glassLens, 00-base.js): den aktive pillen skjules,
+  //    linsen følger fingeren 1:1 (ingen overgang på left/top, bare width/height 120 ms), haptic('selection') per ny
+  //    knapp. Slipp → linsen settes på knappen, click(), ekte pille vises etter to frames og linsen tones ut (120 ms).
+  //  · MSH.animOff() (Fiks 17.18, sjekkes i pointerdown) → ingen linse; slipp aktiverer knappen direkte.
+  //  · pointerdown ignoreres mens en drag pågår (to fingre).
   // opt: { axis: 'x'|'y', enabled: () => bool, touchAction, tap: false (ingen MSH.glassTap-animasjon ved trykk) }
-  const LENS_EASE = 'cubic-bezier(.34,1.5,.64,1)';
   M.glassDrag = M.glassDrag || function (c, opt = {}) {
     if (!c || c.__gd) return;
     c.__gd = true;
@@ -93,31 +95,17 @@
     if (opt.touchAction || !ta0 || ta0 === 'auto') { c.__mshTA = opt.touchAction || (axisOf() === 'x' ? 'pan-y' : 'none'); c.style.touchAction = c.__mshTA; }
     const pathIn = (e) => { const p = e.composedPath ? e.composedPath() : [e.target], i = p.indexOf(c); return i < 0 ? [] : p.slice(0, i); };
     const itemsOf = () => Array.from(c.querySelectorAll('button')).filter((b) => b.getClientRects().length && !b.closest('[data-gd-skip]'));
+    const activeOf = () => (M.glassActive ? M.glassActive(c, itemsOf()) : null);
     const pick = (items, x, y) => { let best = null, bd = 1e9; items.forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
-    const lensEl = () => {
-      const l = document.createElement('span');
-      l.className = 'gd-lens';
-      l.setAttribute('aria-hidden', 'true');
-      Object.assign(l.style, { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: `left .16s ${LENS_EASE}, top .16s ${LENS_EASE}, width .2s ${LENS_EASE}, height .2s ${LENS_EASE}, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)` });
-      c.appendChild(l);
-      return l;
-    };
-    // Klient-koordinater → lokale koordinater i linsens containing block (tar hensyn til skala og scroll)
-    const local = (l, X, Y) => {
-      const op = l.offsetParent || c, r = op.getBoundingClientRect(), k = op.offsetWidth ? r.width / op.offsetWidth : 1;
-      return { x: (X - r.left) / k - op.clientLeft + op.scrollLeft, y: (Y - r.top) / k - op.clientTop + op.scrollTop, k };
-    };
     const place = (x, y, snap) => {
       const hit = pick(st.items, x, y);
       if (!hit) return;
       if (hit !== st.hit) { st.hit = hit; if (!snap) M.haptic('selection'); }
-      if (!st.lens.isConnected) c.appendChild(st.lens); // en ny render (morph) kan ha fjernet den
+      if (!st.lens) return;
       const r = hit.getBoundingClientRect(), cr = c.getBoundingClientRect(), w = r.width, h = r.height;
       let L = st.ax === 'x' && !snap ? x - w / 2 : r.left, T = st.ax === 'y' && !snap ? y - h / 2 : r.top;
       L = Math.max(cr.left + 2, Math.min(cr.right - w - 2, L)); T = Math.max(cr.top + 2, Math.min(cr.bottom - h - 2, T));
-      const p = local(st.lens, L, T);
-      Object.assign(st.lens.style, { left: p.x + 'px', top: p.y + 'px', width: w / p.k + 'px', height: h / p.k + 'px', borderRadius: Math.min(w, h) / p.k / 2 + 'px' });
-      if (st.fw) st.fw.reset(); // ferske mål → nytt utgangspunkt for følgingen (Fiks 16.10)
+      st.lens.place(L, T, w, h);
     };
     const stop = (e) => e.stopPropagation();
     c.addEventListener('touchstart', stop, { passive: true });
@@ -125,43 +113,43 @@
     c.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       if (e.button || !on()) return;
+      if (st && st.on) return; // to fingre: ignorer mens en drag pågår
       if (pathIn(e).some((n) => n.matches && n.matches('input,select,textarea,[data-gd-skip]'))) return;
-      st = { sx: e.clientX, sy: e.clientY, ax: axisOf(), on: false, id: e.pointerId };
+      st = { sx: e.clientX, sy: e.clientY, ax: axisOf(), on: false, id: e.pointerId, off: !!(M.animOff && M.animOff()) };
     });
     c.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.id) return;
-      if (!on()) { if (st.lens) st.lens.remove(); st = null; return; } // f.eks. fane-omorganisering tok over
+      if (!on()) { if (st.lens && M.glassKill) M.glassKill(c, st.lens); st = null; return; } // f.eks. fane-omorganisering tok over
       const dx = e.clientX - st.sx, dy = e.clientY - st.sy;
       if (!st.on) {
         const along = st.ax === 'x' ? Math.abs(dx) : Math.abs(dy), across = st.ax === 'x' ? Math.abs(dy) : Math.abs(dx);
         if (across > 12 && across > along) { st = null; return; }
         if (along < 8) return;
-        st.on = true; st.items = itemsOf(); st.hit = pick(st.items, st.sx, st.sy); st.lens = lensEl();
-        st.fw = M.lensFollow ? M.lensFollow(st.lens, c) : null; // linsen følger sporet hver frame (layout-endring under, Fiks 16.10)
+        st.on = true; st.items = itemsOf(); st.hit = pick(st.items, st.sx, st.sy);
+        if (!st.off && M.glassLens) {
+          const act = activeOf(), s0 = st.items.includes(act) ? act : null;
+          st.lens = M.glassLens(c, { from: s0, active: activeOf });
+          if (s0) { const r = s0.getBoundingClientRect(); st.lens.place(r.left, r.top, r.width, r.height); st.lens.hide(s0); }
+          if (M.lensFollow) st.lens.fw = M.lensFollow(st.lens.l, c); // sporet flytter seg under draget (Fiks 16.10)
+        }
         try { c.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-        place(st.sx, st.sy, true); // start der fingeren var, så glir den etter
-        const l = st.lens;
-        requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
       }
+      e.stopPropagation();
       e.preventDefault();
       place(e.clientX, e.clientY);
     });
     const end = (e) => {
-      if (!st) return;
+      if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
       const s0 = st; st = null;
       if (!s0.on) return;
       e.stopPropagation();
       try { c.releasePointerCapture(s0.id); } catch (x) { /* */ }
-      const l = s0.lens, ok = s0.hit && e.type === 'pointerup';
-      if (ok) { st = s0; place(e.clientX, e.clientY, true); st = null; } // snap til knappen
-      l.style.transition += ', opacity .22s';
-      // Slipp: snap til knappen først, tones ut når den har satt seg (ellers forsvinner den midt i glidningen, Fiks 16.10)
-      l.style.transform = 'scale(1)';
-      setTimeout(() => { l.style.opacity = '0'; }, ok ? 160 : 0);
-      setTimeout(() => { l.remove(); if (s0.fw) s0.fw.stop(); }, ok ? 380 : 220);
+      const ok = s0.hit && e.type === 'pointerup', L = s0.lens;
+      if (ok && L) { const r = s0.hit.getBoundingClientRect(); L.place(r.left, r.top, r.width, r.height); } // snap til knappen
       suppress = true; setTimeout(() => { suppress = false; }, 350);
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
+      if (L) L.finish(); // ekte pille under (to frames) → linsen tones ut
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
@@ -200,6 +188,49 @@
     const n = parseFloat(s), m = vals.some((v) => v === s.toLowerCase() || (!isNaN(n) && !isNaN(parseFloat(v.replace(',', '.'))) && n === parseFloat(v.replace(',', '.'))));
     return op === '!=' ? !m : m;
   };
+
+  /* ------------------------------------------------------------ mini-spiller (Fiks 17.26) */
+  // Config: mini: { on, cond: 'playing'|'always'|'entity', entity, state, hide_in_media, players: [] } (standard: på, Noe spiller)
+  const miniCfg = (c) => ({ on: true, cond: 'playing', entity: '', state: 'on', hide_in_media: true, players: [], ...((c && c.mini) || {}) });
+  const MINI_KEY = 'ki:mini:hidden'; // «Skjult til neste avspilling» – sessionStorage (overlever reload i samme økt)
+  const mStore = {
+    get() { try { return JSON.parse(sessionStorage.getItem(MINI_KEY) || 'null'); } catch (e) { return null; } },
+    set(v) { try { if (v) sessionStorage.setItem(MINI_KEY, JSON.stringify(v)); else sessionStorage.removeItem(MINI_KEY); } catch (e) { /* */ } },
+  };
+  const mSig = (s) => { const a = (s && s.attributes) || {}; return (a.media_content_id || '') + '|' + (a.media_title || ''); };
+  const mVolIcon = (a) => (a.is_volume_muted || a.volume_level === 0 ? 'mdi:volume-off' : a.volume_level == null || a.volume_level >= 0.67 ? 'mdi:volume-high' : a.volume_level >= 0.34 ? 'mdi:volume-medium' : 'mdi:volume-low');
+  const mPic = (h, u) => { if (!u) return ''; u = String(u); if (u[0] === '/' && u[1] !== '/' && h && typeof h.hassUrl === 'function') { try { return h.hassUrl(u) || u; } catch (e) { return u; } } return u; };
+  const mStateOk = (x, s) => !!s && String(x || 'on').split(/[,|]/).map((v) => v.trim().toLowerCase()).filter(Boolean).includes(String(s.state).toLowerCase());
+  const MINI_CSS = `
+    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1)}
+    .mini.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
+    .mini.glass{background:${'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))'},rgba(40,40,44,0.5);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 18px 40px rgba(0,0,0,0.45)}
+    .mini.off{opacity:0;pointer-events:none;--mo:24px}
+    .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x}
+    .msw::-webkit-scrollbar{display:none}
+    .mrow{flex:none;width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;gap:8px;padding:8px 9px 8px 8px;min-width:0}
+    .mhit{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;text-align:left;border-radius:24px}
+    .mart{position:relative;width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;color:#fafafa}
+    .mart img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;animation:mshMiniFade .2s ease-out}
+    .mtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .mtx b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+    .mtx i{font-style:normal;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;opacity:.62}
+    .mvb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center}
+    .mpp{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;background:#fafafa;color:#232323;box-shadow:0 2px 8px rgba(0,0,0,0.18);transition:transform .12s}
+    .mpp:active,.mvb:active{transform:scale(.92)}
+    .mvp{position:relative;flex:1;min-width:0;height:40px;border-radius:20px;overflow:hidden;display:flex;align-items:center;touch-action:none;background:rgba(0,0,0,0.1)}
+    .mini.glass .mvp{background:rgba(255,255,255,0.12)}
+    .mvf{position:absolute;left:0;top:0;bottom:0;background:${C.pink};border-radius:20px 0 0 20px;pointer-events:none}
+    .mvl{position:relative;z-index:1;flex:1;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:14px;font-weight:600;pointer-events:none;white-space:nowrap}
+    .mvp .mst{position:relative;z-index:1;width:36px;height:40px;flex:none;display:grid;place-items:center}
+    .mdots{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);display:flex;gap:0;z-index:2}
+    .mdots button{width:13px;height:9px;display:grid;place-items:center}
+    .mdots button span{width:5px;height:5px;border-radius:3px;background:currentColor;opacity:.3;transition:opacity .2s}
+    .mdots button.on span{opacity:.9}
+    @keyframes mshMiniFade{from{opacity:0}}
+    @media (prefers-reduced-motion: reduce){.mini{transition:opacity .25s ease}.mini.off{--mo:0px}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:#2f2f2f}}
+  `;
 
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
@@ -257,8 +288,9 @@
     .mbox.glass .mi{color:#fafafa!important;border-radius:25px}
     .mbox.glass .mi ha-icon{color:#fafafa!important}
     .mbox.glass .mi:hover{background:rgba(255,255,255,0.08)}
-    .mbox.glass .sep{background:rgba(255,255,255,0.14)}
+    .mbox.glass .sep{background:rgba(255,255,255,0.18)}
     ${M.glassFallback('.mbox.glass', 'menu')}
+    ${MINI_CSS}
     @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
   `;
 
@@ -308,6 +340,7 @@
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
+      [this._mExp, this._mHold, this._mVT, this._mVC].forEach((t) => clearTimeout(t));
       this._hidePortal();
       this._dEl = null;
     }
@@ -315,6 +348,8 @@
     // Fjern portalen og gi dashbordet tilbake paddingen (kort frakoblet / annet dashbord / annen HA-side).
     _hidePortal() {
       M.setNavVars(0);
+      document.documentElement.style.setProperty('--ki-mini-h', '0px');
+      this._mShow = false;
       if (this._portal) { this._portal.remove(); this._portal = null; }
       this._reserve(null);
       if (this.ui.menu) this._ui = { ...this._ui, menu: false };
@@ -389,8 +424,7 @@
       const p = this.config.layout || 'auto';
       if (p === 'mobil') return false;
       if (p === 'stor') return true;
-      const ipad = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      return w >= 1000 || (ipad && w >= 700);
+      return M.isWide(w); // fiks 17.20: ≥ 1000 px, berøring ≥ 680 px (Fold/nettbrett)
     }
     _zoom(w) {
       const vh = window.innerHeight || 900;
@@ -459,9 +493,10 @@
       const item = (id, icon, label, color, act, badge) => `<button class="mi" data-act="${act}" data-id="${esc(id)}" title="${esc(label)}" style="color:${color}">${M.icon(icon, 22, `color:${color}`)}${ic ? '' : `<span>${esc(label)}</span>`}${badge ? '<span class="mdot"></span>' : ''}</button>`;
       const tools = [];
       if (c.admin_tools !== false) {
-        tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray600,#7f7f7f)', 'mtool', null));
-        tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray600,#7f7f7f)', 'mtool', null));
-        tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray600,#7f7f7f)', 'mtool', null));
+        // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
+        tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray000,#232323)', 'mtool', null));
+        tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray000,#232323)', 'mtool', null));
+        tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray000,#232323)', 'mtool', null));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
       let pos;
@@ -514,13 +549,16 @@
           if (h !== 'off') M.haptic(h || 'light');
           this.onAction(el.dataset.act, el, e);
         });
+        this._miniBind(sr);
         this._portal = p;
         this._pFirst = true;
       }
       // Helst inni kortet (følger dashbordet); document.body kun når en forelder ødelegger position: fixed.
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
-      const html = `<style>${PORTAL_CSS}</style>${this._navHtml(N, geo, false)}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
+      const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
+      if (!mini) this._mShow = false;
+      const html = `<style>${PORTAL_CSS}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
       if (this._pFirst) { this._portal.shadowRoot.innerHTML = html; this._pFirst = false; } else M.morph(this._portal.shadowRoot, html);
       const nav = this._portal.shadowRoot.querySelector('[data-nav]');
       const glassOn = () => this.config.style === 'glass';
@@ -542,9 +580,201 @@
         const r = nav.getBoundingClientRect();
         // popupenes bunnluft (MSH.popupBottomPad): faktisk høyde på bunn-navbaren, 0 som rail
         M.setNavVars(geo.rail ? 0 : Math.round(r.height));
-        if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16) });
-        else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) });
+        if (!geo.rail && !this.ui.compact) this._navH = Math.round(r.height);
+        // Mini-spilleren (17.26): --ki-mini-h = høyden den tar over navbaren (0 når skjult), og plass i bunnen av dashbordet
+        const mEl = this._mShow && this._portal && this._portal.shadowRoot.querySelector('[data-mini]'), mH = mEl ? 74 : 0, ds = document.documentElement.style;
+        if (ds.getPropertyValue('--ki-mini-h') !== mH + 'px') ds.setProperty('--ki-mini-h', mH + 'px');
+        if (mEl) { const sw = mEl.querySelector('.msw'), L = this._mLast || [], i = L.indexOf(this._mCur); if (sw && i >= 0 && sw.clientWidth && Math.round(sw.scrollLeft / sw.clientWidth) !== i) sw.scrollLeft = i * sw.clientWidth; }
+        if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16), bottom: mH ? mH + 16 : null });
+        else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) + mH });
       });
+    }
+
+    /* ---------------- mini-spiller (Fiks 17.26): eget lag i portalen (aldri inni en popup), over bunn-navbaren / nederst (rail) */
+    // Spillere som skal vises: den som spiller først, deretter sist brukt. Av → ingen avhengigheter (ingen lyttere).
+    _miniList(m) {
+      const h = this.hass;
+      if (!h || !h.states) return [];
+      const mb = M.__mediaBus && M.__mediaBus['#media'];
+      let ids = Array.isArray(m.players) && m.players.length ? m.players.filter((id) => h.states[id])
+        : M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || {}).all.map((p) => p.id) : M.all(h, 'media_player');
+      ids.forEach((id) => this.s(id));
+      const st = (id) => (h.states[id] || {}).state, t = (id) => Date.parse((h.states[id] || {}).last_changed) || 0, now = Date.now();
+      const sort = (L) => L.sort((a, b) => (st(b) === 'playing') - (st(a) === 'playing') || t(b) - t(a));
+      // Hold på pause skjulte mini-spilleren: tilbake når en spiller går til playing fra en annen tilstand eller får nytt spor
+      const hid = mStore.get();
+      if (hid && hid.s) {
+        let reset = false, dirty = false;
+        ids.forEach((id) => {
+          const s = h.states[id], o = hid.s[id];
+          if (!s) return;
+          if (!o) { hid.s[id] = { st: s.state, sig: mSig(s) }; dirty = true; return; }
+          if ((s.state === 'playing' && o.st !== 'playing') || (mSig(s) !== o.sig && mSig(s) !== '|')) reset = true;
+          else if (s.state !== o.st) { o.st = s.state; dirty = true; }
+        });
+        if (reset) mStore.set(null); else if (dirty) mStore.set(hid);
+        if (!reset) return [];
+      }
+      clearTimeout(this._mExp);
+      let live;
+      if (m.cond === 'entity') {
+        const e = m.entity && h.states[m.entity];
+        if (m.entity) this.s(m.entity);
+        if (!mStateOk(m.state, e)) return [];
+      }
+      live = ids.filter((id) => st(id) === 'playing' || (st(id) === 'paused' && now - t(id) < 600000));
+      // «Noe spiller»: pause teller i 10 min – render på nytt når den går ut
+      const exp = ids.filter((id) => st(id) === 'paused' && now - t(id) < 600000).map((id) => 600000 - (now - t(id)));
+      if (exp.length) this._mExp = setTimeout(() => this._schedule(true), Math.min(...exp) + 100);
+      if (live.length || m.cond === 'playing') return sort(live);
+      const last = sort(ids.filter((id) => !/^(unavailable|unknown)$/.test(st(id) || 'unavailable')))[0];
+      return last ? [last] : [];
+    }
+    _miniHtml(geo, m) {
+      const h = this.hass, glass = this.config.style === 'glass';
+      let L = this._miniList(m);
+      const show = L.length > 0 && !(m.hide_in_media !== false && location.hash === '#media');
+      if (L.length) this._mLast = L; else L = (this._mLast || []).filter((id) => h.states[id]); // behold innholdet mens den glir ut
+      this._mShow = show;
+      if (!L.length) return '';
+      if (!L.includes(this._mCur)) this._mCur = L[0];
+      const ci = Math.max(0, L.indexOf(this._mCur));
+      const W = Math.round(Math.min(geo.width - 28, 392));
+      let pos;
+      if (geo.rail) pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);transform:translateX(-50%) translateY(var(--mo,0px))`;
+      else {
+        // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
+        const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
+        const dy = compact ? nh * 0.2 + 6.4 : 0;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
+      }
+      const vo = this._mVolV;
+      const rows = L.map((id) => {
+        const s = h.states[id], a = s.attributes || {}, playing = s.state === 'playing';
+        const name = (M.mediaPlayers && (M.mediaPlayers(h, {}).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
+        const sub = [a.media_title, a.media_artist || a.media_album_artist].filter(Boolean).join(' · ') || a.app_name || a.source || (playing ? 'Spiller' : s.state === 'paused' ? 'Pauset' : M.fmtState(h, id));
+        const pic = mPic(h, a.entity_picture_local || a.entity_picture), bad = this._mBad && this._mBad.has(pic);
+        const tv = a.device_class === 'tv';
+        const art = `<span class="mart" style="background:linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})">${M.icon(tv ? 'mdi:television' : 'mdi:music-note', 24)}${pic && !bad ? `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" draggable="false">` : ''}</span>`;
+        const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !!(feat & 4) || (!feat && a.volume_level != null); // uten volume_set: −/+
+        const muted = !!a.is_volume_muted;
+        let mid;
+        if (vol) {
+          const v = vo && vo.id === id && Date.now() - vo.t < 2500 ? vo.v : Number(a.volume_level) || 0, pct = Math.round(v * 100);
+          mid = `<button class="mhit" style="flex:none" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}</button>
+            <div class="mvp" data-vol="${esc(id)}" data-set="${drag ? 1 : 0}">
+              <span class="mvf" style="width:${pct}%"></span>
+              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="-1" data-haptic="selection" aria-label="Senk volum" style="pointer-events:auto">${M.icon('mdi:minus', 20)}</button>`}
+              <span class="mvl">${M.icon(mVolIcon(a), 18)}<b>${a.volume_level != null ? pct + '%' : '–'}</b></span>
+              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="1" data-haptic="selection" aria-label="Øk volum" style="pointer-events:auto">${M.icon('mdi:plus', 20)}</button>`}
+            </div>`;
+        } else mid = `<button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>`;
+        return `<div class="mrow" data-mid="${esc(id)}" data-key="mr_${esc(id)}">${mid}
+          <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" aria-label="${vol ? 'Lukk volum' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--red,#f28073)' : '')}</button>
+          <button class="mpp" data-act="mplay" data-id="${esc(id)}" data-mhold="hide" aria-label="${playing ? 'Pause' : 'Spill'}">${M.icon(playing ? 'mdi:pause' : 'mdi:play', 26)}</button>
+        </div>`;
+      }).join('');
+      const dots = L.length > 1 ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
+      return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+    }
+    // Hendelser i mini-spilleren (kobles én gang på portalens shadow root)
+    _miniBind(sr) {
+      const hit = (e, sel) => { for (const n of e.composedPath()) { if (n === sr) break; if (n.matches && n.matches(sel)) return n; } return null; };
+      const inMini = (e) => !!hit(e, '[data-mini]');
+      // Fallgruve 2: drag/sveip i mini-spilleren skal aldri nå popupen/siden under
+      ['touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (inMini(e)) e.stopPropagation(); }, { passive: true }));
+      sr.addEventListener('contextmenu', (e) => { if (inMini(e)) e.preventDefault(); });
+      // Albumbildet feiler → ikon på farge (huskes, så det ikke prøves igjen ved neste render)
+      sr.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('mimg')) { (this._mBad || (this._mBad = new Set())).add(t.getAttribute('src')); t.remove(); } }, true);
+      // Et hold teller ikke som trykk
+      sr.addEventListener('click', (e) => { if (this._mSwallow && inMini(e)) { this._mSwallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+      sr.addEventListener('scroll', (e) => {
+        const sw = e.target;
+        if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
+        const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
+        if (row && row.dataset.mid) this._mCur = row.dataset.mid;
+        sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
+      }, true);
+      sr.addEventListener('pointerdown', (e) => {
+        if (e.button || !inMini(e)) return;
+        e.stopPropagation();
+        const vp = hit(e, '.mvp[data-set="1"]');
+        if (vp && !hit(e, '.mst')) return this._miniVolDrag(vp, e);
+        const el = hit(e, '[data-mhold]');
+        if (!el) return;
+        const x0 = e.clientX, y0 = e.clientY, kind = el.dataset.mhold, id = el.dataset.id;
+        const done = () => { clearTimeout(this._mHold); sr.removeEventListener('pointerup', done); sr.removeEventListener('pointercancel', done); sr.removeEventListener('pointermove', mv); };
+        const mv = (ev) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) done(); };
+        sr.addEventListener('pointerup', done); sr.addEventListener('pointercancel', done); sr.addEventListener('pointermove', mv);
+        clearTimeout(this._mHold);
+        this._mHold = setTimeout(() => {
+          done();
+          this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 700);
+          M.haptic('medium');
+          this._miniHold(kind, id);
+        }, kind === 'hide' ? 550 : kind === 'mute' ? 500 : 520);
+      });
+    }
+    // Dra på volum-pillen → volume_set (throttlet 150 ms), pillen lukkes 3 s etter siste justering
+    _miniVolDrag(vp, e) {
+      const id = vp.dataset.vol, fill = vp.querySelector('.mvf'), lab = vp.querySelector('.mvl b');
+      let last = 0, pend = null;
+      const call = (v) => { last = Date.now(); pend = null; M.call(this.hass, 'media_player', 'volume_set', { entity_id: id, volume_level: v }); };
+      const send = (v) => { const dt = Date.now() - last; clearTimeout(this._mVT); if (dt >= 150) call(v); else { pend = v; this._mVT = setTimeout(() => { if (pend != null) call(pend); }, 150 - dt); } };
+      const at = (ev) => {
+        const r = vp.getBoundingClientRect(), v = Math.round(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * 100) / 100;
+        if (this._mVolV && this._mVolV.id === id && this._mVolV.v === v) { this._mVolV.t = Date.now(); return; }
+        this._mVolV = { id, v, t: Date.now() };
+        if (fill) fill.style.width = v * 100 + '%';
+        if (lab) lab.textContent = Math.round(v * 100) + '%';
+        send(v);
+        this._miniVolTimer();
+      };
+      try { vp.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      M.haptic('selection');
+      at(e);
+      const mv = (ev) => { ev.stopPropagation(); at(ev); };
+      const up = () => { vp.removeEventListener('pointermove', mv); vp.removeEventListener('pointerup', up); vp.removeEventListener('pointercancel', up); if (pend != null) { clearTimeout(this._mVT); call(pend); } };
+      vp.addEventListener('pointermove', mv); vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
+    }
+    _miniVolTimer() {
+      clearTimeout(this._mVC);
+      this._mVC = setTimeout(() => { if (this._mVolId) { this._mVolId = null; this._schedule(true); } }, 3000);
+    }
+    _miniHold(kind, id) {
+      const h = this.hass, s = h && h.states[id];
+      if (!s) return;
+      const toast = (t) => { if (this.config.toasts !== false) M.toast(t); };
+      if (kind === 'info') return M.moreInfo(this, id);
+      if (kind === 'mute') {
+        const mute = !s.attributes.is_volume_muted;
+        M.call(h, 'media_player', 'volume_mute', { entity_id: id, is_volume_muted: mute });
+        return toast(mute ? 'Dempet' : 'Lyd på');
+      }
+      if (kind === 'hide') {
+        const snap = {};
+        (this._mLast || []).concat(M.all(h, 'media_player')).forEach((x) => { const t = h.states[x]; if (t) snap[x] = { st: t.state, sig: mSig(t) }; });
+        mStore.set({ s: snap, t: Date.now() });
+        if (s.state === 'playing') M.call(h, 'media_player', 'media_pause', { entity_id: id });
+        this._mVolId = null;
+        this._schedule(true);
+        return toast('Skjult til neste avspilling');
+      }
+      return undefined;
+    }
+    _miniAction(name, el) {
+      const h = this.hass, id = el.dataset.id, sr = this._portal && this._portal.shadowRoot;
+      if (name === 'mplay') return M.call(h, 'media_player', 'media_play_pause', { entity_id: id });
+      if (name === 'mvol') { this._mVolId = this._mVolId === id ? null : id; if (this._mVolId) this._miniVolTimer(); return this._schedule(true); }
+      if (name === 'mvstep') { this._miniVolTimer(); return M.call(h, 'media_player', Number(el.dataset.d) > 0 ? 'volume_up' : 'volume_down', { entity_id: id }); }
+      if (name === 'mdot') { const sw = sr && sr.querySelector('.msw'); if (sw) sw.scrollTo({ left: Number(el.dataset.i) * sw.clientWidth, behavior: 'smooth' }); return undefined; }
+      if (name === 'mrow') {
+        // Media-popupen med denne spilleren valgt (Media-kortets onOpen velger standardfane først → velg etterpå)
+        M.openPopup('#media');
+        const pick = () => { const b = M.__mediaBus && M.__mediaBus['#media']; if (!b || !b.main || typeof b.main.select !== 'function' || !M.mediaPlayers) return; const p = M.mediaPlayers(this.hass, b.cfg || {}).all.find((x) => x.id === id); if (p) b.main.select(p.kind, id); };
+        setTimeout(pick, 150); setTimeout(pick, 500);
+      }
+      return undefined;
     }
 
     // Legg padding på dashbordelementet så navbaren ikke dekker innhold. null = gjenopprett.
@@ -595,6 +825,7 @@
         else if (M.tap) M.tap.run(this, tapOf(N, id)); // dashbord-sti / URL
         return;
       }
+      if (name[0] === 'm' && /^m(play|vol|vstep|dot|row)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
@@ -886,7 +1117,35 @@
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
           <span class="pft"><span class="x"><b>${l}</b><i>${sub}</i></span>${M.icon('check_circle', 24, `color:${C.pink};opacity:${style === k ? 1 : 0}`)}</span></button>`).join('')}</div>
         ${M.store ? `<button class="tg" data-a="nbtheme" data-v="${M.glassOn() ? 0 : 1}"><span class="tx2"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark · gjelder deg på alle enheter</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><span class="knb"></span></span></button>` : ''}
+        <span class="gt">Mini-spiller</span>
+        ${this._mini(c)}
       </div>`;
+    }
+    // «Mini-spiller» (Fiks 17.26): navbar.mini – samme felt i «Tilpass navbar» og GUI-editoren (samme element)
+    _mini(c) {
+      const h = this._hass, m = miniCfg(c), cond = m.cond || 'playing';
+      const tg = (label, key, on, sub) => `<button class="tg" data-a="nbmini" data-k="${key}" data-v="${on ? 0 : 1}">${sub ? `<span class="tx2"><b>${esc(label)}</b><i>${esc(sub)}</i></span>` : esc(label)}<span class="trk ${on ? 'on' : ''}"><span class="knb"></span></span></button>`;
+      let html = tg('Vis over navbaren', 'on', m.on !== false, 'Flytende mini-spiller med play/pause og volum');
+      if (m.on === false) return html;
+      html += `<span class="cap" style="padding:0 6px">Vis når</span><div class="wseg">${[['playing', 'Noe spiller'], ['always', 'Alltid'], ['entity', 'Betingelse']].map(([k, l]) => `<button class="${cond === k ? 'on' : ''}" aria-selected="${cond === k}" data-a="nbmcond" data-v="${k}">${l}</button>`).join('')}</div>
+        <span class="hint" style="padding:0 6px">${cond === 'playing' ? 'Når en spiller spiller, eller er pauset i inntil 10 min.' : cond === 'always' ? 'Alltid – siste spiller når ingenting spiller.' : 'Når entiteten har valgt tilstand (f.eks. input_boolean.vis_miniplayer = on).'}</span>`;
+      if (cond === 'entity') {
+        const s = m.entity && h.states[m.entity], hit = mStateOk(m.state, s);
+        html += `<div class="ned" data-key="nbm_ent">
+          <div class="r1"><div class="epk">${M.icon(m.entity ? M.domainIcon(m.entity, s) : 'toggle_on', 18, 'color:#afafaf')}<span class="v"><b>${esc(m.entity ? (s ? s.attributes.friendly_name || m.entity : m.entity) : 'Ikke valgt')}</b><i>${esc(m.entity ? m.entity + (s ? '' : ' · finnes ikke') : 'Velg entitet under')}</i></span></div>
+            <span class="st ${hit ? 'amb' : ''}">${hit ? 'Slår til nå' : 'Ikke nå'}</span></div>
+          ${this._search({ type: 'entity' }, 'nbmq', 'nbment', 'mini', m.entity ? 'Bytt entitet …' : 'Søk entitet …')}
+          <div class="fl"><span class="cap">Tilstand · skill flere med komma</span><input class="i44" data-nbf="mstate" value="${esc(m.state || 'on')}" placeholder="on"></div>
+          <span class="hint">Nå: <b>${esc(s ? s.state : '–')}</b></span>
+        </div>`;
+      }
+      html += tg('Skjul i Media-popupen', 'hide_in_media', m.hide_in_media !== false);
+      const all = M.mediaPlayers ? M.mediaPlayers(h, {}).all.map((p) => [p.id, p.name]) : M.all(h, 'media_player').map((id) => [id, M.name(h, id)]);
+      if (all.length) {
+        const sel = Array.isArray(m.players) && m.players.length ? m.players : null;
+        html += `<span class="cap" style="padding:0 6px">Spillere · ${sel ? sel.length + ' valgt' : 'alle'}</span><div class="sug" style="max-height:none">${all.map(([id, n]) => { const on = !sel || sel.includes(id); return `<button class="chp ${on ? 'on' : ''}" data-a="nbmpl" data-v="${esc(id)}" title="${esc(id)}" style="padding:0 12px">${esc(n)}</button>`; }).join('')}</div>`;
+      }
+      return html;
     }
     _click(e) {
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
@@ -914,6 +1173,16 @@
         case 'nbtog': return this._set(d.k, d.v === '1');
         case 'nbw': return this._set('width', d.v);
         case 'nbstyle': return this._set('style', d.v);
+        case 'nbmini': return this._set('mini.' + d.k, d.v === '1');
+        case 'nbmcond': return this._set('mini.cond', d.v);
+        case 'nbment': this._menu = null; this._q = {}; return this._set('mini.entity', d.v);
+        case 'nbmpl': {
+          const all = M.mediaPlayers ? M.mediaPlayers(this._hass, {}).all.map((p) => p.id) : M.all(this._hass, 'media_player');
+          const cur = Array.isArray((c.mini || {}).players) && c.mini.players.length ? c.mini.players : all;
+          const next = cur.includes(d.v) ? cur.filter((x) => x !== d.v) : all.filter((x) => cur.includes(x) || x === d.v);
+          if (!next.length) return undefined; // minst én spiller
+          return this._set('mini.players', next.length === all.length ? undefined : next);
+        }
         case 'nbtheme': M.setGlassTheme(d.v === '1'); return this._render(); // ki-store theme.liquid_glass – ikke kortets config
         default:
       }
@@ -921,6 +1190,12 @@
     }
     _change(e) {
       const t = e.target;
+      if (t.dataset && t.dataset.search && t.dataset.act === 'nbment') {
+        const v = t.value.trim();
+        if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) { this._q = {}; this._menu = null; this._set('mini.entity', v); }
+        return;
+      }
+      if (t.dataset && t.dataset.nbf === 'mstate') return this._set('mini.state', t.value.trim() || undefined);
       if (t.dataset && t.dataset.search && t.dataset.act === 'nbbent') {
         const v = t.value.trim();
         if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) { this._q = {}; this._menu = null; this._btn(t.dataset.name, { entity: v }); }

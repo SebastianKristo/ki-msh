@@ -2,9 +2,9 @@
  * Brukes i dashbordets egne ark («Tilpass navbar», inline msh-editor, popup-editoren …). I HAs GUI-editor (ikke-inline
  * msh-editor) brukes HAs egen ha-icon-picker i stedet.
  *
- * Arket (MSH.overlay i ki-overlay-root): søkefelt → filterchips per ikonsett (Alle · mdi · phu · hue · fapro · si …)
- * → «Nylig brukt» (localStorage ki:icons:recent, maks 18) → virtualisert rutenett (6 kolonner, 44 px-celler, <ha-icon>)
- * → «Skriv inn manuelt» (fritekst for ikoner som ikke finnes i listen). Trykk velger og lagrer full ID (mdi:robot-vacuum).
+ * Arket (MSH.overlay i ki-overlay-root): søkefelt → faner per ikonsett (MDI · hass · phu · hue · fapro · si · Alle, Fiks 17.8)
+ * → «Nylig brukt» (ki-store icon_recent + localStorage, maks 12) → virtualisert rutenett (6 kolonner, 48 px-celler, <ha-icon>)
+ * → «Skriv inn selv» (fritekst med live forhåndsvisning). Trykk velger og lagrer full ID (mdi:robot-vacuum).
  * Søket (debounce 120 ms) matcher navn og nøkkelord (mdi: aliaser + tagger; egne sett: keywords), uten at man skriver
  * prefikset, og forstår noen norske ord (støvsuger → robot-vacuum, seng → bed …). Skriver man «prefiks:navn» tilbys «Bruk …».
  *
@@ -31,8 +31,10 @@
   if (!M || M.iconPicker) return;
   const esc = M.esc;
   const MDI_META = 'https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/meta.json';
-  const RECENT_KEY = 'ki:icons:recent', RECENT_MAX = 18;
-  const COLS = 6, CELL = 44, GAP = 8, ROW = CELL + GAP;
+  const RECENT_KEY = 'ki:icons:recent', RECENT_MAX = 12, RECENT_STORE = 'icon_recent'; // Fiks 17.8: maks 12, ki-store (synkes)
+  const COLS = 6, CELL = 48, GAP = 8, ROW = CELL + GAP;
+  // Fiks 17.8: fanene i fast rekkefølge MDI · hass · phu · hue · fapro · si (· andre sett) · Alle. Faner uten sett skjules.
+  const TAB_ORDER = ['mdi', 'hass', 'phu', 'hue', 'fapro', 'si'];
   const RX = /^([a-z][a-z0-9_-]*):([a-z0-9][a-z0-9_-]*)$/;
   const KNOWN = { mdi: 'Material Design', hass: 'hass', phu: 'Custom Brand Icons', hue: 'Hue Icons', fapro: 'Font Awesome Pro', fab: 'Font Awesome Brands', fas: 'Font Awesome', si: 'Simple Icons', bha: 'Bubble / HA' };
   const FALLBACK = ('home home-outline sofa bed bed-outline lightbulb lightbulb-outline lightbulb-group lamp ceiling-light floor-lamp desk-lamp led-strip door door-open door-closed garage garage-open gate '
@@ -80,7 +82,7 @@
   const custP = new Map();
   function customSets() {
     const out = {};
-    ['customIcons', 'customIconsets'].forEach((g) => { const s = window[g]; if (s && typeof s === 'object') Object.keys(s).forEach((p) => { if (p !== 'mdi' && p !== 'hass' && !(p in out)) out[p] = null; }); });
+    ['customIcons', 'customIconsets'].forEach((g) => { const s = window[g]; if (s && typeof s === 'object') Object.keys(s).forEach((p) => { if (p !== 'mdi' && !(p in out)) out[p] = null; }); });
     const ci = window.customIcons || {};
     Object.keys(ci).forEach((p) => { if (ci[p] && typeof ci[p].getIconList === 'function') out[p] = ci[p]; });
     return out;
@@ -100,7 +102,7 @@
   // [{ prefix, label, icons | null }] – null = settet har ingen liste (bare customIconsets)
   function load() {
     const cs = customSets();
-    const pfx = Object.keys(cs).sort();
+    const pfx = Object.keys(cs).sort((a, b) => { const i = TAB_ORDER.indexOf(a), j = TAB_ORDER.indexOf(b); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || (a < b ? -1 : 1); });
     return Promise.all([loadMdi(), ...pfx.map((p) => (cs[p] ? loadCustom(p, cs[p]) : Promise.resolve(null)))]).then(([mdi, ...rest]) => [
       { prefix: 'mdi', label: KNOWN.mdi, icons: mdi },
       ...pfx.map((p, i) => ({ prefix: p, label: KNOWN[p] || p, icons: rest[i] })),
@@ -137,8 +139,20 @@
   }
   const search = (q, prefix) => load().then((sets) => match(sets, q, prefix));
 
-  function recent() { try { const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a.filter((x) => RX.test(x)).slice(0, RECENT_MAX) : []; } catch (e) { return []; } }
-  function addRecent(id) { if (!RX.test(String(id || ''))) return; try { localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...recent().filter((x) => x !== id)].slice(0, RECENT_MAX))); } catch (e) { /* */ } }
+  // «Nylig brukt»: ki-store (icon_recent, per HA-bruker) med localStorage som cache/reserve
+  function recent() {
+    let a = null;
+    try { a = M.store && M.store.get(RECENT_STORE); } catch (e) { a = null; }
+    if (!Array.isArray(a)) { try { a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { a = []; } }
+    return Array.isArray(a) ? a.filter((x) => RX.test(x)).slice(0, RECENT_MAX) : [];
+  }
+  function addRecent(id) {
+    if (!RX.test(String(id || ''))) return;
+    const l = [id, ...recent().filter((x) => x !== id)].slice(0, RECENT_MAX);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(l)); } catch (e) { /* */ }
+    // now: lagres straks også mens «Tilpass Hjem» har et utkast åpent (hører ikke til utkastet)
+    try { if (M.store) M.store.set(RECENT_STORE, l, { now: true }); } catch (e) { /* */ }
+  }
 
   /* ------------------------------------------------------------ arket */
   const SHEET_CSS = `
@@ -167,30 +181,35 @@
     .ic{width:${CELL}px;height:${CELL}px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;display:grid;place-items:center}
     .ic:active{transform:scale(.94)}
     .ic.on{background:#fafafa;color:#282828}
-    .ic ha-icon{--mdc-icon-size:24px;width:24px;height:24px;display:inline-flex}
+    .ic ha-icon{--mdc-icon-size:26px;width:26px;height:26px;display:inline-flex}
     .use{min-height:44px;border-radius:22px;background:var(--ki-sheet-grp,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:13px;color:#fafafa;flex:none}
     .note{font-size:12px;color:#979797;line-height:1.45;padding:0 2px}
     .note b{color:#fafafa;font-weight:500}
     .man{display:flex;gap:8px;align-items:center;flex:none}
+    .man .pv{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
+    .man .pv ha-icon{--mdc-icon-size:24px;width:24px;height:24px;display:inline-flex}
+    .manl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:0 2px;flex:none}
     .man input{flex:1;min-width:0;height:44px;border-radius:14px;padding:0 12px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:15px}
     .man .ok{height:44px;padding:0 16px;border-radius:22px;background:var(--pink,#f285c9);color:#2f2f2f;font-weight:600;font-size:14px}
     .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:32px}
     .lnk{font-size:13px;color:var(--pink,#f285c9);font-weight:500;padding:6px 2px}
     .cur{font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    :host([data-glass]) .ic:not(.on),:host([data-glass]) .sr,:host([data-glass]) .chip:not(.on),:host([data-glass]) .use,:host([data-glass]) .man input,:host([data-glass]) .hd .x{background:rgba(0,0,0,0.25)}
+    :host([data-glass]) .ic:not(.on),:host([data-glass]) .sr,:host([data-glass]) .chip:not(.on),:host([data-glass]) .use,:host([data-glass]) .man input,:host([data-glass]) .man .pv,:host([data-glass]) .hd .x{background:rgba(0,0,0,0.25)}
   `;
   const cellHTML = (id, cur) => `<button class="ic${id === cur ? ' on' : ''}" data-v="${esc(id)}" title="${esc(id)}">${M.icon(id, 24)}</button>`;
 
   function open(o = {}) {
     const cur = String(o.value || '').trim();
-    const st = { q: '', set: 'alle', sets: null, hits: [], man: false, win: -1 };
+    const cp = (RX.exec(cur) || [])[1];
+    const st = { q: '', set: cp || 'mdi', sets: null, hits: [], win: -1 }; // standardfane: settet til nåverdien, ellers MDI
     const S = M.overlay({ css: SHEET_CSS, maxWidth: 440, html: `
       <div class="hd"><b>${esc(o.title || 'Velg ikon')}</b><button class="x" data-p="close" title="Lukk">${M.icon('mdi:close', 20)}</button></div>
       <div class="sr">${M.icon('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" placeholder="Søk ikon – robot, sofa, støvsuger …" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm">${M.icon('mdi:close-circle', 18)}</button></div>
       <div class="chips"></div>
       <div class="sc"></div>
-      <div class="man" hidden><input class="mi" placeholder="prefiks:navn – mdi:sofa, phu:…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cur)}"><button class="ok" data-p="manok">Bruk</button></div>
-      <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}<button class="lnk" data-p="man">Skriv inn manuelt</button></span></div>` });
+      <div class="manl">Skriv inn selv</div>
+      <div class="man"><span class="pv">${M.icon(cur || 'mdi:help-circle-outline', 24, cur ? '' : 'opacity:.4')}</span><input class="mi" placeholder="prefiks:navn – mdi:sofa, phu:…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cur)}"><button class="ok" data-p="manok">Bruk</button></div>
+      <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}</span></div>` });
     const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), chips = R.querySelector('.chips');
     const cb = o.onPick || o.onChange || o.onSelect;
     let picked = null, resolveP;
@@ -198,8 +217,8 @@
     S.onClosed = () => resolveP(picked); // avbrutt (lukket uten valg) → null
     const done = (v) => { M.haptic('success'); if (v) addRecent(v); picked = v || ''; S.close(); if (cb) cb(v); };
     const drawChips = () => {
-      const list = [['alle', 'Alle'], ...(st.sets || [{ prefix: 'mdi', label: KNOWN.mdi }]).map((s) => [s.prefix, s.prefix === 'mdi' ? 'mdi' : `${s.label}${s.label !== s.prefix ? ' · ' + s.prefix : ''}`])];
-      chips.innerHTML = list.map(([k, l]) => `<button class="chip${st.set === k ? ' on' : ''}" data-p="set" data-v="${esc(k)}">${esc(l)}</button>`).join('');
+      const list = [...(st.sets || [{ prefix: 'mdi', label: KNOWN.mdi }]).map((s) => [s.prefix, s.prefix === 'mdi' ? 'MDI' : s.prefix, s.label]), ['alle', 'Alle', 'Alle ikonsett']];
+      chips.innerHTML = list.map(([k, l, t]) => `<button class="chip${st.set === k ? ' on' : ''}" data-p="set" data-v="${esc(k)}" title="${esc(t)}">${esc(l)}</button>`).join('');
     };
     // Virtualisert rutenett: bare radene i synsfeltet (± 4) rendres
     const paintWin = (force) => {
@@ -220,7 +239,7 @@
       const sel = st.sets.find((s) => s.prefix === st.set);
       let html = '';
       if (typed && !st.hits.includes(typed)) html += `<button class="use" data-v="${esc(typed)}">${M.icon(typed, 20)}Bruk «${esc(typed)}»</button>`;
-      const rc = recent().filter((id) => st.set === 'alle' || id.startsWith(st.set + ':'));
+      const rc = recent();
       if (!raw && rc.length) html += `<div class="lb">Nylig brukt</div><div class="gr">${rc.map((id) => cellHTML(id, cur)).join('')}</div>`;
       if (sel && !sel.icons) {
         html += `<div class="note">Settet <b>${esc(sel.label)}</b> har ingen ikonliste i HA. Skriv navnet direkte, f.eks. <b>${esc(sel.prefix)}:${esc(raw.replace(/^\w+:/, '') || 'navn')}</b>, eller bruk «Skriv inn manuelt».</div>`;
@@ -237,6 +256,9 @@
     let t = null;
     qi.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { st.q = qi.value; const m = /^([a-z][a-z0-9_-]*):/.exec(lc(st.q)); if (m && st.sets && st.sets.some((s) => s.prefix === m[1]) && st.set !== m[1]) { st.set = m[1]; drawChips(); } draw(); }, 120); });
     sc.addEventListener('scroll', () => paintWin(false), { passive: true });
+    // «Skriv inn selv»: live forhåndsvisning av prefiks:navn
+    const mi = R.querySelector('.mi'), pv = R.querySelector('.man .pv');
+    mi.addEventListener('input', () => { const v = mi.value.trim(), id = v ? (v.indexOf(':') > 0 ? v : 'mdi:' + v) : ''; pv.innerHTML = M.icon(id || 'mdi:help-circle-outline', 24, id ? '' : 'opacity:.4'); });
     const onKey = (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
       if (e.key !== 'Enter') return;
@@ -257,12 +279,11 @@
       if (p === 'qx') { qi.value = ''; st.q = ''; M.haptic('selection'); draw(); qi.focus(); return; }
       if (p === 'set') { st.set = b.dataset.v; M.haptic('selection'); drawChips(); draw(); return; }
       if (p === 'clear') return done('');
-      if (p === 'man') { st.man = !st.man; M.haptic('light'); const m = R.querySelector('.man'); m.hidden = !st.man; b.textContent = st.man ? 'Skjul fritekst' : 'Skriv inn manuelt'; if (st.man) { const mi = m.querySelector('input'); mi.focus(); mi.select(); } return; }
       if (p === 'manok') { const v = R.querySelector('.mi').value.trim(); if (v) done(v.indexOf(':') > 0 ? v : 'mdi:' + v); }
     });
     drawChips(); draw();
     requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
-    load().then((sets) => { if (S.closed) return; st.sets = sets; drawChips(); draw(); });
+    load().then((sets) => { if (S.closed) return; st.sets = sets; if (st.set !== 'alle' && !sets.some((x) => x.prefix === st.set)) st.set = 'mdi'; drawChips(); draw(); });
     P.close = S.close; P.sheet = S;
     return P;
   }

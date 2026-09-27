@@ -14,6 +14,14 @@
  *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
  *   med kortet som container – MySmartHome), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
+ * Seksjoner (Fiks 17.9, som ki-prosa-card): vaer, hjemkomst[], ringeklokke, apparater[], planter, pris, bursdag – brukerens
+ *   standard-config (SEC_STD) i getStubConfig og fylt inn for manglende nøkler (exclude: [pris] / pris: false = av).
+ *   Hver seksjon vises bare når entiteten finnes. Rekkefølge: rekkefolge[] (standard vær → hjemkomst → ringeklokke →
+ *   apparater → planter → pris → setninger (prose[]) → bursdag). Aktive vær/pris-seksjoner erstatter standardprosaens vær/pris.
+ *   planter: KI Planter-steder via entitetsregisteret (platform ki_planter) eller attributtet integrasjon: ki_planter;
+ *   sensor.<sted>_planter_trenger_vann (antall, trenger_vann[], trenger_vann_tekst). Trykk → path (#planter),
+ *   hold → «Merk alle som vannet?» → button.<sted>_planter_alle_vannet. Maler: {pille}/{planter}, {navn}, {antall}, {sted}.
+ *   Ikon: prefiks → <ha-icon>, emoji → tekst, ki:vaskemaskin/oppvask/torketrommel → animert hvitevare, attributt:sti.
  * Utseende (Fiks 15.3 · MySmartHome, overstyrer Fiks 13): hvit tekst #fafafa, piller 1,6em høye av 0,8em pilletekst,
  * #fafafa/#2f2f2f/600, pris-prikk med glød. Teksten flyter naturlig (ingen &nbsp;/text-wrap), kun tegnsetting rett
  * etter en pille limes til pillen. Tall: «15.2°» (vær, som HA-tilstanden), «2395W», «1,16 kr»; lys-pillen ✨.
@@ -144,7 +152,8 @@
       S.alarm = [armed ? 'armert' : T[st] || (M.unavailable(al) ? '–' : st), armed ? 1 : 0, armed ? C.pink : st === 'triggered' ? C.red : null, E.alarm];
     }
     const tr = E.trash && rd(E.trash);
-    if (tr) { const d = M.hjemTrashDays(tr); S.trash = [d == null ? '–' : d === 0 ? 'i dag' : d === 1 ? 'i morgen' : `${d} dager`, d, d != null && d <= 1 ? C.orange : null, E.trash]; }
+    if (tr) { const d = M.hjemTrashParse ? M.hjemTrashParse(tr).days : M.hjemTrashDays(tr); // «0,Restavfall,…» (Fiks 17.14)
+      S.trash = [d == null ? '–' : d === 0 ? 'i dag' : d === 1 ? 'i morgen' : `${d} dager`, d, d != null && d <= 1 ? C.orange : null, E.trash]; }
     if (E.todos.length) { const n = E.todos.reduce((t, id) => { const s = rd(id); return t + (s && M.isNum(s.state) ? Number(s.state) : 0); }, 0); S.todo = [`${n} gjøremål`, n, null, E.todos[0]]; }
     return S;
   }
@@ -177,8 +186,11 @@
   }
 
   // Standardprosa: kun setninger for kilder som faktisk finnes.
-  function defaultProse(h, c) {
-    const S = sources(h, c);
+  function defaultProse(h, c, skip) {
+    const S = { ...sources(h, c) };
+    // Fiks 17.9: vær/pris vises av seksjonene når de er aktive – ikke dobbelt
+    if (skip && skip.vaer) delete S.weather;
+    if (skip && skip.pris) delete S.price;
     const out = [];
     const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', cop: 'alltid', ...(extra || {}) });
     if (S.weather) row('p1', 'Ute er det', 'weather', '.', nav('#vaer'));
@@ -194,10 +206,224 @@
     return out;
   }
 
+
+  /* ------------------------------------------------------------ Fiks 17.9 · seksjoner (standard-config + KI Planter) */
+  // Brukerens egen standard (eksplisitt ønsket, unntak fra fallgruve 4). Hver seksjon brukes bare når entiteten finnes.
+  // Manglende seksjoner fylles inn fra STD (migrering); seksjoner i exclude (eller satt til false) legges ikke inn igjen.
+  const SEC_STD = {
+    vaer: { entity: 'sensor.dashboard_index', attributt: 'weather', enhet: '°', mellomrom: false, ikon: 'attributt:current.icon', ikon_plassering: 'slutt', 'små_bokstaver': true, tekst: 'Ute er det {pille}.', path: '#vaer' },
+    apparater: [{ navn: 'Vaskemaskinen', vis: { entity: 'input_select.vaskemaskin_status', state: 'Vasker' }, verdi: 'sensor.vaskemaskin_power', ikon: 'ki:vaskemaskin', animasjon: 'auto' }],
+    pris: { entity: 'sensor.norgespris_total_strompris_norgespris' },
+    hjemkomst: [{ navn: 'Mamma', aktiv: 'input_boolean.ki_cybele_pa_vei_hjem_fra_jobb', reisetid: 'sensor.cybele_reisetid_fra_job', ikon: '🚗', animasjon: 'hopp', tekst: '{navn} kommer hjem ca. kl {pille}.', path: '#personer' }],
+    bursdag: { vis: 'binary_sensor.vis_bursdagskort' },
+    ringeklokke: { entity: 'input_boolean.ki_ringeklokke_varsel_aktiv' },
+    planter: { auto: true, sted: [], ikon: 'mdi:sprout', animasjon: 'vugg', tekst: '{planter} trenger vann.', path: '#planter' },
+  };
+  // Tekstmaler og ikoner som ikke står i brukerens config (samme som ki-prosa-card)
+  const SEC_TXT = {
+    vaer: 'Ute er det {pille}.', pris: 'Strømmen koster {pille}.', apparater: '{navn} vasker {pille} nå.', hjemkomst: '{navn} kommer hjem ca. kl {pille}.',
+    ringeklokke: '{pille} Noen ringer på døren!', bursdag: 'I dag har {pille} bursdag! 🎉', planter: '{planter} trenger vann.',
+  };
+  const SEC_IKON = { ringeklokke: '🔔', bursdag: '🎂', planter: 'mdi:sprout', hjemkomst: '🚗' };
+  const SEC_KEYS = ['vaer', 'hjemkomst', 'ringeklokke', 'apparater', 'planter', 'pris', 'setninger', 'bursdag'];
+  const SEC_L = { vaer: 'Vær', hjemkomst: 'Hjemkomst', ringeklokke: 'Ringeklokke', apparater: 'Apparater', planter: 'Planter', pris: 'Strømpris', setninger: 'Setninger', bursdag: 'Bursdag' };
+  const ANIMS = [['', 'Ingen'], ['auto', 'Auto'], ['hopp', 'Hopp'], ['vugg', 'Vugg'], ['vink', 'Vink'], ['snurr', 'Snurr'], ['puls', 'Puls']];
+  const KI_FIG = { vaskemaskin: 'washer', oppvask: 'dishwasher', oppvaskmaskin: 'dishwasher', torketrommel: 'dryer', 'tørketrommel': 'dryer' };
+  const BDAY_BG = 'linear-gradient(135deg, #f294c8, #f5cfd0)';
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const exOf = (c) => new Set((c && c.exclude) || []);
+  // Effektiv seksjon (null = av)
+  function secOf(c, k) {
+    if (exOf(c).has(k)) return null;
+    const v = c ? c[k] : undefined;
+    if (v === false) return null;
+    const d = SEC_STD[k];
+    if (v == null) return clone(d);
+    if (Array.isArray(d)) return Array.isArray(v) ? v : clone(d);
+    if (typeof v === 'string') return { ...clone(d), entity: v };
+    return { ...clone(d), ...v };
+  }
+  function secOrder(c) {
+    const o = Array.isArray(c && c.rekkefolge) ? c.rekkefolge.filter((k) => SEC_KEYS.includes(k)) : [];
+    SEC_KEYS.forEach((k) => { if (!o.includes(k)) o.push(k); });
+    return o;
+  }
+  // «Aktiv»-betingelse: entitet (på), { entity, state } eller { entity, over | under }
+  function aktiv(a, rd) {
+    if (a === true) return true;
+    if (!a) return false;
+    const id = typeof a === 'string' ? a : a.entity, s = id && rd(id);
+    if (!s || M.unavailable(s)) return false;
+    if (typeof a === 'string') return M.isOn(s) || s.state === 'on';
+    if (a.over != null) return pnum(s.state) > Number(a.over);
+    if (a.under != null) return pnum(s.state) < Number(a.under);
+    if (a.state != null) return String(s.state) === String(a.state);
+    return M.isOn(s) || s.state === 'on';
+  }
+  const attrPath = (st, path) => { let v = st && st.attributes; String(path || '').split('.').filter(Boolean).forEach((p) => { v = v != null ? v[p] : undefined; }); return v; };
+  // Ikon: 'attributt:sti' leses fra entiteten; ki:<figur> → animert hvitevare-ikon (06-appliance-icons)
+  function iconOf(ikon, st) {
+    if (!ikon) return { ic: '' };
+    let k = String(ikon);
+    if (k.indexOf('attributt:') === 0) { const v = attrPath(st, k.slice(10)); k = v ? String(v) : ''; }
+    const m = /^ki:(.+)$/.exec(k);
+    if (m && KI_FIG[m[1]] && M.renderApplianceIcon) return { ic: '', appl: KI_FIG[m[1]] };
+    return { ic: k };
+  }
+  const listTxt = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} og ${a[a.length - 1]}` : a[0] || '');
+  // Verdien i pillen: tall + enhet (mellomrom styrbart), ellers teksten
+  function valTxt(st, o) {
+    if (!st || M.unavailable(st)) return '–';
+    let v = o.attributt ? attrPath(st, o.attributt) : st.state;
+    if (v == null || v === '') v = o.attributt ? st.state : '';
+    if (v == null || v === '') return '–';
+    if (typeof v === 'object') v = v.condition || v.state || JSON.stringify(v);
+    const n = pnum(v), isN = !isNaN(n) && /^\s*-?[\d.,]+\s*$/.test(String(v));
+    const dd = o.desimaler != null ? Number(o.desimaler) : (Math.abs(n) < 10 && n % 1 ? 1 : 0);
+    let t = isN ? (o.tusenskille ? nb(n, dd) : Number(n).toFixed(dd).replace('.', ',')) : String(v); // «1180W» (uten tusenskille, som ki-prosa)
+    const u = o.enhet != null ? o.enhet : isN ? st.attributes.unit_of_measurement || '' : '';
+    if (u && isN) t += (o.mellomrom === false || u === '°' ? '' : ' ') + u;
+    return o['små_bokstaver'] ? t.toLowerCase() : t;
+  }
+  // Fyller malen: {navn} {antall} {sted} …; {pille}/{planter} er der pillen står → [før, etter]
+  function tmpl(t, felt) {
+    let x = String(t || '{pille}');
+    Object.keys(felt || {}).forEach((k) => { x = x.split('{' + k + '}').join(felt[k] == null ? '' : String(felt[k])); });
+    const m = /\{(pille|planter)\}/.exec(x);
+    if (!m) return [x, ''];
+    return [x.slice(0, m.index), x.slice(m.index + m[0].length)];
+  }
+  const tapNav = (path) => (path ? { action: 'navigate', navigation_path: String(path) } : null);
+
+  /* ---- KI Planter (v1.4.0): steder fra entitetsregisteret (platform ki_planter) eller attributtet integrasjon */
+  function plantSteder(h) {
+    if (!h || !h.states) return [];
+    const out = [];
+    Object.keys(h.states).forEach((id) => {
+      if (id.indexOf('sensor.') !== 0) return;
+      const st = h.states[id], a = (st && st.attributes) || {}, reg = h.entities && h.entities[id];
+      if (!((reg && reg.platform === 'ki_planter') || a.integrasjon === 'ki_planter')) return;
+      // stedets sensor: type 'sted' eller listen trenger_vann; navnet sensor.<sted>_planter_trenger_vann eller sensor.<sted>_trenger_vann
+      if (!(a.type === 'sted' || Array.isArray(a.trenger_vann) || (!a.type && /_trenger_vann$/.test(id)))) return;
+      const base = id.slice(7).replace(/_trenger_vann$/, '');
+      const sib = (dom, suf) => {
+        const dev = reg && reg.device_id;
+        if (dev && h.entities) { const f = Object.keys(h.entities).find((x) => x.indexOf(dom + '.') === 0 && h.entities[x].device_id === dev && h.entities[x].platform === 'ki_planter' && x.endsWith('_' + suf)); if (f) return f; }
+        return [`${dom}.${base}_${suf}`, `${dom}.${base}_planter_${suf}`].find((x) => h.states[x]) || null;
+      };
+      out.push({ id, sted: a.sted || String(a.friendly_name || base).replace(/\s*(planter)?\s*trenger vann$/i, '') || base, btn: sib('button', 'alle_vannet'), test: sib('switch', 'testvisning') });
+    });
+    return out.sort((x, y) => (x.sted < y.sted ? -1 : 1));
+  }
+  M.prosaPlantSteder = plantSteder;
+  function plantInfo(h, o, rd) {
+    const all = plantSteder(h), want = [].concat(o.sted || []).filter(Boolean);
+    const L = (o.auto === false && !want.length) ? [] : all.filter((p) => !want.length || want.includes(p.id) || want.map(fold).includes(fold(p.sted)));
+    let n = 0; const names = [], txt = [], steder = [];
+    L.forEach((p) => {
+      const st = rd(p.id); if (!st || M.unavailable(st)) return;
+      if (p.test) rd(p.test);
+      const a = st.attributes || {}, cnt = M.isNum(st.state) ? Number(st.state) : Array.isArray(a.trenger_vann) ? a.trenger_vann.length : 0;
+      if (cnt <= 0) return;
+      n += cnt; steder.push(p);
+      if (Array.isArray(a.trenger_vann)) a.trenger_vann.forEach((x) => { if (x && !names.includes(x)) names.push(String(x)); });
+      else if (a.trenger_vann_tekst) txt.push(String(a.trenger_vann_tekst));
+    });
+    const count = Math.max(n, names.length);
+    const label = count > 3 ? `${count} planter` : names.length ? listTxt(names) : txt.join(' og ') || `${count} ${count === 1 ? 'plante' : 'planter'}`;
+    return { n: count, label, steder, all };
+  }
+  const fold = (x) => String(x || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
+
+  // Seksjonene → { active: { vaer, pris … } (entiteten finnes), items: { key: [vis-element] } }
+  function sections(h, c, rd) {
+    rd = rd || ((id) => h.states[id]);
+    const has = (id) => !!(id && h.states[id]);
+    const active = {}, items = {};
+    const item = (k, j, o) => {
+      const [pre, post] = tmpl(o.tekst || SEC_TXT[k], o.felt);
+      const I = iconOf(o.ikon, o.ikonSt);
+      (items[k] = items[k] || []).push({ sec: k, j, pre: pre.trim() ? pre.trim() + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post.replace(/^\s+/, '')) + ' ' : ' ', hasChip: true,
+        chip: o.chip, dot: o.dot || null, emoji: I.ic, appl: I.appl, iconEnd: o.ikon_plassering === 'slutt', anim: o.animasjon || '', bg: o.bg || '#fafafa', id: o.id || null, tap: true, act: o.act || null, hold: o.hold || null });
+    };
+    // vær
+    const V = secOf(c, 'vaer');
+    if (V && has(V.entity)) {
+      active.vaer = true;
+      const st = rd(V.entity);
+      let chip;
+      if (!V.attributt && String(V.entity).indexOf('weather.') === 0 && st && !M.unavailable(st)) { const t = st.attributes.temperature; chip = `${condOf(h, st)}${t != null && M.isNum(t) ? ' og ' + deg(t) : ''}`; } else chip = valTxt(st, V);
+      item('vaer', 0, { ...V, chip, ikonSt: st, id: V.entity, act: tapNav(V.path) });
+    }
+    // hjemkomst
+    const HK = secOf(c, 'hjemkomst');
+    (HK || []).forEach((a, j) => {
+      if (!a || !has(a.aktiv || a.vis)) return;
+      active.hjemkomst = true;
+      if (!aktiv(a.aktiv || a.vis, rd)) return;
+      const rs = a.reisetid && rd(a.reisetid), min = rs && !M.unavailable(rs) ? pnum(rs.state) : NaN;
+      const kl = isNaN(min) ? '–' : new Date(Date.now() + min * 60000).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+      item('hjemkomst', j, { ...a, ikon: a.ikon || SEC_IKON.hjemkomst, felt: { navn: a.navn || '' }, chip: kl, id: a.reisetid || null, act: tapNav(a.path) || (a.reisetid ? { action: 'more-info', entity: a.reisetid } : null) });
+    });
+    // ringeklokke
+    const RK = secOf(c, 'ringeklokke');
+    if (RK && has(RK.entity)) {
+      active.ringeklokke = true;
+      if (aktiv(RK.entity, rd)) item('ringeklokke', 0, { ...RK, ikon: RK.ikon || SEC_IKON.ringeklokke, animasjon: RK.animasjon != null ? RK.animasjon : 'vink', chip: RK.pille || '', bg: C.orange, id: RK.entity,
+        act: RK.path ? tapNav(RK.path) : { action: 'perform-action', perform_action: RK.tjeneste || (String(RK.entity).split('.')[0] + '.turn_off'), data: { entity_id: RK.entity } } });
+    }
+    // apparater
+    const AP = secOf(c, 'apparater');
+    (AP || []).forEach((a, j) => {
+      const u = a && (a.vis || a.aktiv), uid = u && (typeof u === 'string' ? u : u.entity);
+      if (!a || !(has(uid) || has(a.verdi))) return;
+      active.apparater = true;
+      if (!aktiv(u || a.verdi, rd)) return;
+      const src = has(a.verdi) ? a.verdi : uid, st = rd(src);
+      const chip = valTxt(st, { enhet: a.enhet != null ? a.enhet : 'W', mellomrom: a.mellomrom === true, desimaler: a.desimaler != null ? a.desimaler : 0 });
+      item('apparater', j, { ...a, felt: { navn: a.navn || '' }, chip, ikonSt: st, id: src, act: tapNav(a.path) || { action: 'more-info', entity: src } });
+    });
+    // planter
+    const PL = secOf(c, 'planter');
+    if (PL) {
+      const P = plantInfo(h, PL, rd);
+      if (P.all.length) active.planter = true;
+      if (P.n > 0) {
+        let ikSt = null;
+        if (String(PL.ikon || '').indexOf('attributt:') === 0) { // plantens eget ikon (første som trenger vann)
+          const first = Object.keys(h.states).find((id) => id.indexOf('binary_sensor.') === 0 && h.states[id].attributes.integrasjon === 'ki_planter' && M.isOn(h.states[id]));
+          ikSt = first ? h.states[first] : null;
+          if (!ikSt || !attrPath(ikSt, String(PL.ikon).slice(10))) PL.ikon = SEC_IKON.planter;
+        }
+        item('planter', 0, { ...PL, ikon: PL.ikon || SEC_IKON.planter, ikonSt: ikSt, felt: { antall: P.n, sted: listTxt(P.steder.map((x) => x.sted)) }, chip: P.label, id: (P.steder[0] || {}).id || null, act: tapNav(PL.path || '#planter'), hold: 'planter' });
+      }
+    }
+    // pris
+    const PR = secOf(c, 'pris');
+    if (PR && has(PR.entity)) {
+      active.pris = true;
+      const st = rd(PR.entity), v = st && M.isNum(st.state) ? Number(st.state) : null;
+      const lvl = v == null ? null : v > (Number(c.price_high) || 1.5) ? C.red : v > (Number(c.price_mid) || 1.1) ? C.yellow : C.green;
+      item('pris', 0, { ...PR, chip: v == null ? '–' : `${nb(v, PR.desimaler != null ? Number(PR.desimaler) : 2)} ${PR.enhet || 'kr'}`, dot: lvl, id: PR.entity, act: tapNav(PR.path) || { action: 'more-info', entity: PR.entity } });
+    }
+    // bursdag
+    const BD = secOf(c, 'bursdag');
+    if (BD && has(BD.vis)) {
+      active.bursdag = true;
+      if (aktiv(BD.vis, rd) && !(BD.skjult && aktiv(BD.skjult, rd))) {
+        const ns = BD.navn && rd(BD.navn), navn = ns && !M.unavailable(ns) && ns.state ? ns.state : 'noen';
+        item('bursdag', 0, { ...BD, ikon: BD.ikon || SEC_IKON.bursdag, chip: navn, bg: BDAY_BG, id: BD.navn && has(BD.navn) ? BD.navn : BD.vis, act: tapNav(BD.path) || { action: 'more-info', entity: BD.navn && has(BD.navn) ? BD.navn : BD.vis } });
+      }
+    }
+    return { active, items };
+  }
+  M.prosaSections = sections;
+
   // Beregn synlige setninger → [{ pre, post, chip, hasChip, dot, emoji, bg, i, row, id, tap }]
   function compute(h, c, rd) {
     const S = sources(h, c, rd), getS = getter(h, c, S, rd);
-    const rows = Array.isArray(c.prose) ? c.prose : defaultProse(h, c);
+    const SX = sections(h, c, rd);
+    const rows = Array.isArray(c.prose) ? c.prose : defaultProse(h, c, SX.active);
     // Verdi for en kilde. Faste kilder kan pekes til en annen entitet (ent_override / cent); «Egendefinert» bruker ent.
     const valFor = (src, ov) => {
       if (src === 'custom') return getS(ov) || null;
@@ -229,10 +455,18 @@
     });
     // Auto-entiteten for en fast kilde (uten overstyring) – vises som «Automatisk · …» i velgeren.
     const autoOf = (src) => (S[src] && S[src][3]) || (AUTO[src] ? ents(h, c)[src] : null) || null;
-    return { S, getS, rows, vis, test, valOf, valFor, autoOf, fill };
+    // Fiks 17.9: seksjonene og setningene i valgt rekkefølge («setninger» = prose[])
+    const ex = exOf(c), all = [];
+    secOrder(c).forEach((k) => { if (k === 'setninger') { if (!ex.has('setninger')) all.push(...vis); } else if (SX.items[k]) all.push(...SX.items[k]); });
+    return { S, getS, rows, vis: all, rowVis: vis, test, valOf, valFor, autoOf, fill, SX };
   }
 
-  const chipHTML = (v) => `${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
+  // Ikon: prefiks → <ha-icon>, emoji → tekst, ki:<figur> → animert hvitevare (17.9). Plassering start/slutt og animasjon.
+  const icoHTML = (v) => {
+    const ic = v.appl ? M.renderApplianceIcon(v.appl, v.anim !== '' && v.anim !== 'ingen', { size: 16 }) : v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : '';
+    return ic && v.anim && v.anim !== 'auto' && v.anim !== 'ingen' ? `<span class="an an-${esc(v.anim)}">${ic}</span>` : ic;
+  };
+  const chipHTML = (v) => { const ic = icoHTML(v); return `${v.dot ? `<span class="dot" style="background:${v.dot};box-shadow:0 0 0.35em ${v.dot}"></span>` : ''}${v.iconEnd ? '' : ic}${v.chip !== '' ? `<span>${esc(v.chip)}</span>` : ''}${v.iconEnd ? ic : ''}`; };
   // Hele prosaen som én flytende tekst (MySmartHome): ord og piller skilles med vanlige mellomrom og brytes naturlig –
   // ingen &nbsp;-binding eller text-wrap: pretty/balance (Fiks 15.3). Eneste unntak: tegnsetting rett etter en pille
   // limes til pillen (nowrap-bit .pzg), så «.» aldri havner alene på neste linje.
@@ -264,6 +498,19 @@
     .pz .chip .em{font-size:.9em;line-height:1;flex:none}
     .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
     .pz .pzg{white-space:nowrap}
+    .pz .chip svg.ma{width:1em;height:1em;flex:none}
+    .pz .chip .an{display:inline-flex;line-height:0}
+    .pz .an-hopp{animation:pz-hopp 1.6s ease-in-out infinite}
+    .pz .an-vugg{animation:pz-vugg 2.4s ease-in-out infinite;transform-origin:50% 90%}
+    .pz .an-vink{animation:pz-vink 1.8s ease-in-out infinite;transform-origin:50% 20%}
+    .pz .an-snurr{animation:pz-snurr 2s linear infinite}
+    .pz .an-puls{animation:pz-puls 1.6s ease-in-out infinite}
+    @keyframes pz-hopp{0%,60%,100%{transform:none}30%{transform:translateY(-.22em)}}
+    @keyframes pz-vugg{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+    @keyframes pz-vink{0%,50%,100%{transform:none}10%,30%{transform:rotate(-16deg)}20%,40%{transform:rotate(16deg)}}
+    @keyframes pz-snurr{to{transform:rotate(360deg)}}
+    @keyframes pz-puls{0%,100%{transform:none}50%{transform:scale(1.18)}}
+    @media (prefers-reduced-motion: reduce){.pz .an{animation:none!important}}
   `;
   // Standard: clamp(22px, 7,4cqi, 34px) – kortet (eller forhåndsvisningen) er container (container-type: inline-size)
   const AUTO_FS = 'clamp(22px, 7.4cqi, 34px)';
@@ -271,7 +518,7 @@
   const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<style>${M.PROSA_CSS}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+    return `<style>${M.PROSA_CSS}${M.APPLIANCE_CSS || ''}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -335,9 +582,87 @@
     M.call(h, m[1], m[2], data).then(() => M.hjemToast(card, `Kjørte ${svc}`)).catch(() => {});
   }
 
+
+  /* ---- Fiks 17.9 · editor for seksjonene (kortets egen editor + GUI-editoren, samme skjema) */
+  const tx = (k, extra) => ({ type: 'text', name: k + '.tekst', label: 'Tekstmal · {pille} er pillen', placeholder: (SEC_STD[k] && SEC_STD[k].tekst) || SEC_TXT[k], ...(extra || {}) });
+  const stdEnt = (k, f) => () => (SEC_STD[k] || {})[f] || null;
+  const SEC_SCHEMA = [
+    { type: 'order', name: 'rekkefolge', hiddenName: 'exclude', label: 'Seksjoner · rekkefølge (skjult = av)', options: SEC_KEYS.map((k) => [k, SEC_L[k]]) },
+    { type: 'section', id: 'sek-vaer', label: 'Vær', icon: 'mdi:weather-partly-cloudy', meta: (h, c) => (secOf(c, 'vaer') ? secOf(c, 'vaer').entity : 'Av'), fields: [
+      { type: 'entity', name: 'vaer.entity', label: 'Entitet', domains: ['sensor', 'weather'], auto: stdEnt('vaer', 'entity') },
+      { type: 'text', name: 'vaer.attributt', label: 'Attributt (tom = tilstanden)', placeholder: SEC_STD.vaer.attributt },
+      { type: 'text', name: 'vaer.enhet', label: 'Enhet', placeholder: SEC_STD.vaer.enhet },
+      { type: 'boolean', name: 'vaer.mellomrom', label: 'Mellomrom mellom tall og enhet', default: false },
+      { type: 'text', name: 'vaer.ikon', label: 'Ikon · mdi:, emoji eller attributt:current.icon', placeholder: SEC_STD.vaer.ikon },
+      { type: 'select', name: 'vaer.ikon_plassering', label: 'Ikon i pillen', options: [['start', 'Før'], ['slutt', 'Etter']], default: 'slutt' },
+      { type: 'boolean', name: 'vaer.små_bokstaver', label: 'Små bokstaver', default: true },
+      tx('vaer'),
+      { type: 'hash', name: 'vaer.path', label: 'Trykk åpner popup', placeholder: '#vaer' },
+    ] },
+    { type: 'section', id: 'sek-hjemkomst', label: 'Hjemkomst', icon: 'mdi:car', fields: [
+      { type: 'rows', name: 'hjemkomst', label: 'Personer på vei hjem', addLabel: 'Ny person', defaults: () => clone(SEC_STD.hjemkomst),
+        newRow: () => ({ navn: 'Ny', aktiv: '', reisetid: '', ikon: '🚗', animasjon: 'hopp', tekst: SEC_TXT.hjemkomst, path: '#personer' }),
+        title: (r) => r.navn || 'Uten navn', sub: (r) => [r.aktiv, r.reisetid].filter(Boolean).join(' · ') || 'Velg entiteter',
+        fields: [
+          { type: 'text', name: 'navn', label: 'Navn' },
+          { type: 'entity', name: 'aktiv', label: 'På vei hjem (på/av)', domains: ['input_boolean', 'binary_sensor', 'switch'] },
+          { type: 'entity', name: 'reisetid', label: 'Reisetid (minutter)', domain: 'sensor' },
+          { type: 'text', name: 'ikon', label: 'Ikon · emoji eller mdi:…', placeholder: '🚗' },
+          { type: 'select', name: 'animasjon', label: 'Animasjon', options: ANIMS, default: '' },
+          { type: 'text', name: 'tekst', label: 'Tekstmal · {navn} {pille}', placeholder: SEC_TXT.hjemkomst },
+          { type: 'hash', name: 'path', label: 'Trykk åpner popup', placeholder: '#personer' },
+        ] },
+    ] },
+    { type: 'section', id: 'sek-ringeklokke', label: 'Ringeklokke', icon: 'mdi:doorbell', fields: [
+      { type: 'entity', name: 'ringeklokke.entity', label: 'Varsel aktiv (på/av)', domains: ['input_boolean', 'binary_sensor', 'switch'], auto: stdEnt('ringeklokke', 'entity') },
+      tx('ringeklokke'),
+      { type: 'select', name: 'ringeklokke.animasjon', label: 'Animasjon', options: ANIMS, default: 'vink' },
+      { type: 'hash', name: 'ringeklokke.path', label: 'Trykk åpner popup (tom = slå av varselet)' },
+    ] },
+    { type: 'section', id: 'sek-apparater', label: 'Apparater', icon: 'mdi:washing-machine', fields: [
+      { type: 'rows', name: 'apparater', label: 'Apparater som går', addLabel: 'Nytt apparat', defaults: () => clone(SEC_STD.apparater),
+        newRow: () => ({ navn: 'Nytt apparat', vis: { entity: '', state: '' }, verdi: '', ikon: 'mdi:power-plug', animasjon: 'auto' }),
+        title: (r) => r.navn || 'Uten navn', sub: (r) => { const u = r.vis || r.aktiv; return u ? (typeof u === 'string' ? u : `${u.entity || '–'}${u.state != null && u.state !== '' ? ' = ' + u.state : u.over != null ? ' > ' + u.over : ''}`) : 'Velg entitet'; },
+        fields: [
+          { type: 'text', name: 'navn', label: 'Navn' },
+          { type: 'entity', name: 'vis.entity', label: 'Vises når … (entitet)', domains: ['input_select', 'select', 'sensor', 'binary_sensor', 'switch', 'input_boolean'] },
+          { type: 'text', name: 'vis.state', label: '… har tilstanden (tom = på)', placeholder: 'Vasker' },
+          { type: 'entity', name: 'verdi', label: 'Verdi i pillen (effekt)', domain: 'sensor' },
+          { type: 'text', name: 'ikon', label: 'Ikon · ki:vaskemaskin / ki:oppvask / ki:torketrommel, mdi:… eller emoji', placeholder: 'ki:vaskemaskin' },
+          { type: 'select', name: 'animasjon', label: 'Animasjon', options: ANIMS, default: 'auto' },
+          { type: 'text', name: 'tekst', label: 'Tekstmal · {navn} {pille}', placeholder: SEC_TXT.apparater },
+          { type: 'hash', name: 'path', label: 'Trykk åpner popup (tom = detaljer)' },
+        ] },
+    ] },
+    { type: 'section', id: 'sek-planter', label: 'Planter · KI Planter', icon: 'mdi:sprout', meta: (h) => { const n = plantSteder(h).length; return n ? `${n} ${n === 1 ? 'sted' : 'steder'}` : 'Fant ingen'; }, fields: [
+      { type: 'boolean', name: 'planter.auto', label: 'Finn stedene automatisk (KI Planter)', default: true },
+      { type: 'html', render: (h, c) => {
+        const L = plantSteder(h), sel = [].concat((c.planter && c.planter.sted) || []);
+        if (!L.length) return '<span class="help" style="padding:0 6px">Fant ingen steder fra KI Planter (sensor.&lt;sted&gt;_planter_trenger_vann).</span>';
+        return `<div class="f"><label>Steder · ingen valgt = alle</label><div class="chips">${L.map((p) => `<button class="chip ${sel.includes(p.id) ? 'on' : ''}" data-a="hid" data-name="planter.sted" data-v="${esc(p.id)}">${esc(p.sted)}</button>`).join('')}</div></div>`;
+      } },
+      { type: 'text', name: 'planter.tekst', label: 'Tekstmal · {planter} {antall} {sted}', placeholder: SEC_STD.planter.tekst },
+      { type: 'icon', name: 'planter.ikon', label: 'Ikon (attributt:ikon = plantens eget)', placeholder: SEC_STD.planter.ikon },
+      { type: 'select', name: 'planter.animasjon', label: 'Animasjon', options: ANIMS, default: 'vugg' },
+      { type: 'hash', name: 'planter.path', label: 'Trykk åpner popup · hold = alle vannet', placeholder: '#planter' },
+    ] },
+    { type: 'section', id: 'sek-pris', label: 'Strømpris', icon: 'mdi:lightning-bolt', fields: [
+      { type: 'entity', name: 'pris.entity', label: 'Entitet', domain: 'sensor', auto: stdEnt('pris', 'entity') },
+      tx('pris', { placeholder: SEC_TXT.pris }),
+      { type: 'hash', name: 'pris.path', label: 'Trykk åpner popup (tom = detaljer)' },
+    ] },
+    { type: 'section', id: 'sek-bursdag', label: 'Bursdag', icon: 'mdi:cake-variant', fields: [
+      { type: 'entity', name: 'bursdag.vis', label: 'Vises når (på/av)', domains: ['binary_sensor', 'input_boolean'], auto: stdEnt('bursdag', 'vis') },
+      { type: 'entity', name: 'bursdag.navn', label: 'Navn (sensor med dagens bursdager)', domain: 'sensor' },
+      tx('bursdag', { placeholder: SEC_TXT.bursdag }),
+    ] },
+  ];
+
   class Prosa extends M.Card {
     static get cardName() { return 'Hjem · prosa'; }
     static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet' }; }
+    // Fiks 17.9: nytt kort får brukerens standard-config (seksjonene); manglende seksjoner fylles inn også i eldre kort
+    static getStubConfig() { return { card_id: M.uid(), ...this.defaults, ...clone(SEC_STD) }; }
     // Tekststørrelse i em av HA-kortets 14 px (standard 2,15 em ≈ 30 px = MySmartHome på mobil, skaleres med temaets
     // tekststørrelse) og linjehøyde som faktor av tekststørrelsen (standard 1,55). Delt med «Tilpass Hjem» → Tekst.
     static get sizeFields() { return SIZE_FIELDS; }
@@ -352,6 +677,7 @@
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
           ...Prosa.sizeFields,
+          ...SEC_SCHEMA,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
             defaults: (h, c) => defaultProse(h, c),
@@ -421,10 +747,41 @@
       if (!R.vis.length) {
         return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`)}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => (v.sec
+        ? `<button class="chip press" data-key="s-${v.sec}-${v.j}" data-act="sec" data-s="${v.sec}" data-j="${v.j}" ${v.id || v.hold ? `data-ent="${esc(v.id || '__' + v.hold)}"` : ''} ${v.hold ? `data-hold="${esc(v.hold)}"` : ''} style="background:${v.bg};cursor:pointer">${chipHTML(v)}</button>`
+        : `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`))}</div>`;
     }
-    onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
+    onHold(id, el) {
+      if (id === '__tilpass') { this.customize('prose'); return true; }
+      if (el && el.dataset.hold === 'planter') { this._plantsDone(); return true; } // Fiks 17.9: hold → «alle vannet»
+      return undefined;
+    }
+    // Hold på plante-pillen: bekreft «Merk alle som vannet?» → button.<sted>_planter_alle_vannet for hvert sted som trenger vann
+    _plantsDone() {
+      const h = this.hass, PL = secOf(this.config, 'planter');
+      if (!h || !PL) return;
+      const P = plantInfo(h, PL, (id) => this.s(id)), btns = P.steder.map((p) => p.btn).filter(Boolean);
+      if (!btns.length) { M.hjemToast(this, 'Fant ingen «alle vannet»-knapp i KI Planter'); return; }
+      const sheet = M.hjemSheet(this, {
+        render: () => `<div class="orb" style="background:${M.alpha(C.green, 0.2)};box-shadow:0 0 0 6px var(--gray200,#3a3a3a)">${M.icon('mdi:watering-can', 40, `color:${C.green}`)}</div>
+          <div class="nm"><b>Merk alle som vannet?</b><span>${esc(P.label)}${P.steder.length > 1 ? ' · ' + esc(listTxt(P.steder.map((x) => x.sted))) : ''}</span></div>
+          <div class="opts"><button class="opt" data-a="close">Avbryt</button><button class="opt" data-a="ok" data-haptic="off" style="background:${C.green};color:#12291d;font-weight:600">Alle vannet</button></div>`,
+        onAct: (a) => {
+          if (a !== 'ok') return;
+          sheet.ov.close();
+          Promise.all(btns.map((b) => M.call(h, 'button', 'press', { entity_id: b }))).then(() => { M.haptic('success'); M.hjemToast(this, 'Alle planter er merket som vannet'); }).catch(() => {});
+        },
+      });
+    }
     onAction(name, el, ev) {
+      if (name === 'sec') { // Fiks 17.9: trykk på en seksjons-pille → path (popup) / tjeneste / more-info
+        const v = ((this._R && this._R.SX.items[el.dataset.s]) || []).find((x) => String(x.j) === el.dataset.j);
+        const a = v && v.act;
+        if (!a) return;
+        if (a.action === 'more-info') return M.moreInfo(this, a.entity || v.id);
+        if (M.tap) M.tap.run(this, a, { entity: v.id, hass: this.hass });
+        return;
+      }
       if (name === 'chip') {
         const p = (this._R && this._R.rows[Number(el.dataset.i)]) || null;
         if (p && ((p.act && p.act !== 'more') || tapOf(p))) runAct(this, p, el.dataset.ent);
@@ -437,6 +794,7 @@
         /* Grunnstørrelse = HA-kortets 14 px; kortet er container → prosaen clamp(22px, 7,4cqi, 34px) / 1,55 (MySmartHome) */
         :host{display:flow-root;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}
         ${M.PROSA_CSS}
+        ${M.APPLIANCE_CSS || ''}
         .pick{vertical-align:baseline}
       `;
     }

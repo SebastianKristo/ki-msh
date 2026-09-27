@@ -3,8 +3,8 @@
  * områder, sender hass videre og gir hvert barn egen config under `cards.<navn>` (type + card_id → barnas egen «Tilpass»
  * lagrer via MSH.saveCardConfig, som finner kortet via card_id hvor som helst i lovelace-configen).
  *
- * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 + (--ki-nav-bottom − 8) (navbar, følger navbarens avstand), 22 px mellom blokkene, maks 420 px sentrert i
- * dashbordflaten. Bred (≥1000 px, iPad ≥700 px): to kolonner .9fr/1.2fr, gap 22/20, venstre 108 (navbar-rail), høyre 24.
+ * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 + (--ki-nav-bottom − 8) (navbar, følger navbarens avstand), 22 px mellom blokkene, full bredde av
+ * dashbordflaten (fiks 17.20: ingen maks 420 px). Bred (MSH.isWide: ≥1000 px, berøring ≥680 px): to kolonner .9fr/1.2fr, gap 22/20, venstre 108 (navbar-rail), høyre 24.
  * ≥1500 px: tre kolonner .95fr/1.35fr/1.05fr, gap 32/20, venstre 120, høyre 36; zoom som designet (maks 1,8).
  * Marger måles mot dashbord-containeren (ikke vinduet): kortet bryter ut av HA sections-viewets egen padding
  * (negativ margin beregnet fra egen rect mot dashbordflaten, ResizeObserver).
@@ -92,6 +92,10 @@
         { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:view-dashboard-outline', open: true, fields: [
           { type: 'boolean', name: 'show_todo', label: 'Vis gjøremål', help: 'Av = gjøremål-kortet vises ikke og tar ingen plass', default: true },
         ] },
+        // Fiks 17.18: global bryter (ki-store ui.glass_anim), samme som «Tilpass Hjem» → Faner
+        { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+          { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
+        ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
         { type: 'section', id: 'popups', label: 'Popups', icon: 'mdi:layers-outline', fields: [
           { type: 'info', label: 'Lager én Bubble Card-popup per rom (mal B) og per funksjon/person (mal A), med ett kort hver. Finnes hashen fra før, oppdateres bare cards – dine styles står urørt.' },
@@ -142,7 +146,10 @@
       // Toppmarg: trekk opp HA-viewets egen luft (maks 64 px) – kun målt øverst på siden.
       let offT = this._geo ? this._geo.offT : 0;
       if (out && (window.scrollY || 0) === 0 && !D.sc) { const t = Math.round(host.top - D.t); offT = t >= 0 && t <= 64 ? t : 0; }
-      const L = M.hjemLayout ? M.hjemLayout(c.layout_mode || 'auto', w) : { wide: w >= 1000, pc: w >= 1500, zoom: 1 };
+      const L = M.hjemLayout ? { ...M.hjemLayout(c.layout_mode || 'auto', w) } : { wide: w >= 1000, pc: w >= 1500, zoom: 1 };
+      // Fiks 17.20: bred = MSH.isWide (≥ 1000 px, berøring ≥ 680 px – Pixel/Galaxy Fold åpen, Android-nettbrett)
+      const lm = c.layout_mode || 'auto';
+      if (M.isWide && lm !== 'stor' && lm !== 'mobil') { L.wide = M.isWide(w); L.pc = L.wide && w >= 1500; if (!L.wide || L.zoom == null) L.zoom = 1; }
       const zoom = c.zoom === false || !L.wide ? 1 : L.zoom;
       return { offL, offR, offT, w, wide: !!L.wide, pc: !!L.pc, zoom };
     }
@@ -231,7 +238,7 @@
         ha-card{display:flow-root}
         .out{position:relative}
         .g{box-sizing:border-box}
-        .g.mob{width:100%;max-width:420px;margin:0 auto;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
+        .g.mob{width:100%;margin:0;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
         .s{display:block;min-width:0}
         .s>*{display:block;width:100%}
         .g.wide{display:grid;margin:0;padding:24px 24px 40px 108px;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);grid-template-rows:auto auto auto 1fr;

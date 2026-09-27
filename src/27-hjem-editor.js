@@ -48,6 +48,9 @@
   const STACK_DEF = { hjem: { cam: true, ruter: true } };
   const SLIDE_L = { cal: ['calendar_month', 'Kalender'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
   const VIEWS = [['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']];
+  // Fiks 17.10: sonene i «Snarveier» (fast rekkefølge) og typene i +-rutenettet
+  const ZONES = [['L-top', 'Venstre · over rommene'], ['R-top', 'Høyre · over rommene'], ['L-bottom', 'Venstre · under rommene'], ['R-bottom', 'Høyre · under rommene']];
+  const ZADD = [['link', 'mdi:link-variant', 'Snarvei'], ['lock', 'key', 'Dørlås'], ['alarm', 'shield', 'Alarm'], ['cam', 'videocam', 'Kamera'], ['todo', 'handyman', 'Gjøremål'], ['ruter', 'tram', 'Ruter'], ['garage', 'garage', 'Garasje'], ['tv', 'tv', 'TV'], ['vacr', 'robot_2', 'Støvsuger'], ['dish', 'dishwasher_gen', 'Oppvask'], ['wash', 'local_laundry_service', 'Vaskemaskin'], ['dry', 'dry_cleaning', 'Tørketrommel'], ['jul', 'park', 'Jul']];
   const TSW = [['ingen', '#545454', 'Grå'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const SZ = { S: 'Liten', M: 'Medium', L: 'Stor' }, SZH = { S: 38, M: 72, L: 110 };
   const outdoorFloor = (f) => ([M.slug(f.name), M.slug(f.floor_id)].some((x) => OUT_RX.test(x)) ? 1 : 0);
@@ -179,6 +182,7 @@
     .it{display:flex;flex-direction:column;box-sizing:border-box;width:100%;min-width:0;text-align:left;cursor:grab;touch-action:none;transition:box-shadow .15s,opacity .15s}
     .it .l1{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
     .it .nm{flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .it .tsub{display:block;width:100%;min-width:0;padding-left:22px;box-sizing:border-box;font-size:11px;line-height:1.25;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .bdg{flex:none;display:flex;align-items:center;gap:2px;font-size:9px;font-weight:600;padding:2px 6px 2px 4px;border-radius:8px;background:#2a2a2a;color:#979797;white-space:nowrap}
     .bdg.sw{background:rgb(242 133 201 / 0.18);color:rgb(242 170 215)}
     .bdg.ss{background:var(--gray200,#3a3a3a);color:#979797}
@@ -261,6 +265,45 @@
     .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .ted{display:flex;flex-direction:column;gap:10px;padding:12px;margin:2px 0 6px;border-radius:22px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
     .ted .tap{background:var(--gray200,#3a3a3a);gap:8px}
+    /* fiks 17.10 · soner i «Snarveier» */
+    .zn{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:22px;background:var(--gray100,#2f2f2f)}
+    .zh{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 0 0 2px}
+    .zm{width:30px;height:30px;flex:none;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 4px 1fr;gap:2px}
+    .zm i{border-radius:3px;background:#545454}
+    .zm i.on{background:var(--pink,#f285c9)}
+    .zm b{grid-column:1 / 3;border-radius:2px;background:#7f7f7f;margin:1px 3px}
+    .zh .zt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .zh .zt b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .zh .zt i{font-style:normal;font-size:11px;color:#979797}
+    .zsw{height:28px;padding:0 10px;border-radius:14px;flex:none;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#afafaf;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
+    .zsw.on{background:rgb(102 209 158 / 0.18);color:rgb(102 209 158);box-shadow:inset 0 0 0 1.5px rgb(102 209 158 / 0.5)}
+    .zad{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:#fafafa;transition:transform .2s,background .2s}
+    .zad.on{transform:rotate(45deg);background:var(--pink,#f285c9);color:#2f2f2f}
+    .zgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+    .zgr>button{height:64px;border-radius:16px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:500;color:#e1e1e1}
+    .zemp{font-size:12px;color:#7f7f7f;padding:6px 4px 4px}
+    .zr{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 6px;border-radius:26px;background:var(--gray200,#3a3a3a);touch-action:none}
+    .zr.open{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
+    .zr .zrm{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;height:40px}
+    .zr .zc{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;color:#fafafa}
+    .zr .tt{display:flex;flex-direction:column;gap:1px;min-width:0}
+    .zr .tt b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .zr .tt i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .zud{display:flex;flex-direction:column;flex:none}
+    .zud>button{width:28px;height:18px;display:grid;place-items:center;color:#c7c7c7}
+    .zud>button.no{color:#545454;pointer-events:none}
+    .zch{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;color:#979797;transition:transform .2s}
+    .zr.open .zch{transform:rotate(180deg)}
+    .zpg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .zpg>button{height:36px;border-radius:12px;background:var(--gray000,#232323);font-size:13px;font-weight:500;color:#afafaf}
+    .zpg>button.on{background:var(--pink,#f285c9);color:#2f2f2f}
+    .zpg>span{grid-column:1 / 3;height:24px;border-radius:8px;border:1.5px dashed #545454;display:grid;place-items:center;font-size:11px;color:#7f7f7f}
+    .zdel{height:44px;width:100%;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;background:rgb(242 128 115 / 0.16);color:rgb(242 128 115);font-size:14px;font-weight:500}
+    .ach{display:flex;flex-wrap:wrap;gap:6px}
+    .ach>button{height:32px;padding:0 12px;border-radius:16px;font-size:12px;font-weight:500;background:var(--gray000,#232323);color:#afafaf}
+    .ach>button.on{background:var(--pink,#f285c9);color:#2f2f2f}
+    .asec{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--gray200,#3a3a3a)}
+    .trg{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--gray100,#2f2f2f)}
     .tap{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:18px;background:var(--gray100,#2f2f2f)}
     .tap .th{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
     .chip{height:32px;padding:0 12px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
@@ -574,7 +617,7 @@
       let panel = '';
       if (u.pick) panel = this._pickPanel(m);
       else if (u.sel && u.sel.t === 'room') panel = this._roomPanel(m, m.rooms.find((r) => r.id === u.sel.id));
-      else if (u.sel && u.sel.t === 'tile') panel = this._tilePanel(m, u.sel.id);
+      else if (u.sel && u.sel.t === 'tile' && !u.sel.z) panel = this._tilePanel(m, u.sel.id);
       if (t.kind === 'aktuelt') return strip + tgl + this._aktPanel(m) + this._accRomIkon(m) + this._blocks();
       const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å ${t.hc ? 'legge til et rom eller en snarvei' : 'hente et rom fra en annen etasje'}.</span>`;
       const fillT = t.kind === 'floor' || t.kind === 'andre' ? `<button class="tgl" data-a="tabfill" data-h="selection">Autofyll fra HA-etasjen${this._sw(get(c, `tabs.${t.id}.auto_fill`) !== false)}</button>` : '';
@@ -659,8 +702,23 @@
       const bg = st ? 'linear-gradient(90deg, rgb(242 133 201 / 0.08), var(--gray100,#2f2f2f) 60%)' : 'var(--gray100,#2f2f2f)';
       const sh = on ? `inset 0 0 0 2px ${PK}` : st ? 'inset 0 0 0 1px rgb(242 133 201 / 0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.12)';
       const badge = st ? `<span class="bdg sw">${ic('mdi:gesture-swipe-horizontal', 12)}Swipe</span>` : !so ? `<span class="bdg ss">${ic('mdi:calendar', 12)}Sesong</span>` : '';
-      return `<button class="it" data-drag="tile" data-id="${esc(k)}" data-drop="tile:${esc(k)}" data-a="seltile" data-v="${esc(k)}" data-key="t-${esc(k)}" style="height:38px;border-radius:19px;justify-content:center;gap:6px;padding:0 8px 0 10px;background:${bg};box-shadow:${sh}">
-        <span class="l1">${ic(kindIcon(k, c), 16, 'color:#afafaf')}<span class="nm">${esc(kindLabel(k, c))}</span>${badge}</span></button>`;
+      const sub = this._tileSub(m, k); // 17.11: undertekst (neste avgang, «Ingen bevegelse», «36 gjøremål» …)
+      return `<button class="it" data-drag="tile" data-id="${esc(k)}" data-drop="tile:${esc(k)}" data-a="seltile" data-v="${esc(k)}" data-key="t-${esc(k)}" style="height:${sub ? 46 : 38}px;border-radius:${sub ? 23 : 19}px;justify-content:center;gap:${sub ? 1 : 6}px;padding:0 8px 0 10px;background:${bg};box-shadow:${sh}">
+        <span class="l1">${ic(kindIcon(k, c), 16, 'color:#afafaf')}<span class="nm">${esc(kindLabel(k, c))}</span>${badge}</span>${sub ? `<span class="tsub">${esc(sub)}</span>` : ''}</button>`;
+    }
+    // Flis-modellen fra en frakoblet faner-instans (samme tekst som på Hjem). Tittel + undertekst i én linje når tittelen er en verdi.
+    _tileModelOf(m, k) {
+      const p = this._probeF, Cls = customElements.get('msh-hjem-faner-card');
+      if (!p || !Cls || !p._tileModel) return null;
+      try { p._config = { ...Cls.defaults, ...m.c }; p._hass = this.hass; return p._tileModel(k, m.E || {}); } catch (e) { return null; }
+    }
+    _tileSub(m, k) {
+      const t = this._tileModelOf(m, k);
+      if (!t) return '';
+      const nm = kindLabel(k, m.c);
+      if (t.type === 'ruter' || t.type === 'cam') return t.sub || '';
+      if (t.type === 'todo') return t.title || '';
+      return [t.title && t.title !== nm && t.title !== '–' ? t.title : '', t.sub && t.sub !== nm ? t.sub : ''].filter(Boolean).join(' · ');
     }
     _pickPanel(m) {
       const sd = this.u.pick, c = m.c, hass = this.hass, t = m.t;
@@ -739,7 +797,7 @@
         ${own ? `<button class="o44 press" data-a="badd">${ic('add', 20)}Legg til vilkår</button>` : ''}
         <span class="sub" style="line-height:1.4">Første vilkår som slår til vises som varsel på rommet. Ingen vilkår = aldri varsel.</span>`;
     }
-    _tilePanel(m, k) {
+    _tilePanel(m, k, only) {
       const c = m.c, t = m.t, sl = tileSlot(c, t, k), [sd, pos] = sl.split('-'), grp = m.inSlot(sl), i = grp.indexOf(k), link = !KINDS[k];
       const P = `tiles.${t.id}.${k}`, st = m.stackOf(k), stk = m.stacked(k);
       const L = link ? (c.links || {})[k] || {} : null;
@@ -747,11 +805,12 @@
       const linkEd = link ? `
         <div class="fld"><span class="fl">Tittel</span><input class="in" data-in="ltitle" value="${esc(L.title || '')}" placeholder="Tittel"></div>
         <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="lsub" value="${esc(L.sub || '')}" placeholder="F.eks. {sensor.nordpool_kwh} nå"></div>
-        <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span><div style="display:flex;gap:8px;align-items:center"><span class="pv2" style="background:var(--gray000,#232323);color:#fafafa">${ic(L.icon || 'mdi:star', 22)}</span><input class="in" style="flex:1" data-in="licon" value="${esc(L.icon || '')}" placeholder="mdi:star"></div></div>
+        <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${M.iconPicker ? M.iconPicker.html({ key: 'lic-' + k, value: L.icon || '', placeholder: 'mdi:star', label: 'Ikon', attrs: 'data-in="licon" style="--msh-if-bg:var(--gray000,#232323)"' }) : `<div style="display:flex;gap:8px;align-items:center"><span class="pv2" style="background:var(--gray000,#232323);color:#fafafa">${ic(L.icon || 'mdi:star', 22)}</span><input class="in" style="flex:1" data-in="licon" value="${esc(L.icon || '')}" placeholder="mdi:star"></div>`}</div>
         <div class="fld"><span class="fl">Farge</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${TSW.map(([v, col, l]) => `<button class="sw34 ${(L.color || 'ingen') === v ? 'on' : ''}" data-a="lcolor" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-        <div class="fld"><span class="fl">Trykk på kortet åpner popup</span><input class="in" data-in="lhash" value="${esc(L.hash || '')}" placeholder="#strom"></div>
+        <div class="fld"><span class="fl">Trykk på kortet åpner popup</span>${M.popupPicker ? M.popupPicker.html({ key: 'lph-' + k, value: L.hash || '', label: 'Trykk på kortet åpner popup', attrs: 'data-in="lhash" style="--msh-if-bg:var(--gray000,#232323)"' }) : `<input class="in" data-in="lhash" value="${esc(L.hash || '')}" placeholder="#strom">`}</div>
         <div class="fld"><span class="fl">Entitet (ikon-trykk / mer info)</span><input class="in" data-in="lent" value="${esc(L.entity || '')}" placeholder="light.stue"></div>
-        <div class="fld"><span class="fl">Trykk på ikonet</span><select class="in" data-in="lact">${[['toggle', 'Veksle entitet'], ['popup', 'Åpne popup'], ['more', 'Mer info'], ['none', 'Ingen']].map(([v, l]) => `<option value="${v}" ${(L.act || 'toggle') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>` : this._tileEdFields(m, k, 'p');
+        <div class="fld"><span class="fl">Trykk på ikonet</span><select class="in" data-in="lact">${[['toggle', 'Veksle entitet'], ['popup', 'Åpne popup'], ['more', 'Mer info'], ['none', 'Ingen']].map(([v, l]) => `<option value="${v}" ${(L.act || 'toggle') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>` : this._tileEdFields(m, k, 'p') + this._tileEdExtra(m, k, 'p');
+      if (only) return linkEd; // 17.10: feltene i sone-editoren
       return `<div class="pnl" data-key="tp-${esc(k)}">
         <div class="ph">${ic(kindIcon(k, c), 24, 'color:#afafaf')}<span class="n">${esc(kindLabel(k, c))}</span><button class="red press" data-a="thide">${ic(t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${t.hc ? 'Fjern' : 'Skjul'}</button></div>
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="tmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="tmove" data-v="1" title="Flytt ned" ${i < grp.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="tswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
@@ -810,18 +869,19 @@
         <button class="o34 press" style="align-self:flex-start" data-a="taddopen">Avbryt</button></div>`;
     }
     // Legg til en flis av typen kd med valgt entitet ('' = automatisk) på fanen
-    _tileCreate(kd, ent) {
+    _tileCreate(kd, ent, slot) {
       const u = this.u, m = this._model(), t = m.t, c = m.c, H = HT();
       if (!t || !H) return;
       const used = m.en.includes(kd) || !!H.tileCfg(c, kd).entity;
       const id = used ? M.hjemNewTileId(c, kd) : kd;
       const cur = H.tileCfg(c, id);
-      let c2 = setIn(c, 'tile_cfg.' + id, { ...cur, ...(id !== kd ? { kind: kd, side: 'R', pos: 'bottom' } : {}), ...(ent ? { entity: ent } : {}) });
+      const [zs, zp] = (slot || 'R-bottom').split('-');
+      let c2 = setIn(c, 'tile_cfg.' + id, { ...cur, ...(id !== kd ? { kind: kd, side: zs, pos: zp } : {}), ...(ent ? { entity: ent } : {}) });
       this._F = c2;
-      u.tadd = null; u.ted = id;
-      if (t.hc) return this._hcAdd(this._model(), id);
+      u.tadd = null; u.zadd = null; u.ted = id; u.sel = { t: 'tile', id, z: true };
+      if (t.hc) return this._hcAdd(this._model(), id, slot);
       const m2 = this._model();
-      return this._moveTile(m2, id, H.defSlot(c2, t.kind, id) || 'R-bottom', null);
+      return this._moveTile(m2, id, slot || H.defSlot(c2, t.kind, id) || 'R-bottom', null);
     }
     _teSet(k, f, v) { this.saveF({ [`tile_cfg.${k}.${f}`]: v === '' || v == null ? undefined : v }); }
     _acc(key, title, icon, meta) {
@@ -836,29 +896,111 @@
           ${[['L', 'Venstre karusell'], ['R', 'Høyre karusell']].map(([sd, l]) => { const cur = Object.keys(SLIDE_L).filter((k) => (S[sd] || {})[k]);
             return `<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:#979797">${l}</span><div class="chs">
               ${cur.map((k) => `<button class="c34 press" data-a="slide" data-s="${sd}" data-v="${k}" title="Fjern">${ic(SLIDE_L[k][0], 18)}${SLIDE_L[k][1]}${ic('close', 16, 'color:#979797')}</button>`).join('')}
-              ${Object.keys(SLIDE_L).filter((k) => !cur.includes(k)).map((k) => `<button class="o34 press" data-a="slide" data-s="${sd}" data-v="${k}">+ ${SLIDE_L[k][1]}</button>`).join('')}</div></div>`; }).join('')}</div>`;
+              ${Object.keys(SLIDE_L).filter((k) => !cur.includes(k)).map((k) => `<button class="o34 press" data-a="slide" data-s="${sd}" data-v="${k}">+ ${SLIDE_L[k][1]}</button>`).join('')}</div></div>`; }).join('')}
+          ${this._calRow(m)}</div>`;
       }
       return this._acc('swipe', 'Swipe-kort', 'mdi:gesture-swipe-horizontal', n + ' ekstra') + body;
     }
+    // Fiks 17.10 · fire soner (Venstre/Høyre · over/under rommene) med mini-kart, Swipe-pille og +. Radene har bare ↑/↓ og
+    // chevron; plassering og «Fjern kortet» ligger i editoren under raden. Config uendret (tiles.<fane>.<id>.slot, swipe.<fane>.<sone>).
+    // Fiks 17.7 · Kalender-kortet: rad → rad-editor med Trykk, Hold, kalendere og «Hele dagen» (calendar.* i faner-configen)
+    _calRow(m) {
+      const c = m.c, K = c.calendar || {}, u = this.u, all = M.all(this.hass, 'calendar'), sel = (Array.isArray(K.entities) ? K.entities : []).filter((x) => all.includes(x));
+      const norm = M.hjemCalNorm || ((x) => x), ta = norm(K.tap_action), ha = norm(K.hold_action);
+      const lab = (a, std) => (!a ? std : M.tap ? M.tap.label(a, this.hass) : a.action);
+      const row = `<div class="zr ${u.calEd ? 'open' : ''}" data-key="calrow" style="background:var(--gray100,#2f2f2f)"><button class="zrm" data-a="caled"><span class="zc" style="background:rgba(255,255,255,0.08)">${ic('calendar_month', 20)}</span><span class="tt"><b>Kalender</b><i>Trykk: ${esc(lab(ta, 'Standard'))} · Hold: ${esc(lab(ha, 'Ingen'))}</i></span></button><button class="zch" data-a="caled" title="Rediger">${ic('expand_more', 22)}</button></div>`;
+      if (!u.calEd) return row;
+      const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'];
+      const tp = (w, v, std) => `<div class="tap" data-key="cal-tp-${w}"><span class="th">${ic(w === 'tap' ? 'touch_app' : 'mdi:gesture-tap-hold', 20, 'color:#afafaf')}${w === 'tap' ? 'Trykk' : 'Hold'}</span>
+          ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, labels: { path: 'Navigate' }, stdHint: std, attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
+      return row + `<div class="ted" data-key="cal-ed">${tp('tap', ta, 'Standard: kalender-arket (detaljer)')}${tp('hold', ha, 'Standard: ingen')}
+          <div class="fld"><span class="fl">Kalendere · ${sel.length ? sel.length + ' valgt' : 'alle'}</span><div class="ach">${all.map((id) => `<button class="${!sel.length || sel.includes(id) ? 'on' : ''}" data-a="calent" data-v="${esc(id)}" data-h="selection">${esc(M.name(this.hass, id))}</button>`).join('') || '<span class="sub">Fant ingen calendar.*</span>'}</div></div>
+          <button class="tgl" data-a="calallday" data-h="selection" style="background:var(--gray200,#3a3a3a)">Ta med «Hele dagen»-hendelser${this._sw(K.all_day !== false)}</button></div>`;
+    }
     _accSnar(m) {
-      const c = m.c, t = m.t, gk = (k) => { const [sd, p] = tileSlot(c, t, k).split('-'); return (sd === 'L' ? 0 : 2) + (p === 'top' ? 0 : 1); };
+      const t = m.t;
       let body = '';
-      if (this.u.acc.snar) {
-        const list = [...m.en].sort((a, b) => gk(a) - gk(b));
-        const groups = [['L-top', 'Venstre, over rommene'], ['L-bottom', 'Venstre, under rommene'], ['R-top', 'Høyre, over rommene'], ['R-bottom', 'Høyre, under rommene']].filter(([sl]) => m.inSlot(sl).length > 1);
-        const add = [['jul', '+ Jul']].filter(([k]) => m.avail.includes(k) && !m.en.includes(k));
-        body = `<div class="box t6" data-key="acb-snar">
-          ${list.map((k) => { const sl = tileSlot(c, t, k), [sd, p] = sl.split('-'), grp = m.inSlot(sl), gi = grp.indexOf(k), on = this.u.sel && this.u.sel.t === 'tile' && this.u.sel.id === k;
-            const ed = this.u.ted === k;
-            return `<div class="tr ${on || ed ? 'open' : ''}" data-key="tr-${esc(k)}"><button class="tm" data-a="tedit" data-v="${esc(k)}">${ic(kindIcon(k, c), 22)}<span class="tt"><b>${esc(kindLabel(k, c))}</b><i>${sd === 'L' ? 'Venstre' : 'Høyre'} · ${p === 'top' ? 'over rommene' : 'under rommene'}${KINDS[k] ? ' · live' : ''}</i></span></button>
-              <button class="sq ${gi > 0 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="-1">${ic('expand_less', 18)}</button><button class="sq ${gi < grp.length - 1 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="1">${ic('expand_more', 18)}</button>
-              <button class="sq" data-a="tswap" data-k="${esc(k)}" title="Bytt kolonne">${ic('swap_horiz', 18)}</button><button class="sq" data-a="tpos" data-k="${esc(k)}" data-v="${p === 'top' ? 'bottom' : 'top'}" title="Over eller under rommene">${ic(p === 'top' ? 'vertical_align_bottom' : 'vertical_align_top', 18)}</button>
-              <button class="sq del" data-a="thide" data-k="${esc(k)}" title="Slett">${ic('delete', 18)}</button></div>${ed ? `<div class="ted" data-key="ted-${esc(k)}">${this._tileEdFields(m, k, 'r')}</div>` : ''}`; }).join('')}
-          ${groups.length ? `<span style="font-size:12px;color:#979797;padding:8px 4px 0">Swipe-kort · én snarvei om gangen, sveip for neste</span>${groups.map(([sl, l]) => `<button class="swg" data-a="swall" data-v="${sl}" data-h="selection">${l}${this._sw(!!m.slotAll(sl))}</button>`).join('')}` : ''}
-          ${list.length ? '' : '<span class="dim">Ingen snarveier på denne fanen ennå.</span>'}
-          <div class="chs" style="padding-top:4px"><button class="o34 press ${this.u.tadd ? 'on-pk' : ''}" data-a="taddopen">${ic('add', 16)} Legg til</button>${add.map(([k, l]) => `<button class="o34 press" data-a="addtile" data-v="${k}">${l}</button>`).join('')}<button class="o34 press" data-a="addlink">+ Ny snarvei</button></div>${this._tileAdd(m)}</div>`;
-      }
+      if (this.u.acc.snar) body = `<div class="box t6" data-key="acb-snar">${ZONES.map(([sl, l]) => this._zone(m, sl, l)).join('')}</div>`;
       return this._acc('snar', 'Snarveier · ' + t.label, 'bolt', m.en.length + ' stk') + body;
+    }
+    _zone(m, sl, label) {
+      const u = this.u, list = m.inSlot(sl), n = list.length, open = u.zadd === sl, sw = !!m.slotAll(sl);
+      const map = `<span class="zm" aria-hidden="true">${['L-top', 'R-top'].map((z) => `<i class="${z === sl ? 'on' : ''}"></i>`).join('')}<b></b>${['L-bottom', 'R-bottom'].map((z) => `<i class="${z === sl ? 'on' : ''}"></i>`).join('')}</span>`;
+      let add = '';
+      if (open && u.tadd && u.tadd !== 'types') add = this._tileAdd(m);
+      else if (open) add = `<div class="zgr" data-key="zgr-${sl}">${ZADD.map(([v, icn, l]) => `<button class="press" data-a="zadd" data-z="${sl}" data-v="${v}">${ic(icn, 22, 'color:#afafaf')}${esc(l)}</button>`).join('')}</div>`;
+      return `<div class="zn" data-key="zn-${sl}"><div class="zh">${map}<span class="zt"><b>${esc(label)}</b><i>${n ? `${n} kort` : 'Tom'}</i></span>
+          ${n >= 2 ? `<button class="zsw ${sw ? 'on' : ''}" data-a="swall" data-v="${sl}" data-h="selection">${ic('mdi:gesture-swipe-horizontal', 14)}Swipe</button>` : ''}
+          <button class="zad ${open ? 'on' : ''}" data-a="zaddopen" data-v="${sl}" title="Legg til">${ic('mdi:plus', 20)}</button></div>
+        ${add}
+        ${n ? list.map((k, i) => this._zoneRow(m, k, i, n)).join('') : open ? '' : '<span class="zemp">Tomt · trykk + for å legge til</span>'}</div>`;
+    }
+    _zoneRow(m, k, i, n) {
+      const c = m.c, u = this.u, ed = u.ted === k, H = HT(), kd = H ? H.kindOf(c, k) : KINDS[k] ? k : null, L = kd ? null : (c.links || {})[k] || {};
+      const col = L && L.color && L.color !== 'ingen' ? (TSW.find((x) => x[0] === L.color) || [])[1] : null;
+      const sub = kd ? 'Live status' : L.sub || 'Snarvei';
+      const row = `<div class="zr ${ed ? 'open' : ''}" data-key="zr-${esc(k)}"><button class="zrm" data-a="tedit" data-v="${esc(k)}"><span class="zc" style="background:${col || 'rgba(255,255,255,0.08)'};${col ? 'color:#2f2f2f' : ''}">${ic(kindIcon(k, c), 20)}</span><span class="tt"><b>${esc(kindLabel(k, c))}</b><i>${esc(sub)}</i></span></button>
+          <span class="zud"><button class="${i > 0 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="-1" title="Flytt opp">${ic('expand_less', 18)}</button><button class="${i < n - 1 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="1" title="Flytt ned">${ic('expand_more', 18)}</button></span>
+          <button class="zch" data-a="tedit" data-v="${esc(k)}" title="Rediger">${ic('expand_more', 22)}</button></div>`;
+      if (!ed) return row;
+      const cur = tileSlot(c, m.t, k), pb = (z, l) => `<button class="${cur === z ? 'on' : ''}" data-a="zmove" data-k="${esc(k)}" data-v="${z}" data-h="selection">${l}</button>`;
+      const fields = kd ? this._tileEdFields(m, k, 'r') + this._tileEdExtra(m, k, 'r') : this._tilePanel(m, k, true);
+      return row + `<div class="ted" data-key="ted-${esc(k)}">
+          <div class="fld"><span class="fl">Plassering</span><div class="zpg">${pb('L-top', 'Venstre')}${pb('R-top', 'Høyre')}<span>Rommene</span>${pb('L-bottom', 'Venstre')}${pb('R-bottom', 'Høyre')}</div></div>
+          ${fields}
+          <button class="zdel press" data-a="thide" data-k="${esc(k)}" data-h="warning">${ic('delete', 18)}Fjern kortet</button></div>`;
+    }
+    /* ---------- 17.11 / 17.16 · ekstra felt i rad-editoren: Ruter (stopp, avvik, format) og Kamera (Aktiv-tilstand) */
+    _tileEdExtra(m, k, pre) {
+      const H = HT(), c = m.c, kd = H ? H.kindOf(c, k) : null;
+      if (kd === 'ruter') return this._ruterEd(m, k, pre);
+      if (kd === 'cam') return this._camEd(m, k, pre);
+      return '';
+    }
+    _ruterEd(m, k, pre) {
+      const cfg = HT().tileCfg(m.c, k), sxAuto = m.E ? m.E.ruterSx : null;
+      const pk = M.entityPicker ? M.entityPicker.html({ key: `${pre}-rav-${k}`, value: cfg.avvik_entity || '', auto: sxAuto || '', autoMode: true, autoLabel: `Automatisk (${sxAuto || 'fant ingen'})`, domains: ['sensor'], attrs: `data-in="teextent" data-k="${esc(k)}" data-f="avvik_entity"` }) : '';
+      const nx = cfg.show_next !== false;
+      return `<div class="asec" data-key="${pre}-rut-${esc(k)}"><span class="ttl">Neste avgang</span>
+          <div class="fld"><span class="fl">Avvik-sensor (valgfri)</span>${pk}</div>
+          <button class="tgl" data-a="teflag" data-k="${esc(k)}" data-f="show_next" data-v="${nx ? 0 : 1}" data-h="selection" style="background:var(--gray100,#2f2f2f)">Vis neste etter («, deretter 7 min»)${this._sw(nx)}</button>
+          <div class="fld"><span class="fl">Format · {route} {due_in} {delay} {next} {avvik}</span><input class="in" data-in="tefield" data-k="${esc(k)}" data-f="sub_format" value="${esc(cfg.sub_format || '')}" placeholder="Linje {route} om {due_in} min"></div></div>`;
+    }
+    _camEd(m, k, pre) {
+      const cfg = HT().tileCfg(m.c, k), a = cfg.active || {}, CM = M.hjemCam, K = esc(k);
+      if (!CM) return '';
+      const own = CM.listOf(a.triggers), cam = cfg.entity || (m.E ? m.E.cam : null), auto = CM.camAuto(this.hass, cam);
+      const seg = (f, opts, cur) => `<div class="ach">${opts.map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-a="teact" data-k="${K}" data-f="${f}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
+      const trig = own.map((t, i) => `<div class="trg" data-key="${pre}-trg-${K}-${i}">
+          ${M.entityPicker ? M.entityPicker.html({ key: `${pre}-trge-${k}-${i}`, value: t.entity || '', domains: [], attrs: `data-in="teacttrig" data-k="${K}" data-i="${i}"` }) : `<input class="in" data-in="teacttf" data-k="${K}" data-i="${i}" data-f="entity" value="${esc(t.entity || '')}">`}
+          <div class="ach">${CM.CAM_OPS.map(([v, l]) => `<button class="${(t.op || '=') === v ? 'on' : ''}" data-a="teacttop" data-k="${K}" data-i="${i}" data-v="${esc(v)}" data-h="selection">${esc(l)}</button>`).join('')}</div>
+          <div class="g2"><input class="in" data-in="teacttf" data-k="${K}" data-i="${i}" data-f="value" value="${esc(t.value ?? '')}" placeholder="on"><input class="in" data-in="teacttf" data-k="${K}" data-i="${i}" data-f="attribute" value="${esc(t.attribute || '')}" placeholder="Attributt (valgfri)"></div>
+          <button class="o34 press" style="align-self:flex-start" data-a="teacttdel" data-k="${K}" data-i="${i}">${ic('delete', 16)} Fjern utløser</button></div>`).join('');
+      const ow = CM.listOf(a.only_when), hold = a.hold_min ?? 2, col = a.color || 'var(--blue)';
+      const tm = (f, v, ph) => `<input class="in" type="time" data-in="teactf" data-k="${K}" data-f="${f}" value="${esc(v || '')}" placeholder="${ph}">`;
+      const icf = M.iconPicker ? M.iconPicker.html({ key: `${pre}-aic-${k}`, value: a.icon || '', placeholder: M.iconName('videocam'), label: 'Ikon når aktiv', attrs: `data-in="teacticon" data-k="${K}"` }) : `<input class="in" data-in="teactf" data-k="${K}" data-f="icon" value="${esc(a.icon || '')}" placeholder="mdi:cctv">`;
+      return `<div class="asec" data-key="${pre}-cam-${K}"><span class="ttl">Aktiv-tilstand</span>
+          <span class="fl">Når · utløsere</span>${seg('mode', [['any', 'Hvilken som helst'], ['all', 'Alle']], a.mode || 'any')}
+          ${own.length ? trig : `<span class="sub" style="line-height:1.4">Automatisk: ${esc(auto.length ? auto.join(', ') : 'fant ingen bevegelsessensor ved kameraet')}</span>`}
+          <button class="o34 press" style="align-self:flex-start" data-a="teacttadd" data-k="${K}">${ic('add', 16)} Legg til utløser</button>
+          <div class="fld"><span class="fl">Hold aktiv i <b class="ahold">${hold} min</b> etter at utløseren slutter</span><input type="range" min="0" max="30" step="1" data-in="teactnum" data-k="${K}" data-f="hold_min" value="${hold}"></div>
+          <span class="fl">Bare når (valgfritt)</span><div class="ach">${CM.CAM_ONLY.map(([v, l]) => `<button class="${ow.includes(v) ? 'on' : ''}" data-a="teactow" data-k="${K}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div>
+          ${ow.includes('night') ? `<div class="g2">${tm('night.from', get(a, 'night.from'), '22:00')}${tm('night.to', get(a, 'night.to'), '06:00')}</div>` : ''}
+          ${ow.includes('entity') && M.entityPicker ? M.entityPicker.html({ key: `${pre}-aoe-${k}`, value: a.only_entity || '', domains: ['input_boolean', 'binary_sensor', 'switch'], attrs: `data-in="teactent" data-k="${K}" data-f="only_entity"` }) : ''}
+          <div class="fld"><span class="fl">Stille-periode · ikke aktiver mellom</span><div class="g2">${tm('quiet.from', get(a, 'quiet.from'), '07:00')}${tm('quiet.to', get(a, 'quiet.to'), '16:00')}</div></div>
+          <span class="fl">Hvordan · stil</span>${seg('style', CM.CAM_STYLES, a.style || 'tint')}
+          <div class="fld"><span class="fl">Farge</span><div class="allc">${ALLCOLS().map(([v, hex, l]) => `<button class="${sameCol(v, col) ? 'on' : ''}" data-a="teact" data-k="${K}" data-f="color" data-v="${esc(v)}" title="${esc(l)}" style="background:${M.color(v, hex)}"></button>`).join('')}</div>
+            <label class="b36" style="align-self:flex-start;cursor:pointer">${ic('colorize', 16)}Egen farge<input type="color" data-in="teactf" data-k="${K}" data-f="color" value="${toHex(col)}" style="width:28px;height:22px;border:0;padding:0;background:none"></label></div>
+          <div class="fld"><span class="fl">Ikon når aktiv</span>${icf}</div>
+          <button class="tgl" data-a="teactb" data-k="${K}" data-f="pulse" data-h="selection" style="background:var(--gray100,#2f2f2f)">Puls rundt ikonet${this._sw(!!a.pulse)}</button>
+          <div class="fld"><span class="fl">Undertekst · {tid} {siden} {entitet} {sone}</span><input class="in" data-in="teactf" data-k="${K}" data-f="sub_active" value="${esc(a.sub_active || '')}" placeholder="Bevegelse nå"><input class="in" data-in="teactf" data-k="${K}" data-f="sub_after" value="${esc(a.sub_after || '')}" placeholder="Bevegelse for {siden} siden"></div>
+          <span class="fl">Ved aktivering</span>${seg('on_activate', CM.CAM_ACT, a.on_activate || 'none')}</div>`;
+    }
+    _actSet(k, f, v) { this.saveF({ [`tile_cfg.${k}.active.${f}`]: v === '' || v == null ? undefined : v }); }
+    _trigSet(k, fn) {
+      const H = HT(), a = H.tileCfg(this.F(), k).active || {}, L = M.hjemCam.listOf(a.triggers).map((x) => ({ ...x }));
+      fn(L);
+      this.saveF({ [`tile_cfg.${k}.active.triggers`]: L.length ? L : undefined });
     }
 
     // Romkort · ikon: standard for alle rom (icon_color_mode / icon_tap i faner-configen). «Tilpass rom» vinner per rom.
@@ -892,7 +1034,10 @@
       const hC = c.tab_height || 'std', wC = c.tab_width || 'std';
       const custom = (key, pk, min, max, def) => { const v = Number(c[pk]) || def; return `<div style="display:flex;align-items:center;gap:8px;padding-top:4px"><input type="range" min="${min}" max="${max}" step="1" value="${v}" data-in="tabpx" data-k="${pk}" style="flex:1;min-width:0">
           <div class="stp"><button data-a="tabstep" data-k="${pk}" data-v="-1" data-min="${min}" data-max="${max}" data-def="${def}">${ic('remove', 18)}</button><span>${v} px</span><button data-a="tabstep" data-k="${pk}" data-v="1" data-min="${min}" data-max="${max}" data-def="${def}">${ic('add', 18)}</button></div></div>`; };
-      return `${rows}
+      // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
+      const ga = M.glassAnimOn ? M.glassAnimOn() : true;
+      const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:#979797">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
+      return `${gaRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <div class="tset"><span class="lb">Faner</span>
           <div class="fld"><span class="fl">Høyde</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
@@ -1133,11 +1278,25 @@
         if (!el) return;
         e.stopPropagation();
         const v = e.detail ? e.detail.value : null, d = el.dataset;
-        if (d.in === 'taddent') return this._tileCreate(d.v, v || '');
+        if (d.in === 'taddent') return this._tileCreate(d.v, v || '', this.u.zadd || undefined);
         if (d.in === 'tetap') { const H = HT(), p = `tile_cfg.${d.k}.`; const pt = { [p + H.TAP_KEYS[d.w]]: v || undefined }; const al = { ic: 'tap_action', card: 'tap_action', hold_ic: 'icon_hold_action', hold_card: 'hold_action' }[d.w]; if (get(this.F(), p + al) != null && d.w !== 'ic' && d.w !== 'card') pt[p + al] = undefined; return this.saveF(pt); }
         return this._teSet(d.k, d.in === 'teent' ? 'entity' : 'icon', v || '');
       });
+      // Fiks 17.8 · snarvei-raden: ikonvelger og popup-velger (msh-icon-field / msh-popup-field)
+      r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && (n.dataset.in === 'licon' || n.dataset.in === 'lhash')); if (!el || !this.u.sel) return; e.stopPropagation(); const v = (e.detail && e.detail.value) || ''; this.saveF({ [`links.${this.u.sel.id}.${el.dataset.in === 'licon' ? 'icon' : 'hash'}`]: v || undefined }); });
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'icpick'); if (el && this.u.sel) { const v = e.detail && e.detail.value; this._roomSet(this.u.sel.id, { icon: v || undefined }); } });
+      // 17.7 / 17.11 / 17.16: kalender-handlinger, Ruter-avvik og kameraets aktiv-tilstand
+      r.addEventListener('value-changed', (e) => {
+        const el = e.composedPath().find((n) => n.dataset && /^(teextent|teacttrig|teactent|teacticon|caltap)$/.test(n.dataset.in || ''));
+        if (!el) return;
+        e.stopPropagation();
+        const v = e.detail ? e.detail.value : null, d = el.dataset;
+        if (d.in === 'caltap') return this.saveF({ [`calendar.${d.w}_action`]: v || undefined });
+        if (d.in === 'teextent') return this._teSet(d.k, d.f, v || '');
+        if (d.in === 'teacttrig') return this._trigSet(d.k, (L) => { if (L[+d.i]) L[+d.i].entity = v || ''; });
+        if (d.in === 'teactent') return this._actSet(d.k, d.f, v || undefined);
+        if (d.in === 'teacticon') return this._actSet(d.k, 'icon', v || undefined);
+      });
       r.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') e.target.blur(); });
       // .sh stopper pointerdown (MSH.overlay) → lytt i capture-fasen på selve arket.
       const sh = this.sheet;
@@ -1244,13 +1403,13 @@
       u.pick = null; u.hcQ = '';
       const m2 = this._model();
       if (/^rom:/.test(x)) {
-        const id = x.slice(4), sd = side || (m2.side('L').length <= m2.side('R').length ? 'L' : 'R');
+        const id = x.slice(4), sd = (side && side[0]) || (m2.side('L').length <= m2.side('R').length ? 'L' : 'R');
         u.sel = { t: 'room', id };
         return this._moveRoom(m2, id, sd, null);
       }
-      u.sel = { t: 'tile', id: x };
+      if (!(u.sel && u.sel.z && u.sel.id === x)) u.sel = { t: 'tile', id: x };
       const def = { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }[x] || 'R-top';
-      return this._moveTile(m2, x, side ? side + '-' + def.split('-')[1] : def, null);
+      return this._moveTile(m2, x, side ? (side.includes('-') ? side : side + '-' + def.split('-')[1]) : def, null);
     }
     _actKort(a, d) {
       const u = this.u, m = this._model(), t = m.t, c = m.c;
@@ -1281,8 +1440,34 @@
         case 'hcadd': return this._hcAdd(m, d.v);
         case 'hcno': { if (!t.hc) return; const ex = [...t.hc.exclude.filter((x) => x !== d.v), d.v]; return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards, ex) }); }
         case 'selroom': u.sel = u.sel && u.sel.t === 'room' && u.sel.id === d.v ? null : { t: 'room', id: d.v }; u.pick = null; u.icQ = ''; return this.render();
-        case 'seltile': u.sel = u.sel && u.sel.t === 'tile' && u.sel.id === d.v ? null : { t: 'tile', id: d.v }; u.pick = null; return this.render();
-        case 'tedit': u.ted = u.ted === d.v ? null : d.v; u.tadd = null; return this.render();
+        case 'seltile': u.sel = u.sel && u.sel.t === 'tile' && u.sel.id === d.v && !u.sel.z ? null : { t: 'tile', id: d.v }; u.pick = null; u.ted = null; return this.render();
+        // 17.10: editoren under raden i sonen (u.sel.z = samme valg som layout-panelet bruker, men uten panelet øverst)
+        case 'tedit': u.ted = u.ted === d.v ? null : d.v; u.tadd = null; u.sel = u.ted ? { t: 'tile', id: u.ted, z: true } : u.sel && u.sel.z ? null : u.sel; return this.render();
+        case 'zaddopen': u.zadd = u.zadd === d.v ? null : d.v; u.tadd = null; return this.render();
+        case 'zadd': {
+          const z = d.z, v = d.v;
+          if (v === 'link') {
+            const lk = Object.keys(c.links || {}), nx = 'l' + pad2(lk.reduce((mx, x) => Math.max(mx, parseInt(x.slice(1), 10) || 0), 0) + 1);
+            this._F = setIn(c, 'links.' + nx, { title: 'Ny snarvei', icon: 'mdi:star' });
+            if (t.hc) this._F = setIn(this._F, 'tabs.hjem', this._hcObj(m, [...t.hc.cards, nx], t.hc.exclude));
+            u.zadd = null; u.ted = nx; u.sel = { t: 'tile', id: nx, z: true };
+            return this._moveTile(this._model(), nx, z, null);
+          }
+          if (v === 'jul') { u.zadd = null; u.ted = 'jul'; u.sel = { t: 'tile', id: 'jul', z: true }; if (t.hc) return this._hcAdd(m, 'jul', z); return this._moveTile(m, 'jul', z, null); }
+          if (!(m.E && m.E[v])) { u.zadd = z; u.tadd = v; return this.render(); } // fant ingen entitet → velg først
+          return this._tileCreate(v, '', z);
+        }
+        case 'zmove': { const k2 = d.k; return this._moveTile(m, k2, d.v, null); }
+        case 'teact': return this._actSet(d.k, d.f, d.v);
+        case 'teactb': { const H = HT(), a0 = H.tileCfg(c, d.k).active || {}; return this._actSet(d.k, d.f, a0[d.f] ? undefined : true); }
+        case 'teactow': { const H = HT(), cur = M.hjemCam.listOf((H.tileCfg(c, d.k).active || {}).only_when); const nx = cur.includes(d.v) ? cur.filter((x) => x !== d.v) : [...cur, d.v]; return this._actSet(d.k, 'only_when', nx.length ? nx : undefined); }
+        case 'teacttop': return this._trigSet(d.k, (L) => { if (L[+d.i]) L[+d.i].op = d.v; });
+        case 'teacttdel': return this._trigSet(d.k, (L) => { L.splice(+d.i, 1); });
+        case 'teacttadd': return this._trigSet(d.k, (L) => { L.push({ entity: '', op: '=', value: 'on' }); });
+        case 'teflag': return this.saveF({ [`tile_cfg.${d.k}.${d.f}`]: d.v === '1' ? undefined : false });
+        case 'caled': u.calEd = !u.calEd; return this.render();
+        case 'calent': { const all = M.all(this.hass, 'calendar'), sel = (get(c, 'calendar.entities') || []).filter((x) => all.includes(x)), cur = sel.length ? sel : all; const nx = cur.includes(d.v) ? cur.filter((x) => x !== d.v) : [...cur, d.v]; return this.saveF({ 'calendar.entities': nx.length && nx.length < all.length ? nx : undefined }); }
+        case 'calallday': return this.saveF({ 'calendar.all_day': get(c, 'calendar.all_day') === false ? undefined : false });
         case 'taddopen': u.tadd = u.tadd ? null : 'types'; u.ted = null; return this.render();
         case 'taddtype': u.tadd = d.v; return this.render();
         case 'tereset': { const k2 = d.k, x = get(c, 'tile_cfg.' + k2) || {}; const keep = k2 !== (HT() && HT().kindOf(c, k2)) ? { kind: x.kind, side: x.side, pos: x.pos } : undefined; M.haptic('warning'); return this.saveF({ ['tile_cfg.' + k2]: keep }); }
@@ -1403,6 +1588,7 @@
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
         }
+        case 'glassanim': { if (M.setGlassAnim) { this._saving = true; try { M.setGlassAnim(!(M.glassAnimOn && M.glassAnimOn())); } finally { this._saving = false; } } return this.render(); } // ki-store ui.glass_anim (Fiks 17.18)
         case 'tabview': return this.saveF({ ['tab_views.' + d.k]: d.v });
         case 'tabcards': u.sec = 'kort'; u.ctx = d.k; u.sel = null; u.pick = null; return this.render();
         case 'tabnew': {
@@ -1472,6 +1658,7 @@
       if (kind === 'input') {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
         if (k === 'hcq') { u.hcQ = v; return this._schedule(); }
+        if (k === 'teactnum') { const b = el.parentNode.querySelector('.ahold'); if (b) b.textContent = v + ' min'; return; }
         if (k === 'blimit') { const l = this.root.querySelector('[data-lim]'); if (l) l.textContent = v + ' %'; return; }
         if (k === 'tabpx') { const s = el.parentNode.querySelector('.stp span'); if (s) s.textContent = v + ' px'; return; }
         if (k === 'pgap') return this._pgSet(Number(v), false);
@@ -1503,6 +1690,10 @@
           if (f === 'icon' && val === 'auto') val = undefined;
           return this.saveF({ [`tap.${u.sel.id}.${f}`]: val || undefined });
         }
+        case 'tefield': return this._teSet(d.k, d.f, trim);
+        case 'teactf': return this._actSet(d.k, d.f, trim || undefined);
+        case 'teactnum': return this._actSet(d.k, d.f, Number(v) === 2 ? undefined : Number(v));
+        case 'teacttf': return this._trigSet(d.k, (L) => { if (L[+d.i]) L[+d.i][d.f] = trim || undefined; });
         case 'tename': case 'tesub': case 'teiconraw': return this._teSet(d.k, { tename: 'name', tesub: 'sub', teiconraw: 'icon' }[k], trim);
         case 'tfra': case 'ttil': {
           if (!u.sel) return;
