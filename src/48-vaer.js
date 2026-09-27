@@ -614,6 +614,7 @@
     const ctl = M.draftEditor(card, {
       saveOpts: { scope: 'shared' },
       banner: () => ov && ov.body,
+      alive: () => !ov || ov.host.isConnected,
       close: () => ov && ov.close(),
       onBusy: (b) => { st.busy = b; draw(); },
       onReload: () => draw(),

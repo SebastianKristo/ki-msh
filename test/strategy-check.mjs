@@ -244,8 +244,6 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
 
     console.log('STEG // import 15.5/15.8'); // popups.html + dependencies_dash.html via «Importer»
     history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await wait(300);
-    M.store.set('custom_popups', undefined); M.store.set('popup_overrides', undefined); M.store.set('dashboard_globals', undefined); await M.store.save();
-    await S.generate({}, hass); await wait(500);
     const I = {};
     const sortK = (v) => (Array.isArray(v) ? v.map(sortK) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortK(v[k])])) : v);
     const docs = M.yaml.splitDocs(M.yaml.toText(FX.popups));
@@ -258,7 +256,11 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     };
     const paste = async (txt) => { const ta = q('[data-in="ppimptext"]'); ta.value = txt; ta.dispatchEvent(new Event('input', { bubbles: true })); await act('ppimpread'); await wait(200); };
     // 1) popups først (uten maler) → advarsel om manglende maler
-    await openPop(); await act('ppimport');
+    await openPop();
+    // tøm egne popups/maler fra tidligere steg (etter at arket er åpnet – lukking av et gammelt ark ruller tilbake utkastet)
+    M.store.set('custom_popups', undefined); M.store.set('popup_overrides', undefined); M.store.set('dashboard_globals', undefined); M.store.set('popups', undefined);
+    await S.generate({}, hass); await wait(500);
+    await act('ppimport');
     await paste(FX.popups);
     I.forhandsvis10 = qa('.ppchk').length === 10 && qa('.ppchk.on').length === 10 && /Importer 10/.test(q('[data-a="ppimpdo"]').textContent);
     I.erstatterAuto = qa('.ppchk').filter((x) => /erstatter autogenerert/.test(x.textContent)).length >= 2;
@@ -316,7 +318,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     await type(t1);
     await act('ppsave'); await wait(1400);
     const rolf = (M.store.get('custom_popups') || []).find((c) => c.hash === '#rolf');
-    I.lagretYaml = !!rolf && rolf.name === 'Rolf' && rolf.yaml === t1 && rolf.imported;
+    I.lagretYaml = !!rolf && rolf.name === 'Rolf' && rolf.yaml === t1 && !!rolf.imported;
     // dupliser
     await act('ppopen', '#planter'); await act('ppdup');
     I.dupliser = /hash: '#planter-kopi'/.test(q('.ppcode textarea').value) && !q('[data-key="ppsave"]').disabled;

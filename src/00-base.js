@@ -1077,7 +1077,7 @@
           const key = this._yamlConfig && MSH.storeKey(this._yamlConfig, this);
           if (path && String(path).startsWith('devices.')) path = String(path).split('.').slice(2).join('.'); // enhetslaget
           if (!key || (path && path !== key && !String(path).startsWith(key + '.') && !key.startsWith(path + '.'))) return;
-          if (MSH.drafts.has(key)) return; // utkast åpent: arket bestemmer (egen lagring ignoreres, annen kilde → banner)
+          if (MSH.draftFor(key)) return; // utkast åpent: arket bestemmer (egen lagring ignoreres, annen kilde → banner)
           const eff = MSH.effectiveConfig(this._yamlConfig, this);
           if (JSON.stringify(eff) !== JSON.stringify(this._rawConfig)) this.setConfig(this._yamlConfig);
         });
@@ -1333,14 +1333,15 @@
   //           sted – Last inn» (ctl.reload()). Er utkastet uendret, tas endringen inn stille.
   //   Mens arket er åpent følger kortet utkastet: MshCard-abonnementet på ki-store og setConfig fra HA hopper over
   //   nøkkelen (MSH.drafts), så lagring → ekko → setConfig ikke kan nullstille visningen.
-  // MSH.draftEditor(card, { key, config, saved, current, prepare, save, saveOpts, live, banner, close, onBusy, onError,
-  //   onReload, toast }) → ctl { draft, saved, busy, dirty, external, closed, set(next), preview(), done(), cancel(),
+  // MSH.draftEditor(card, { key, config, saved, current, prepare, save, saveOpts, live, banner, close, alive, onBusy,
+  //   onError, onReload, toast }) → ctl { draft, saved, busy, dirty, external, closed, set(next), preview(), done(), cancel(),
   //   reload(), dispose() }. Ett ark per nøkkel: MSH.draftFor(key|kort) gir et åpent ark (openEditor gjenbruker det).
   MSH.drafts = MSH.drafts || new Map();
-  MSH.draftFor = (k) => { const c = k != null && MSH.drafts.get(k); return c && !c.closed ? c : null; };
+  // Et ark som er fjernet fra DOM uten å lukkes (alive() = false) regnes som Avbryt, så kortet ikke blir låst
+  MSH.draftFor = (k) => { const c = k != null && MSH.drafts.get(k); if (c && !c.closed && c.alive && !c.alive()) c.dispose(); return c && !c.closed ? c : null; };
   MSH.draftOf = function (card) {
     if (!MSH.drafts.size || !card) return null;
-    for (const c of MSH.drafts.values()) if (c.card === card && !c.closed) return c;
+    for (const [k, c] of MSH.drafts) if (c.card === card && MSH.draftFor(k)) return c;
     let k = null; try { k = card._yamlConfig && MSH.store ? MSH.storeKey(card._yamlConfig, card) : null; } catch (e) { /* */ }
     return (k && MSH.draftFor(k)) || null;
   };
@@ -1426,7 +1427,7 @@
       if (o.onFinish) try { o.onFinish(ok); } catch (e) { /* */ }
     };
     const ctl = {
-      card, key, src,
+      card, key, src, alive: o.alive || null,
       get draft() { return draft; },
       get saved() { return saved; },
       get busy() { return busy; },
@@ -1511,6 +1512,7 @@
     const live = () => !(MSH.store && MSH.store.scope === 'shared' && own());
     const ctl = MSH.draftEditor(card, {
       key, live,
+      alive: () => ov.host.isConnected,
       banner: () => ov.body,
       close: () => ov.close(),
       onBusy: (b) => { if (b) status('Lagrer …'); else if (ed.status === 'Lagrer …') status(''); MSH.draftBusy(ed, b); },
