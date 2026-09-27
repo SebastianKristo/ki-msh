@@ -92,9 +92,11 @@
     const I = M.CARD_IDS || {}, cards = (user && user.cards) || {};
     const nav = { ...(config.navbar || {}), ...(cards[I.navbar] || {}) };
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
-    const oh = own.hash != null && own.hash !== '' ? '#' + String(own.hash).trim().replace(/^#/, '') : hash;
+    // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
+    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? String(t.navigation_path).trim() : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? t.trim() : ''; return b.hash != null && b.hash !== '' ? '#' + String(b.hash).trim().replace(/^#/, '') : null; };
+    const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
-    if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && B[k].hash != null && '#' + String(B[k].hash).trim().replace(/^#/, '') === hash)) return true;
+    if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && target(B[k]) === hash)) return true;
     const faner = { ...(((config.home || {}).cards || {}).faner || {}), ...(cards[I.faner] || {}) };
     if (R.tile && faner.overrides && faner.overrides[R.tile]) return true; // Hjem-flis med valgt entitet
     return hasStr(cards, hash) || hasStr(config.home, hash);

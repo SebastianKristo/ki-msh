@@ -276,6 +276,21 @@ const hjem = await page.evaluate(async () => {
 ok('«Tilpass Hjem» → Tekst: «Ved trykk» med Popup · Egen hash · Sti · URL · More-info · Dørlås · Ingen', !!hjem.modes && JSON.stringify(hjem.modes) === JSON.stringify(['Popup', 'Egen hash', 'Sti', 'URL', 'More-info', 'Dørlås', 'Ingen']), hjem);
 ok('«Tilpass Hjem» → Tekst: egen hash lagres som tap (gammel link fjernes)', hjem.row && hjem.row.tap && hjem.row.tap.navigation_path === '#tesla' && !('link' in hjem.row), hjem.row);
 
+const prom = await page.evaluate(async () => {
+  // Promise-API (popup-editoren): valgt ID, eller null ved avbryt
+  const sheetRoot = () => [...document.querySelector('ki-overlay-root').shadowRoot.querySelectorAll('.msh-portal')].map((x) => x.shadowRoot).find((r) => r.querySelector('.q') && !r.host.__used);
+  const p1 = MSH.iconPicker.open({ value: 'mdi:sofa' });
+  await new Promise((r) => setTimeout(r, 300));
+  const r1 = sheetRoot(); r1.host.__used = true; r1.querySelector('.vg .ic').click();
+  const v1 = await p1;
+  const p2 = MSH.iconPicker.open({ value: '' });
+  await new Promise((r) => setTimeout(r, 100));
+  p2.close();
+  const v2 = await p2;
+  return { v1, v2, thenable: typeof p1.then === 'function' };
+});
+ok('iconPicker.open() → Promise med valgt ID / null ved avbryt', prom.thenable && /^mdi:/.test(prom.v1 || '') && prom.v2 === null, prom);
+
 ok('ingen sidefeil', errs.length === 0, errs.slice(0, 3));
 await page.close();
 await browser.close();

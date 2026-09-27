@@ -4804,9 +4804,11 @@ try {
     const I = M.CARD_IDS || {}, cards = (user && user.cards) || {};
     const nav = { ...(config.navbar || {}), ...(cards[I.navbar] || {}) };
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
-    const oh = own.hash != null && own.hash !== '' ? '#' + String(own.hash).trim().replace(/^#/, '') : hash;
+    // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
+    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? String(t.navigation_path).trim() : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? t.trim() : ''; return b.hash != null && b.hash !== '' ? '#' + String(b.hash).trim().replace(/^#/, '') : null; };
+    const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
-    if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && B[k].hash != null && '#' + String(B[k].hash).trim().replace(/^#/, '') === hash)) return true;
+    if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && target(B[k]) === hash)) return true;
     const faner = { ...(((config.home || {}).cards || {}).faner || {}), ...(cards[I.faner] || {}) };
     if (R.tile && faner.overrides && faner.overrides[R.tile]) return true; // Hjem-flis med valgt entitet
     return hasStr(cards, hash) || hasStr(config.home, hash);
@@ -6383,7 +6385,8 @@ try {
  *          Prefiks som bare finnes i window.customIconsets (ingen liste) får en chip med «skriv navnet»-hint.
  *
  * API (window.MSH.iconPicker):
- *   open({ value, onPick(icon), title }) → { close }   – åpner arket; onPick får full ID ('' = tømt)
+ *   open({ value, onPick(icon), title }) → Promise<full ID | '' (tømt) | null (avbrutt)> med .close()
+ *       – åpner arket; onPick (alias onChange/onSelect) kalles også ved valg. Brukes av popup-editoren (28) via Promise.
  *   html({ name, value, placeholder, key, attrs })   → '<msh-icon-field …>' (morph-trygg: data-nomorph + data-key)
  *   load() → Promise<[{ prefix, label, icons: [{ n, k }] | null }]>   · search(q, prefix) → Promise<[full ID]>
  *   recent() → [full ID] · addRecent(id)             · tag: 'msh-icon-field'
@@ -6556,7 +6559,11 @@ try {
       <div class="man" hidden><input class="mi" placeholder="prefiks:navn – mdi:sofa, phu:…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cur)}"><button class="ok" data-p="manok">Bruk</button></div>
       <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}<button class="lnk" data-p="man">Skriv inn manuelt</button></span></div>` });
     const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), chips = R.querySelector('.chips');
-    const done = (v) => { M.haptic('success'); if (v) addRecent(v); S.close(); if (o.onPick) o.onPick(v); };
+    const cb = o.onPick || o.onChange || o.onSelect;
+    let picked = null, resolveP;
+    const P = new Promise((r) => { resolveP = r; });
+    S.onClosed = () => resolveP(picked); // avbrutt (lukket uten valg) → null
+    const done = (v) => { M.haptic('success'); if (v) addRecent(v); picked = v || ''; S.close(); if (cb) cb(v); };
     const drawChips = () => {
       const list = [['alle', 'Alle'], ...(st.sets || [{ prefix: 'mdi', label: KNOWN.mdi }]).map((s) => [s.prefix, s.prefix === 'mdi' ? 'mdi' : `${s.label}${s.label !== s.prefix ? ' · ' + s.prefix : ''}`])];
       chips.innerHTML = list.map(([k, l]) => `<button class="chip${st.set === k ? ' on' : ''}" data-p="set" data-v="${esc(k)}">${esc(l)}</button>`).join('');
@@ -6623,7 +6630,8 @@ try {
     drawChips(); draw();
     requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
     load().then((sets) => { if (S.closed) return; st.sets = sets; drawChips(); draw(); });
-    return S;
+    P.close = S.close; P.sheet = S;
+    return P;
   }
 
   /* ------------------------------------------------------------ feltet <msh-icon-field> */
@@ -14898,7 +14906,8 @@ try {
           const pick = (v) => { if (v != null && ed.u.pd === p) setIcon(ed, v); };
           try {
             const fn = typeof M.iconPicker === 'function' ? M.iconPicker : M.iconPicker.open.bind(M.iconPicker);
-            const r = fn({ value: cur, hass: ed.hass, onPick: pick, onChange: pick, onSelect: pick });
+            // MSH.iconPicker.open({ value }) → Promise<full ID | '' (tømt) | null (avbrutt)> (09-icon-picker)
+            const r = fn({ value: cur, hass: ed.hass });
             if (r && typeof r.then === 'function') r.then((v) => { if (typeof v === 'string') pick(v); }).catch(() => {});
           } catch (e) { console.warn('[ki-msh] ikonvelger', e); }
           return true;

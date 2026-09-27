@@ -18,7 +18,8 @@
  *          Prefiks som bare finnes i window.customIconsets (ingen liste) får en chip med «skriv navnet»-hint.
  *
  * API (window.MSH.iconPicker):
- *   open({ value, onPick(icon), title }) → { close }   – åpner arket; onPick får full ID ('' = tømt)
+ *   open({ value, onPick(icon), title }) → Promise<full ID | '' (tømt) | null (avbrutt)> med .close()
+ *       – åpner arket; onPick (alias onChange/onSelect) kalles også ved valg. Brukes av popup-editoren (28) via Promise.
  *   html({ name, value, placeholder, key, attrs })   → '<msh-icon-field …>' (morph-trygg: data-nomorph + data-key)
  *   load() → Promise<[{ prefix, label, icons: [{ n, k }] | null }]>   · search(q, prefix) → Promise<[full ID]>
  *   recent() → [full ID] · addRecent(id)             · tag: 'msh-icon-field'
@@ -191,7 +192,11 @@
       <div class="man" hidden><input class="mi" placeholder="prefiks:navn – mdi:sofa, phu:…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cur)}"><button class="ok" data-p="manok">Bruk</button></div>
       <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}<button class="lnk" data-p="man">Skriv inn manuelt</button></span></div>` });
     const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), chips = R.querySelector('.chips');
-    const done = (v) => { M.haptic('success'); if (v) addRecent(v); S.close(); if (o.onPick) o.onPick(v); };
+    const cb = o.onPick || o.onChange || o.onSelect;
+    let picked = null, resolveP;
+    const P = new Promise((r) => { resolveP = r; });
+    S.onClosed = () => resolveP(picked); // avbrutt (lukket uten valg) → null
+    const done = (v) => { M.haptic('success'); if (v) addRecent(v); picked = v || ''; S.close(); if (cb) cb(v); };
     const drawChips = () => {
       const list = [['alle', 'Alle'], ...(st.sets || [{ prefix: 'mdi', label: KNOWN.mdi }]).map((s) => [s.prefix, s.prefix === 'mdi' ? 'mdi' : `${s.label}${s.label !== s.prefix ? ' · ' + s.prefix : ''}`])];
       chips.innerHTML = list.map(([k, l]) => `<button class="chip${st.set === k ? ' on' : ''}" data-p="set" data-v="${esc(k)}">${esc(l)}</button>`).join('');
@@ -258,7 +263,8 @@
     drawChips(); draw();
     requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
     load().then((sets) => { if (S.closed) return; st.sets = sets; drawChips(); draw(); });
-    return S;
+    P.close = S.close; P.sheet = S;
+    return P;
   }
 
   /* ------------------------------------------------------------ feltet <msh-icon-field> */
