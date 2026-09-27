@@ -605,27 +605,32 @@
 
   /* ================================================================ «Tilpass været» (ark, portalet ut av popupen) */
   // Seksjoner: dra-håndtak, ikon, navn, opp/ned-piler og øye. Detaljkort: 2-kolonners rutenett, dra for å bytte, øye skjuler.
-  // Endringer vises straks i kortet og lagres i kortets config (MSH.saveCardConfig). «Forhåndsvis vær» lagres ikke.
+  // Utkastflyten (MSH.draftEditor, fiks 15.13): endringer vises straks i kortet, men lagres først ved Ferdig (én gang,
+  // i kortets config via MSH.saveCardConfig). Avbryt/utenfor/Esc forkaster. «Forhåndsvis vær» lagres aldri.
   // Arket bruker MSH.overlay sin felles ark-stil (solid som standard, frosted glass bare med Liquid Glass-tema).
   function openSheet(card) {
     if (card._sheet && card._sheet.ov && !card._sheet.ov.closed) return card._sheet;
-    let cur = card._rawConfig || card.config;
-    const st = { pv: card._preview || null, drag: null };
+    let ov = null;
+    const ctl = M.draftEditor(card, {
+      saveOpts: { scope: 'shared' },
+      banner: () => ov && ov.body,
+      alive: () => !ov || ov.host.isConnected,
+      close: () => ov && ov.close(),
+      onBusy: (b) => { st.busy = b; draw(); },
+      onReload: () => draw(),
+    });
+    const st = { pv: card._preview || null, drag: null, busy: false };
     const hass = () => card.hass;
-    const sections = () => orderOf(SK, cur.sections), tiles = () => orderOf(TK, cur.tiles);
-    const hidS = () => new Set(cur.hidden_sections || []), hidT = () => new Set(cur.hidden_tiles || []);
+    const sections = () => orderOf(SK, ctl.draft.sections), tiles = () => orderOf(TK, ctl.draft.tiles); // fra utkastet
+    const hidS = () => new Set(ctl.draft.hidden_sections || []), hidT = () => new Set(ctl.draft.hidden_tiles || []);
+    // Endring = bare utkast + forhåndsvisning (ingen lagring før Ferdig)
     const apply = (patch, hap) => {
-      const old = cur, next = { ...cur, ...patch };
+      if (st.busy) return;
+      const next = { ...ctl.draft, ...patch };
       Object.keys(patch).forEach((k) => { if (patch[k] === undefined || (Array.isArray(patch[k]) && !patch[k].length && k.startsWith('hidden_'))) delete next[k]; });
-      cur = next;
-      card.setConfig({ ...next, __eff: 1 });
-      if (next.card_id) M.applyLive(next.card_id, next);
+      ctl.set(next);
       if (hap) M.haptic(hap);
       draw();
-      Promise.resolve(M.saveCardConfig(hass(), old, next, { card, scope: 'shared' })).then((r) => {
-        if (r && r.config && r.config.card_id && r.config.card_id !== cur.card_id) { cur = { ...cur, card_id: r.config.card_id }; card.setConfig({ ...cur, __eff: 1 }); }
-        if (r && r.ok === false) { M.haptic('failure'); M.toast('Kunne ikke lagre' + (r.error ? ' – ' + r.error : '')); }
-      }).catch(() => {});
     };
     const eyeBtn = (a, k, hid, label, size) => `<button class="eye${hid ? ' off' : ''}" data-a="${a}" data-k="${k}" aria-pressed="${hid}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'visibility_off' : 'visibility', size)}</button>`;
     const draw = () => {
@@ -634,7 +639,7 @@
       const so = sections(), hs = hidS(), to = tiles(), ht = hidT();
       const byS = Object.fromEntries(SECS.map((s) => [s[0], s])), byT = Object.fromEntries(TILES.map((t) => [t[0], t]));
       box.innerHTML = `<div class="hd"><span class="col grow" style="gap:2px;min-width:0"><span class="tt">Tilpass været</span><span class="st">Dra for å flytte · øyet skjuler</span></span>
-          <button class="nb" data-a="reset">Nullstill</button><button class="ok" data-a="done">Ferdig</button></div>
+          <button class="nb" data-a="cancel">Avbryt</button><button class="nb" data-a="reset">Nullstill</button><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         <span class="cap">Forhåndsvis vær</span>
         <div class="chips">${PREVIEW.map((k) => `<button class="chip${st.pv === k ? ' on' : ''}" data-a="pv" data-k="${k}" aria-pressed="${st.pv === k}">${M.icon(WX[k][0], 16, `color:${st.pv === k ? '#282828' : WX[k][2]}`)}${esc(WX[k][1])}</button>`).join('')}</div>
         <span class="cap">Seksjoner</span>
@@ -650,23 +655,24 @@
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
       if (sh) sh.scrollTop = top;
     };
-    const ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { card._sheet = null; if (card._preview) card.setPreview(null); } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { ctl.dispose(); card._sheet = null; if (card._preview) card.setPreview(null); } });
     const box = document.createElement('div');
     box.className = 'vaer-sheet';
-    Object.defineProperty(box, '_config', { get: () => cur });
+    Object.defineProperty(box, '_config', { get: () => ctl.draft });
     ov.body.appendChild(box);
     ov.root.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el || el.disabled || st.dragged) return;
       const a = el.dataset.a, k = el.dataset.k;
       switch (a) {
-        case 'done': M.haptic('success'); if (M.flushSaves) M.flushSaves(); return ov.close();
+        case 'done': return ctl.done();
+        case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'reset': return apply({ sections: undefined, hidden_sections: undefined, tiles: undefined, hidden_tiles: undefined }, 'warning');
         case 'pv': st.pv = st.pv === k ? null : k; card.setPreview(st.pv); M.haptic('selection'); return draw();
         case 'mv': { const o = sections(), i = o.indexOf(k), j = i + Number(el.dataset.d); if (i < 0 || j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; return apply({ sections: o }, 'selection'); }
         case 'eye': { const s = hidS(); if (s.has(k)) s.delete(k); else s.add(k); return apply({ hidden_sections: SK.filter((x) => s.has(x)) }, 'selection'); }
         case 'teye': { const s = hidT(); if (s.has(k)) s.delete(k); else s.add(k); return apply({ hidden_tiles: TK.filter((x) => s.has(x)) }, 'selection'); }
-        case 'more': ov.close(); return M.Card.prototype.customize.call(card, 'overrides');
+        case 'more': return Promise.resolve(ctl.done()).then((r) => { if (ctl.closed) M.Card.prototype.customize.call(card, 'overrides'); return r; });
         default: return undefined;
       }
     });

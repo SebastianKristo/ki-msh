@@ -74,10 +74,11 @@ Object.assign(res, await A.p.evaluate(async () => {
   const sh = M.portals().pop().shadowRoot;
   r.romBar = !!sh.querySelector('msh-scope-bar');
   const ed = sh.querySelector('msh-editor');
-  [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await window.__wait(900);
+  [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await window.__wait(100);
+  ed.shadowRoot.querySelector('[data-a="save"]').click(); await window.__wait(800); // utkastflyt: lagres ved Ferdig (fiks 15.13)
   r.romShared = M.store.get('rooms.stue');
   r.romDev = M.store.get('devices.telefon.rooms.stue') || null;
-  M.portals().forEach((p) => p.remove());
+  M.portals().forEach((p) => p.remove()); // (arket er allerede lukket av Ferdig)
   // Kamera: per enhet
   location.hash = '#kamera'; await window.__wait(1000);
   const k = window.__kam();

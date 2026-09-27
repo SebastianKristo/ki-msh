@@ -14,7 +14,12 @@
  * Merker (røde prikker) med vilkår: entitet + operator (Over/Under/Er/Er ikke) + verdi.
  * Config (alt redigeres i «Tilpass navbar» = kortets egen editor = HA GUI-editor):
  *   bar: [id…]  more: [id…]  hidden: [id…]
- *   buttons: { id: { icon, label, hash, custom, action, service, entity } }   (overstyring av innebygde + egne knapper)
+ *   buttons: { id: { icon, label, tap, custom, action, service, entity } }   (overstyring av innebygde + egne knapper)
+ *     tap = «Handling» i HA-format (src/09-tap-picker.js): { action: navigate, navigation_path: '#tesla' } (popup eller
+ *     egen hash) · { action: navigate, navigation_path: '/lovelace/x' } (dashbord-sti) · { action: url, url_path } ·
+ *     { action: none } (egne knapper). Gammel nøkkel hash: '#x' leses fortsatt når tap mangler. Aktiv-prikk og
+ *     toggle-lukk (MSH.closePopup) gjelder alle hasher, også egne. action = tjeneste/enhet for egne knapper (lås, alarm …).
+ *     icon velges med felles ikonvelger (MSH.iconPicker, src/09-icon-picker.js).
  *   badges:  { id: [{ entity, op: '>'|'<'|'='|'!=', value, text }] }
  *   show_names, menu_names, shrink, width (kompakt|std|full), style (white|glass), layout (auto|mobil|stor),
  *   reserve_space, toasts, admin_tools
@@ -174,7 +179,11 @@
     return { B, bar, more, hidden, badges: c.badges || {} };
   }
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
-  const hashOf = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : '#' + id; h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
+  // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
+  // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
+  const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : '#' + id; h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
+  const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
+  const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? p : ''; };
   const ruleHit = (x, st) => {
     if (!x || !x.entity || !st) return false;
     const s = String(st.state), op = x.op || '=';
@@ -579,6 +588,7 @@
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
         if (h) { this._opened = { id, t: Date.now() }; M.openPopup(h); }
+        else if (M.tap) M.tap.run(this, tapOf(N, id)); // dashbord-sti / URL
         return;
       }
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
@@ -684,6 +694,8 @@
     .cap{font-size:12px;color:#979797}
     .i44{height:44px;border-radius:14px;padding:0 14px;background:#232323;color:#fafafa;font-size:15px;width:100%;min-width:0}
     .icp{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#232323}
+    msh-icon-field{--msh-if-bg:#232323;--msh-if-ic:#3a3a3a} msh-tap-picker{--msh-tp-bg:#232323}
+    :host([glass]) msh-icon-field{--msh-if-bg:rgba(0,0,0,0.25);--msh-if-ic:rgba(255,255,255,0.12)} :host([glass]) msh-tap-picker{--msh-tp-bg:rgba(0,0,0,0.25)}
     .ln{display:flex;gap:8px;align-items:center}
     .sug{display:flex;gap:6px;flex-wrap:wrap;max-height:124px;overflow-y:auto;scrollbar-width:none}
     .chp{height:32px;padding:0 8px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
@@ -745,6 +757,21 @@
   `;
 
   class NavEditor extends Base {
+    constructor() {
+      super();
+      // Ikonvelger (msh-icon-field) og «Handling» (msh-tap-picker) sender value-changed
+      this.shadowRoot.addEventListener('value-changed', (e) => {
+        const t = e.composedPath().find((n) => n.dataset && (n.dataset.nbicon || n.dataset.nbtap));
+        if (!t) return;
+        e.stopPropagation();
+        const v = e.detail ? e.detail.value : null;
+        if (t.dataset.nbicon) return this._btn(t.dataset.nbicon, { icon: v || undefined });
+        const id = t.dataset.nbtap, isC = !!(norm(this._config).B[id] || {}).custom, tp = M.tap.norm(v);
+        // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap i HA-format, gammel hash fjernes
+        const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && tp.navigation_path === '#' + id);
+        return this._btn(id, { tap: std ? undefined : tp, hash: undefined });
+      });
+    }
     _field(f, key) {
       if (f.type === 'navbar') return this._navbar();
       return super._field(f, key);
@@ -816,8 +843,9 @@
         const acts = [...ACTS.map(([k, , l]) => [k, l]), ...M.areas(h).map((a) => ['light:' + a.id, 'Lys ' + a.name])];
         html += `<div class="ned" data-key="e_${esc(id)}">
           <div class="fl"><span class="cap">Navn</span><input class="i44" data-nbf="label" data-id="${esc(id)}" value="${esc(b.label || (isC ? '' : ''))}" placeholder="${esc(isC ? 'Navn på knappen' : base[1])}"></div>
-          <div class="fl"><span class="cap">Ikon · mdi:, phu:, hue: …</span>
-            <div class="ln"><span class="icp">${M.icon(curIcon, 22)}</span><input class="i44" data-nbf="icon" data-id="${esc(id)}" value="${esc(b.icon || '')}" placeholder="${esc(base[0])}" style="flex:1"></div>
+          <div class="fl"><span class="cap">Ikon · søk i mdi og egne ikonsett</span>
+            ${M.iconPicker ? M.iconPicker.html({ key: 'nbic_' + id, value: b.icon ? M.iconName(b.icon) : '', placeholder: M.iconName(base[0]), label: 'Ikon · ' + (b.label || base[1]), attrs: `data-nbicon="${esc(id)}"` })
+    : `<div class="ln"><span class="icp">${M.icon(curIcon, 22)}</span><input class="i44" data-nbf="icon" data-id="${esc(id)}" value="${esc(b.icon || '')}" placeholder="${esc(base[0])}" style="flex:1"></div>`}
             <div class="sug">${sug.map((ic) => `<button class="chp ${curIcon === ic ? 'on' : ''}" data-a="nbicon" data-id="${esc(id)}" data-v="${esc(ic)}" title="${esc(ic)}">${M.icon(ic, 16)}</button>`).join('')}</div></div>
           <div class="bdg">
             <div class="bh">${M.icon('circle', 18, `color:${C.red}`)}<span class="t">Badge · varselprikk</span><span class="st ${R.length && anyOn ? 'red' : ''}">${!R.length ? 'Ingen vilkår' : anyOn ? 'Vises nå' : 'Skjult nå'}</span></div>
@@ -828,7 +856,8 @@
           ${isC ? `<div class="fl"><span class="cap">Når du trykker · handling</span><select class="s44" data-nbf="action" data-id="${esc(id)}">${acts.map(([k, l]) => `<option value="${esc(k)}" ${String(b.action || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
             ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}
             ${ACT_DOM[b.action] ? `<span class="cap">Entitet · ${b.entity ? esc(M.name(h, b.entity)) + ' (' + esc(b.entity) + ')' : 'auto: ' + esc(M.all(h, ACT_DOM[b.action])[0] || 'fant ingen')}</span>${this._search({ type: 'entity', domain: ACT_DOM[b.action] }, 'nbbe_' + id, 'nbbent', id, b.entity ? 'Bytt …' : 'Velg ' + ACT_DOM[b.action] + ' …')}${b.entity ? `<button class="rsb" data-a="nbbclr" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Bruk auto</button>` : ''}` : ''}</div>` : ''}
-          <div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>
+          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Handling · og så' : 'Handling'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id), modes: isC ? ['popup', 'hash', 'path', 'url', 'none'] : ['popup', 'hash', 'path', 'url'], attrs: `data-nbtap="${esc(id)}"` })}</div>`
+    : `<div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>`}
           ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Tilbakestill til ${esc(base[1])}</button>`}
         </div>`;
         return html;

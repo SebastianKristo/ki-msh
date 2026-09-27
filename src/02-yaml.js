@@ -195,7 +195,8 @@
       // bruk rålinjer (kommentarer er innhold her)
       while (p < L.length) {
         const l = L[p], r = l.raw;
-        if (!r.trim()) { lines.push(''); p++; continue; }
+        // tom linje; mellomrom utover blokkens innrykk er innhold (som PyYAML/js-yaml)
+        if (!r.trim()) { lines.push(ind && r.length > ind ? r.slice(ind) : ''); p++; continue; }
         const li = r.length - r.replace(/^ +/, '').length;
         if (!ind) { if (li <= parentInd) break; ind = li; }
         if (li < ind) break;
@@ -372,5 +373,57 @@
     return scalarStr(v, 0) + '\n';
   }
 
-  M.yaml = { parse, dump, YAMLError };
+  /* ------------------------------------------------------------ import: TextEdit/Cocoa-HTML og flere dokumenter (fiks 15.5/15.8) */
+  // YAML lagret som «Cocoa HTML Writer» (TextEdit): én linje per <p>, <p …><br></p> = tom linje,
+  // <span class="Apple-converted-space"> og &nbsp;/U+00A0 → vanlige mellomrom, entiteter dekodes, andre tagger fjernes.
+  const isCocoaHtml = (t) => /<p[\s>]/i.test(t) && (/Cocoa HTML Writer/i.test(t) || /^\s*(<!DOCTYPE|<html)/i.test(t));
+  const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  const decode = (s) => s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, e) => {
+    if (e[0] === '#') { const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return n === 160 ? ' ' : String.fromCodePoint(n); }
+    return Object.prototype.hasOwnProperty.call(ENT, e.toLowerCase()) ? ENT[e.toLowerCase()] : m;
+  });
+  function fromCocoaHtml(html) {
+    const src = String(html == null ? '' : html);
+    const body = (/<body[^>]*>([\s\S]*)<\/body>/i.exec(src) || [null, src])[1];
+    const out = [];
+    const rx = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+    let m;
+    while ((m = rx.exec(body))) {
+      const inner = m[1].replace(/\r?\n/g, '');
+      if (/^\s*<br\s*\/?>\s*$/i.test(inner)) { out.push(''); continue; }
+      const txt = decode(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).replace(/ /g, ' ');
+      txt.split('\n').forEach((l) => out.push(l));
+    }
+    return out.join('\n') + '\n';
+  }
+  // Tekst fra fil/innliming → YAML-tekst (HTML-eksport konverteres, ellers uendret bortsett fra linjeskift/BOM)
+  const toText = (t) => { const s = String(t == null ? '' : t).replace(/^﻿/, ''); return isCocoaHtml(s) ? fromCocoaHtml(s) : s.replace(/\r\n?/g, '\n'); };
+  /* Del en tekst i flere dokumenter: ved «---» og ved hver rotlinje som matcher `startRx` (standard
+   * «type: custom:bubble-card» på rotnivå). Kommentarer/tomme linjer rett før en start følger det nye dokumentet.
+   * → [{ text, line }] (line = 1-basert startlinje i originalen), tomme dokumenter hoppes over. */
+  function splitDocs(text, startRx) {
+    const rx = startRx || /^type:\s*['"]?custom:bubble-card['"]?\s*(#.*)?$/;
+    const L = String(text).split('\n');
+    const docs = [];
+    let cur = null;
+    const flush = () => { if (cur && cur.lines.some((l) => l.trim() && !/^\s*#/.test(l))) docs.push({ text: cur.lines.join('\n').replace(/\n*$/, '\n'), line: cur.line }); cur = null; };
+    L.forEach((l, i) => {
+      if (/^(---|\.\.\.)(\s|$)/.test(l)) { flush(); return; }
+      if (rx.test(l) && cur && cur.lines.some((x) => rx.test(x))) {
+        // flytt kommentar-/tomlinjer på slutten av forrige dokument over til det nye
+        const tail = [];
+        while (cur.lines.length && (!cur.lines[cur.lines.length - 1].trim() || /^#/.test(cur.lines[cur.lines.length - 1]))) tail.unshift(cur.lines.pop());
+        while (tail.length && !tail[0].trim()) tail.shift();
+        flush();
+        cur = { line: i + 1 - tail.length, lines: [...tail, l] };
+        return;
+      }
+      if (!cur) cur = { line: i + 1, lines: [] };
+      cur.lines.push(l);
+    });
+    flush();
+    return docs;
+  }
+
+  M.yaml = { parse, dump, YAMLError, fromCocoaHtml, isCocoaHtml, toText, splitDocs };
 })();

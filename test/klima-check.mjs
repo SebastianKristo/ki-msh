@@ -1,4 +1,7 @@
-// Fiks 15.1 · #klima-popupen (msh-klima-card) via strategien custom:ki-dashboard mot ekte Bubble Card.
+// Fiks 15.1 + 15.12 · #klima-popupen (msh-klima-card) via strategien custom:ki-dashboard mot ekte Bubble Card.
+// Fiks 15.12: to datasett fra opptaket av KI Energi v2.32.0 (test/fixtures/ki-energi-2.32.json) – ett med standard-ID-er og
+// ett med avvikende ID-er (kollisjonssuffiks + omdøpt bryter). Testen feiler hvis heroen viser «Venter på KI Energi», popupen er
+// tom, eller heroen ikke viser motorens tall fra ki_energi_status (sone, kW, ledig, min igjen, brukt/grense, prognose).
 // Tre datasett: fullt mock, uten KI Energi-entiteter (og uten klima-entiteter → #klima via REF_POPUPS) og «ødelagte» data
 // (unavailable/unknown, manglende attributter, strenger i stedet for tall, null-lister). Sjekker at hero + faner + innhold er
 // synlige (høyde > 0), at ingen pageerror/konsollfeil oppstår, at hero-animasjonen kjører ved åpning og på nytt ved ny åpning,
@@ -6,7 +9,7 @@
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { readdirSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node22/lib/node_modules/playwright'); }
 const BC = resolve('test/.vendor/bubble-card.js');
@@ -16,9 +19,51 @@ const bundle = resolve(`test/.build/klima-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 
+// Fiks 15.12: opptak av KI Energi v2.32.0 (states + entitetsregister). Generert fra integrasjonens kode til brukerens
+// ekte eksport finnes (test/fixtures/ki-energi-2.32.gen.py, docs/ki-energi-eksport.md) – samme format.
+const FIX = JSON.parse(readFileSync(resolve('test/fixtures/ki-energi-2.32.json'), 'utf8'));
+// Forventet innhold i heroen, regnet ut av opptaket selv (virker også når fila byttes med en ekte eksport)
+const FORV = (() => {
+  const id = (uid) => (FIX.entities.find((e) => e.unique_id === uid) || {}).entity_id;
+  const st = (uid) => FIX.states.find((x) => x.entity_id === id(uid)) || null;
+  const s = st('ki_energi_ki_energi_status'), a = (s && s.attributes) || {}, est = st('ki_energi_ki_estimert_timesforbruk');
+  const nf = (v) => (v == null || v === '' || !isFinite(Number(v)) ? '–' : Number(v).toFixed(2).replace('.', ','));
+  const TEKST = { gronn: 'God margin', gul: 'Nærmer seg grensen', oransje: 'Liten margin', rod: 'Fare for ny topp', kritisk: 'Kritisk', fallback: 'Trygg fallback', av: 'Motoren er av' };
+  return { state: s && s.state, status: TEKST[s && s.state], kw: nf(a.forventet_effekt_kw), ledig: ['gronn', 'gul'].includes(s && s.state) ? nf(a.ledig_kw) + ' kW' : null,
+    min: a.minutter_igjen != null ? `${Math.round(a.minutter_igjen)} min igjen` : null, budsjett: `${nf(a.forbrukt_kwh)} av ${nf(a.grense_kwh)} kWh`,
+    prognose: est && isFinite(Number(est.state)) ? 'Prognose ' + nf(est.state) : null };
+})();
+// Bytt ut mock-dataene for KI Energi med opptaket. hass.entities får bare feltene frontenden faktisk har
+// (EntityRegistryDisplayEntry: ingen unique_id); hele registeret (med unique_id) svares på config/entity_registry/list.
+const brukOpptak = ({ S, E }) => {
+  const F = window.__KI_FIX;
+  Object.keys(S).forEach((id) => { if (/\.ki_/.test(id) || (E[id] && E[id].platform === 'ki_energi')) { delete S[id]; delete E[id]; } });
+  const now = new Date().toISOString();
+  F.states.forEach((x) => { S[x.entity_id] = { entity_id: x.entity_id, state: x.state, attributes: x.attributes, last_changed: now, last_updated: now, context: {} }; });
+  F.entities.forEach((e) => { E[e.entity_id] = { entity_id: e.entity_id, platform: e.platform, translation_key: e.translation_key || undefined, device_id: e.device_id, area_id: e.area_id, hidden: false, entity_category: e.entity_category, name: e.name, icon: e.icon }; });
+  window.__KI_WS = { 'config_entries/get': [F.config_entry], 'config/entity_registry/list': F.entities };
+};
 // Datasett: kjøres i siden før strategien genererer (S = hass.states, E = entitetsregisteret)
 const SETS = {
   full: () => {},
+  // Opptaket slik det er (standard entitets-ID-er)
+  ki_energi_232: brukOpptak,
+  // Opptaket med avvikende ID-er: statussensoren fikk HAs kollisjonssuffiks (_2) ved installasjon, og brukeren har
+  // omdøpt switch.ki_helgemodus → switch.bortemodus (finnes bare via unique_id i registeret).
+  ki_energi_232_omdopt: (arg) => {
+    const opptak = eval('(' + window.__KI_OPPTAK + ')');
+    opptak(arg);
+    const { S, E } = arg, F = window.__KI_WS['config/entity_registry/list'];
+    const flytt = (uid, til) => {
+      const r = F.find((e) => e.unique_id === uid); if (!r) return; const fra = r.entity_id; if (!til) til = fra + '_2';
+      S[til] = { ...S[fra], entity_id: til }; delete S[fra]; E[til] = { ...E[fra], entity_id: til }; delete E[fra]; r.entity_id = til;
+    };
+    flytt('ki_energi_ki_energi_status');
+    flytt('ki_energi_ki_helgemodus', 'switch.bortemodus');
+    // Gjenglemt pakke-/template-sensor fra før integrasjonen holder på grunn-ID-en: HA viser den som unavailable (restored)
+    S['sensor.ki_energi_status'] = { entity_id: 'sensor.ki_energi_status', state: 'unavailable', attributes: { restored: true, friendly_name: 'KI Energistatus' }, last_changed: '', last_updated: '', context: {} };
+    E['sensor.ki_energi_status'] = { entity_id: 'sensor.ki_energi_status', platform: 'template', hidden: false };
+  },
   // Ingen KI Energi (ingen ki_*-entiteter) og ingen climate/fan → #klima lages bare fordi navbaren peker dit (REF_POPUPS)
   uten_ki: ({ S, E }) => {
     Object.keys(S).forEach((id) => { if (/\.ki_|^(climate|fan)\./.test(id) || (E[id] && E[id].platform === 'ki_energi')) { delete S[id]; delete E[id]; } });
@@ -49,11 +94,18 @@ let fail = 0;
 for (const [navn, mut] of Object.entries(SETS)) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
   if (process.env.DBG) p.on('console', (m) => console.log('  ·', m.type(), m.text().slice(0, 200)));
-  const errs = [];
+  const errs = [], info = [];
+  p.on('console', async (m) => { if (m.type() === 'info' && /msh-klima-card/.test(m.text())) { try { info.push(await Promise.all(m.args().map((a) => a.jsonValue()))); } catch (e) { info.push([m.text()]); } } });
   p.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(m.text()) && !/TVUNGET/.test(m.text())) errs.push(m.text().slice(0, 200)); });
   await p.goto('file://' + resolve('test/harness-bubble.html'));
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
+  // Opptaket + WS-svar (config_entries/get, config/entity_registry/list) for datasettene som bruker det
+  await p.evaluate(({ F, opptak }) => {
+    window.__KI_FIX = F; window.__KI_OPPTAK = opptak;
+    const mh = window.mockHass;
+    window.mockHass = () => { const h = mh(), ws = h.callWS; h.callWS = (m) => (window.__KI_WS && window.__KI_WS[m.type] ? Promise.resolve(JSON.parse(JSON.stringify(window.__KI_WS[m.type]))) : ws(m)); return h; };
+  }, { F: FIX, opptak: brukOpptak.toString() });
   await p.evaluate(`window.mockExtend(${mut.toString()})`);
   await p.addScriptTag({ path: bundle });
   await p.addScriptTag({ path: BC, type: 'module' });
@@ -95,6 +147,8 @@ for (const [navn, mut] of Object.entries(SETS)) {
         apen: !!pe, kort: h(card), hero: h(kh), ring: !!(kh && kh.querySelector('.ring svg')), bar: !!(kh && kh.querySelector('.bar')),
         faner: tabs.length, fanerH: Math.min(...tabs.map(h), 999), innhold: h(sr && sr.querySelector('.kbody')), feil: /kortet feilet|Feil i kortet/.test(txt),
         status: kh ? kh.querySelector('.stt').textContent.trim() : '', kw: kh ? kh.querySelector('.kw').textContent.trim() : '',
+        heroTekst: kh ? kh.textContent.replace(/\s+/g, ' ').trim() : '', oppsett: !!(kh && kh.querySelector('.setup[data-path="/config/integrations/integration/ki_energi"]')),
+        borte: kh && kh.querySelector('.away') ? kh.querySelector('.away').dataset.id : '', modus: sr ? [...sr.querySelectorAll('.modes .mode')].map((x) => x.dataset.id).join(',') : '',
       } };
     };
     const anims = (el) => (el && el.shadowRoot.getAnimations ? el.shadowRoot.getAnimations().length : 0);
@@ -138,7 +192,27 @@ for (const [navn, mut] of Object.entries(SETS)) {
     return res;
   });
   const o = r.forste;
-  const ok = !errs.length && r.lastet && r.popup && o.apen && o.kort > 100 && o.hero > 100 && o.ring && o.bar && o.faner > 0 && o.fanerH > 0 && o.innhold > 0 && !o.feil
+  // Fiks 15.12: med opptaket skal heroen vise motorens tall – aldri «Venter på KI Energi» eller tom popup
+  let ekte = true;
+  if (/^ki_energi/.test(navn)) {
+    const t = o.heroTekst || '';
+    const logg = info.find((a) => a[0] === 'msh-klima-card') || [];
+    const L = logg[2] || {};
+    r.ki = { logg: L, venter: /Venter på KI Energi/.test(t) };
+    const har = (x) => x == null || t.includes(x);
+    ekte = !/Venter på KI Energi/.test(t) && !o.oppsett && o.status === FORV.status && o.kw === FORV.kw
+      && har(FORV.ledig) && har(FORV.min) && har(FORV.budsjett) && har(FORV.prognose)
+      && o.faner >= 7 && o.innhold > 200 && L.entry === true && L.entiteter === FIX.antall_ki_energi && L.status === FORV.state
+      && (navn !== 'ki_energi_232_omdopt' || (o.borte === 'switch.bortemodus' && /switch\.bortemodus/.test(o.modus)));
+    if (!ekte) console.log('  15.12-sjekk feilet:', JSON.stringify({ forventet: FORV, status: o.status, kw: o.kw, hero: t, borte: o.borte, modus: o.modus, logg: L }));
+  } else if (navn === 'uten_ki') {
+    // Uten integrasjonen: «Venter på KI Energi» + lenke «Sett opp KI Energi», men hero og faner vises
+    ekte = /Venter på KI Energi/.test(o.heroTekst) && o.oppsett;
+    if (!ekte) console.log('  uten_ki: mangler «Venter på KI Energi»/«Sett opp KI Energi»:', o.heroTekst);
+  } else {
+    ekte = !/Venter på KI Energi/.test(o.heroTekst);
+  }
+  const ok = ekte && !errs.length && r.lastet && r.popup && o.apen && o.kort > 100 && o.hero > 100 && o.ring && o.bar && o.faner > 0 && o.fanerH > 0 && o.innhold > 0 && !o.feil
     && !/FEIL/.test(r.fanerTegnet) && r.andre && r.anim1 > 0 && r.anim2 > 0 && r.etterpa
     && r.strategi.tomMerge === 'custom:msh-klima-card' && r.strategi.tomReplace === 'custom:msh-klima-card' && r.strategi.gammeltNavn === 'custom:msh-klima-card'
     && r.strategi.heroAlene === 'custom:msh-klima-card' && r.strategi.egetKort === 'custom:msh-soppel-card'

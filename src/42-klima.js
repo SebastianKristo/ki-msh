@@ -3,14 +3,16 @@
  * Denne fila er SKALLET (fiks-4 punkt 4.0, 4.1, 4.4, 4.6, 4.7):
  *   · Hero 2a (msh-klima-hero-card, bygd inn via MSH.HEROES): ring 128 px (ytre = tid i timen, indre = effekt nå mot
  *     tillatt snitt i statusfarge), status + setning + «N min igjen av timen», timebudsjett-bar (brukt · prognose ·
- *     nå-strek) og borte-pillen. Farger etter tersklene number.ki_terskel_gul/oransje/rod (Avansert → Terskler).
+ *     nå-strek) og borte-pillen. Farger etter tersklene number.ki_sone_gul/oransje/rod (Avansert → Terskler).
+ *     Entitetene finnes via registeret (platform ki_energi, MSH.kiEnergi/klimaMapId i blokk-filen, fiks 15.12).
  *     Animasjoner med Web Animations API når popupen åpnes og ved bytte tilbake til Oversikt; rolig puls i løkke
  *     (stoppes når popupen lukkes); live-verdier glir 300 ms; ingen animasjon ved prefers-reduced-motion.
  *   · Modus-bobler (Borte · Alle borte · Hjemkomst · Sommer · <person> ferie) → switch.ki_* i integrasjonen.
  *   · Glass-fanerad (scroller, min 58 px per fane, MSH.tabReorder = dra/omorganiser + glass-linse ved trykk) +
  *     tannhjul (46 px, samme glass) som åpner «Tilpass klima».
  *   · «Tilpass klima»: eget bunnark (MSH.overlay – solid, frosted med Liquid Glass-tema) med Visning / Faner / Blokker. Tilbakestill
- *     øverst til venstre, Ferdig lagrer (MSH.saveCardConfig, scope 'shared'). Utkastet vises live bak arket.
+ *     øverst til venstre, Ferdig lagrer én gang (MSH.draftEditor → MSH.saveCardConfig, scope 'shared'). Utkastet vises
+ *     live bak arket; ingen autolagring; utenfor/Esc forkaster; «Endret et annet sted – Last inn» (fiks 15.13).
  * Blokkene (faneinnholdet) bygges i 42-klima-blokker.js (lastes før denne): MSH.KLIMA_TABS, klimaHasTab,
  * klimaBlockList, klimaTabHTML, klimaAct, klimaInput, klimaAfterRender, klimaOnOpen/OnClose, KLIMA_BLOCK_CSS,
  * klimaToast, klimaStatus. Alt kalles defensivt – mangler fila, vises en plassholder.
@@ -60,7 +62,9 @@
   };
   const num = (v) => { if (v == null || v === '') return null; const n = Number(v); return isFinite(n) ? n : null; };
   const firstNum = (a, keys) => { for (const k of keys) { const n = num(a[k]); if (n != null) return n; } return null; };
-  const attrs = (card, id) => { const s = card.s(id); return (s && s.attributes) || {}; };
+  // All lesing går via mapId → faktisk entitets-ID fra registeret (fiks 15.12, M.klimaMapId i blokk-filen)
+  const ki = (card, id) => card.s(mapId(id));
+  const attrs = (card, id) => { const s = ki(card, id); return (s && s.attributes) || {}; };
   const reduced = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 
   // Faner (fallback til blokk-filen finnes)
@@ -82,7 +86,7 @@
   const harLading = (card) => {
     const f = attrs(card, ST).lading;
     if (f !== null && f !== undefined) return !!f;
-    const s = card.s('sensor.ki_lading_status');
+    const s = ki(card, 'sensor.ki_lading_status');
     return !!s && !['ingen', 'unavailable', 'unknown'].includes(s.state);
   };
   const hasTab = (card, id) => {
@@ -128,22 +132,23 @@
   M.KLIMA_ZONES = ZONES;
   // Integrasjonens sone-navn (SONE_TEKST) → skallets
   const ZONE_OF = { gronn: 'ok', gul: 'yellow', oransje: 'orange', rod: 'red', kritisk: 'critical', fallback: 'fallback', av: 'off' };
-  // Tersklene for fargesonene (% av tillatt effekt): number.ki_terskel_* (eldre: number.ki_sone_*), ellers 75/88/97
+  // Tersklene for fargesonene (% av tillatt effekt): number.ki_sone_* i integrasjonen (number.ki_terskel_* godtas), ellers 75/88/97
   function thresholds(card) {
-    const t = (k, d) => { for (const id of [`number.ki_terskel_${k}`, `number.ki_sone_${k}`]) { const n = card.n(id); if (n != null) return n; } return d; };
+    const t = (k, d) => { for (const id of [`number.ki_sone_${k}`, `number.ki_terskel_${k}`]) { const n = card.n(mapId(id)); if (n != null) return n; } return d; };
     return { yellow: t('gul', 75), orange: t('oransje', 88), red: t('rod', 97) };
   }
   M.klimaThresholds = thresholds;
   // Lokal beregning (brukes når blokk-filens MSH.klimaStatus mangler, og for felt den ikke gir)
   function statusLocal(card) {
-    const s = card.s(ST), a = (s && s.attributes) || {};
+    const s = ki(card, ST), a = (s && s.attributes) || {};
     const d = new Date(), minClock = 60 - d.getMinutes() - d.getSeconds() / 60;
-    const kw = firstNum(a, ['effekt_kw', 'effekt_na_kw', 'naa_kw', 'malt_effekt_kw', 'malt_kw', 'forventet_effekt_kw']);
+    // Attributtnavnene er integrasjonens (engine.py → sensor.ki_energi_status), ingen gjetting
+    const kw = firstNum(a, ['forventet_effekt_kw']);
     const allowed = firstNum(a, ['tillatt_effekt_kw']);
     const usedKwh = firstNum(a, ['forbrukt_kwh']);
     const limitKwh = firstNum(a, ['grense_kwh']);
     const minLeft = firstNum(a, ['minutter_igjen']) != null ? firstNum(a, ['minutter_igjen']) : Math.max(0, Math.round(minClock));
-    let forecastKwh = firstNum(a, ['prognose_kwh', 'forventet_kwh', 'prognose_time_kwh']);
+    let forecastKwh = card.n(mapId('sensor.ki_estimert_timesforbruk'));
     if (forecastKwh == null && usedKwh != null && kw != null) forecastKwh = usedKwh + kw * (minLeft / 60);
     let freeKw = firstNum(a, ['ledig_kw']);
     if (freeKw == null && allowed != null && kw != null) freeKw = Math.max(0, allowed - kw);
@@ -151,9 +156,9 @@
     const laster = Array.isArray(attrs(card, LASTER).laster) ? attrs(card, LASTER).laster : [];
     const lowered = laster.filter((l) => l && l.handling === 'senket').map((l) => l.navn).filter(Boolean);
     const cand = laster.filter((l) => l && l.type !== 'bryter' && l.handling === 'normal');
-    const nextZone = a.neste_sone || a.neste_senking || (cand.length ? cand[cand.length - 1].navn : null);
+    const nextZone = cand.length ? cand[cand.length - 1].navn : null;
     const T = thresholds(card), st = s ? String(s.state).toLowerCase() : '';
-    const hb = card.s('switch.ki_energi_hovedbryter');
+    const hb = ki(card, 'switch.ki_energi_hovedbryter');
     let zone;
     if (!s || M.unavailable(s)) zone = 'none';
     else if (st === 'av' || (hb && hb.state === 'off')) zone = 'off';
@@ -173,10 +178,16 @@
     if (!r || typeof r !== 'object') return S;
     Object.keys(r).forEach((k) => { if (r[k] !== undefined && r[k] !== null) S[k] = r[k]; });
     S.zone = ZONES[S.zone] ? S.zone : (ZONE_OF[S.zone] || 'none');
-    if (S.minLeft != null) S.timeFrac = Math.min(1, Math.max(0, 1 - S.minLeft / 60));
+    // Tid i timen = klokken (ytre ring og nå-streken); «N min igjen» fra motoren når den finnes
+    const d = new Date();
+    S.timeFrac = Math.min(1, Math.max(0, (d.getMinutes() * 60 + d.getSeconds()) / 3600));
     // Ingen/utilgjengelig statussensor → «–» og flat ring (ikke «Motoren er av»/«Trygg fallback»)
-    const st = card.s(ST);
+    const st = ki(card, ST);
     if (!st || M.unavailable(st)) S.zone = 'none';
+    // «Venter på KI Energi» bare når integrasjonen mangler eller statusen er utilgjengelig (15.12 punkt 4)
+    const info = M.kiEnergi ? safe(() => M.kiEnergi(card), null) : null;
+    S.installert = info ? info.installert : !!st;
+    S.venter = info ? info.venter : (!st || st.state === 'unavailable');
     return S;
   }
   // Setningen under statusen (4.0)
@@ -191,7 +202,9 @@
       case 'critical': return 'Timen går over grensen. Slå av det du kan.';
       case 'fallback': return 'Styrer etter fast reserve til måleren svarer igjen.';
       case 'off': return 'Ingenting styres. Slå på under Oppsett → Motor.';
-      default: return 'Venter på KI Energi (sensor.ki_energi_status).';
+      default: return S.venter
+        ? `Venter på KI Energi.${S.installert ? ' Integrasjonen svarer ikke akkurat nå.' : ''}`
+        : 'Motoren har ikke rapportert ennå. Verdiene fylles inn ved neste runde.';
     }
   }
 
@@ -208,7 +221,7 @@
       ];
     }
     get cardSize() { return 4; }
-    _awayId() { return this.s('switch.ki_helgemodus') ? 'switch.ki_helgemodus' : null; }
+    _awayId() { const id = mapId('switch.ki_helgemodus'); return this.s(id) ? id : null; }
     render() {
       const S = statusOf(this), Z = ZONES[S.zone] || ZONES.none, col = Z.c;
       this._S = S;
@@ -222,15 +235,15 @@
       const off = S.zone === 'off' || S.zone === 'none';
       // Borte-pillen: switch.ki_helgemodus (Bortemodus), tekst fra sensor.ki_tilstedevaerelse når den finnes
       const awayId = this._awayId(), aw = this.s(awayId), away = M.isOn(aw);
-      const ts = this.s('sensor.ki_tilstedevaerelse'), tt = ts && ts.attributes && ts.attributes.tekst;
+      const tsId = mapId('sensor.ki_tilstedevaerelse'), ts = this.s(tsId), tt = ts && ts.attributes && ts.attributes.tekst;
       const pill = awayId
         ? `<button class="away press" data-act="kaway" data-id="${esc(awayId)}" data-ent="${esc(awayId)}" data-haptic="success" style="background:${away ? M.alpha('var(--blue, #73b9f2)', 0.22) : 'var(--gray100,#2f2f2f)'};color:${away ? '#e6eef8' : 'var(--gray800,#afafaf)'}">${M.icon(away ? 'mdi:bag-suitcase' : 'mdi:home', 16)}${esc(away ? (hytte ? 'Tom hytte · frostsikring' : 'Borte · bortemodus') : (tt || 'Hjemme · normal komfort'))}</button>`
-        : ts ? `<button class="away press" data-act="more" data-id="sensor.ki_tilstedevaerelse" data-ent="sensor.ki_tilstedevaerelse" style="background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf)">${M.icon('mdi:home-account', 16)}${esc(tt || ts.state)}</button>` : '';
+        : ts ? `<button class="away press" data-act="more" data-id="${esc(tsId)}" data-ent="${esc(tsId)}" style="background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf)">${M.icon('mdi:home-account', 16)}${esc(tt || ts.state)}</button>` : '';
       const ring = (cls, r, w, C, frac) => `<circle class="${cls}" cx="100" cy="100" r="${r}" stroke-width="${w}" data-c="${C.toFixed(2)}" style="stroke-dasharray:${C.toFixed(2)}px;stroke-dashoffset:${(C * (1 - frac)).toFixed(2)}px;opacity:${frac > 0.001 ? 1 : 0}"></circle>`;
       const crit = S.zone === 'critical';
       return `<section class="kh${crit ? ' crit' : ''}${off ? ' dull' : ''}" style="--zc:${col}" data-zone="${S.zone}">
         <div class="top">
-          <div class="ring press" data-act="more" data-id="${ST}" data-ent="${ST}" role="img" aria-label="Effekt nå ${kwTxt(S.kw)} kW av ${kwTxt(S.allowed)} kW tillatt">
+          <div class="ring press" data-act="more" data-id="${esc(mapId(ST))}" data-ent="${esc(mapId(ST))}" role="img" aria-label="Effekt nå ${kwTxt(S.kw)} kW av ${kwTxt(S.allowed)} kW tillatt">
             <svg viewBox="0 0 200 200" aria-hidden="true"><g transform="rotate(-90 100 100)">
               <circle class="trk" cx="100" cy="100" r="${R_OUT}" stroke-width="7"></circle>
               ${ring('tm', R_OUT, 7, C_OUT, tFrac)}
@@ -242,6 +255,7 @@
           <div class="tx">
             <div class="stt">${esc(Z.t)}</div>
             <div class="sen">${sentence(S)}</div>
+            ${S.zone === 'none' && S.venter ? `<button class="setup press" data-act="nav" data-path="${esc(M.KI_ENERGI_OPPSETT || '/config/integrations/integration/ki_energi')}" data-haptic="light">${M.icon('mdi:cog-outline', 14)}Sett opp KI Energi</button>` : ''}
             <div class="ml">${M.icon('mdi:clock-outline', 14)}<span class="num">${S.minLeft != null ? Math.round(S.minLeft) : '–'} min igjen av timen</span></div>
           </div>
         </div>
@@ -375,6 +389,7 @@
         .stt{font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.1;color:var(--zc);transition:color .4s;text-wrap:balance}
         .sen{font-size:13px;line-height:1.4;color:var(--gray900,#c7c7c7);text-wrap:pretty}
         .sen b{font-weight:600;color:#fafafa;white-space:nowrap}
+        .setup{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:var(--gray300,#404040);color:var(--white,#fafafa)}
         .ml{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray700,#979797)}
         .bud{display:flex;flex-direction:column;gap:8px}
         .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px;color:var(--gray700,#979797)}
@@ -408,7 +423,7 @@
     const pers = (Array.isArray(a.personer) ? a.personer : []).filter((p) => p && p.type === 'ungdom' && p.key);
     return [
       [mapId('input_boolean.ki_helgemodus'), hytte ? 'Tom hytte' : 'Borte', 'mdi:bag-suitcase', true],
-      ['binary_sensor.ki_alle_borte', hytte ? 'Hytta tom' : 'Alle borte', 'mdi:logout', false],
+      [mapId('binary_sensor.ki_alle_borte'), hytte ? 'Hytta tom' : 'Alle borte', 'mdi:logout', false],
       [mapId('input_boolean.ki_hjemkomst_aktiv'), hytte ? 'Ankomst' : 'Hjemkomst', 'mdi:home-import-outline', true],
       [mapId('input_boolean.ki_sommermodus'), 'Sommer', 'mdi:white-balance-sunny', true],
       ...pers.map((p) => [mapId(`input_boolean.ki_${p.key}_ferie`), `${short(p.navn || p.key)} ferie`, 'mdi:school-outline', true]),
@@ -469,6 +484,7 @@
     }
 
     render() {
+      if (M.kiEnergi) safe(() => M.kiEnergi(this), null); // registeroppslag + oppstartslogg (15.12)
       const c = this.config, L = this.layout;
       const T = Object.fromEntries(tabDefs().map((t) => [t.id, t]));
       const tabs = visibleTabs(this, L), tab = this._curTab();
@@ -610,9 +626,21 @@
   function openSheet(card, focus) {
     if (card._sheet && !card._sheet.ov.closed) return card._sheet;
     const orig = card._rawConfig || card.config;
-    const st = { draft: clone(orig), btab: card._shownTab || 'oversikt', saved: false, busy: false, reset: false };
+    const st = { btab: card._shownTab || 'oversikt', busy: false, reset: false };
     let ov = null;
-    const preview = () => card.setConfig({ ...st.draft, __eff: 1 });
+    // Felles utkast (MSH.draftEditor, fiks 15.13): ingen autolagring, Ferdig lagrer én gang, «Last inn»-banner
+    const ctl = M.draftEditor(card, {
+      config: clone(orig), saved: orig,
+      prepare: (d) => { const n = clone(d); tidy(n); return n; },
+      saveOpts: { scope: 'shared' },
+      banner: () => ov && ov.body,
+      alive: () => !ov || ov.host.isConnected,
+      close: () => ov && ov.close(),
+      onBusy: (b) => { st.busy = b; draw(); },
+      onReload: () => { st.reset = false; draw(); },
+    });
+    Object.defineProperty(st, 'draft', { get: () => ctl.draft, set: (v) => ctl.set(v) });
+    const preview = () => ctl.preview();
     const upd = (fn, hap) => { fn(st.draft); tidy(st.draft); preview(); if (hap) M.haptic(hap); draw(); };
     const hass = () => card.hass;
     const pc = () => proxyCard(hass(), st.draft, card);
@@ -676,23 +704,10 @@
       st.keepScroll = true;
     };
 
-    const done = async () => {
-      if (st.busy) return;
-      const next = clone(st.draft);
-      tidy(next);
-      if (JSON.stringify(next) === JSON.stringify(orig)) { st.saved = true; M.haptic('success'); ov.close(); return; }
-      st.busy = true; draw();
-      let r = null;
-      try { r = await M.saveCardConfig(hass(), orig, next, { card, immediate: true, scope: 'shared' }); } catch (e) { r = { ok: false, error: e && e.message }; }
-      if (r && r.ok === false) { st.busy = false; draw(); M.haptic('failure'); M.toast('Kunne ikke lagre' + (r.error ? ' – ' + r.error : '')); return; }
-      st.saved = true;
-      if (!M.store) card.setConfig({ ...next, __eff: 1 });
-      M.haptic('success');
-      if (next.toasts !== false) M.toast('Lagret');
-      ov.close();
-    };
+    // Ferdig: én lagring (dobbelttrykk ignoreres mens den pågår); feil → arket står med utkastet
+    const done = () => ctl.done();
 
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, onClose: () => { ctl.dispose(); card._sheet = null; } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'klima-sheet';

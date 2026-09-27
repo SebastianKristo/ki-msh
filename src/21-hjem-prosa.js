@@ -3,9 +3,14 @@
  * Autokonfig: weather.* (første), sensor.hele_huset_effekt / _lys (KI Rom), strømpris (plattform nordpool/tibber),
  * person.*, lock.*, alarm_control_panel.*, calendar.*, todo.*, søppel-sensor. Standardprosaen bygges bare av
  * det som faktisk finnes.
- * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, act, link, cop/csrc/cval (betingelse),
+ * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, tap, act, cop/csrc/cval (betingelse),
  *   ent (entitet for src 'custom', påkrevd), ent_override (overstyr entiteten til en fast kilde, tom = automatisk),
  *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
+ *   tap = «Ved trykk» i HA-format (Fiks 15.6, src/09-tap-picker.js): { action: navigate, navigation_path: '#tesla' }
+ *     (popup / egen hash / dashbord-sti) · { action: url, url_path } · { action: more-info } · { action: lock-sheet }
+ *     (hurtigark for dørlåsen) · { action: none }. Standard som før: vær → #vaer, lys → #lys, hendelser → more-info.
+ *     Bakoverkompatibelt: uten tap leses de gamle nøklene link ('#x' / 'lock') og act: 'more'.
+ *   act = «Utfør også» (tjeneste: lås, alarm, lys, egendefinert …) – kjøres i tillegg til tap.
  *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
  *   med kortet som container – MySmartHome), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
@@ -33,7 +38,21 @@
   }
   const PCOL = { hvit: '#fafafa', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
-  const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
+  // «Ved trykk» for en setning: tap (HA-format) → ellers gamle link/act 'more' (bakoverkompatibelt)
+  function tapOf(p) {
+    if (!p) return null;
+    const t = M.tap ? M.tap.norm(p.tap) : null;
+    if (t) return t;
+    const l = String(p.link || '').trim();
+    if (l === 'lock') return { action: 'lock-sheet' };
+    if (l) return { action: 'navigate', navigation_path: /^(#|\/|https?:)/.test(l) ? l : '#' + l };
+    if (p.act === 'more') return { action: 'more-info' };
+    return null;
+  }
+  M.prosaTapOf = tapOf;
+  const TAP_MODES = ['popup', 'hash', 'path', 'url', 'more', 'lock', 'none'];
+  M.PROSA_TAP_MODES = TAP_MODES;
+  const nav = (h) => ({ tap: { action: 'navigate', navigation_path: h } });
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
   // Faste kilder som kan pekes til en annen entitet (prose[].ent_override)
   const FIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo'];
@@ -161,17 +180,17 @@
   function defaultProse(h, c) {
     const S = sources(h, c);
     const out = [];
-    const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', link: '', cop: 'alltid', ...(extra || {}) });
-    if (S.weather) row('p1', 'Ute er det', 'weather', '.', { link: '#vaer' });
+    const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', cop: 'alltid', ...(extra || {}) });
+    if (S.weather) row('p1', 'Ute er det', 'weather', '.', nav('#vaer'));
     const P = !!S.price, W = !!S.watt, L = !!S.lights;
-    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
+    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
     else if (P && W) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', '.'); }
-    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
-    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', link: '#lys' }); }
+    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
+    else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
     else if (P) row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' });
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
-    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', link: '#lys' });
-    if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', act: 'more' });
+    else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', ...nav('#lys') });
+    if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', tap: { action: 'more-info' } });
     return out;
   }
 
@@ -206,7 +225,7 @@
       const bg = p.color === 'auto' ? (sv && sv[2]) || '#fafafa' : PCOL[p.color] || M.color(p.color, '#fafafa');
       return { i, row: p, pre: p.pre ? fill(p.pre) + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post) + ' ' : ' ', hasChip: (p.src || 'none') !== 'none',
         chip: p.src === 'text' ? fill(p.fmt) : fill(String(p.fmt || '{v}').replace(/\{v\}/g, sv ? sv[0] : '–')),
-        dot: p.icon === 'dot' ? (sv && sv[2]) || C.green : null, emoji: p.icon && p.icon !== 'dot' ? p.icon : '', bg, id: sv ? sv[3] : null, tap: !!(p.act || p.link) };
+        dot: p.icon === 'dot' ? (sv && sv[2]) || C.green : null, emoji: p.icon && p.icon !== 'dot' ? p.icon : '', bg, id: sv ? sv[3] : null, tap: !!((p.act && p.act !== 'more') || (tapOf(p) && tapOf(p).action !== 'none')) };
     });
     // Auto-entiteten for en fast kilde (uten overstyring) – vises som «Automatisk · …» i velgeren.
     const autoOf = (src) => (S[src] && S[src][3]) || (AUTO[src] ? ents(h, c)[src] : null) || null;
@@ -257,10 +276,10 @@
 
   // Utfør handling for en setning (runAct i designet).
   function runAct(card, p, id) {
-    const h = card.hass, E = ents(h, card.config), a = p.act || '';
+    const h = card.hass, E = ents(h, card.config), a = p.act || '', T = tapOf(p);
     const t = (m) => M.hjemToast(card, m);
     const st = (x) => x && h.states[x];
-    if (a === 'more') M.moreInfo(card, id || E.weather);
+    if (a === 'more' && !(T && T.action === 'more-info')) M.moreInfo(card, id || E.weather);
     if (a === 'lock_toggle' || a === 'lock' || a === 'unlock') {
       const l = st(E.lock);
       if (!l) t('Fant ingen dørlås');
@@ -292,9 +311,11 @@
       if (!v) t('Fant ingen støvsuger');
       else { const run = h.states[v].state === 'cleaning'; M.call(h, 'vacuum', run ? 'pause' : 'start', { entity_id: v }).then(() => t(run ? 'Støvsuger pauset' : 'Støvsuger starter')).catch(() => {}); }
     } else if (a === 'service') runService(card, p);
-    if (p.link) {
-      if (p.link === 'lock') M.hjemLockSheet(card, E.lock);
-      else M.openPopup(p.link);
+    // Ved trykk (tap): popup / egen hash / sti / URL / more-info / dørlås-ark
+    if (T) {
+      if (T.action === 'lock-sheet') M.hjemLockSheet(card, E.lock);
+      else if (T.action === 'more-info') M.moreInfo(card, T.entity || id || E.weather);
+      else if (M.tap) M.tap.run(card, T);
     }
   }
   function parseData(s) {
@@ -327,8 +348,6 @@
         const areas = hass ? M.areas(hass).slice(0, 8) : [];
         const persons = hass ? M.all(hass, 'person') : [];
         const toks = [...Object.keys(TOK).map((k) => [`+ {${k}}`, `{${k}}`]), ...areas.map((a) => [`+ {${a.id}.temp}`, `{${a.id}.temp}`]), ...persons.map((p) => { const o = p.split('.')[1]; return [`+ {${o}.hjemme}`, `{${o}.hjemme}`]; })];
-        const links = [...LINKS, ...(hass ? M.areas(hass).map((a) => ['#' + a.id, a.name]) : [])];
-        (M.popupOptions && hass ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
@@ -336,7 +355,7 @@
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
             defaults: (h, c) => defaultProse(h, c),
-            newRow: () => ({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', link: '', cop: 'alltid' }),
+            newRow: () => ({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', cop: 'alltid' }),
             title: (p) => [p.pre, (p.src || 'none') === 'none' ? '' : `[${p.src === 'text' ? p.fmt || '' : p.src === 'custom' ? p.ent || 'state' : srcL(p.src)}]`, p.post].filter(Boolean).join(' ') || 'Tom setning',
             sub: (p, i, h, c) => { const op = p.cop || 'alltid'; if (op === 'alltid') return 'Vises alltid'; const R = compute(h, c); return `Når ${srcL(p.csrc || p.src).toLowerCase()} ${(OPS.find((o) => o[0] === op) || ['', ''])[1].toLowerCase()} ${p.cval || '…'} · ${R.test(p) ? 'vises nå' : 'skjult nå'}`; },
             fields: [
@@ -353,13 +372,12 @@
               { type: 'select', name: 'icon', label: 'Ikon i boblen', options: ICONS, default: '' },
               { type: 'text', name: 'icon', label: 'Eller skriv inn en emoji / mdi:ikon' },
               { type: 'swatches', name: 'color', label: 'Farge · Auto følger verdien (pris, lås, alarm …)', options: PSW, default: 'hvit' },
-              { type: 'select', name: 'act', label: 'Når du trykker · handling', options: ACTS, default: '' },
+              { type: 'tap', name: 'tap', label: 'Ved trykk', modes: TAP_MODES, labels: { path: 'Sti' }, auto: (r) => tapOf({ ...r, tap: undefined }) || { action: 'none' } },
+              { type: 'select', name: 'act', label: 'Utfør også', options: ACTS.filter((x) => x[0] !== 'more'), default: '' },
               { type: 'text', name: 'svc', label: 'Utfør handling · domene.tjeneste', placeholder: 'light.turn_on', rowWhen: (r) => r.act === 'service' },
               { type: 'entity', name: 'target', label: 'Mål', rowWhen: (r) => r.act === 'service' },
               { type: 'text', name: 'data', label: 'Data (JSON eller nøkkel: verdi)', placeholder: '{"brightness_pct": 60}', rowWhen: (r) => r.act === 'service' },
               { type: 'button', label: 'Test handling', icon: 'mdi:play', rowWhen: (r) => r.act === 'service', run: (r, h) => runService({ hass: h, config: {} }, r, h) },
-              { type: 'select', name: 'link', label: 'Og åpne popup', options: links, default: '' },
-              { type: 'text', name: 'link', label: 'Egen popup-hash', placeholder: '#popup' },
               { type: 'select', name: 'cop', label: 'Vises', options: OPS, default: 'alltid' },
               { type: 'select', name: 'csrc', label: 'Når', options: SRC.filter((x) => x[0] !== 'none' && x[0] !== 'text'), rowWhen: cond },
               { type: 'entity', name: 'cent', label: 'Entitet (betingelse)', help: 'For faste kilder: tom = samme entitet som kilden. Påkrevd for «Egendefinert».', rowWhen: (r) => cond(r), auto: (r, h, c) => { const R = compute(h, c), ck = r.csrc || r.src; return ck === 'custom' ? null : ck === r.src && r.ent_override ? r.ent_override : R.autoOf(ck); } },
@@ -409,7 +427,7 @@
     onAction(name, el, ev) {
       if (name === 'chip') {
         const p = (this._R && this._R.rows[Number(el.dataset.i)]) || null;
-        if (p && (p.act || p.link)) runAct(this, p, el.dataset.ent);
+        if (p && ((p.act && p.act !== 'more') || tapOf(p))) runAct(this, p, el.dataset.ent);
         return;
       }
       return super.onAction(name, el, ev);

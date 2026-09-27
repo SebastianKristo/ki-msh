@@ -9,7 +9,8 @@
  *            nettleie, pris som vises (Spot · Totalpris) – alltid kr/kWh, ingen Norgespris
  *   Fane «I dag / I morgen»: Standard · Liquid glass (bare utseendet; glassflate kun med temaet, drag alltid), tekststørrelse 11–18, høyde 24–48, bredde 8–40 med live forhåndsvisning
  *   Statuslinje: «sensor.x · 24 timer i dag, 24 i morgen» / «Mangler i morgen-priser» / feil i rødt.
- * Lagres med MSH.store.set('power_price', …) – kortet, prosa-boblen og sliden oppdateres straks (store.subscribe).
+ * Lagres med MSH.store.set('power_price', …) i «Tilpass Hjem»-utkastet (MSH.store.transaction) – kortet, prosa-boblen
+ * og sliden oppdateres straks (store.subscribe); til HA sendes det først ved Ferdig i Tilpass Hjem (fiks 15.13).
  */
 (function () {
   const M = window.MSH;

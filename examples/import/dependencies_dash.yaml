@@ -1,0 +1,4107 @@
+
+paper_buttons_row:
+  presets:
+    weather:
+      styles:
+        state:
+          font-size: 28px
+          font-weight: 300
+          line-height: 10px
+          margin-top: 15px
+        icon:
+          width: 40px
+          height: 40px
+          margin-top: -30px
+          border-radius: 0
+          padding: 0
+        button:
+          width: 80px
+          height: 170px
+          flex-shrink: 0
+          background-color: var(--gray200)
+          border-radius: 24px
+          color: var(--gray1000)
+        name:
+          position: absolute
+          top: 0px
+          margin: 0
+          height: 170px
+          font-weight: 400
+          font-size: 13px
+          line-height: 1.25
+          white-space: pre-line
+          text-align: center
+          width: 100%
+          opacity: 0.7
+    button:
+      styles:
+        state:
+          position: absolute
+          top: 8px
+          width: 36px
+          height: 3px
+          padding: 0
+          background: var(--gray1000)
+          border-radius: 5px
+          opacity: 0.1
+        name:
+          color: var(--gray1000)
+        button:
+          padding: 12px
+          width: 76px
+          height: 76px
+          flex-basis: 1
+          flex-shrink: 0
+          display: flex
+          background-color: var(--gray200)
+          border-radius: 24px
+          color: var(--white)
+        icon:
+          --mdc-icon-size: 26px
+          color: var(--gray1000)
+          margin-top: 6px
+decluttering_templates:
+  ki_number_row:
+    default:
+      - decimals: 1
+      - symbol: ''
+      - background: var(--gray200)
+    card:
+      type: custom:button-card
+      entity: '[[entity]]'
+      icon: '[[icon]]'
+      name: '[[name]]'
+      show_label: true
+      label: |
+        [[[
+          if (!entity) return '--';
+          const v = parseFloat(entity.state);
+          if (isNaN(v)) return entity.state;
+          return v.toFixed([[decimals]]) + '[[symbol]]';
+        ]]]
+      tap_action:
+        action: more-info
+      hold_action:
+        action: more-info
+      styles:
+        card:
+          - padding: 0
+          - height: 66px
+          - border-radius: 75px
+          - background: '[[background]]'
+          - box-shadow: none
+          - --mdc-ripple-color: transparent
+          - --ha-ripple-color: transparent
+          - --ha-ripple-hover-opacity: 0
+        grid:
+          - grid-template-areas: '"i n btn" "i l btn"'
+          - grid-template-columns: 76px 1fr auto
+        img_cell:
+          - justify-self: start
+          - background: rgba(var(--highlight))
+          - margin: 4px 4px
+          - border-radius: 50%
+          - width: 58px
+          - height: 58px
+        icon:
+          - width: 30px
+          - height: 30px
+          - color: var(--gray1000)
+        name:
+          - justify-self: start
+          - font-size: 16px
+          - font-weight: 500
+          - padding-top: 4px
+          - color: var(--gray1000)
+        label:
+          - justify-self: start
+          - font-size: 14px
+          - opacity: '0.7'
+          - padding-bottom: 7px
+          - color: var(--gray1000)
+        custom_fields:
+          btn:
+            - justify-self: end
+            - align-self: center
+            - line-height: 0
+      custom_fields:
+        btn:
+          card:
+            type: custom:paper-buttons-row
+            styles:
+              justify-content: flex-end
+              align-items: center
+              gap: 6px
+              margin-right: 10px
+            buttons:
+              - layout: icon
+                icon: mdi:minus
+                tap_action:
+                  action: perform-action
+                  perform_action: input_number.decrement
+                  target:
+                    entity_id: '[[entity]]'
+                styles:
+                  button:
+                    flex-shrink: 0
+                    background-color: var(--gray400)
+                    height: 34px
+                    width: 34px
+                    border-radius: 50%
+                    border: 1px solid var(--gray300)
+                  icon:
+                    color: var(--gray1000)
+              - layout: icon
+                icon: mdi:plus
+                tap_action:
+                  action: perform-action
+                  perform_action: input_number.increment
+                  target:
+                    entity_id: '[[entity]]'
+                styles:
+                  button:
+                    flex-shrink: 0
+                    background-color: var(--gray400)
+                    height: 34px
+                    width: 34px
+                    border-radius: 50%
+                    border: 1px solid var(--gray300)
+                  icon:
+                    color: var(--gray1000)
+  small_light_toggle:
+    card:
+      type: horizontal-stack
+      cards:
+        - type: custom:layout-card
+          layout_type: custom:grid-layout
+          layout:
+            grid-template-columns: 1fr max-content max-content
+            grid-template-rows: min-content
+            grid-template-areas: |
+              "one two"
+          cards:
+            - type: custom:button-card
+              view_layout:
+                grid-area: one
+              name: '[[name]]'
+              entity: '[[entity]]'
+              tap_action:
+                action: more-info
+              icon: '[[icon]]'
+              styles:
+                card:
+                  - background: null
+                  - padding: 10px 0 10px 0
+                  - --mdc-ripple-press-opacity: 0
+                name:
+                  - font-size: 16px
+                  - font-weight: bold
+                  - justify-self: start
+                  - align-self: center
+                icon:
+                  - width: 24px
+                  - color: null
+                grid:
+                  - grid-template-columns: 54px 1fr
+                  - grid-template-areas: '"i n" "i l"'
+  light_sliderv2:
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:button-card
+          entity: '[[entity]]'
+          name: '[[name]]'
+          icon: '[[icon]]'
+          tap_action:
+            action: none
+          styles:
+            grid:
+              - grid-template-columns: 64px 1fr
+              - grid-template-areas: '"i n"'
+            card:
+              - background: none
+              - height: 65px
+              - position: absolute
+              - z-index: 1
+            img_cell:
+              - width: 22px
+            icon:
+              - width: 22px
+              - color: var(--gray800)
+            name:
+              - justify-self: start
+              - font-size: 16px
+              - font-weight: 400
+              - color: var(--gray800)
+        - type: custom:my-slider-v2
+          entity: '[[entity]]'
+          allowTapping: false
+          allowSliding: true
+          styles:
+            container:
+              - border-radius: 35px
+            card:
+              - height: 65px
+              - margin-bottom: 12px
+              - border-radius: 35px
+            progress:
+              - background: |
+                  [[[
+                    const light = entity;
+                    if (light.state === 'off' || !light.attributes.rgb_color) {
+                      return 'linear-gradient(145deg, rgba(255,176,233,0.15) 0%,rgba(50,50,52,1) 50%)';
+                    }
+                    const rgb = light.attributes.rgb_color;
+                    return `linear-gradient(145deg, rgba(255,176,233,0.05) 0%, rgba(${rgb[0]},${rgb[1]},${rgb[2]},1) 100%)`;
+                  ]]]
+            thumb:
+              - width: 3px
+              - height: 30%
+              - background: var(--gray800)
+              - border-radius: 5px
+              - top: 36%
+              - margin-right: 14px
+            track:
+              - background: >-
+                  linear-gradient(145deg, rgba(255,176,233,0.15) 0%,
+                  rgba(50,50,52,1) 50%)
+  light_togglev2:
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:button-card
+          entity: '[[entity]]'
+          name: '[[name]]'
+          icon: '[[icon]]'
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          styles:
+            grid:
+              - grid-template-columns: 64px 1fr
+              - grid-template-areas: '"i n"'
+            card:
+              - background: none
+              - height: 65px
+              - position: absolute
+              - z-index: 1
+            img_cell:
+              - width: 22px
+            icon:
+              - width: 22px
+              - color: var(--gray800)
+            name:
+              - justify-self: start
+              - font-size: 16px
+              - font-weight: 400
+              - color: var(--gray800)
+        - type: custom:my-slider-v2
+          entity: '[[entity]]'
+          allowTapping: false
+          allowSliding: false
+          styles:
+            container:
+              - border-radius: 35px
+            card:
+              - height: 65px
+              - margin-bottom: 12px
+              - border-radius: 35px
+            progress:
+              - background: >-
+                  linear-gradient(145deg, rgba(255,176,233,0.05) 0%,
+                  rgba(255,220,178.1) 0%)
+            thumb:
+              - width: 3px
+              - height: 30%
+              - background: var(--gray800)
+              - border-radius: 5px
+              - top: 36%
+              - margin-right: 14px
+            track:
+              - background: |
+                  [[[
+                    if (entity.state === "on") {
+                      return "linear-gradient(145deg, rgba(255,176,233,0.05) 0%, rgba(255,220,178,1) 100%)";
+                    } else {
+                      return "linear-gradient(145deg, rgba(255,176,233,0.15) 0%, rgba(50,50,52,1) 50%)";
+                    }
+                  ]]]
+  light_slider:
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:button-card
+          entity: '[[entity]]'
+          name: '[[name]]'
+          icon: '[[icon]]'
+          tap_action:
+            action: none
+          styles:
+            grid:
+              - grid-template-columns: 64px 1fr
+              - grid-template-areas: '"i n"'
+            icon:
+              - width: 22px
+              - color: var(--gray100)
+            img_cell:
+              - width: 22px
+              - height: 22px
+            card:
+              - background: none
+              - height: 75px
+              - padding: 0
+              - z-index: 1
+              - position: absolute
+              - border-radius: 30px
+            name:
+              - justify-self: start
+              - font-size: 16px
+              - font-weight: 400
+              - color: var(--gray100)
+        - type: custom:my-slider-v2
+          entity: '[[entity]]'
+          allowTapping: false
+          allowSliding: true
+          disableScroll: false
+          marginOfError: 50
+          styles:
+            container:
+              - border-radius: 30px
+            card:
+              - height: 75px
+              - border-radius: 30px
+            progress:
+              - background: var(--yellow)
+            thumb:
+              - width: 5px
+              - height: 30%
+              - top: 36%
+              - margin-right: -6px
+              - border-radius: 5px
+              - background: var(--gray1000)
+              - z-index: 2
+            track:
+              - background: var(--yellow-tint)
+  light_toggle:
+    card:
+      type: custom:button-card
+      entity: '[[entity]]'
+      name: '[[name]]'
+      icon: '[[icon]]'
+      show_label: false
+      tap_action:
+        action: toggle
+      hold_action:
+        action: more-info
+      state:
+        - value: 'on'
+          styles:
+            card:
+              - background: var(--yellow)
+        - value: 'off'
+          styles:
+            card:
+              - background: var(--yellow-tint)
+            name:
+              - color: var(--gray100)
+            icon:
+              - color: var(--gray100)
+        - value: unavailable
+          styles:
+            card:
+              - background: var(--yellow-tint)
+            name:
+              - color: var(--gray100)
+            icon:
+              - color: var(--gray100)
+      styles:
+        grid:
+          - grid-template-columns: 64px 1fr
+          - grid-template-areas: '"i n"'
+        icon:
+          - width: 22px
+          - color: var(--gray100)
+        img_cell:
+          - width: 22px
+          - height: 22px
+        card:
+          - padding: 0
+          - height: 75px
+          - border-radius: 30px
+        name:
+          - justify-self: start
+          - font-size: 16px
+          - font-weight: 400
+          - color: var(--gray100)
+button_card_templates:
+  jul_toggle:
+    variables:
+      entity: null
+      icon: mdi:string-lights
+      main_text: null
+      sub_text: null
+      color_on: var(--yellow)
+      color_off: var(--gray200)
+      text_on: var(--black)
+      text_off: var(--gray1000)
+    entity: '[[[ return variables.entity ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.main_text ]]]'
+    label: '[[[ return variables.sub_text ]]]'
+    show_label: true
+    show_icon: true
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    state:
+      - value: 'on'
+        styles:
+          card:
+            - background: '[[[ return variables.color_on ]]]'
+          img_cell:
+            - background: rgba(0, 0, 0, 0.12)
+          icon:
+            - color: '[[[ return variables.text_on ]]]'
+          name:
+            - color: '[[[ return variables.text_on ]]]'
+          label:
+            - color: '[[[ return variables.text_on ]]]'
+      - value: unavailable
+        styles:
+          card:
+            - background: var(--gray200)
+            - opacity: '0.4'
+    styles:
+      card:
+        - height: 66px
+        - border-radius: 75px
+        - padding: 4px 20px 4px 4px
+        - background: '[[[ return variables.color_off ]]]'
+        - box-shadow: none
+        - --mdc-ripple-color: transparent
+        - --ha-ripple-color: transparent
+        - --ha-ripple-hover-opacity: 0
+      grid:
+        - grid-template-columns: 76px 1fr min-content
+        - grid-template-areas: '"i n toggle" "i l toggle"'
+      img_cell:
+        - justify-self: start
+        - width: 30px
+        - height: 30px
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: '[[[ return variables.text_off ]]]'
+      name:
+        - justify-self: start
+        - font-size: 16px
+        - font-weight: 500
+        - padding-top: 4px
+        - color: '[[[ return variables.text_off ]]]'
+      label:
+        - justify-self: start
+        - font-size: 14px
+        - opacity: '0.7'
+        - padding-bottom: 7px
+        - color: '[[[ return variables.text_off ]]]'
+      custom_fields:
+        toggle:
+          - justify-self: end
+          - align-self: center
+          - line-height: 0
+    custom_fields:
+      toggle: |
+        [[[
+          const isOn = entity && entity.state === 'on';
+          const color = isOn ? variables.text_on : 'var(--gray400)';
+          return `<ha-icon
+            icon="${isOn ? 'mdi:toggle-switch' : 'mdi:toggle-switch-off'}"
+            style="width:50px;height:40px;color:${color};display:block;">
+          </ha-icon>`;
+        ]]]
+  universal_base:
+    tap_action:
+      action: more-info
+    variables:
+      entity: null
+      mode: sensor
+      size: big
+      icon: mdi:alert
+      main_text: null
+      sub_text: Sensor
+      alt_text: null
+      bar_value: null
+      bar_symbol: '%'
+      bar_color: null
+      bar_invert_colors: false
+      background_color: var(--gray100)
+      text_color: var(--gray1000)
+      margin: 0
+      badge_condition: null
+      badge_text: '!'
+      badge_color: var(--red)
+      symbol: null
+      show_timer: false
+      state_rule_1_value: null
+      state_rule_1_condition: false
+      state_rule_1_main_text: null
+      state_rule_1_background_color: null
+      state_rule_1_text_color: null
+      state_rule_1_hide_bar: false
+      state_rule_1_hide_alt_text: false
+      state_rule_2_value: null
+      state_rule_2_condition: false
+      state_rule_2_main_text: null
+      state_rule_2_background_color: null
+      state_rule_2_text_color: null
+      state_rule_2_hide_bar: false
+      state_rule_2_hide_alt_text: false
+      state_rule_3_value: null
+      state_rule_3_condition: false
+      state_rule_3_main_text: null
+      state_rule_3_background_color: null
+      state_rule_3_text_color: null
+      state_rule_3_hide_bar: false
+      state_rule_3_hide_alt_text: false
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        return subText;
+      ]]]
+    icon: '[[[ return variables.icon ]]]'
+    show_label: true
+    show_icon: true
+    show_state: |
+      [[[
+        const rule1Matched = entity && (
+          (variables.state_rule_1_value !== null && entity.state === String(variables.state_rule_1_value)) ||
+          (variables.state_rule_1_value === null && variables.state_rule_1_condition)
+        );
+
+        return variables.show_timer && rule1Matched;
+      ]]]
+    state:
+      - operator: template
+        value: |
+          [[[
+            if (!entity) return false;
+
+            if (variables.state_rule_1_value !== null) {
+              return entity.state === String(variables.state_rule_1_value);
+            }
+
+            if (variables.state_rule_1_condition) {
+              return variables.state_rule_1_condition;
+            }
+
+            return false;
+          ]]]
+        label: |
+          [[[
+            return variables.state_rule_1_main_text !== null
+              ? variables.state_rule_1_main_text
+              : null;
+          ]]]
+        styles:
+          card:
+            - background: >-
+                [[[ return variables.state_rule_1_background_color ||
+                variables.background_color ]]]
+          state:
+            - color: >-
+                [[[ return variables.state_rule_1_text_color ||
+                variables.text_color ]]]
+          label:
+            - color: >-
+                [[[ return variables.state_rule_1_text_color ||
+                variables.text_color ]]]
+          name:
+            - color: >-
+                [[[ return variables.state_rule_1_text_color ||
+                variables.text_color ]]]
+          icon:
+            - color: >-
+                [[[ return variables.state_rule_1_text_color ||
+                variables.text_color ]]]
+          img_cell:
+            - width: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - height: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - padding: null
+          custom_fields:
+            mode:
+              - color: >-
+                  [[[ return variables.state_rule_1_text_color ||
+                  variables.text_color ]]]
+            bar:
+              - display: |
+                  [[[
+                    return variables.state_rule_1_hide_bar ? 'none' : null;
+                  ]]]
+            alt:
+              - color: >-
+                  [[[ return variables.state_rule_1_text_color ||
+                  variables.text_color ]]]
+              - display: |
+                  [[[
+                    if (variables.size === 'small') return 'none';
+                    return variables.state_rule_1_hide_alt_text ? 'none' : null;
+                  ]]]
+      - operator: template
+        value: |
+          [[[
+            if (!entity) return false;
+
+            if (variables.state_rule_2_value !== null) {
+              return entity.state === String(variables.state_rule_2_value);
+            }
+
+            if (variables.state_rule_2_condition) {
+              return variables.state_rule_2_condition;
+            }
+
+            return false;
+          ]]]
+        label: |
+          [[[
+            return variables.state_rule_2_main_text !== null
+              ? variables.state_rule_2_main_text
+              : null;
+          ]]]
+        styles:
+          card:
+            - background: >-
+                [[[ return variables.state_rule_2_background_color ||
+                variables.background_color ]]]
+          state:
+            - color: >-
+                [[[ return variables.state_rule_2_text_color ||
+                variables.text_color ]]]
+          label:
+            - color: >-
+                [[[ return variables.state_rule_2_text_color ||
+                variables.text_color ]]]
+          name:
+            - color: >-
+                [[[ return variables.state_rule_2_text_color ||
+                variables.text_color ]]]
+          icon:
+            - color: >-
+                [[[ return variables.state_rule_2_text_color ||
+                variables.text_color ]]]
+          img_cell:
+            - width: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - height: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - padding: null
+          custom_fields:
+            mode:
+              - color: >-
+                  [[[ return variables.state_rule_2_text_color ||
+                  variables.text_color ]]]
+            bar:
+              - display: |
+                  [[[
+                    return variables.state_rule_2_hide_bar ? 'none' : null;
+                  ]]]
+            alt:
+              - color: >-
+                  [[[ return variables.state_rule_2_text_color ||
+                  variables.text_color ]]]
+              - display: |
+                  [[[
+                    if (variables.size === 'small') return 'none';
+                    return variables.state_rule_2_hide_alt_text ? 'none' : null;
+                  ]]]
+      - operator: template
+        value: |
+          [[[
+            if (!entity) return false;
+
+            if (variables.state_rule_3_value !== null) {
+              return entity.state === String(variables.state_rule_3_value);
+            }
+
+            if (variables.state_rule_3_condition) {
+              return variables.state_rule_3_condition;
+            }
+
+            return false;
+          ]]]
+        label: |
+          [[[
+            return variables.state_rule_3_main_text !== null
+              ? variables.state_rule_3_main_text
+              : null;
+          ]]]
+        styles:
+          card:
+            - background: >-
+                [[[ return variables.state_rule_3_background_color ||
+                variables.background_color ]]]
+          state:
+            - color: >-
+                [[[ return variables.state_rule_3_text_color ||
+                variables.text_color ]]]
+          label:
+            - color: >-
+                [[[ return variables.state_rule_3_text_color ||
+                variables.text_color ]]]
+          name:
+            - color: >-
+                [[[ return variables.state_rule_3_text_color ||
+                variables.text_color ]]]
+          icon:
+            - color: >-
+                [[[ return variables.state_rule_3_text_color ||
+                variables.text_color ]]]
+          img_cell:
+            - width: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - height: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+            - padding: null
+          custom_fields:
+            mode:
+              - color: >-
+                  [[[ return variables.state_rule_3_text_color ||
+                  variables.text_color ]]]
+            bar:
+              - display: |
+                  [[[
+                    return variables.state_rule_3_hide_bar ? 'none' : null;
+                  ]]]
+            alt:
+              - color: >-
+                  [[[ return variables.state_rule_3_text_color ||
+                  variables.text_color ]]]
+              - display: |
+                  [[[
+                    if (variables.size === 'small') return 'none';
+                    return variables.state_rule_3_hide_alt_text ? 'none' : null;
+                  ]]]
+      - operator: template
+        value: '[[[ return variables.badge_condition ]]]'
+        styles:
+          custom_fields:
+            badge:
+              - display: block
+    custom_fields:
+      badge: '[[[ return variables.badge_text ]]]'
+      alt: '[[[ return variables.alt_text ]]]'
+    styles:
+      card:
+        - height: '[[[ return variables.size === "small" ? "66px" : "160px" ]]]'
+        - background: '[[[ return variables.background_color ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+        - overflow: visible
+        - box-shadow: none
+      img_cell:
+        - justify-self: start
+        - align-self: start
+        - background: rgba(250, 251, 252, 0.1)
+        - margin: |
+            [[[
+              return variables.size === 'small' ? '4px 4px' : '0';
+            ]]]
+        - border-radius: 50%
+        - border: 1px solid rgba(250, 251, 252, 0.1)
+        - width: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+        - height: '[[[ return variables.size === "small" ? "56px" : "52px" ]]]'
+        - padding: 0
+        - translate: '[[[ return variables.size === "small" ? "0 0" : "-10px -10px" ]]]'
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: '[[[ return variables.text_color ]]]'
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: '[[[ return variables.size === "small" ? "16px" : "2em" ]]]'
+        - font-weight: '[[[ return variables.size === "small" ? "500" : "300" ]]]'
+        - color: '[[[ return variables.text_color ]]]'
+        - line-height: 1.2em
+      name:
+        - justify-self: start
+        - text-align: left
+        - font-size: 14px
+        - font-weight: 500
+        - color: '[[[ return variables.text_color ]]]'
+        - opacity: '0.7'
+      state:
+        - display: none
+        - justify-self: start
+        - align-self: end
+        - font-size: '[[[ return variables.size === "small" ? "16px" : "2em" ]]]'
+        - font-weight: '[[[ return variables.size === "small" ? "500" : "300" ]]]'
+        - color: '[[[ return variables.text_color ]]]'
+        - line-height: 1.5em
+      custom_fields:
+        badge:
+          - position: absolute
+          - padding: 2px
+          - right: 0px
+          - top: 0px
+          - background: '[[[ return variables.badge_color ]]]'
+          - width: 9px
+          - height: 9px
+          - border-radius: 50%
+          - display: '[[[ return variables.badge_condition ? "block" : "none" ]]]'
+          - line-height: 0px
+          - font-size: 0px
+          - font-weight: 900
+          - color: '[[[ return variables.badge_color ]]]'
+        alt:
+          - display: none
+          - justify-self: end
+          - font-size: 14px
+          - color: '[[[ return variables.text_color ]]]'
+          - opacity: '0.7'
+          - font-weight: 500
+        mode:
+          - display: none
+        bar:
+          - display: none
+  universal_sensor_ny:
+    template:
+      - universal_base
+    variables:
+      mode: sensor
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+        if (variables.size === 'small') {
+          if (subText && altText) return `${subText} · ${altText}`;
+          if (subText) return subText;
+          if (altText) return altText;
+          return '';
+        }
+
+        return subText;
+      ]]]
+    label: |
+      [[[
+        let baseText;
+
+        if (variables.main_text !== null) {
+          baseText = variables.main_text;
+        } else if (entity) {
+          baseText = entity.state;
+        } else {
+          baseText = 'Value';
+        }
+
+        if (variables.symbol !== null) {
+          if (variables.size === 'small') {
+            return String(baseText) + String(variables.symbol);
+          }
+
+          return String(baseText) +
+            `<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${variables.symbol}</span>`;
+        }
+
+        return baseText;
+      ]]]
+    styles:
+      card:
+        - padding: |
+            [[[
+              return variables.size === 'small' ? '0' : '20px';
+            ]]]
+      grid:
+        - grid-template-areas: |
+            [[[
+              if (variables.size === 'small') {
+                return '"i l" "i n"';
+              }
+
+              return variables.alt_text
+                ? '"i i i" "n n n" "l l alt"'
+                : '"i i i" "n n n" "l l l"';
+            ]]]
+        - grid-template-columns: |
+            [[[
+              return variables.size === 'small'
+                ? '76px 1fr'
+                : '1fr 1fr min-content';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              return variables.size === 'small'
+                ? '1fr 1fr'
+                : '1fr min-content min-content';
+            ]]]
+      name:
+        - align-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - padding-top: |
+            [[[
+              return variables.size === 'small' ? '2px' : '10px';
+            ]]]
+      custom_fields:
+        alt:
+          - display: |
+              [[[
+                const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+                return variables.size === 'big' && altText !== '' ? 'block' : 'none';
+              ]]]
+          - margin-bottom: -12px
+  universal_action:
+    template:
+      - universal_base
+    variables:
+      mode: action
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+        if (variables.size === 'small') {
+          if (subText && altText) return `${subText} · ${altText}`;
+          if (subText) return subText;
+          if (altText) return altText;
+          return '';
+        }
+
+        return subText;
+      ]]]
+    label: |
+      [[[
+        let baseText;
+
+        if (variables.main_text !== null) {
+          baseText = variables.main_text;
+        } else if (entity) {
+          baseText = entity.state;
+        } else {
+          baseText = 'Value';
+        }
+
+        if (variables.symbol !== null) {
+          if (variables.size === 'small') {
+            return String(baseText) + String(variables.symbol);
+          }
+
+          return String(baseText) +
+            `<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${variables.symbol}</span>`;
+        }
+
+        return baseText;
+      ]]]
+    show_state: |
+      [[[
+        if (variables.size === 'small') return false;
+
+        const rule1Matched = entity && (
+          (variables.state_rule_1_value !== null && entity.state === String(variables.state_rule_1_value)) ||
+          (variables.state_rule_1_value === null && variables.state_rule_1_condition)
+        );
+
+        return variables.show_timer && rule1Matched;
+      ]]]
+    custom_fields:
+      mode: |
+        [[[
+          return `
+            <ha-icon
+              icon="mdi:gesture-tap"
+              style="
+                width:22px;
+                height:22px;
+                opacity:0.4;
+                display:block;
+              ">
+            </ha-icon>
+          `;
+        ]]]
+    styles:
+      card:
+        - padding: |
+            [[[
+              return variables.size === 'small' ? '0' : '20px';
+            ]]]
+      grid:
+        - grid-template-areas: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              const rule1Matched = entity && (
+                (variables.state_rule_1_value !== null && entity.state === String(variables.state_rule_1_value)) ||
+                (variables.state_rule_1_value === null && variables.state_rule_1_condition)
+              );
+
+              const showingTimer = variables.size !== 'small' && variables.show_timer && rule1Matched;
+              const main = showingTimer ? 's' : 'l';
+
+              if (variables.size === 'small') {
+                return hasSubText
+                  ? '"i ' + main + ' mode" "i n mode"'
+                  : '"i ' + main + ' mode"';
+              }
+
+              if (hasSubText) {
+                return variables.alt_text
+                  ? '"i mode" "n n" "' + main + ' alt"'
+                  : '"i mode" "n n" "' + main + ' ' + main + '"';
+              }
+
+              return variables.alt_text
+                ? '"i mode" "' + main + ' alt"'
+                : '"i mode" "' + main + ' ' + main + '"';
+            ]]]
+        - grid-template-columns: |
+            [[[
+              return variables.size === 'small'
+                ? '76px 1fr 58px'
+                : '1fr 1fr min-content';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              if (variables.size === 'small') {
+                return hasSubText ? '1fr 1fr' : '1fr';
+              }
+
+              return hasSubText
+                ? '1fr min-content min-content'
+                : '1fr min-content';
+            ]]]
+      label:
+        - display: |
+            [[[
+              if (variables.size === 'small') return 'block';
+
+              const rule1Matched = entity && (
+                (variables.state_rule_1_value !== null && entity.state === String(variables.state_rule_1_value)) ||
+                (variables.state_rule_1_value === null && variables.state_rule_1_condition)
+              );
+
+              return variables.show_timer && rule1Matched ? 'none' : 'block';
+            ]]]
+        - align-self: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              return subText === '' ? 'center' : 'end';
+            ]]]
+      state:
+        - display: |
+            [[[
+              if (variables.size === 'small') return 'none';
+
+              const rule1Matched = entity && (
+                (variables.state_rule_1_value !== null && entity.state === String(variables.state_rule_1_value)) ||
+                (variables.state_rule_1_value === null && variables.state_rule_1_condition)
+              );
+
+              return variables.show_timer && rule1Matched ? 'block' : 'none';
+            ]]]
+      name:
+        - display: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+              if (variables.size === 'small') {
+                return (subText !== '' || altText !== '') ? 'block' : 'none';
+              }
+
+              return subText !== '' ? 'block' : 'none';
+            ]]]
+        - align-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - padding-top: |
+            [[[
+              return variables.size === 'small' ? '2px' : '10px';
+            ]]]
+      custom_fields:
+        mode:
+          - display: flex
+          - align-items: center
+          - justify-content: center
+          - line-height: 0
+          - border: none
+          - border-radius: 50%
+          - justify-self: '[[[ return variables.size === "small" ? "center" : "end" ]]]'
+          - align-self: '[[[ return variables.size === "small" ? "center" : "start" ]]]'
+          - color: '[[[ return variables.text_color ]]]'
+          - margin: 0
+        alt:
+          - display: |
+              [[[
+                const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+                return variables.size === 'big' && altText !== '' ? 'block' : 'none';
+              ]]]
+  universal_navigate:
+    template:
+      - universal_base
+    variables:
+      mode: navigate
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+        if (variables.size === 'small') {
+          if (subText && altText) return `${subText} · ${altText}`;
+          if (subText) return subText;
+          if (altText) return altText;
+          return '';
+        }
+
+        return subText;
+      ]]]
+    label: |
+      [[[
+        let baseText;
+
+        if (variables.main_text !== null) {
+          baseText = variables.main_text;
+        } else if (entity) {
+          baseText = entity.state;
+        } else {
+          baseText = 'Value';
+        }
+
+        if (variables.symbol !== null) {
+          if (variables.size === 'small') {
+            return String(baseText) + String(variables.symbol);
+          }
+
+          return String(baseText) +
+            `<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${variables.symbol}</span>`;
+        }
+
+        return baseText;
+      ]]]
+    custom_fields:
+      mode: |
+        [[[
+          return `
+            <ha-icon
+              icon="mdi:chevron-right"
+              style="
+                width:20px;
+                height:20px;
+                opacity:0.7;
+                display:block;
+              ">
+            </ha-icon>
+          `;
+        ]]]
+    styles:
+      card:
+        - padding: |
+            [[[
+              return variables.size === 'small' ? '0' : '20px';
+            ]]]
+      grid:
+        - grid-template-areas: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              if (variables.size === 'small') {
+                return hasSubText
+                  ? '"i l mode" "i n mode"'
+                  : '"i l mode"';
+              }
+
+              if (hasSubText) {
+                return variables.alt_text
+                  ? '"i mode" "n n" "l alt"'
+                  : '"i mode" "n n" "l l"';
+              }
+
+              return variables.alt_text
+                ? '"i mode" "l alt"'
+                : '"i mode" "l l"';
+            ]]]
+        - grid-template-columns: |
+            [[[
+              return variables.size === 'small'
+                ? '76px 1fr 58px'
+                : '1fr 1fr min-content';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              if (variables.size === 'small') {
+                return hasSubText ? '1fr 1fr' : '1fr';
+              }
+
+              return hasSubText
+                ? '1fr min-content min-content'
+                : '1fr min-content';
+            ]]]
+      label:
+        - align-self: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              return subText === '' ? 'center' : 'end';
+            ]]]
+      name:
+        - display: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+              if (variables.size === 'small') {
+                return (subText !== '' || altText !== '') ? 'block' : 'none';
+              }
+
+              return subText !== '' ? 'block' : 'none';
+            ]]]
+        - align-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - padding-top: |
+            [[[
+              return variables.size === 'small' ? '2px' : '10px';
+            ]]]
+      custom_fields:
+        mode:
+          - display: flex
+          - align-items: center
+          - justify-content: center
+          - line-height: 0
+          - rotate: -45deg
+          - border: none
+          - border-radius: 50%
+          - justify-self: '[[[ return variables.size === "small" ? "center" : "end" ]]]'
+          - align-self: '[[[ return variables.size === "small" ? "center" : "start" ]]]'
+          - color: '[[[ return variables.text_color ]]]'
+          - margin: 0
+        alt:
+          - display: |
+              [[[
+                const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+                return variables.size === 'big' && altText !== '' ? 'block' : 'none';
+              ]]]
+  universal_toggle:
+    template:
+      - universal_base
+    variables:
+      mode: toggle
+      toggle_on_value: 'on'
+      toggle_on_icon: mdi:toggle-switch
+      toggle_off_icon: mdi:toggle-switch-off
+      toggle_icon_color_on: var(--green)
+      toggle_icon_color_off: rgba(255,255,255,0.35)
+      toggle_rotate: 0deg
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+        if (variables.size === 'small') {
+          if (subText && altText) return `${subText} · ${altText}`;
+          if (subText) return subText;
+          if (altText) return altText;
+          return '';
+        }
+
+        return subText;
+      ]]]
+    label: |
+      [[[
+        let baseText;
+
+        if (variables.main_text !== null) {
+          baseText = variables.main_text;
+        } else if (entity) {
+          baseText = entity.state;
+        } else {
+          baseText = 'Value';
+        }
+
+        if (variables.symbol !== null) {
+          if (variables.size === 'small') {
+            return String(baseText) + String(variables.symbol);
+          }
+
+          return String(baseText) +
+            `<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${variables.symbol}</span>`;
+        }
+
+        return baseText;
+      ]]]
+    custom_fields:
+      mode: |
+        [[[
+          const isOn = entity && entity.state === String(variables.toggle_on_value);
+          const icon = isOn ? variables.toggle_on_icon : variables.toggle_off_icon;
+          const color = isOn
+            ? variables.toggle_icon_color_on
+            : variables.toggle_icon_color_off;
+
+          return `
+            <ha-icon
+              icon="${icon}"
+              style="
+                width:56px;
+                height:56px;
+                color:${color};
+                opacity:1;
+                display:block;
+                transform:rotate(${variables.toggle_rotate});
+              ">
+            </ha-icon>
+          `;
+        ]]]
+    styles:
+      card:
+        - padding: |
+            [[[
+              return variables.size === 'small' ? '0' : '20px';
+            ]]]
+      grid:
+        - grid-template-areas: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              if (variables.size === 'small') {
+                return hasSubText
+                  ? '"i l mode" "i n mode"'
+                  : '"i l mode"';
+              }
+
+              if (hasSubText) {
+                return variables.alt_text
+                  ? '"i mode" "n n" "l alt"'
+                  : '"i mode" "n n" "l l"';
+              }
+
+              return variables.alt_text
+                ? '"i mode" "l alt"'
+                : '"i mode" "l l"';
+            ]]]
+        - grid-template-columns: |
+            [[[
+              return variables.size === 'small'
+                ? '76px 1fr 76px'
+                : '1fr 1fr min-content';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const hasSubText = subText !== '';
+
+              if (variables.size === 'small') {
+                return hasSubText ? '1fr 1fr' : '1fr';
+              }
+
+              return hasSubText
+                ? '1fr min-content min-content'
+                : '1fr min-content';
+            ]]]
+      label:
+        - align-self: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              return subText === '' ? 'center' : 'end';
+            ]]]
+      name:
+        - display: |
+            [[[
+              const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+              const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+              if (variables.size === 'small') {
+                return (subText !== '' || altText !== '') ? 'block' : 'none';
+              }
+
+              return subText !== '' ? 'block' : 'none';
+            ]]]
+        - align-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - padding-top: |
+            [[[
+              return variables.size === 'small' ? '2px' : '10px';
+            ]]]
+      custom_fields:
+        mode:
+          - display: flex
+          - align-items: center
+          - justify-content: center
+          - line-height: 0
+          - justify-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+          - align-self: '[[[ return variables.size === "small" ? "center" : "start" ]]]'
+          - translate: '[[[ return variables.size === "small" ? "0 0" : "10px -10px" ]]]'
+          - margin: |
+              [[[
+                return variables.size === 'small' ? '0 4px 0 0' : '0';
+              ]]]
+        alt:
+          - display: |
+              [[[
+                const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+                return variables.size === 'big' && altText !== '' ? 'block' : 'none';
+              ]]]
+  universal_bar:
+    template:
+      - universal_base
+    variables:
+      mode: bar
+    name: |
+      [[[
+        const subText = variables.sub_text == null ? '' : String(variables.sub_text).trim();
+        const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+
+        if (variables.size === 'small') {
+          if (subText && altText) return `${subText} · ${altText}`;
+          if (subText) return subText;
+          if (altText) return altText;
+          return '';
+        }
+
+        return subText;
+      ]]]
+    label: |
+      [[[
+        let baseText;
+
+        if (variables.main_text !== null) {
+          baseText = variables.main_text;
+        } else {
+          const displayValue =
+            variables.bar_value !== null &&
+            variables.bar_value !== undefined &&
+            variables.bar_value !== ''
+              ? variables.bar_value
+              : (entity ? entity.state : 0);
+
+          baseText = displayValue;
+        }
+
+        const suffix = variables.symbol !== null ? variables.symbol : variables.bar_symbol;
+
+        if (suffix !== null) {
+          if (variables.size === 'small') {
+            return String(baseText) + String(suffix);
+          }
+
+          return String(baseText) +
+            `<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${suffix}</span>`;
+        }
+
+        return baseText;
+      ]]]
+    custom_fields:
+      bar: |
+        [[[
+          if (variables.size === 'small') return '';
+
+          const colors = [
+            'var(--red)',
+            'var(--orange)',
+            'var(--yellow)',
+            'var(--blue)',
+            'var(--green)'
+          ];
+          const thresholds = [70, 50, 30, 20, 0];
+
+          const sourceValue =
+            variables.bar_value !== null &&
+            variables.bar_value !== undefined &&
+            variables.bar_value !== ''
+              ? variables.bar_value
+              : (entity ? entity.state : 0);
+
+          const rawValue = Number(sourceValue) || 0;
+          const value = Math.max(0, Math.min(100, rawValue));
+
+          let color;
+          if (variables.bar_color === 'white') {
+            color = 'var(--gray1000)';
+          } else if (variables.bar_color) {
+            color = variables.bar_color;
+          } else {
+            let index = thresholds.findIndex((threshold) => rawValue >= threshold);
+            if (index < 0) index = thresholds.length - 1;
+            if (variables.bar_invert_colors) index = 4 - index;
+            color = colors[index];
+          }
+
+          return `
+            <div
+              style="
+                position:relative;
+                width:100%;
+                height:30px;
+                overflow:hidden;
+                border-bottom-left-radius:34px;
+                border-bottom-right-radius:34px;
+                background-image:repeating-linear-gradient(
+                  45deg,
+                  transparent,
+                  transparent 2px,
+                  ${color} 3px,
+                  transparent 4px
+                );
+              ">
+              <div
+                style="
+                  background:${color};
+                  height:30px;
+                  width:${value}%;
+                ">
+              </div>
+            </div>
+          `;
+        ]]]
+    styles:
+      card:
+        - height: 180px;
+        - padding: '[[[ return variables.size === "small" ? "0" : "20px 0 0 0" ]]]'
+      grid:
+        - grid-template-areas: |
+            [[[
+              if (variables.size === 'small') {
+                return '"i l" "i n"';
+              }
+
+              return variables.alt_text
+                ? '"i i i" "n n n" "l l alt" "bar bar bar"'
+                : '"i i i" "n n n" "l l l" "bar bar bar"';
+            ]]]
+        - grid-template-columns: |
+            [[[
+              return variables.size === 'small'
+                ? '76px 1fr'
+                : '1fr 1fr min-content';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              return variables.size === 'small'
+                ? '1fr 1fr'
+                : '1fr min-content min-content min-content';
+            ]]]
+      label:
+        - padding-left: '[[[ return variables.size === "big" ? "20px" : "0" ]]]'
+      name:
+        - align-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - padding-top: |
+            [[[
+              return variables.size === 'small' ? '2px' : '10px';
+            ]]]
+        - padding-left: '[[[ return variables.size === "big" ? "20px" : "0" ]]]'
+      img_cell:
+        - translate: 10px -10px;
+      custom_fields:
+        alt:
+          - display: |
+              [[[
+                const altText = variables.alt_text == null ? '' : String(variables.alt_text).trim();
+                return variables.size === 'big' && altText !== '' ? 'block' : 'none';
+              ]]]
+          - padding-right: '[[[ return variables.size === "big" ? "20px" : "0" ]]]'
+          - margin-bottom: -12px
+        bar:
+          - display: '[[[ return variables.size === "big" ? "block" : "none" ]]]'
+          - justify-self: start
+          - width: calc(100% - 1px)
+          - height: 30px
+          - margin-top: 6px
+  universal_room:
+    variables:
+      entity: null
+      icon: mdi:chevron-right
+      sub_text: Room
+      main_text: null
+      alt_text: null
+      background_color: var(--gray100)
+      text_color: var(--gray1000)
+      margin: 0
+      height: null
+      badge_condition: null
+      badge_text: '!'
+      badge_color: var(--red)
+    name: '[[[ return variables.sub_text ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    show_label: true
+    show_icon: true
+    label: |
+      [[[
+        if (variables.main_text !== null) {
+          return variables.main_text;
+        }
+
+        if (!entity) {
+          return 'Value';
+        }
+
+        const temp = entity.attributes.temp;
+        const lights = entity.attributes.lights;
+
+        const safeTemp = temp !== undefined && temp !== null
+          ? parseFloat(temp).toFixed(0)
+          : '-';
+
+        const safeLights = lights !== undefined && lights !== null
+          ? parseFloat(lights).toFixed(0)
+          : '-';
+
+        const suffix = variables.alt_text !== null
+          ? variables.alt_text
+          : `${safeLights} lys på`;
+
+        return `${safeTemp}°<span style="font-size:14px;line-height:1.5em;font-weight:500;opacity:0.7;margin-left:2px;">${suffix}</span>`;
+      ]]]
+    state:
+      - operator: template
+        value: '[[[ return variables.badge_condition ]]]'
+        styles:
+          custom_fields:
+            badge:
+              - display: block
+    custom_fields:
+      badge: '[[[ return variables.badge_text ]]]'
+    styles:
+      card:
+        - padding: 20px
+        - background: '[[[ return variables.background_color ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+        - height: '[[[ return variables.height ]]]'
+        - overflow: visible
+      grid:
+        - grid-template-areas: '"n i" "l i"'
+        - grid-template-rows: 1fr min-content
+        - grid-template-columns: 1fr min-content
+      img_cell:
+        - justify-self: end
+        - align-self: |
+            [[[
+              const height = parseInt(variables.height, 10);
+              return !isNaN(height) && height > 120 ? 'start' : 'center';
+            ]]]
+        - width: 18px
+        - height: 18px
+      icon:
+        - width: 18px
+        - height: 18px
+        - color: '[[[ return variables.text_color ]]]'
+        - rotate: -45deg
+        - opacity: 0.7
+      name:
+        - justify-self: start
+        - align-self: start
+        - text-align: left
+        - font-size: 16px
+        - font-weight: 500
+        - color: '[[[ return variables.text_color ]]]'
+        - padding-bottom: 4px
+      label:
+        - justify-self: start
+        - font-size: 2em
+        - line-height: 1em
+        - font-weight: 300
+        - color: '[[[ return variables.text_color ]]]'
+        - padding-top: 4px
+      custom_fields:
+        badge:
+          - position: absolute
+          - padding: 2px
+          - right: 0px
+          - top: 0px
+          - background: '[[[ return variables.badge_color ]]]'
+          - width: 9px
+          - height: 9px
+          - border-radius: 50%
+          - display: '[[[ return variables.badge_condition ? "block" : "none" ]]]'
+          - line-height: 0px
+          - font-size: 0px
+          - font-weight: 900
+          - color: '[[[ return variables.badge_color ]]]'
+  universal_button:
+    variables:
+      main_text: Button
+      icon: mdi:circle
+      show_button_icon: false
+      background_color: var(--gray200)
+      text_color: var(--gray1000)
+      active_background_color: var(--active-big)
+      active_text_color: var(--black)
+      match_value: null
+    name: '[[[ return variables.main_text ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    show_icon: '[[[ return variables.show_button_icon ]]]'
+    aspect_ratio: 1/1
+    state:
+      - operator: template
+        value: |
+          [[[
+            if (!entity || variables.match_value === null) return false;
+            return entity.state === String(variables.match_value);
+          ]]]
+        styles:
+          card:
+            - background: '[[[ return variables.active_background_color ]]]'
+          name:
+            - color: '[[[ return variables.active_text_color ]]]'
+    styles:
+      grid:
+        - grid-template-areas: |
+            [[[
+              return variables.show_button_icon ? '"i" "n"' : '"n"';
+            ]]]
+        - grid-template-rows: |
+            [[[
+              return variables.show_button_icon ? 'min-content 1fr' : '1fr';
+            ]]]
+      img_cell:
+        - display: '[[[ return variables.show_button_icon ? "flex" : "none" ]]]'
+        - width: 22px
+        - height: 22px
+        - padding: 18px 0 0 0
+        - margin: 0
+        - justify-self: center
+        - align-self: start
+      icon:
+        - width: 100%
+        - height: 100%
+      card:
+        - background: |
+            [[[
+              return `linear-gradient(120deg, rgba(242, 133, 201, 0.2) 0%, ${variables.background_color} 40%)`;
+            ]]]
+        - outline: 1px solid rgba(242, 133, 201, 0.22)
+      name:
+        - justify-self: center
+        - align-self: center
+        - text-align: center
+        - font-size: 14px
+        - font-weight: 500
+        - color: '[[[ return variables.text_color ]]]'
+        - padding: 0
+        - margin: |
+            [[[
+              return variables.show_button_icon ? '-6px 0 0 0' : '0';
+            ]]]
+  universal_headline:
+    variables:
+      main_text: null
+      sub_text: null
+      icon: mdi:ab-testing
+    name: '[[[ return variables.main_text ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    show_label: true
+    label: '[[[ return variables.sub_text ]]]'
+    styles:
+      grid:
+        - grid-template-areas: '"i n l"'
+        - grid-template-columns: min-content min-content 1fr
+      icon:
+        - color: var(--gray1000)
+        - width: 22px
+        - padding-right: 12px
+      card:
+        - background: none
+        - overflow: visible
+        - --mdc-ripple-press-opacity: 0
+        - padding: 0
+      name:
+        - color: var(--gray1000)
+        - font-size: 16px
+        - font-weight: 500
+        - justify-self: start
+        - align-self: center
+      label:
+        - justify-self: start
+        - padding-left: 12px
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: '0.7'
+  template_sensor_small:
+    variables:
+      text_main: Main text
+      text_sub: Sub text
+      icon: mdi:alert
+      entity: null
+      background: var(--gray200)
+      margin: 12px
+      action: none
+    icon: '[[[ return variables.icon ]]]'
+    label: '[[[ return variables.text_main ]]]'
+    name: '[[[ return variables.text_sub ]]]'
+    show_label: true
+    custom_fields:
+      tap: |
+        [[[ 
+          const action = variables.action || 'none';
+          
+          switch(action) {
+            case 'tap':
+              return '<div style="position:absolute; top: 8px; left:calc(50% - 18px);width: 36px; height:3px;background:var(--gray1000);border-radius:5px"></div>';
+            case 'none':
+              return '';
+            default:
+              return '';
+          }
+        ]]]  
+    styles:
+      custom_fields:
+        tap:
+          - overflow: visible
+          - opacity: 0.1
+      card:
+        - padding: 0
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"i l" "i n"'
+        - grid-template-columns: 76px 1fr
+        - grid-template-rows: 1fr 1fr
+      img_cell:
+        - justify-self: start
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray1000)
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: 16px
+        - font-weight: 500
+        - color: var(--gray1000)
+        - line-height: 1.4em
+      name:
+        - justify-self: start
+        - align-self: start
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: '0.7'
+        - line-height: 1.4em
+  template_energy_card:
+    variables:
+      margin: 0
+      background: var(--gray200)
+      text_color: var(--gray100)
+      daily_sensor: sensor.daily_energy
+      monthly_sensor: sensor.monthly_energy
+      text_sub: Energy
+      icon: mdi:lightning-bolt
+      unit: kWh
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.text_sub ]]]'
+    label: |
+      [[[
+        return Math.round(parseFloat(states[variables.monthly_sensor].state)) + ' ' + variables.unit;
+      ]]]
+    show_label: true
+    custom_fields:
+      state: |
+        [[[
+          return parseFloat(states[variables.daily_sensor].state).toFixed(1) + ' ' + variables.unit + ' idag';
+        ]]]
+    styles:
+      card:
+        - padding: 20px
+        - height: 180px
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"i" "l" "n" "state"'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - margin: -16px -16px 0 0
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: '[[[ return variables.text_color ]]]'
+      label:
+        - color: '[[[ return variables.text_color ]]]'
+        - justify-self: start
+        - font-size: 2em
+        - font-weight: 300
+      name:
+        - color: '[[[ return variables.text_color ]]]'
+        - justify-self: start
+        - font-size: 14px
+        - opacity: '0.7'
+      custom_fields:
+        state:
+          - color: '[[[ return variables.text_color ]]]'
+          - justify-self: start
+          - font-size: 12px
+          - opacity: '0.6'
+          - margin-top: 4px
+          - padding-right: 0
+          - padding-bottom: 0
+  template_sensor_big:
+    variables:
+      text_main: Main text
+      text_sub: Sub text
+      icon: mdi:alert
+      entity: null
+      background: var(--gray200)
+      height: 160px
+      margin: 12px
+      action: none
+    icon: '[[[ return variables.icon ]]]'
+    label: '[[[ return variables.text_main ]]]'
+    name: '[[[ return variables.text_sub ]]]'
+    show_label: true
+    custom_fields:
+      tap: |
+        [[[ 
+          const action = variables.action || 'none';
+          
+          switch(action) {
+            case 'tap':
+              return '<div style="position:absolute; top: 8px; left:calc(50% - 18px);width: 36px; height:3px;background:var(--gray1000);border-radius:5px"></div>';
+            case 'none':
+              return '';
+            default:
+              return '';
+          }
+        ]]]      
+    styles:
+      custom_fields:
+        tap:
+          - overflow: visible
+          - opacity: 0.1
+      card:
+        - padding: 0 0 12px 20px
+        - height: '[[[ return variables.height ]]]'
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"n i" "l l"'
+        - grid-template-rows: min-content 1fr min-content
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray1000)
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: 2em
+        - line-height: 1.5em
+        - font-weight: 300
+        - color: var(--gray1000)
+      name:
+        - justify-self: start
+        - text-align: left;
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: '0.7'
+  template_sensor_big_alt:
+    variables:
+      text_main: Main text
+      text_sub: Sub text
+      text_alt: Alt text
+      icon: mdi:alert
+      entity: null
+      background: var(--gray200)
+      height: 160px
+      margin: 12px
+    icon: '[[[ return variables.icon ]]]'
+    label: '[[[ return variables.text_main ]]]'
+    name: '[[[ return variables.text_sub ]]]'
+    show_label: true
+    custom_fields:
+      state: '[[[ return variables.text_alt ]]]'
+    styles:
+      card:
+        - padding: 0 0 12px 20px
+        - height: '[[[ return variables.height ]]]'
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"n i" "l state"'
+        - grid-template-rows: min-content 1fr
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray1000)
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: 2em
+        - line-height: 1.5em
+        - font-weight: 300
+        - color: var(--gray1000)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: '0.7'
+        - text-align: left;
+      custom_fields:
+        state:
+          - justify-self: end
+          - align-self: end
+          - font-size: 14px
+          - color: var(--gray1000)
+          - opacity: '0.7'
+          - padding-right: 20px
+          - padding-bottom: 9px
+  sensor_battery:
+    show_label: true
+    icon: mdi:battery
+    styles:
+      card:
+        - padding: 0
+        - height: 180px
+        - background: var(--gray200)
+      grid:
+        - grid-template-areas: ' "n i" "l battery" "bar bar"'
+        - grid-template-rows: min-content 1fr min-content
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: 2em
+        - font-weight: 350
+        - padding-left: 20px
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - padding-left: 20px
+        - opacity: '0.7'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray1000)
+      custom_fields:
+        bar:
+          - justify-self: start
+          - width: 100%
+          - background-image: >
+              [[[       var color; var state = entity.state;  if (state >= 80) {
+                  color = "#9EDF9C";
+              } else if (state >= 60) {
+                  color = "#78B3CE";
+              } else if (state >= 40) {
+                  color = "#FBD288";
+              } else if (state >= 20) {
+                  color = "#FF9C73";
+              } else {
+                  color = "#F95454";
+              } return `repeating-linear-gradient(45deg,transparent,transparent
+              2px,${color} 3px,transparent 4px)` ]]]  
+          - height: 30px
+          - margin-top: 6px
+        battery:
+          - justify-self: start
+          - align-self: end
+          - font-size: 14px
+          - color: var(--gray800)
+          - padding-right: 20px
+          - opacity: '0.7'
+    custom_fields:
+      battery: |
+        [[[
+          return entity.attributes.battery_quantity + " x " + entity.attributes.battery_type;
+        ]]]
+      bar: >
+        [[[       var color; var state = entity.state;  if (state >= 80) {
+            color = "#9EDF9C";
+        } else if (state >= 60) {
+            color = "#78B3CE";
+        } else if (state >= 40) {
+            color = "#FBD288";
+        } else if (state >= 20) {
+            color = "#FF9C73";
+        } else {
+            color = "#F95454";
+        } return `<div> <div style="background:${color}; height:
+        30px;width:${state}%; "></div></div>` ]]]
+  template_trigger_card:
+    variables:
+      text_main: Main text
+      icon: mdi:alert
+      entity: null
+      background: var(--gray200)
+      color: var(--gray1000)
+      margin: 0px
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.text_main ]]]'
+    show_label: false
+    styles:
+      grid:
+        - grid-template-areas: '"i" "n"'
+      img_cell:
+        - justify-self: start
+        - align-self: start
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: '[[[ return variables.color ]]]'
+      name:
+        - justify-self: start
+        - text-align: left
+        - font-size: 16px
+        - font-weight: 500
+        - color: '[[[ return variables.color ]]]'
+      card:
+        - padding: 20px
+        - background: '[[[ return variables.background ]]]'
+        - height: 130px
+        - margin-top: '[[[ return variables.margin ]]]'
+  universal_sensor:
+    variables:
+      entity: null
+      size: big
+      icon: mdi:alert
+      show_tap_indicator: false
+      main_text: null
+      sub_text: Sensor
+      alt_text: null
+      show_bar: false
+      bar_value: 0
+      bar_symbol: '%'
+      bar_color: null
+      bar_invert_colors: false
+      background_color: var(--gray200)
+      img_cell_background: rgba(250, 251, 252, 0.1)
+      text_color: var(--gray1000)
+      margin: 0
+      enable_off_state_styling: false
+      off_state_value: 'off'
+      off_state_main_text: 'Off'
+      off_state_background_color: null
+      off_state_text_color: null
+      badge_condition: null
+      badge_text: '!'
+      badge_color: var(--red)
+    name: '[[[ return variables.sub_text ]]]'
+    label: |
+      [[[
+        if (variables.main_text !== null) {
+          return variables.main_text;
+        }
+        if (variables.show_bar) {
+          return variables.bar_value + '<span style="font-size:14px;line-height:1.5em;margin-left:2px;">' + variables.bar_symbol + '</span>';
+        }
+        if (entity) {
+          return entity.state;
+        }
+        return 'Value';
+      ]]]
+    icon: '[[[ return variables.icon ]]]'
+    show_label: true
+    show_icon: true
+    state:
+      - operator: template
+        value: |
+          [[[
+            return variables.enable_off_state_styling && entity && entity.state === variables.off_state_value;
+          ]]]
+        label: '[[[ return variables.off_state_main_text ]]]'
+        styles:
+          label:
+            - color: '[[[ return variables.off_state_text_color ]]]'
+          name:
+            - color: '[[[ return variables.off_state_text_color ]]]'
+          icon:
+            - color: '[[[ return variables.off_state_text_color ]]]'
+          card:
+            - background: >-
+                [[[ return variables.off_state_background_color ||
+                variables.background_color ]]]
+            - height: >-
+                [[[ return variables.size === "small" ? "65px" :
+                (variables.show_bar ? "160px" : "160px") ]]]
+          img_cell:
+            - width: 58px
+            - height: 58px
+            - padding: null
+          custom_fields:
+            bar:
+              - display: none
+            state:
+              - display: none
+      - operator: template
+        value: '[[[ return variables.badge_condition ]]]'
+        styles:
+          custom_fields:
+            badge:
+              - display: block
+    custom_fields:
+      badge: '[[[ return variables.badge_text ]]]'
+      state: '[[[ return variables.alt_text ]]]'
+      tap: |
+        [[[ 
+          if (variables.show_tap_indicator) {
+            return '<div style="position:absolute; top: 8px; left:calc(50% - 18px);width: 36px; height:3px;background:var(--gray1000);border-radius:5px"></div>';
+          }
+          return '';
+        ]]]
+      bar: |
+        [[[
+          if (!variables.show_bar || variables.size === 'small') return '';
+          var color;
+          if (variables.bar_color === 'white') {
+            color = 'var(--gray1000)';
+          } else if (variables.bar_color) {
+            color = variables.bar_color;
+          } else {
+            const colors = ["var(--red)","var(--orange)","var(--yellow)","var(--blue)","var(--green)"];
+            const thresholds = [70, 50, 30, 20, 0];
+            var state = variables.bar_value;
+            var index = thresholds.findIndex(threshold => state >= threshold);
+            if (variables.bar_invert_colors) {
+                index = 4 - index;
+            }
+            color = colors[index];
+          }      
+          var state = variables.bar_value;
+          return `<div><div style="background:${color}; height:30px;width:${state}%;"></div></div>`;
+        ]]]
+    styles:
+      card:
+        - padding: >-
+            [[[ return variables.size === "small" ? "0" : (variables.show_bar ?
+            "0" : "0 0 12px 20px") ]]]
+        - height: >-
+            [[[ return variables.size === "small" ? "65px" : (variables.show_bar
+            ? "160px" : "160px") ]]]
+        - background: '[[[ return variables.background_color ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+        - overflow: visible
+        - box-shadow: none
+        - --mdc-ripple-color: transparent
+        - --ha-ripple-color: transparent
+        - --ha-ripple-hover-opacity: 0
+      grid:
+        - grid-template-areas: |
+            [[[
+              if (variables.size === 'small') {
+                return '"i l" "i n"';
+              }
+              if (variables.show_bar) {
+                return '"n i" "l state" "bar bar"';
+              }
+              return variables.alt_text ? '"n i" "l state"' : '"n i" "l l"';
+            ]]]
+        - grid-template-columns: '[[[ return variables.size === "small" ? "76px 1fr" : null ]]]'
+        - grid-template-rows: >-
+            [[[ return variables.size === "small" ? "1fr 1fr" :
+            (variables.show_bar ? "min-content 1fr min-content" : "min-content
+            1fr") ]]]
+      img_cell:
+        - justify-self: '[[[ return variables.size === "small" ? "start" : "end" ]]]'
+        - align-self: start
+        - background: '[[[ return variables.img_cell_background ]]]'
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+        - padding: 0
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: '[[[ return variables.text_color ]]]'
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: '[[[ return variables.size === "small" ? "16px" : "2em" ]]]'
+        - font-weight: '[[[ return variables.size === "small" ? "500" : "300" ]]]'
+        - color: '[[[ return variables.text_color ]]]'
+        - line-height: 1.5em
+        - padding-left: >-
+            [[[ return variables.size === "big" && variables.show_bar ? "20px" :
+            "0" ]]]
+      name:
+        - justify-self: start
+        - align-self: '[[[ return variables.size === "small" ? "start" : "center" ]]]'
+        - text-align: left
+        - font-size: 14px
+        - color: '[[[ return variables.text_color ]]]'
+        - opacity: '0.7'
+        - padding-left: >-
+            [[[ return variables.size === "big" && variables.show_bar ? "20px" :
+            "0" ]]]
+      custom_fields:
+        badge:
+          - position: absolute
+          - padding: 2px
+          - right: -2px
+          - top: -2px
+          - background: '[[[ return variables.badge_color ]]]'
+          - width: 20px
+          - height: 20px
+          - border-radius: 50%
+          - display: '[[[ return variables.badge_condition ? "block" : "none" ]]]'
+          - line-height: 20px
+          - font-weight: 900
+          - color: var(--white)
+        tap:
+          - overflow: visible
+          - opacity: 0.2
+        state:
+          - display: >-
+              [[[ return variables.size === "big" && variables.alt_text ?
+              "block" : "none" ]]]
+          - justify-self: end
+          - align-self: end
+          - font-size: 14px
+          - color: '[[[ return variables.text_color ]]]'
+          - opacity: '0.7'
+          - padding-right: 20px
+          - padding-bottom: 9px
+        bar:
+          - display: >-
+              [[[ return variables.size === "big" && variables.show_bar ?
+              "block" : "none" ]]]
+          - justify-self: start
+          - width: calc(100% - 1px);
+          - height: 30px
+          - margin-top: 6px
+          - border-bottom-left-radius: 34px
+          - border-bottom-right-radius: 34px
+          - background-image: |
+              [[[     
+                if (!variables.show_bar || variables.size === 'small') return 'none';
+                var color;
+                if (variables.bar_color === 'white') {
+                  color = 'var(--gray1000)';
+                } else if (variables.bar_color) {
+                  color = variables.bar_color;
+                } else {
+                  const colors = ["var(--red)","var(--orange)","var(--yellow)","var(--blue)","var(--green)"];
+                  const thresholds = [70, 50, 30, 20, 0];
+                  var state = variables.bar_value;
+                  var index = thresholds.findIndex(threshold => state >= threshold);
+                  if (variables.bar_invert_colors) {
+                      index = 4 - index;
+                  }
+                  color = colors[index];
+                }
+                return `repeating-linear-gradient(45deg,transparent,transparent 2px,${color} 3px,transparent 4px)`;
+              ]]]
+  switch_label_template:
+    template: setup
+    variables:
+      icon_on: '[[[ return entity.attributes.icon ]]]'
+      icon_off: '[[[ return entity.attributes.icon ]]]'
+      color: var(--yellow)
+    icon: '[[[ return entity.attributes.icon ]]]'
+    show_label: true
+    show_state: false
+    tap_action:
+      action: toggle
+      haptic: success
+    hold_action:
+      action: more-info
+    state:
+      - value: 'on'
+        icon: '[[[ return variables.icon_on ]]]'
+        styles:
+          card:
+            - background-color: '[[[ return variables.color ]]]'
+      - value: 'off'
+        icon: '[[[ return variables.icon_off ]]]'
+        styles:
+          card:
+            - background-color: var(--contrast2)
+    custom_fields:
+      icon2:
+        card:
+          type: custom:button-card
+          icon: |
+            [[[
+              if (entity.state == "on"){
+                return "mdi:toggle-switch";
+              } else {
+                return "mdi:toggle-switch-off-outline";
+              }
+            ]]]
+          styles:
+            card:
+              - background-color: var(--contrast1)
+              - width: 27px
+              - height: 27px
+            icon:
+              - width: 15px
+              - color: var(--contrast20)
+    styles:
+      grid:
+        - grid-template-areas: '"i l icon2" "n n n"'
+        - grid-template-columns: 20px 1fr 1fr
+        - grid-template-rows: 1fr min-content
+      icon:
+        - width: 20px
+        - margin-top: 7px
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+      img_cell:
+        - justify-content: flex-start
+      name:
+        - justify-self: start
+        - font-size: 11px
+        - margin-bottom: 3px
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+        - opacity: 0.7
+      card:
+        - height: 75px
+        - background-color: |
+            [[[
+              if (entity.state == "on") return "var(--yellow)";
+              else return "var(--contrast2)";
+            ]]]
+        - box-shadow: none
+        - border-radius: 24px
+        - padding: 12px 0 12px 14px
+        - z-index: 1
+      label:
+        - justify-self: start
+        - font-size: 20px
+        - margin-top: 11px
+        - padding-left: 3px
+        - font-weight: 500
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+      custom_fields:
+        icon2:
+          - margin-top: -20px
+          - justify-self: end
+          - align-self: center
+          - width: 24px
+          - padding-right: 10px
+          - color: |
+              [[[
+                if (entity.state == "on") return "var(--black)";
+                else return "var(--contrast20)";
+              ]]]
+  hc_header_card_3_person:
+    variables:
+      air_quality_sensor: null
+      person_entity1: null
+      person_entity2: null
+      person_entity3: null
+    show_icon: false
+    show_label: true
+    name: |
+      [[[
+        const today = new Date();
+        const aqi = states[variables.air_quality_sensor]?.state || 0; // Replace with your AQI entity
+        let icon, color;
+
+        if (aqi <= 50) {
+          icon = 'mdi:alpha-g-box';
+          color = 'var(--color-green)';
+        } else if (aqi <= 100) {
+          icon = 'mdi:alpha-m-box';
+          color = 'var(--color-yellow)';
+        } else if (aqi <= 150) {
+          icon = 'mdi:alpha-u-box';
+          color = 'var(--color-orange)';
+        } else if (aqi <= 200) {
+          icon = 'mdi:alpha-u-box';
+          color = 'var(--color-red)';  
+        } else if (aqi <= 300) {
+          icon = 'mdi:alpha-v-box-box';
+          color = 'var(--color-purple)';
+        } else if (aqi <= 500) {
+          icon = 'mdi:alpha-h-box-box';
+          color = 'var(--color-orange)';      
+        } else {
+          icon = 'mdi:emoticon-dead';
+          color = 'var(--color-red)';
+        }
+
+        if (variables.air_quality_sensor) {
+          return `
+            ${today.toLocaleString('unknown', { month: 'long', day: 'numeric' })}
+            <ha-icon
+              icon="${icon}"
+              style="width: auto; height: 16px; color: ${color};"
+              title="AQI: ${aqi}">
+            </ha-icon>
+          `;
+        }
+        else {
+        return `
+          ${today.toLocaleString('unknown', { month: 'long', day: 'numeric' })}
+        `;
+        }
+      ]]]
+    label: |
+      [[[ return states[entity.entity_id].attributes.temperature + '° - ' +
+      states[entity.entity_id].attributes.humidity + '%']]]
+    styles:
+      card:
+        - box-shadow: none
+        - background: none
+        - border-radius: 0%
+        - padding-right: 4px
+      grid:
+        - grid-template-areas: |
+            "weather_icon n n person1 person2 person3"
+            "weather_icon l l person1 person2 person3"
+        - grid-template-columns: min-content min-content 1fr
+        - grid-template-rows: min-content min-content
+        - column-gap: 5px
+      name:
+        - justify-self: start
+        - font-family: montserrat
+        - font-weight: 800
+        - font-size: 16px
+        - align-self: end
+      label:
+        - justify-self: start
+        - font-family: montserrat
+        - font-size: 14px
+        - color: var(--subtext-color)
+      custom_fields:
+        weather_icon:
+          - justify-self: start
+          - padding: 0
+          - margin: 0
+        person1:
+          - justify-self: end
+          - display: '[[[ return variables.person_entity1 ? ''block'' : ''none'' ]]]'
+        person2:
+          - justify-self: end
+          - display: '[[[ return variables.person_entity2 ? ''block'' : ''none'' ]]]'
+        person3:
+          - justify-self: end
+          - display: '[[[ return variables.person_entity3 ? ''block'' : ''none'' ]]]'
+        air_quality:
+          - jusity-self: end
+          - margin-left: -30px
+          - align-self: center
+    custom_fields:
+      weather_icon: |
+        [[[
+          const style = `
+            <style>
+              .center {
+                display: block;
+                width: 50px;
+                height: 50px;
+              }
+            </style>`
+          if (!entity || !entity.state) return 'fas:question';
+          const weather = entity.state.toLowerCase();
+          return style + '<img src = "/local/images/weather/' + weather + '.svg" class="center"/> ' || 'fas:question'
+        ]]]
+      person1:
+        card:
+          type: custom:button-card
+          entity: '[[[ return variables.person_entity1 ]]]'
+          show_entity_picture: true
+          tap_action:
+            action: navigate
+            navigation_path: '#sebastian'
+          show_name: false
+          styles:
+            card:
+              - height: 55px
+              - width: 55px
+              - margin: 0
+              - padding: 0
+              - border-radius: 50%
+              - justify-self: end
+              - position: relative
+              - overflow: visible
+            img_cell:
+              - height: 100%
+              - width: 100%
+              - border-radius: 25px
+              - overflow: hidden
+            entity_picture:
+              - height: 100%
+              - width: 100%
+              - object-fit: cover
+              - border-radius: 25px
+          custom_fields:
+            status:
+              card:
+                type: custom:button-card
+                icon: |
+                  [[[
+                    var hjemme = states['switch.sebastian_posisjon_hjemme_borte']?.state === 'on';
+                    if (hjemme) {
+                      return 'fapro:house-fill';
+                    }
+
+                    var posisjon = states[variables.person_entity1]?.state;
+                    if (posisjon === 'Skole') {
+                      return 'mdi:account-school';
+                    } else if (posisjon === 'Strømstad') {
+                      return 'mdi:lighthouse';
+                    } else if (posisjon === 'Toten') {
+                      return 'mdi:tractor';
+                    } else if (posisjon === 'Mormor') {
+                      return 'mdi:home-city';
+                    } else if (posisjon === 'Oslo Revmatologipraksis') {
+                      return 'mdi:stethoscope';
+                    } else {
+                      return 'mdi:airplane';
+                    }
+                  ]]]
+                show_name: false
+                show_state: false
+                show_label: false
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          var hjemme = states['switch.sebastian_posisjon_hjemme_borte']?.state === 'on';
+                          if (hjemme) {
+                            return 'var(--color-green)';
+                          }
+
+                          var posisjon = states[variables.person_entity1]?.state;
+                          if (posisjon === 'Strømstad') {
+                            return 'var(--color-blue)';
+                          } else if (posisjon === 'Toten') {
+                            return 'var(--color-orange)';
+                          } else if (posisjon === 'Skole') {
+                            return 'var(--color-yellow)';
+                          } else if (posisjon === 'Mormor') {
+                            return 'var(--color-purple)';
+                          } else if (posisjon === 'Oslo Revmatologipraksis') {
+                            return 'var(--color-red)';
+                          } else {
+                            return 'var(--color-blue)';
+                          }
+                        ]]]
+                    - color: white
+                    - border-radius: 50%
+                    - height: 22px
+                    - width: 22px
+                    - position: absolute
+                    - top: -63px
+                    - right: -3px
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                    - box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.2)
+                  icon:
+                    - color: white
+                    - width: 60%
+                    - height: 60%
+      person2:
+        card:
+          type: custom:button-card
+          entity: '[[[ return variables.person_entity2 ]]]'
+          show_entity_picture: true
+          tap_action:
+            action: navigate
+            navigation_path: '#rune'
+          show_name: false
+          styles:
+            card:
+              - height: 55px
+              - width: 55px
+              - margin: 0
+              - padding: 0
+              - border-radius: 50%
+              - justify-self: end
+              - position: relative
+              - overflow: visible
+            img_cell:
+              - height: 100%
+              - width: 100%
+              - border-radius: 25px
+              - overflow: hidden
+            entity_picture:
+              - height: 100%
+              - width: 100%
+              - object-fit: cover
+              - border-radius: 25px
+          custom_fields:
+            status:
+              card:
+                type: custom:button-card
+                icon: |
+                  [[[
+                    var hjemme = states['switch.rune_posisjon_hjemme_borte']?.state === 'on';
+                    if (hjemme) {
+                      return 'fapro:house-fill';
+                    }
+
+                    var posisjon = states[variables.person_entity2]?.state;
+                    if (posisjon === 'Skole') {
+                      return 'mdi:account-school';
+                    } else if (posisjon === 'Strømstad') {
+                      return 'mdi:lighthouse';
+                    } else if (posisjon === 'Toten') {
+                      return 'mdi:tractor';
+                    } else if (posisjon === 'Mormor') {
+                      return 'mdi:home-city';
+                    } else if (posisjon === 'Oslo Revmatologipraksis') {
+                      return 'mdi:stethoscope';
+                    } else {
+                      return 'mdi:airplane';
+                    }
+                  ]]]
+                show_name: false
+                show_state: false
+                show_label: false
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          var hjemme = states['switch.rune_posisjon_hjemme_borte']?.state === 'on';
+                          if (hjemme) {
+                            return 'var(--color-green)';
+                          }
+
+                          var posisjon = states[variables.person_entity2]?.state;
+                          if (posisjon === 'Strømstad') {
+                            return 'var(--color-blue)';
+                          } else if (posisjon === 'Toten') {
+                            return 'var(--color-orange)';
+                          } else if (posisjon === 'Skole') {
+                            return 'var(--color-yellow)';
+                          } else if (posisjon === 'Mormor') {
+                            return 'var(--color-purple)';
+                          } else if (posisjon === 'Oslo Revmatologipraksis') {
+                            return 'var(--color-red)';
+                          } else {
+                            return 'var(--color-blue)';
+                          }
+                        ]]]
+                    - color: white
+                    - border-radius: 50%
+                    - height: 22px
+                    - width: 22px
+                    - position: absolute
+                    - top: -63px
+                    - right: -3px
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                    - box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.2)
+                  icon:
+                    - color: white
+                    - width: 60%
+                    - height: 60%
+      person3:
+        card:
+          type: custom:button-card
+          entity: '[[[ return variables.person_entity3 ]]]'
+          show_entity_picture: true
+          tap_action:
+            action: navigate
+            navigation_path: '#cybele'
+          show_name: false
+          styles:
+            card:
+              - height: 55px
+              - width: 55px
+              - margin: 0
+              - padding: 0
+              - border-radius: 50%
+              - justify-self: end
+              - position: relative
+              - overflow: visible
+            img_cell:
+              - height: 100%
+              - width: 100%
+              - border-radius: 25px
+              - overflow: hidden
+            entity_picture:
+              - height: 100%
+              - width: 100%
+              - object-fit: cover
+              - border-radius: 25px
+          custom_fields:
+            status:
+              card:
+                type: custom:button-card
+                icon: |
+                  [[[
+                    var hjemme = states['switch.cybele_posisjon_hjemme_borte']?.state === 'on';
+                    if (hjemme) {
+                      return 'fapro:house-fill';
+                    }
+
+                    var posisjon = states[variables.person_entity3]?.state;
+                    if (posisjon === 'Skole') {
+                      return 'mdi:account-school';
+                    } else if (posisjon === 'Strømstad') {
+                      return 'mdi:lighthouse';
+                    } else if (posisjon === 'Toten') {
+                      return 'mdi:tractor';
+                    } else if (posisjon === 'Mormor') {
+                      return 'mdi:home-city';
+                    } else if (posisjon === 'Oslo Revmatologipraksis') {
+                      return 'mdi:stethoscope';
+                    } else {
+                      return 'mdi:airplane';
+                    }
+                  ]]]
+                show_name: false
+                show_state: false
+                show_label: false
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          var hjemme = states['switch.cybele_posisjon_hjemme_borte']?.state === 'on';
+                          if (hjemme) {
+                            return 'var(--color-green)';
+                          }
+
+                          var posisjon = states[variables.person_entity3]?.state;
+                          if (posisjon === 'Strømstad') {
+                            return 'var(--color-blue)';
+                          } else if (posisjon === 'Toten') {
+                            return 'var(--color-orange)';
+                          } else if (posisjon === 'Skole') {
+                            return 'var(--color-yellow)';
+                          } else if (posisjon === 'Mormor') {
+                            return 'var(--color-purple)';
+                          } else if (posisjon === 'Oslo Revmatologipraksis') {
+                            return 'var(--color-red)';
+                          } else {
+                            return 'var(--color-blue)';
+                          }
+                        ]]]
+                    - color: white
+                    - border-radius: 50%
+                    - height: 22px
+                    - width: 22px
+                    - position: absolute
+                    - top: -63px
+                    - right: -3px
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                    - box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.2)
+                  icon:
+                    - color: white
+                    - width: 60%
+                    - height: 60%
+  custom_card_number_slider:
+    variables:
+      icon: '[[[ return entity.attributes.icon ]]]'
+      label: false
+      state: false
+      color: var(--blue)
+    template: setup
+    icon: '[[[ return entity.attributes.icon ]]]'
+    label: '[[[ return variables.label ]]]'
+    show_label: |
+      [[[
+        if (variables.label == "false") return false;
+        else return true;
+      ]]]
+    show_icon: false
+    show_state: true
+    tap_action:
+      action: toggle
+      haptic: success
+    hold_action:
+      action: more-info
+    custom_fields:
+      icon2:
+        card:
+          type: custom:button-card
+          icon: '[[[ return variables.icon ]]]'
+          styles:
+            card:
+              - background-color: var(--contrast1)
+              - width: 27px
+              - height: 27px
+            icon:
+              - width: 15px
+              - color: var(--contrast20)
+      slider:
+        card:
+          type: custom:my-slider
+          entity: '[[[ return entity.entity_id ]]]'
+          radius: 100px
+          height: 12px
+          thumbColor: var(--black)
+          mainSliderColor: '[[[ return variables.color ]]]'
+    styles:
+      grid:
+        - grid-template-areas: |
+            [[[
+              if (variables.label == false) return "\"s icon2\" \" n n\" \"slider slider\"";
+              else return "\"l icon2\" \" n n\" \"slider slider\"";
+            ]]]
+        - grid-template-columns: 1fr 1fr
+        - grid-template-rows: 1fr min-content min-content
+      name:
+        - justify-self: start
+        - font-size: 11px
+        - margin-bottom: 6px
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+        - opacity: 0.7
+      card:
+        - height: 75px
+        - background-color: |
+            [[[
+              if (entity.state == "on") return "var(--yellow)";
+              else return "var(--contrast2)";
+            ]]]
+        - box-shadow: none
+        - border-radius: 24px
+        - padding: 12px 0 12px 14px
+        - z-index: 1
+      state:
+        - justify-self: start
+        - font-size: 15px
+        - margin-top: 3px
+        - font-weight: 500
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+      label:
+        - justify-self: start
+        - font-size: 15px
+        - margin-top: 3px
+        - font-weight: 500
+        - color: |
+            [[[
+              if (entity.state == "on") return "var(--black)";
+              else return "var(--contrast20)";
+            ]]]
+      custom_fields:
+        icon2:
+          - margin-top: -6px
+          - justify-self: end
+          - align-self: center
+          - width: 24px
+          - padding-right: 10px
+          - color: |
+              [[[
+                if (entity.state == "on") return "var(--black)";
+                else return "var(--contrast20)";
+              ]]]
+        slider:
+          - padding-right: 16px
+  template_sensor_task:
+    variables:
+      text_main: Main text
+      text_sub: Sub text
+      icon: mdi:alert
+      entity: null
+      background: var(--gray200)
+      margin: 12px
+      completed: false
+    icon: '[[[ return variables.icon ]]]'
+    label: '[[[ return variables.text_main ]]]'
+    name: '[[[ return variables.text_sub ]]]'
+    show_label: true
+    custom_fields:
+      icon: |
+        [[[
+        const completed = variables.completed || 'false';
+
+          switch(completed) {
+            case 'true':
+              return '<ha-icon icon="mdi:checkbox-marked-outline" style="color: var(--black); width:30px; height:30px;"> </ha-icon>';
+            case 'false':
+              return '<ha-icon icon="mdi:checkbox-blank-outline" style="color: var(--gray1000); width:30px; height:30px;"> </ha-icon>';
+            default:
+              return '<ha-icon icon="mdi:checkbox-blank-outline" style="color: var(--gray1000); width:30px; height:30px;"> </ha-icon>';
+          }
+        ]]] 
+    styles:
+      custom_fields:
+        icon:
+          - padding-right: 20px
+      card:
+        - padding: 0
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"i l icon" "i n icon"'
+        - grid-template-columns: 76px 1fr min-content
+        - grid-template-rows: 1fr 1fr
+      img_cell:
+        - justify-self: start
+        - align-self: start
+        - background: |
+            [[[
+            const completed = variables.completed || 'false';
+
+              switch(completed) {
+                case 'true':
+                  return 'rgba(0,0,0, 0.1)';
+                case 'false':
+                  return 'rgba(var(--highlight))';
+              }
+            ]]]         
+        - margin: 4px 4px
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: |
+            [[[
+            const completed = variables.completed || 'false';
+
+              switch(completed) {
+                case 'true':
+                  return 'var(--black)';
+                case 'false':
+                  return 'var(--gray1000)';
+              }
+            ]]] 
+      label:
+        - justify-self: start
+        - align-self: end
+        - font-size: 16px
+        - font-weight: 500
+        - color: |
+            [[[
+            const completed = variables.completed || 'false';
+
+              switch(completed) {
+                case 'true':
+                  return 'var(--black)';
+                case 'false':
+                  return 'var(--gray1000)';
+              }
+            ]]] 
+        - line-height: 1.4em
+      name:
+        - justify-self: start
+        - align-self: start
+        - font-size: 14px
+        - color: |
+            [[[
+            const completed = variables.completed || 'false';
+
+              switch(completed) {
+                case 'true':
+                  return 'var(--black)';
+                case 'false':
+                  return 'var(--gray1000)';
+              }
+            ]]] 
+        - opacity: '0.7'
+        - line-height: 1.4em
+  template_toggle_card_small:
+    variables:
+      icon: null
+      entity: input_boolean.automation_lys_ute
+      background: var(--gray200)
+    icon: '[[[ return variables.icon ]]]'
+    entity: '[[[ return variables.entity ]]]'
+    name: |
+      [[[
+        const fullName = entity.attributes.friendly_name;
+        const separator = variables.separator || "-";  // Default to "-" if not specified
+        const parts = fullName.split(separator);
+        
+        // Return only the first part (before the separator), trimmed of any whitespace
+        return parts[0].trim();
+      ]]]     
+    label: |
+      [[[
+        const fullName = entity.attributes.friendly_name;
+        const separator = variables.separator || "-";  // Default to "-" if not specified
+        const parts = fullName.split(separator);
+        
+        // Return the second part (after the separator), trimmed of any whitespace
+        if (parts.length > 1) {
+          return parts.slice(1).join(separator).trim();
+        }
+        return '';
+      ]]] 
+    show_label: true
+    tap_action:
+      action: toggle
+    state:
+      - value: 'off'
+        styles:
+          card:
+            - background: var(--red)
+          img_cell:
+            - background: rgba(0,0,0, 0.1)
+          icon:
+            - color: var(--black)
+          name:
+            - color: var(--black)
+          label:
+            - color: var(--black)
+    styles:
+      card:
+        - height: 66px
+        - border-radius: 75px
+        - padding: 4px 20px 4px 4px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-columns: 76px 1fr min-content
+        - grid-template-areas: '"i n icon" "i l icon"'
+      icon:
+        - width: 30px
+        - color: var(--gray1000)
+      img_cell:
+        - justify-self: start
+        - width: 30px
+        - height: 30px
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+      label:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: 0.7
+        - padding-bottom: 7px
+      name:
+        - justify-self: start
+        - font-size: 16px
+        - padding-top: 4px
+        - font-weight: 500
+        - color: var(--gray1000)
+      custom_fields:
+        icon: null
+    custom_fields:
+      icon: |
+        [[[
+         var state = entity.state;
+         if(state == "on")
+          return `<ha-icon
+          icon="mdi:toggle-switch"
+          style="color: var(--gray1000); width:50px; height:40px;">
+          </ha-icon>
+          `;
+         else 
+          return `<ha-icon
+          icon="mdi:toggle-switch-off"
+          style="color: var(--black); width:50px; height:40px;">
+          </ha-icon>
+          `;
+        ]]] 
+  template_toggle_card:
+    variables:
+      main_text: null
+      icon: null
+      entity: null
+      background: var(--gray200)
+      state_off: Av
+      state_on: På
+      margin: 0px
+    icon: '[[[ return variables.icon ]]]'
+    entity: '[[[ return variables.entity ]]]'
+    name: '[[[ return variables.main_text ]]]'
+    tap_action:
+      action: toggle
+    state:
+      - value: 'off'
+        styles:
+          card:
+            - background: var(--red)
+          img_cell:
+            - background: rgba(0,0,0, 0.1)
+          icon:
+            - color: var(--black)
+          name:
+            - color: var(--black)
+          custom_fields:
+            state:
+              - color: var(--black)
+    styles:
+      card:
+        - padding: 4px 4px 12px 20px
+        - height: 180px
+        - background: '[[[ return variables.background ]]]'
+        - margin-top: '[[[ return variables.margin ]]]'
+      grid:
+        - grid-template-areas: '"n i" "state icon"'
+        - grid-template-columns: 1fr min-content
+        - grid-template-rows: min-content 1fr
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - border-radius: 50%
+        - width: 58px
+        - height: 58px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray1000)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: '0.7'
+      custom_fields:
+        icon:
+          - justify-self: end
+          - align-self: end
+        state:
+          - justify-self: start
+          - align-self: end
+          - font-size: 2em
+          - line-height: 1.5em
+          - font-weight: 300
+          - color: var(--gray1000)
+    custom_fields:
+      icon: |
+        [[[
+         var state = entity.state;
+         if(state == "on")
+          return `<ha-icon
+          icon="mdi:toggle-switch"
+          style="color: var(--green); width:60px; height:60px;">
+          </ha-icon>
+          `;
+         else 
+          return `<ha-icon
+          icon="mdi:toggle-switch-off"
+          style="color: var(--black); width:60px; height:60px;">
+          </ha-icon>
+          `;
+        ]]]
+      state: |
+        [[[
+          var state = entity.state;
+          var state_off = variables.state_off;
+          var state_on = variables.state_on;
+         if(state == "on")
+          return `<span>${state_on}</san>
+          `;
+         else 
+          return `<span>${state_off}</san>
+          `;
+        ]]] 
+  room_conditionss:
+    variables:
+      background: var(--gray200)
+      entity: null
+      temp: >
+        [[[ return
+        Math.round((states['sensor.temperatur_stue_temperature'].state) * 10)/10
+        + '°' + '<span style="font-size:0.3em">' +
+        Math.round((states['sensor.temperatur_stue_humidity'].state) * 10)/10 +
+        '%']]]
+    show_icon: false
+    show_name: false
+    show_label: true
+    custom_fields:
+      temp: '[[[ return variables.temp ]]]'
+      graph:
+        card:
+          type: custom:mini-graph-card
+          entities:
+            - entity: '[[[ return variables.entity ]]]'
+              color: var(--red)
+          line_width: 0
+          height: 100
+          show:
+            icon: false
+            name: false
+            state: false
+            legend: false
+            labels: false
+          card_mod:
+            style: |
+              ha-card {
+                border-style: none;
+                background: none;
+              }    
+    styles:
+      grid:
+        - grid-template-areas: '"temp"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: min-content
+      card:
+        - padding: 24px
+        - background: '[[[ return variables.background ]]]'
+      custom_fields:
+        temp:
+          - justify-self: start
+          - text-align: left
+          - font-size: 66px
+          - color: var(--gray800)
+          - line-height: 66px
+          - font-weight: 300
+          - padding: 12px 0 0 0
+        graph:
+          - position: absolute
+          - width: 100%
+          - left: 0
+          - bottom: 0
+  room_conditions:
+    variables:
+      background: var(--gray100)
+      entity: null
+      temp: >
+        [[[ return
+        Math.round((states['sensor.temperatur_stue_temperature'].state) * 10)/10
+        + '°' + '<span style="font-size:0.4em">' +
+        Math.round((states['sensor.temperatur_stue_humidity'].state) * 10)/10 +
+        '%']]]
+    show_icon: false
+    show_name: false
+    show_label: true
+    custom_fields:
+      temp: '[[[ return variables.temp ]]]'
+      graph:
+        card:
+          type: custom:mini-graph-card
+          entities:
+            - entity: '[[[ return variables.entity ]]]'
+              color: var(--white)
+          line_width: 0
+          height: 22
+          show:
+            icon: false
+            name: false
+            state: false
+            legend: false
+            labels: false
+          card_mod:
+            style: |
+              ha-card {
+                border-style: none;
+                background: none;
+              }  
+    styles:
+      grid:
+        - grid-template-areas: '"temp"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: min-content
+      card:
+        - padding: 24px
+        - background: '[[[ return variables.background ]]]'
+      custom_fields:
+        temp:
+          - justify-self: start
+          - text-align: left
+          - font-size: 48px
+          - color: var(--gray800)
+          - line-height: 48px
+          - font-weight: 300
+          - padding: 12px 0 0 20px
+        graph:
+          - position: absolute
+          - width: 100%
+          - left: 0
+          - bottom: 0
+  sensor_big_percentage:
+    variables:
+      entity: var_entity
+      name: var_name
+      icon: var_icon
+      background: var(--gray100)
+      label: var_label
+      bar: var_bar
+    entity: '[[[ return variables.entity ]]]'
+    name: '[[[ return variables.name ]]]'
+    label: '[[[ return variables.label ]]]'
+    show_icon: true
+    show_label: true
+    icon: '[[[ return variables.icon ]]]'
+    styles:
+      card:
+        - padding: 0
+        - height: 150px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"i" "l" "n" "bar"'
+      label:
+        - justify-self: start
+        - font-size: 40px
+        - font-weight: 300
+        - padding-left: 20px
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - align-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - padding-left: 20px
+        - opacity: '0.7'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - margin: 4px 4px 0 0
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray800)
+      custom_fields:
+        bar:
+          - justify-self: start
+          - width: 100%
+          - background-image: >
+              [[[ var color = "var(--red)";  var state = (100 - entity.state); 
+              if (state > 50) color = "var(--blue)";  else if(state > 25) color
+              = "var(--orange)";
+
+              return `repeating-linear-gradient(45deg,transparent,transparent
+              2px,${color} 3px,transparent 4px)` ]]]
+          - height: 30px
+          - margin-top: 6px
+    custom_fields:
+      bar: '[[[ return variables.bar ]]]'
+  sensor_big_graph:
+    variables:
+      name: null
+      icon: null
+      label: null
+      background: var(--gray100)
+      text: var(--gray800)
+      graph: null
+    name: '[[[ return variables.name ]]]'
+    label: '[[[ return variables.label ]]]'
+    show_label: true
+    show_icon: true
+    icon: '[[[ return variables.icon ]]]'
+    styles:
+      card:
+        - padding: 4px 4px 20px 20px
+        - height: 150px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"i" "l" "n"'
+      label:
+        - justify-self: start
+        - font-size: 40px
+        - font-weight: 300
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - opacity: '0.7'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray800)
+      custom_fields:
+        graph:
+          - position: absolute
+          - width: 100%
+          - left: 0
+          - bottom: 0
+    custom_fields:
+      graph:
+        card:
+          type: custom:mini-graph-card
+          entities:
+            - entity: '[[[ return variables.graph ]]]'
+              color: var(--red)
+          line_width: 0
+          height: 200
+          show:
+            icon: false
+            name: false
+            state: false
+            legend: false
+            labels: false
+          card_mod:
+            style: |
+              ha-card {
+                border-style: none;
+                background: none;
+              }
+  button_trigger:
+    variables:
+      name: null
+      icon: null
+      entity: null
+      background: var(--red)
+      text: var(--black)
+    icon: '[[[ return variables.icon ]]]'
+    entity: '[[[ return variables.entity ]]]'
+    name: '[[[ return variables.name ]]]'
+    styles:
+      grid:
+        - grid-template-areas: '"i" "n"'
+      img_cell:
+        - justify-self: start
+        - align-self: start
+        - width: 24px
+        - height: 24px
+      icon:
+        - width: 24px
+        - height: 24px
+        - color: '[[[ return variables.text ]]]'
+      name:
+        - justify-self: start
+        - text-align: left
+        - font-size: 16px
+        - font-weight: 500
+        - color: '[[[ return variables.text ]]]'
+      card:
+        - padding: 20px
+        - background: '[[[ return variables.background ]]]'
+        - height: 130px
+        - width: 130px
+  sensor_big:
+    variables:
+      name: var_name
+      label: var_label
+      icon: var_icon
+      background: var(--gray100)
+    icon: '[[[ return variables.icon ]]]'
+    label: >
+      [[[  return '<marquee behavior="alternate" scrollamount="2">' +
+      variables.label + '<\marquee>' ]]]
+    name: '[[[ return variables.name ]]]'
+    show_label: true
+    styles:
+      card:
+        - padding: 20px
+        - height: 150px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"i" "l" "n"'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - margin: -16px -16px 0 0
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray800)
+      label:
+        - justify-self: start
+        - font-size: 2em
+        - font-weight: 300
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - opacity: '0.7'
+  sensor_big_2columns:
+    variables:
+      name: var_name
+      label: var_label
+      icon: var_icon
+      background: var(--gray100)
+      state: var_state
+    icon: '[[[ return variables.icon ]]]'
+    label: >
+      [[[  return '<marquee behavior="alternate" scrollamount="2">' +
+      variables.label + '<\marquee>' ]]]
+    name: '[[[ return variables.name ]]]'
+    show_label: true
+    custom_fields:
+      state: '[[[ return variables.state ]]]'
+    styles:
+      card:
+        - padding: 20px
+        - height: 180px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"i i" "l state" "n n"'
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - margin: -16px -16px 0 0
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray800)
+      label:
+        - justify-self: start
+        - font-size: 2em
+        - font-weight: 300
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - opacity: '0.7'
+      custom_fields:
+        state:
+          - align-self: end
+          - font-size: 14px
+          - color: var(--gray800)
+          - opacity: '0.7'
+          - margin-bottom: 5px
+  button_toggle:
+    variables:
+      name: null
+      icon: null
+      entity: null
+      background: null
+    icon: '[[[ return variables.icon ]]]'
+    entity: '[[[ return variables.entity ]]]'
+    name: '[[[ return variables.name ]]]'
+    tap_action:
+      action: toggle
+    state:
+      - value: 'off'
+        styles:
+          card:
+            - background: var(--gray100)
+          img_cell:
+            - background: rgba(var(--highlight_active))
+    styles:
+      card:
+        - padding: 4px 4px 20px 20px
+        - height: 150px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"i i" "state icon" "n n"'
+        - grid-template-columns: 1fr min-content
+        - grid-template-rows: 1fr min-content min-content
+      img_cell:
+        - justify-self: end
+        - align-self: start
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+        - width: 30px
+        - height: 30px
+      icon:
+        - width: 30px
+        - height: 30px
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - padding: 0
+        - color: var(--gray800)
+        - opacity: '0.7'
+      custom_fields:
+        icon:
+          - justify-self: end
+        state:
+          - justify-self: start
+          - font-size: 40px
+          - font-weight: 300
+          - color: var(--gray800)
+          - margin-right: 16px
+    custom_fields:
+      icon: |
+        [[[
+         var state = entity.state;
+         if(state == "on")
+          return `<ha-icon
+          icon="mdi:toggle-switch"
+          style="color: var(--green); width:60px; height:60px;">
+          </ha-icon>
+          `;
+         else 
+          return `<ha-icon
+          icon="mdi:toggle-switch-off"
+          style="color: var(--gray800); width:60px; height:60px;">
+          </ha-icon>
+          `;
+        ]]]
+      state: |
+        [[[
+          var state = entity.state
+         if(state == "on")
+          return `<span>På</san>
+          `;
+         else 
+          return `<span>Av</san>
+          `;
+        ]]] 
+  button_toggle_small:
+    variables:
+      name: null
+      label: null
+      icon: null
+      entity: null
+      background: var(--gray100)
+    icon: '[[[ return variables.icon ]]]'
+    entity: '[[[ return variables.entity ]]]'
+    label: |
+      [[[ return variables.label ]]]    
+    name: |
+      [[[ return variables.name ]]]
+    show_label: true
+    tap_action:
+      action: toggle
+    state:
+      - value: 'off'
+        styles:
+          card:
+            - background: var(--gray1000)
+          icon:
+            - color: var(--gray100)
+          img_cell:
+            - background: rgba(var(--highlight_active))
+          name:
+            - color: var(--gray100)
+          label:
+            - color: var(--gray100)
+      - value: 'on'
+        styles:
+          img_cell:
+            - background: rgba(var(--highlight_active))
+    styles:
+      card:
+        - height: 66px
+        - border-radius: 75px
+        - padding: 4px 20px 4px 4px
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-columns: 76px 1fr min-content
+        - grid-template-areas: '"i l icon" "i n icon"'
+      icon:
+        - width: 30px
+        - color: var(--gray1000)
+      img_cell:
+        - justify-self: start
+        - width: 30px
+        - height: 30px
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray1000)
+        - opacity: 0.7
+        - padding-bottom: 7px
+      label:
+        - justify-self: start
+        - font-size: 16px
+        - padding-top: 4px
+        - font-weight: 500
+        - color: var(--gray1000)
+      custom_fields:
+        icon: null
+    custom_fields:
+      icon: |
+        [[[
+         var state = entity.state;
+         if(state == "on")
+          return `<ha-icon
+          icon="mdi:toggle-switch"
+          style="color: var(--green); width:50px; height:40px;">
+          </ha-icon>
+          `;
+         else 
+          return `<ha-icon
+          icon="mdi:toggle-switch-off"
+          style="color: var(--gray100); width:50px; height:40px;">
+          </ha-icon>
+          `;
+        ]]]
+  chips_big_active:
+    variables:
+      name: null
+      entity: null
+      icon: null
+    entity: '[[[ return variables.entity ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.name ]]]'
+    styles:
+      card:
+        - padding: 4px
+        - background: var(--active-big)
+      grid:
+        - grid-template-areas: |
+            "i n"        
+      img_cell:
+        - width: 22px
+        - height: 22px
+        - padding: 9px
+        - background: var(--white)
+        - border-radius: 100%
+      icon:
+        - width: 22px
+        - height: 22px
+        - color: var(--black)
+      name:
+        - padding: 0 10px
+        - font-size: 14px
+        - color: var(--black)
+  chips_big:
+    variables:
+      name: null
+      entity: null
+      icon: null
+    entity: '[[[ return variables.entity ]]]'
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.name ]]]'
+    styles:
+      card:
+        - padding: 4px
+        - background: var(--gray800)
+      grid:
+        - grid-template-areas: |
+            "i n"        
+        - grid-template-columns: min-content 1fr
+      img_cell:
+        - justify-self: start
+        - width: 22px
+        - height: 22px
+        - padding: 9px
+        - background: var(--gray000)
+        - border-radius: 100%
+      icon:
+        - width: 22px
+        - height: 22px
+        - color: var(--gray800)
+      name:
+        - justify-self: start
+        - padding: 0 10px
+        - font-size: 14px
+        - color: var(--gray000)
+  chips_medium_active:
+    variables:
+      name: null
+      icon: null
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.name ]]]'
+    styles:
+      card:
+        - padding: 10px 16px 10px 12px
+        - background: var(--active-small)
+      grid:
+        - grid-template-areas: '"i n"'
+        - grid-template-columns: min-content 1fr
+      img_cell:
+        - justify-self: start
+        - align-self: center
+        - width: 20px
+        - height: 20px
+        - background: none
+      icon:
+        - width: 20px
+        - height: 20px
+        - margin-top: -1px
+        - color: var(--black)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - padding-left: 4px
+        - color: var(--black)
+  chips_medium:
+    variables:
+      name: null
+      icon: null
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.name ]]]'
+    styles:
+      card:
+        - padding: 10px 16px 10px 12px
+        - background: var(--gray800)
+      grid:
+        - grid-template-areas: '"i n"'
+        - grid-template-columns: min-content 1fr
+      img_cell:
+        - justify-self: start
+        - align-self: center
+        - width: 20px
+        - height: 20px
+        - background: none
+      icon:
+        - width: 20px
+        - height: 20px
+        - margin-top: -1px
+        - color: var(--gray000)
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - padding-left: 4px
+        - color: var(--gray000)
+  chips_small:
+    variables:
+      icon: null
+    icon: '[[[ return variables.icon ]]]'
+    show_name: false
+    styles:
+      card:
+        - padding: 13px
+        - border-radius: 50%
+        - background: var(--gray800)
+      img_cell:
+        - width: 22px
+        - height: 22px
+      icon:
+        - width: 22px
+        - height: 22px
+        - color: var(--gray000)
+  chips_small_active:
+    variables:
+      icon: null
+    icon: '[[[ return variables.icon ]]]'
+    show_name: false
+    styles:
+      card:
+        - padding: 13px
+        - border-radius: 50%
+        - background: var(--active-small)
+      img_cell:
+        - width: 22px
+        - height: 22px
+      icon:
+        - width: 22px
+        - height: 22px
+        - color: var(--black)
+  room_card:
+    variables:
+      name: Stue
+      icon: mdi:unicorn
+      path: '#stue_nede'
+      state: null
+      background: var(--gray000)
+      color: var(--green)
+      text: var(--gray800)
+      radius: 36px 36px 6px 36px
+    icon: '[[[ return variables.icon ]]]'
+    name: '[[[ return variables.name ]]]'
+    tap_action:
+      action: navigate
+      navigation_path: '[[[ return variables.path ]]]'
+    custom_fields:
+      temp: '[[[ return variables.state ]]]'
+    styles:
+      card:
+        - padding: 8px
+        - height: 100%
+        - border-radius: '[[[ return variables.radius ]]]'
+        - background: '[[[ return variables.background ]]]'
+      grid:
+        - grid-template-areas: '"n i" "temp temp"'
+        - grid-template-rows: 1fr min-content
+        - grid-template-columns: min-content 1fr
+      icon:
+        - width: 28px
+        - color: var(--black)
+      img_cell:
+        - justify-self: end
+        - background: '[[[ return variables.color ]]]'
+        - border-radius: 100%
+        - align-self: start
+        - width: 60px
+        - height: 60px
+      name:
+        - justify-self: start
+        - align-self: start
+        - text-align: left
+        - font-size: 1em
+        - font-weight: 500
+        - color: '[[[ return variables.text ]]]'
+        - padding: 14px
+      custom_fields:
+        temp:
+          - justify-self: start
+          - font-size: 3em
+          - line-height: 1em
+          - font-weight: 300
+          - color: '[[[ return variables.text ]]]'
+          - padding: 0 0 6px 14px
+  sensor_small:
+    variables:
+      name: var_name
+      label: var_label
+      icon: var_icon
+      background: var(--gray100)
+      text: var(--gray800)
+    name: '[[[ return variables.name ]]]'
+    label: '[[[ return variables.label ]]]'
+    show_label: true
+    icon: '[[[ return variables.icon ]]]'
+    styles:
+      grid:
+        - grid-template-columns: 76px 1fr
+        - grid-template-areas: '"i l" "i n"'
+      icon:
+        - width: 30px
+        - color: var(--gray800)
+      img_cell:
+        - justify-self: start
+        - width: 30px
+        - height: 30px
+        - background: rgba(var(--highlight))
+        - padding: 14px
+        - border-radius: 50%
+      label:
+        - justify-self: start
+        - font-size: 16px
+        - padding-top: 4px
+        - font-weight: 500
+        - color: var(--gray800)
+      card:
+        - height: 66px
+        - border-radius: 75px
+        - padding: 4px 20px 4px 4px
+        - background: '[[[ return variables.background ]]]'
+      name:
+        - justify-self: start
+        - font-size: 14px
+        - color: var(--gray800)
+        - opacity: 0.7
+        - padding-bottom: 7px

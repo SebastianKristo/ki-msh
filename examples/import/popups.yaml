@@ -1,0 +1,4280 @@
+type: custom:bubble-card
+card_type: pop-up
+name: Sir Sweeps
+icon: mdi:robot-vacuum
+state: null
+hash: '#rolf'
+is_sidebar_hidden: true
+styles: |+
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  } #header-container > div > div {
+    background: var(--gray000)!important;
+  }     
+  #header-container > button {background: none;}    
+  .icon-container {background-color:var(--gray1000)!important;} 
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+  .bubble-icon {
+    --mdc-icon-size: 24px !important;
+  }
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+
+  }
+  .bubble-close-button {
+    background-color: var(--gray200) !important;
+    border-radius: 50%;
+  }
+
+
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+show_header: true
+sub_button:
+  main:
+    - show_background: false
+      entity: vacuum.rolf
+      icon: mdi:none
+      state_content:
+        - state
+        - battery_level
+  bottom: []
+button_type: name
+scrolling_effect: false
+slider_fill_orientation: left
+slider_value_position: right
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-robot-card
+    modell: stovsuger
+    entity: vacuum.sir_sweeps_a_lot
+    navn: Sir Sweeps
+    varsel: binary_sensor.sir_sweeps_a_lot_water_shortage
+    varsel_tekst: Vanntanken er tom
+    batteri: sensor.sir_sweeps_a_lot_battery
+    lader: binary_sensor.sir_sweeps_a_lot_charging
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.rolf_water_shortage
+        state: 'on'
+    card:
+      type: custom:button-card
+      name: >-
+        [[[ return '<strong>Vanntanken er tom.</strong> Fyll på før neste
+        mopping.' ]]]
+      icon: mdi:water-off-outline
+      custom_fields:
+        btn:
+          card:
+            type: custom:paper-buttons-row
+            styles:
+              justify-content: flex-start
+              gap: 6px
+              margin-right: 10px
+            buttons:
+              - layout: icon
+                icon: mdi:delete-empty
+                entity: script.rolf_empty
+                tap_action:
+                  action: toggle
+                styles:
+                  button:
+                    flex-basis: 1
+                    flex-shrink: 0
+                    background-color: rgba(0,0,0, 0.1)
+                    height: 34px
+                    width: 34px
+                    border-radius: 50%
+                    border: 1px solid rgba(0,0,0, 0.1)
+                  icon:
+                    color: var(--black)
+      extra_styles: >
+        @keyframes ki-drypp { 0%,100% { transform: translateY(0); } 50% {
+        transform: translateY(2px); } }
+      styles:
+        card:
+          - padding: 0
+          - margin-top: 8px
+          - background: var(--red)
+        grid:
+          - grid-template-areas: '"i n btn"'
+          - grid-template-columns: 76px 1fr
+        img_cell:
+          - justify-self: start
+          - background: rgba(0,0,0, 0.1)
+          - margin: 4px 4px
+          - border-radius: 50%
+          - width: 58px
+          - height: 58px
+        icon:
+          - width: 30px
+          - height: 30px
+          - color: var(--black)
+          - animation: ki-drypp 1.4s ease-in-out infinite
+        name:
+          - justify-self: start
+          - color: var(--black)
+          - font-size: 14px
+  - type: custom:gap-card
+    height: 1
+  - type: custom:ki-tabs-card
+    fane_hoyde: 7
+    tabs:
+      - title: Renhold
+        card:
+          type: vertical-stack
+          cards:
+            - type: grid
+              columns: 2
+              square: false
+              cards:
+                - type: vertical-stack
+                  cards:
+                    - type: custom:button-card
+                      template: template_sensor_big
+                      show_name: false
+                      entity: input_boolean.sir_sweeps_a_lot_sebsatian_soverom
+                      name: ''
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: Soverom
+                        icon: mdi:bed-double-outline
+                        background: var(--gray200)
+                        margin: 0
+                        height: 152px
+                        action: tap
+                      state:
+                        - value: 'on'
+                          styles:
+                            card:
+                              - background: var(--active-big)
+                            name:
+                              - color: var(--black)
+                            label:
+                              - color: var(--black)
+                            icon:
+                              - color: var(--black)
+                            img_cell:
+                              - background: rgba(var(--highlight_active))
+                    - type: custom:button-card
+                      template: template_sensor_big
+                      show_name: false
+                      entity: input_boolean.sir_sweeps_a_lot_pappa_soverom
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: Pappa
+                        icon: mdi:bed-outline
+                        background: var(--gray200)
+                        margin: 12px
+                        height: 152px
+                        action: tap
+                      state:
+                        - value: 'on'
+                          styles:
+                            card:
+                              - background: var(--active-big)
+                            name:
+                              - color: var(--black)
+                            label:
+                              - color: var(--black)
+                            icon:
+                              - color: var(--black)
+                            img_cell:
+                              - background: rgba(var(--highlight_active))
+                - type: vertical-stack
+                  cards:
+                    - type: custom:button-card
+                      template: template_sensor_small
+                      show_name: false
+                      entity: input_boolean.sir_sweeps_a_lot_mamma_soverom
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: Mamma
+                        icon: mdi:bed-queen-outline
+                        background: var(--gray200)
+                        margin: 0
+                        action: tap
+                      styles:
+                        grid:
+                          - grid-template-areas: '"i l" "i l"'
+                          - grid-template-columns: 76px 1fr
+                          - grid-template-rows: 1fr 1fr
+                        label:
+                          - align-self: center
+                      state:
+                        - value: 'on'
+                          styles:
+                            card:
+                              - background: var(--active-big)
+                            name:
+                              - color: var(--black)
+                            label:
+                              - color: var(--black)
+                            icon:
+                              - color: var(--black)
+                            img_cell:
+                              - background: rgba(var(--highlight_active))
+                    - type: custom:button-card
+                      template: template_sensor_big
+                      show_name: false
+                      entity: input_boolean.sir_sweeps_a_lot_pappa_kontor
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: Kontor
+                        icon: mdi:desk
+                        background: var(--gray200)
+                        margin: 12px
+                        action: tap
+                      state:
+                        - value: 'on'
+                          styles:
+                            card:
+                              - background: var(--active-big)
+                            name:
+                              - color: var(--black)
+                            label:
+                              - color: var(--black)
+                            icon:
+                              - color: var(--black)
+                            img_cell:
+                              - background: rgba(var(--highlight_active))
+                    - type: custom:button-card
+                      template: template_sensor_small
+                      show_name: false
+                      entity: input_boolean.sir_sweeps_a_lot_trappegang
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: Trapp
+                        icon: mdi:stairs
+                        background: var(--gray200)
+                        margin: 12px
+                        action: tap
+                      styles:
+                        grid:
+                          - grid-template-areas: '"i l" "i l"'
+                          - grid-template-columns: 76px 1fr
+                          - grid-template-rows: 1fr 1fr
+                        label:
+                          - align-self: center
+                      state:
+                        - value: 'on'
+                          styles:
+                            card:
+                              - background: var(--active-big)
+                            name:
+                              - color: var(--black)
+                            label:
+                              - color: var(--black)
+                            icon:
+                              - color: var(--black)
+                            img_cell:
+                              - background: rgba(var(--highlight_active))
+            - type: custom:button-card
+              name: |
+                [[[
+                  if (states['sensor.rolf_all'].state == 'False')
+                    return "Støvsug alt";
+                  else
+                    return "Støvsug valgte rom";
+                ]]]
+              icon: mdi:robot-vacuum
+              entity: vacuum.sir_sweeps_a_lot
+              triggers_update:
+                - input_boolean.sir_sweeps_a_lot_mamma_soverom
+                - input_boolean.sir_sweeps_a_lot_pappa_kontor
+                - input_boolean.sir_sweeps_a_lot_pappa_soverom
+                - input_boolean.sir_sweeps_a_lot_sebsatian_soverom
+                - input_boolean.sir_sweeps_a_lot_trappegang
+              tap_action:
+                action: perform-action
+                perform_action: script.start_sir_sweeps_a_lot_room_select
+              custom_fields:
+                btn:
+                  card:
+                    type: custom:paper-buttons-row
+                    styles:
+                      justify-content: flex-start
+                      gap: 6px
+                      margin-right: 10px
+                    buttons:
+                      - layout: icon
+                        icon: mdi:pause
+                        entity: vacuum.sir_sweeps_a_lot
+                        state_icons:
+                          paused: mdi:play
+                          cleaning: mdi:pause
+                        tap_action:
+                          action: call-service
+                          service: script.stovsuger_pause
+                        styles:
+                          button:
+                            flex-basis: 1
+                            flex-shrink: 0
+                            background-color: rgba(0,0,0, 0.1)
+                            height: 34px
+                            width: 34px
+                            border-radius: 50%
+                            border: 1px solid rgba(0,0,0, 0.1)
+                          icon:
+                            color: var(--black)
+                      - layout: icon
+                        icon: mdi:home
+                        entity: script.stovsuger_retuner_hjem
+                        tap_action:
+                          action: toggle
+                        styles:
+                          button:
+                            flex-basis: 1
+                            flex-shrink: 0
+                            background-color: rgba(0,0,0, 0.1)
+                            height: 34px
+                            width: 34px
+                            border-radius: 50%
+                            border: 1px solid rgba(0,0,0, 0.1)
+                          icon:
+                            color: var(--black)
+              state:
+                - value: cleaning
+                  name: Støvsuger
+                  styles:
+                    custom_fields:
+                      btn:
+                        - display: block
+                    icon:
+                      - animation: vacc 2s ease 0s infinite normal forwards
+                - value: paused
+                  name: Pauset
+                  styles:
+                    custom_fields:
+                      btn:
+                        - display: block
+              extra_styles: |
+                @keyframes vacc {
+                    0% {
+                        transform: rotate(0deg) translate(0);
+                    }
+
+                    20% {
+                        transform: rotate(-5deg) translate(-3px, 3px);
+                    }
+
+                    40% {
+                        transform: rotate(-12deg) translate(-3px, -3px);
+                    }
+
+                    60% {
+                        transform: translate(3px, 3px);
+                    }
+
+                    80% {
+                        transform: rotate(12deg) translate(3px, -3px);
+                    }
+
+                    100% {
+                        transform: rotate(0deg) translate(0);
+                    }
+                }
+              styles:
+                card:
+                  - padding: 0
+                  - background: var(--green)
+                  - margin-top: 12px
+                grid:
+                  - grid-template-areas: '"i n btn"'
+                  - grid-template-columns: 76px 1fr
+                img_cell:
+                  - justify-self: start
+                  - background: rgba(0,0,0, 0.1)
+                  - margin: 4px 4px
+                  - border-radius: 50%
+                  - width: 58px
+                  - height: 58px
+                icon:
+                  - width: 30px
+                  - height: 30px
+                  - color: var(--black)
+                name:
+                  - justify-self: start
+                  - color: var(--black)
+                custom_fields:
+                  btn:
+                    - display: none
+            - type: custom:paper-buttons-row
+              styles:
+                gap: 8px
+                justify-content: flex-start
+                overflow-x: auto
+                overflow-y: hidden
+                margin: 36px 0 0 0
+                padding: 0 1px
+                width: 100%
+                box-sizing: border-box
+                overscroll-behavior-x: contain
+                touch-action: pan-x
+              extra_styles: |
+                ::-webkit-scrollbar { display: none; }
+              buttons:
+                - icon: mdi:table-furniture
+                  layout: icon|name
+                  name: Spisebord lite
+                  tap_action:
+                    action: call-service
+                    service: script.rolf_zone_stuebord
+                  styles:
+                    name:
+                      color: var(--gray1000)
+                      text-wrap: nowrap
+                    button:
+                      display: flex
+                      background-color: var(--gray200)
+                      border-radius: 24px
+                      color: var(--white)
+                      padding: 10px 20px 10px 15px
+                    icon:
+                      color: var(--gray1000)
+                      padding-right: 10px
+                - icon: mdi:table-furniture
+                  layout: icon|name
+                  name: Spisebord mye
+                  tap_action:
+                    action: call-service
+                    service: script.rolf_zone_stuebord_mye
+                  styles:
+                    name:
+                      color: var(--gray1000)
+                      text-wrap: nowrap
+                    button:
+                      display: flex
+                      background-color: var(--gray200)
+                      border-radius: 24px
+                      color: var(--white)
+                      padding: 10px 20px 10px 15px
+                    icon:
+                      color: var(--gray1000)
+                      padding-right: 10px
+                - icon: mdi:table-furniture
+                  layout: icon|name
+                  name: Stue uten spisebord
+                  tap_action:
+                    action: call-service
+                    service: script.rolf_zone_stue_uten_spisebord
+                  styles:
+                    name:
+                      color: var(--gray1000)
+                      text-wrap: nowrap
+                    button:
+                      display: flex
+                      background-color: var(--gray200)
+                      border-radius: 24px
+                      color: var(--white)
+                      padding: 10px 20px 10px 15px
+                    icon:
+                      color: var(--gray1000)
+                      padding-right: 10px
+                - icon: mdi:rug
+                  layout: icon|name
+                  name: Teppe stue
+                  tap_action:
+                    action: call-service
+                    service: script.rolf_zone_teppe
+                  styles:
+                    name:
+                      color: var(--gray1000)
+                      text-wrap: nowrap
+                    button:
+                      display: flex
+                      background-color: var(--gray200)
+                      border-radius: 24px
+                      color: var(--white)
+                      padding: 10px 20px 10px 15px
+                    icon:
+                      color: var(--gray1000)
+                      padding-right: 10px
+                - icon: mdi:table-furniture
+                  layout: icon|name
+                  name: Kjøkkenbord
+                  tap_action:
+                    action: call-service
+                    service: script.rolf_zone_kjokkenbord
+                  styles:
+                    name:
+                      color: var(--gray1000)
+                      text-wrap: nowrap
+                    button:
+                      display: flex
+                      background-color: var(--gray200)
+                      border-radius: 24px
+                      color: var(--white)
+                      padding: 10px 20px 10px 15px
+                      margin-right: 36px
+                    icon:
+                      color: var(--gray1000)
+                      padding-right: 10px
+      - title: Kontroll
+        card:
+          type: vertical-stack
+          cards:
+            - type: grid
+              columns: 1
+              square: false
+              cards:
+                - type: grid
+                  columns: 3
+                  square: false
+                  cards:
+                    - type: custom:button-card
+                      template: template_trigger_card
+                      entity: vacuum.sir_sweeps_a_lot
+                      state:
+                        - value: paused
+                          icon: mdi:play
+                          name: Fortsett
+                          styles:
+                            card:
+                              - background: var(--green)
+                      tap_action:
+                        action: call-service
+                        service: script.stovsuger_start
+                        target: {}
+                      variables:
+                        text_main: Pause
+                        icon: mdi:pause
+                        background: var(--red)
+                        color: var(--black)
+                        margin: 0
+                    - type: custom:button-card
+                      template: template_trigger_card
+                      entity: script.stovsuger_pause
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: |
+                          [[[ return 'Returner<br>hjem' ]]]
+                        icon: mdi:home
+                        background: var(--orange)
+                        color: var(--black)
+                        margin: 0
+                    - type: custom:button-card
+                      template: template_trigger_card
+                      entity: script.rolf_empty
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: |
+                          [[[ return 'Tøm<br>støvsuger' ]]]
+                        icon: mdi:delete-empty
+                        background: var(--gray1000)
+                        color: var(--black)
+                        margin: 0
+                - type: grid
+                  columns: 2
+                  square: false
+                  cards:
+                    - type: custom:button-card
+                      template: template_sensor_big
+                      entity: script.cycle_vacuum_fan_speed
+                      trigger_update:
+                        - vacuum.sir_sweeps_a_lot
+                      tap_action:
+                        action: toggle
+                      variables:
+                        text_main: |
+                          [[[
+                            return states['vacuum.sir_sweeps_a_lot'].attributes.fan_speed
+                          ]]]  
+                        text_sub: Viftehastighet
+                        icon: mdi:fan
+                        background: var(--gray200)
+                        margin: 0
+                        height: 144px
+                      styles:
+                        label:
+                          - text-transform: capitalize
+                    - type: grid
+                      columns: 1
+                      square: false
+                      cards:
+                        - type: custom:button-card
+                          template: template_sensor_small
+                          entity: script.cycle_vacuum_fan_speed
+                          trigger_update:
+                            - vacuum.sir_sweeps_a_lot
+                          tap_action:
+                            action: toggle
+                          variables:
+                            text_main: |
+                              [[[
+                                return states['input_select.vacuum_fan_speed'].state
+                              ]]]  
+                            text_sub: Mopp modus
+                            icon: mdi:broom
+                            background: var(--gray200)
+                            margin: 0
+                          styles:
+                            label:
+                              - text-transform: capitalize
+                        - type: custom:button-card
+                          template: template_sensor_small
+                          entity: script.vacuum_fan_speed
+                          trigger_update:
+                            - vacuum.sir_sweeps_a_lot
+                          tap_action:
+                            action: toggle
+                          variables:
+                            text_main: |
+                              [[[
+                                return states['input_select.vacuum_fan_speed'].state
+                              ]]] 
+                            text_sub: Mopp intensitet
+                            icon: mdi:tune-variant
+                            background: var(--gray200)
+                            margin: 0
+                          styles:
+                            label:
+                              - text-transform: capitalize
+      - title: Info
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:paper-buttons-row
+              styles:
+                justify-content: flex-start
+                flex-wrap: wrap
+                font-size: 1.4em
+                line-height: 1.2em
+                gap: 0px
+                margin-bottom: 24px
+              buttons:
+                - layout: name
+                  name: Rolf har vasket
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  entity: sensor.rolf_arbeidstid
+                  name: >-
+                    {{ states('sensor.sir_sweeps_a_lot_total_cleaning_area') |
+                    round(0) }} m²
+                  styles:
+                    name:
+                      color: var(--black)
+                    button:
+                      padding: 2px 8px
+                      flex-basis: 1
+                      flex-shrink: 0
+                      display: flex
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                - layout: name
+                  name: som tilsvarer ca
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{ (states('sensor.sir_sweeps_a_lot_total_cleaning_area') |
+                    round(0) / 7140) | round(1) }} fotballbaner
+                  styles:
+                    name:
+                      color: var(--black)
+                    button:
+                      padding: 2px 8px
+                      flex-basis: 1
+                      flex-shrink: 0
+                      display: flex
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                - layout: name
+                  name: ', det har han brukt mer enn'
+                  styles:
+                    button:
+                      margin-left: -6px
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {% set time =
+                    states('sensor.sir_sweeps_a_lot_total_cleaning_time').split(':')
+                    %} {% set total_hours = time[0] | int %} {% set days =
+                    (total_hours / 24) | int %} {% set remaining_hours =
+                    total_hours % 24 %} {{ days }} dager og {{ remaining_hours
+                    }} timer
+                  styles:
+                    name:
+                      color: var(--black)
+                    button:
+                      padding: 2px 8px
+                      flex-basis: 1
+                      flex-shrink: 0
+                      display: flex
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                - layout: name
+                  name: på til sammen.
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+            - type: grid
+              square: false
+              columns: 2
+              cards:
+                - type: custom:button-card
+                  trigger_update:
+                    - vacuum.sir_sweeps_a_lot
+                  template: universal_sensor
+                  variables:
+                    size: small
+                    sub_text: Hovedbørste
+                    icon: mdi:broom
+                    main_text: |
+                      [[[
+                        return Math.round(states['sensor.sir_sweeps_a_lot_main_brush_time_left'].state ) + ' timer igjen'
+                      ]]] 
+                - type: custom:button-card
+                  trigger_update:
+                    - vacuum.sir_sweeps_a_lot
+                  template: universal_sensor
+                  variables:
+                    size: small
+                    sub_text: Filter
+                    icon: mdi:air-filter
+                    main_text: |
+                      [[[
+                        return Math.round(states['sensor.sir_sweeps_a_lot_filter_time_left'].state ) + ' timer igjen'
+                      ]]] 
+                - type: custom:button-card
+                  trigger_update:
+                    - vacuum.sir_sweeps_a_lot
+                  template: universal_sensor
+                  variables:
+                    size: small
+                    sub_text: Sensor
+                    icon: mdi:eye-outline
+                    main_text: |
+                      [[[
+                        return Math.round(states['sensor.sir_sweeps_a_lot_sensor_time_left'].state ) + ' timer igjen'
+                      ]]]
+                - type: custom:button-card
+                  trigger_update:
+                    - vacuum.sir_sweeps_a_lot
+                  template: universal_sensor
+                  variables:
+                    size: small
+                    sub_text: Sidebørste
+                    icon: mdi:brush
+                    main_text: |
+                      [[[
+                        return Math.round(states['sensor.sir_sweeps_a_lot_side_brush_time_left'].state ) + ' timer igjen'
+                      ]]]
+      - title: Kart
+        card:
+          square: false
+          type: grid
+          columns: 1
+          cards:
+            - type: picture
+              image_entity: image.sir_sweeps_a_lot_hjemme_andre_etasje
+              theme: Mytheme_v2
+    card_mod:
+      style: |
+        .tabs-container {
+          width: fit-content !important;
+          margin: 0 auto !important;
+          padding: 2px 2px !important;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 999px;
+          overflow: hidden !important;
+        }
+        .tab-button {
+          border-radius: 999px !important;
+          font-weight: 500;
+        }
+        .tab-button.active {
+          background: var(--active-big) !important;
+          color: rgba(70, 58, 64, 0.95) !important;
+          box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+        }
+  - type: custom:gap-card
+    height: 36
+state_content: battery_level
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Server
+icon: mdi:server
+state: null
+hash: '#server'
+is_sidebar_hidden: true
+styles: |+
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  } #header-container > div > div {
+    background: var(--gray000)!important;
+  }
+  #header-container > button {background: none;}
+  .icon-container {background-color:var(--gray1000)!important;}
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+  .bubble-icon {
+    --mdc-icon-size: 24px !important;
+  }
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+  }
+  .bubble-close-button {
+    background-color: var(--gray200) !important;
+    border-radius: 50%;
+  }
+
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+sub_button:
+  main: []
+  bottom: []
+slider_fill_orientation: left
+slider_value_position: right
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-homelab-card
+    navn: Homelab
+  - type: conditional
+    conditions:
+      - condition: numeric_state
+        above: 49.9
+        entity: sensor.d_day_darling_cpu_temperature
+    card:
+      type: custom:button-card
+      template: universal_sensor_ny
+      entity: sensor.d_day_darling_cpu_temperature
+      tap_action:
+        action: more-info
+      variables:
+        size: small
+        margin: 8px
+        icon: mdi:thermometer-alert
+        background_color: var(--red)
+        text_color: var(--black)
+        sub_text: Advarsel – CPU er varm
+        symbol: °C
+        main_text: >
+          [[[ const v = parseFloat(entity && entity.state); return isNaN(v) ?
+          '--' : v.toFixed(0); ]]]
+      extra_styles: >
+        @keyframes ki-puls { 0%,100% { transform: scale(1); } 50% { transform:
+        scale(1.15); } }
+      styles:
+        img_cell:
+          - background: rgba(0,0,0,0.1)
+          - border: none
+        icon:
+          - animation: ki-puls 1.2s ease-in-out infinite
+  - square: false
+    type: grid
+    columns: 2
+    cards:
+      - type: custom:button-card
+        template: universal_sensor_ny
+        entity: sensor.speedtest_download
+        variables:
+          size: small
+          sub_text: Ned
+          icon: mdi:speedometer-slow
+          background_color: var(--gray200)
+          symbol: ' Mbps'
+          main_text: >
+            [[[ const v = parseFloat(entity && entity.state); return isNaN(v) ?
+            '--' : v.toFixed(0); ]]]
+        styles:
+          card:
+            - container-type: inline-size
+            - padding: 0 10px 0 0
+          grid:
+            - grid-template-columns: 56px minmax(0, 1fr)
+            - column-gap: 6px
+          img_cell:
+            - width: 44px
+            - height: 44px
+            - margin: 0 0 0 6px
+            - justify-self: center
+            - align-self: center
+          icon:
+            - width: 24px
+            - height: 24px
+          label:
+            - font-size: clamp(12px, 8cqi, 16px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+          name:
+            - font-size: clamp(11px, 7cqi, 14px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+      - type: custom:button-card
+        template: universal_sensor_ny
+        entity: sensor.speedtest_upload
+        variables:
+          size: small
+          sub_text: Opp
+          icon: mdi:speedometer
+          background_color: var(--gray200)
+          symbol: ' Mbps'
+          main_text: >
+            [[[ const v = parseFloat(entity && entity.state); return isNaN(v) ?
+            '--' : v.toFixed(0); ]]]
+        styles:
+          card:
+            - container-type: inline-size
+            - padding: 0 10px 0 0
+          grid:
+            - grid-template-columns: 56px minmax(0, 1fr)
+            - column-gap: 6px
+          img_cell:
+            - width: 44px
+            - height: 44px
+            - margin: 0 0 0 6px
+            - justify-self: center
+            - align-self: center
+          icon:
+            - width: 24px
+            - height: 24px
+          label:
+            - font-size: clamp(12px, 8cqi, 16px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+          name:
+            - font-size: clamp(11px, 7cqi, 14px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+      - type: custom:button-card
+        template: universal_sensor_ny
+        entity: sensor.home_assistant_core_cpu_percent
+        variables:
+          size: small
+          sub_text: HA CPU
+          icon: mdi:home-assistant
+          background_color: var(--gray200)
+          symbol: ' %'
+          main_text: >
+            [[[ const v = parseFloat(entity && entity.state); return isNaN(v) ?
+            '--' : v.toFixed(0); ]]]
+        styles:
+          card:
+            - container-type: inline-size
+            - padding: 0 10px 0 0
+          grid:
+            - grid-template-columns: 56px minmax(0, 1fr)
+            - column-gap: 6px
+          img_cell:
+            - width: 44px
+            - height: 44px
+            - margin: 0 0 0 6px
+            - justify-self: center
+            - align-self: center
+          icon:
+            - width: 24px
+            - height: 24px
+          label:
+            - font-size: clamp(12px, 8cqi, 16px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+          name:
+            - font-size: clamp(11px, 7cqi, 14px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+      - type: custom:button-card
+        template: universal_sensor_ny
+        entity: sensor.home_assistant_core_memory_percent
+        variables:
+          size: small
+          sub_text: HA minne
+          icon: mdi:memory
+          background_color: var(--gray200)
+          symbol: ' %'
+          main_text: >
+            [[[ const v = parseFloat(entity && entity.state); return isNaN(v) ?
+            '--' : v.toFixed(0); ]]]
+        styles:
+          card:
+            - container-type: inline-size
+            - padding: 0 10px 0 0
+          grid:
+            - grid-template-columns: 56px minmax(0, 1fr)
+            - column-gap: 6px
+          img_cell:
+            - width: 44px
+            - height: 44px
+            - margin: 0 0 0 6px
+            - justify-self: center
+            - align-self: center
+          icon:
+            - width: 24px
+            - height: 24px
+          label:
+            - font-size: clamp(12px, 8cqi, 16px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+          name:
+            - font-size: clamp(11px, 7cqi, 14px)
+            - max-width: 100%
+            - min-width: 0
+            - overflow: hidden
+            - text-overflow: ellipsis
+            - white-space: nowrap
+  - type: custom:expander-card
+    child-margin-top: 0px
+    padding: 6px
+    title-card-button-overlay: false
+    title-card-clickable: true
+    expander-card-background: var(--gray200)
+    button-background: none
+    expander-card-background-expanded: var(--gray200)
+    header-color: var(--gray1000)
+    child-padding: 12px
+    title-card:
+      type: custom:button-card
+      template: universal_headline
+      triggers_update:
+        - sensor.qbittorrent_download_speed
+        - sensor.qbittorrent_upload_speed
+      tap_action:
+        action: none
+      variables:
+        main_text: Nedlastinger
+        icon: mdi:download-network
+        sub_text: |
+          [[[
+            const d = states['sensor.qbittorrent_download_speed'];
+            const v = parseFloat(d && d.state);
+            if (isNaN(v)) return '';
+            if (v <= 0) return 'hviler';
+            return '↓ ' + v.toFixed(1).replace('.', ',') + ' ' + (d.attributes.unit_of_measurement || '');
+          ]]]
+      extra_styles: >
+        @keyframes ki-dupp { 0%,100% { transform: translateY(0); } 50% {
+        transform: translateY(3px); } }
+      styles:
+        card:
+          - padding: 11px 4px 11px 12px
+        grid:
+          - grid-template-columns: min-content min-content 1fr
+        name:
+          - white-space: nowrap
+        label:
+          - justify-self: end
+          - align-self: center
+          - padding-left: 12px
+          - padding-right: 4px
+          - white-space: nowrap
+          - overflow: hidden
+          - text-overflow: ellipsis
+          - max-width: 100%
+          - opacity: '0.6'
+    cards:
+      - type: custom:ki-homelab-card
+        vis: nedlasting
+      - type: custom:gap-card
+        height: 8
+      - square: false
+        columns: 2
+        type: grid
+        cards:
+          - type: custom:button-card
+            template: universal_sensor_ny
+            entity: sensor.qbittorrent_download_speed
+            variables:
+              size: small
+              sub_text: Ned
+              icon: mdi:download
+              main_text: >
+                [[[ return entity && entity.state !== 'unavailable' ?
+                parseFloat(entity.state).toFixed(1).replace('.', ',') + ' ' +
+                (entity.attributes.unit_of_measurement || '') : '--'; ]]]
+            extra_styles: >
+              @keyframes ki-dupp { 0%,100% { transform: translateY(-2px); } 50%
+              { transform: translateY(3px); } }
+            styles:
+              card:
+                - container-type: inline-size
+                - padding: 0 10px 0 0
+              grid:
+                - grid-template-columns: 56px minmax(0, 1fr)
+                - column-gap: 6px
+              img_cell:
+                - width: 44px
+                - height: 44px
+                - margin: 0 0 0 6px
+                - justify-self: center
+                - align-self: center
+              icon:
+                - width: 24px
+                - height: 24px
+                - animation: >
+                    [[[ return parseFloat(entity && entity.state) > 0 ? 'ki-dupp
+                    1s ease-in-out infinite' : 'none'; ]]]
+              label:
+                - font-size: clamp(12px, 8cqi, 16px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+              name:
+                - font-size: clamp(11px, 7cqi, 14px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+          - type: custom:button-card
+            template: universal_sensor_ny
+            entity: sensor.qbittorrent_upload_speed
+            variables:
+              size: small
+              sub_text: Opp
+              icon: mdi:upload
+              main_text: >
+                [[[ return entity && entity.state !== 'unavailable' ?
+                parseFloat(entity.state).toFixed(1).replace('.', ',') + ' ' +
+                (entity.attributes.unit_of_measurement || '') : '--'; ]]]
+            extra_styles: >
+              @keyframes ki-hopp { 0%,100% { transform: translateY(2px); } 50% {
+              transform: translateY(-3px); } }
+            styles:
+              card:
+                - container-type: inline-size
+                - padding: 0 10px 0 0
+              grid:
+                - grid-template-columns: 56px minmax(0, 1fr)
+                - column-gap: 6px
+              img_cell:
+                - width: 44px
+                - height: 44px
+                - margin: 0 0 0 6px
+                - justify-self: center
+                - align-self: center
+              icon:
+                - width: 24px
+                - height: 24px
+                - animation: >
+                    [[[ return parseFloat(entity && entity.state) > 0 ? 'ki-hopp
+                    1s ease-in-out infinite' : 'none'; ]]]
+              label:
+                - font-size: clamp(12px, 8cqi, 16px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+              name:
+                - font-size: clamp(11px, 7cqi, 14px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+          - type: custom:button-card
+            template: universal_sensor_ny
+            entity: sensor.qbittorrent_active_torrents
+            triggers_update:
+              - sensor.qbittorrent_active_torrents
+              - sensor.qbittorrent_all_torrents
+            variables:
+              size: small
+              sub_text: Aktive
+              icon: mdi:progress-download
+              alt_text: >
+                [[[ const a = states['sensor.qbittorrent_all_torrents']; return
+                a && !isNaN(parseFloat(a.state)) ? 'av ' + a.state : null; ]]]
+            styles:
+              card:
+                - container-type: inline-size
+                - padding: 0 10px 0 0
+              grid:
+                - grid-template-columns: 56px minmax(0, 1fr)
+                - column-gap: 6px
+              img_cell:
+                - width: 44px
+                - height: 44px
+                - margin: 0 0 0 6px
+                - justify-self: center
+                - align-self: center
+              icon:
+                - width: 24px
+                - height: 24px
+              label:
+                - font-size: clamp(12px, 8cqi, 16px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+              name:
+                - font-size: clamp(11px, 7cqi, 14px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+          - type: custom:button-card
+            template: universal_toggle
+            entity: switch.qbittorrent_alternative_speed
+            tap_action:
+              action: toggle
+            variables:
+              size: small
+              sub_text: Alt. fart
+              icon: mdi:speedometer-slow
+              main_text: |
+                [[[ return entity && entity.state === 'on' ? 'På' : 'Av'; ]]]
+            styles:
+              card:
+                - container-type: inline-size
+                - padding: '0'
+              grid:
+                - grid-template-columns: 56px minmax(0, 1fr) 48px
+                - column-gap: 6px
+              img_cell:
+                - width: 44px
+                - height: 44px
+                - margin: 0 0 0 6px
+                - justify-self: center
+                - align-self: center
+              icon:
+                - width: 24px
+                - height: 24px
+              label:
+                - font-size: clamp(12px, 8cqi, 16px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+              name:
+                - font-size: clamp(11px, 7cqi, 14px)
+                - max-width: 100%
+                - min-width: 0
+                - overflow: hidden
+                - text-overflow: ellipsis
+                - white-space: nowrap
+            custom_fields:
+              mode: |
+                [[[
+                  const isOn = entity && entity.state === String(variables.toggle_on_value);
+                  const icon = isOn ? variables.toggle_on_icon : variables.toggle_off_icon;
+                  const color = isOn ? variables.toggle_icon_color_on : variables.toggle_icon_color_off;
+                  return `<ha-icon icon="${icon}" style="width:40px;height:40px;color:${color};display:block;"></ha-icon>`;
+                ]]]
+  - type: custom:gap-card
+    height: 10
+  - type: custom:simple-tabs
+    alignment: center
+    tab_position: top
+    show_fade: false
+    tabs_gap: 4px
+    button_padding: 9px 16px
+    background-color: transparent
+    border-color: transparent
+    text-color: rgba(255, 255, 255, 0.72)
+    hover-color: rgba(255, 255, 255, 0.95)
+    container_background: transparent
+    container_padding: 0 0 12px 0
+    tabs:
+      - title: Nettverk
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:mini-graph-card
+              entities:
+                - entity: sensor.stromstad_dream_machine_pro_google_wan_latency
+                  name: Google
+                  color: var(--blue)
+                - entity: sensor.stromstad_dream_machine_pro_cloudflare_wan_latency
+                  name: Cloudflare
+                  color: var(--orange)
+                  show_state: false
+              name: WAN-latens siste 24 timer
+              hours_to_show: 24
+              points_per_hour: 4
+              font_size: 50
+              font_size_header: 12
+              hour24: true
+              show:
+                graph: line
+                legend: false
+                icon: false
+                labels: false
+                labels_secondary: false
+              card_mod:
+                style: >
+                  ha-card { background: var(--gray200); margin-bottom: 8px; }
+
+                  .header {padding: 2px 8px 8px 16px;}
+
+                  .name > span { font-weight: 400!important;
+                  font-size:14px!important }
+
+                  .state__uom { font-weight: 300!important; font-size:
+                  14px!important; opacity:1!important; margin-top:0!important;
+                  margin-bottom: 2px!important; }
+
+                  .state__value {font-size: 32px!important;}
+            - type: custom:ki-homelab-card
+              vis: nettverk
+      - title: Proxmox
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:mysmart-prose-card
+              content_style:
+                font-size: 1.4em
+                line-height: 2em
+                padding: 4px 0 12px 0
+              card_style:
+                background: none
+              content: |
+                Oppetiden til serveren er {{button:uptime}} og
+                strømforbruket er {{button:power}}.
+              buttons:
+                - id: uptime
+                  entity: sensor.dashboard_office
+                  attribute: uptime
+                  style:
+                    background: var(--gray1000)
+                    color: var(--gray100)
+                    cursor: context-menu
+                  tap_action:
+                    action: none
+                - id: power
+                  entity: sensor.dashboard_office
+                  attribute: strom
+                  unit: W
+                  style:
+                    background: var(--gray1000)
+                    color: var(--gray100)
+                    cursor: context-menu
+                  tap_action:
+                    action: none
+            - square: false
+              type: grid
+              columns: 2
+              cards:
+                - type: custom:button-card
+                  template: universal_bar
+                  entity: sensor.1_node_pve_cpu_usage
+                  variables:
+                    icon: mdi:cpu-64-bit
+                    background_color: var(--gray200)
+                    sub_text: CPU
+                    bar_value: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? 0 : Math.round(v); ]]]
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '--' : Math.round(v); ]]]
+                  styles:
+                    card:
+                      - height: 180px
+                - type: custom:button-card
+                  template: universal_bar
+                  entity: sensor.1_node_pve_memory_usage
+                  variables:
+                    icon: mdi:memory
+                    background_color: var(--gray200)
+                    sub_text: Minne
+                    bar_value: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? 0 : Math.round(v); ]]]
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '--' : Math.round(v); ]]]
+                  styles:
+                    card:
+                      - height: 180px
+            - type: custom:gap-card
+              height: 25
+            - type: custom:expander-card
+              child-margin-top: 0px
+              padding: 6px
+              title-card-button-overlay: false
+              title-card-clickable: true
+              expander-card-background: var(--gray200)
+              button-background: none
+              expander-card-background-expanded: var(--gray200)
+              header-color: var(--gray1000)
+              child-padding: 12px
+              title-card:
+                type: custom:button-card
+                template: universal_headline
+                triggers_update:
+                  - sensor.1_node_pve_load_average_1m
+                tap_action:
+                  action: none
+                variables:
+                  main_text: Ytelse
+                  icon: mdi:chart-line
+                  sub_text: >
+                    [[[ const l = states['sensor.1_node_pve_load_average_1m'];
+                    return l && l.state !== 'unavailable' ? 'load ' + l.state :
+                    ''; ]]]
+                styles:
+                  card:
+                    - padding: 11px 4px 11px 12px
+                  grid:
+                    - grid-template-columns: min-content min-content 1fr
+                  name:
+                    - white-space: nowrap
+                  label:
+                    - justify-self: end
+                    - align-self: center
+                    - padding-left: 12px
+                    - padding-right: 4px
+                    - white-space: nowrap
+                    - overflow: hidden
+                    - text-overflow: ellipsis
+                    - max-width: 100%
+                    - opacity: '0.6'
+              cards:
+                - square: false
+                  columns: 2
+                  type: grid
+                  cards:
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_load_average_1m
+                      variables:
+                        size: small
+                        sub_text: Load (1 min)
+                        icon: mdi:chart-line
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_swap_usage
+                      variables:
+                        size: small
+                        sub_text: Swap
+                        icon: mdi:swap-horizontal
+                        symbol: ' %'
+                        main_text: >
+                          [[[ const v = parseFloat(entity && entity.state);
+                          return isNaN(v) ? '--' : v.toFixed(0); ]]]
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_io_wait
+                      variables:
+                        size: small
+                        sub_text: IO wait
+                        icon: mdi:timer-sand
+                        symbol: ' %'
+                        main_text: >
+                          [[[ const v = parseFloat(entity && entity.state);
+                          return isNaN(v) ? '--' : v.toFixed(1).replace('.',
+                          ','); ]]]
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_idle
+                      variables:
+                        size: small
+                        sub_text: Idle
+                        icon: mdi:sleep
+                        symbol: ' %'
+                        main_text: >
+                          [[[ const v = parseFloat(entity && entity.state);
+                          return isNaN(v) ? '--' : v.toFixed(0); ]]]
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                - type: custom:gap-card
+                  height: 8
+                - type: custom:mini-graph-card
+                  entities:
+                    - entity: sensor.1_node_pve_cpu_usage
+                      name: CPU
+                      color: var(--orange)
+                    - entity: sensor.1_node_pve_memory_usage
+                      name: Minne
+                      color: var(--blue)
+                  hours_to_show: 24
+                  points_per_hour: 4
+                  font_size: 50
+                  show:
+                    graph: line
+                    legend: true
+                    icon: false
+                    name: false
+                    labels: false
+                    labels_secondary: false
+                  card_mod:
+                    style: |
+                      ha-card { background: var(--gray100); box-shadow: none; }
+                - type: custom:gap-card
+                  height: 8
+                - type: custom:mini-graph-card
+                  entities:
+                    - entity: sensor.1_node_pve_network_rx
+                      name: RX
+                      color: var(--green)
+                    - entity: sensor.1_node_pve_network_tx
+                      name: TX
+                      color: var(--blue)
+                  hours_to_show: 24
+                  points_per_hour: 4
+                  font_size: 50
+                  show:
+                    graph: line
+                    legend: true
+                    icon: false
+                    name: false
+                    labels: false
+                    labels_secondary: false
+                  card_mod:
+                    style: |
+                      ha-card { background: var(--gray100); box-shadow: none; }
+            - type: custom:gap-card
+              height: 10
+            - type: custom:expander-card
+              child-margin-top: 0px
+              padding: 6px
+              title-card-button-overlay: false
+              title-card-clickable: true
+              expander-card-background: var(--gray200)
+              button-background: none
+              expander-card-background-expanded: var(--gray200)
+              header-color: var(--gray1000)
+              child-padding: 12px
+              title-card:
+                type: custom:button-card
+                template: universal_headline
+                triggers_update:
+                  - sensor.1_node_pve_node_updates
+                  - sensor.1_node_pve_pve_version
+                tap_action:
+                  action: none
+                variables:
+                  main_text: Systeminfo
+                  icon: mdi:information-outline
+                  sub_text: |
+                    [[[
+                      const u = parseInt(states['sensor.1_node_pve_node_updates']?.state);
+                      if (u > 0) return u + ' oppdateringer';
+                      const v = states['sensor.1_node_pve_pve_version'];
+                      return v && v.state !== 'unavailable' ? 'PVE ' + v.state : '';
+                    ]]]
+                styles:
+                  card:
+                    - padding: 11px 4px 11px 12px
+                  grid:
+                    - grid-template-columns: min-content min-content 1fr
+                  name:
+                    - white-space: nowrap
+                  label:
+                    - justify-self: end
+                    - align-self: center
+                    - padding-left: 12px
+                    - padding-right: 4px
+                    - white-space: nowrap
+                    - overflow: hidden
+                    - text-overflow: ellipsis
+                    - max-width: 100%
+                    - opacity: '0.6'
+              cards:
+                - square: false
+                  columns: 2
+                  type: grid
+                  cards:
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_kernel_version
+                      variables:
+                        size: small
+                        sub_text: Kernel
+                        icon: mdi:linux
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_node_updates
+                      variables:
+                        size: small
+                        sub_text: Oppdateringer
+                        icon: mdi:update
+                        background_color: >-
+                          [[[ return (parseInt(entity && entity.state) > 0) ?
+                          'var(--orange)' : 'var(--gray100)'; ]]]
+                        text_color: >-
+                          [[[ return (parseInt(entity && entity.state) > 0) ?
+                          'var(--black)' : 'var(--gray1000)'; ]]]
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_node_score
+                      variables:
+                        size: small
+                        sub_text: Node score
+                        icon: mdi:star-outline
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_bar
+                      entity: sensor.1_node_pve_backup_progress
+                      variables:
+                        size: small
+                        sub_text: Backup
+                        icon: mdi:backup-restore
+                      extra_styles: >
+                        @keyframes ki-snurr { to { transform: rotate(-360deg); }
+                        }
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                          - animation: >
+                              [[[ const v = parseFloat(entity && entity.state);
+                              return v > 0 && v < 100 ? 'ki-snurr 2s linear
+                              infinite' : 'none'; ]]]
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_ksm_shared_memory
+                      variables:
+                        size: small
+                        sub_text: KSM
+                        icon: mdi:memory
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_root_filesystem_usage
+                      variables:
+                        size: small
+                        sub_text: Rot-FS
+                        icon: mdi:folder-outline
+                        symbol: ' %'
+                        main_text: >
+                          [[[ const v = parseFloat(entity && entity.state);
+                          return isNaN(v) ? '--' : v.toFixed(0); ]]]
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                - type: custom:gap-card
+                  height: 8
+                - square: false
+                  columns: 1
+                  type: grid
+                  cards:
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_pve_version
+                      variables:
+                        size: small
+                        sub_text: PVE-versjon
+                        icon: mdi:information-outline
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                    - type: custom:button-card
+                      template: universal_sensor_ny
+                      entity: sensor.1_node_pve_last_task
+                      variables:
+                        size: small
+                        sub_text: Siste oppgave
+                        icon: mdi:clipboard-text-clock-outline
+                      styles:
+                        card:
+                          - container-type: inline-size
+                          - padding: 0 10px 0 0
+                        grid:
+                          - grid-template-columns: 56px minmax(0, 1fr)
+                          - column-gap: 6px
+                        img_cell:
+                          - width: 44px
+                          - height: 44px
+                          - margin: 0 0 0 6px
+                          - justify-self: center
+                          - align-self: center
+                        icon:
+                          - width: 24px
+                          - height: 24px
+                        label:
+                          - font-size: clamp(12px, 8cqi, 16px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+                        name:
+                          - font-size: clamp(11px, 7cqi, 14px)
+                          - max-width: 100%
+                          - min-width: 0
+                          - overflow: hidden
+                          - text-overflow: ellipsis
+                          - white-space: nowrap
+            - type: custom:gap-card
+              height: 10
+            - type: custom:ki-homelab-card
+              vis: gjester
+              kilde: proxmox
+      - title: Unraid
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-homelab-card
+              vis: gjester
+              kilde: unraid
+      - title: Lagring
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-homelab-card
+              vis: lagring
+    card_mod:
+      style: |
+        .tabs-container {
+          width: fit-content !important;
+          margin: 0 auto !important;
+          padding: 2px 2px !important;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 999px;
+          overflow: hidden !important;
+        }
+        .tab-button {
+          border-radius: 999px !important;
+          font-weight: 500;
+          transition: background .35s ease, color .35s ease, transform .15s ease;
+        }
+        .tab-button:active { transform: scale(.95); }
+        .tab-button.active {
+          background: var(--active-big) !important;
+          color: rgba(70, 58, 64, 0.95) !important;
+          box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+        }
+  - type: custom:gap-card
+    height: 36
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Innstillinger
+icon: mdi:cog
+state: null
+hash: '#settings'
+is_sidebar_hidden: true
+styles: |+
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  } #header-container > div > div {
+    background: var(--gray000)!important;
+  }     
+  #header-container > button {background: none;}    
+  .icon-container {background-color:var(--gray1000)!important;} 
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+  .bubble-icon {
+    --mdc-icon-size: 24px !important;
+  }
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+
+  }
+  .bubble-close-button {
+    background-color: var(--gray200) !important;
+    border-radius: 50%;
+  }
+
+
+
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+tap_action:
+  action: navigate
+  navigation_path: /config
+sub_button:
+  main: []
+  bottom: []
+slider_fill_orientation: left
+slider_value_position: right
+cards:
+  - type: custom:gap-card
+    height: 0
+    grid_options:
+      columns: 12
+      rows: auto
+  - type: custom:ki-natt-card
+    natt: switch.nattmodus
+    helg: input_boolean.innendors_privace_mode
+    vekking: sensor.soverom_vekking_neste_alarm
+    morgen_fra: '05:00'
+    morgen_til: '12:00'
+    tekst_morgen: God morgen
+    morgen: true
+  - type: custom:ki-tabs-card
+    fane_hoyde: 7
+    align: center
+    tabs:
+      - title: Automasjoner
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-varsling-card
+              enheter:
+                - lås
+                - ansikt
+                - vekking
+                - dørlys
+                - utelys
+              plattform:
+                - ki_notifications
+                - ki_energi
+                - ki_utelys
+      - title: Push varsler
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-varsling-card
+              ikke_enheter:
+                - lås
+                - ansikt
+                - vekking
+                - dørlys
+                - ki energi
+              ekstra: null
+      - title: Strøm
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-varsling-card
+              enheter:
+                - ki energi
+    card_mod:
+      style: |
+        .tabs-container {
+          width: fit-content !important;
+          margin: 0 auto !important;
+          padding: 2px 2px !important;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 999px;
+          overflow: hidden !important;
+        }
+        .tab-button {
+          border-radius: 999px !important;
+          font-weight: 500;
+        }
+        .tab-button.active {
+          background: var(--active-big) !important;
+          color: rgba(70, 58, 64, 0.95) !important;
+          box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+        }
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Kalender
+icon: mdi:calendar-month
+hash: '#kalender'
+is_sidebar_hidden: true
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+styles: |2
+    .bubble-pop-up-container {
+      --vertical-stack-card-gap: 0px!important;
+    }
+    #header-container > div > div { background: var(--gray000)!important; }
+    #header-container > button { background: none; }
+    .icon-container { background-color: var(--gray1000)!important; }
+    .icon-container > ha-icon { color: var(--black)!important; opacity: 1!important; }
+    .bubble-icon { --mdc-icon-size: 24px !important; }
+    .bubble-name {
+      font-size: 30px !important;
+      font-weight: 500;
+      line-height: 1.4 !important;
+      padding: 8px 0 !important;
+    }
+    .bubble-close-button { background-color: var(--gray200) !important; border-radius: 50%; }
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-tabs-card
+    align: center
+    tabs:
+      - title: Kalender
+        cards:
+          - type: custom:button-card
+            entity: sensor.alle_kalendere
+            show_icon: false
+            show_name: false
+            tap_action:
+              action: none
+            custom_fields:
+              event: |
+                [[[
+                  return entity.attributes.events[0].summary
+                ]]]
+              day: |
+                [[[
+                  return helpers.formatDateWeekday(entity.attributes.events[0].start)
+                ]]]
+              date: |
+                [[[
+                  const d = new Date(entity.attributes.events[0].start);
+                  return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                ]]]
+              time: >-
+                [[[ const start = entity.attributes.events[0].start; const end =
+                entity.attributes.events[0].end; return start.includes('T') ?
+                (helpers.formatTime24h(start) + ' · ' +
+                helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"day ." "date time" "date event"'
+                - grid-template-columns: min-content 1fr
+              card:
+                - padding: 20px
+                - background: var(--gray200)
+              custom_fields:
+                day:
+                  - justify-self: start
+                time:
+                  - justify-self: start
+                  - font-size: 1.4em
+                  - padding-left: 20px
+                date:
+                  - justify-self: start
+                  - font-size: 2.6em
+                  - padding-right: 20px
+                  - font-weight: '300'
+                event:
+                  - justify-self: start
+                  - padding-left: 20px
+                  - width: calc(100% - 10px)
+                  - text-overflow: ellipsis
+                  - text-align: left
+            state:
+              - operator: template
+                value: |
+                  [[[
+                    return new Date(entity.attributes.events[0].start).toDateString() === new Date().toDateString()
+                  ]]]
+                styles:
+                  card:
+                    - background: var(--active-big)
+                  custom_fields:
+                    day:
+                      - color: var(--black)
+                    time:
+                      - color: var(--black)
+                    date:
+                      - color: var(--black)
+                    event:
+                      - color: var(--black)
+              - value: '0'
+                custom_fields:
+                  date: Ingen hendelser framover
+                styles:
+                  card:
+                    - background: var(--red)
+                  custom_fields:
+                    date:
+                      - text-transform: none
+                      - font-size: 1em
+                      - border: none
+                    event:
+                      - display: none
+                    day:
+                      - display: none
+                    time:
+                      - display: none
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 1
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[1].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[1].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[1].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[1].start; const end
+                  = entity.attributes.events[1].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 2
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[2].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[2].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[2].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[2].start; const end
+                  = entity.attributes.events[2].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 3
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[3].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[3].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[3].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[3].start; const end
+                  = entity.attributes.events[3].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 4
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[4].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[4].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[4].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[4].start; const end
+                  = entity.attributes.events[4].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 5
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[5].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[5].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[5].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[5].start; const end
+                  = entity.attributes.events[5].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.alle_kalendere
+                above: 6
+            card:
+              type: custom:button-card
+              entity: sensor.alle_kalendere
+              show_icon: false
+              show_name: false
+              tap_action:
+                action: none
+              custom_fields:
+                event: |
+                  [[[
+                    return entity.attributes.events[6].summary
+                  ]]]
+                day: |
+                  [[[
+                    return helpers.formatDateWeekday(entity.attributes.events[6].start)
+                  ]]]
+                date: |
+                  [[[
+                    const d = new Date(entity.attributes.events[6].start);
+                    return `${d.getDate()}. ${d.toLocaleString('en',{month:'short'}).toLowerCase()}`
+                  ]]]
+                time: >-
+                  [[[ const start = entity.attributes.events[6].start; const end
+                  = entity.attributes.events[6].end; return start.includes('T')
+                  ? (helpers.formatTime24h(start) + ' · ' +
+                  helpers.formatTime24h(end)) : 'Hele dagen' ]]]
+              styles:
+                grid:
+                  - grid-template-areas: '"day time" "date event"'
+                  - grid-template-columns: min-content 1fr
+                card:
+                  - padding: 20px
+                  - margin-top: 12px
+                  - background: var(--gray200)
+                custom_fields:
+                  day:
+                    - color: var(--gray800)
+                    - justify-self: start
+                    - align-self: start
+                  time:
+                    - justify-self: start
+                    - font-size: 1.2em
+                    - padding-left: 20px
+                  date:
+                    - justify-self: start
+                    - font-size: 1.6em
+                    - padding-right: 20px
+                    - width: 100px
+                    - text-align: left
+                    - font-weight: '300'
+                  event:
+                    - justify-self: start
+                    - padding-left: 20px
+                    - text-align: left
+                    - width: calc(100% - 20px)
+                    - text-overflow: ellipsis
+          - type: custom:gap-card
+            height: 48
+      - title: Hytta
+        cards:
+          - type: custom:ki-hytte-card
+            sveip: true
+            alle_steder: true
+            steder:
+              Strömstad:
+                farge: var(--blue)
+                motiv: kyst
+              Toten:
+                farge: var(--yellow)
+                motiv: land
+              Oslo:
+                farge: var(--green)
+                motiv: hus
+            faner:
+              - kalender
+              - opphold
+              - statistikk
+          - type: custom:gap-card
+            height: 48
+      - title: Framover
+        cards:
+          - type: custom:ki-lansering-card
+            serier: sensor.sonarr_sonarr_upcoming_media
+            filmer: sensor.radarr_radarr_upcoming_media
+            plex_serier: sensor.d_day_darling_plex_recently_added_show
+            plex_filmer: sensor.d_day_darling_plex_recently_added_movie
+            antall: 6
+            plakater: true
+          - type: custom:gap-card
+            height: 48
+      - icon: mdi:gift-outline
+        aria: Post og bursdager
+        utenfor: true
+        ikon_naar:
+          Kalender: mdi:calendar-month
+        kort_naar:
+          Kalender:
+            - type: custom:ki-kalender-card
+              start_dag: mandag
+              visning: antall
+              dager_i_liste: 1
+              kalendere:
+                - entity: calendar.sebastian_kristo_no
+                  navn: Sebastian
+                  farge: var(--active-big)
+                - entity: calendar.oslomet_timeplan
+                  navn: OsloMet
+                  farge: var(--green)
+                - entity: calendar.helligdager_i_norge
+                  navn: Helligdager
+                  farge: var(--red)
+                - entity: calendar.birthdays
+                  navn: Bursdager
+                  farge: var(--yellow)
+                - entity: calendar.open_home_foundation_devs
+                  navn: HassOs
+                  farge: var(--blue)
+            - type: custom:gap-card
+              height: 48
+        cards:
+          - type: custom:ki-post-card
+            entity: sensor.nar_kommer_posten_posten_sensor_next
+            relativ: sensor.nar_kommer_posten_posten_sensor_next_relative
+            tekst: Post leveres
+          - type: custom:gap-card
+            height: 14
+          - type: custom:ki-bursdag-pro-card
+            kalender: calendar.birthdays
+            antall: 3
+            legg_til: true
+          - type: custom:gap-card
+            height: 48
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Tesla Model Y
+icon: phu:tesla-icon
+state: null
+hash: '#tesla'
+is_sidebar_hidden: true
+styles: |+
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  } #header-container > div > div {
+    background: var(--gray000)!important;
+  }
+  #header-container > button {background: none;}
+  .icon-container {background-color:var(--gray1000)!important;}
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+  .bubble-icon {
+    --mdc-icon-size: 24px !important;
+  }
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+  }
+  .bubble-close-button {
+    background-color: var(--gray200) !important;
+    border-radius: 50%;
+  }
+
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+sub_button:
+  main: []
+  bottom: []
+slider_fill_orientation: left
+slider_value_position: right
+popup_mode: default
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-tesla-card
+    navn: Tesla Model Y
+    defrost:
+      - switch.tesla_model_y_klima_climate_defrost
+      - switch.tesla_model_y_klima_...
+  - square: false
+    type: grid
+    columns: 5
+    cards:
+      - type: custom:button-card
+        entity: switch.tesla_model_y_car_doors_locked
+        aspect_ratio: 1/1
+        show_name: false
+        icon: phu:tesla-lock
+        tap_action:
+          action: toggle
+          confirmation:
+            text: >-
+              [[[ return entity.state === "locked" ? "Låse opp bilen?" : "Låse
+              bilen?"; ]]]
+        hold_action:
+          action: more-info
+        extra_styles: >
+          @keyframes ki-rist { 0%,85%,100% { transform: rotate(0); } 90% {
+          transform: rotate(-12deg); } 95% { transform: rotate(12deg); } }
+        state:
+          - value: 'on'
+            icon: mdi:lock-open-variant
+            styles:
+              card:
+                - background: var(--orange)
+              icon:
+                - color: var(--black)
+                - animation: ki-rist 3s ease-in-out infinite
+        styles:
+          icon:
+            - color: inherit
+          card:
+            - border-radius: 24px
+            - background: var(--gray200)
+      - type: custom:button-card
+        entity: button.folkevogn_honk_horn
+        icon: phu:tesla-horn
+        aspect_ratio: 1/1
+        show_name: false
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.folkevogn_honk_horn
+          confirmation:
+            text: Tute med bilen?
+        styles:
+          icon:
+            - color: inherit
+          card:
+            - border-radius: 24px
+            - background: var(--gray200)
+      - type: custom:button-card
+        entity: switch.tesla_model_y_klima_climate_defrost
+        icon: phu:tesla-defrost
+        aspect_ratio: 1/1
+        show_name: false
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        extra_styles: >
+          @keyframes ki-pust { 0%,100% { transform: scale(1); } 50% { transform:
+          scale(1.12); } }
+        state:
+          - value: 'on'
+            styles:
+              card:
+                - background: var(--active-big)
+              icon:
+                - color: var(--black)
+                - animation: ki-pust 2s ease-in-out infinite
+        styles:
+          icon:
+            - color: inherit
+          card:
+            - border-radius: 24px
+            - background: var(--gray200)
+      - type: custom:button-card
+        entity: switch.tesla_model_y_car_trunk_front
+        icon: phu:tesla-hood
+        aspect_ratio: 1/1
+        show_name: false
+        tap_action:
+          action: toggle
+          confirmation:
+            text: >-
+              [[[ return entity.state === "on" ? "Lukke frunken?" : "Åpne
+              frunken?"; ]]]
+        hold_action:
+          action: more-info
+        state:
+          - value: true
+            styles:
+              card:
+                - background: var(--active-big)
+              icon:
+                - color: var(--black)
+          - value: true
+            styles:
+              card:
+                - background: var(--active-big)
+              icon:
+                - color: var(--black)
+        styles:
+          icon:
+            - color: inherit
+          card:
+            - border-radius: 24px
+            - background: var(--gray200)
+      - type: custom:button-card
+        entity: switch.tesla_model_y_car_trunk_rear
+        icon: phu:tesla-trunk
+        aspect_ratio: 1/1
+        show_name: false
+        tap_action:
+          action: toggle
+          confirmation:
+            text: >-
+              [[[ return entity.state === "on" ? "Lukke bagasjerommet?" : "Åpne
+              bagasjerommet?"; ]]]
+        hold_action:
+          action: more-info
+        state:
+          - value: true
+            styles:
+              card:
+                - background: var(--active-big)
+              icon:
+                - color: var(--black)
+          - value: true
+            styles:
+              card:
+                - background: var(--active-big)
+              icon:
+                - color: var(--black)
+        styles:
+          icon:
+            - color: inherit
+          card:
+            - border-radius: 24px
+            - background: var(--gray200)
+  - type: custom:gap-card
+    height: 1
+  - align: center
+    fane_hoyde: 7
+    tabs:
+      - card:
+          cards:
+            - height: 0
+              type: custom:gap-card
+            - cards:
+                - entity: switch.elbillader_charging
+                  extra_styles: >
+                    @keyframes ki-lyn { 0%,100% { transform: scale(1); opacity:
+                    1; } 50% { transform: scale(1.15); opacity: .7; } }
+                  hold_action:
+                    action: more-info
+                  styles:
+                    icon:
+                      - animation: >
+                          [[[ return entity && entity.state === 'on' ? 'ki-lyn
+                          1.6s ease-in-out infinite' : 'none'; ]]]
+                  tap_action:
+                    action: more-info
+                  template: universal_toggle
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:ev-station
+                    main_text: >
+                      [[[ return entity && entity.state === 'on' ? 'Lader' :
+                      'Av'; ]]]
+                    sub_text: Lading
+                - entity: sensor.elbillader_charge_power
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:flash
+                    main_text: |
+                      [[[
+                        const v = parseFloat(entity && entity.state);
+                        return isNaN(v) ? '--' : (v / 1000).toFixed(1).replace('.', ',');
+                      ]]]
+                    sub_text: Ladeeffekt
+                    symbol: kW
+              columns: 2
+              square: false
+              type: grid
+            - height: 10
+              type: custom:gap-card
+            - cards:
+                - aspect_ratio: 1/1
+                  custom_fields:
+                    tap: >
+                      [[[ return '<div style="position:absolute; top: 8px;
+                      left:calc(50% - 18px);width: 36px;
+                      height:3px;background:var(--gray1000);border-radius:5px"></div>';
+                      ]]]
+                  entity: input_number.tesla_model_y_ladegrense
+                  name: 50%
+                  show_icon: false
+                  state:
+                    - operator: template
+                      styles:
+                        card:
+                          - background: var(--active-big)
+                        name:
+                          - color: var(--black)
+                      value: >-
+                        [[[ return Math.round(parseFloat(entity.state)) === 50;
+                        ]]]
+                  styles:
+                    card:
+                      - border-radius: 24px
+                      - background: var(--gray200)
+                    custom_fields:
+                      tap:
+                        - overflow: visible
+                        - opacity: 0.1
+                    name:
+                      - font-size: 16px
+                      - font-weight: 500
+                      - color: var(--gray1000)
+                  tap_action:
+                    action: perform-action
+                    data:
+                      value: 50
+                    perform_action: input_number.set_value
+                    target:
+                      entity_id: input_number.tesla_model_y_ladegrense
+                  type: custom:button-card
+                - aspect_ratio: 1/1
+                  custom_fields:
+                    tap: >
+                      [[[ return '<div style="position:absolute; top: 8px;
+                      left:calc(50% - 18px);width: 36px;
+                      height:3px;background:var(--gray1000);border-radius:5px"></div>';
+                      ]]]
+                  entity: input_number.tesla_model_y_ladegrense
+                  name: 60%
+                  show_icon: false
+                  state:
+                    - operator: template
+                      styles:
+                        card:
+                          - background: var(--active-big)
+                        name:
+                          - color: var(--black)
+                      value: >-
+                        [[[ return Math.round(parseFloat(entity.state)) === 60;
+                        ]]]
+                  styles:
+                    card:
+                      - border-radius: 24px
+                      - background: var(--gray200)
+                    custom_fields:
+                      tap:
+                        - overflow: visible
+                        - opacity: 0.1
+                    name:
+                      - font-size: 16px
+                      - font-weight: 500
+                      - color: var(--gray1000)
+                  tap_action:
+                    action: perform-action
+                    data:
+                      value: 60
+                    perform_action: input_number.set_value
+                    target:
+                      entity_id: input_number.tesla_model_y_ladegrense
+                  type: custom:button-card
+                - aspect_ratio: 1/1
+                  custom_fields:
+                    tap: >
+                      [[[ return '<div style="position:absolute; top: 8px;
+                      left:calc(50% - 18px);width: 36px;
+                      height:3px;background:var(--gray1000);border-radius:5px"></div>';
+                      ]]]
+                  entity: input_number.tesla_model_y_ladegrense
+                  name: 70%
+                  show_icon: false
+                  state:
+                    - operator: template
+                      styles:
+                        card:
+                          - background: var(--active-big)
+                        name:
+                          - color: var(--black)
+                      value: >-
+                        [[[ return Math.round(parseFloat(entity.state)) === 70;
+                        ]]]
+                  styles:
+                    card:
+                      - border-radius: 24px
+                      - background: var(--gray200)
+                    custom_fields:
+                      tap:
+                        - overflow: visible
+                        - opacity: 0.1
+                    name:
+                      - font-size: 16px
+                      - font-weight: 500
+                      - color: var(--gray1000)
+                  tap_action:
+                    action: perform-action
+                    data:
+                      value: 70
+                    perform_action: input_number.set_value
+                    target:
+                      entity_id: input_number.tesla_model_y_ladegrense
+                  type: custom:button-card
+                - aspect_ratio: 1/1
+                  custom_fields:
+                    tap: >
+                      [[[ return '<div style="position:absolute; top: 8px;
+                      left:calc(50% - 18px);width: 36px;
+                      height:3px;background:var(--gray1000);border-radius:5px"></div>';
+                      ]]]
+                  entity: input_number.tesla_model_y_ladegrense
+                  name: 80%
+                  show_icon: false
+                  state:
+                    - operator: template
+                      styles:
+                        card:
+                          - background: var(--active-big)
+                        name:
+                          - color: var(--black)
+                      value: >-
+                        [[[ return Math.round(parseFloat(entity.state)) === 80;
+                        ]]]
+                  styles:
+                    card:
+                      - border-radius: 24px
+                      - background: var(--gray200)
+                    custom_fields:
+                      tap:
+                        - overflow: visible
+                        - opacity: 0.1
+                    name:
+                      - font-size: 16px
+                      - font-weight: 500
+                      - color: var(--gray1000)
+                  tap_action:
+                    action: perform-action
+                    data:
+                      value: 80
+                    perform_action: input_number.set_value
+                    target:
+                      entity_id: input_number.tesla_model_y_ladegrense
+                  type: custom:button-card
+                - aspect_ratio: 1/1
+                  custom_fields:
+                    tap: >
+                      [[[ return '<div style="position:absolute; top: 8px;
+                      left:calc(50% - 18px);width: 36px;
+                      height:3px;background:var(--gray1000);border-radius:5px"></div>';
+                      ]]]
+                  entity: input_number.tesla_model_y_ladegrense
+                  name: 100%
+                  show_icon: false
+                  state:
+                    - operator: template
+                      styles:
+                        card:
+                          - background: var(--active-big)
+                        name:
+                          - color: var(--black)
+                      value: >-
+                        [[[ return Math.round(parseFloat(entity.state)) === 100;
+                        ]]]
+                  styles:
+                    card:
+                      - border-radius: 24px
+                      - background: var(--gray200)
+                    custom_fields:
+                      tap:
+                        - overflow: visible
+                        - opacity: 0.1
+                    name:
+                      - font-size: 16px
+                      - font-weight: 500
+                      - color: var(--gray1000)
+                  tap_action:
+                    action: perform-action
+                    data:
+                      value: 100
+                    perform_action: input_number.set_value
+                    target:
+                      entity_id: input_number.tesla_model_y_ladegrense
+                  type: custom:button-card
+              columns: 5
+              square: false
+              type: grid
+            - height: 10
+              type: custom:gap-card
+            - buttons:
+                - layout: name
+                  name: Det vil ta ca
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {% set m = states('sensor.ki_tesla_ladetid_gjenstaende') |
+                    float(0) | int %} {% set t = m // 60 %}{% set r = m % 60 %}
+                    {%- if m == 0 %}under ett minutt {%- else %}{{ (t ~ (' time'
+                    if t == 1 else ' timer')) if t > 0 else '' }}{{ ' og ' if t
+                    > 0 and r > 0 else '' }}{{ (r ~ (' minutt' if r == 1 else '
+                    minutter')) if r > 0 else '' }}{% endif %}
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+                - layout: name
+                  name: å lade til
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{ states('input_number.tesla_model_y_ladegrense') |
+                    float(0) | round(0) | int }} %
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+                - layout: name
+                  name: ', og det vil koste ca'
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                      margin-left: -6px
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{ states('sensor.ki_tesla_ladepris_estimat') | float(0) |
+                    round(0) | int }} kroner.
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+                - layout: name
+                  name: Sist lading kostet
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{ states('sensor.ki_tesla_forrige_lading_kostnad') |
+                    float(0) | round(0) | int }} kroner.
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+              styles:
+                flex-wrap: wrap
+                font-size: 1.4em
+                gap: 0px
+                justify-content: flex-start
+                line-height: 1.2em
+                margin-bottom: 24px
+                margin-top: 12px
+              type: custom:paper-buttons-row
+            - tap_action:
+                action: toggle
+              template: template_toggle_card
+              type: custom:button-card
+              variables:
+                background: var(--gray200)
+                entity: input_boolean.kiosk_mode
+                icon: mdi:ev-station
+                main_text: Smartlading
+          type: vertical-stack
+        title: Lading
+      - card:
+          cards:
+            - cards:
+                - entity: sensor.tesla_model_y_batteri_estimert_batterirekkevidde
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:road-variant
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '--' : Math.round(v); ]]]
+                    sub_text: Rekkevidde
+                    symbol: km
+                - entity: sensor.tesla_model_y_kilometerteller
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:speedometer
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '--' : Math.round(v).toLocaleString('nb-NO');
+                      ]]]
+                    sub_text: Kilometerstand
+                    symbol: km
+              columns: 2
+              square: false
+              type: grid
+            - aggregate_func: max
+              card_mod:
+                style: >
+                  ha-card { background: var(--gray200); margin-top: 12px; }
+
+                  .header {padding: 2px 8px 8px 16px;}
+
+                  .name > span { font-weight: 400!important;
+                  font-size:14px!important }
+
+                  .state__uom { font-weight: 300!important; font-size:
+                  14px!important; opacity:1!important; margin-top:0!important;
+                  margin-bottom: 2px!important; }
+
+                  .state__value {font-size: 32px!important;}
+              entities:
+                - color: var(--blue)
+                  entity: sensor.tesla_model_y_daglig_kjoring
+              font_size: 50
+              font_size_header: 12
+              group_by: date
+              hour24: true
+              hours_to_show: 168
+              name: Daglig kjøring siste 7 dager
+              show:
+                graph: bar
+                icon: false
+                labels: false
+                labels_secondary: false
+                legend: false
+              type: custom:mini-graph-card
+            - height: 8
+              type: custom:gap-card
+          type: vertical-stack
+        title: Kjøring
+      - card:
+          cards:
+            - height: 0
+              type: custom:gap-card
+            - card:
+                entity: sensor.ki_drivstoff_spart_i_ar
+                extra_styles: >
+                  @keyframes ki-snu { 0%,40% { transform: rotate(0); } 60%,100%
+                  { transform: rotate(180deg); } }
+                styles:
+                  icon:
+                    - animation: ki-snu 2.4s ease-in-out infinite
+                template: universal_sensor_ny
+                type: custom:button-card
+                variables:
+                  background_color: var(--gray200)
+                  icon: mdi:timer-sand
+                  main_text: Venter på data
+                  margin: 0 0 8px 0
+                  size: small
+                  sub_text: Teller når bilen har kjørt noen km
+              conditions:
+                - below: 1
+                  condition: numeric_state
+                  entity: sensor.ki_drivstoff_spart_i_ar
+              type: conditional
+            - card:
+                entity: sensor.ki_drivstoff_dieselpris
+                styles:
+                  img_cell:
+                    - background: rgba(0,0,0,0.1)
+                    - border: none
+                tap_action:
+                  action: perform-action
+                  perform_action: ki_drivstoff.hent_pris
+                template: universal_sensor_ny
+                type: custom:button-card
+                variables:
+                  background_color: var(--orange)
+                  icon: mdi:gas-station-off
+                  main_text: Pumpepris mangler
+                  margin: 0 0 8px 0
+                  size: small
+                  sub_text: Trykk for å hente på nytt
+                  text_color: var(--black)
+              conditions:
+                - condition: or
+                  conditions:
+                    - condition: state
+                      entity: sensor.ki_drivstoff_dieselpris
+                      state: unknown
+                    - condition: state
+                      entity: sensor.ki_drivstoff_dieselpris
+                      state: unavailable
+              type: conditional
+            - cards:
+                - entity: sensor.ki_drivstoff_spart_denne_maneden
+                  styles:
+                    card:
+                      - height: 180px
+                  template: universal_bar
+                  type: custom:button-card
+                  variables:
+                    alt_text: |
+                      [[[
+                        const d = parseFloat(entity && entity.attributes.diesel_ville_kostet) || 0;
+                        const e = parseFloat(entity && entity.attributes.strom_kostet) || 0;
+                        return d > 0 ? Math.round((1 - e / d) * 100) + ' % billigere' : null;
+                      ]]]
+                    background_color: var(--gray200)
+                    bar_color: var(--green)
+                    bar_value: |
+                      [[[
+                        const d = parseFloat(entity && entity.attributes.diesel_ville_kostet) || 0;
+                        const e = parseFloat(entity && entity.attributes.strom_kostet) || 0;
+                        if (d <= 0) return 0;
+                        return Math.max(0, Math.min(100, Math.round((1 - e / d) * 100)));
+                      ]]]
+                    icon: mdi:piggy-bank
+                    main_text: >
+                      [[[ return Math.round(parseFloat(entity && entity.state)
+                      || 0).toLocaleString('nb-NO'); ]]]
+                    sub_text: Spart denne måneden
+                    symbol: kr
+                - entity: sensor.ki_drivstoff_spart_i_ar
+                  styles:
+                    card:
+                      - height: 180px
+                  template: universal_bar
+                  type: custom:button-card
+                  variables:
+                    alt_text: |
+                      [[[
+                        const d = parseFloat(entity && entity.attributes.diesel_ville_kostet) || 0;
+                        const e = parseFloat(entity && entity.attributes.strom_kostet) || 0;
+                        return d > 0 ? Math.round((1 - e / d) * 100) + ' % billigere' : null;
+                      ]]]
+                    background_color: var(--gray200)
+                    bar_color: var(--orange)
+                    bar_value: |
+                      [[[
+                        const d = parseFloat(entity && entity.attributes.diesel_ville_kostet) || 0;
+                        const e = parseFloat(entity && entity.attributes.strom_kostet) || 0;
+                        if (d <= 0) return 0;
+                        return Math.max(0, Math.min(100, Math.round((1 - e / d) * 100)));
+                      ]]]
+                    icon: mdi:piggy-bank-outline
+                    main_text: >
+                      [[[ return Math.round(parseFloat(entity && entity.state)
+                      || 0).toLocaleString('nb-NO'); ]]]
+                    sub_text: Spart i år
+                    symbol: kr
+              columns: 2
+              square: false
+              type: grid
+            - height: 10
+              type: custom:gap-card
+            - cards:
+                - entity: sensor.ki_drivstoff_kostnad_per_mil_tesla_model_y
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:car-electric
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '–' : v.toFixed(2).replace('.', ','); ]]]
+                    size: small
+                    sub_text: Tesla · kr/mil
+                - entity: sensor.ki_drivstoff_kostnad_per_mil_audi_a6_avant_2011
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:car-estate
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '–' : v.toFixed(2).replace('.', ','); ]]]
+                    size: small
+                    sub_text: Audi A6 · kr/mil
+                - entity: sensor.ki_drivstoff_liter_diesel_spart_i_ar
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:fuel
+                    main_text: >
+                      [[[ return Math.round(parseFloat(entity && entity.state)
+                      || 0).toLocaleString('nb-NO'); ]]]
+                    size: small
+                    sub_text: Diesel ikke fylt
+                    symbol: ' L'
+                - entity: sensor.ki_drivstoff_co2_spart_i_ar
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:molecule-co2
+                    main_text: >
+                      [[[ return Math.round(parseFloat(entity && entity.state)
+                      || 0).toLocaleString('nb-NO'); ]]]
+                    size: small
+                    sub_text: CO₂ spart
+                    symbol: ' kg'
+                - entity: sensor.ki_drivstoff_dieselpris
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:gas-station
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '–' : v.toFixed(2).replace('.', ','); ]]]
+                    size: small
+                    sub_text: Diesel · kr/L
+                - entity: sensor.ki_drivstoff_ladepris
+                  template: universal_sensor_ny
+                  type: custom:button-card
+                  variables:
+                    background_color: var(--gray200)
+                    icon: mdi:ev-station
+                    main_text: >
+                      [[[ const v = parseFloat(entity && entity.state); return
+                      isNaN(v) ? '–' : v.toFixed(2).replace('.', ','); ]]]
+                    size: small
+                    sub_text: Strøm · kr/kWh
+              columns: 2
+              square: false
+              type: grid
+            - buttons:
+                - layout: name
+                  name: Så langt i år har dere kjørt
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{
+                    '{:,.0f}'.format(state_attr('sensor.ki_drivstoff_spart_i_ar',
+                    'kjort_km') | float(0)).replace(',', ' ') }} km
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+                - layout: name
+                  name: og spart
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                    name:
+                      color: var(--gray1000)
+                - layout: name
+                  name: >-
+                    {{ '{:,.0f}'.format(states('sensor.ki_drivstoff_spart_i_ar')
+                    | float(0)).replace(',', ' ') }} kroner
+                  styles:
+                    button:
+                      background-color: var(--gray1000)
+                      border-radius: 24px
+                      display: flex
+                      flex-basis: 1
+                      flex-shrink: 0
+                      padding: 2px 8px
+                    name:
+                      color: var(--black)
+                - layout: name
+                  name: mot den gamle dieselen.
+                  styles:
+                    button:
+                      flex-basis: 1
+                      flex-shrink: 0
+                      margin-left: -6px
+                    name:
+                      color: var(--gray1000)
+              styles:
+                flex-wrap: wrap
+                font-size: 1.4em
+                gap: 0px
+                justify-content: flex-start
+                line-height: 1.2em
+                margin-bottom: 12px
+                margin-top: 18px
+              type: custom:paper-buttons-row
+            - aggregate_func: max
+              card_mod:
+                style: >
+                  ha-card { background: var(--gray200); margin-top: 12px; }
+
+                  .header {padding: 2px 8px 8px 16px;}
+
+                  .name > span { font-weight: 400!important;
+                  font-size:14px!important }
+
+                  .state__uom { font-weight: 300!important; font-size:
+                  14px!important; opacity:1!important; margin-top:0!important;
+                  margin-bottom: 2px!important; }
+
+                  .state__value {font-size: 32px!important;}
+              entities:
+                - color: var(--green)
+                  entity: sensor.ki_drivstoff_spart_denne_maneden
+              font_size: 50
+              font_size_header: 12
+              group_by: date
+              hour24: true
+              hours_to_show: 720
+              name: Spart per dag siste 30 dager
+              show:
+                graph: bar
+                icon: false
+                labels: false
+                labels_secondary: false
+                legend: false
+              type: custom:mini-graph-card
+          type: vertical-stack
+        title: Sparing
+    type: custom:ki-tabs-card
+  - type: custom:gap-card
+    height: 36
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Creality K2
+icon: mdi:printer-3d
+state: null
+hash: '#3d'
+is_sidebar_hidden: true
+styles: |-
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  } #header-container > div > div {
+    background: var(--gray000)!important;
+  }     
+  #header-container > button {background: none;}    
+  .icon-container {background-color:var(--gray1000)!important;} 
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+  .bubble-icon {
+    --mdc-icon-size: 24px !important;
+  }
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+
+  }
+  .bubble-close-button {
+    background-color: var(--gray200) !important;
+    border-radius: 50%;
+  }
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+sub_button:
+  main: []
+  bottom: []
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-k2-card
+    scene: true
+    scene_hoyde: 200
+    prefix: creality_k2
+    default_view: enkel
+    remember_view: true
+    show_media: true
+    show_cfs: true
+    show_energi: true
+    cfs_slots: 4
+    romvifte: fan.baderomsvifte
+    homey_flow: button.homey_flows_02_creality_k2_bryter
+  - type: custom:gap-card
+    height: 20
+
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Vanning
+icon: mdi:sprinkler-variant
+hash: '#vanning'
+is_sidebar_hidden: true
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+styles: >+
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+  }
+
+  #header-container > div > div { background: var(--gray000)!important; }
+
+  #header-container > button { background: none; }
+
+  .icon-container { background-color: var(--gray1000)!important; }
+
+  .icon-container > ha-icon { color: var(--black)!important; opacity:
+  1!important; }
+
+  .bubble-icon { --mdc-icon-size: 24px !important; }
+
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+  }
+
+  .bubble-close-button { background-color: var(--gray200) !important;
+  border-radius: 50%; }
+
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.ki_vanning_vanner
+        state: 'on'
+    card:
+      type: custom:button-card
+      name: >-
+        [[[ return '<strong>Vanner nå:</strong> ' +
+        (states['sensor.ki_vanning_oversikt'].attributes.aktiv_sone || 'sone
+        ukjent') ]]]
+      icon: mdi:sprinkler-variant
+      styles:
+        card:
+          - padding: 0
+          - margin-bottom: 12px
+          - background: var(--green)
+        grid:
+          - grid-template-areas: '"i n"'
+          - grid-template-columns: 76px 1fr
+        img_cell:
+          - justify-self: start
+          - background: rgba(0,0,0, 0.1)
+          - margin: 4px 4px
+          - border-radius: 50%
+          - width: 58px
+          - height: 58px
+        icon:
+          - width: 30px
+          - height: 30px
+          - color: var(--black)
+        name:
+          - justify-self: start
+          - color: var(--black)
+  - type: custom:simple-tabs
+    alignment: center
+    tab_position: top
+    show_fade: false
+    tabs_gap: 4px
+    button_padding: 9px 22px
+    background-color: transparent
+    border-color: transparent
+    text-color: rgba(255, 255, 255, 0.72)
+    hover-color: rgba(255, 255, 255, 0.95)
+    container_background: transparent
+    container_padding: 0 0 12px 0
+    tabs:
+      - title: Vanning
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-vanning-card
+              flyt: true
+            - type: custom:gap-card
+              height: 10
+      - title: Vann
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:ki-vann-card
+              prefiks: sensor.hjemme_
+              navn: Vann
+              mal: 400
+            - type: custom:gap-card
+              height: 10
+            - type: grid
+              columns: 2
+              square: false
+              cards:
+                - type: custom:button-card
+                  template: universal_sensor_ny
+                  entity: sensor.hjemme_vann_i_dag
+                  variables:
+                    sub_text: Per person i dag
+                    icon: mdi:account-multiple
+                    background_color: var(--gray200)
+                    text_color: var(--gray1000)
+                    main_text: |
+                      [[[
+                        const v = entity && entity.attributes.per_person;
+                        if (v === undefined || v === null) return '–';
+                        return Math.round(v) + '<span style="font-size:14px;line-height:1.5em;margin-left:4px;font-weight:300;">L</span>';
+                      ]]]
+                - type: custom:button-card
+                  template: universal_sensor_ny
+                  entity: sensor.hjemme_forklart_av_sensorene
+                  variables:
+                    sub_text: Forklart av sensorene
+                    icon: mdi:help-circle-outline
+                    background_color: var(--gray200)
+                    text_color: var(--gray1000)
+                    main_text: |
+                      [[[
+                        if (!entity || isNaN(parseFloat(entity.state))) return '–';
+                        return Math.round(parseFloat(entity.state)) + '<span style="font-size:14px;line-height:1.5em;margin-left:4px;font-weight:300;">%</span>';
+                      ]]]
+            - type: custom:mini-graph-card
+              entities:
+                - entity: sensor.hjemme_vann_i_dag
+              name: Vann i dag
+              hours_to_show: 336
+              aggregate_func: max
+              group_by: date
+              font_size: 50
+              font_size_header: 12
+              hour24: true
+              line_color: var(--blue)
+              show:
+                graph: bar
+                legend: false
+                icon: false
+                labels: false
+                labels_secondary: false
+              card_mod:
+                style: >
+                  ha-card { background: var(--gray200); margin-top: 12px; }
+
+                  .header { padding: 2px 8px 8px 16px; }
+
+                  .name > span { font-weight: 400 !important; font-size: 14px
+                  !important; }
+
+                  .state__uom {
+                    font-weight: 300 !important;
+                    font-size: 14px !important;
+                    opacity: 1 !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 2px !important;
+                  }
+
+                  .state__value { font-size: 32px !important; }
+            - type: custom:mini-graph-card
+              entities:
+                - entity: sensor.hjemme_dusj_i_dag
+                  name: Dusj
+                  color: var(--blue)
+                - entity: sensor.hjemme_toalett_i_dag
+                  name: Toalett
+                  color: var(--purple)
+                - entity: sensor.hjemme_vaskemaskin_i_dag
+                  name: Vaskemaskin
+                  color: var(--yellow)
+              name: Fordeling per dag
+              hours_to_show: 336
+              aggregate_func: max
+              group_by: date
+              font_size: 40
+              font_size_header: 12
+              hour24: true
+              show:
+                graph: bar
+                legend: true
+                icon: false
+                labels: false
+                labels_secondary: false
+              card_mod:
+                style: >
+                  ha-card { background: var(--gray200); margin-top: 12px; }
+
+                  .header { padding: 2px 8px 8px 16px; }
+
+                  .name > span { font-weight: 400 !important; font-size: 14px
+                  !important; }
+
+                  .state__value { font-size: 26px !important; }
+            - type: conditional
+              conditions:
+                - condition: numeric_state
+                  entity: sensor.hjemme_forklart_av_sensorene
+                  below: 50
+              card:
+                type: custom:button-card
+                name: >-
+                  [[[ return '<strong>Uforklart vannforbruk.</strong> Bare ' +
+                  Math.round(parseFloat(states['sensor.hjemme_forklart_av_sensorene'].state))
+                  + ' % av forrige time kan forklares. Skjer det om natten,
+                  sjekk for lekkasje.' ]]]
+                icon: mdi:water-alert
+                styles:
+                  card:
+                    - padding: 0
+                    - margin-top: 12px
+                    - background: var(--orange)
+                  grid:
+                    - grid-template-areas: '"i n"'
+                    - grid-template-columns: 76px 1fr
+                  img_cell:
+                    - justify-self: start
+                    - background: rgba(0,0,0, 0.1)
+                    - margin: 4px 4px
+                    - border-radius: 50%
+                    - width: 58px
+                    - height: 58px
+                  icon:
+                    - width: 30px
+                    - height: 30px
+                    - color: var(--black)
+                  name:
+                    - justify-self: start
+                    - color: var(--black)
+                    - font-size: 14px
+    card_mod:
+      style: |
+        .tabs-container {
+          width: fit-content !important;
+          margin: 0 auto !important;
+          padding: 2px 2px !important;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 999px;
+          overflow: hidden !important;
+        }
+        .tab-button { border-radius: 999px !important; font-weight: 500; }
+        .tab-button.active {
+          background: var(--active-big) !important;
+          color: rgba(70, 58, 64, 0.95) !important;
+          box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+        }
+  - type: custom:gap-card
+    height: 36
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Norgespris
+icon: mdi:piggy-bank-outline
+state: null
+hash: '#norgespris'
+is_sidebar_hidden: true
+styles: >
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
+  }
+
+  #header-container > div > div { background: var(--gray000)!important; }
+
+  #header-container > button { background: none; }
+
+  .icon-container { background-color: var(--gray1000)!important; }
+
+  .icon-container > ha-icon { color: var(--black)!important; opacity:
+  1!important; }
+
+  .bubble-icon { --mdc-icon-size: 24px !important; }
+
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+  }
+
+  .bubble-close-button { background-color: var(--gray200) !important;
+  border-radius: 50%; }
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+sub_button:
+  main: []
+  bottom: []
+cards:
+  - type: custom:gap-card
+    height: 0
+  - type: custom:ki-strom-detaljer-card
+    vis: norgespris
+  - type: custom:gap-card
+    height: 10
+  - type: custom:ki-strom-detaljer-card
+    vis: sammenligning
+  - type: custom:gap-card
+    height: 36
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+name: Strømregning
+icon: mdi:cash-fast
+state: null
+hash: '#stromregning'
+is_sidebar_hidden: true
+styles: >
+  .bubble-pop-up-container {
+    --vertical-stack-card-gap: 0px!important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
+  }
+
+  #header-container > div > div { background: var(--gray000)!important; }
+
+  #header-container > button { background: none; }
+
+  .icon-container { background-color: var(--gray1000)!important; }
+
+  .icon-container > ha-icon { color: var(--black)!important; opacity:
+  1!important; }
+
+  .bubble-icon { --mdc-icon-size: 24px !important; }
+
+  .bubble-name {
+    font-size: 30px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    padding: 8px 0 !important;
+  }
+
+  .bubble-close-button { background-color: var(--gray200) !important;
+  border-radius: 50%; }
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+sub_button:
+  main: []
+  bottom: []
+cards:
+  - type: custom:gap-card
+    height: 0
+  - align: center
+    default: Måned
+    fane_hoyde: 0
+    fane_tekst: 13
+    rad_hoyde: 36
+    style: pills
+    tabs:
+      - card:
+          cards:
+            - faner_bakgrunn: var(--gray000)
+              skjul:
+                - uke
+                - kalender
+                - år
+                - måned
+              type: custom:ki-strom-detaljer-card
+              vis: regning
+          type: vertical-stack
+        title: Dag
+      - card:
+          cards:
+            - faner_bakgrunn: var(--gray000)
+              skjul:
+                - kalender
+                - dag
+                - år
+                - måned
+              type: custom:ki-strom-detaljer-card
+              vis: regning
+          type: vertical-stack
+        title: Uke
+      - card:
+          cards:
+            - faner_bakgrunn: var(--gray000)
+              skjul:
+                - uke
+                - kalender
+                - dag
+                - år
+                - måned
+              type: custom:ki-strom-detaljer-card
+              vis: regning
+            - height: 10
+              type: custom:gap-card
+            - type: custom:ki-strom-detaljer-card
+              vis: effekt
+            - height: 10
+              type: custom:gap-card
+            - type: custom:ki-strom-detaljer-card
+              vis: effektledd
+          type: vertical-stack
+        title: Måned
+      - card:
+          cards:
+            - faner_bakgrunn: var(--gray000)
+              skjul:
+                - uke
+                - kalender
+                - dag
+                - måned
+              type: custom:ki-strom-detaljer-card
+              vis: regning
+          type: vertical-stack
+        title: År
+      - card:
+          cards:
+            - faner_bakgrunn: var(--gray000)
+              skjul:
+                - uke
+                - dag
+                - år
+                - måned
+              type: custom:ki-strom-detaljer-card
+              vis: regning
+          type: vertical-stack
+        icon: mdi:calendar-month
+        utenfor: true
+    type: custom:ki-tabs-card
+  - type: custom:gap-card
+    height: 10
+  - type: custom:gap-card
+    height: 10
+  - type: custom:gap-card
+    height: 36
+
+
+
+type: custom:bubble-card
+card_type: pop-up
+state: null
+is_sidebar_hidden: true
+styles: >
+  .bubble-pop-up-container { --vertical-stack-card-gap: 0px!important; }
+
+  #header-container > div > div { background: var(--gray000)!important; }
+
+  #header-container > button {background: none;}
+
+  .icon-container {background-color:var(--gray1000)!important;}
+
+  .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+
+  .bubble-icon { --mdc-icon-size: 24px !important; }
+
+  .bubble-name { font-size: 30px !important; font-weight: 500; line-height: 1.4
+  !important; padding: 8px 0 !important; }
+
+  .bubble-close-button { background-color: var(--gray200) !important;
+  border-radius: 50%; }
+bg_blur: '5'
+shadow_opacity: '20'
+bg_opacity: '98'
+margin_top_mobile: 50px
+margin_top_desktop: 50px
+card_layout: large
+button_type: name
+name: Planter
+icon: mdi:flower-outline
+hash: '#planter'
+cards:
+  - type: custom:ki-planter-pro-card
+    sted: Sebastians soverom
+    scene: true
+    scene_hoyde: 200
+  - type: custom:gap-card
+    height: 120

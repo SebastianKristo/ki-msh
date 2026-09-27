@@ -676,8 +676,9 @@
   M.define('msh-kamera-card', Kamera, 'MSH Kamera', 'Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/liste, enkeltkamera, hendelser og Frigate. Stillbilder oppdateres kun mens popupen er åpen.');
 
   /* ------------------------------------------------------------ «Tilpass kameraer» (Kamera v2 · ed) */
-  // Åpnes via MSH.openEditor (tag 'msh-kamera-editor'): samme hendelser som msh-editor – msh-change
-  // (live + autolagring; commit=false under slider-drag), msh-save («Ferdig» lagrer og venter), msh-cancel.
+  // Åpnes via MSH.openEditor (tag 'msh-kamera-editor'): samme hendelser og utkastflyt som msh-editor (MSH.draftEditor,
+  // fiks 15.13) – msh-change (bare utkast + live forhåndsvisning, ingen autolagring), msh-save («Ferdig»/lukk lagrer én
+  // gang og venter; knappen er deaktivert mens det lagres), msh-cancel. Utenfor/Esc forkaster utkastet.
   // Seksjoner: Profil · Visning · Utseende · Kameraer som vises (+ Legg til kamera) · Nullstill/Ferdig.
   // «Oppsett per enhet»-linjen (msh-scope-bar fra openEditor) flyttes inn rett under headeren.
   const RESET_KEYS = ['layout', 'grid_layout', 'order', 'hidden', 'cam_gap', 'gap', 'luft', 'show_name', 'show_badge', 'text_size'];

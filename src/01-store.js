@@ -5,6 +5,17 @@
  *   MSH.store.set(path, value)     – skriv (debounce 600 ms mot HA), varsler abonnenter straks
  *   MSH.store.subscribe(cb)        – cb(data, path) ved endring; returnerer avmelding
  *   MSH.store.load(hass)           – hent fra HA (kalles automatisk av kortene)
+ *   MSH.store.set(path, value, { confirm, src }) – confirm: localStorage-cachen skrives og abonnentene varsles først
+ *                                    når HA har bekreftet (feil → stien rulles tilbake). src = avsendermerke, sendes
+ *                                    videre til abonnentene som 3. argument (tilpass-arkene kjenner igjen egen lagring).
+ *   MSH.store.transaction({ onExternal }) – utkastmodus for ark som skriver mange nøkler («Tilpass Hjem»): set()
+ *                                    oppdaterer data og kort live, men ingenting sendes til HA før tx.commit() (ÉN
+ *                                    frontend/set_user_data). tx.rollback() setter de berørte stiene tilbake. Endringer
+ *                                    fra andre enheter mens utkastet er åpent overskriver det ikke → onExternal(), og
+ *                                    tx.reload() tar dem inn (forkaster utkastet).
+ *   MSH.store.rev                    – teller, økes ved hver endring av data (lokalt eller fra HA)
+ * Fjernverdier (get_user_data / subscribe_user_data) tas ikke inn mens egne endringer venter, skrives eller ligger i
+ * et utkast – ellers kan et ekko av en eldre lagring overskrive en nyere (fiks 15.13).
  * Kortconfig: cards.<card_id> = kortets config fra egen editor; effektiv config = { ...YAML, ...store }.
  *
  * Én felles config for alle kort (rotnivå). UNNTAK: Kamera og Person kan ha oppsett per enhet:
@@ -25,6 +36,7 @@
   let data = {};
   try { data = JSON.parse(localStorage.getItem(CACHE) || '{}') || {}; } catch (e) { data = {}; }
   let hass = null, loaded = false, loading = null, timer = null, subs = new Set(), unsubRemote = null;
+  let writing = 0, tx = null, rev = 0;
   const get = (o, p) => (!p ? o : String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o));
   const setIn = (o, p, v) => {
     const ks = String(p).split('.'), root = { ...o };
@@ -35,24 +47,38 @@
     });
     return root;
   };
-  const emit = (path) => { subs.forEach((cb) => { try { cb(data, path); } catch (e) { console.error('[ki-store]', e); } }); };
+  const emit = (path, src) => { rev++; subs.forEach((cb) => { try { cb(data, path, src); } catch (e) { console.error('[ki-store]', e); } }); };
+  // Egne endringer venter / skrives / ligger i et utkast → ikke ta inn fjernverdier nå
+  const busy = () => !!(timer || writing || tx);
+  // Verdi fra HA (get_user_data / subscribe_user_data). Under et utkast: bare merk at noe er endret et annet sted.
+  const remote = (v) => {
+    if (!v || typeof v !== 'object') return;
+    const j = JSON.stringify(v);
+    if (tx) { if (j !== JSON.stringify(tx.snap) && j !== JSON.stringify(data)) { tx.remote = v; if (tx.onExternal) try { tx.onExternal(); } catch (e) { /* */ } } return; }
+    if (busy() || j === JSON.stringify(data)) return;
+    data = v; cache(); emit('');
+  };
   const cache = () => { try { localStorage.setItem(CACHE, JSON.stringify(data)); } catch (e) { /* */ } };
   // Lagring mot HA: debounce 600 ms; alle som venter får samme svar ({ ok, error }) når callWS har returnert.
   let waiters = [];
   const write = async () => {
     clearTimeout(timer); timer = null;
+    if (tx) return; // utkast åpent: ingenting sendes før tx.commit() (ventende svar tas med da)
     const ws = waiters; waiters = [];
     let res;
     if (!hass || !hass.callWS) res = { ok: false, error: 'Ingen forbindelse til Home Assistant' };
     else {
+      writing++;
       try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); res = { ok: true }; }
       catch (e) { res = { ok: false, error: (e && e.message) || String(e) }; }
+      finally { writing--; }
     }
     ws.forEach((fn) => fn(res));
     return res;
   };
   const push = (immediate) => new Promise((res) => {
     waiters.push(res);
+    if (tx) return;
     clearTimeout(timer);
     timer = setTimeout(write, immediate ? 0 : 600);
   });
@@ -152,28 +178,79 @@
     },
     removeDevice: (id) => M.store.set('devices.' + id, undefined, { immediate: true }),
     get: (path) => get(data, path),
+    get rev() { return rev; },
     // set → oppdaterer cache og kort straks; returnerer Promise<{ ok, error }> når HA har bekreftet lagringen
     set(path, value, opts) {
+      opts = opts || {};
+      const before = path ? get(data, path) : data;
       data = path ? setIn(data, path, value) : (value || {});
-      cache(); emit(path);
-      return push(opts && opts.immediate);
+      if (tx) { tx.touched.add(path || ''); emit(path, opts.src); return Promise.resolve({ ok: true, draft: true }); } // utkast: sendes ved tx.commit()
+      if (!opts.confirm) { cache(); emit(path, opts.src); return push(opts.immediate); }
+      // confirm (tilpass-arkenes Ferdig): cache + varsel først når HA har bekreftet; feil → stien rulles tilbake
+      const mine = path ? get(data, path) : data;
+      return push(true).then((res) => {
+        if (res && res.ok) { cache(); emit(path, opts.src); }
+        else if ((path ? get(data, path) : data) === mine) data = path ? setIn(data, path, before) : before;
+        return res;
+      });
+    },
+    // Utkastmodus (se toppen). Bare ett utkast om gangen; et nytt kall mens et er åpent gir det samme.
+    transaction(opts) {
+      if (tx) return tx.api;
+      const t = { snap: data, touched: new Set(), remote: null, onExternal: opts && opts.onExternal };
+      const end = () => { if (tx === t) tx = null; };
+      t.api = {
+        get active() { return tx === t; },
+        get dirty() { return t.touched.size > 0; },
+        get external() { return !!t.remote; },
+        // Ferdig: ÉN lagring av alt i utkastet. Feil → utkastet står (tx er fortsatt åpen).
+        async commit() {
+          if (tx !== t) return { ok: true };
+          end();
+          if (!t.touched.size) return { ok: true, unchanged: true };
+          const res = await push(true);
+          if (res && res.ok) cache();
+          else if (!tx) tx = t; // bli stående i utkastet
+          return res;
+        },
+        // Avbryt: berørte stier tilbake til verdien før utkastet
+        rollback() {
+          if (tx !== t) return;
+          end();
+          if (!t.touched.size) { if (waiters.length) push(false); return; }
+          [...t.touched].forEach((p) => { data = p ? setIn(data, p, get(t.snap, p)) : t.snap; });
+          emit('');
+          if (waiters.length) push(false); // endringer fra før utkastet som ventet
+        },
+        // «Last inn»: forkast utkastet og ta inn endringen fra den andre kilden
+        reload() {
+          if (tx !== t) return;
+          const v = t.remote;
+          t.remote = null; t.touched.clear();
+          if (v) { data = v; t.snap = v; cache(); }
+          else data = t.snap;
+          emit('');
+        },
+      };
+      tx = t;
+      return t.api;
     },
     // Tving lagring nå (Lagre-knappen) og vent på svar
-    save() { return push(true); },
+    save() { return tx ? Promise.resolve({ ok: true, draft: true }) : push(true); },
     get pending() { return !!timer; },
     // Hent på nytt fra HA (ved åpning av popup) – ikke mens egne endringer venter
     async refresh(h) {
       if (h) hass = h;
-      if (!hass || !hass.callWS || timer) return data;
+      if (!hass || !hass.callWS || busy()) return data;
       try {
         const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
-        if (r && r.value && typeof r.value === 'object' && !timer && JSON.stringify(r.value) !== JSON.stringify(data)) { data = r.value; cache(); emit(''); }
+        if (r) remote(r.value);
       } catch (e) { /* */ }
       return data;
     },
     subscribe(cb) { subs.add(cb); return () => subs.delete(cb); },
     get loaded() { return loaded; },
-    flush() { if (timer) write(); },
+    flush() { if (timer && !tx) write(); },
     async load(h) {
       if (h) hass = h;
       if (loaded || !hass || !hass.callWS) return data;
@@ -181,7 +258,7 @@
       loading = (async () => {
         try {
           const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
-          if (r && r.value && typeof r.value === 'object' && !timer) { data = r.value; cache(); emit(''); }
+          if (r && r.value && typeof r.value === 'object' && !busy()) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
         if (migrate()) { cache(); emit(''); push(false); }
@@ -198,8 +275,7 @@
         try {
           if (hass.connection && hass.connection.subscribeMessage && !unsubRemote) {
             unsubRemote = await hass.connection.subscribeMessage((msg) => {
-              const v = msg && msg.value;
-              if (v && typeof v === 'object' && !timer && JSON.stringify(v) !== JSON.stringify(data)) { data = v; cache(); emit(''); }
+              remote(msg && msg.value);
             }, { type: 'frontend/subscribe_user_data', key: KEY });
           }
         } catch (e) { /* ikke støttet */ }

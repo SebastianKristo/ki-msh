@@ -6,12 +6,17 @@
  *   Kort/Faner → msh-hjem-faner-card-config (layout.<fane>.{order,side,hidden,add}, rooms.<id>.*, tiles.<fane>.<kind>.*,
  *                tile_order/tile_hidden, swipe, slides, tab_*, custom_tabs, links, tap, battery)
  *   Tekst      → msh-prosa-card-config (prose[] med ent / ent_override / cent via felles MSH.entityPicker,
- *                prose_font_size, prose_line_height)
+ *                «Ved trykk» = prose[].tap i HA-format via <msh-tap-picker> (Fiks 15.6), prose_font_size, prose_line_height)
  *   Kort       → også msh-hjem-card-config (show_todo, hidden) – «Kort på Hjem» med øye per kort
  *   Popups     → 28-popup-editor.js (MSH.popupsPanel): alle popups (Rom · Funksjoner · Egne) med YAML-editor. Skriver
  *                ki-store popups.<hash uten #> = { hidden, name, icon, color }, custom_popups[] og popup_overrides{}
  *                (strategien oppdaterer popupene i dashbordet straks, uten omlasting)
- * Alt lagres live med MSH.saveCardConfig (ki-store, debounce, ingen navigering); kortene abonnerer på ki-store.
+ * Utkast (fiks 15.13): arket åpner et ki-store-utkast (MSH.store.transaction). Endringer (MSH.saveCardConfig /
+ * store.set fra alle fanene, også 28-popup-editor) vises live i kortene – de abonnerer på ki-store – men sendes ikke til
+ * HA. Ferdig = ÉN frontend/set_user_data (tx.commit; deaktivert mens det lagres) → lukk, «Lagret», haptic success; feil →
+ * arket står med utkastet. Avbryt/utenfor/Esc = tx.rollback (alt tilbake). Endret på en annen enhet mens arket er åpent
+ * → banner «Endret et annet sted – Last inn» (tx.reload). Egne kort-utkast (MSH.draftEditor) er ikke brukt her fordi
+ * arket skriver mange nøkler (tre kort + popups + custom_popups + popup_overrides + room_defaults).
  */
 (function () {
   const M = window.MSH;
@@ -38,7 +43,8 @@
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const KINDS = { lock: ['key', 'Dørlås'], garage: ['garage', 'Garasjeport'], alarm: ['shield', 'Alarm'], cam: ['videocam', 'Kamera'], ruter: ['tram', 'Ruter'], todo: ['handyman', 'Gjøremål'], dish: ['dishwasher_gen', 'Oppvaskmaskin'], vacr: ['robot_2', 'Støvsuger'], tv: ['tv', 'TV'], wash: ['local_laundry_service', 'Vaskemaskin'], dry: ['dry_cleaning', 'Tørketrommel'], jul: ['park', 'Jul'] };
   const KIND_ORDER = Object.keys(KINDS);
-  const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: { dish: 'L-top', vacr: 'L-top', tv: 'R-top', wash: 'R-top', dry: 'R-top' } };
+  const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: {} };
+  const DYN = ['dish', 'vacr', 'tv', 'wash', 'dry']; // Aktuelt: dynamisk etter tabs.aktuelt.types (fiks 15.10)
   const STACK_DEF = { hjem: { cam: true, ruter: true } };
   const SLIDE_L = { cal: ['calendar_month', 'Kalender'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
   const VIEWS = [['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']];
@@ -60,8 +66,10 @@
   function allTabs(hass, c) {
     const A = autoTabs(hass, c), ord = Array.isArray(c.tab_order) ? c.tab_order : [];
     const out = [...ord.map((id) => A.find((t) => t.id === id)).filter(Boolean), ...A.filter((t) => !ord.includes(t.id))];
-    return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id) }));
+    return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id), hc: t.kind === 'hjem' ? hjemHC(hass, c) : null }));
   }
+  // Hjem: kuratert kortliste (M.hjemCards i 24-hjem-faner.js). null = autofyll (gammelt oppsett: alle rom).
+  function hjemHC(hass, c) { if (!M.hjemCards || !hass) return null; const r = M.hjemCards(hass, c); return r.auto ? null : r; }
   function floorRank(hass) {
     const fl = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0)), rk = {};
     fl.forEach((f, i) => { rk[f.floor_id] = i; });
@@ -70,17 +78,25 @@
   function baseRooms(hass, c, t) {
     const rk = floorRank(hass);
     const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || a.name.localeCompare(b.name, 'nb'));
-    let base = t.kind === 'floor' ? areas.filter((a) => a.floor === t.floor) : t.kind === 'andre' ? areas.filter((a) => !a.floor) : t.kind === 'custom' ? [] : areas;
+    const fill = get(c, `tabs.${t.id}.auto_fill`) !== false;
+    let base = t.kind === 'floor' ? (fill ? areas.filter((a) => a.floor === t.floor) : []) : t.kind === 'andre' ? (fill ? areas.filter((a) => !a.floor) : []) : t.kind === 'custom' ? [] : t.hc ? t.hc.cards.filter((x) => /^rom:/.test(x)).map((x) => areas.find((a) => a.id === x.slice(4))).filter(Boolean) : areas;
     const add = Object.values(get(c, `layout.${t.id}.add`) || {}).filter(Boolean);
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
-    if (t.kind === 'hjem' && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
+    if (t.kind === 'hjem' && !t.hc && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
     const ord = get(c, `layout.${t.id}.order`) || [];
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
   const availKinds = (E, c) => [...KIND_ORDER.filter((k) => k === 'jul' || (E && E[k])), ...Object.keys(c.links || {}).filter((k) => c.links[k] && c.links[k].title).sort()];
   const kindLabel = (k, c) => (KINDS[k] ? KINDS[k][1] : ((c.links || {})[k] || {}).title || 'Snarvei');
   const kindIcon = (k, c) => (KINDS[k] ? KINDS[k][0] : ((c.links || {})[k] || {}).icon || 'mdi:star');
-  const tileSlot = (c, t, k) => get(c, `tiles.${t.id}.${k}.slot`) || (TILE_DEF[t.kind] || {})[k] || 'off';
+  const tileSlot = (c, t, k) => {
+    if (t.hc) {
+      const sl = get(c, `tiles.${t.id}.${k}.slot`), set = !!sl && sl !== 'off';
+      if (!t.hc.cards.includes(k) && !(set && !t.hc.exclude.includes(k))) return 'off';
+      return set ? sl : TILE_DEF.hjem[k] || 'R-top';
+    }
+    return get(c, `tiles.${t.id}.${k}.slot`) || (TILE_DEF[t.kind] || {})[k] || 'off';
+  };
   const seasonOk = (c, t, k) => {
     const f = get(c, `tiles.${t.id}.${k}.fra`) ?? (k === 'jul' ? '11-01' : ''), tl = get(c, `tiles.${t.id}.${k}.til`) ?? (k === 'jul' ? '03-01' : '');
     if (!/^\d\d-\d\d$/.test(f) || !/^\d\d-\d\d$/.test(tl)) return true;
@@ -102,7 +118,6 @@
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const PICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['✨', '✨'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
   const PSW = [['hvit', C.white, 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
-  const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
   const PFIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo']; // kan overstyres (ent_override)
 
@@ -331,8 +346,34 @@
         if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
         this._schedule();
       }) : null;
-      if (M.store && this.hass) M.store.load(this.hass);
+      // Utkast: start når ki-store er lastet (ellers ville første innlasting sett ut som «endret et annet sted»)
+      if (M.store) Promise.resolve(this.hass && !M.store.loaded ? M.store.load(this.hass) : null).then(() => { if (!this.closed) this.tx = M.store.transaction({ onExternal: () => this._external() }); });
       this.render();
+    }
+    // Endret på en annen enhet mens utkastet er åpent: banner øverst i arket (overlever render)
+    _external() {
+      if (this.closed || (this._banner && this._banner.isConnected)) return;
+      this._banner = M.draftBanner(this.sheet, () => {
+        if (this._banner) this._banner.remove(); this._banner = null;
+        if (this.tx) this.tx.reload();
+        this._F = null; this._P = null; this._H = null;
+        this.render();
+      }, this.body);
+    }
+    // Ferdig: én lagring av hele utkastet; dobbelttrykk ignoreres mens den pågår
+    async _done() {
+      if (this._busy) return;
+      if (!this.tx || !this.tx.active || !this.tx.dirty) { this.close(); return; }
+      this._busy = true; this.render();
+      let r;
+      try { r = await this.tx.commit(); } catch (e) { r = { ok: false, error: e && e.message }; }
+      this._busy = false;
+      if (!r || r.ok === false) {
+        const msg = 'Kunne ikke lagre' + (r && r.error ? ' – ' + r.error : '');
+        M.haptic('failure'); M.toast(msg); this.render(); return;
+      }
+      M.haptic('success'); M.toast('Lagret');
+      this.close();
     }
     get closed() { return !!(this.ov && this.ov.closed); }
     focus(f, silent) {
@@ -349,8 +390,7 @@
     }
     _closed() {
       if (this._storeOff) this._storeOff();
-      if (M.flushSaves) M.flushSaves();
-      if (M.store && M.store.flush) M.store.flush();
+      if (this.tx && this.tx.active) this.tx.rollback(); // Avbryt / utenfor / Esc: utkastet forkastes
       if (open === this) open = null;
     }
     close() { this.ov.close(); }
@@ -389,7 +429,22 @@
       try { M.saveCardConfig(this.hass, old, nc, { toasts: false, card: M.liveOf(tag) }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
       this._schedule();
     }
-    saveF(patch) { this._save('msh-hjem-faner-card', 'faner', patch); }
+    saveF(patch) { this._save('msh-hjem-faner-card', 'faner', this._hjemLock(patch)); }
+    // Første endring på Hjem-fanen låser oppsettet i tabs.hjem (kuratert liste eller autofyll for gamle oppsett), så
+    // f.eks. en flytting (layout.hjem) aldri bytter modus av seg selv (fiks 15.10).
+    _hjemLock(patch) {
+      const c = this.F();
+      if (get(c, 'tabs.hjem') || !M.hjemCards || !this.hass) return patch;
+      if (!Object.keys(patch).some((p) => /^(layout|tiles|tile_order|tile_hidden|swipe|slides)\.hjem(\.|$)|^tabs\.hjem\./.test(p))) return patch;
+      const hc = M.hjemCards(this.hass, c);
+      return { 'tabs.hjem': hc.auto ? { auto_fill: true } : { auto_fill: false, cards: hc.cards, seen: hc.candidates }, ...patch };
+    }
+    // Ny tabs.hjem med gitte kort/exclude (resten beholdes).
+    _hcObj(m, cards, exclude) {
+      const H = get(m.c, 'tabs.hjem') || {}, o = { ...H, auto_fill: false, cards, seen: H.seen || m.t.hc.candidates };
+      if (exclude && exclude.length) o.exclude = exclude; else delete o.exclude;
+      return o;
+    }
     saveP(patch) { this._save('msh-prosa-card', 'prosa', patch); }
     saveH(patch) { this._save('msh-hjem-card', 'home', patch); }
     // Snarvei-entiteter (samme autokonfig som kortet): hentes fra en frakoblet faner-instans.
@@ -453,7 +508,7 @@
         sides[r.id] = sd;
         if (sd === 'R') hr += h; else hl += h;
       });
-      const E = this._E(c), avail = availKinds(E, c), hidT = get(c, `tile_hidden.${t.id}`) || [], ord = get(c, `tile_order.${t.id}`) || [];
+      const E = this._E(c), avail = availKinds(E, c).filter((k) => !(t.kind === 'aktuelt' && DYN.includes(k))), hidT = get(c, `tile_hidden.${t.id}`) || [], ord = get(c, `tile_order.${t.id}`) || [];
       const en = avail.filter((k) => tileSlot(c, t, k) !== 'off' && !hidT.includes(k));
       const oi = (k) => { const i = ord.indexOf(k); return i < 0 ? 99 : i; };
       en.sort((a, b) => oi(a) - oi(b));
@@ -475,7 +530,7 @@
       } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); inner = `<div class="hint">Feil: ${esc(e.message)}</div>`; }
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
-        <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
+        <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="cancel">Avbryt</button><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done" ${this._busy ? 'disabled aria-busy' : ''}>${this._busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
@@ -515,8 +570,55 @@
       if (u.pick) panel = this._pickPanel(m);
       else if (u.sel && u.sel.t === 'room') panel = this._roomPanel(m, m.rooms.find((r) => r.id === u.sel.id));
       else if (u.sel && u.sel.t === 'tile') panel = this._tilePanel(m, u.sel.id);
-      const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å hente et rom fra en annen etasje.</span>`;
-      return strip + tgl + grid + panel + hint + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._accRomIkon(m) + this._blocks();
+      if (t.kind === 'aktuelt') return strip + tgl + this._aktPanel(m) + this._accRomIkon(m) + this._blocks();
+      const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å ${t.hc ? 'legge til et rom eller en snarvei' : 'hente et rom fra en annen etasje'}.</span>`;
+      const fillT = t.kind === 'floor' || t.kind === 'andre' ? `<button class="tgl" data-a="tabfill" data-h="selection">Autofyll fra HA-etasjen${this._sw(get(c, `tabs.${t.id}.auto_fill`) !== false)}</button>` : '';
+      const hjem = t.kind === 'hjem' ? this._hcTools(m) : '';
+      return strip + tgl + fillT + grid + panel + hint + hjem + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._accRomIkon(m) + this._blocks() + (t.kind === 'hjem' ? this._hcSuggest(m) : '');
+    }
+    /* ---------- Hjem: kuratert (fiks 15.10) */
+    // «Legg til» (søk blant rom, snarveier og entiteter) + «Tilbakestill til forslag» (med bekreftelse).
+    _hcTools(m) {
+      const u = this.u, t = m.t, hass = this.hass, c = m.c;
+      const info = t.hc ? `Hjem er kuratert · ${m.rooms.length} rom og ${m.en.length} snarveier. Fjernede kort kommer ikke tilbake av seg selv.` : 'Hjem fylles automatisk med alle rom (tidligere oppsett). «Tilbakestill til forslag» gir en kuratert forside.';
+      let search = '';
+      if (u.hcAdd) {
+        const q = String(u.hcQ || '').trim(), nq = q.toLowerCase(), has = new Set(t.hc ? t.hc.cards : [...m.vis.map((a) => 'rom:' + a.id), ...m.en]);
+        const rooms = M.areas(hass).filter((a) => !has.has('rom:' + a.id) && (!nq || (a.name + ' ' + a.id).toLowerCase().includes(nq))).slice(0, 8);
+        const kinds = m.avail.filter((k) => !has.has(k) && (!nq || (kindLabel(k, c) + ' ' + k).toLowerCase().includes(nq)));
+        const DOM = { lock: 'lock', alarm_control_panel: 'alarm', camera: 'cam', todo: 'todo', vacuum: 'vacr', media_player: 'tv', cover: 'garage' };
+        const ents = q && M.entitySearch ? M.entitySearch(hass, q, { domains: Object.keys(DOM) }).slice(0, 6) : [];
+        const row = (a, v, icn, col, title, sub) => `<button class="pkc press" data-a="hcadd" data-v="${esc(v)}" style="justify-content:flex-start">${ic(icn, 18, `color:${col}`)}<span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0"><span>${esc(title)}</span>${sub ? `<span style="font-size:11px;color:#c7c7c7;font-weight:400">${esc(sub)}</span>` : ''}</span></button>`;
+        search = `<div class="pnl pk" data-key="hcadd">
+          <div class="srch">${ic('search', 18, 'color:#7f7f7f')}<input data-in="hcq" value="${esc(u.hcQ || '')}" placeholder="Søk blant rom og enheter …"></div>
+          ${rooms.length ? `<span class="pks">Rom</span><div class="chs">${rooms.map((a) => { const r = this._room(c, a.id) || { icon: a.icon || 'mdi:texture-box', col: C.white }; return row(a, 'rom:' + a.id, r.icon, r.col, a.name, a.floorName || ''); }).join('')}</div>` : ''}
+          ${kinds.length ? `<span class="pks">Snarveier og enheter</span><div class="chs">${kinds.map((k) => row(null, k, kindIcon(k, c), '#afafaf', kindLabel(k, c), '')).join('')}</div>` : ''}
+          ${ents.length ? `<span class="pks">Entiteter</span><div class="chs">${ents.map((x) => row(null, 'ent:' + x.id, M.domainIcon ? M.domainIcon(x.id, hass.states[x.id]) : 'mdi:link', '#afafaf', x.name, x.id)).join('')}</div>` : ''}
+          ${!rooms.length && !kinds.length && !ents.length ? '<span style="font-size:13px;color:#7f7f7f">Ingen treff</span>' : ''}
+        </div>`;
+      }
+      return `<div class="box" data-key="hctools"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Kort på Hjem-fanen</span><span class="sub">${esc(info)}</span></span>
+          <div class="chs"><button class="o34 press ${u.hcAdd ? 'on-pk' : ''}" data-a="hcaddopen">${ic('add', 16)} Legg til</button>
+          <button class="o34 press" data-a="hcreset" data-h="${u.hcConfirm ? 'warning' : 'light'}" style="${u.hcConfirm ? 'color:rgb(242 128 115);box-shadow:inset 0 0 0 1.5px rgb(242 128 115)' : ''}">${u.hcConfirm ? 'Trykk igjen for å tilbakestille' : 'Tilbakestill til forslag'}</button></div></div>${search}`;
+    }
+    // «Forslag»: nye rom og enheter i HA som ikke er på Hjem (og ikke fjernet før) – nederst i editoren.
+    _hcSuggest(m) {
+      const hc = m.t.hc, c = m.c, hass = this.hass;
+      if (!hc || !hc.suggest.length) return '';
+      const rows = hc.suggest.map((x) => {
+        const room = /^rom:/.test(x), a = room ? M.areas(hass).find((y) => y.id === x.slice(4)) : null;
+        const r = room ? this._room(c, x.slice(4)) : null;
+        const icn = room ? (r ? r.icon : 'mdi:texture-box') : kindIcon(x, c), nm = room ? (a ? a.name : x.slice(4)) : kindLabel(x, c);
+        return `<div class="tr" data-key="sg-${esc(x)}"><span class="tm">${ic(icn, 22, room && r ? `color:${r.col}` : '')}<span class="tt"><b>${esc(nm)}</b><i>${room ? 'Nytt rom' : 'Ny enhet'}</i></span></span>
+          <button class="o34 press" data-a="hcadd" data-v="${esc(x)}">+ Legg til</button><button class="sq" data-a="hcno" data-v="${esc(x)}" title="Ikke foreslå igjen">${ic('close', 18)}</button></div>`;
+      }).join('');
+      return `<div class="box t6" data-key="hcsug"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Forslag</span><span style="font-size:12px;color:#979797">${hc.suggest.length} nye</span></span>${rows}</div>`;
+    }
+    // Aktuelt: dynamisk – velg hvilke typer som kan dukke opp (tabs.aktuelt.types), ikke enkeltkort.
+    _aktPanel(m) {
+      const on = M.aktTypes ? M.aktTypes(m.c) : [], T = M.AKT_TYPES || [];
+      return `<div class="box t6" data-key="akttypes"><span style="display:flex;flex-direction:column;gap:2px;padding:2px 4px 4px"><span class="lb">Vises når det er aktuelt</span><span class="sub">Kortene dukker opp av seg selv og forsvinner når de ikke lenger er aktuelle.</span></span>
+          ${T.map(([k, l, icn]) => `<button class="tgl" data-a="akttype" data-v="${k}" data-h="selection" data-key="akt-${k}" style="background:var(--gray100,#2f2f2f)"><span style="display:flex;align-items:center;gap:10px">${ic(icn, 20, `color:${on.includes(k) ? '#fafafa' : '#696969'}`)}${esc(l)}</span>${this._sw(on.includes(k))}</button>`).join('')}</div>`;
     }
     // Kortene på Hjem (msh-hjem-card): øye per kort (cards skjules via hidden), gjøremål via show_todo.
     _blocks() {
@@ -559,7 +661,7 @@
       const sd = this.u.pick, c = m.c, hass = this.hass, t = m.t;
       const inBase = m.base.map((a) => a.id);
       const hiddenIds = m.base.filter((a) => m.hid.includes(a.id)).map((a) => a.id);
-      const other = ['floor', 'custom', 'andre'].includes(t.kind) ? M.areas(hass).filter((a) => !inBase.includes(a.id)).map((a) => a.id) : [];
+      const other = ['floor', 'custom', 'andre'].includes(t.kind) || t.hc ? M.areas(hass).filter((a) => !inBase.includes(a.id)).map((a) => a.id) : [];
       const list = [...hiddenIds, ...other];
       const chipR = (id) => { const a = M.areas(hass).find((x) => x.id === id) || { name: id }, r = this._room(c, id) || { icon: a.icon, col: C.white };
         const nm = t.kind === 'floor' && a.floor !== t.floor && a.floorName ? `${a.name} · ${a.floorName}` : a.name;
@@ -579,7 +681,7 @@
       const sd = m.sides[r.id], ids = m.side(sd).map((x) => x.id), i = ids.indexOf(r.id), sz = r.size, can = r.can && sz !== 'S', kl = can && r.klima;
       const note = !r.thermo || r.set == null ? 'Ingen termostat i rommet' : sz === 'S' ? 'Kun på medium og store kort' : kl ? 'Vises på kortet' : 'Skjult';
       return `<div class="pnl" data-key="rp-${esc(r.id)}">
-        <div class="ph">${ic(r.icon, 24, `color:${r.col}`)}<span class="n">${esc(r.name)}</span><button class="red press" data-a="rhide">${ic('mdi:eye-off', 18)}Skjul</button></div>
+        <div class="ph">${ic(r.icon, 24, `color:${r.col}`)}<span class="n">${esc(r.name)}</span><button class="red press" data-a="rhide">${ic(m.t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${m.t.hc ? 'Fjern' : 'Skjul'}</button></div>
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="rmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="rmove" data-v="1" title="Flytt ned" ${i < ids.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="rswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
         <div class="ln"><span class="lb">Størrelse</span><div class="ss">${['S', 'M', 'L'].map((z) => `<button class="${sz === z ? 'on-pk' : ''}" data-a="rsize" data-v="${z}" data-h="selection">${SZ[z]}</button>`).join('')}</div></div>
         <div class="ln"><span class="lb2"><span class="lb">Klima-knapp</span><span class="sub">${note}</span></span><button data-a="rklima" data-h="selection" ${can ? '' : 'disabled'}>${this._sw(kl, true, !can)}</button></div>
@@ -653,7 +755,7 @@
           ${tp.icon === 'popup' ? `<div class="fld"><span class="fl">Popup for ikonet</span><input class="in" data-in="tihash" value="${esc(tp.icon_hash || '')}" placeholder="#sikkerhet"></div>` : ''}
           ${tp.icon === 'script' ? `<div class="fld"><span class="fl">Kjør script</span><select class="in" data-in="tscript"><option value="">Ingen</option>${M.all(this.hass, 'script').map((s) => `<option value="${esc(s)}" ${tp.script === s ? 'selected' : ''}>${esc(M.name(this.hass, s))}</option>`).join('')}</select></div>` : ''}</div>`;
       return `<div class="pnl" data-key="tp-${esc(k)}">
-        <div class="ph">${ic(kindIcon(k, c), 24, 'color:#afafaf')}<span class="n">${esc(kindLabel(k, c))}</span><button class="red press" data-a="thide">${ic('mdi:eye-off', 18)}Skjul</button></div>
+        <div class="ph">${ic(kindIcon(k, c), 24, 'color:#afafaf')}<span class="n">${esc(kindLabel(k, c))}</span><button class="red press" data-a="thide">${ic(t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${t.hc ? 'Fjern' : 'Skjul'}</button></div>
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="tmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="tmove" data-v="1" title="Flytt ned" ${i < grp.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="tswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
         <div class="ln"><span class="lb">Over eller under rommene</span><div class="ss">${[['top', 'Over'], ['bottom', 'Under']].map(([v, l]) => `<button class="${pos === v ? 'on-pk' : ''}" data-a="tpos" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>
         <div class="ln"><span class="lb2"><span class="lb">Swipe</span><span class="sub">${stk ? 'Sveipes sammen med andre i samme plass' : m.slotAll(sl) ? 'Alle i plassen sveipes' : 'Sveip sammen med andre i samme plass'}</span></span><button data-a="tstack" data-h="selection">${this._sw(st || m.slotAll(sl), true)}</button></div>
@@ -827,9 +929,8 @@
         if (!open) return row;
         const cur = R.valOf(p), cs = p.csrc || p.src;
         const sv = R.valFor ? R.valFor(cs, p.cent || (cs === p.src ? (cs === 'custom' ? p.ent : p.ent_override) : '') || '') : cs === 'custom' ? R.getS(p.cent) : R.S[cs];
-        const links = [...LINKS, ...M.areas(hass).map((a) => ['#' + a.id, a.name])];
-        (M.popupOptions ? M.popupOptions(hass) : []).forEach((o) => { if (!links.some((l) => l[0] === o[0])) links.push(o); }); // egne popups
-        const linkKnown = links.some((l) => l[0] === (p.link || ''));
+        // «Ved trykk» (Fiks 15.6): tap i HA-format via felles <msh-tap-picker> (09-tap-picker); uten tap = gammel link/act 'more'
+        const tapV = M.prosaTapOf ? M.prosaTapOf(p) : null;
         const ed = `<div class="ped" data-key="ped-${i}">
           <div class="fld"><span class="fl">Tekst før</span><input class="in" data-in="pf" data-i="${i}" data-f="pre" value="${esc(p.pre || '')}" placeholder="F.eks. Strømmen koster">${tokHTML('pre', i)}</div>
           <div class="fld"><span class="fl">Verdi i boblen</span><select class="in" data-in="psrc" data-i="${i}">${SRC.map(([v, l]) => `<option value="${v}" ${(p.src || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -844,13 +945,13 @@
           <div class="fld"><span class="fl">Ikon i boblen</span><div class="chs" style="max-height:124px;overflow-y:auto;scrollbar-width:none">${PICONS.map(([v, l]) => `<button class="chip ${(p.icon || '') === v ? 'on-pk' : ''}" data-a="picon" data-i="${i}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
             <input class="in" data-in="pf" data-i="${i}" data-f="icon" value="${esc(p.icon === 'dot' ? '' : p.icon || '')}" placeholder="Eller skriv inn en emoji / mdi:ikon"></div>
           <div class="fld"><span class="fl">Farge · Auto følger verdien (pris, lås, alarm …)</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${PSW.map(([v, col, l]) => `<button class="sw34 ${(p.color || 'hvit') === v ? 'on' : ''}" data-a="pcol" data-i="${i}" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-          <div class="fld"><span class="fl">Når du trykker · handling</span><select class="in" data-in="pact" data-i="${i}">${ACTS.map(([v, l]) => `<option value="${v}" ${(p.act || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, labels: { path: 'Sti' }, attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
+          <div class="fld"><span class="fl">Utfør også</span><select class="in" data-in="pact" data-i="${i}">${ACTS.filter(([v]) => v !== 'more' || p.act === 'more').map(([v, l]) => `<option value="${v}" ${(p.act || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
             ${p.act === 'service' ? `<div class="svc"><span class="sh2">${ic('terminal', 16)}Utfør handling</span>
               <input class="in" data-in="pf" data-i="${i}" data-f="svc" value="${esc(p.svc || '')}" placeholder="domene.tjeneste, f.eks. light.turn_on">
               <span style="font-size:12px;color:#979797">Mål</span><input class="in" data-in="pf" data-i="${i}" data-f="target" value="${esc(p.target || '')}" placeholder="entity_id">
               <span style="font-size:12px;color:#979797">Data</span><input class="in" data-in="pf" data-i="${i}" data-f="data" value="${esc(typeof p.data === 'object' ? JSON.stringify(p.data) : p.data || '')}" placeholder='{"brightness_pct": 60}'>
               <button class="pink press" data-a="ptest" data-i="${i}">${ic('play_arrow', 18)}Test handling</button></div>` : ''}</div>
-          <div class="fld"><span class="fl">Og åpne popup</span><select class="in" data-in="plink" data-i="${i}">${links.map(([v, l]) => `<option value="${esc(v)}" ${(p.link || '') === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}${linkKnown ? '' : `<option value="${esc(p.link)}" selected>${esc(p.link)}</option>`}</select></div>
           <div class="fld"><span class="fl">Vises</span><div class="chs">${OPS.map(([v, l]) => `<button class="chip ${op === v ? 'on-pk' : ''}" data-a="pop" data-i="${i}" data-v="${esc(v)}">${l}</button>`).join('')}</div></div>
           ${op !== 'alltid' ? `<div class="fld"><span class="fl">Når</span><select class="in" data-in="pcsrc" data-i="${i}">${SRC.filter((x) => R.S[x[0]] || x[0] === 'custom').map(([v, l]) => `<option value="${v}" ${cs === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
 </div>
@@ -887,6 +988,9 @@
       r.addEventListener('value-changed', (e) => {
         const pe = e.composedPath().find((n) => n.dataset && n.dataset.in === 'pent');
         if (pe) { const v = (e.detail && e.detail.value) || undefined; return this._proseUp(Number(pe.dataset.i), (p) => ({ ...p, [pe.dataset.f]: v })); }
+        // «Ved trykk»: lagre tap i HA-format, fjern de gamle nøklene (link, act: 'more')
+        const pt = e.composedPath().find((n) => n.dataset && n.dataset.in === 'ptap');
+        if (pt) { const v = (e.detail && e.detail.value) || { action: 'none' }; return this._proseUp(Number(pt.dataset.i), (p) => ({ ...p, tap: v, link: undefined, act: p.act === 'more' ? undefined : p.act })); }
       });
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'icpick'); if (el && this.u.sel) { const v = e.detail && e.detail.value; this._roomSet(this.u.sel.id, { icon: v || undefined }); } });
       r.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') e.target.blur(); });
@@ -909,7 +1013,8 @@
     }
     _act(a, d) {
       const u = this.u;
-      if (a === 'done') return this.close();
+      if (a === 'done') return this._done();
+      if (a === 'cancel') return this.close();
       if (a === 'sec') { u.sec = d.v; u.sel = null; u.pick = null; return this.render(); }
       if (a === 'reset') return this._reset();
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
@@ -969,6 +1074,37 @@
       const hid = m.hidT.filter((x) => x !== k);
       this.saveF({ [`tiles.${t.id}.${k}.slot`]: slot, [`tile_order.${t.id}`]: list, [`tile_hidden.${t.id}`]: hid.length ? hid : undefined });
     }
+    // Legg et rom ('rom:<id>'), en snarvei (kind) eller en entitet ('ent:<id>' → overrides.<kind>) på Hjem.
+    _hcAdd(m, v, side) {
+      const u = this.u, t = m.t, c = m.c;
+      if (!t || t.kind !== 'hjem') return;
+      let x = v, c2 = c;
+      if (/^ent:/.test(v)) {
+        const id = v.slice(4), dom = id.split('.')[0];
+        const k = { lock: 'lock', alarm_control_panel: 'alarm', camera: 'cam', todo: 'todo', vacuum: 'vacr', media_player: 'tv', cover: 'garage' }[dom];
+        if (!k) return;
+        c2 = setIn(c2, 'overrides.' + k, id);
+        x = k;
+      }
+      const hc = t.hc || (M.hjemCards ? M.hjemCards(this.hass, c) : null);
+      if (!hc) return;
+      const cards = t.hc ? t.hc.cards.filter((y) => y !== x) : [...m.vis.map((a) => 'rom:' + a.id), ...m.en].filter((y) => y !== x);
+      cards.push(x);
+      const H = get(c, 'tabs.hjem') || {};
+      c2 = setIn(c2, 'tabs.hjem', { ...H, auto_fill: false, cards, seen: H.seen || hc.candidates, exclude: (hc.exclude || []).filter((y) => y !== x) });
+      if (!get(c2, 'tabs.hjem.exclude').length) c2 = setIn(c2, 'tabs.hjem.exclude', undefined);
+      this._F = c2;
+      u.pick = null; u.hcQ = '';
+      const m2 = this._model();
+      if (/^rom:/.test(x)) {
+        const id = x.slice(4), sd = side || (m2.side('L').length <= m2.side('R').length ? 'L' : 'R');
+        u.sel = { t: 'room', id };
+        return this._moveRoom(m2, id, sd, null);
+      }
+      u.sel = { t: 'tile', id: x };
+      const def = { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }[x] || 'R-top';
+      return this._moveTile(m2, x, side ? side + '-' + def.split('-')[1] : def, null);
+    }
     _actKort(a, d) {
       const u = this.u, m = this._model(), t = m.t, c = m.c;
       if (!t) return;
@@ -981,10 +1117,27 @@
           return this.saveF({ tab_hidden: t.hidden ? hid.filter((x) => x !== t.id) : [...hid, t.id] });
         }
         case 'pick': u.pick = u.pick === d.v ? null : d.v; u.sel = null; return this.render();
+        case 'tabfill': return this.saveF({ [`tabs.${t.id}.auto_fill`]: get(c, `tabs.${t.id}.auto_fill`) === false });
+        case 'akttype': {
+          const cur = M.aktTypes ? M.aktTypes(c) : [], nx = cur.includes(d.v) ? cur.filter((x) => x !== d.v) : [...cur, d.v];
+          const order = (M.AKT_TYPES || []).map((x) => x[0]);
+          return this.saveF({ 'tabs.aktuelt': { ...(get(c, 'tabs.aktuelt') || {}), auto_fill: false, types: order.filter((x) => nx.includes(x)) } });
+        }
+        case 'hcaddopen': u.hcAdd = !u.hcAdd; u.hcQ = ''; u.pick = null; u.sel = null; return this.render();
+        case 'hcreset': {
+          if (!u.hcConfirm) { u.hcConfirm = true; clearTimeout(this._hcT); this._hcT = setTimeout(() => { u.hcConfirm = false; this.render(); }, 3500); return this.render(); }
+          u.hcConfirm = false; clearTimeout(this._hcT); u.sel = null; u.pick = null; u.hcAdd = false;
+          const hc = M.hjemCards(this.hass, { ...c, tabs: { ...(c.tabs || {}), hjem: { auto_fill: false } } });
+          M.toast && M.toast('Hjem er tilbakestilt til forslag');
+          return this.saveF({ 'tabs.hjem': { auto_fill: false, cards: hc.curated(), seen: hc.candidates }, 'layout.hjem': undefined, 'tiles.hjem': undefined, 'tile_order.hjem': undefined, 'tile_hidden.hjem': undefined });
+        }
+        case 'hcadd': return this._hcAdd(m, d.v);
+        case 'hcno': { if (!t.hc) return; const ex = [...t.hc.exclude.filter((x) => x !== d.v), d.v]; return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards, ex) }); }
         case 'selroom': u.sel = u.sel && u.sel.t === 'room' && u.sel.id === d.v ? null : { t: 'room', id: d.v }; u.pick = null; u.icQ = ''; return this.render();
         case 'seltile': u.sel = u.sel && u.sel.t === 'tile' && u.sel.id === d.v ? null : { t: 'tile', id: d.v }; u.pick = null; return this.render();
         case 'addroom': {
           const id = d.v, side = u.pick || 'L';
+          if (t.hc) return this._hcAdd(m, 'rom:' + id, side);
           if (!m.base.some((x) => x.id === id)) {
             const add = get(c, `layout.${t.id}.add`) || {}, keys = Object.keys(add);
             const nx = 'a' + pad2(keys.reduce((mx, k) => Math.max(mx, parseInt(k.slice(1), 10) || 0), 0) + 1);
@@ -997,12 +1150,13 @@
           u.pick = null; u.sel = { t: 'room', id };
           return this._moveRoom(m, id, side, null);
         }
-        case 'addtile': { const side = u.pick || 'L'; u.pick = null; u.sel = { t: 'tile', id: d.v }; return this._moveTile(m, d.v, side + '-bottom', null); }
+        case 'addtile': { const side = u.pick || 'L'; if (t.hc) return this._hcAdd(m, d.v, side); u.pick = null; u.sel = { t: 'tile', id: d.v }; return this._moveTile(m, d.v, side + '-bottom', null); }
         case 'addlink': {
           const links = c.links || {}, lk = Object.keys(links);
           const nx = 'l' + pad2(lk.reduce((mx, k) => Math.max(mx, parseInt(k.slice(1), 10) || 0), 0) + 1);
           const side = u.pick || 'L';
           this._F = setIn(c, 'links.' + nx, { title: 'Ny snarvei', icon: 'mdi:star' });
+          if (t.hc) this._F = setIn(this._F, 'tabs.hjem', this._hcObj(m, [...t.hc.cards, nx], t.hc.exclude));
           u.pick = null; u.sel = { t: 'tile', id: nx };
           return this._moveTile(this._model(), nx, side + '-bottom', null);
         }
@@ -1015,7 +1169,10 @@
         const id = u.sel.id, r = m.rooms.find((x) => x.id === id);
         if (!r) return;
         switch (a) {
-          case 'rhide': { u.sel = null; const lay = { ...(get(c, 'layout.' + t.id) || {}), side: { ...m.sides }, hidden: [...m.hid, id] }; return this.saveF({ ['layout.' + t.id]: lay }); }
+          case 'rhide': {
+            u.sel = null;
+            if (t.hc) { const x = 'rom:' + id; return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards.filter((y) => y !== x), [...t.hc.exclude.filter((y) => y !== x), x]) }); }
+            const lay = { ...(get(c, 'layout.' + t.id) || {}), side: { ...m.sides }, hidden: [...m.hid, id] }; return this.saveF({ ['layout.' + t.id]: lay }); }
           case 'rmove': {
             const ids = m.side(m.sides[id]).map((x) => x.id), i = ids.indexOf(id), j = ids[i + Number(d.v)];
             if (!j) return;
@@ -1056,6 +1213,7 @@
       switch (a) {
         case 'thide': {
           if (u.sel && u.sel.id === k) u.sel = null;
+          if (t.hc) return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards.filter((y) => y !== k), [...t.hc.exclude.filter((y) => y !== k), k]), [`tiles.${t.id}.${k}.slot`]: undefined });
           const hid = m.hidT.filter((x) => x !== k);
           return this.saveF({ [`tiles.${t.id}.${k}.slot`]: 'off', [`tile_hidden.${t.id}`]: hid.length ? hid : undefined });
         }
@@ -1132,7 +1290,7 @@
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));
         case 'pdel': { const L = this._proseRows(); L.splice(i, 1); if (u.proseSel === i) u.proseSel = null; return this.saveP({ prose: L }); }
-        case 'padd': { const L = this._proseRows(); L.push({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', link: '', cop: 'alltid' }); u.proseSel = L.length - 1; return this.saveP({ prose: L }); }
+        case 'padd': { const L = this._proseRows(); L.push({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', cop: 'alltid' }); u.proseSel = L.length - 1; return this.saveP({ prose: L }); }
         case 'ptok': return this._proseUp(i, (p) => ({ ...p, [d.f]: `${p[d.f] || ''} ${d.v}`.trim() }));
         case 'picon': return this._proseUp(i, (p) => ({ ...p, icon: d.v }));
         case 'pcol': return this._proseUp(i, (p) => ({ ...p, color: d.v }));
@@ -1159,6 +1317,7 @@
       // live under skriving: kun søk og slidere
       if (kind === 'input') {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
+        if (k === 'hcq') { u.hcQ = v; return this._schedule(); }
         if (k === 'blimit') { const l = this.root.querySelector('[data-lim]'); if (l) l.textContent = v + ' %'; return; }
         if (k === 'tabpx') { const s = el.parentNode.querySelector('.stp span'); if (s) s.textContent = v + ' px'; return; }
         if (k === 'psz') { const s = this.root.querySelector('.pszv-' + d.k); if (s) s.textContent = M.nf(Number(v), 2).replace(/0$/, '') + ' em'; const pz = this.root.querySelector('[data-key="prev"] .pz'); if (pz) { if (d.k === 'fs') pz.style.fontSize = Number(v) + 'em'; else pz.style.lineHeight = String(Number(v)); } const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, [d.f]: Number(v), __eff: 1 }); return; }
@@ -1167,7 +1326,7 @@
       if (el.type === 'color' || el.tagName === 'SELECT' || el.type === 'range') M.haptic('selection');
       const trim = String(v).trim();
       switch (k) {
-        case 'icq': return;
+        case 'icq': case 'hcq': return;
         case 'iconraw': if (u.sel) return this._roomSet(u.sel.id, { icon: trim || undefined }); return;
         case 'lookhex': if (u.sel) return this._roomSet(u.sel.id, { color: v }); return;
         case 'btype': case 'bval': case 'bent': case 'btext': {
@@ -1209,7 +1368,6 @@
         case 'pf': return this._proseUp(Number(d.i), (p) => ({ ...p, [d.f]: d.f === 'icon' ? (trim || (p.icon === 'dot' ? 'dot' : '')) : v }));
         case 'psrc': return this._proseUp(Number(d.i), (p) => ({ ...p, src: v, fmt: v === 'text' ? (p.src === 'text' ? p.fmt : 'Tekst') : (p.src === 'text' || !p.fmt ? '{v}' : p.fmt) }));
         case 'pact': return this._proseUp(Number(d.i), (p) => ({ ...p, act: v || undefined }));
-        case 'plink': return this._proseUp(Number(d.i), (p) => ({ ...p, link: v }));
         case 'pcsrc': return this._proseUp(Number(d.i), (p) => ({ ...p, csrc: v }));
         default:
       }

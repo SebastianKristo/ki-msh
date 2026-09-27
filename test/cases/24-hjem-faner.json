@@ -104,5 +104,77 @@
         }
       }
     ]
+  },
+  {
+    "name": "Hjem-faner · kuratert Hjem (tabs.hjem.cards)",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-faner-card",
+        "tabs": {
+          "hjem": {
+            "auto_fill": false,
+            "cards": [
+              "lock",
+              "alarm",
+              "cam",
+              "todo",
+              "rom:stue",
+              "rom:kjokken"
+            ],
+            "exclude": [
+              "rom:bad"
+            ],
+            "seen": [
+              "rom:stue",
+              "rom:kjokken",
+              "rom:bad",
+              "lock",
+              "alarm",
+              "cam",
+              "todo"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Hjem-faner · Aktuelt typer",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-faner-card",
+        "default_tab": "aktuelt",
+        "tabs": {
+          "aktuelt": {
+            "auto_fill": false,
+            "types": [
+              "appliances",
+              "battery"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Hjem-faner · etasje uten autofyll",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-faner-card",
+        "default_tab": "forste",
+        "tabs": {
+          "forste": {
+            "auto_fill": false
+          }
+        },
+        "layout": {
+          "forste": {
+            "add": {
+              "a01": "stue"
+            }
+          }
+        }
+      }
+    ]
   }
 ]

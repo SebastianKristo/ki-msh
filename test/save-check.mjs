@@ -1,5 +1,5 @@
-// Lagring uten navigering: «Tilpass rom» lagrer i ki-store (frontend/set_user_data) – ingen Lovelace-lagring,
-// ingen rebuild. Eksplisitt Lovelace-lagring (opts.lovelace) → simulert rebuild → popup/editor/scroll gjenopprettes.
+// Lagring uten navigering: «Tilpass rom» lagrer i ki-store (frontend/set_user_data) ved Ferdig (utkastflyt, fiks
+// 15.13) – ingen Lovelace-lagring, ingen rebuild. Eksplisitt Lovelace-lagring (opts.lovelace) → simulert rebuild → popup/editor/scroll gjenopprettes.
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -60,6 +60,8 @@ const out = await p.evaluate(async () => {
   await wait(200);
   res.liveGap = getComputedStyle(first).getPropertyValue('--msh-gap').trim();
   res.savesAfter200ms = saves;
+  res.storeGapBeforeDone = (((window.__userData.ki_dashboard || {}).rooms || {}).stue || {}).gap; // ingen autolagring
+  ed.shadowRoot.querySelector('[data-a="save"]').click(); // Ferdig: én lagring
   await wait(1800);
   res.lovelaceSaves = saves; // skal være 0 – editorene lagrer i ki-store
   res.storeGap = (((window.__userData.ki_dashboard || {}).rooms || {}).stue || {}).gap;

@@ -224,5 +224,53 @@
         "prose_line_height": 1.4
       }
     ]
+  },
+  {
+    "name": "Hjem · header personer (hjemme/søvn/sone)",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-header-card",
+        "mode": "hjem",
+        "show_place": true,
+        "people": [
+          {
+            "person": "person.emma",
+            "home": "input_boolean.emma_hjemme"
+          },
+          {
+            "person": "person.rune",
+            "home": "input_boolean.rune_hjemme",
+            "sleep": "input_boolean.cybele_sover"
+          },
+          {
+            "person": "person.sebastian",
+            "zone": false
+          }
+        ],
+        "zones": {
+          "zone.skole": {
+            "icon": "mdi:school",
+            "color": "var(--yellow)"
+          }
+        },
+        "zone_away": {
+          "icon": "mdi:airplane",
+          "color": "var(--purple)"
+        }
+      },
+      {
+        "type": "custom:msh-hjem-header-card",
+        "mode": "familie",
+        "persons": {
+          "emma": {
+            "home": "input_boolean.emma_hjemme",
+            "zone": false
+          }
+        },
+        "overrides": {
+          "sover_emma": "input_boolean.cybele_sover"
+        }
+      }
+    ]
   }
 ]

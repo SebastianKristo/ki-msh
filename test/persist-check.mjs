@@ -1,5 +1,6 @@
-// «Tilpass rom» → Lagre → reload: verdien er der. Haptic kun på snarvalg + én success etter faktisk lagring.
-// Feil ved lagring → «Kunne ikke lagre», haptic failure, arket blir stående. GUI-editoren viser samme verdier.
+// «Tilpass rom» → Ferdig → reload: verdien er der. Haptic kun på snarvalg + én success etter faktisk lagring.
+// Utkastflyt (fiks 15.13): ingen autolagring før Ferdig, Ferdig = én frontend/set_user_data og er deaktivert mens det
+// lagres. Feil ved lagring → «Kunne ikke lagre», haptic failure, arket blir stående. GUI-editoren viser samme verdier.
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -42,6 +43,8 @@ let res = {};
     const haps = []; window.addEventListener('haptic', (e) => haps.push(e.detail));
     window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'room', area: 'stue' } })); await wait(400);
     haps.length = 0;
+    window.__calls = [];
+    const sets = () => window.__calls.filter((c) => c[1] === 'frontend/set_user_data').length;
     const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
     const S = ed.shadowRoot;
     // slider (pad_top) → -20: input-events (ingen haptic) + change (commit)
@@ -52,12 +55,15 @@ let res = {};
     [...S.querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click(); // snarvalg → light
     await wait(50);
     const hapsAfterPill = haps.slice();
-    const statusBefore = (S.querySelector('.stat') || {}).textContent;
-    S.querySelector('[data-a="save"]').click();
-    await wait(50);
-    const statusDuring = (S.querySelector('.stat') || {}).textContent;
     await wait(900);
-    return { hapsAfterSlider, hapsAfterPill, statusBefore, statusDuring, hapsAll: haps, stored: (() => { const u = window.__userData.ki_dashboard || {}, d = ((u.devices || {})[window.MSH.store.deviceId] || {}).rooms || {}; return { stue: { ...((u.rooms || {}).stue || {}), ...(d.stue || {}) } }; })(), editorOpen: window.MSH.portals().length };
+    const statusBefore = (S.querySelector('.stat') || {}).textContent;
+    const setsBefore = sets(); // ingen autolagring
+    const btn = S.querySelector('[data-a="save"]');
+    btn.click();
+    const busyDuring = btn.disabled === true && /Lagrer/.test((S.querySelector('.stat') || {}).textContent || '');
+    btn.click(); // dobbelttrykk mens det lagres → ignoreres
+    await wait(900);
+    return { hapsAfterSlider, hapsAfterPill, statusBefore, setsBefore, busyDuring, setsAfter: sets(), hapsAll: haps, stored: (() => { const u = window.__userData.ki_dashboard || {}, d = ((u.devices || {})[window.MSH.store.deviceId] || {}).rooms || {}; return { stue: { ...((u.rooms || {}).stue || {}), ...(d.stue || {}) } }; })(), editorOpen: window.MSH.portals().length };
   }, deep);
   res.save.errs = errs;
   const ud = await p.evaluate(() => window.__userData);
@@ -91,7 +97,7 @@ let res = {};
 }
 await b.close();
 console.log(JSON.stringify(res, null, 1));
-const ok = res.save.hapsAfterSlider === 0 && res.save.hapsAll.filter((h) => h === 'success').length === 1 && /Lagrer/.test(res.save.statusBefore || '') && /Lagret/.test(res.save.statusDuring || '') && res.save.stored && res.save.stored.stue && res.save.stored.stue.gap === 18 && res.save.stored.stue.pad_top === -20 && res.save.editorOpen === 0
+const ok = res.save.hapsAfterSlider === 0 && res.save.hapsAll.filter((h) => h === 'success').length === 1 && !/Lagre/.test(res.save.statusBefore || '') && res.save.setsBefore === 0 && res.save.busyDuring && res.save.setsAfter === 1 && res.save.stored && res.save.stored.stue && res.save.stored.stue.gap === 18 && res.save.stored.stue.pad_top === -20 && res.save.editorOpen === 0
   && res.reload.cardCfg && res.reload.cardCfg.gap === 18 && res.reload.cardCfg.pad_top === -20 && res.reload.strategyCfg.gap === 18 && res.reload.guiSliders.includes('-20')
   && /Kunne ikke lagre/.test(res.fail.status || '') && res.fail.haps.includes('failure') && res.fail.editorOpen === 1 && !res.save.errs.length && !res.reload.errs.length;
 console.log(ok ? '\nAlle bestod' : '\nFEILET');
