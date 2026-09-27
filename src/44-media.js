@@ -1,11 +1,15 @@
 /* msh-media-hero-card + msh-media-card · Media-popup (#media). Kilde: Media v4.dc.html.
  * Hero (eget kort, først): sveipbar karusell med «nå spilles» per spiller i valgt fane (omslag fra
  * entity_picture, eq-/nivåstolper, marquee-tittel, av/på) + prikker.
- * Hovedkort: faner (TV/Musikk, langt trykk + dra = omorganiser, lagres i config), oppsett-knapp,
+ * Hovedkort: faner (TV/Musikk, langt trykk + dra = omorganiser → config.tab_order), oppsett-knapp,
  * apper/kilder/snarveier, transport (musikk) eller fjernkontroll (TV), volum (slider eller knapper).
  * Autokonfig: alle media_player.* (exclude/include.spillere), sortert/gruppert per område, TV vs musikk
  * fra device_class → plattform → navn/app-attributter. Aktiv spiller = den som spiller (sist endret),
  * ellers første. Begge kortene deler valgt fane/spiller per popup (hash) via en liten buss.
+ * Ved hver åpning (#media) settes fanen til config.default_tab (tv | musikk | last = sist brukt) og
+ * første spiller i fanen vises. Valgt fane/spiller er UI-tilstand (setUI/uiPersist → localStorage
+ * ki:<card_id>:ui) og lagres aldri i Lovelace; bare tab_order (omorganisering) er config.
+ * Hero kan ligge innebygd i hovedkortets shadow DOM (config.embedded: true, config fra hovedkortet).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -182,11 +186,26 @@
       super.disconnectedCallback();
       if (this._bk) bus(this._bk).subs.delete(this);
     }
-    get key() { return this._bk || M.popupHash(this) || '_'; }
+    // Buss-nøkkel = popupens hash (finnes via host-kjeden, også når hero ligger inni hovedkortet).
+    // Ble kortet koblet til før det lå i popupen, flyttes det til riktig buss ved første oppslag.
+    get key() {
+      if (!this._bk || this._bk === '_') {
+        const h = M.popupHash(this);
+        if (h && h !== this._bk) {
+          if (this._bk) bus(this._bk).subs.delete(this);
+          this._bk = h;
+          if (this.isConnected) bus(h).subs.add(this);
+        }
+      }
+      return this._bk || '_';
+    }
     select(tab, id) {
       const b = bus(this.key);
       b.tab = tab;
       if (id) b.sel[tab] = id;
+      // UI-tilstand (ikke config): huskes av hovedkortet i localStorage for «Sist brukt».
+      const m = b.main && b.main.isConnected ? b.main : null;
+      if (m) m.setUI({ tab: b.tab, sel: { ...b.sel } });
       emit(this.key);
     }
   }
@@ -197,11 +216,24 @@
     static get cardName() { return 'Media · nå spilles'; }
     static get schema() { return (h, c) => [{ type: 'info', label: 'Hero-kortet bruker innstillingene fra msh-media-card i samme popup. Felt satt her overstyrer dem.' }, ...baseSchema(h, c)]; }
     get cardSize() { return 4; }
+    // Innebygd i msh-media-card (embedded: true): hovedkortet sender sin config via setConfig. card_id
+    // tas bort så hero ikke registreres som hovedkortets live-instans (MSH.applyLive).
+    setConfig(c) {
+      if (c && c.embedded) { const { card_id, ...rest } = c; c = rest; }
+      super.setConfig(c);
+    }
+    get embedded() { return !!(this._rawConfig && this._rawConfig.embedded); }
+    get hostCard() { const r = this.getRootNode && this.getRootNode(); return r && r.host && r.host.localName === 'msh-media-card' ? r.host : null; }
     // Egen config (uten type/card_id) over hovedkortets config.
     get eff() {
       const own = { ...(this._rawConfig || {}) };
       delete own.type; delete own.card_id;
+      if (this.embedded) return own;
       return { ...(bus(this.key).cfg || {}), ...own };
+    }
+    customize(focus, opts) {
+      const hc = this.embedded && this.hostCard;
+      return hc ? hc.customize(focus, opts) : super.customize(focus, opts);
     }
     render() {
       const cfg = this.eff, R = M.mediaResolve(this.hass, cfg, this.key);
@@ -324,20 +356,35 @@
   const KEYL = { up: 'Opp', down: 'Ned', left: 'Venstre', right: 'Høyre', ok: 'OK', back: 'Tilbake', home: 'Hjem', menu: 'Meny', play: 'Spill/pause' };
   class MediaCard extends MediaBase {
     static get cardName() { return 'Media'; }
-    static get schema() { return (h, c) => [...baseSchema(h, c), { type: 'gap' }]; }
+    static get defaults() { return { default_tab: 'tv' }; }
+    // Valgt fane/spiller er ren UI-tilstand (localStorage), aldri Lovelace-config.
+    static get uiPersist() { return ['tab', 'sel']; }
+    static get schema() {
+      return (h, c) => [
+        { type: 'select', name: 'default_tab', label: 'Fane ved åpning', options: [['tv', 'TV'], ['musikk', 'Musikk'], ['last', 'Sist brukt']], default: 'tv', help: 'Velges hver gang popupen åpnes' },
+        ...baseSchema(h, c), { type: 'gap' },
+      ];
+    }
     get cardSize() { return 8; }
     setConfig(c) { super.setConfig(c); this._publish(); }
     _publish() {
       if (!this.isConnected) return;
       const b = bus(this.key);
+      b.main = this;
       if (b.cfg !== this.config) { b.cfg = this.config; emit(this.key, this); }
     }
     onOpen() {
-      // Ny åpning → vis aktiv spiller igjen.
-      const b = bus(this.key);
-      b.tab = null; b.sel = {};
+      // Hver åpning: fane = default_tab (tv | musikk | last = sist brukt fra UI-tilstanden), første spiller.
+      const b = bus(this.key), cfg = this.config, T = tabOrder(cfg).vis, P = M.mediaPlayers(this.hass, cfg);
+      const dt = cfg.default_tab || 'tv', ui = this.ui;
+      let tab = dt === 'last' ? ui.tab : dt, sel = {};
+      if (!T.includes(tab)) tab = dt === 'last' ? null : (T.find((t) => (P[t] || []).length) || T[0]);
+      if (dt === 'last' && ui.sel && typeof ui.sel === 'object') sel = { ...ui.sel };
+      if (tab && !sel[tab] && P[tab] && P[tab][0]) sel[tab] = P[tab][0].id;
+      b.main = this; b.tab = tab; b.sel = sel;
       this._ui = { ...this._ui, act: '', lastKey: '' };
-      emit(this.key);
+      this.update();
+      emit(this.key, this);
     }
     get toasts() { return this.config.toasts !== false; }
     render() {

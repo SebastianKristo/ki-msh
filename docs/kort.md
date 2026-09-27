@@ -466,11 +466,18 @@ Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – aut
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen · range | Mellomrom |
+| `look.col` | Romfarge · color | Rom |
+| `look.icon` | Rom-ikon · icon | Rom |
 | `area` | Rom (område) · area |  |
 | `overrides.climate` | Termostat · entity | Klima |
 | `overrides.temperature` | Temperatursensor · entity | Klima |
 | `overrides.humidity` | Fuktsensor · entity | Klima |
 | `include.climate` | Ekstra termostater · entities | Klima |
+| `graph_t` | Toppkort · graf temperatur · color | Klima |
+| `graph_h` | Toppkort · graf fukt · color | Klima |
+| `graph_fill` | Toppkort · fyll (0 \| 0.2 \| 0.4) | Klima |
+| `graph_width` | Toppkort · linje (1.5 \| 2 \| 3) | Klima |
+| `header_icon` | Rommets ikon i popup-headeren · boolean | Klima |
 | `klima_bg` | Klima-kort · bakgrunn · color | Klima |
 | `klima_ring` | Klima-kort · knappfarge · color | Klima |
 | `klima_btn` | Klima-kort · knapp (outline \| fill) | Klima |
@@ -705,6 +712,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `default_tab` | Fane ved åpning (tv \| musikk \| last) |  |
 | `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |

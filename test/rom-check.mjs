@@ -23,22 +23,22 @@ const out = await p.evaluate(async () => {
   const res = {};
   try {
   const mk = (hash, cards) => { const bc = document.createElement('bubble-card'); bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash, name: 'Rom', bg_color: '#282828', bg_opacity: 100, bg_blur: 0, cards }); bc.hass = hass; document.getElementById('dash').appendChild(bc); return bc; };
-  mk('#stue', [{ type: 'custom:msh-rom-klima-card', card_id: 'k1' }, { type: 'custom:msh-rom-card', card_id: 'r1' }]);
-  mk('#bad', [{ type: 'custom:msh-rom-klima-card', card_id: 'k2' }, { type: 'custom:msh-rom-card', card_id: 'r2' }]);
+  mk('#stue', [{ type: 'custom:msh-rom-card', card_id: 'r1' }]);
+  mk('#bad', [{ type: 'custom:msh-rom-card', card_id: 'r2' }]);
   await wait(400);
   const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
   const open = async (h) => { location.hash = h; await wait(1300); };
-  const cardsIn = (h) => all().filter((e) => /^msh-rom/.test(e.localName) && e.isConnected && e.getBoundingClientRect().height > 0);
+  const cardsIn = (h) => { const r = all().find((e) => e.localName === 'msh-rom-card' && e.getBoundingClientRect().height > 0); return [r.shadowRoot.querySelector('msh-rom-klima-card'), r]; };
   await open('#stue');
   let [k, r] = cardsIn('#stue');
   const hdr = () => { const c = all().filter((e) => e.classList && e.classList.contains('bubble-header-container')).find((e) => e.getBoundingClientRect().height > 0); return c.getBoundingClientRect().bottom; };
   const dist = () => Math.round(k.getBoundingClientRect().top - hdr());
   res.defaultTop = dist();
-  res.gap = Math.round(r.getBoundingClientRect().top - k.getBoundingClientRect().bottom);
+  const nxt = () => r.shadowRoot.querySelector('.rom > *'); res.gap = Math.round(nxt().getBoundingClientRect().top - k.getBoundingClientRect().bottom);
   res.padBottom = getComputedStyle(r).paddingBottom;
   for (const v of [-4, 44]) { r.setConfig({ ...r._rawConfig, pad_top: v }); await wait(150); res['top' + v] = dist(); }
   r.setConfig({ ...r._rawConfig, pad_top: 20, gap: 18 }); await wait(150);
-  res.gap18 = Math.round(r.getBoundingClientRect().top - k.getBoundingClientRect().bottom);
+  res.gap18 = Math.round(nxt().getBoundingClientRect().top - k.getBoundingClientRect().bottom);
   // chip + scener
   res.chip = k.shadowRoot.querySelector('.chip').textContent.trim();
   res.scenes = [...r.shadowRoot.querySelectorAll('.sc')].map((e) => `${e.textContent.trim()} ${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}`);

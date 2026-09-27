@@ -225,21 +225,8 @@
   // Kortets egen tilpasning med den utvidede editoren (samme flyt som MSH.Card.customize).
   M.hjemCustomize = function (card, focus) {
     const tag = customElements.get('msh-hjem-editor') ? 'msh-hjem-editor' : 'msh-editor';
-    const ov = M.overlay({ html: '', maxWidth: 520 });
-    const ed = document.createElement(tag);
-    ed.cardClass = card.constructor;
-    ed.inline = true;
-    ed.focusSection = focus || null;
-    ed.hass = card.hass;
-    ed.setConfig(card._rawConfig || card.config);
-    ed.addEventListener('msh-save', async (ev) => {
-      const res = await M.saveCardConfig(card.hass, card._rawConfig || card.config, ev.detail.config);
-      card.setConfig(res.config);
-      ov.close();
-    });
-    ed.addEventListener('msh-cancel', () => ov.close());
-    ov.body.appendChild(ed);
-    return ov;
+    const r = M.openEditor(card, { cardClass: card.constructor, focus, tag });
+    return r && r.overlay;
   };
   M.hjemEditorEl = function (cls) {
     const e = document.createElement(customElements.get('msh-hjem-editor') ? 'msh-hjem-editor' : 'msh-editor');

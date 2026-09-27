@@ -26,48 +26,55 @@ Kortene heter `msh-…` slik at de kan lastes sammen med [ki-cards](https://gith
 - Visningen er `type: sections` (grid) – aldri panel.
 - **Navbaren** (`msh-navbar-card`) ligger i egen seksjon, utenfor alle popups. Den portales til dokumentnivå og
   plasseres mot dashbordflaten: bunn på mobil (maks 392 px), vertikal rail til høyre for HA-sidebaren på PC.
-- **Popups** er frittstående Bubble Card `pop-up` med innholdskortene i `cards:` («Legg til kort» i Bubble-editoren).
-  Toppkortet (hero) er alltid første kort. Bubble eier headeren (navn, ikon, lukk) – kortene tegner ingen egen.
-  Bakgrunn settes i Bubble: `bg_color: '#282828'`, `bg_opacity: 100`, `bg_blur: 0`.
-- **Mellomrom:** KI MSH setter `--bubble-pop-up-gap: 8px` som standard (temaet kan overstyre).
+- **Popups** er frittstående Bubble Card `pop-up` med **nøyaktig ett kort** i `cards:`. Kortet tegner hele innholdet;
+  toppkortet (klima-toppkort i Rom, hero i Basseng/Klima/Media …) er første seksjon inni kortet. Bubble eier headeren.
+- **Maler:** mal A for funksjons-popups (header `--gray000`, ikon-sirkel `--gray1000`, navn 30 px, `bg_opacity '98'`,
+  `bg_blur '5'`) og mal B for rom-popups (header `--gray200`, ikon-sirkel i romfargen, `bg_opacity '88'`, `bg_blur '20'`),
+  begge med `is_sidebar_hidden: true`, `margin_top_*: 50px` og `--vertical-stack-card-gap: 0px`. Se
+  [`examples/dashboard.yaml`](examples/dashboard.yaml). Romfarge/-ikon endret i «Tilpass rom»/«Tilpass Hjem» oppdaterer
+  popupens `styles`/`icon` i samme lagring.
+- **Opprett popups automatisk:** «Tilpass Hjem» → Popups → «Opprett / oppdater popups» lager én mal B-popup per HA-område
+  med entiteter og én mal A-popup per funksjon/person. Finnes hashen, oppdateres bare `cards` (gamle vertical-stack- og
+  flerkort-popups slås sammen til ett kort) – dine `styles` står urørt.
+- **Mellomrom** styres inni kortet: `gap` (8), `pad_top` (20, avstand fra Bubble-headeren; negativ = inntil) og `pad_bottom` (40).
+- **Lagring** fra kortets editor lagrer bare: endringen vises straks, lagres etter 600 ms (slidere når du slipper), og
+  popup, fane, scroll og editor står der de var etter HAs rebuild. Valgt fane/kamera o.l. lagres i localStorage
+  (`ki:<card_id>:ui`), ikke i dashbord-configen.
 
 ```yaml
 type: custom:bubble-card
 card_type: pop-up
-hash: '#klima'
 name: Klima
 icon: mdi:thermostat
-bg_color: '#282828'
-bg_opacity: 100
-bg_blur: 0
+hash: '#klima'
+# … mal A (se examples/dashboard.yaml)
 cards:
-  - type: custom:msh-klima-hero-card
-  - type: custom:msh-klima-card
+  - type: custom:msh-klima-card     # toppkortet er innebygd
 ```
 
 ## Kortene
 
-| Skjerm | Hash | Kort (i rekkefølge) | Design |
+| Skjerm | Hash | Kort (det ene kortet i popupen) | Design |
 |---|---|---|---|
 | Navbar | – | `msh-navbar-card` | Hjem v2 (`<nav>`) |
 | Hjem | – | `msh-hjem-card` (container, full bredde – tegner griden og oppretter delkortene under `cards.header/prosa/faner/soppel/strom/gjoremal`, hvert med `type` + `card_id`; `layout_mode`, `zoom`, `breakout`, `order`, `hidden`). Delkortene virker også alene: `msh-hjem-header-card`, `msh-prosa-card`, `msh-hjem-faner-card`, `msh-soppel-card`, `msh-strompris-card`, `msh-hjem-gjoremal-card` | Hjem v2 |
 | Strømpris | – (trykk → `#strom`) | `msh-strompris-card` (nåpris, søyler per time i dag/i morgen, billigste time, dra for å se time; `overrides.price`/`watt`, `day`, `price_high`/`price_mid`, `popup_hash`) | Hjem v2 strøm-data + ki-strompris-card |
 | Romkort | – | `msh-romkort-card` (også brukt inni fanene) | Romkort |
-| Rom | `#<area_id>` | `msh-rom-klima-card` (alltid først), `msh-rom-card` | Rom v4 |
-| Basseng | `#basseng` | `msh-basseng-hero-card`, `msh-basseng-card` | Basseng v3 |
-| Vanning | `#vanning` | `msh-vanning-hero-card`, `msh-vanning-card` | Vanning v4 |
-| Klima | `#klima` | `msh-klima-hero-card`, `msh-klima-card` | Klima v2 |
+| Rom | `#<area_id>` | `msh-rom-card` (klima-toppkortet innebygd først; «Tilpass rom»: Mellomrom, Rom, Klima …) | Rom v4 |
+| Basseng | `#basseng` | `msh-basseng-card` | Basseng v3 |
+| Vanning | `#vanning` | `msh-vanning-card` | Vanning v4 |
+| Klima | `#klima` | `msh-klima-card` | Klima v2 |
 | Lys | `#lys` | `msh-lys-card` | Lys v4 |
-| Media | `#media` | `msh-media-hero-card`, `msh-media-card` | Media v4 |
+| Media | `#media` | `msh-media-card` (`default_tab: tv`) | Media v4 |
 | Kamera | `#kamera` | `msh-kamera-card` | Kamera v2 |
-| Sikkerhet | `#sikkerhet` | `msh-sikkerhet-hero-card`, `msh-sikkerhet-card` | Sikkerhet v3 |
+| Sikkerhet | `#sikkerhet` | `msh-sikkerhet-card` | Sikkerhet v3 |
 | Ruter | `#ruter` | `msh-ruter-card` | Ruter v2 |
-| Vær | `#vaer` | `msh-vaer-hero-card`, `msh-vaer-card` | Vær v3 |
+| Vær | `#vaer` | `msh-vaer-card` | Vær v3 |
 | Gjøremål | `#gjoremal` | `msh-gjoremal-card` | Gjøremål |
-| Person | `#person-<id>` | `msh-person-hero-card`, `msh-person-card` | Person |
+| Person | `#person-<id>` | `msh-person-card` | Person |
 | Søppel | `#soppel` (ekstern) | `msh-soppel-card` åpner popupen, vises alltid | Hjem v2 |
 
-Alle kort kan stå uten config. Rom-kortene henter rommet fra popupens hash (`#stue` → område `stue`), Person-kortene
+Toppkortene (`msh-*-hero-card`, `msh-rom-klima-card`) finnes fortsatt som elementer, men legges ikke i YAML – hovedkortet bygger dem inn. Alle kort kan stå uten config. Rom-kortene henter rommet fra popupens hash (`#stue` → område `stue`), Person-kortene
 personen fra `#person-<slug>`. Alle config-nøkler finnes i GUI-editoren; se [`docs/kort.md`](docs/kort.md) for full liste.
 
 ### Autokonfig (kort fortalt, se [`docs/entiteter.md`](docs/entiteter.md))

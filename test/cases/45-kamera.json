@@ -1,6 +1,7 @@
 [
-  { "name": "Kamera", "hash": "#kamera", "cards": [ { "type": "custom:msh-kamera-card" } ] },
-  { "name": "Kamera · hendelser", "hash": "#kamera", "cards": [ { "type": "custom:msh-kamera-card", "layout": "list", "view": "events" } ] },
-  { "name": "Kamera · frigate", "hash": "#kamera", "cards": [ { "type": "custom:msh-kamera-card", "mode": "frigate", "layout": "3col" } ] },
-  { "name": "Kamera · tom", "hash": "#kamera", "cards": [ { "type": "custom:msh-kamera-card", "area": "finnes_ikke" } ] }
+  {"name":  "Kamera", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card"}]},
+  {"name":  "Kamera · mosaikk", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "layout":  "mosaic"}]},
+  {"name":  "Kamera · hendelser", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "layout":  "list", "view":  "events"}]},
+  {"name":  "Kamera · frigate", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "mode":  "frigate", "layout":  "3col"}]},
+  {"name":  "Kamera · tom", "hash":  "#kamera", "cards":  [{"type":  "custom:msh-kamera-card", "area":  "finnes_ikke"}]}
 ]

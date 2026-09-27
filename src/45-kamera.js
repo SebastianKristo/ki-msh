@@ -45,14 +45,16 @@
 
   class Kamera extends M.Card {
     static get cardName() { return 'Kamera'; }
-    static get defaults() { return { layout: 'mosaic', refresh: 10 }; }
+    static get defaults() { return { layout: 'main', refresh: 10 }; }
+    // Ren UI-tilstand (Direkte/Frigate, valgt chip/kamera) – localStorage ki:<card_id>:ui, aldri Lovelace.
+    static get uiPersist() { return ['mode', 'view']; }
     static get schema() {
       return (h, c) => {
         c = c || {};
         const all = h ? M.cameras(h, c) : [];
         return [
           { type: 'section', label: 'Visning', icon: 'mdi:view-dashboard', open: true, fields: [
-            { type: 'select', name: 'layout', label: 'Oppsett', options: LAYOUTS.map(([k, l]) => [k, l]), default: 'mosaic' },
+            { type: 'select', name: 'layout', label: 'Oppsett', options: LAYOUTS.map(([k, l]) => [k, l]), default: 'main' },
             { type: 'select', name: 'mode', label: 'Startmodus', options: [['live', 'Direkte'], ['frigate', 'Frigate']], default: 'live' },
             { type: 'select', name: 'view', label: 'Startvisning', options: [['alle', 'Alle'], ['events', 'Hendelser']], default: 'alle' },
             { type: 'number', name: 'refresh', label: 'Oppdater stillbilder (sekunder)', min: 2, max: 300, default: 10, help: 'Kun mens popupen er åpen' },
@@ -97,6 +99,8 @@
     onClose() {
       clearInterval(this._iv);
       this._iv = null;
+      // Stopp strømmer/stillbilde-oppdatering i HA-elementene mens popupen er lukket.
+      if (this.shadowRoot) this.shadowRoot.querySelectorAll('.strm').forEach((n) => n.replaceChildren());
       if (this._drop) { this._drop.close(); this._drop = null; }
     }
     _mode() { return this.ui.mode || this.config.mode || 'live'; }
@@ -113,6 +117,14 @@
       u += (u.includes('?') ? '&' : '?') + '_t=' + (this._tick || 0);
       return u[0] === '/' && this.hass.hassUrl ? this.hass.hassUrl(u) : u;
     }
+    // Direkte bilde/strøm via HAs egne elementer når de finnes (hui-image camera_view:auto i flisene,
+    // ha-camera-stream i enkeltvisning); ellers stillbilde fra camera_proxy/entity_picture.
+    _liveTag(id, kind) {
+      const tag = kind === 'stream' ? 'ha-camera-stream' : 'hui-image';
+      if (!customElements.get(tag)) return '';
+      return `<div class="strm" data-nomorph data-cam="${esc(id)}" data-kind="${kind}" data-key="strm-${kind}-${esc(id)}"></div>`;
+    }
+    _media(id, kind) { return this._liveTag(id, kind) || this._imgTag(id, this._img(id)); }
     _imgTag(key, src, cls = 'im') {
       if (!src) return '';
       this._bad = this._bad || new Set();
@@ -186,7 +198,7 @@
       return `<div class="k">${top}${chips}${body}</div>`;
     }
     _grid(vis) {
-      const h = this.hass, cfg = this.config, L = LAYOUTS.find((x) => x[0] === cfg.layout) ? cfg.layout : 'mosaic';
+      const h = this.hass, cfg = this.config, L = LAYOUTS.find((x) => x[0] === cfg.layout) ? cfg.layout : 'main';
       const span = (i) => {
         if (L === 'mosaic') return i === 0 ? [1, 2] : i < 5 ? [1, 1] : [2, 1];
         if (L === 'main') return i === 0 ? [2, 1] : [1, 1];
@@ -200,13 +212,15 @@
       const tiles = list.map((id, i) => {
         const [cs, rs] = span(i), s = this.s(id), model = cs > 1 || cols === 1 ? camModel(h, id) : '';
         return `<div class="tile" data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
-          <span class="ph">${M.icon(camIcon(h, cfg, id), 28)}</span>${this._imgTag(id, this._img(id))}
+          <span class="ph">${M.icon(camIcon(h, cfg, id), 28)}</span>${this._media(id, 'image')}
           <span class="shade"></span>${this._badge(s, false, cols > 2)}
-          <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('open_in_full', 20)}</button>
+          <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 20)}</button>
           <span class="tn ell">${esc(camName(h, cfg, id))}</span>${model ? `<span class="tm">${esc(model)}</span>` : ''}
         </div>`;
       }).join('');
-      return `<div class="grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr));grid-auto-rows:${rowH}px">${tiles}</div>`;
+      // «Hovedkamera»: første flis over hele bredden (210 px), resten to og to (104 px).
+      const rows = L === 'main' ? `grid-template-rows:210px;grid-auto-rows:104px` : `grid-auto-rows:${rowH}px`;
+      return `<div class="grid" data-l="${L}" style="grid-template-columns:repeat(${cols},minmax(0,1fr));${rows}">${tiles}</div>`;
     }
     _single(id) {
       const h = this.hass, cfg = this.config, s = this.s(id), cc = ccfg(cfg, id);
@@ -216,9 +230,9 @@
       const acts = [['talk', 'mdi:microphone', 'Snakk', talk, null], ['light', 'flashlight_on', 'Lys', light, lOn ? C.yellow : null], ['siren', 'campaign', 'Sirene', siren, sOn ? C.red : null], ['snap', 'photo_camera', 'Bilde', !M.unavailable(s) ? id : null, null]];
       const ev = this._events(id);
       return `<div class="one" data-ent="${esc(id)}" data-key="one-${esc(id)}">
-          <span class="ph">${M.icon(camIcon(h, cfg, id), 40)}</span>${this._imgTag(id, this._img(id))}
+          <span class="ph">${M.icon(camIcon(h, cfg, id), 40)}</span>${this._media(id, 'stream')}
           <span class="shade1"></span>${this._badge(s, true)}
-          <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('open_in_full', 20)}</button>
+          <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 20)}</button>
           <span class="on1 ell">${esc(camName(h, cfg, id))}</span><span class="om">${esc(camModel(h, id))}</span>
         </div>
         <div class="acts">${acts.map(([k, ic, l, ent, col]) => `<button class="ac press" data-act="ca" data-k="${k}" data-v="${esc(ent || '')}" ${ent ? '' : 'disabled'} style="color:${ent ? 'var(--white,#fafafa)' : 'var(--gray500,#696969)'}">${M.icon(ic, 24, col ? 'color:' + col : '')}<span>${l}</span></button>`).join('')}</div>
@@ -298,7 +312,7 @@
     // «Visning»-meny: portalert (aldri position:fixed i kortet), ankret under tune-knappen.
     _openDrop(btn) {
       if (this._drop) { this._drop.close(); return; }
-      const R = M.dashRect(), r = btn.getBoundingClientRect(), L = this.config.layout || 'mosaic';
+      const R = M.dashRect(), r = btn.getBoundingClientRect(), L = this.config.layout || 'main';
       const right = Math.max(8, R.left + R.width - r.right), top = r.bottom + 8;
       const html = `<span class="dt">Visning</span>${LAYOUTS.map(([k, l, i]) => `<button class="di ${L === k ? 'on' : ''}" data-l="${k}">${M.icon(i, 20)}<span class="dl">${esc(l)}</span>${M.icon('check', 18, `color:${C.pink};opacity:${L === k ? 1 : 0}`)}</button>`).join('')}
         <div class="sep"></div><button class="di mu" data-l="_edit">${M.icon('tune', 20)}<span class="dl">Tilpass kameraer…</span></button>`;
@@ -321,9 +335,8 @@
         const k = b.dataset.l;
         ov.close();
         if (k === '_edit') return this.customize('sections');
-        this._ui = { ...this._ui, view: 'alle' };
-        if (k !== (this.config.layout || 'mosaic')) this._save({ layout: k });
-        else this.update();
+        this.setUI({ view: 'alle' });
+        if (k !== (this.config.layout || 'main')) this._save({ layout: k }); // visningsvalget er config
       });
     }
     // Fullskjerm/utvidet visning: portalert, ha-camera-stream når tilgjengelig, ellers stillbilde hvert 2. s.
@@ -370,6 +383,34 @@
     }
     afterRender() {
       const root = this.shadowRoot;
+      // Kant-til-kant i popupen med 12 px sidemarg (negativ margin mot Bubble-popupens padding).
+      const inPop = !!M.popupContainer(this), side = inPop ? 12 - M.popupPad(this) : 0, bleed = inPop ? 12 : 0;
+      if (this._side !== side || this._bleed !== bleed) {
+        this._side = side; this._bleed = bleed;
+        this.style.setProperty('--kx', side + 'px');
+        this.style.setProperty('--kb', bleed + 'px');
+      }
+      // HA-elementer for direkte bilde/strøm (kun mens popupen er åpen)
+      root.querySelectorAll('.strm').forEach((box) => {
+        const id = box.dataset.cam, st = this.hass && this.hass.states[id];
+        if (!st) return;
+        let el = box.firstElementChild;
+        if (!el) {
+          if (!this.isOpen) return;
+          if (box.dataset.kind === 'stream') {
+            el = document.createElement('ha-camera-stream');
+            el.muted = true; el.controls = false; el.allowExoPlayer = true;
+          } else {
+            el = document.createElement('hui-image');
+            el.cameraImage = id; el.cameraView = 'auto';
+          }
+          el.fitMode = 'cover';
+          el.setAttribute('fit-mode', 'cover');
+          box.appendChild(el);
+        }
+        el.hass = this.hass;
+        if (box.dataset.kind === 'stream' && el.stateObj !== st) el.stateObj = st;
+      });
       // Horisontal chip-liste: stopp sveip mot Bubble Card
       const ch = root.querySelector('.chips');
       if (ch && !ch.__b) {
@@ -390,23 +431,25 @@
     }
     get styles() {
       return `
-        .k{position:relative;display:flex;flex-direction:column;gap:var(--msh-gap,12px)}
+        .k{position:relative;display:flex;flex-direction:column;gap:12px;margin:0 var(--kx,0px);min-width:0}
         .top{position:relative;display:flex;gap:8px;align-items:center}
         .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:28px;background:var(--gray200,#3a3a3a)}
         .md{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:500;background:transparent;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
         .md.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tune{width:56px;height:56px;border-radius:28px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none;transition:background .2s}
+        .tune{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none;transition:background .2s}
         .tune.on{background:var(--gray300,#404040)}
-        .chips{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
-        .ch{flex:none;height:50px;padding:0 18px 0 14px;border-radius:25px;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:500;white-space:nowrap;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
+        .chips{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0 calc(-1 * var(--kb,0px));padding:0 var(--kb,0px);scroll-padding:0 var(--kb,0px)}
+        .ch{flex:none;height:40px;padding:0 16px 0 12px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;white-space:nowrap;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
         .ch.on{background:${PINK};color:var(--gray200,#3a3a3a)}
         .grid{display:grid;grid-auto-flow:dense;gap:8px}
         .tile{position:relative;border-radius:26px;overflow:hidden;background:var(--gray200,#3a3a3a);cursor:pointer;min-width:0;-webkit-touch-callout:none}
         .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969);pointer-events:none}
         img.im{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-select:none;user-select:none}
         img.im.bad{visibility:hidden}
+        .strm{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+        .strm>*{position:absolute;inset:0;width:100%;height:100%;display:block;--video-max-height:100%}
         .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none}
-        .bdg{position:absolute;left:12px;top:12px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:0.04em;pointer-events:none}
+        .bdg{position:absolute;left:12px;top:12px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;pointer-events:none}
         .bdg i{width:7px;height:7px;border-radius:4px;flex:none}
         .bdg.cp{padding:0;width:26px;justify-content:center}
         .bdg.solid{left:14px;top:14px;height:28px;padding:0 12px 0 10px;border-radius:14px;font-weight:700;letter-spacing:0}

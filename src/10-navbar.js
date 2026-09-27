@@ -533,20 +533,7 @@
     }
 
     customize(focus) {
-      const ov = M.overlay({ html: '', maxWidth: 440 });
-      const ed = document.createElement('msh-navbar-editor');
-      ed.cardClass = this.constructor;
-      ed.inline = true;
-      ed.focusSection = focus || null;
-      ed.hass = this._hass;
-      ed.setConfig(this._rawConfig || this._config);
-      ed.addEventListener('msh-save', async (ev) => {
-        const res = await M.saveCardConfig(this._hass, this._rawConfig || this._config, ev.detail.config);
-        this.setConfig(res.config);
-        ov.close();
-      });
-      ed.addEventListener('msh-cancel', () => ov.close());
-      ov.body.appendChild(ed);
+      return M.openEditor(this, { cardClass: this.constructor, focus, tag: 'msh-navbar-editor' });
     }
 
     get styles() {
