@@ -706,21 +706,33 @@
     if (!newCfg.card_id) newCfg = { ...newCfg, card_id: (oldCfg && oldCfg.card_id) || MSH.uid() };
     const key = opts.key || MSH.storeKey(newCfg, opts.card);
     const { type, card_id, ...rest } = newCfg;
-    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
+    // Denne enheten: lagre bare feltene som avviker fra felles oppsett (YAML + felles ki-store) under devices.<id>
+    if ((opts.scope || MSH.store.scope) === 'device') {
+      const card = opts.card, yaml = card && card._yamlConfig;
+      const base = yaml ? MSH.effectiveConfig(yaml, card, { shared: true }) : (MSH.store.get(key) || {});
+      const rec = {}, same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      Object.keys(rest).forEach((k) => { if (!same(rest[k], base[k])) rec[k] = rest[k]; });
+      Object.keys(base).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id' && base[k] != null) rec[k] = null; });
+      const dk = MSH.store.devKey(key);
+      const res = await MSH.store.set(dk, Object.keys(rec).length ? rec : undefined, { immediate: opts.immediate });
+      return { ...res, store: true, key: dk, config: newCfg };
+    }
+    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     const prev = MSH.store.get(key) || {};
     Object.keys(prev).forEach((k) => { if (!(k in newCfg) && !(k in rest) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet siden forrige lagring
     const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
-  // YAML-config + ki-store (null = fjernet)
-  MSH.effectiveConfig = function (yaml, card) {
+  // YAML-config + felles ki-store + denne enhetens oppsett (null = fjernet). opts.shared = uten enhetslaget (GUI-editoren).
+  MSH.effectiveConfig = function (yaml, card, opts) {
     const key = yaml && MSH.store ? MSH.storeKey(yaml, card) : null;
-    const st = key ? MSH.store.get(key) : null;
-    if (!st) return yaml;
+    if (!key) return yaml;
+    const st = MSH.store.get(key), dv = opts && opts.shared ? null : MSH.store.get(MSH.store.devKey(key));
+    if (!st && !dv) return yaml;
     const out = { ...yaml };
-    Object.keys(st).forEach((k) => { if (st[k] === null) delete out[k]; else out[k] = st[k]; });
+    [st, dv].forEach((o) => { if (o && typeof o === 'object') Object.keys(o).forEach((k) => { if (o[k] === null) delete out[k]; else out[k] = o[k]; }); });
     out.type = yaml.type; if (yaml.card_id) out.card_id = yaml.card_id;
     return out;
   };
@@ -825,6 +837,7 @@
       if (MSH.store && !this._storeOff) {
         this._storeOff = MSH.store.subscribe((d, path) => {
           const key = this._yamlConfig && MSH.storeKey(this._yamlConfig, this);
+          if (path && String(path).startsWith('devices.')) path = String(path).split('.').slice(2).join('.'); // enhetslaget
           if (!key || (path && path !== key && !String(path).startsWith(key + '.') && !key.startsWith(path + '.'))) return;
           const eff = MSH.effectiveConfig(this._yamlConfig, this);
           if (JSON.stringify(eff) !== JSON.stringify(this._rawConfig)) this.setConfig(this._yamlConfig);
@@ -906,19 +919,20 @@
       if (this._heroEl.hass !== this._hass) this._heroEl.hass = this._hass;
     }
     // Mellomrom i Bubble-popupen: pad_top = avstand fra popup-headeren til kortet (negativ = inntil),
-    // pad_bottom = luft i bunnen, gap = popupens kort-gap. Popupen selv har --vertical-stack-card-gap: 0.
+    // pad_bottom = luft i bunnen OVER navbaren (MSH.popupBottomPad), gap = popupens kort-gap.
+    // Popupen selv har --vertical-stack-card-gap: 0. Aldri margin-bottom (kollapser i Bubble-scrollcontaineren).
     _applySpacing() {
       if (this._config.embedded) return;
       const cont = MSH.popupContainer(this);
       if (!cont) return;
-      const c = this._config, D = this.constructor.spacingDefaults || { gap: 8, pad_top: 20, pad_bottom: 40 };
+      const c = this._config, D = this.constructor.spacingDefaults || MSH.SPACING;
       const gap = c.gap != null ? Number(c.gap) : D.gap, top = c.pad_top != null ? Number(c.pad_top) : D.pad_top, bot = c.pad_bottom != null ? Number(c.pad_bottom) : D.pad_bottom;
       const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
       grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
       const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
       if (!cards.length || (cards[0] !== this && cards[cards.length - 1] !== this)) return;
       const first = cards[0], last = cards[cards.length - 1];
-      if (last === this) { this.style.paddingBottom = bot + 'px'; }
+      if (last === this) { this.style.paddingBottom = MSH.popupBottomPad(bot); this.style.marginBottom = ''; }
       if (first === this) {
         this.style.marginTop = '';
         const root = cont.getRootNode && cont.getRootNode();
@@ -994,6 +1008,21 @@
     getLayoutOptions() { return { grid_columns: 'full' }; }
   }
   MSH.Card = MshCard;
+  // Standard mellomrom for funksjons-popups (Rom har egne: pad_top −10, pad_bottom 150)
+  MSH.SPACING = { gap: 8, pad_top: 20, pad_bottom: 24 };
+  // Luft i bunnen av alle popups: navbarens faktiske høyde + avstand fra bunnen + safe area + ekstra luft.
+  // --ki-nav-h / --ki-nav-bottom settes av msh-navbar-card (0 når navbaren er skjult eller vises som rail).
+  MSH.popupBottomPad = (extra) => `calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + ${extra != null ? Number(extra) + 'px' : 'var(--ki-pop-extra, 24px)'})`;
+  // Felles «Mellomrom»-seksjon for funksjons-popupenes editor (samme UI som i Rom)
+  MSH.spacingSchema = (D) => {
+    D = { ...MSH.SPACING, ...(D || {}) };
+    return { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.pad_bottom != null ? cc.pad_bottom : D.pad_bottom} px i bunnen`, fields: [
+      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+      { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: D.pad_bottom, presets: [[0, 'Ingen 0'], [24, 'Standard 24'], [60, 'Litt 60'], [150, 'Stor 150']] },
+    ] };
+  };
+
   // Hovedkort → innebygd toppkort. Ett kort per Bubble-popup; toppkortet er første seksjon.
   MSH.HEROES = {
     'msh-rom-card': 'msh-rom-klima-card',
@@ -1020,10 +1049,27 @@
     if (title) ed.title = title;
     ed.hass = card.hass;
     if (MSH.store && card.hass) MSH.store.refresh(card.hass);
-    const orig = card._rawConfig || card.config;
+    let orig = card._rawConfig || card.config;
     let cur = orig, dirty = false, seq = 0;
+    // Oppsett per enhet: «Denne enheten · Alle enheter» øverst (standard: denne enheten)
+    const key = MSH.store ? MSH.storeKey(card._yamlConfig || orig, card) : null;
+    if (MSH.store) MSH.store.scope = 'device';
+    const own = () => key && MSH.store.hasOwn(key);
+    const cfgFor = () => (card._yamlConfig ? MSH.effectiveConfig(card._yamlConfig, card, { shared: MSH.store.scope === 'shared' }) : orig);
+    if (key && customElements.get('msh-scope-bar')) {
+      const bar = document.createElement('msh-scope-bar');
+      bar.hass = card.hass; bar.storeKey = key;
+      bar.addEventListener('scope-change', () => {
+        if (dirty && MSH.store) MSH.store.flush();
+        orig = cur = cfgFor(); dirty = false;
+        ed.setConfig(orig);
+      });
+      ov.body.appendChild(bar);
+    }
     ed.setConfig(orig);
     const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._render) ed._render(); };
+    // Felles oppsett endres mens enheten har eget: ikke vis utkastet live her (enhetens oppsett gjelder)
+    const live = () => !(MSH.store && MSH.store.scope === 'shared' && own());
     // Autolagring (600 ms) – stille; status i arket: «Lagrer …» → «Lagret» / «Kunne ikke lagre»
     const save = async (immediate) => {
       const my = ++seq;
@@ -1036,8 +1082,10 @@
     };
     ed.addEventListener('msh-change', (ev) => {
       cur = ev.detail.config;
-      if (cur.card_id) MSH.applyLive(cur.card_id, cur);
-      if (card._rawConfig !== cur) card.setConfig({ ...cur, __eff: 1 });
+      if (live()) {
+        if (cur.card_id) MSH.applyLive(cur.card_id, cur);
+        if (card._rawConfig !== cur) card.setConfig({ ...cur, __eff: 1 });
+      }
       if (ev.detail.commit !== false) { dirty = true; save(false); }
     });
     // Lagre/Ferdig: samler ventende endringer, lagrer én gang og venter på svar
@@ -1052,18 +1100,32 @@
       ov.close();
     });
     ed.addEventListener('msh-cancel', () => {
-      if (cur !== orig) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true, card }); }
+      if (cur !== orig) {
+        if (live()) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); }
+        if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true, card });
+      }
       dirty = false;
       ov.close();
     });
-    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); };
+    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'device'; };
     ov.body.appendChild(ed);
     return { overlay: ov, editor: ed };
   };
 
   // Registrer kort + oppføring i kortvelgeren.
+  // Popup-kort som får felles «Mellomrom» (gap, pad_top, pad_bottom over navbaren) i editoren, hvis de ikke har egen
+  MSH.POPUP_CARDS = ['msh-rom-card', 'msh-person-card', 'msh-vaer-card', 'msh-lys-card', 'msh-klima-card', 'msh-media-card', 'msh-basseng-card', 'msh-vanning-card', 'msh-sikkerhet-card', 'msh-kamera-card', 'msh-ruter-card', 'msh-gjoremal-card', 'msh-settings-card'];
+  const withSpacing = (cls) => {
+    let p = cls, desc = null;
+    while (p && !desc) { desc = Object.getOwnPropertyDescriptor(p, 'schema'); p = Object.getPrototypeOf(p); }
+    if (!desc || !desc.get) return;
+    const orig = desc.get;
+    const add = (arr, self) => ((arr || []).some((f) => f && f.type === 'section' && (f.id === 'spacing' || f.label === 'Mellomrom')) ? arr : [...(arr || []), MSH.spacingSchema(self.spacingDefaults)]);
+    Object.defineProperty(cls, 'schema', { configurable: true, get() { const b = orig.call(this); return typeof b === 'function' ? (h, c) => add(b(h, c), this) : add(b, this); } });
+  };
   MSH.define = function (tag, cls, name, description) {
     if (customElements.get(tag)) return;
+    if (MSH.POPUP_CARDS.includes(tag)) withSpacing(cls);
     customElements.define(tag, cls);
     window.customCards = window.customCards || [];
     if (!window.customCards.find((c) => c.type === tag)) window.customCards.push({ type: tag, name: name || tag, description: description || '', preview: false, documentationURL: 'https://github.com/SebastianKristo/ki-msh' });

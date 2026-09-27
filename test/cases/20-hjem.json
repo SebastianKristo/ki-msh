@@ -152,15 +152,17 @@
     ]
   },
   {
-    "name": "Hjem · prosa avstand",
+    "name": "Hjem · prosa tekststørrelse",
     "cards": [
       {
         "type": "custom:msh-prosa-card",
-        "prose_offset": 36
+        "prose_font_size": 1.8,
+        "prose_line_height": 2.4
       },
       {
         "type": "custom:msh-prosa-card",
-        "prose_offset": -20
+        "prose_font_size": 1.1,
+        "prose_line_height": 1.6
       }
     ]
   }

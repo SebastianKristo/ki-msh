@@ -21,4 +21,11 @@ window.mockExtend(({ add, S, E, D }) => {
   S['binary_sensor.garasje_kjoretoy'].last_changed = ago(75);
   add('light.veranda_flomlys', 'off', { friendly_name: 'Veranda flomlys' }, { platform: 'unifiprotect', device: 'dev_ver' });
   add('siren.garasje_sirene', 'off', { friendly_name: 'Garasje sirene' }, { platform: 'unifiprotect', device: 'dev_gar' });
+  // Autokonfig per enhet: medium-kanal (skjules), personvern/siste bevegelse på samme enhet,
+  // og et Frigate-kamera med samme navn som Garasje (legges under frigate[]).
+  add('camera.inngang_medium_resolution_channel', 'recording', { access_token: 'tok5', friendly_name: 'Inngang Medium resolution channel' }, { platform: 'unifiprotect', device: 'dev_ring' });
+  add('switch.inngang_privacy_mode', 'off', { friendly_name: 'Inngang Privacy mode' }, { platform: 'unifiprotect', device: 'dev_ring' });
+  add('sensor.inngang_last_motion_detected', ago(12), { device_class: 'timestamp', friendly_name: 'Inngang siste bevegelse' }, { platform: 'unifiprotect', device: 'dev_ring' });
+  D.dev_fr2 = { id: 'dev_fr2', area_id: null, name: 'garasje', model: 'Frigate' };
+  add('camera.garasje_frigate', 'recording', { access_token: 'tok6', friendly_name: 'Garasje (Frigate)' }, { platform: 'frigate', device: 'dev_fr2' });
 });

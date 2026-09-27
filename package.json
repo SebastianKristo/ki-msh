@@ -8,7 +8,8 @@
     "build": "node build.mjs",
     "test": "node test/smoke.mjs",
     "checklist": "node test/checklist.mjs",
-    "strategy": "node test/strategy-check.mjs"
+    "strategy": "node test/strategy-check.mjs",
+    "device": "node test/device-check.mjs"
   },
   "license": "Apache-2.0"
 }

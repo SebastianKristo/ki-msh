@@ -5,7 +5,8 @@
  * Fanene: Kort · Faner · Popups · Tekst.
  *   Kort/Faner → msh-hjem-faner-card-config (layout.<fane>.{order,side,hidden,add}, rooms.<id>.*, tiles.<fane>.<kind>.*,
  *                tile_order/tile_hidden, swipe, slides, tab_*, custom_tabs, links, tap, battery)
- *   Tekst      → msh-prosa-card-config (prose, prose_offset)
+ *   Tekst      → msh-prosa-card-config (prose[] med ent / ent_override / cent via felles MSH.entityPicker,
+ *                prose_font_size, prose_line_height)
  *   Kort       → også msh-hjem-card-config (show_todo, hidden) – «Kort på Hjem» med øye per kort
  *   Popups     → ki-store popups.<hash uten #> = { hidden, name, icon, color } (leses av strategien ved neste generering)
  * Alt lagres live med MSH.saveCardConfig (ki-store, debounce, ingen navigering); kortene abonnerer på ki-store.
@@ -101,6 +102,7 @@
   const PSW = [['hvit', C.white, 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
+  const PFIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo']; // kan overstyres (ent_override)
 
   /* ------------------------------------------------------------ ikon/farge (lookEd) */
   const ROOM_ICONS = [['mdi:sofa', 'sofa stue'], ['mdi:sofa-outline', 'stue'], ['mdi:chair-rolling', 'stol kontor'], ['mdi:countertop', 'kjøkken benk'], ['mdi:fridge', 'kjøleskap kjøkken'], ['mdi:silverware-fork-knife', 'spisestue kjøkken'], ['mdi:bed', 'seng soverom'], ['mdi:bed-king', 'seng soverom dobbelt'], ['mdi:bed-single', 'seng barnerom'], ['mdi:baby-carriage', 'baby barnerom'], ['mdi:human-child', 'barn'], ['mdi:toy-brick', 'leker barnerom'], ['mdi:bathtub', 'bad badekar'], ['mdi:shower', 'dusj bad'], ['mdi:toilet', 'toalett do wc'], ['mdi:desk', 'kontor pult'],
@@ -310,6 +312,7 @@
 
   class HomeEditor {
     constructor(focus) {
+      if (M.store) M.store.scope = 'device'; // standard: Denne enheten
       this.u = { sec: 'kort', ctx: null, sel: null, pick: null, acc: {}, icQ: '', allIc: false, allCol: false, popG: 'alle', popSel: null, proseSel: null };
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
@@ -322,7 +325,7 @@
       this._bind();
       this._storeOff = M.store ? M.store.subscribe((d, path) => {
         if (this._saving) return;
-        if (!path || /^cards(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
+        if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
         this._schedule();
       }) : null;
       if (M.store && this.hass) M.store.load(this.hass);
@@ -342,6 +345,7 @@
       if (!silent) this.render();
     }
     _closed() {
+      if (M.store) M.store.scope = 'device';
       if (this._storeOff) this._storeOff();
       if (M.flushSaves) M.flushSaves();
       if (M.store && M.store.flush) M.store.flush();
@@ -357,11 +361,16 @@
       const ha = document.querySelector('home-assistant');
       return (a && a.hass) || (b && b.hass) || (hj && hj.hass) || M.lastHass || (ha && ha.hass) || null;
     }
+    // Config sett fra valgt omfang: «Denne enheten» = enhet + felles + YAML, «Alle enheter» = felles + YAML
     _raw(tag, key) {
-      const live = M.liveOf(tag);
-      if (live && live._rawConfig) return live._rawConfig;
-      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] });
+      const live = M.liveOf(tag), shared = !!(M.store && M.store.scope === 'shared');
+      if (live && live._yamlConfig) return M.effectiveConfig(live._yamlConfig, live, { shared });
+      if (live && live._rawConfig && !shared) return live._rawConfig;
+      return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] }, null, { shared });
     }
+    // ki-store-nøklene arket skriver til (for «Eget oppsett» / «Bruk felles oppsett» / «Kopier til alle»)
+    get storeKeys() { return ['cards.' + M.CARD_IDS.faner, 'cards.' + M.CARD_IDS.prosa, 'cards.' + M.CARD_IDS.home, 'popups']; }
+    _pops() { return (M.store && (M.store.scope === 'shared' ? M.store.get('popups') : (M.store.view().popups))) || {}; }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
@@ -375,7 +384,7 @@
       if (!nc.type) nc.type = old.type || 'custom:' + tag;
       this[CK] = nc;
       this._saving = true;
-      try { M.saveCardConfig(this.hass, old, nc, { toasts: false }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
+      try { M.saveCardConfig(this.hass, old, nc, { toasts: false, card: M.liveOf(tag) }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
       this._schedule();
     }
     saveF(patch) { this._save('msh-hjem-faner-card', 'faner', patch); }
@@ -465,15 +474,23 @@
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
+        <msh-scope-bar data-key="scope" data-nomorph></msh-scope-bar>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
+      const bar = this.body.querySelector('msh-scope-bar');
+      if (bar && !bar.__b) {
+        bar.__b = true; bar.hass = this.hass; bar.storeKeys = this.storeKeys;
+        bar.addEventListener('scope-change', () => { this._F = null; this._P = null; this._H = null; this._schedule(); });
+        if (bar._render) bar._render();
+      }
       this._after();
     }
     _after() {
       const r = this.root;
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
+      r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
       const ct = r.querySelector('.ct');
       if (ct) { const on = ct.querySelector('.tb.on'); if (on && this._shownCt !== on.dataset.key && ct.scrollWidth > ct.clientWidth + 2) { this._shownCt = on.dataset.key; ct.scrollLeft = Math.max(0, on.offsetLeft - 24); } }
     }
@@ -503,7 +520,7 @@
       else if (u.sel && u.sel.t === 'room') panel = this._roomPanel(m, m.rooms.find((r) => r.id === u.sel.id));
       else if (u.sel && u.sel.t === 'tile') panel = this._tilePanel(m, u.sel.id);
       const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å hente et rom fra en annen etasje.</span>`;
-      return strip + tgl + grid + panel + hint + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._blocks();
+      return strip + tgl + grid + panel + hint + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._accRomIkon(m) + this._blocks();
     }
     // Kortene på Hjem (msh-hjem-card): øye per kort (cards skjules via hidden), gjøremål via show_todo.
     _blocks() {
@@ -684,6 +701,17 @@
       return this._acc('snar', 'Snarveier · ' + t.label, 'bolt', m.en.length + ' stk') + body;
     }
 
+    // Romkort · ikon: standard for alle rom (icon_color_mode / icon_tap i faner-configen). «Tilpass rom» vinner per rom.
+    _accRomIkon(m) {
+      const c = m.c, mode = c.icon_color_mode || 'lights', tap = c.icon_tap || 'toggle_lights';
+      const seg = (k, opts, cur) => `<div class="ss" style="align-self:flex-start;flex-wrap:wrap">${opts.map(([v, l]) => `<button class="${cur === v ? 'on-pk' : ''}" data-a="rkdef" data-k="${k}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div>`;
+      const body = this.u.acc.rkic ? `<div class="box" data-key="acb-rkic"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Ikonfarge</span><span class="sub">Romfarge på ikon-sirkelen</span></span>${seg('icon_color_mode', M.ICON_MODES || [], mode)}
+          <span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Trykk på ikonet</span><span class="sub">Termostat-knappene påvirkes ikke</span></span>${seg('icon_tap', M.ICON_TAPS || [], tap)}
+          <span class="sub" style="line-height:1.4">Standard for alle rom. Et rom kan overstyre i «Tilpass rom» → Utseende og Handlinger.</span></div>` : '';
+      const lab = (L, v) => ((L || []).find((o) => o[0] === v) || [])[1] || '';
+      return this._acc('rkic', 'Romkort · ikon', 'mdi:circle-slice-8', lab(M.ICON_MODES, mode)) + body;
+    }
+
     /* ======================================================== Faner */
     _faner() {
       const hass = this.hass, c = this.F(), T = allTabs(hass, c), visN = T.filter((t) => !t.hidden).length;
@@ -736,7 +764,7 @@
 
     /* ======================================================== Popups */
     _popList() {
-      const hass = this.hass, c = this.F(), P = (M.store && M.store.get('popups')) || {}, out = [];
+      const hass = this.hass, c = this.F(), P = this._pops(), out = [];
       M.areas(hass).forEach((a) => {
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
@@ -772,10 +800,12 @@
       return row + ed;
     }
     _popSet(key, patch) {
-      const cur = { ...((M.store.get('popups') || {})[key] || {}), ...patch };
-      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || cur[k] === false) delete cur[k]; });
+      const dev = M.store.scope === 'device';
+      const cur = { ...(this._pops()[key] || {}), ...patch };
+      // enhetslaget beholder false (skal kunne overstyre felles «skjult»)
+      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || (cur[k] === false && !dev)) delete cur[k]; });
       this._saving = true;
-      try { if (this.hass) M.store.load(this.hass); M.store.set('popups.' + key, Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
+      try { if (this.hass) M.store.load(this.hass); M.store.set(M.store.scoped('popups.' + key), Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
       this._schedule();
     }
 
@@ -798,14 +828,18 @@
           <button class="sq del" data-a="pdel" data-i="${i}" title="Slett">${ic('delete', 18)}</button></div>`;
         if (!open) return row;
         const cur = R.valOf(p), cs = p.csrc || p.src;
-        const sv = cs === 'custom' ? R.getS(p.cent) : R.S[cs];
+        const sv = R.valFor ? R.valFor(cs, p.cent || (cs === p.src ? (cs === 'custom' ? p.ent : p.ent_override) : '') || '') : cs === 'custom' ? R.getS(p.cent) : R.S[cs];
         const links = [...LINKS, ...M.areas(hass).map((a) => ['#' + a.id, a.name])];
         const linkKnown = links.some((l) => l[0] === (p.link || ''));
         const ed = `<div class="ped" data-key="ped-${i}">
           <div class="fld"><span class="fl">Tekst før</span><input class="in" data-in="pf" data-i="${i}" data-f="pre" value="${esc(p.pre || '')}" placeholder="F.eks. Strømmen koster">${tokHTML('pre', i)}</div>
           <div class="fld"><span class="fl">Verdi i boblen</span><select class="in" data-in="psrc" data-i="${i}">${SRC.map(([v, l]) => `<option value="${v}" ${(p.src || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-            ${p.src === 'custom' ? `<input class="in" data-in="pf" data-i="${i}" data-f="ent" value="${esc(p.ent || '')}" placeholder="State, f.eks. stue.temp eller sensor.vaskemaskin">` : ''}
-            ${cur && p.src !== 'text' ? `<span style="font-size:11px;color:#7f7f7f">Nå: ${esc(cur[0])}</span>` : p.src && !['none', 'text'].includes(p.src) ? '<span style="font-size:11px;color:#7f7f7f">Fant ingen entitet for denne kilden</span>' : ''}</div>
+</div>
+          ${p.src === 'custom' || PFIXED.includes(p.src) ? `<div class="fld" data-key="pent-${i}"><span class="fl">Entitet${p.src === 'custom' ? ' · påkrevd' : ''}</span>
+            ${p.src === 'custom'
+              ? M.entityPicker.html({ key: 'pk-ent-' + i, value: p.ent || '', placeholder: 'Velg entitet …', attrs: `data-in="pent" data-i="${i}" data-f="ent"` })
+              : M.entityPicker.html({ key: 'pk-ovr-' + i, value: p.ent_override || '', auto: R.autoOf ? R.autoOf(p.src) || '' : '', autoMode: true, attrs: `data-in="pent" data-i="${i}" data-f="ent_override"` })}
+            ${cur ? `<span style="font-size:12px;color:#979797;padding:0 4px">Nå: <b style="font-weight:500;color:#fafafa">${esc(cur[0])}</b></span>` : `<span style="font-size:12px;color:#7f7f7f;padding:0 4px">${p.src === 'custom' && !p.ent ? 'Velg en entitet – {v} i boblen bruker den' : 'Fant ingen verdi – velg en entitet'}</span>`}</div>` : ''}
           ${(p.src || 'none') !== 'none' ? `<div class="fld"><span class="fl">${p.src === 'text' ? 'Tekst i boblen' : 'Visning i boblen · {v} er verdien'}</span><input class="in" data-in="pf" data-i="${i}" data-f="fmt" value="${esc(p.fmt || '')}"></div>` : ''}
           <div class="fld"><span class="fl">Tekst etter</span><input class="in" data-in="pf" data-i="${i}" data-f="post" value="${esc(p.post || '')}" placeholder="F.eks. i dag.">${tokHTML('post', i)}</div>
           <div class="fld"><span class="fl">Ikon i boblen</span><div class="chs" style="max-height:124px;overflow-y:auto;scrollbar-width:none">${PICONS.map(([v, l]) => `<button class="chip ${(p.icon || '') === v ? 'on-pk' : ''}" data-a="picon" data-i="${i}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
@@ -820,16 +854,23 @@
           <div class="fld"><span class="fl">Og åpne popup</span><select class="in" data-in="plink" data-i="${i}">${links.map(([v, l]) => `<option value="${esc(v)}" ${(p.link || '') === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}${linkKnown ? '' : `<option value="${esc(p.link)}" selected>${esc(p.link)}</option>`}</select></div>
           <div class="fld"><span class="fl">Vises</span><div class="chs">${OPS.map(([v, l]) => `<button class="chip ${op === v ? 'on-pk' : ''}" data-a="pop" data-i="${i}" data-v="${esc(v)}">${l}</button>`).join('')}</div></div>
           ${op !== 'alltid' ? `<div class="fld"><span class="fl">Når</span><select class="in" data-in="pcsrc" data-i="${i}">${SRC.filter((x) => R.S[x[0]] || x[0] === 'custom').map(([v, l]) => `<option value="${v}" ${cs === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-              ${p.csrc === 'custom' ? `<input class="in" data-in="pf" data-i="${i}" data-f="cent" value="${esc(p.cent || '')}" placeholder="State, f.eks. sensor.stue_temperatur">` : ''}</div>
+</div>
+            <div class="fld" data-key="pcent-${i}"><span class="fl">Entitet for betingelsen${cs === 'custom' ? ' · påkrevd' : ''}</span>
+              ${M.entityPicker.html({ key: 'pk-cent-' + i, value: p.cent || '', auto: cs === 'custom' ? '' : (cs === p.src && p.ent_override) || (R.autoOf ? R.autoOf(cs) || '' : ''), autoMode: cs !== 'custom', autoLabel: cs === p.src ? 'Samme som boblen' : 'Automatisk', placeholder: 'Velg entitet …', attrs: `data-in="pent" data-i="${i}" data-f="cent"` })}</div>
             <div class="fld"><span class="fl">Verdi</span><input class="in" data-in="pf" data-i="${i}" data-f="cval" value="${esc(p.cval || '')}" placeholder="F.eks. 1,5 eller låst"><span style="font-size:11px;color:#7f7f7f">${sv ? `${esc(srcL(cs))} er nå ${esc(sv[0])} · setningen ${R.test(p) ? 'vises' : 'skjules'}` : ''}</span></div>` : ''}
         </div>`;
         return row + ed;
       }).join('');
-      const pc = this.P() || {}, off = pc.prose_offset != null && pc.prose_offset !== '' ? Number(pc.prose_offset) : 18;
-      const offHTML = `<div class="fld" data-key="poff"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">Avstand over teksten</span><span class="poffv" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${off} px</span></div>
-          <input type="range" min="-20" max="60" step="1" value="${off}" data-in="poff" style="width:100%">
-          <div class="chs">${[[0, 'Ingen 0'], [18, 'Standard 18'], [36, 'Luftig 36']].map(([v, l]) => `<button class="o36 ${off === v ? 'on-pk' : ''}" data-a="poffset" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>`;
-      return `${offHTML}${prev}${rows}
+      // Tekststørrelse / linjehøyde (em, som originalens content_style) – samme felt som prosa-kortets GUI-editor
+      const PC = customElements.get('msh-prosa-card'), T = PC && PC.textSize ? PC.textSize(this.P() || {}) : { fs: 1.4, lh: 2 };
+      const nfE = (x) => M.nf(x, 2).replace(/0$/, '');
+      const szHTML = (PC && PC.sizeFields ? PC.sizeFields : []).map((f) => {
+        const k = f.name === 'prose_font_size' ? 'fs' : 'lh', val = T[k];
+        return `<div class="fld" data-key="psz-${k}"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">${esc(f.label)}</span><span class="pszv-${k}" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${nfE(val)} em</span></div>
+          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${val}" data-in="psz" data-f="${f.name}" data-k="${k}" style="width:100%;touch-action:pan-y">
+          <div class="chs">${f.presets.map(([v, l]) => `<button class="o36 ${Math.abs(val - v) < 0.001 ? 'on-pk' : ''}" data-a="psize" data-f="${f.name}" data-v="${v}" data-h="selection">${esc(l)}</button>`).join('')}</div></div>`;
+      }).join('');
+      return `${szHTML}${prev}${rows}
         <button class="big52 press" data-a="padd">${ic('add', 22)}Ny setning</button>
         <span class="hint">Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.</span>`;
     }
@@ -842,6 +883,10 @@
       r.addEventListener('click', (e) => this._click(e));
       r.addEventListener('change', (e) => this._input(e, 'change'));
       r.addEventListener('input', (e) => this._input(e, 'input'));
+      r.addEventListener('value-changed', (e) => {
+        const pe = e.composedPath().find((n) => n.dataset && n.dataset.in === 'pent');
+        if (pe) { const v = (e.detail && e.detail.value) || undefined; return this._proseUp(Number(pe.dataset.i), (p) => ({ ...p, [pe.dataset.f]: v })); }
+      });
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'icpick'); if (el && this.u.sel) { const v = e.detail && e.detail.value; this._roomSet(this.u.sel.id, { icon: v || undefined }); } });
       r.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') e.target.blur(); });
       // .sh stopper pointerdown (MSH.overlay) → lytt i capture-fasen på selve arket.
@@ -868,6 +913,7 @@
       if (a === 'reset') return this._reset();
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
       if (a === 'showtodo' || a === 'blkeye') return this._actBlock(a, d);
+      if (a === 'rkdef') return this.saveF({ [d.k]: d.v === (d.k === 'icon_tap' ? 'toggle_lights' : 'lights') ? undefined : d.v });
       if (u.sec === 'kort') return this._actKort(a, d);
       if (u.sec === 'faner') return this._actFaner(a, d);
       if (u.sec === 'pop') return this._actPop(a, d);
@@ -884,9 +930,9 @@
       } else if (u.sec === 'faner') {
         this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
       } else if (u.sec === 'pop') {
-        this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
+        this._saving = true; try { M.store.set(M.store.scoped('popups'), undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
-      } else { u.proseSel = null; this.saveP({ prose: undefined }); }
+      } else { u.proseSel = null; this.saveP({ prose: undefined, prose_font_size: undefined, prose_line_height: undefined, prose_offset: undefined }); }
     }
     _actBlock(a, d) {
       const H = this.H() || {};
@@ -1070,7 +1116,7 @@
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
         case 'popsel': u.popSel = u.popSel === d.v ? null : d.v; return this.render();
-        case 'pophide': { M.haptic('selection'); const cur = ((M.store.get('popups') || {})[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
+        case 'pophide': { M.haptic('selection'); const cur = (this._pops()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
         case 'popcol': return this._popSet(d.k, { color: d.v });
         case 'popreset': return this._popSet(d.v, { name: undefined, icon: undefined, color: undefined });
         default:
@@ -1079,7 +1125,7 @@
     _actTekst(a, d) {
       const u = this.u, i = Number(d.i);
       switch (a) {
-        case 'poffset': return this.saveP({ prose_offset: Number(d.v) === 18 ? undefined : Number(d.v) });
+        case 'psize': { const def = d.f === 'prose_font_size' ? 1.4 : 2, v = Number(d.v); return this.saveP({ [d.f]: Math.abs(v - def) < 0.001 ? undefined : v, prose_offset: undefined }); }
         case 'psel': u.proseSel = u.proseSel === i ? null : i; return this.render();
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));
@@ -1112,7 +1158,7 @@
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
         if (k === 'blimit') { const l = this.root.querySelector('[data-lim]'); if (l) l.textContent = v + ' %'; return; }
         if (k === 'tabpx') { const s = el.parentNode.querySelector('.stp span'); if (s) s.textContent = v + ' px'; return; }
-        if (k === 'poff') { const s = this.root.querySelector('.poffv'); if (s) s.textContent = v + ' px'; const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, prose_offset: Number(v), __eff: 1 }); return; }
+        if (k === 'psz') { const s = this.root.querySelector('.pszv-' + d.k); if (s) s.textContent = M.nf(Number(v), 2).replace(/0$/, '') + ' em'; const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, [d.f]: Number(v), __eff: 1 }); return; }
         return;
       }
       if (el.type === 'color' || el.tagName === 'SELECT' || el.type === 'range') M.haptic('selection');
@@ -1151,7 +1197,7 @@
           return this.saveF({ ['tab_labels.' + t.id]: trim && trim !== t.autoLabel ? trim : undefined });
         }
         case 'tabpx': return this.saveF({ [d.k]: Number(v) });
-        case 'poff': return this.saveP({ prose_offset: Number(v) });
+        case 'psz': return this.saveP({ [d.f]: Number(v), prose_offset: undefined });
         case 'bcond': return this.saveF({ 'battery.cond': trim || undefined });
         case 'blimit': return this.saveF({ 'battery.limit': Number(v) === 20 ? undefined : Number(v) });
         case 'popname': return this._popSet(d.k, { name: trim || undefined });

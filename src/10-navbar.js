@@ -58,6 +58,12 @@
   };
 
   // Liquid glass-drag (glass-drag.js, men koblet direkte på elementet – fungerer i shadow DOM).
+  // --ki-nav-h (navbarens høyde, 0 = skjult/rail) på dokumentet – popupene legger luft i bunnen etter den
+  M.setNavVars = (h) => {
+    const st = document.documentElement.style, v = Math.max(0, Number(h) || 0) + 'px';
+    if (st.getPropertyValue('--ki-nav-h') !== v) st.setProperty('--ki-nav-h', v);
+    if (!h && st.getPropertyValue('--ki-nav-bottom') !== '0px') st.setProperty('--ki-nav-bottom', '0px');
+  };
   // Dra langs en knapperad → glasslinse følger fingeren, slipp = trykk på knappen under. Drag-vern mot Bubble Card.
   M.glassDrag = M.glassDrag || function (c, opt = {}) {
     if (!c || c.__gd) return;
@@ -228,6 +234,7 @@
     }
     disconnectedCallback() {
       super.disconnectedCallback();
+      M.setNavVars(0);
       window.removeEventListener('hashchange', this._onHashNav);
       window.removeEventListener('location-changed', this._onHashNav);
       window.removeEventListener('popstate', this._onHashNav);
@@ -240,6 +247,7 @@
 
     // Fjern portalen og gi dashbordet tilbake paddingen (kort frakoblet / annet dashbord / annen HA-side).
     _hidePortal() {
+      M.setNavVars(0);
       if (this._portal) { this._portal.remove(); this._portal = null; }
       this._reserve(null);
       if (this.ui.menu) this._ui = { ...this._ui, menu: false };
@@ -414,7 +422,7 @@
 
     _renderPortal(N, geo) {
       // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
-      const off = this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
+      const off = geo.rail ? 0 : this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
       if (document.documentElement.style.getPropertyValue('--ki-nav-bottom') !== off + 'px') document.documentElement.style.setProperty('--ki-nav-bottom', off + 'px');
       if (!this._portal) {
         const p = document.createElement('div');
@@ -458,6 +466,8 @@
       requestAnimationFrame(() => {
         if (!nav || !nav.isConnected) return;
         const r = nav.getBoundingClientRect();
+        // popupenes bunnluft (MSH.popupBottomPad): faktisk høyde på bunn-navbaren, 0 som rail
+        M.setNavVars(geo.rail ? 0 : Math.round(r.height));
         if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16) });
         else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) });
       });

@@ -39,6 +39,7 @@
     [/varmtvann|bereder|\bvvb\b/, 'shower', 'orange', 'Varmer vann', 50, 'puls'],
   ];
   const profOf = (txt) => { const n = String(txt || '').toLowerCase(); const p = PROF.find((x) => x[0].test(n)); return p ? { icon: p[1], col: C[p[2]], verb: p[3], thr: p[4], anim: p[5] } : null; };
+  const ANIM_LV = [['full', 'Full'], ['calm', 'Rolig'], ['off', 'Av']];
   const ANIM = { spinn: '1.6s linear', rist: '.5s ease-in-out', puls: '1.4s ease-in-out' };
   const DEV_ICON = [[/\btv\b|fjernsyn/, 'tv'], [/server|rack|nas\b/, 'dns'], [/stikk|plugg|outlet/, 'outlet'], [/\bpc\b|data|computer/, 'desktop_windows'], [/skjerm|monitor/, 'monitor'], [/piano/, 'piano'], [/peis/, 'fireplace'], [/lader|charger/, 'mdi:battery-charging'], [/luftrens|avfukt/, 'air'], [/varmekabel|gulvvarme/, 'heat'], [/julelys/, 'star']];
   const SCENE_ICON = [[/maks|max|full/, 'light_mode'], [/komfort|kos|hygge/, 'weekend'], [/middag|spise|mat/, 'restaurant'], [/\btv\b|film|kino/, 'tv'], [/demp|dim/, 'brightness_4'], [/alt av|\bav\b|natt|sov/, 'dark_mode'], [/morgen|våkn/, 'wb_twilight'], [/les/, 'library_books'], [/fest|party/, 'music_note']];
@@ -47,6 +48,7 @@
   const CALM = ['connectivity', 'plug', 'power', 'running'];
   const SENS_ICON = { motion: 'directions_walk', occupancy: 'sensor_occupied', presence: 'sensor_occupied', door: 'door_front', garage_door: 'garage', window: 'window', opening: 'door_front', moisture: 'water_damage', smoke: 'detector_smoke', gas: 'mdi:gas-cylinder', carbon_monoxide: 'co2', illuminance: 'light_mode', humidity: 'humidity_percentage', temperature: 'thermometer', vibration: 'mdi:vibrate', sound: 'graphic_eq', lock: 'lock', battery: 'battery_full', carbon_dioxide: 'co2', power: 'bolt' };
 
+  const SPACING = { gap: 8, pad_top: -10, pad_bottom: 150 };
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const obj = (id) => String(id).split('.').slice(1).join('.');
 
@@ -166,6 +168,12 @@
   };
 
   /* ---------------------------------------------------------------- skjema (felles editor) */
+  // Standard for alle romkort («Tilpass Hjem» → Kort, lagret i msh-hjem-faner-card) – vises som valgt når rommet ikke har egen verdi.
+  const hjemDef = (k, d) => {
+    const f = M.liveOf && M.liveOf('msh-hjem-faner-card');
+    const c = (f && f.config) || (M.store && M.CARD_IDS && (M.store.eff ? M.store.eff('cards.' + M.CARD_IDS.faner) : M.store.get('cards.' + M.CARD_IDS.faner))) || {};
+    return c[k] || d;
+  };
   function buildSchema(area0) {
     return (h, c) => {
       c = c || {};
@@ -174,12 +182,16 @@
       const out = [
         { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
           { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: 20, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
-          { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: 40, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']] },
+          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: SPACING.pad_top, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
+          { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [60, 'Litt 60'], [150, 'Standard 150'], [300, 'Maks 300']] },
         ] },
-        { type: 'section', id: 'look', label: 'Rom', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
+        { type: 'section', id: 'look', label: 'Utseende', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
           { type: 'color', name: 'look.col', label: 'Romfarge', help: 'Brukes i toppkortets graf, romkortet og ikon-sirkelen i popup-headeren' },
+          { type: 'select', name: 'icon_color_mode', label: 'Ikonfarge på romkortet (Hjem)', options: M.ICON_MODES || [], default: hjemDef('icon_color_mode', 'lights'), help: 'Ikke valgt = standard fra «Tilpass Hjem» → Kort' },
           { type: 'icon', name: 'look.icon', label: 'Rom-ikon', auto: (hh, cc) => { const ar = cc.area || area0; return ar && hh && hh.areas && hh.areas[ar] ? hh.areas[ar].icon : null; } },
+        ] },
+        { type: 'section', id: 'actions', label: 'Handlinger', icon: 'mdi:gesture-tap', meta: (hh, cc) => ((M.ICON_TAPS || []).find((o) => o[0] === (cc.icon_tap || hjemDef('icon_tap', 'toggle_lights'))) || [])[1] || '', fields: [
+          { type: 'select', name: 'icon_tap', label: 'Trykk på ikonet (romkortet på Hjem)', options: M.ICON_TAPS || [], default: hjemDef('icon_tap', 'toggle_lights'), help: 'Termostat-knappene påvirkes ikke. Ikke valgt = standard fra «Tilpass Hjem» → Kort' },
         ] },
         ...(area0 ? [] : [{ type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' }]),
         { type: 'section', id: 'klima', label: 'Klima', icon: 'mdi:thermostat', meta: (hh, cc) => { const ar = cc.area || area0; const rc = ar && hh ? M.roomClimate(hh, ar, cc) : null; return rc && rc.climate ? M.name(hh, rc.climate) : 'Automatisk'; }, fields: [
@@ -259,11 +271,19 @@
                 { type: 'color', name: p + '.icon_color', label: 'Ikonfarge' },
                 { type: 'color', name: p + '.bg', label: 'Bakgrunn' },
                 { type: 'color', name: p + '.cell', label: 'Ikoncelle' },
+                ...(kind === 'Enhet' && M.applianceType && M.applianceType(id, h.states[id], h) ? [
+                  { type: 'select', name: p + '.animation', label: 'Animasjon', options: ANIM_LV, help: 'Tomt = som «Hvitevarer» under' },
+                  { type: 'number', name: p + '.run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto' },
+                ] : []),
               ] };
             }),
           ] });
         }
       }
+      out.push({ type: 'section', id: 'appliances', label: 'Hvitevarer', icon: 'mdi:washing-machine', meta: (hh, cc) => (ANIM_LV.find((x) => x[0] === (cc.appliance_animation || 'full')) || [])[1], fields: [
+        { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: ANIM_LV, default: 'full', help: 'Rolig = halv fart og utslag. Av = stillestående ikon' },
+        { type: 'number', name: 'run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto', help: 'Uten status-sensor: effekt over dette = kjører' },
+      ] });
       out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: true });
       return out;
     };
@@ -273,6 +293,8 @@
   class Rom extends M.Card {
     static get cardName() { return 'Rom'; }
     static get defaults() { return {}; }
+    // Mellomrom-standard (MSH._applySpacing): bare rom uten lagret verdi får disse.
+    static get spacingDefaults() { return SPACING; }
     static get schema() { return buildSchema(null); }
     // «Tilpass rom» lagres per område i ki-store: rooms.<area_id> (uavhengig av card_id)
     static storeKey(cfg, card) { const a = (cfg && cfg.area) || (card && card.isConnected && M.roomArea(card)); return a ? 'rooms.' + a : null; }
@@ -478,25 +500,30 @@
         if (w != null) { W += w; hasW = true; }
         if (!open) return '';
         const nm = this._nm(id), fan = id.startsWith('fan.');
-        const P = profOf(nm + ' ' + obj(id));
+        const P0 = profOf(nm + ' ' + obj(id)), lk0 = this._look(id);
+        // Hvitevarer: felles animerte ikoner (06-appliance-icons.js) – status/fase fra samme enhet, ellers effekt
+        const aT = M.applianceType ? M.applianceType(id, s, this.hass) : null, AP = aT ? M.APPLIANCES[aT] : null;
+        const aS = aT ? M.applianceStatus(this.hass, id, { card: this, type: aT, power: this._L.eff[id], run_threshold_w: lk0.run_threshold_w != null ? lk0.run_threshold_w : this.config.run_threshold_w != null ? this.config.run_threshold_w : P0 ? P0.thr : undefined }) : null;
+        const P = P0 || (AP && aT !== 'fan' ? { icon: AP.icon, col: AP.color, verb: AP.verb, thr: 5, anim: 'puls' } : null);
         const pctF = fan && s && s.attributes.percentage != null ? ` · ${M.nf(s.attributes.percentage)} %` : '';
         const icon0 = (s && s.attributes.icon) || (this.hass.entities && this.hass.entities[id] && this.hass.entities[id].icon) || (DEV_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1] || (fan ? 'mode_fan' : 'power');
         let st;
         if (P) {
-          const act = isOn && (w == null || w > P.thr);
+          const act = isOn && (aS && aS.source && aS.source !== 'door' ? aS.running : (w == null || w > P.thr));
           st = { icon: P.icon, sub: unav ? 'Utilgjengelig' : act ? (w != null ? `${P.verb} · ${M.nf(w)} W` : P.verb) : isOn ? (w > 0 ? `Hviler · ${M.nf(w)} W` : w != null ? 'På · 0 W' : 'På') : 'Av',
-            bg: act ? P.col : G.g300, col: act ? '#1f1f1f' : G.w, cell: act ? 'rgba(0,0,0,0.12)' : C.popup, icol: act ? '#1f1f1f' : P.col,
-            anim: act ? `${P.anim} ${ANIM[P.anim]} infinite` : 'none', subCol: act ? 'rgba(31,31,31,0.8)' : G.g700, subW: act ? 600 : 400 };
+            bg: act ? (AP ? AP.color : P.col) : G.g300, col: act ? '#1f1f1f' : G.w, cell: act ? 'rgba(0,0,0,0.12)' : C.popup, icol: act ? '#1f1f1f' : (AP ? AP.color : P.col),
+            anim: act ? `${P.anim} ${ANIM[P.anim]} infinite` : 'none', run: aT === 'fridge' ? !!(aS && aS.source === 'door' && aS.running) : act, subCol: act ? 'rgba(31,31,31,0.8)' : G.g700, subW: act ? 600 : 400 };
         } else {
           st = { icon: icon0, sub: unav ? 'Utilgjengelig' : isOn ? (w != null ? `På · ${M.nf(w)} W` : 'På') + pctF : 'Av',
             bg: isOn ? PINK : G.g300, col: isOn ? G.g200 : G.w, cell: isOn ? 'rgba(42,23,32,0.12)' : C.popup, icol: isOn ? G.g200 : G.g800,
-            anim: isOn && fan ? `spinn ${ANIM.spinn} infinite` : 'none', subCol: isOn ? 'rgba(42,23,32,0.75)' : G.g700, subW: 400 };
+            anim: isOn && fan ? `spinn ${ANIM.spinn} infinite` : 'none', run: isOn, subCol: isOn ? 'rgba(42,23,32,0.75)' : G.g700, subW: 400 };
         }
-        const lk = this._look(id), ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s };
+        const lk = lk0, ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s };
         const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || st.sub, icon = tpl(lk.icon, ctx) || st.icon;
+        const aIcon = aT && !lk.icon && M.renderApplianceIcon ? M.renderApplianceIcon(aT, st.run, { phase: aS.phase, done: aS.done, pct: s && s.attributes.percentage, level: lk.animation || this.config.appliance_animation || 'full', size: 26 }) : '';
         const bg = M.color(tpl(lk.bg, ctx), st.bg), cell = M.color(tpl(lk.cell, ctx), st.cell), icol = M.color(tpl(lk.icon_color, ctx), st.icol);
         return `<button class="pill dv ${unav ? 'unav' : ''}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success" data-key="d-${esc(id)}" style="background:${bg};color:${st.col}">
-          <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24, `animation:${st.anim}`)}</span>
+          <span class="iw${aIcon ? ' ma-cell' : ''}" style="background:${cell};color:${icol}">${aIcon || M.icon(icon, 24, `animation:${st.anim}`)}</span>
           <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${st.subCol};font-weight:${st.subW}">${esc(sub)}</span></span></button>`;
       }).join('');
       const sum = this._tekst('effekt', this._listChanged('enheter')) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
@@ -698,7 +725,7 @@
       if (this._area) M.setRoomCfg(this._area, this._roomCfg());
       this._applySpacing();
     }
-    _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom }; }
+    _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom, icon_color_mode: c.icon_color_mode, icon_tap: c.icon_tap }; }
     onOpen() { if (M.store) M.store.refresh(this.hass); this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
     afterRender() {
       const R = this.shadowRoot;
@@ -775,6 +802,7 @@
         @keyframes rist{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-1px,-1px) rotate(-7deg)}40%{transform:translate(1px,0) rotate(6deg)}60%{transform:translate(-1px,1px) rotate(-5deg)}80%{transform:translate(1px,-1px) rotate(4deg)}}
         @keyframes puls{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
         @keyframes spinn{to{transform:rotate(360deg)}}
+        ${M.APPLIANCE_CSS || ''}
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}

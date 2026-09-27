@@ -16,7 +16,7 @@ async function boot(userData, failSave) {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto('file://' + resolve('test/harness-bubble.html'));
-  await p.evaluate(({ ud, fail }) => { localStorage.clear(); window.__userData = ud || {}; window.__failSave = fail; }, { ud: userData, fail: failSave });
+  await p.evaluate(({ ud, fail }) => { localStorage.clear(); localStorage.setItem('ki-device-id', 'testenhet'); /* samme enhet etter reload (cache tømt) */ window.__userData = ud || {}; window.__failSave = fail; }, { ud: userData, fail: failSave });
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.evaluate(() => { const base = window.mockHass; window.mockHass = () => { const h = base(); const ws = h.callWS; h.callWS = (m) => (m.type === 'frontend/set_user_data' && window.__failSave ? Promise.reject(new Error('nettverk')) : ws(m)); return h; }; });
   await p.addScriptTag({ path: bundle });
@@ -57,7 +57,7 @@ let res = {};
     await wait(50);
     const statusDuring = (S.querySelector('.stat') || {}).textContent;
     await wait(900);
-    return { hapsAfterSlider, hapsAfterPill, statusBefore, statusDuring, hapsAll: haps, stored: (window.__userData.ki_dashboard || {}).rooms, editorOpen: window.MSH.portals().length };
+    return { hapsAfterSlider, hapsAfterPill, statusBefore, statusDuring, hapsAll: haps, stored: (() => { const u = window.__userData.ki_dashboard || {}, d = ((u.devices || {})[window.MSH.store.deviceId] || {}).rooms || {}; return { stue: { ...((u.rooms || {}).stue || {}), ...(d.stue || {}) } }; })(), editorOpen: window.MSH.portals().length };
   }, deep);
   res.save.errs = errs;
   const ud = await p.evaluate(() => window.__userData);

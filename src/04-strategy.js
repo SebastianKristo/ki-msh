@@ -89,12 +89,12 @@
   }
 
   // «Tilpass rom»-verdiene (ki-store rooms.<area>) tas med i kortets config, så GUI-editoren viser dem
-  const roomCfg = (area) => { const r = (M.store && M.store.get('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
+  const roomCfg = (area) => { const r = (M.store && M.store.eff('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
   M.generateDashboardView = async function (config, hass) {
     config = config || {};
     M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
     if (M.store) await M.store.load(hass);
-    const user = (M.store && M.store.get()) || {};
+    const user = (M.store && (M.store.view ? M.store.view() : M.store.get())) || {};
     const R = await registries(hass);
     const funcs = buildFunctionPopups(R, hass, config, user);
     const fHash = new Set(funcs.map((f) => f.hash));
