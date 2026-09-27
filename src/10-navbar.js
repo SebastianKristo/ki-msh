@@ -148,7 +148,7 @@
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:max(8px, calc(env(safe-area-inset-bottom, 0px) - 10px))}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px))}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
     nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
@@ -199,6 +199,7 @@
         { type: 'navbar' },
         { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
           { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): bred ≥ 1000 px (iPad ≥ 700 px) = vertikal rail til venstre.' },
+          { type: 'range', name: 'bottom_offset', label: 'Avstand fra bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 60, default: 8, unit: 'px', presets: [[0, 'Inntil 0'], [8, 'Standard 8'], [24, 'Høy 24']] },
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
@@ -412,6 +413,9 @@
     }
 
     _renderPortal(N, geo) {
+      // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
+      const off = this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
+      if (document.documentElement.style.getPropertyValue('--ki-nav-bottom') !== off + 'px') document.documentElement.style.setProperty('--ki-nav-bottom', off + 'px');
       if (!this._portal) {
         const p = document.createElement('div');
         p.className = 'msh-navbar-portal';

@@ -694,25 +694,32 @@
   };
   // Editor-lagring: til ki-store (frontend/set_user_data) – ingen Lovelace-rebuild, ingen navigering.
   // opts.lovelace = true skriver i stedet til Lovelace-configen (brukes bare når brukeren ber om det).
-  MSH.saveCardConfig = function (hass, oldCfg, newCfg, opts) {
+  // Nøkkel i ki-store for et kort: rom-kort lagres per område (rooms.<area_id>), andre per card_id (cards.<id>).
+  MSH.storeKey = function (cfg, card) {
+    const cls = (card && card.constructor) || (cfg && customElements.get(String(cfg.type || '').replace('custom:', '')));
+    if (cls && cls.storeKey) { const k = cls.storeKey(cfg || {}, card); if (k) return k; }
+    return cfg && cfg.card_id ? 'cards.' + cfg.card_id : null;
+  };
+  MSH.saveCardConfig = async function (hass, oldCfg, newCfg, opts) {
     opts = opts || {};
     if (opts.lovelace || !MSH.store) return MSH.saveLovelaceCardConfig(hass, oldCfg, newCfg, opts);
     if (!newCfg.card_id) newCfg = { ...newCfg, card_id: (oldCfg && oldCfg.card_id) || MSH.uid() };
-    const { type, ...rest } = newCfg;
-    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type') rest[k] = null; }); // fjernet → null
+    const key = opts.key || MSH.storeKey(newCfg, opts.card);
+    const { type, card_id, ...rest } = newCfg;
+    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
-    MSH.store.setCard(newCfg.card_id, rest);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    if (opts.toasts !== false && newCfg.toasts !== false) { clearTimeout(MSH._savedT); MSH._savedT = setTimeout(() => MSH.toast('Lagret'), 650); }
-    return Promise.resolve({ ok: true, store: true, config: newCfg });
+    const res = await MSH.store.set(key, { ...(MSH.store.get(key) || {}), ...rest }, { immediate: opts.immediate });
+    return { ...res, store: true, key, config: newCfg };
   };
   // YAML-config + ki-store (null = fjernet)
-  MSH.effectiveConfig = function (yaml) {
-    const st = yaml && yaml.card_id && MSH.store ? MSH.store.card(yaml.card_id) : null;
+  MSH.effectiveConfig = function (yaml, card) {
+    const key = yaml && MSH.store ? MSH.storeKey(yaml, card) : null;
+    const st = key ? MSH.store.get(key) : null;
     if (!st) return yaml;
     const out = { ...yaml };
     Object.keys(st).forEach((k) => { if (st[k] === null) delete out[k]; else out[k] = st[k]; });
-    out.type = yaml.type; out.card_id = yaml.card_id;
+    out.type = yaml.type; if (yaml.card_id) out.card_id = yaml.card_id;
     return out;
   };
   MSH.flushSaves = function () { [...PENDING.keys()].forEach((id) => { const p = PENDING.get(id); clearTimeout(p.timer); doSave(id); }); };
@@ -778,7 +785,7 @@
       if (!config) throw new Error('Mangler config');
       const prevId = this._rawConfig && this._rawConfig.card_id;
       if (config.__eff) { const { __eff, ...c } = config; config = c; } // live-utkast fra editoren
-      else { this._yamlConfig = config; config = MSH.effectiveConfig(config); }
+      else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       this._firstRender = false;
@@ -815,9 +822,9 @@
       this._register();
       if (MSH.store && !this._storeOff) {
         this._storeOff = MSH.store.subscribe((d, path) => {
-          const id = this._yamlConfig && this._yamlConfig.card_id;
-          if (!id || (path && path !== 'cards.' + id && !String(path).startsWith('cards.' + id + '.') && path !== 'cards')) return;
-          const eff = MSH.effectiveConfig(this._yamlConfig);
+          const key = this._yamlConfig && MSH.storeKey(this._yamlConfig, this);
+          if (!key || (path && path !== key && !String(path).startsWith(key + '.') && !key.startsWith(path + '.'))) return;
+          const eff = MSH.effectiveConfig(this._yamlConfig, this);
           if (JSON.stringify(eff) !== JSON.stringify(this._rawConfig)) this.setConfig(this._yamlConfig);
         });
       }
@@ -1010,22 +1017,44 @@
     if (areaCtx) ed.areaCtx = areaCtx;
     if (title) ed.title = title;
     ed.hass = card.hass;
+    if (MSH.store && card.hass) MSH.store.refresh(card.hass);
     const orig = card._rawConfig || card.config;
-    let cur = orig, dirty = false;
+    let cur = orig, dirty = false, seq = 0;
     ed.setConfig(orig);
-    const save = (immediate) => MSH.saveCardConfig(card.hass, orig, cur, { immediate });
+    const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._render) ed._render(); };
+    // Autolagring (600 ms) – stille; status i arket: «Lagrer …» → «Lagret» / «Kunne ikke lagre»
+    const save = async (immediate) => {
+      const my = ++seq;
+      status('Lagrer …');
+      const r = await MSH.saveCardConfig(card.hass, orig, cur, { immediate, card });
+      if (my !== seq) return r;
+      if (r && r.ok === false) { status('Kunne ikke lagre' + (r.error ? ' – ' + r.error : ''), 'err'); MSH.haptic('failure'); }
+      else status('Lagret', 'ok');
+      return r;
+    };
     ed.addEventListener('msh-change', (ev) => {
       cur = ev.detail.config;
       if (cur.card_id) MSH.applyLive(cur.card_id, cur);
       if (card._rawConfig !== cur) card.setConfig({ ...cur, __eff: 1 });
       if (ev.detail.commit !== false) { dirty = true; save(false); }
     });
-    ed.addEventListener('msh-save', (ev) => { cur = ev.detail.config || cur; if (dirty || cur !== orig) save(true); ov.close(); });
-    ed.addEventListener('msh-cancel', () => {
-      if (cur !== orig) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true }); }
+    // Lagre/Ferdig: samler ventende endringer, lagrer én gang og venter på svar
+    ed.addEventListener('msh-save', async (ev) => {
+      cur = (ev.detail && ev.detail.config) || cur;
+      if (!dirty && cur === orig) { ov.close(); return; }
+      const r = await save(true);
+      if (r && r.ok === false) return; // endringen beholdes i skjemaet
+      MSH.haptic('success');
+      if (cur.toasts !== false) MSH.toast('Lagret');
+      dirty = false;
       ov.close();
     });
-    ov.onClosed = () => { if (dirty) MSH.flushSaves(); };
+    ed.addEventListener('msh-cancel', () => {
+      if (cur !== orig) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true, card }); }
+      dirty = false;
+      ov.close();
+    });
+    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); };
     ov.body.appendChild(ed);
     return { overlay: ov, editor: ed };
   };

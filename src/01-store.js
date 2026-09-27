@@ -26,25 +26,50 @@
   };
   const emit = (path) => { subs.forEach((cb) => { try { cb(data, path); } catch (e) { console.error('[ki-store]', e); } }); };
   const cache = () => { try { localStorage.setItem(CACHE, JSON.stringify(data)); } catch (e) { /* */ } };
-  const push = () => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      timer = null;
-      if (!hass || !hass.callWS) return;
-      try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); M.haptic('success'); }
-      catch (e) { M.toast('Kunne ikke lagre: ' + (e.message || e)); }
-    }, 600);
+  // Lagring mot HA: debounce 600 ms; alle som venter får samme svar ({ ok, error }) når callWS har returnert.
+  let waiters = [];
+  const write = async () => {
+    clearTimeout(timer); timer = null;
+    const ws = waiters; waiters = [];
+    let res;
+    if (!hass || !hass.callWS) res = { ok: false, error: 'Ingen forbindelse til Home Assistant' };
+    else {
+      try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); res = { ok: true }; }
+      catch (e) { res = { ok: false, error: (e && e.message) || String(e) }; }
+    }
+    ws.forEach((fn) => fn(res));
+    return res;
   };
+  const push = (immediate) => new Promise((res) => {
+    waiters.push(res);
+    clearTimeout(timer);
+    timer = setTimeout(write, immediate ? 0 : 600);
+  });
 
   M.store = {
     get: (path) => get(data, path),
-    set(path, value) {
+    // set → oppdaterer cache og kort straks; returnerer Promise<{ ok, error }> når HA har bekreftet lagringen
+    set(path, value, opts) {
       data = path ? setIn(data, path, value) : (value || {});
-      cache(); emit(path); push();
+      cache(); emit(path);
+      return push(opts && opts.immediate);
+    },
+    // Tving lagring nå (Lagre-knappen) og vent på svar
+    save() { return push(true); },
+    get pending() { return !!timer; },
+    // Hent på nytt fra HA (ved åpning av popup) – ikke mens egne endringer venter
+    async refresh(h) {
+      if (h) hass = h;
+      if (!hass || !hass.callWS || timer) return data;
+      try {
+        const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
+        if (r && r.value && typeof r.value === 'object' && !timer && JSON.stringify(r.value) !== JSON.stringify(data)) { data = r.value; cache(); emit(''); }
+      } catch (e) { /* */ }
+      return data;
     },
     subscribe(cb) { subs.add(cb); return () => subs.delete(cb); },
     get loaded() { return loaded; },
-    flush() { if (timer) { clearTimeout(timer); timer = null; if (hass) hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }).catch(() => {}); } },
+    flush() { if (timer) write(); },
     async load(h) {
       if (h) hass = h;
       if (loaded || !hass || !hass.callWS) return data;
@@ -69,11 +94,11 @@
       return loading;
     },
     // Kortconfig fra editorene
-    card: (id) => (id ? get(data, 'cards.' + id) || null : null),
-    setCard(id, cfg) {
-      if (!id) return;
+    card: (id) => (id ? get(data, String(id).includes('.') ? id : 'cards.' + id) || null : null),
+    setCard(id, cfg, opts) {
+      if (!id) return Promise.resolve({ ok: false });
       const { type, ...rest } = cfg || {};
-      M.store.set('cards.' + id, rest);
+      return M.store.set(String(id).includes('.') ? id : 'cards.' + id, rest, opts);
     },
   };
   window.kiStore = M.store;

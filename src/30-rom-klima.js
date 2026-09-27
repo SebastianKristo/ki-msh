@@ -37,13 +37,18 @@
     if (!ov && hass && hass.areas && hass.areas[area]) { const g = hass.states[`sensor.${M.slug(hass.areas[area].name)}_oversikt`]; if (g && g.attributes.integrasjon === 'ki_rom') ov = g; }
     const A = (ov && ov.attributes) || {};
     const t = M.attrEnt(hass, A.temperatur), h = M.attrEnt(hass, A.fuktighet);
-    const temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
-    const hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    let temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
+    let hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    // Ingen sensor i rommet → husets sensorer (strategi-config fallback_temperature / fallback_humidity)
+    const FB = M.FALLBACK || {};
+    let tempFallback = false, humFallback = false;
+    if (!temp && t.v == null) { const f = FB.temperature || 'sensor.hus_temperature'; if (hass.states[f]) { temp = f; tempFallback = true; } }
+    if (!hum && h.v == null) { const f = FB.humidity || 'sensor.hus_fuktighet'; if (hass.states[f]) { hum = f; humFallback = true; } }
     const climates = A.klima ? M.ids(A.klima).filter((id) => id.startsWith('climate.')) : [];
     const areaClim = M.all(hass, 'climate', (s, id) => M.areaOf(hass, id) === area);
     const thermo = climates[0] || areaClim[0] || null;
     const lights = A.lys ? M.ids(A.lys) : M.all(hass, 'light', (s, id) => M.areaOf(hass, id) === area);
-    return { ov, A, temp, hum, tempVal: t.id ? null : t.v, humVal: h.id ? null : h.v, thermo, climates: [...new Set([...climates, ...areaClim])], lights };
+    return { ov, A, temp, hum, tempFallback, humFallback, tempVal: t.id ? null : t.v, humVal: h.id ? null : h.v, thermo, climates: [...new Set([...climates, ...areaClim])], lights };
   };
   // Romkonfig publisert av msh-rom-card («Tilpass rom»), så toppkort/romkort bruker samme overstyringer.
   M.roomCfgs = M.roomCfgs || {};
@@ -57,7 +62,7 @@
   // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].
   M.roomClimate = function (hass, area, cfg) {
     const a = area ? M.roomAuto(hass, area) : { climates: [] };
-    const rc = (area && M.roomCfgs[area]) || {};
+    const rc = (area && (M.roomCfgs[area] || (M.store && M.store.get('rooms.' + area)))) || {};
     const o = { ...((rc && rc.overrides) || {}), ...((cfg && cfg.overrides) || {}) };
     const tId = o.temperature || o.temperatur || a.temp || null, hId = o.humidity || o.fuktighet || a.hum || null;
     const clim = o.climate || o.termostat || a.thermo || null;

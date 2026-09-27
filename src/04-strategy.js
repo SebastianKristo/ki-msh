@@ -82,14 +82,17 @@
   }
   function roomLook(area, hass, user) {
     const S = (user && user.cards) || {}, PO = popOf(user, area) || {};
-    const rc = S[M.CARD_IDS.room(area)] || {}, fc = (S[M.CARD_IDS.faner] || {}).rooms || {};
+    const rc = { ...(S[M.CARD_IDS.room(area)] || {}), ...((user && user.rooms && user.rooms[area]) || {}) }, fc = (S[M.CARD_IDS.faner] || {}).rooms || {};
     const col = PO.color || (rc.look && rc.look.col) || (fc[area] && fc[area].color) || (M.romColor ? M.romColor(area, hass) : 'var(--orange)');
     const icon = PO.icon || (rc.look && rc.look.icon) || (fc[area] && fc[area].icon) || null;
     return { col, icon };
   }
 
+  // «Tilpass rom»-verdiene (ki-store rooms.<area>) tas med i kortets config, så GUI-editoren viser dem
+  const roomCfg = (area) => { const r = (M.store && M.store.get('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
   M.generateDashboardView = async function (config, hass) {
     config = config || {};
+    M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
     if (M.store) await M.store.load(hass);
     const user = (M.store && M.store.get()) || {};
     const R = await registries(hass);
@@ -113,7 +116,7 @@
       ...rooms.map((r) => {
         const L = roomLook(r.id, hass, user), o = ov('#' + r.id);
         const au = M.roomAuto(hass, r.id);
-        return M.popupTemplateB({ name: o.name || r.name, icon: o.icon || L.icon || r.icon || (au.A && au.A.ikon) || 'mdi:home', hash: '#' + r.id, color: plainVar(o.color || L.col), card: { type: 'custom:msh-rom-card', card_id: I.room(r.id), area: r.id } });
+        return M.popupTemplateB({ name: o.name || r.name, icon: o.icon || L.icon || r.icon || (au.A && au.A.ikon) || 'mdi:home', hash: '#' + r.id, color: plainVar(o.color || L.col), card: { type: 'custom:msh-rom-card', card_id: I.room(r.id), area: r.id, ...roomCfg(r.id) } });
       }),
       ...funcs.map((f) => {
         const o = ov(f.hash);
@@ -156,6 +159,8 @@
         { type: 'section', id: 'home', label: 'Hjem', icon: 'mdi:home', fields: [
           { type: 'select', name: 'home.layout_mode', label: 'Layout', options: [['auto', 'Auto'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
+          { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
+          { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },
         ] },
       ];
       if (!this._ed) {
