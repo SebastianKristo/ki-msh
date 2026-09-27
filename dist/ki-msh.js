@@ -15054,7 +15054,9 @@ try {
     const autos = M.all(hass, ['automation', 'script'], (s, id) => KW.test(T(id)) && (explicit ? inA(id) : true));
     o.programs = [...osProg, ...autos];
     // innstillinger (tall/klokkeslett) → steppere med systemets velger i Program-fanen
-    o.settings = M.all(hass, ['number', 'input_number', 'time', 'input_datetime'], (s, id) => (os.includes(id) || scope(id)) && !/basseng|pool/.test(T(id)));
+    // uten hageområde: bare tydelige vanningsnavn (ikke «varmtvann», «sone» o.l. fra f.eks. KI Energi)
+    const KW_SET = /vanning|sprinkl|spreder|drypp|drip|irrig|hageslange/;
+    o.settings = M.all(hass, ['number', 'input_number', 'time', 'input_datetime'], (s, id) => (os.includes(id) || inA(id) || (!explicit && KW_SET.test(T(id)))) && !/basseng|pool|varmtvann|bereder|vvb/.test(T(id)));
     return o;
   };
   M.vanEnts = function (hass, cfg) {
@@ -16083,7 +16085,7 @@ try {
     const maler = TIMESMALER_KANDIDATER.filter((id) => K.st(id));
     const tauSoner = K.a('sensor.ki_tidskonstanter', 'soner', {}) || {};
     const laerer = Object.values(tauSoner).filter((v) => (v.malinger || 0) < 20).length;
-    const avslatt = K.laster().filter((l) => l.handling === 'utilgjengelig' || l.handling === 'av').length;
+    const avslatt = soneListe(K).filter((l) => l.handling === 'utilgjengelig' || l.handling === 'av').length;
     return list([
       row({ dot: styrerNaa ? 'ok' : 'noytral', name: 'Motoren styrer ovnene', missing: !finnes, after: helpBtn(card, 'overtakelse'),
         sub: styrerNaa ? 'Skriver settpunkt til alle soner som står på «KI styrer».' : 'Regner og logger, men rører ingen ovner. Slå av skyggemodus for å la den styre.',
@@ -16249,7 +16251,7 @@ try {
     const unit = hva === 'temp' ? '°' : ' W', dec = hva === 'temp' ? 1 : 0;
     const bars = vals.map((v, i) => ({ h: v == null ? 0 : 8 + 92 * (v - lo) / span, c: G, o: i === N - 1 ? 1 : 0.4 }));
     const labels = vals.map((v, i) => `${bucketLabel(i, N, H)} · ${v == null ? '–' : nf(v, dec) + unit}`);
-    return `<div class="kb-zg">${barsHTML(card, 'sone:' + l.key + ':' + hva, bars, labels, { h: 84, gap: 2 })}<div class="kb-zmm"><b>${nf(mx, dec)}${unit}</b><span>maks</span><b>${nf(mn, dec)}${unit}</b><span>min</span></div></div>`
+    return `<div class="kb-zg">${barsHTML(card, 'sone:' + l.key + ':' + hva, bars, labels, { h: 84, gap: 2 })}<div class="kb-zmm"><span><b>${nf(mx, dec)}${unit}</b>maks</span><span><b>${nf(mn, dec)}${unit}</b>min</span></div></div>`
       + `<div class="kb-axis"><span>−6 t</span><span>−3 t</span><span>nå</span></div>`;
   }
 
@@ -17328,7 +17330,7 @@ try {
     .kb.is-col{gap:0}
     .kb-h{display:flex;align-items:center;gap:8px;min-height:28px;cursor:pointer;user-select:none;-webkit-user-select:none}
     .kb-ic{display:inline-flex;color:var(--gray700,#979797);flex:none}
-    .kb-t{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+    .kb-t{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;max-width:72%;min-width:0}
     .kb-m{flex:1 1 auto;min-width:0;text-align:right;font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .kb-chev{display:inline-flex;color:var(--gray600,#7f7f7f);transition:transform .2s;flex:none}
     .kb.is-col .kb-chev,.kb-subsec.is-col .kb-subh ha-icon{transform:rotate(-90deg)}
@@ -17476,9 +17478,9 @@ try {
     .kb-dur:active{transform:scale(.95);background:rgba(242,133,201,.3)}
     .kb-zg{display:flex;gap:10px;align-items:stretch}
     .kb-zg .kb-bars{flex:1;min-width:0}
-    .kb-zmm{display:grid;grid-template-rows:auto auto 1fr auto auto;font-size:10px;color:var(--gray600,#7f7f7f);text-align:right;flex:none;min-width:44px}
+    .kb-zmm{display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:var(--gray600,#7f7f7f);text-align:right;flex:none;min-width:44px}
+    .kb-zmm span{display:flex;flex-direction:column}
     .kb-zmm b{font-size:12px;color:#fafafa;font-weight:600;font-variant-numeric:tabular-nums}
-    .kb-zmm span:nth-of-type(1){margin-bottom:auto}
     .kb-spar{display:flex;flex-direction:column;gap:10px}
     .kb-sp{display:flex;flex-direction:column;gap:5px}
     .kb-sp-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}

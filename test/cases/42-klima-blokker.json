@@ -1,0 +1,131 @@
+[
+ {
+  "name": "Klima-blokker · oversikt",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_oversikt",
+    "layout": {
+     "default_tab": "oversikt"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · soner",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_soner",
+    "layout": {
+     "default_tab": "soner"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · energi",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_energi",
+    "layout": {
+     "default_tab": "energi"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · vann",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_vann",
+    "layout": {
+     "default_tab": "vann"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · lading",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_lading",
+    "layout": {
+     "default_tab": "lading"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · tanker",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_tanker",
+    "layout": {
+     "default_tab": "tanker"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · oppsett",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_oppsett",
+    "layout": {
+     "default_tab": "oppsett"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · avansert",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_avansert",
+    "layout": {
+     "default_tab": "avansert"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Klima-blokker · skjulte og flyttede blokker",
+  "hash": "#klima",
+  "cards": [
+   {
+    "type": "custom:msh-klima-card",
+    "card_id": "kb_layout",
+    "layout": {
+     "default_tab": "energi",
+     "block_order": {
+      "energi": [
+       "grenser",
+       "effekt6",
+       "topp3"
+      ]
+     },
+     "hidden_blocks": {
+      "energi": [
+       "sparer"
+      ]
+     }
+    }
+   }
+  ]
+ }
+]

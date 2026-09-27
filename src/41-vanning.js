@@ -75,7 +75,9 @@
     const autos = M.all(hass, ['automation', 'script'], (s, id) => KW.test(T(id)) && (explicit ? inA(id) : true));
     o.programs = [...osProg, ...autos];
     // innstillinger (tall/klokkeslett) → steppere med systemets velger i Program-fanen
-    o.settings = M.all(hass, ['number', 'input_number', 'time', 'input_datetime'], (s, id) => (os.includes(id) || scope(id)) && !/basseng|pool/.test(T(id)));
+    // uten hageområde: bare tydelige vanningsnavn (ikke «varmtvann», «sone» o.l. fra f.eks. KI Energi)
+    const KW_SET = /vanning|sprinkl|spreder|drypp|drip|irrig|hageslange/;
+    o.settings = M.all(hass, ['number', 'input_number', 'time', 'input_datetime'], (s, id) => (os.includes(id) || inA(id) || (!explicit && KW_SET.test(T(id)))) && !/basseng|pool|varmtvann|bereder|vvb/.test(T(id)));
     return o;
   };
   M.vanEnts = function (hass, cfg) {

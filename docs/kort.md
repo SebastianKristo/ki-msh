@@ -462,26 +462,21 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 
 Strømpris nå og per time i dag / i morgen (Norge: spot, totalpris eller Norgespris; Sverige: SEK i kr/kWh), nettleie i morgen og referanselinje. Dra på grafen for å se en time.
 
-Kilde og visning er én felles config i ki-store `power_price` («Tilpass Hjem» → Popups → Strømpris, eller GUI-editoren), lest via `MSH.powerPrice` av kortet, prosa-boblen «Strømpris», strøm-sliden og Klima. `power_price` i kortets YAML (og gamle `entity` / `norgespris_entity` / `norgespris`) brukes som grunnlag under ki-store.
-
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `power_price.profile` | Profil (no \| se) | Strømpris-kilde |
-| `power_price.source` | Kilde ('' = auto \| nordpool \| tibber \| strompris \| custom) | Strømpris-kilde |
-| `power_price.spot_entity` | Spotpris-sensor (Norge; alias `entity`) · entity | Strømpris-kilde |
-| `power_price.area` | Prisområde NO1–NO5 | Strømpris-kilde |
+| `power_price.source` | Kilde ( \| nordpool \| tibber \| strompris \| custom) | Strømpris-kilde |
+| `power_price.spot_entity` | Spotpris-sensor · entity | Strømpris-kilde |
+| `power_price.area` | Prisområde ( \| NO1 \| NO2 \| NO3 \| NO4 \| NO5) | Strømpris-kilde |
 | `power_price.norgespris_entity` | Norgespris-sensor · entity | Strømpris-kilde |
-| `power_price.norgespris` | Norgespris uten sensor (kr/kWh, standard 0,50) · number | Strømpris-kilde |
-| `power_price.se_entity` | Nord Pool-sensor i SEK (Sverige) · entity | Strømpris-kilde |
-| `power_price.se_area` | Elområde SE1–SE4 | Strømpris-kilde |
-| `power_price.se_unit` | Sensorens enhet (auto \| ore \| kr) – vises alltid som kr/kWh | Strømpris-kilde |
-| `power_price.grid_entity` | Nettleie-sensor (tilstand + today/tomorrow) · entity | Strømpris-kilde |
+| `power_price.norgespris` | Norgespris uten sensor (kr/kWh) · number | Strømpris-kilde |
+| `power_price.grid_entity` | Nettleie-sensor (valgfri, today/tomorrow) · entity | Strømpris-kilde |
 | `power_price.mode` | Pris som vises (spot \| total \| norgespris) | Strømpris-kilde |
-| `power_price.unit` | Enhet (kr \| ore) – Norge | Strømpris-kilde |
-| `power_price.tab.style` | Fane-stil (glass \| standard) | Fane |
-| `power_price.tab.font` | Tekststørrelse 11–18 px (14) · range | Fane |
-| `power_price.tab.height` | Høyde 24–48 px (30) · range | Fane |
-| `power_price.tab.padding` | Bredde / sidemarg per knapp 8–40 px (20) · range | Fane |
+| `power_price.unit` | Enhet (kr \| ore) | Strømpris-kilde |
+| `power_price.tab.style` | Stil (glass \| standard) | Fane «I dag / I morgen» |
+| `power_price.tab.font` | Tekststørrelse · range | Fane «I dag / I morgen» |
+| `power_price.tab.height` | Høyde · range | Fane «I dag / I morgen» |
+| `power_price.tab.padding` | Bredde (sidemarg per knapp) · range | Fane «I dag / I morgen» |
 | `threshold` | Oransje linje over (kr/kWh) · number | Graf |
 | `show_norgespris` | Vis referanselinje (Norgespris / spot) · boolean | Graf |
 
@@ -620,7 +615,7 @@ Hage-scene med spreder, status, neste vanning og dagens forbruk. Første kort i 
 |---|---|---|
 | `area` | Område · area |  |
 | `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program}` | skjul / legg til |  |
+| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
 | `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
 | `run_min` | Standard kjøretid per sone (min) · number | Vanning |
 | `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
@@ -638,7 +633,7 @@ Vanning-popup: kontroller, soner, programmer, forbruk og historikk (OpenSprinkle
 |---|---|---|
 | `area` | Område · area |  |
 | `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program}` | skjul / legg til |  |
+| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
 | `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
 | `run_min` | Standard kjøretid per sone (min) · number | Vanning |
 | `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
@@ -656,34 +651,33 @@ Vanning-popup: kontroller, soner, programmer, forbruk og historikk (OpenSprinkle
 
 ## `msh-klima-hero-card`
 
-Effekt nå mot timegrensen (bue), kWh igjen, kW ledig og bortemodus. Første kort i Klima-popupen.
+Ring med tid i timen og effekt nå mot tillatt, status, setning, timebudsjett og bortemodus. Første seksjon i Klima-popupen.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `overrides.{effekt, forbruk, grense, borte}` | bytt entitet |  |
-| `limit` | Timegrense (kWh) uten entitet · number |  |
-| `terskel_gul` | Gul fra (%) · number | Terskler for fargesonene |
-| `terskel_oransje` | Oransje fra (%) · number | Terskler for fargesonene |
-| `terskel_rod` | Rød fra (%) · number | Terskler for fargesonene |
 | `toasts` | Bekreftelsesmeldinger · boolean |  |
 
 ## `msh-klima-card`
 
-Alle termostater og vifter gruppert per rom, moduser, energi mot timegrensen, varmtvann, logg og oppsett (7 faner).
+KI Energi: hero med ring og timebudsjett, moduser, 8 faner (Oversikt, Soner, Energi, Vann og bad, Lading, Tanker, Oppsett, Avansert) og «Tilpass klima».
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `exclude · include.{soner, moduser, leggetid, vann, oppsett, grenser, tider, verdier, sparing}` | skjul / legg til |  |
-| `overrides.{effekt, forbruk, grense, pris, bereder, legionella, handkle}` | bytt entitet |  |
-| `limit` | Timegrense (kWh) uten entitet · number |  |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: ov, so, en, vb, ta, op, av |  |
-| `start_tab` | Startfane (ov \| so \| en \| vb \| ta \| op \| av) |  |
-| `terskel_gul` | Gul fra (%) · number | Terskler for fargesonene |
-| `terskel_oransje` | Oransje fra (%) · number | Terskler for fargesonene |
-| `terskel_rod` | Rød fra (%) · number | Terskler for fargesonene |
-| `legionella_frist` | Legionella-frist (dager) · number | Avansert |
-| `platform` | Integrasjon for innstillinger | Avansert |
-| `gap` | 4 / 8 / 18 px |  |
+| `title` | Tittel (valgfri) |  |
+| `layout.show_hero` | Hero-kort · boolean | Visning |
+| `layout.show_modes` | Modus-bobler · boolean | Visning |
+| `layout.tab_style` | Fanestil (both \| text \| icon) | Visning |
+| `layout.default_tab` | Standardfane (oversikt \| soner \| energi \| vann \| lading \| tanker \| oppsett \| avansert) | Faner |
+| `remember_tab` | Husk sist valgte fane · boolean | Faner |
+| `layout.tab_order · layout.hidden_tabs` | rekkefølge/synlighet: oversikt, soner, energi, vann, lading, tanker, oppsett, avansert | Faner |
+| `layout.block_order.oversikt · layout.hidden_blocks.oversikt` | rekkefølge/synlighet: siste12, forventet, leggetid, styrer, tiltak, budsjett, varmtvann, borte | Blokker |
+| `layout.block_order.soner · layout.hidden_blocks.soner` | rekkefølge/synlighet: soner | Blokker |
+| `layout.block_order.energi · layout.hidden_blocks.energi` | rekkefølge/synlighet: dynamisk, sparer, maaned, topp3, effekt6, grenser | Blokker |
+| `layout.block_order.vann · layout.hidden_blocks.vann` | rekkefølge/synlighet: status, pris, brytere, handling, vindu, legionella, handkle, hk_sparer, dusj, fukt, vifte, gulv | Blokker |
+| `layout.block_order.lading · layout.hidden_blocks.lading` | rekkefølge/synlighet: status, ledig, trinn, auto, vindu | Blokker |
+| `layout.block_order.tanker · layout.hidden_blocks.tanker` | rekkefølge/synlighet: tenker, logg, vurdering, tau | Blokker |
+| `layout.block_order.oppsett · layout.hidden_blocks.oppsett` | rekkefølge/synlighet: motor, varme, gardiner, helg, vannbad, lys, varslinger, tider, dagnatt, personer, stue, diagnostikk | Blokker |
+| `layout.block_order.avansert · layout.hidden_blocks.avansert` | rekkefølge/synlighet: terskler, prognose, moduser, helgevarsler, vvb, tariff, entiteter, raa, handlinger | Blokker |
 | `toasts` | Bekreftelsesmeldinger · boolean |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
@@ -905,6 +899,9 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
 | `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
 | `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
+| `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
+| `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
+| `players.stue_tv.menu_hold_action` | Hold Meny · action | Stue TV · TV · Stue |
 | `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
@@ -916,12 +913,16 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
 | `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
+| `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
+| `players.soverom_tv.menu_hold_action` | Hold Meny · action | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Seertid (sensorer under omslaget) · entities | Soverom TV · TV · Soverom |
+| `remote_swipe` | Sveip på styreflaten · boolean |  |
 | `toasts` | Bekreftelsesmeldinger · boolean |  |
 
 ## `msh-media-card`
@@ -960,6 +961,9 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
 | `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
 | `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
+| `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
+| `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
+| `players.stue_tv.menu_hold_action` | Hold Meny · action | Stue TV · TV · Stue |
 | `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
@@ -971,12 +975,16 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
 | `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
+| `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
+| `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
+| `players.soverom_tv.menu_hold_action` | Hold Meny · action | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Seertid (sensorer under omslaget) · entities | Soverom TV · TV · Soverom |
+| `remote_swipe` | Sveip på styreflaten · boolean |  |
 | `toasts` | Bekreftelsesmeldinger · boolean |  |
 | `gap` | 4 / 8 / 18 px |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |
