@@ -129,17 +129,17 @@
         if (m) { const f = this._findRows(m[1]); if (f) return get(this._rowsOf(f)[+m[2]] || {}, m[3]); }
         return get(this._config || {}, path);
       }
-      _set(path, v) {
+      _set(path, v, commit) {
         const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
         if (m) {
           const f = this._findRows(m[1]);
           if (f) {
             const list = this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {})));
             if (list[+m[2]]) setIn(list[+m[2]], m[3], v);
-            return super._set(m[1], list);
+            return super._set(m[1], list, commit);
           }
         }
-        return super._set(path, v);
+        return super._set(path, v, commit);
       }
       _field(f, key) {
         const h = this._hass, c = this._config || {};
@@ -153,6 +153,8 @@
             return `<div class="f" style="background:transparent;padding:4px 0">${lab}<div class="xmodes">${f.options.map(([v, l, ic, sub]) => `<button class="xmode ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"><span class="iw">${M.icon(ic, 20)}</span><b>${esc(l)}</b><i>${esc(sub || '')}</i></button>`).join('')}</div>${help}</div>`;
           }
           case 'range': {
+            // Felles range (presets + enhet; ha-selector i HA GUI-editoren) når feltet er skrevet for msh-editor
+            if (f.presets || f.unit) return super._field(f, key);
             const v = get(c, f.name) != null ? Number(get(c, f.name)) : Number(f.default);
             return `<div class="f"><div class="line" style="justify-content:space-between;font-size:13px"><span style="color:#c7c7c7">${esc(f.label)}</span><b style="font-weight:500" class="num">${esc(f.fmt ? f.fmt(v) : v)}</b></div><input type="range" class="xrng" data-name="${esc(f.name)}" data-num="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}">${help}</div>`;
           }
@@ -241,6 +243,7 @@
     .body{display:flex;flex-direction:column;gap:10px}
     .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
     .orb.pic{background-size:cover;background-position:center;font-size:36px;font-weight:600;color:#232323}
+    .orb.pic img{display:block;width:100%;height:100%;object-fit:cover}
     .nm{display:flex;flex-direction:column;align-items:center;gap:3px;padding-bottom:4px;text-align:center}
     .nm b{font-size:22px;font-weight:600;letter-spacing:-0.01em}
     .nm span{font-size:13px;color:var(--gray600,#7f7f7f)}
@@ -377,6 +380,22 @@
     const slug = objId(pid);
     return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
   };
+  const DISPLAYS = ['picture', 'icon', 'initials'];
+  M.hjemPersonCfg = function (c, id) {
+    const o = objId(id), list = Array.isArray(c && c.persons) ? c.persons : [];
+    const y = list.find((x) => x && (x.entity === id || x.entity === o)) || {};
+    const g = (c && c.persons_cfg && c.persons_cfg[o]) || {};
+    const out = { ...y };
+    Object.keys(g).forEach((k) => { if (g[k] != null && g[k] !== '') out[k] = g[k]; });
+    return out;
+  };
+  // Bilde-URL: /local/… og /api/… via hass.hassUrl (riktig base i appen / ekstern tilgang).
+  M.hjemPicUrl = function (hass, u) {
+    u = String(u || '').trim();
+    if (!u) return null;
+    if (u[0] === '/' && u[1] !== '/' && hass && typeof hass.hassUrl === 'function') { try { return hass.hassUrl(u) || u; } catch (e) { return u; } }
+    return u;
+  };
   M.hjemPersons = function (hass, c) {
     const all = M.all(hass, 'person');
     const inc = (c.include && c.include.personer) || [];
@@ -408,12 +427,23 @@
     const glyph = sleep ? 'bedtime' : home ? 'home' : zc.icon || 'logout';
     const all = M.all(hass, 'person');
     const me = !!(hass.user && a.user_id && a.user_id === hass.user.id);
-    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), pic: a.entity_picture || null, initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
+    // Visning per person: persons_cfg.<object_id> (editorene) over persons: [{ entity, display, picture }] (YAML).
+    const pc = M.hjemPersonCfg(c, id);
+    const display = DISPLAYS.includes(pc.display) ? pc.display : 'picture';
+    const raw = pc.picture || a.entity_picture || null;
+    const pic = display === 'picture' && raw ? M.hjemPicUrl(hass, raw) : null;
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
   };
 
   /* ------------------------------------------------------------ header-kortet */
   const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['under', 'Under', 'vertical_align_top', 'Stedet under hilsenen'], ['kompakt', 'Kompakt', 'view_agenda', 'Lav og tett'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
-  const avatarBg = (p) => (p.pic ? `${p.bg} url("${esc(p.pic)}") center/cover` : p.bg);
+  // Innholdet i avatar-klippet: <img> (object-fit: cover) · ikon · initialer. Mangler/feiler bildet → ikon.
+  const faceInner = (p, n, bad) => {
+    if (p.pic && !(bad && bad.has(p.pic))) return `<img src="${esc(p.pic)}" alt="" draggable="false" data-pic="${esc(p.pic)}">`;
+    if (p.display === 'initials') return esc(p.initial);
+    return M.icon(p.icon || 'mdi:account', Math.round(n * 0.5), 'color:#232323');
+  };
+  const faceTxt = (p, bad) => p.display === 'initials' && !(p.pic && !(bad && bad.has(p.pic)));
 
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
@@ -455,6 +485,14 @@
             { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på.' },
           ] },
           { type: 'order', name: 'person_order', hiddenName: 'hidden_persons', label: 'Personer · rekkefølge og synlighet', options: P.ids.map((id) => [id, M.name(hass, id)]) },
+          { type: 'section', id: 'persons', label: 'Personer · visning', icon: 'mdi:account-box-outline', fields: P.ids.length ? P.ids.flatMap((id) => {
+            const o = objId(id), y = (Array.isArray((c || {}).persons) ? c.persons : []).find((x) => x && (x.entity === id || x.entity === o)) || {};
+            const ep = hass && hass.states[id] && hass.states[id].attributes.entity_picture;
+            return [
+              { type: 'select', name: `persons_cfg.${o}.display`, label: `${M.name(hass, id)} · visning`, options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: DISPLAYS.includes(y.display) ? y.display : 'picture' },
+              { type: 'text', name: `persons_cfg.${o}.picture`, label: `${M.name(hass, id)} · bilde-URL`, placeholder: y.picture || ep || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', when: (h, cc) => (M.hjemPersonCfg(cc, id).display || 'picture') === 'picture' },
+            ];
+          }) : [{ type: 'info', label: 'Fant ingen personer.' }] },
           { type: 'section', label: 'Bilder', icon: 'mdi:account-circle', fields: [
             { type: 'select', name: 'size', label: 'Størrelse', options: [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], default: D.size },
             { type: 'select', name: 'badge', label: 'Merke', options: [['icon', 'Ikon'], ['dot', 'Prikk'], ['ring', 'Ring'], ['none', 'Ingen']], default: D.badge },
@@ -525,13 +563,17 @@
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
       }
       const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = Number(c.g_gap) || 0;
-      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : ({ S: 40, M: 52, L: 64 }[c.size] || 52) + 'px';
+      // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
+      const szN = big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
+      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
+      const RAD = big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
+      const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big;
       const face = (p, k, dress) => {
         const ring = c.badge === 'ring' && !dress ? `, 0 0 0 5px ${p.stCol}` : '';
         const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
-        const sz = dress ? dress.sz + 'px' : SZ;
-        const av = `display:grid;place-items:center;width:${sz};height:${sz};border-radius:50%;background:${avatarBg(p)};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${p.pic ? 0 : `calc(${sz} * 0.38)`};font-weight:600;color:#232323;transition:opacity .3s`;
+        const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? Math.round((dress.sz * 25) / 55) + 'px' : RAD, n = dress ? dress.sz : szN;
+        const av = `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s`;
         let bd = '', bi = '';
         if (dress) { bd = `right:${-dress.bs * 0.3}px;top:${-dress.bs * 0.3}px;width:${dress.bs}px;height:${dress.bs}px;border-radius:${dress.bs / 2}px;background:#2a2a2a;box-shadow:0 0 0 3px ${C.dash};z-index:1`; bi = M.icon(p.glyph, Math.round(dress.bs * 0.56), `color:${p.stCol}`); }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.68), 'color:#fff'); }
@@ -540,7 +582,7 @@
         const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
         return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
-          <span class="fw"><span class="av" style="${av}">${p.pic ? '' : esc(p.initial)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
+          <span class="fw"><span class="av" style="${av}">${faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [];
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
@@ -611,7 +653,7 @@
       const render = () => {
         const c = card.config, h = card.hass, p = M.hjemPersonInfo(h, pid, c, (x) => card.s(x));
         const zi = p.home ? 0 : 1, si = p.sleep ? 1 : 0;
-        return `<div class="orb pic" style="background:${avatarBg(p)};box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${p.pic ? '' : esc(p.initial)}</div>
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${faceInner(p, 96, card._picBad)}</div>
           <div class="nm"><b>${esc(p.name)}</b><span>${esc(p.home ? 'Hjemme' : p.place)} · ${p.sleep ? 'Sover' : 'Våken'}</span></div>
           ${segHTML('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], !p.presId)}
           ${segHTML('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], !p.sleepId)}
@@ -637,6 +679,14 @@
       });
     }
     afterRender() {
+      // Bilde som ikke laster → ikon (huskes per URL)
+      this.shadowRoot.querySelectorAll('img[data-pic]').forEach((img) => {
+        if (img.__e) return;
+        img.__e = true;
+        const fail = () => { (this._picBad = this._picBad || new Set()).add(img.dataset.pic); this.update(); };
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
+      });
       const t = this.shadowRoot.querySelector('.ttl');
       if (t && !t.__b) {
         t.__b = true;
@@ -686,7 +736,9 @@
         .faces{display:flex;flex:none;align-items:flex-start}
         .face{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:none}
         .fw{position:relative;display:block}
-        .av{display:grid}
+        .av{display:grid;place-items:center;overflow:hidden;position:relative}
+        .av img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;-webkit-user-drag:none;user-select:none;pointer-events:none}
+        .bd{z-index:1}
         .bd{position:absolute;display:grid;place-items:center}
         .lb{display:flex;flex-direction:column;align-items:center}
         .ln{font-size:11px;font-weight:500}

@@ -232,7 +232,9 @@
 
   class Prosa extends M.Card {
     static get cardName() { return 'Hjem · prosa'; }
-    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet' }; }
+    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet', prose_offset: 18 }; }
+    // Avstand over teksten (margin-top på prosa-blokken), −20–60 px, standard 18. Delt med «Tilpass Hjem» → Tekst.
+    static get offsetField() { return { type: 'range', name: 'prose_offset', label: 'Avstand over teksten', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, step: 1, default: 18, unit: 'px', presets: [[0, 'Ingen 0'], [18, 'Standard 18'], [36, 'Luftig 36']] }; }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
       return (hass) => {
@@ -243,6 +245,7 @@
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
+          Prosa.offsetField,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
             defaults: (h, c) => defaultProse(h, c),
@@ -307,10 +310,12 @@
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
       this._sheets && this._sheets.forEach((sh) => sh.update());
+      const off = M.clamp(Number(this.config.prose_offset != null && this.config.prose_offset !== '' ? this.config.prose_offset : 18) || 0, -20, 60);
+      const pzS = `style="margin-top:${off}px"`;
       if (!R.vis.length) {
-        return `<div class="pz" data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
+        return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
     }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
@@ -323,6 +328,7 @@
     }
     get styles() {
       return `
+        :host{display:flow-root}
         .pz{font-size:19px;font-weight:400;line-height:1.95;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
         .chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
         .chip ha-icon{color:#232323}
