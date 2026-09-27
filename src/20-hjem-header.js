@@ -195,6 +195,7 @@
               if (sf.target) nf.target = `${f.name}.${i}.${sf.target}`;
               if (sf.run) nf.run = () => sf.run(r || {}, h, saved);
               if (sf.render) nf.render = () => sf.render(r || {}, h, saved);
+              if (sf.auto) nf.auto = (hh) => sf.auto(r || {}, hh || h, saved); // auto per rad (f.eks. prosa ent_override)
               return this._field(nf, `${key}_${i}_${j}`);
             }).join('');
             return head + `<div class="xrb" data-key="${esc(f.name)}-b${i}">${sub2}</div>`;
@@ -504,7 +505,8 @@
             { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap },
           ] },
           { type: 'section', label: 'Steder (servermeny)', icon: 'mdi:swap-horizontal', fields: [
-            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-installasjoner', defaults: () => [], addLabel: 'Legg til sted',
+            { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-installasjoner (også denne)', defaults: () => [], addLabel: 'Legg til sted',
+              help: 'Trykk på hilsenen åpner menyen, dobbelttrykk åpner /config. «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
               title: (r) => r.name || 'Nytt sted', sub: (r) => r.url || '',
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length], url: '' }),
@@ -525,13 +527,16 @@
     }
     get cardSize() { return 2; }
     customize(focus) { return M.hjemCustomize(this, focus); }
+    // Gjeldende server = den der new URL(url).origin er lik location.origin eller origin til hass.auth.data.hassUrl.
+    // Ingen treff → cur = -1 (ingen «Du er her»; menyen viser «Denne serveren · <host>»). Ingen lokal «valgt»-tilstand.
     _server() {
       const c = this.config, h = this.hass;
-      const here = c.place_name || (h.config && h.config.location_name) || 'Hjem';
+      const here = c.place_name || (h && h.config && h.config.location_name) || 'Hjem';
       const list = Array.isArray(c.servers) ? c.servers.filter((x) => x && x.name) : [];
-      let cur = list.findIndex((x) => x.url && (() => { try { return new URL(x.url).origin === location.origin; } catch (e) { return false; } })());
-      if (cur < 0) cur = list.findIndex((x) => x.name === here);
-      return { name: cur >= 0 ? list[cur].name : here, list, cur };
+      const org = (u) => { try { return new URL(u).origin; } catch (e) { return null; } };
+      const mine = [location.origin, org(h && h.auth && h.auth.data && h.auth.data.hassUrl)].filter(Boolean);
+      const cur = list.findIndex((x) => x.url && mine.includes(org(x.url)));
+      return { name: cur >= 0 ? list[cur].name : here, list, cur, host: location.host || here };
     }
     _weather() {
       const id = M.pick(this.config, 'weather', M.all(this.hass, 'weather')[0]);
@@ -592,7 +597,7 @@
       return `<header class="hd">
         <div class="top">
           <div class="lc" data-gcol="1">
-            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" title="Trykk: bytt sted · dobbelttrykk: /config · hold: kiosk-modus">
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" title="Trykk: bytt sted · dobbelttrykk: /config · hold: tilpass header (eller kiosk-modus)">
               <span class="tx">${esc(title)}</span>${big ? '' : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
@@ -604,9 +609,8 @@
     }
     onAction(name, el, ev) {
       if (name === 'title') {
-        if (this._gHeld) { this._gHeld = false; return; }
-        if (this._gTap) { clearTimeout(this._gTap); this._gTap = null; this._srv && this._srv.close(); M.navigate('/config'); return; }
-        this._gTap = setTimeout(() => { this._gTap = null; this._serverMenu(el); }, 260);
+        // Trykk håndteres på pointerup (afterRender). Klikk uten peker (tastatur) åpner menyen direkte.
+        if (ev && ev.detail === 0 && !this._gHeld) this._titleTap(el);
         return;
       }
       if (name === 'person') {
@@ -616,36 +620,61 @@
       }
       return super.onAction(name, el, ev);
     }
+    // Ett trykk (pointerup) åpner «Bytt sted» med én gang. Nytt trykk innen 250 ms = dobbelttrykk:
+    // lukk menyen uten animasjon og åpne /config. Én haptic: 'light' ved åpning, 'medium' ved dobbelttrykk.
+    _titleTap(anchor) {
+      const now = Date.now();
+      if (this._gLast && now - this._gLast < 250) { this._gLast = 0; this._titleDbl(); return; }
+      this._gLast = now;
+      M.haptic('light');
+      if (this._srv) { this._srv.close(); return; }
+      this._serverMenu(anchor);
+    }
+    _titleDbl() {
+      const ov = this._srv;
+      if (ov) { ov.close(); ov.host.remove(); } // uten lukke-animasjon
+      M.haptic('medium');
+      M.navigate('/config');
+    }
     _serverMenu(anchor) {
       if (this._srv) { this._srv.close(); return; }
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
-      const rows = (S.list.length ? S.list : [{ name: S.name, icon: 'mdi:home', color: C.green }]).map((v, i) => {
-        const act = S.list.length ? i === S.cur : true, col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}" style="background:${act ? 'rgba(255,255,255,0.08)' : 'transparent'}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 22)}</span><span class="nm">${esc(v.name)}</span>${act ? '<span class="here">Du er her</span>' : M.icon('chevron_right', 22, 'color:#979797')}</button>`;
+      const top = S.cur < 0 ? `<div class="me">${M.icon('mdi:map-marker-outline', 16, 'color:#7f7f7f')}<span>Denne serveren · ${esc(S.host)}</span></div>` : '';
+      const rows = S.list.map((v, i) => {
+        const act = i === S.cur, col = M.color(v.color, C.blue);
+        return `<button class="sv" data-a="go" data-i="${i}" style="background:${act ? 'rgba(255,255,255,0.08)' : 'transparent'}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm">${esc(v.name)}</span>${act ? '<span class="here">Du er her</span>' : M.icon('chevron_right', 20, 'color:#979797')}</button>`;
       }).join('');
       const css = `.bg{background:transparent}
-        .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:280px;max-width:calc(100% - 16px);margin:0;padding:12px 8px 8px;border-radius:26px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);transform:translateY(-8px) scale(.97);transform-origin:top left}
-        :host(.on) .sh{transform:none}
+        .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);
+          opacity:0;transform:scale(.96);transform-origin:top left;transition:opacity .14s ease-out,transform .14s ease-out}
+        :host(.on) .sh{opacity:1;transform:none}
         .body{display:flex;flex-direction:column;gap:2px}
-        .hd{font-size:12px;font-weight:500;color:#979797;padding:0 10px 6px}
-        .sv,.tp{min-height:60px;padding:0 10px;border-radius:16px;display:flex;align-items:center;gap:14px;width:100%;text-align:left}
-        .tp{min-height:56px}
-        .sv:hover,.tp:hover{background:rgba(255,255,255,0.06)}
-        .iw{width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center}
-        .nm{flex:1;min-width:0;font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .here{height:24px;padding:0 10px;border-radius:12px;display:flex;align-items:center;font-size:12px;font-weight:600;background:var(--blue,#73b9f2);color:#10223a;white-space:nowrap}
-        .dv{height:1px;background:rgba(255,255,255,0.1);margin:6px 10px}`;
-      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${rows}<div class="dv"></div><button class="tp" data-a="edit"><span class="iw" style="background:var(--gray400,#545454)">${M.icon('tune', 22, 'color:#c7c7c7')}</span><span class="nm">Tilpass …</span></button>`, css, sheet: false, maxWidth: 280, onClose: () => { this._srv = null; } });
+        .hd{font-size:11px;font-weight:500;color:#979797;padding:0 10px 4px}
+        .me{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 10px;font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .me span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+        .sv{height:52px;padding:0 8px;border-radius:14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+        .sv:hover{background:rgba(255,255,255,0.06)}
+        .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
+        .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .here{height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;font-size:11px;font-weight:600;background:rgb(115 185 242);color:#1f2a36;white-space:nowrap;flex:none}`;
+      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, onClose: () => { if (this._srv === ov) this._srv = null; } });
       this._srv = ov;
+      // Andre trykk i et dobbelttrykk treffer bakgrunnen (menyen dekker hilsenen) → dobbelttrykk, ikke «lukk».
+      let swallow = false;
+      ov.root.querySelector('.bg').addEventListener('pointerup', (e) => {
+        if (!this._gLast || Date.now() - this._gLast >= 250) return;
+        e.stopPropagation(); swallow = true; this._gLast = 0; this._titleDbl();
+      });
+      ov.root.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopImmediatePropagation(); } }, true);
       ov.root.addEventListener('click', (e) => {
         const b = e.target.closest && e.target.closest('[data-a]');
         if (!b) return;
+        const i = Number(b.dataset.i), v = S.list[i];
         M.haptic('light');
-        if (b.dataset.a === 'edit') { ov.close(); this.customize(); return; }
-        const v = S.list[Number(b.dataset.i)];
         ov.close();
-        if (v && v.url && Number(b.dataset.i) !== S.cur) location.href = v.url;
+        // Samme dashbord og popup (hash) på den andre serveren
+        if (v && v.url && i !== S.cur) window.location.href = String(v.url).replace(/\/$/, '') + location.pathname + location.hash;
       });
     }
     _quick(pid) {
@@ -694,6 +723,7 @@
         t.addEventListener('pointerdown', (e) => {
           if (e.button) return;
           this._gHeld = false; clear();
+          this._gDown = { x: e.clientX, y: e.clientY };
           this._gHold = setTimeout(() => {
             this._gHeld = true;
             M.haptic('heavy');
@@ -706,7 +736,15 @@
             M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
           }, 600);
         });
-        ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => t.addEventListener(ev, clear));
+        ['pointerleave', 'pointercancel'].forEach((ev) => t.addEventListener(ev, () => { clear(); this._gDown = null; }));
+        // Første pointerup åpner menyen umiddelbart (ingen 260 ms venting). Langt trykk eller dra åpner ikke.
+        t.addEventListener('pointerup', (e) => {
+          if (e.button) return;
+          clear();
+          const dn = this._gDown; this._gDown = null;
+          if (this._gHeld || !dn || Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 10) return;
+          this._titleTap(t);
+        });
         t.addEventListener('contextmenu', (e) => e.preventDefault());
       }
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)

@@ -36,6 +36,177 @@
     return o;
   };
 
+  /* ------------------------------------------------------------ felles entitetsvelger (Rom v4 · Klima, Hjem · Tekst)
+   * <msh-entity-picker> – knapp (48 px, #282828, r14: ikon · navn · entity_id) som åpner en inline liste
+   * (#282828, r18): søkefelt (42 px, #3a3a3a, autofokus) → filter-chips (Alle · Sensor · Binær · Vær · Lys ·
+   * Bryter · Klima) → «Automatisk» (når auto-mode) → «Bruk «…»» (gyldig, ukjent entity_id) → treff (maks 280 px).
+   * Søket matcher friendly_name, entity_id, område-navn og device_class, uten store/små bokstaver og med æøå normalisert.
+   * Attributter: value, auto (auto-entitet), auto-mode="1" (vis «Automatisk»), domains="sensor,weather",
+   *   device-class="temperature", area (sorteres først), mode="set"|"add", placeholder, auto-label.
+   * Egenskap: hass (ellers MSH.lastHass). Hendelse: value-changed { value } ('' = Automatisk / fjern).
+   * Bruk: MSH.entityPicker.html({ name, value, auto, autoMode, domains, deviceClass, area, mode, placeholder, key, attrs }). */
+  const PK_FLT = [['', 'Alle'], ['sensor', 'Sensor', ['sensor']], ['binary_sensor', 'Binær', ['binary_sensor']], ['weather', 'Vær', ['weather']], ['light', 'Lys', ['light']], ['switch', 'Bryter', ['switch', 'input_boolean']], ['climate', 'Klima', ['climate']]];
+  const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[_.\-]+/g, ' ');
+  const ENT_RE = /^[a-z_]+\.[a-z0-9_]+$/;
+  const idxCache = new WeakMap();
+  // Søkeindeks per hass-objekt: [{ id, dom, name, hay }]
+  function pickIndex(h) {
+    if (!h || !h.states) return [];
+    let I = idxCache.get(h.states);
+    if (I) return I;
+    I = Object.keys(h.states).map((id) => {
+      const s = h.states[id], a = s.attributes || {}, name = a.friendly_name || id, ar = M.areaOf(h, id);
+      const an = ar && h.areas && h.areas[ar] ? h.areas[ar].name : '';
+      return { id, dom: id.split('.')[0], name, area: ar, nn: norm(name), hay: norm(`${name} ${id} ${an} ${a.device_class || ''}`) };
+    });
+    idxCache.set(h.states, I);
+    return I;
+  }
+  // Treff for et søk. opts: { domains, deviceClass, flt, area }
+  M.entitySearch = function (h, q, opts = {}) {
+    const doms = opts.domains && opts.domains.length ? opts.domains : null, dcs = opts.deviceClass && opts.deviceClass.length ? opts.deviceClass : null;
+    const F = PK_FLT.find((x) => x[0] === opts.flt), fd = F && F[2];
+    const toks = norm(q).split(/\s+/).filter(Boolean);
+    const out = pickIndex(h).filter((x) => (!doms || doms.includes(x.dom)) && (!fd || fd.includes(x.dom))
+      && (!dcs || dcs.includes((h.states[x.id].attributes || {}).device_class)) && toks.every((t) => x.hay.includes(t)));
+    const t0 = toks[0] || '';
+    const score = (x) => (opts.area && x.area === opts.area ? 0 : 4) + (!t0 ? 0 : x.nn.startsWith(t0) ? 0 : x.nn.includes(t0) ? 1 : 2);
+    return out.sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name, 'nb'));
+  };
+  const PK_CSS = `
+    :host{display:block;font-family:${M.FONT};color:#fafafa}
+    *{box-sizing:border-box}
+    button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
+    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:#282828;text-align:left}
+    .pk:active{transform:scale(.99)}
+    .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl{display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:18px;background:#282828}
+    .sr{position:relative;display:flex;align-items:center}
+    .pks{height:42px;padding:0 42px 0 14px;border-radius:14px;background:#3a3a3a;font-size:15px;width:100%}
+    .pks::placeholder{color:#7f7f7f}
+    .x{position:absolute;right:4px;top:3px;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:#979797}
+    .fl{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;padding:0 1px}
+    .fl::-webkit-scrollbar{display:none}
+    .fc{flex:none;height:30px;padding:0 12px;border-radius:15px;background:#3a3a3a;font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
+    .fc.on{background:#fafafa;color:#282828}
+    .pls{max-height:280px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
+    .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
+    .pr:hover{background:rgba(255,255,255,0.05)}
+    .pr.on{background:rgba(255,255,255,0.08)}
+    .val{font-size:12px;color:#afafaf;white-space:nowrap;flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .none{font-size:12px;color:#7f7f7f;padding:10px}
+    .more{font-size:11px;color:#7f7f7f;padding:6px 10px}
+  `;
+  class MshEntityPicker extends HTMLElement {
+    static get observedAttributes() { return ['value', 'auto', 'auto-mode', 'domains', 'device-class', 'area', 'mode', 'placeholder', 'auto-label']; }
+    constructor() {
+      super();
+      this._open = false; this._q = ''; this._flt = '';
+      const sr = this.attachShadow({ mode: 'open' });
+      sr.addEventListener('click', (e) => this._click(e));
+      sr.addEventListener('input', (e) => { e.stopPropagation(); if (e.target.classList.contains('pks')) { this._q = e.target.value; this._render(); } });
+      sr.addEventListener('keydown', (e) => this._key(e));
+      // Vannrett chip-rad og liste: ikke la Bubble Card lukke/scrolle popupen
+      ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && (n.classList.contains('fl') || n.classList.contains('pls')))) e.stopPropagation(); }, { passive: true }));
+      this._outside = (e) => { if (this._open && !e.composedPath().includes(this)) this.close(); };
+    }
+    set hass(h) { const o = this._hass; this._hass = h; if (!o || !this._open) this._render(); }
+    get hass() { return this._hass || M.lastHass || null; }
+    get value() { return this.getAttribute('value') || ''; }
+    set value(v) { this.setAttribute('value', v || ''); }
+    connectedCallback() { this._render(); }
+    disconnectedCallback() { window.removeEventListener('pointerdown', this._outside, true); }
+    attributeChangedCallback(n, o, v) { if (o !== v) this._render(); }
+    _list(a) { return String(this.getAttribute(a) || '').split(',').map((x) => x.trim()).filter(Boolean); }
+    open() {
+      if (this._open) return;
+      this._open = true; this._q = ''; this._flt = '';
+      window.addEventListener('pointerdown', this._outside, true);
+      this._render();
+      const i = this.shadowRoot.querySelector('.pks');
+      if (i) requestAnimationFrame(() => { try { i.focus({ preventScroll: true }); } catch (e) { i.focus(); } });
+    }
+    close() {
+      if (!this._open) return;
+      this._open = false;
+      window.removeEventListener('pointerdown', this._outside, true);
+      this._render();
+    }
+    _pick(v) {
+      M.haptic('selection');
+      const mode = this.getAttribute('mode') || 'set';
+      if (mode !== 'add') this.setAttribute('value', v || '');
+      this._open = false;
+      window.removeEventListener('pointerdown', this._outside, true);
+      this._render();
+      this.dispatchEvent(new CustomEvent('value-changed', { detail: { value: v || '' }, bubbles: true, composed: true }));
+    }
+    _click(e) {
+      const b = e.composedPath().find((n) => n.dataset && n.dataset.p);
+      if (!b) return;
+      const d = b.dataset;
+      if (d.p === 'open') { M.haptic('light'); return this.open(); }
+      if (d.p === 'x') { if (this._q) { this._q = ''; this._render(); const i = this.shadowRoot.querySelector('.pks'); if (i) { i.value = ''; i.focus(); } } else this.close(); return; }
+      if (d.p === 'flt') { this._flt = d.v; M.haptic('selection'); return this._render(); }
+      if (d.p === 'pick') return this._pick(d.v);
+    }
+    _key(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); this.close(); return; }
+      if (e.key !== 'Enter' || !e.target.classList.contains('pks')) return;
+      e.preventDefault(); e.stopPropagation();
+      const q = this._q.trim();
+      if (ENT_RE.test(q)) return this._pick(q);
+      const first = this.shadowRoot.querySelector('.pr[data-hit]');
+      if (first) this._pick(first.dataset.v);
+    }
+    _btn(h) {
+      const v = this.value, s = v && h ? h.states[v] : null, mode = this.getAttribute('mode') || 'set';
+      const chev = M.icon('mdi:chevron-down', 20, 'color:#979797');
+      if (mode === 'add') return `<button class="pk" data-p="open">${M.icon('mdi:plus', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Legg til …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
+      if (v) return `<button class="pk" data-p="open">${M.icon(M.domainIcon(v, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || v : v)}</b><i>${esc(v)}${s ? '' : ' · finnes ikke'}</i></span>${chev}</button>`;
+      const auto = this.getAttribute('auto') || '';
+      if (this.getAttribute('auto-mode') === '1') {
+        const as = auto && h ? h.states[auto] : null;
+        return `<button class="pk" data-p="open">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto ? (as && as.attributes.friendly_name ? as.attributes.friendly_name + ' · ' : '') + auto : 'fant ingen')}</i></span>${chev}</button>`;
+      }
+      return `<button class="pk" data-p="open">${M.icon('mdi:magnify', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Velg entitet …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
+    }
+    _panel(h) {
+      const v = this.value, q = this._q.trim(), doms = this._list('domains'), mode = this.getAttribute('mode') || 'set';
+      const chips = PK_FLT.filter((f) => !f[2] || !doms.length || f[2].some((d) => doms.includes(d)));
+      const flt = chips.some((f) => f[0] === this._flt) ? this._flt : '';
+      const hits = h ? M.entitySearch(h, q, { domains: doms, deviceClass: this._list('device-class'), flt, area: this.getAttribute('area') || '' }) : [];
+      const row = (x) => `<button class="pr ${x.id === v ? 'on' : ''}" data-p="pick" data-hit="1" data-v="${esc(x.id)}" data-key="${esc(x.id)}">${M.icon(M.domainIcon(x.id, h.states[x.id]), 22, 'color:#afafaf')}<span class="nm"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></span><span class="val">${esc(M.fmtState(h, x.id))}</span></button>`;
+      const auto = this.getAttribute('auto') || '';
+      const autoRow = mode !== 'add' && this.getAttribute('auto-mode') === '1' && !q ? `<button class="pr ${v ? '' : 'on'}" data-p="pick" data-v="" data-key="__auto">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto || 'fant ingen')}</i></span>${auto && h && h.states[auto] ? `<span class="val">${esc(M.fmtState(h, auto))}</span>` : ''}</button>` : '';
+      const useIt = ENT_RE.test(q) && !(h && h.states[q]) ? `<button class="pr" data-p="pick" data-v="${esc(q)}" data-key="__use">${M.icon('mdi:keyboard-return', 22, 'color:#afafaf')}<span class="nm"><b>Bruk «${esc(q)}»</b><i>Finnes ikke nå – brukes likevel</i></span></button>` : '';
+      const MAX = 120;
+      return `<div class="pl">
+        <div class="sr"><input class="pks" value="${esc(this._q)}" placeholder="Søk: navn, rom, entity_id …" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><button class="x" data-p="x" title="${this._q ? 'Tøm' : 'Lukk'}">${M.icon(this._q ? 'mdi:close-circle' : 'mdi:chevron-up', 20)}</button></div>
+        ${chips.length > 2 ? `<div class="fl">${chips.map(([k, l]) => `<button class="fc ${flt === k ? 'on' : ''}" data-p="flt" data-v="${k}" data-key="f-${k || 'alle'}">${l}</button>`).join('')}</div>` : ''}
+        <div class="pls">${autoRow}${useIt}${hits.slice(0, MAX).map(row).join('')}${hits.length > MAX ? `<div class="more">+ ${hits.length - MAX} til – skriv mer for å snevre inn</div>` : ''}${!hits.length && !useIt ? '<div class="none">Ingen treff</div>' : ''}</div>
+      </div>`;
+    }
+    _render() {
+      if (!this.shadowRoot) return;
+      const h = this.hass;
+      const html = `<style>${PK_CSS}</style>${this._open ? this._panel(h) : this._btn(h)}`;
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+    }
+  }
+  if (!customElements.get('msh-entity-picker')) customElements.define('msh-entity-picker', MshEntityPicker);
+  M.entityPicker = {
+    tag: 'msh-entity-picker',
+    // HTML for innbygging (morph-trygg: data-key + data-nomorph). Sett .hass på elementet etter render.
+    html(o = {}) {
+      const a = (k, v) => (v == null || v === '' ? `${k}=""` : `${k}="${esc([].concat(v).join(','))}"`);
+      return `<msh-entity-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} ${a('value', o.value)} ${a('auto', o.auto)} auto-mode="${o.autoMode ? 1 : 0}" ${a('domains', o.domains)} ${a('device-class', o.deviceClass)} ${a('area', o.area)} mode="${o.mode || 'set'}" ${a('placeholder', o.placeholder)} ${a('auto-label', o.autoLabel)} ${o.attrs || ''}></msh-entity-picker>`;
+    },
+  };
+
   const ED_CSS = `
     :host{display:block;font-family:${M.FONT};color:#fafafa;--ed-bg:#2f2f2f}
     *{box-sizing:border-box}
@@ -87,17 +258,7 @@
     ha-icon-picker,ha-selector{display:block}
     .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
     .sec>summary .meta+.chev{margin-left:8px}
-    /* entitetsvelger (Rom v4) */
-    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:#282828;text-align:left}
-    .pk .nm,.pr .nm{flex:1;min-width:0;display:flex;flex-direction:column}
-    .pk b,.pr b{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pk i,.pr i{font-style:normal;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pl{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828}
-    .pks{height:42px;padding:0 14px;border-radius:14px;background:#3a3a3a;font-size:14px;width:100%}
-    .pls{max-height:260px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px}
-    .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
-    .pr.on{background:rgba(255,255,255,0.08)}
-    .pr .val{font-size:12px;color:#afafaf;white-space:nowrap;flex:none}
+    msh-entity-picker{display:block}
     /* slider med snarvalg */
     .rg .rv{font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
     .rg input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;touch-action:pan-y;cursor:pointer}
@@ -124,7 +285,13 @@
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.target && e.target.type === 'range') e.stopPropagation(); }, { passive: true }));
       this.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.target;
-        if (t.dataset && t.dataset.name) { e.stopPropagation(); const v = e.detail.value; this._set(t.dataset.name, v === '' || v == null ? undefined : v); }
+        if (t.dataset && t.dataset.name) {
+          e.stopPropagation();
+          const v = e.detail.value;
+          // entitetsvelger i «legg til»-modus: legg valgt entitet til listen
+          if (t.dataset.mode === 'add') { if (!v) return; const l = [...(this._val ? this._val(t.dataset.name) || [] : get(this._config, t.dataset.name) || [])]; if (!l.includes(v)) l.push(v); return this._set(t.dataset.name, l); }
+          this._set(t.dataset.name, v === '' || v == null ? undefined : v);
+        }
       });
     }
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
@@ -162,9 +329,10 @@
         p.hass = this._hass;
         if (p.dataset.selector !== p.__selJson) { p.__selJson = p.dataset.selector; p.selector = JSON.parse(p.dataset.selector); }
         p.label = p.dataset.label || ''; p.helper = p.dataset.helper || ''; p.required = false;
-        const raw = get(this._config, p.dataset.name), v = raw != null ? raw : (p.dataset.def !== undefined && p.dataset.def !== '' ? Number(p.dataset.def) : undefined);
+        const raw = this._val ? this._val(p.dataset.name) : get(this._config, p.dataset.name), v = raw != null ? raw : (p.dataset.def !== undefined && p.dataset.def !== '' ? Number(p.dataset.def) : undefined);
         if (p.value !== v) p.value = v;
       });
+      this.shadowRoot.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this._hass; });
       if (this.focusSection && !this._focused) {
         this._focused = true;
         const el = this.shadowRoot.querySelector(`[data-focus="${CSS.escape ? CSS.escape(this.focusSection) : this.focusSection}"]`);
@@ -221,9 +389,8 @@
         case 'entities': {
           const list = Array.isArray(val) ? val : [];
           if (f.addLabel) {
-            const open = this._menu === key;
             return `<div class="f">${lab}${list.map((id, i) => this._entRow(id, `<button class="ib" data-a="rmlist" data-name="${esc(f.name)}" data-i="${i}" title="Fjern">${M.icon('mdi:minus-circle-outline', 20)}</button>`)).join('')}
-              ${open ? this._pickList(f, f.name, null, null, key, 'addlist') : `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon('mdi:plus', 20)}<span class="nm"><b>${esc(f.addLabel)}</b></span></button>`}${help}</div>`;
+              ${this._picker(f, f.name, '', null, key, 'add')}${help}</div>`;
           }
           return `<div class="f">${lab}${list.map((id, i) => this._entRow(id, `<button class="ib" data-a="rmlist" data-name="${esc(f.name)}" data-i="${i}" title="Fjern">${M.icon('mdi:close', 18)}</button>`)).join('')}${this._search(f, key, 'addlist', f.name)}${help}</div>`;
         }
@@ -278,26 +445,15 @@
         if (f.device_class) ent.device_class = f.device_class;
         return `<div class="f"><ha-selector data-name="${esc(name)}" data-nomorph data-selector="${esc(JSON.stringify({ entity: ent }))}" data-label="${esc(f.label || '')}" data-helper="${esc(val ? '' : 'Automatisk' + (auto ? ' · ' + auto : ' · fant ingen'))}"></ha-selector></div>`;
       }
-      // Egen velger (Rom v4): knapp → inline liste med søk, «Automatisk» først
-      const h = this._hass, s = val ? h.states[val] : null;
-      const btn = val
-        ? `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon(M.domainIcon(val, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || val : val)}</b><i>${esc(val)}${s ? '' : ' · finnes ikke'}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`
-        : `<button class="pk" data-a="pkopen" data-k="${key}">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>Automatisk</b><i>${esc(auto || 'fant ingen')}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`;
-      return `<div class="f">${lab}${this._menu === key ? this._pickList(f, name, val, auto, key, 'setent') : btn}${help}</div>`;
+      // Egen velger (Rom v4): felles <msh-entity-picker> – knapp → inline liste med søk, filter og «Automatisk» først
+      const now = f.now && val && this._hass.states[val] ? `<span class="help">Nå: ${esc(M.fmtState(this._hass, val))}</span>` : '';
+      return `<div class="f">${lab}${this._picker(f, name, val, auto, key, 'set')}${now}${help}</div>`;
     }
-    _pickList(f, name, val, auto, key, act) {
-      const h = this._hass, c = this._config, q = (this._q[key] || '').trim();
-      const area = (typeof f.area === 'function' ? f.area(h, c) : f.area) || this.areaCtx || c.area || null;
-      const doms = f.domains || (f.domain ? [].concat(f.domain) : null), dcs = f.device_class ? [].concat(f.device_class) : null, ql = q.toLowerCase();
-      const ids = Object.keys(h.states).filter((id) => (!doms || doms.includes(id.split('.')[0])) && (!dcs || dcs.includes(h.states[id].attributes.device_class)))
-        .filter((id) => !ql || (id + ' ' + (h.states[id].attributes.friendly_name || '')).toLowerCase().includes(ql));
-      const inArea = (id) => (area && M.areaOf(h, id) === area ? 0 : 1);
-      ids.sort((x, y) => inArea(x) - inArea(y) || x.localeCompare(y));
-      const row = (id) => { const s = h.states[id]; return `<button class="pr ${id === val ? 'on' : ''}" data-a="${act}" data-name="${esc(name)}" data-v="${esc(id)}" data-key="${esc(id)}">${M.icon(M.domainIcon(id, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s.attributes.friendly_name || id)}</b><i>${esc(id)}</i></span><span class="val">${esc(M.fmtState(h, id))}</span></button>`; };
-      const useIt = /^[a-z_]+\.[a-z0-9_]+$/.test(q) && !ids.includes(q) ? `<button class="pr" data-a="${act}" data-name="${esc(name)}" data-v="${esc(q)}">${M.icon('mdi:keyboard-return', 22, 'color:#afafaf')}<span class="nm"><b>Bruk «${esc(q)}»</b></span></button>` : '';
-      const autoRow = act === 'setent' ? `<button class="pr ${val ? '' : 'on'}" data-a="clear" data-name="${esc(name)}">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>Automatisk</b><i>${esc(auto || 'fant ingen')}</i></span></button>` : '';
-      return `<div class="pl"><input class="pks" data-search="${key}" data-act="${act}" data-name="${esc(name)}" value="${esc(this._q[key] || '')}" placeholder="Søk eller skriv entity_id …" autocomplete="off">
-        <div class="pls">${autoRow}${useIt}${ids.slice(0, 80).map(row).join('') || (useIt ? '' : '<div class="small" style="padding:8px">Ingen treff</div>')}</div></div>`;
+    // Felles entitetsvelger. f.required → ingen «Automatisk»-rad.
+    _picker(f, name, val, auto, key, mode) {
+      const h = this._hass, c = this._config;
+      const area = (typeof f.area === 'function' ? (() => { try { return f.area(h, c); } catch (e) { return null; } })() : f.area) || this.areaCtx || c.area || '';
+      return M.entityPicker.html({ key: 'pk-' + key, name, value: val || '', auto: auto || '', autoMode: mode === 'set' && !f.required, domains: f.domains || f.domain || '', deviceClass: f.device_class || '', area, mode, placeholder: mode === 'add' ? f.addLabel : f.placeholder, attrs: mode === 'add' ? 'data-mode="add"' : '' });
     }
     _color(f, val, auto) {
       const cur = val || '';
@@ -345,7 +501,6 @@
       if (b.classList && b.classList.contains('pill')) M.haptic('light'); // bare snarvalg gir haptic
       switch (d.a) {
         case 'run': { const f = (this._btns || {})[d.k]; if (f && f.run) Promise.resolve(f.run(this._hass, this._config, this)).catch((e) => M.toast('Feil: ' + e.message)); return; }
-        case 'pkopen': this._menu = this._menu === d.k ? null : d.k; this._q = {}; this._render(); { const i = this.shadowRoot.querySelector(`[data-search="${d.k}"]`); if (i) i.focus(); } return;
         case 'bool': return this._set(d.name, d.v === '1');
         case 'sel': return this._set(d.name, d.num === '1' ? Number(d.v) : d.v);
         case 'clear': this._menu = null; return this._set(d.name, undefined);

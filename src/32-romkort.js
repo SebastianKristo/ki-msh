@@ -34,12 +34,24 @@
       lights: A.lys ? M.ids(A.lys) : M.all(hass, 'light', (s, id) => M.areaOf(hass, id) === area),
     };
   };
+  // Ikon-sirkelen: icon_color_mode (lights | always | never) og icon_tap (toggle_lights | open_popup | none).
+  // Rekkefølge: kortets egen verdi (cfg.icon_color_mode/icon_tap) → «Tilpass rom» (ki-store rooms.<area>, live via
+  // M.roomCfgs) → standard for alle rom (cfg.icon_color_default/icon_tap_default, «Tilpass Hjem» → Kort) → lights/toggle_lights.
+  M.ICON_MODES = [['lights', 'Når lys er på'], ['always', 'Alltid'], ['never', 'Aldri']];
+  M.ICON_TAPS = [['toggle_lights', 'Slå lys av/på'], ['open_popup', 'Åpne rom-popupen'], ['none', 'Ingenting']];
+  const pickOf = (L) => (...v) => v.find((x) => L.some((o) => o[0] === x)) || L[0][0];
+  const pickMode = pickOf(M.ICON_MODES), pickTap = pickOf(M.ICON_TAPS);
+  const roomStore = (area) => (area && ((M.roomCfgs && M.roomCfgs[area]) || (M.store && (M.store.eff ? M.store.eff('rooms.' + area) : M.store.get('rooms.' + area))))) || {};
+  // Romkortene tegnes på nytt når «Tilpass rom» endres (rom-popupen publiserer, eller ki-store rooms.<area> endres).
+  const bump = () => { if (M.liveCards) M.liveCards.forEach((set) => set.forEach((el) => { if (el.isConnected && /^msh-(romkort|hjem-faner)-card$/.test(el.localName) && el.update) el.update(); })); };
+  window.addEventListener('msh-room-config', bump);
+  if (M.store && M.store.subscribe) M.store.subscribe((d, path) => { if (!path || /(^|\.)rooms(\.|$)/.test(String(path))) bump(); });
   // Alt et romkort trenger. card: kortet (s()/n() registrerer avhengigheter). cfg: { overrides, look:{icon,color,name}, hash }
   M.romData = function (card, area, cfg) {
     cfg = cfg || {};
     const hass = card.hass;
     if (!hass || !area || !hass.areas || !hass.areas[area]) return null;
-    const A = hass.areas[area], F = A.floor_id && hass.floors ? hass.floors[A.floor_id] : null;
+    const A = hass.areas[area], F = A.floor_id && hass.floors ? hass.floors[A.floor_id] : null, RS = roomStore(area);
     const au = autoOf(hass, area), OA = au.A || {}, ov = cfg.overrides || {}, look = cfg.look || {};
     // Klima via M.roomClimate (30-rom-klima.js): KI Rom-attributtene temperatur/fuktighet kan være tall, entity_id eller liste.
     // Overstyring: overrides.temperature|humidity|climate (nye) eller temperatur|fuktighet|termostat (gamle).
@@ -66,6 +78,8 @@
       temp, hum, tempId, humId, thermo: ts ? thermo : null, set, step: ts ? Number(ts.attributes.target_temp_step) || 0.5 : 0.5, heating,
       lights, lightsOn, media, mediaOn, doors, doorOpen, wattId, watt: card.n(wattId), floor: A.floor_id || null, floorName: F ? F.name : null, level: F ? F.level : null,
       outdoor, hash: cfg.hash || '#' + area, ent: (ts && thermo) || tempId || lights[0] || null,
+      iconMode: pickMode(cfg.icon_color_mode, RS.icon_color_mode, cfg.icon_color_default),
+      iconTap: pickTap(cfg.icon_tap, RS.icon_tap, cfg.icon_tap_default),
     };
   };
 
@@ -146,7 +160,15 @@
   };
   const setTxt = (v) => (v == null ? '–' : M.nf(v, v % 1 ? 1 : 0));
   const bang = (alert) => (alert ? `<span class="rk-bang" title="${esc(alert)}">!</span>` : '');
-  const lightBtn = (r, cls, alert) => `<button class="${cls}" data-act="rk-light" data-area="${esc(r.id)}" title="Lys" style="background:${r.lightsOn ? r.col : 'var(--gray200,#3a3a3a)'};color:${r.lightsOn ? 'var(--gray000,#232323)' : 'var(--gray600,#7f7f7f)'}">${M.icon(r.icon, 24)}${bang(alert)}</button>`;
+  // Ikon-sirkelen: farge etter r.iconMode, trykk etter r.iconTap (none = ingen knapp, trykket går til kortet).
+  const lightBtn = (r, cls, alert) => {
+    const on = r.iconMode === 'always' || (r.iconMode !== 'never' && r.lightsOn > 0);
+    const st = `background:${on ? r.col : 'var(--gray300,#404040)'};color:${on ? 'var(--gray000,#232323)' : 'var(--gray800,#afafaf)'}`;
+    const inner = M.icon(r.icon, 24) + bang(alert);
+    if (r.iconTap === 'none') return `<span class="${cls} rk-notap" style="${st}">${inner}</span>`;
+    const act = r.iconTap === 'open_popup' ? `data-act="rk-open" data-hash="${esc(r.hash)}" title="Åpne ${esc(r.name)}"` : `data-act="rk-light" data-area="${esc(r.id)}" title="Lys"`;
+    return `<button class="${cls}" ${act} style="${st}">${inner}</button>`;
+  };
   const kv = (r) => `<div class="rk-kv"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" title="Opp">${M.icon('expand_less', 20)}</button><span class="num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" title="Ned">${M.icon('expand_more', 20)}</button></div>`;
   const openAttrs = (r, key) => `data-act="rk-open" data-hash="${esc(r.hash)}" ${r.ent ? `data-ent="${esc(r.ent)}"` : ''} data-key="${esc(key || 'rk-' + r.id)}"`;
 
@@ -221,6 +243,8 @@
     .rk-name{position:absolute;left:18px;top:18px;right:70px;font-size:15px;font-weight:500;line-height:1.3}
     .rk-ic{position:absolute;right:6px;top:6px;width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:background .25s,color .25s,transform .2s}
     .rk-ic:active{transform:scale(.92)}
+    .rk-notap{pointer-events:none}
+    .rk-notap:active{transform:none}
     .rk-ics{position:relative;right:auto;top:auto;flex:none}
     .rk-bang{position:absolute;right:-3px;top:-6px;width:24px;height:24px;border-radius:12px;background:var(--red,#f28073);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 0 0 3px var(--gray000,#232323);z-index:2;line-height:1}
     .rk-tv{position:absolute;left:18px;bottom:16px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
@@ -312,6 +336,8 @@
           { type: 'section', id: 'look', label: 'Ikon og farge', icon: 'mdi:palette', fields: [
             { type: 'icon', name: 'icon', label: 'Ikon', auto: () => (r ? r.icon : '') },
             { type: 'color', name: 'color', label: 'Romfarge (ikon når lys er på)', auto: () => (c.area ? M.romColor(c.area, hass) : '') },
+            { type: 'select', name: 'icon_color_mode', label: 'Ikonfarge', options: [['', 'Som rommet'], ...M.ICON_MODES], default: '', help: 'Som rommet = «Tilpass rom» → Utseende (standard: når lys er på)' },
+            { type: 'select', name: 'icon_tap', label: 'Trykk på ikonet', options: [['', 'Som rommet'], ...M.ICON_TAPS], default: '', help: 'Termostat-knappene påvirkes ikke' },
           ] },
           { type: 'overrides', label: 'Bytt sensor/termostat', fields: [
             { name: 'temperature', label: 'Temperatur', domain: 'sensor', device_class: 'temperature', auto: (h, cc) => (cc.overrides || {}).temperatur || au(h, cc).temp },
@@ -330,7 +356,7 @@
       };
     }
     get cardSize() { return { graf: 4, karusell: 5, L: 5, M: 3, S: 1 }[this.config.variant] || 4; }
-    roomCfg() { const c = this.config; return { overrides: c.overrides, look: { icon: c.icon, color: c.color, name: c.name }, hash: c.hash }; }
+    roomCfg() { const c = this.config; return { overrides: c.overrides, look: { icon: c.icon, color: c.color, name: c.name }, hash: c.hash, icon_color_mode: c.icon_color_mode, icon_tap: c.icon_tap }; }
     onOpen() { if ((this.config.variant || 'graf') === 'graf') this._loadHist(); }
     async _loadHist() {
       const r = M.romData(this, this.config.area, this.roomCfg());

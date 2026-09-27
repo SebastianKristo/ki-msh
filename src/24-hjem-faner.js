@@ -182,7 +182,9 @@
     if (t) ov.temperature = t;
     if (h) ov.humidity = h;
     if (k) ov.climate = k;
-    return { overrides: ov, look: { icon: rc.icon, color: rc.color || rc.col } };
+    // Ikon-sirkelen: standard for alle rom (icon_color_mode / icon_tap i dette kortet, «Tilpass Hjem» → Kort);
+    // «Tilpass rom» (ki-store rooms.<area>) vinner – slås opp i M.romData.
+    return { overrides: ov, look: { icon: rc.icon, color: rc.color || rc.col }, icon_color_default: c.icon_color_mode, icon_tap_default: c.icon_tap };
   };
 
   /* ------------------------------------------------------------ kort */
@@ -212,6 +214,9 @@
             { type: 'select', name: 'battery.show', label: 'Liste', options: [['lav', 'Bare lave'], ['alle', 'Alle']], default: 'lav' },
             { type: 'boolean', name: 'battery.always', label: 'Vis fanen alltid', help: 'Ignorer betingelsen' },
             { type: 'entity', name: 'battery.cond', label: 'Vis fanen når denne er på', domain: 'binary_sensor', help: 'Tom = vises når et batteri (device_class battery) er under grensen' },
+          ] },
+          { type: 'section', id: 'appliances', label: 'Hvitevarer', icon: 'mdi:washing-machine', fields: [
+            { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: [['full', 'Full'], ['calm', 'Rolig'], ['off', 'Av']], default: 'full', help: 'Oppvask, vask, tørk og støvsuger på snarveiene. Rolig = halv fart og utslag' },
           ] },
         ];
         T.filter((t) => t.view !== 'batterier').forEach((t) => {
@@ -271,6 +276,10 @@
         fields.push({ type: 'section', id: 'soppel', label: 'Sveip-kort · søppel', icon: 'mdi:delete', fields: [
           { type: 'hash', name: 'trash_hash', label: 'Popup', placeholder: '#soppel' },
           { type: 'entity', name: 'trash_type_sensor', label: 'Type avfall (valgfri)', domain: 'sensor' },
+        ] });
+        fields.push({ type: 'section', id: 'romikon', label: 'Romkort · ikon (standard for alle rom)', icon: 'mdi:circle-slice-8', fields: [
+          { type: 'select', name: 'icon_color_mode', label: 'Ikonfarge', options: M.ICON_MODES || [], default: 'lights', help: 'Romfarge når lys er på, alltid eller aldri. «Tilpass rom» → Utseende vinner per rom.' },
+          { type: 'select', name: 'icon_tap', label: 'Trykk på ikonet', options: M.ICON_TAPS || [], default: 'toggle_lights', help: '«Tilpass rom» → Handlinger vinner per rom. Termostat-knappene påvirkes ikke.' },
         ] });
         areas.forEach((a) => {
           const r = romData(a.id), P = `rooms.${a.id}`, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
@@ -445,14 +454,14 @@
           const v = st ? st.state : '', bat = st && st.attributes.battery_level != null ? ` · ${st.attributes.battery_level} %` : '';
           const run = v === 'cleaning';
           const sub = run ? `Rengjør${bat}` : v === 'paused' ? 'Pauset' : v === 'returning' ? 'Kjører hjem' : v === 'error' ? 'Feil' : v === 'idle' ? 'Klar' : v === 'docked' ? 'I laderen' : '–';
-          return T({ ent: id, title: M.name(hass, id), sub, tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked',
+          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked',
             ic: () => { M.call(hass, 'vacuum', run ? 'pause' : 'start', { entity_id: id }); this._toast(run ? 'Støvsuger pauset' : 'Støvsuger starter'); } });
         }
         case 'dish': case 'wash': case 'dry': {
           const A = this._appl(kind, E[kind]); if (!A) return null;
           const left = A.secs != null ? `${Math.ceil(A.secs / 60)} min igjen` : '';
           const sub = A.mode === 'run' ? [left, A.prog].filter(Boolean).join(' · ') || 'Kjører' : A.mode === 'done' ? 'Ferdig · klar til å tømmes' : A.mode === 'paused' ? ['Pauset', left].filter(Boolean).join(' · ') : 'Av';
-          return T({ ent: A.ent, title: A.name, sub, tone: A.mode === 'run' ? C.blue : A.mode === 'done' ? C.green : A.mode === 'paused' ? C.orange : null, solid: A.mode === 'done', hide: A.mode === 'idle', cardHash: A.area ? '#' + A.area : null,
+          return T({ ent: A.ent, title: A.name, sub, aIcon: this._applIcon(A), tone: A.mode === 'run' ? C.blue : A.mode === 'done' ? C.green : A.mode === 'paused' ? C.orange : null, solid: A.mode === 'done', hide: A.mode === 'idle', cardHash: A.area ? '#' + A.area : null,
             ic: () => this._applAct(A) });
         }
         case 'jul': {
@@ -496,6 +505,17 @@
       const [, icon, name, nominal] = APPL[kind];
       return { kind, mode, secs, prog: prog && !M.unavailable(prog) ? prog.state : '', name, icon, ent: info.status, sw: info.sw, area: info.area, nominal };
     }
+    // Animerte hvitevare-ikoner (06-appliance-icons.js); nivå fra appliance_animation (full|calm|off)
+    _aIcon(type, run, o, size) {
+      if (!M.renderApplianceIcon) return '';
+      return M.renderApplianceIcon(type, run, { ...(o || {}), level: this.config.appliance_animation || 'full', size: size || 24 });
+    }
+    _applIcon(A, size) {
+      const type = { dish: 'dishwasher', wash: 'washer', dry: 'dryer' }[A.kind], run = A.mode === 'run';
+      const raw = A.ent ? String((this.s(A.ent) || {}).state || '') : '';
+      const done = M.applianceDone ? M.applianceDone(A.ent, run, A.mode === 'done') : false;
+      return this._aIcon(type, run, { phase: M.appliancePhase ? M.appliancePhase(raw + ' ' + (A.prog || '')) : '', done }, size);
+    }
     _applAct(A) {
       if (A.sw) { const on = M.isOn(this.s(A.sw)); M.toggle(this.hass, A.sw); this._toast(`${A.name} ${on ? 'pauset' : 'fortsetter'}`); return; }
       M.moreInfo(this, A.ent);
@@ -517,7 +537,7 @@
       let st = '', iw = '', ic = '', sb = '';
       if (t.solid && t.tone) { st = `background:${t.tone};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(0,0,0,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(31,42,36,0.75)'; } else if (t.tone === 'pink') { st = `background:${C.accent};color:var(--gray100,#2f2f2f);box-shadow:none`; iw = 'background:rgba(42,23,32,0.1);color:var(--gray100,#2f2f2f)'; sb = 'color:rgba(42,23,32,0.7)'; } else if (t.tone) { st = `background:${M.alpha(t.tone, 0.14)};box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}`; iw = `background:${M.alpha(t.tone, 0.2)};color:${t.tone}`; }
       return `<div class="tile" data-act="tile" data-k="${esc(t.kind)}" data-w="card" ${t.ent ? `data-ent="${esc(t.ent)}"` : ''} data-key="${esc(key)}" style="${st}">
-        <button class="tic" data-act="tile" data-k="${esc(t.kind)}" data-w="ic" style="${iw}">${M.icon(t.icon, 24)}</button>
+        <button class="tic" data-act="tile" data-k="${esc(t.kind)}" data-w="ic" style="${iw}">${t.aIcon || M.icon(t.icon, 24)}</button>
         <div class="tx"><span class="tt ell">${esc(t.title)}</span><span class="ts" style="${sb}">${esc(t.sub || '')}</span></div></div>`;
     }
     _runTile(kind, w) {
@@ -613,7 +633,7 @@
         const col = A.mode === 'done' ? C.green : A.mode === 'paused' ? 'var(--gray800,#afafaf)' : 'var(--white,#fafafa)';
         const bar = A.mode === 'done' ? C.green : A.mode === 'paused' ? 'var(--gray700,#979797)' : 'var(--white,#fafafa)';
         return `<div class="ap" data-key="ap-${A.kind}" data-ent="${esc(A.ent)}">
-          <div class="ap-h"><span class="ap-n ell">${esc(A.name)}</span><button class="ap-b" data-act="appl" data-k="${A.kind}" title="${A.mode === 'done' ? 'Tøm' : A.mode === 'run' ? 'Pause' : 'Fortsett'}">${M.icon(A.icon, 20)}</button></div>
+          <div class="ap-h"><span class="ap-n ell">${esc(A.name)}</span><button class="ap-b" data-act="appl" data-k="${A.kind}" title="${A.mode === 'done' ? 'Tøm' : A.mode === 'run' ? 'Pause' : 'Fortsett'}">${this._applIcon(A, 20) || M.icon(A.icon, 20)}</button></div>
           <span style="flex:1"></span><span class="ap-t num" style="color:${col}">${time}</span>
           <span class="ap-s ell">${esc(A.mode === 'done' ? 'Klar til å tømmes' : (A.mode === 'paused' ? 'Pauset · ' : '') + (A.prog || ''))}</span>
           <div class="ap-bar"><span style="width:${p.toFixed(1)}%;background:${bar};${A.secs == null && A.mode !== 'done' ? 'opacity:.35' : ''}"></span></div></div>`;
@@ -736,6 +756,7 @@
     }
     get styles() {
       return `${M.romkortCSS || ''}
+        ${M.APPLIANCE_CSS || ''}
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
         .sec{display:flex;flex-direction:column;gap:12px}

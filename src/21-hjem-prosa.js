@@ -3,6 +3,12 @@
  * Autokonfig: weather.* (første), sensor.hele_huset_effekt / _lys (KI Rom), strømpris (plattform nordpool/tibber),
  * person.*, lock.*, alarm_control_panel.*, calendar.*, todo.*, søppel-sensor. Standardprosaen bygges bare av
  * det som faktisk finnes.
+ * Config: prose[] = { id, pre, src, fmt ({v} = verdien), post, icon, color, act, link, cop/csrc/cval (betingelse),
+ *   ent (entitet for src 'custom', påkrevd), ent_override (overstyr entiteten til en fast kilde, tom = automatisk),
+ *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
+ *   prose_font_size (em, 1,1–1,8, standard 1,4), prose_line_height (em, 1,6–2,4, standard 2,0),
+ *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
+ * Høyde: font-size 1,4em + line-height 2em av HA-kortets 14 px = 39,2 px per linje, padding 4px 0 12px 0 → linjer × 39,2 + 16.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -12,10 +18,12 @@
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
-  const PCOL = { hvit: C.white, gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
-  const PSW = [['hvit', C.white, 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
+  const PCOL = { hvit: 'var(--gray1000, #e1e1e1)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
+  const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
+  // Faste kilder som kan pekes til en annen entitet (prose[].ent_override)
+  const FIXED = ['weather', 'temp', 'price', 'watt', 'lights', 'events', 'home', 'lock', 'alarm', 'trash', 'todo'];
   const nb = (n, d) => M.nf(n, d);
   const pnum = (v) => parseFloat(String(v == null ? '' : v).replace(',', '.'));
 
@@ -142,12 +150,21 @@
   function compute(h, c, rd) {
     const S = sources(h, c, rd), getS = getter(h, c, S, rd);
     const rows = Array.isArray(c.prose) ? c.prose : defaultProse(h, c);
-    const valOf = (p) => (p.src === 'custom' ? getS(p.ent) || null : S[p.src] || null);
+    // Verdi for en kilde. Faste kilder kan pekes til en annen entitet (ent_override / cent); «Egendefinert» bruker ent.
+    const valFor = (src, ov) => {
+      if (src === 'custom') return getS(ov) || null;
+      if (!ov) return S[src] || null;
+      if (AUTO[src]) { const S2 = sources(h, { ...c, overrides: { ...(c.overrides || {}), [src]: ov } }, rd); if (S2[src]) return S2[src]; }
+      return getS(ov) || null;
+    };
+    const valOf = (p) => valFor(p.src, p.src === 'custom' ? p.ent : p.ent_override);
     const fill = (str) => String(str || '').replace(/\{([^}]+)\}/g, (m, k) => { const v = getS(k); return v ? v[0] : '–'; });
     const test = (p) => {
       const op = p.cop || 'alltid';
       if (op === 'alltid') return true;
-      const ck = p.csrc || p.src, sv = ck === 'custom' ? getS(p.cent) : S[ck];
+      // Betingelsens entitet: cent, ellers samme entitet som boblen når betingelsen gjelder samme kilde
+      const ck = p.csrc || p.src, same = ck === p.src ? (ck === 'custom' ? p.ent : p.ent_override) : '';
+      const sv = valFor(ck, p.cent || same || '');
       if (!sv) return true;
       const x = pnum(p.cval), num = !isNaN(x);
       if (op === '>') return num && sv[1] > x;
@@ -162,10 +179,12 @@
         chip: p.src === 'text' ? fill(p.fmt) : fill(String(p.fmt || '{v}').replace(/\{v\}/g, sv ? sv[0] : '–')),
         dot: p.icon === 'dot' ? (sv && sv[2]) || C.green : null, emoji: p.icon && p.icon !== 'dot' ? p.icon : '', bg, id: sv ? sv[3] : null, tap: !!(p.act || p.link) };
     });
-    return { S, getS, rows, vis, test, valOf, fill };
+    // Auto-entiteten for en fast kilde (uten overstyring) – vises som «Automatisk · …» i velgeren.
+    const autoOf = (src) => (S[src] && S[src][3]) || (AUTO[src] ? ents(h, c)[src] : null) || null;
+    return { S, getS, rows, vis, test, valOf, valFor, autoOf, fill };
   }
 
-  const chipHTML = (v, cls) => `${v.dot ? `<span class="${cls.dot}" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 18) : `<span>${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
+  const chipHTML = (v, cls) => `${v.dot ? `<span class="${cls.dot}" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
   const previewHTML = (h, c) => {
     const R = compute(h, c);
     return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>` : ''}<span>${esc(v.post)}</span>`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
@@ -232,9 +251,19 @@
 
   class Prosa extends M.Card {
     static get cardName() { return 'Hjem · prosa'; }
-    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet', prose_offset: 18 }; }
-    // Avstand over teksten (margin-top på prosa-blokken), −20–60 px, standard 18. Delt med «Tilpass Hjem» → Tekst.
-    static get offsetField() { return { type: 'range', name: 'prose_offset', label: 'Avstand over teksten', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, step: 1, default: 18, unit: 'px', presets: [[0, 'Ingen 0'], [18, 'Standard 18'], [36, 'Luftig 36']] }; }
+    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet' }; }
+    // Tekststørrelse og linjehøyde i em (som originalens content_style: font-size 1.4em, line-height 2em, relativt til
+    // HA-kortets 14 px → 19,6 px tekst og 39,2 px per linje). Delt med «Tilpass Hjem» → Tekst.
+    static get sizeFields() {
+      return [
+        { type: 'range', name: 'prose_font_size', label: 'Tekststørrelse', icon: 'mdi:format-size', min: 1.1, max: 1.8, step: 0.05, default: 1.4, unit: 'em', help: 'Relativt til kortets 14 px · standard 1,4 em = 19,6 px', presets: [[1.2, 'Liten 1,2'], [1.4, 'Standard 1,4'], [1.6, 'Stor 1,6']] },
+        { type: 'range', name: 'prose_line_height', label: 'Linjehøyde', icon: 'mdi:format-line-spacing', min: 1.6, max: 2.4, step: 0.05, default: 2, unit: 'em', help: 'Ganger tekststørrelsen · standard 2,0 em = 39,2 px per linje', presets: [[1.8, 'Tett 1,8'], [2, 'Standard 2,0'], [2.2, 'Luftig 2,2']] },
+      ];
+    }
+    static textSize(c) {
+      const n = (v, d, lo, hi) => { const x = Number(v); return v == null || v === '' || isNaN(x) ? d : M.clamp(x, lo, hi); };
+      return { fs: n(c && c.prose_font_size, 1.4, 1.1, 1.8), lh: n(c && c.prose_line_height, 2, 1.6, 2.4) };
+    }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
       return (hass) => {
@@ -245,7 +274,7 @@
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
-          Prosa.offsetField,
+          ...Prosa.sizeFields,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
             defaults: (h, c) => defaultProse(h, c),
@@ -256,8 +285,9 @@
               { type: 'text', name: 'pre', label: 'Tekst før', placeholder: 'F.eks. Strømmen koster' },
               { type: 'tokens', target: 'pre', tokens: toks },
               { type: 'select', name: 'src', label: 'Verdi i boblen', options: SRC, default: 'none' },
-              { type: 'entity', name: 'ent', label: 'Entitet (egendefinert)', rowWhen: (r) => r.src === 'custom' },
-              { type: 'html', rowWhen: (r) => r.src && r.src !== 'none' && r.src !== 'text', render: (r, h, c) => { const R = compute(h, c), v = R.valOf(r); return `<span class="help" style="padding:0 6px">${v ? 'Nå: ' + esc(v[0]) : 'Fant ingen entitet for denne kilden – velg under «Bytt entiteter»'}</span>`; } },
+              { type: 'entity', name: 'ent', label: 'Entitet', required: true, placeholder: 'Velg entitet …', help: 'Påkrevd for «Egendefinert». Kan også være {område}.temp o.l. i tekstfeltene.', rowWhen: (r) => r.src === 'custom' },
+              { type: 'entity', name: 'ent_override', label: 'Entitet', help: 'Automatisk = kildens standard-entitet. Velg en annen sensor for å overstyre bare denne setningen.', rowWhen: (r) => FIXED.includes(r.src), auto: (r, h, c) => compute(h, c).autoOf(r.src) },
+              { type: 'html', rowWhen: (r) => r.src && r.src !== 'none' && r.src !== 'text', render: (r, h, c) => { const R = compute(h, c), v = R.valOf(r); return `<span class="help" style="padding:0 6px">${v ? 'Nå: ' + esc(v[0]) : 'Fant ingen verdi – velg en entitet'}</span>`; } },
               { type: 'text', name: 'fmt', label: 'Visning i boblen · {v} er verdien', rowWhen: (r) => r.src && r.src !== 'none' && r.src !== 'text', placeholder: '{v}' },
               { type: 'text', name: 'fmt', label: 'Tekst i boblen', rowWhen: (r) => r.src === 'text' },
               { type: 'text', name: 'post', label: 'Tekst etter', placeholder: 'F.eks. i dag.' },
@@ -274,7 +304,7 @@
               { type: 'text', name: 'link', label: 'Egen popup-hash', placeholder: '#popup' },
               { type: 'select', name: 'cop', label: 'Vises', options: OPS, default: 'alltid' },
               { type: 'select', name: 'csrc', label: 'Når', options: SRC.filter((x) => x[0] !== 'none' && x[0] !== 'text'), rowWhen: cond },
-              { type: 'entity', name: 'cent', label: 'Entitet (betingelse)', rowWhen: (r) => cond(r) && r.csrc === 'custom' },
+              { type: 'entity', name: 'cent', label: 'Entitet (betingelse)', help: 'For faste kilder: tom = samme entitet som kilden. Påkrevd for «Egendefinert».', rowWhen: (r) => cond(r), auto: (r, h, c) => { const R = compute(h, c), ck = r.csrc || r.src; return ck === 'custom' ? null : ck === r.src && r.ent_override ? r.ent_override : R.autoOf(ck); } },
               { type: 'text', name: 'cval', label: 'Verdi', placeholder: 'F.eks. 1,5 eller låst', rowWhen: cond },
             ] },
           { type: 'overrides', label: 'Bytt entiteter (kilder)', fields: [
@@ -310,8 +340,8 @@
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
       this._sheets && this._sheets.forEach((sh) => sh.update());
-      const off = M.clamp(Number(this.config.prose_offset != null && this.config.prose_offset !== '' ? this.config.prose_offset : 18) || 0, -20, 60);
-      const pzS = `style="margin-top:${off}px"`;
+      const T = Prosa.textSize(this.config);
+      const pzS = `style="font-size:${T.fs}em;line-height:${T.lh}em"`;
       if (!R.vis.length) {
         return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
@@ -328,12 +358,15 @@
     }
     get styles() {
       return `
-        :host{display:flow-root}
-        .pz{font-size:19px;font-weight:400;line-height:1.95;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
-        .chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
-        .chip ha-icon{color:#232323}
-        .dot{width:8px;height:8px;border-radius:4px;flex:none;transition:background .3s}
-        .pick{vertical-align:middle}
+        /* Grunnstørrelse = HA-kortets 14 px; teksten er 1,4em / 2em (originalens content_style), ingen margin på kortet */
+        :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
+        .pz{margin:0;padding:4px 0 12px 0;font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
+        /* Pillene endrer ikke linjehøyden: inline-flex på grunnlinjen, høyde 1,53em (≈30 px) < linjehøyden */
+        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--gray1000,#e1e1e1);color:var(--gray100,#2f2f2f);font-size:inherit;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
+        .chip ha-icon{color:var(--gray100,#2f2f2f);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
+        .chip .em{font-size:14px;line-height:1;flex:none}
+        .dot{width:10px;height:10px;border-radius:5px;flex:none;margin:0 2px;transition:background .3s}
+        .pick{vertical-align:baseline}
       `;
     }
   }
