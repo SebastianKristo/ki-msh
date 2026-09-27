@@ -76,6 +76,8 @@
    * «Åpne app» / «Send kommando» (kortet fyller inn spiller/remote). Alt annet = HA-handling. */
   const HOLD_KEYS = ['back', 'home', 'menu'];
   const HOLD_MS = 450;
+  // Tastetrykk og tjenestekall vises ikke i UI (fiks 15.9) – bare haptic/trykk-animasjon; logges for feilsøking.
+  const dbg = (msg) => { try { console.debug('[msh-media]', msg); } catch (e) { /* ignorer */ } };
   const SW_MIN = 10, SW_STEP = 34; // sveip: terskel før det er et sveip, px per kommando
   const actLabel = (h, a) => {
     const pa = a.perform_action || a.service, ent = a.entity || (a.target && [].concat(a.target.entity_id || [])[0]) || (a.data && [].concat(a.data.entity_id || [])[0]);
@@ -439,7 +441,6 @@
       if (dt === 'last' && ui.sel && typeof ui.sel === 'object') sel = { ...ui.sel };
       if (tab && !sel[tab] && P[tab] && P[tab][0]) sel[tab] = P[tab][0].id;
       b.main = this; b.tab = tab; b.sel = sel;
-      this._ui = { ...this._ui, act: '', lastKey: '' };
       this.update();
       emit(this.key, this);
     }
@@ -452,7 +453,7 @@
       const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
-      if (this._pid !== p.id) { this._pid = p.id; ui.act = ''; ui.lastKey = ''; }
+      if (this._pid !== p.id) this._pid = p.id;
       // Chips: apper (TV) / snarveier + kilder (musikk)
       const hide = String(p.pc.hide_sources || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
       const src = (Array.isArray(a.source_list) ? a.source_list : []).filter((x) => !hide.includes(String(x).toLowerCase()));
@@ -481,8 +482,7 @@
         return `<button class="chip press ${I.tv ? 'tv' : ''}" data-act="chip" data-k="${c.k}" data-v="${esc(c.v)}" data-n="${esc(c.name)}" data-key="${esc(c.k + ':' + c.v)}" style="background:${bg};color:${fg}">${M.icon(c.icon, 24, 'color:' + ic)}<span class="cn ell">${esc(c.name)}</span></button>`;
       }).join('');
       const chipsSec = `<div class="cs"><span class="ttl">${esc(title)}</span>
-        ${chips.length ? `<div class="chips noscroll">${chipHtml}</div>` : `<div class="nochips">Ingen ${I.tv ? 'apper' : 'kilder eller snarveier'} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}
-        ${!I.tv && ui.act ? `<span class="act ell">${esc(ui.act)}</span>` : ''}</div>`;
+        ${chips.length ? `<div class="chips noscroll">${chipHtml}</div>` : `<div class="nochips">Ingen ${I.tv ? 'apper' : 'kilder eller snarveier'} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}</div>`;
       // Transport (musikk)
       const sf = Number(a.supported_features) || 0, has = (f) => !sf || (sf & f) === f;
       const rep = a.repeat && a.repeat !== 'off', shuf = !!a.shuffle;
@@ -510,7 +510,6 @@
             const hp = I.tv && holdPlan(h, cfg, p, c), t = hp ? `${l} · hold for ${hp.label}` : l;
             return `<button class="key ${hp ? 'hold' : ''}" data-act="rk" data-c="${c}" ${hp ? 'data-hold="1"' : ''} title="${esc(t)}" aria-label="${esc(t)}">${M.icon(ic, 24)}${hp ? '<span class="hb"></span>' : ''}</button>`;
           }).join('')}
-          <div class="lk ell">${esc(ui.lastKey || `${RC.hw} · ${rem || 'mangler remote.* – velg i oppsett'}`)}</div>
         </div>
       </div>`;
       // Volum
@@ -536,7 +535,6 @@
     onAction(name, el, ev) {
       const h = this.hass, R = this._R, p = R && R.p;
       if (name === 'tab') {
-        this._ui = { ...this._ui, act: '', lastKey: '' };
         return this.select(el.dataset.t);
       }
       if (!p) return super.onAction(name, el, ev);
@@ -547,12 +545,12 @@
           const d = el.dataset;
           if (d.k === 'src') {
             mp('select_source', { source: d.v });
-            if (p.kind === 'tv') this.setUI({ lastKey: `${REMOTE[platOf(h, p)].hw} · Åpner ${d.n}` });
-            else this.setUI({ act: `media_player.select_source → ${id} · source: ${d.v}` });
+            if (p.kind === 'tv') dbg(`${REMOTE[platOf(h, p)].hw} · Åpner ${d.n}`);
+            else dbg(`media_player.select_source → ${id} · source: ${d.v}`);
           } else {
             const [dm, sv] = svcFor(d.v);
             M.call(h, dm, sv, { entity_id: d.v });
-            this.setUI({ act: `${dm}.${sv} → ${d.v}` });
+            dbg(`${dm}.${sv} → ${d.v}`);
           }
           return;
         }
@@ -564,7 +562,7 @@
         case 'rk': return this._remote(p, el.dataset.c, false);
         case 'vb': {
           const k = el.dataset.k, ent = p.pc['volume_' + k];
-          if (ent) { const [dm, sv] = svcFor(ent); M.call(h, dm, sv, { entity_id: ent }); this.setUI({ lastKey: `${dm}.${sv} → ${ent}` }); return; }
+          if (ent) { const [dm, sv] = svcFor(ent); M.call(h, dm, sv, { entity_id: ent }); dbg(`${dm}.${sv} → ${ent}`); return; }
           if (k === 'mute') return mp('volume_mute', { is_volume_muted: !a.is_volume_muted });
           return mp(k === 'up' ? 'volume_up' : 'volume_down');
         }
@@ -578,13 +576,13 @@
       const lbl = swipe ? `${KEYL[c]} · sveip` : hold ? `${RC.hw} · ${RC.holdLabel}` : `${RC.hw} · ${KEYL[c]}`;
       if (!rem) {
         if (c === 'play' && !hold) M.call(h, 'media_player', 'media_play_pause', { entity_id: p.id });
-        this.setUI({ lastKey: `${lbl}${c === 'play' && !hold ? '' : ' · mangler remote.*'}` });
+        dbg(`${lbl}${c === 'play' && !hold ? '' : ' · mangler remote.*'}`);
         return;
       }
       const data = { entity_id: rem, command: hold ? RC.hold.command : RC[c] };
       if (hold && RC.hold.hold_secs) data.hold_secs = RC.hold.hold_secs;
       M.call(h, 'remote', 'send_command', data);
-      this.setUI({ lastKey: lbl });
+      dbg(lbl);
     }
     // Langt trykk (≥ 450 ms) på Tilbake/Hjem/Meny: utfør knappens hold-handling.
     _holdRun(p, c) {
@@ -597,10 +595,10 @@
         if (d.source) M.call(h, 'media_player', 'select_source', { entity_id: p.id, source: d.source });
       } else if (hp.kind === 'cmd') {
         const rem = remoteOf(h, p);
-        if (!rem || !d.command) { this.setUI({ lastKey: `${RC.hw} · ${hp.label} · ${rem ? 'mangler kommando' : 'mangler remote.*'}` }); return true; }
+        if (!rem || !d.command) { dbg(`${RC.hw} · ${hp.label} · ${rem ? 'mangler kommando' : 'mangler remote.*'}`); return true; }
         M.call(h, 'remote', 'send_command', { ...d, entity_id: rem });
       } else runAction(this, hp.a, p.id);
-      this.setUI({ lastKey: `${RC.hw} · ${hp.label}` });
+      dbg(`${RC.hw} · ${hp.label}`);
       return true;
     }
     // Styreflaten: glød-sirkel (52 px) følger fingeren. Posisjon via CSS-variabler på verten, så morph ikke nullstiller den.
@@ -744,7 +742,6 @@
         .chip:active{transform:scale(.95)}
         .cn{font-size:11px;font-weight:600;max-width:100%}
         .nochips{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px 10px 16px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:13px;color:var(--gray700,#979797)}
-        .act{font-size:11px;color:var(--gray600,#7f7f7f);padding:0 4px}
         .tr{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}
         .rnd{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--gray600,#7f7f7f);background:transparent;transition:background .2s,color .2s}
         .rnd.on{color:${PINKC};background:${M.alpha(PINKC, 0.14)}}
@@ -766,7 +763,6 @@
         .key{position:relative;height:56px;border-radius:20px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .12s}
         .key:active{transform:scale(.93);color:var(--white,#fafafa)}
         .hb{position:absolute;bottom:6px;left:50%;width:14px;height:3px;margin-left:-7px;border-radius:2px;background:var(--gray400,#545454)}
-        .lk{grid-column:1 / -1;font-size:11px;color:var(--gray600,#7f7f7f);text-align:center}
         .vol{display:flex;align-items:center;gap:14px;padding:6px 4px}
         .vol.dis{opacity:.45}
         .vlab{font-size:14px;color:var(--gray800,#afafaf);width:52px;flex:none}
