@@ -7,13 +7,15 @@
  *   MSH.store.load(hass)           – hent fra HA (kalles automatisk av kortene)
  * Kortconfig: cards.<card_id> = kortets config fra egen editor; effektiv config = { ...YAML, ...store }.
  *
- * Oppsett per enhet: { <felles nøkler: cards/rooms/popups …>, devices: { <enhets-id>: { name, seen, cards/rooms/popups … } } }
- *   Felles oppsett ligger på rotnivå (bakoverkompatibelt – tilsvarer «shared»); enhetens eget under devices.<id>.
- *   Oppslag: devices[id][kort] ?? felles[kort] ?? YAML/strategi-standard, slått sammen felt for felt (null = fjernet).
+ * Én felles config for alle kort (rotnivå). UNNTAK: Kamera og Person kan ha oppsett per enhet:
+ *   { <felles nøkler: cards/rooms/popups …>, devices: { <enhets-id>: { name, seen, cards: { <kamera/person-kort> } } } }
+ *   Oppslag for Kamera/Person: devices[id][kort] ?? felles[kort] ?? YAML, felt for felt (null = fjernet).
+ *   Migrering ved oppstart: annet enhetsoppsett flyttes til felles (hvis felles mangler) og slettes fra alle enheter.
  *   MSH.store.deviceId / deviceName    – denne enheten (browser_mod-ID, ellers egen stabil ID i localStorage ki-device-id)
  *   MSH.store.scope                    – 'device' (standard i Tilpass-menyene) eller 'shared'
- *   MSH.store.eff(key)                 – sammenslått config for en nøkkel (felles + denne enheten)
- *   MSH.store.view()                   – hele configen sett fra denne enheten (strategien bruker denne)
+ *   MSH.store.eff(key)                 – config for en nøkkel (felles; + denne enheten for Kamera/Person)
+ *   MSH.store.view()                   – hele den felles configen (strategien bruker denne)
+ *   MSH.store.perDeviceKey(key)        – om nøkkelen kan ha oppsett per enhet (Kamera/Person)
  *   MSH.store.hasOwn(key) / clearOwn(key) / copyToAll(key) – «Eget oppsett», «Bruk felles oppsett», «Kopier til alle»
  */
 (function () {
@@ -76,6 +78,8 @@
     } catch (e) { return 'ukjent'; }
   })();
   const devKey = (key) => 'devices.' + deviceId + '.' + key;
+  // Kamera- og Person-kort (card_id fra strategien: pop-kamera, pop-person-<id>; egne id-er med kamera/camera/person)
+  const perDeviceKey = (key) => /^cards\./.test(String(key)) && /(^|[-_.])(kamera|camera|person)/i.test(String(key).slice(6));
   const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
   // Felt for felt: b vinner, null i b fjerner feltet
   const mergeFields = (a, b) => {
@@ -84,33 +88,47 @@
     Object.keys(b).forEach((k) => { out[k] = b[k]; });
     return out;
   };
-  // Hele treet sett fra denne enheten: gruppe (cards/rooms/popups) → id → felt for felt
-  const view = () => {
-    const dev = get(data, 'devices.' + deviceId) || {};
-    const out = { ...data };
-    delete out.devices;
-    Object.keys(dev).forEach((g) => {
-      if (g === 'name' || g === 'seen') return;
-      if (!isObj(dev[g])) { out[g] = dev[g]; return; }
-      const grp = isObj(out[g]) ? { ...out[g] } : {};
-      Object.keys(dev[g]).forEach((id) => { grp[id] = dev[g][id] === null ? null : mergeFields(grp[id], dev[g][id]); });
-      out[g] = grp;
+  let scope = 'shared';
+
+  // Én felles config: flytt enhetsoppsett (utenom Kamera/Person) til felles hvis felles mangler, og slett det fra alle enheter.
+  const migrate = () => {
+    const D = get(data, 'devices');
+    if (!isObj(D)) return false;
+    let changed = false;
+    Object.keys(D).forEach((id) => {
+      const d = D[id] || {};
+      Object.keys(d).forEach((g) => {
+        if (g === 'name' || g === 'seen' || !isObj(d[g])) return;
+        Object.keys(d[g]).forEach((k) => {
+          const key = g + '.' + k;
+          if (perDeviceKey(key)) return;
+          const own = d[g][k];
+          if (get(data, key) == null && isObj(own)) {
+            const clean = {}; Object.keys(own).forEach((f) => { if (own[f] !== null) clean[f] = own[f]; });
+            if (Object.keys(clean).length) data = setIn(data, key, clean);
+          }
+          data = setIn(data, 'devices.' + id + '.' + key, undefined);
+          changed = true;
+        });
+        const left = get(data, 'devices.' + id + '.' + g);
+        if (isObj(left) && !Object.keys(left).length) data = setIn(data, 'devices.' + id + '.' + g, undefined);
+      });
     });
-    return out;
+    return changed;
   };
-  let scope = 'device';
 
   M.store = {
     get deviceId() { return deviceId; },
     get deviceName() { return get(data, 'devices.' + deviceId + '.name') || guessName(); },
     setDeviceName(name, id) { return M.store.set('devices.' + (id || deviceId) + '.name', name || undefined, { immediate: true }); },
     get scope() { return scope; },
-    set scope(v) { scope = v === 'shared' ? 'shared' : 'device'; },
+    set scope(v) { scope = v === 'device' ? 'device' : 'shared'; },
     // nøkkel for lagring i valgt omfang (Tilpass-menyene): devices.<id>.<key> eller <key>
     scoped: (key, sc) => ((sc || scope) === 'device' ? devKey(key) : key),
     devKey,
-    eff: (key) => mergeFields(get(data, key), get(data, devKey(key))),
-    view,
+    eff: (key) => (perDeviceKey(key) ? mergeFields(get(data, key), get(data, devKey(key))) : get(data, key)),
+    view: () => { const out = { ...data }; delete out.devices; return out; },
+    perDeviceKey,
     hasOwn: (key, id) => { const v = get(data, 'devices.' + (id || deviceId) + '.' + key); return isObj(v) ? Object.keys(v).length > 0 : v != null; },
     clearOwn: (key, id) => M.store.set('devices.' + (id || deviceId) + '.' + key, undefined, { immediate: true }),
     copyToAll(key) {
@@ -128,7 +146,7 @@
       return Object.keys(D).map((id) => {
         const d = D[id] || {};
         let own = 0;
-        Object.keys(d).forEach((g) => { if (isObj(d[g]) && g !== 'name') own += Object.keys(d[g]).length; });
+        Object.keys((d.cards && isObj(d.cards)) ? d.cards : {}).forEach((k) => { if (perDeviceKey('cards.' + k)) own++; });
         return { id, name: d.name || (id === deviceId ? guessName() : 'Enhet ' + id.slice(0, 6)), seen: d.seen || null, own, current: id === deviceId };
       }).sort((a, b) => (b.current - a.current) || ((b.seen || 0) - (a.seen || 0)));
     },
@@ -166,6 +184,7 @@
           if (r && r.value && typeof r.value === 'object' && !timer) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
+        if (migrate()) { cache(); emit(''); push(false); }
         // sist sett (maks hver 6. time, så det ikke gir unødige skriv)
         try {
           const seen = get(data, 'devices.' + deviceId + '.seen') || 0;

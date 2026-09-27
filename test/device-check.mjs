@@ -1,6 +1,7 @@
-// Oppsett per enhet: «Tilpass rom» lagrer som standard under devices.<id> (Denne enheten); «Alle enheter» skriver
-// felles oppsett; «Bruk felles oppsett» sletter enhetens eget. En annen enhet (simulert med ny enhets-ID) ser bare
-// felles oppsett. Sjekker også at popupens bunnluft følger navbarens høyde (MSH.popupBottomPad).
+// Én felles config: «Tilpass rom» har ingen omfangsvelger og lagrer felles (PC ser endringen fra telefonen).
+// Gammelt enhetsoppsett migreres til felles og slettes. Unntak: Kamera har oppsett per enhet («Denne enheten»
+// lagres under devices.<id>, PC ser felles; «Bruk felles oppsett» sletter enhetens eget).
+// Sjekker også at popupens bunnluft følger navbarens høyde (MSH.popupBottomPad).
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -42,6 +43,8 @@ const open = async (devId) => {
     const nav = document.createElement('msh-navbar-card'); nav.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); nav.hass = hass; dash.appendChild(nav);
     const pop = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#stue', name: 'Stue', icon: 'mdi:sofa', cards: [{ type: 'custom:msh-rom-card', card_id: 'room-stue', area: 'stue' }] };
     const bc = document.createElement('bubble-card'); bc.setConfig(pop); bc.hass = hass; dash.appendChild(bc);
+    const kp = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#kamera', name: 'Kamera', icon: 'mdi:cctv', cards: [{ type: 'custom:msh-kamera-card', card_id: 'pop-kamera' }] };
+    const kb = document.createElement('bubble-card'); kb.setConfig(kp); kb.hass = hass; dash.appendChild(kb);
     await new Promise((q) => setTimeout(q, 400));
     location.hash = '#stue';
     await new Promise((q) => setTimeout(q, 1200));
@@ -51,53 +54,67 @@ const open = async (devId) => {
 const helpers = `
   window.__all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
   window.__rom = () => window.__all().find((e) => e.localName === 'msh-rom-card' && e.isConnected);
+  window.__kam = () => window.__all().find((e) => e.localName === 'msh-kamera-card' && e.isConnected);
   window.__wait = (ms) => new Promise((q) => setTimeout(q, ms));
 `;
 const res = {};
+// gammelt enhetsoppsett fra forrige versjon: rom (skal migreres) og kamera (skal bli)
+server = { rooms: { stue: { gap: 8 } }, devices: { telefon: { name: 'iPhone', rooms: { kjokken: { gap: 12 }, stue: { gap: 30 } }, cards: { 'pop-kamera': { cam_gap: 2 } } } } };
 const A = await open('telefon');
 await A.p.evaluate(helpers);
 Object.assign(res, await A.p.evaluate(async () => {
   const r = {}, M = window.MSH;
-  r.deviceId = M.store.deviceId;
+  r.migKjokken = M.store.get('rooms.kjokken');
+  r.migStue = M.store.get('rooms.stue');
+  r.migDevRooms = M.store.get('devices.telefon.rooms') || null;
+  r.migKam = M.store.get('devices.telefon.cards.pop-kamera');
   r.padBottom = window.__rom().style.paddingBottom;
-  r.navH = document.documentElement.style.getPropertyValue('--ki-nav-h');
+  // Rom: ingen omfangsvelger, lagres felles
   window.__rom().customize('spacing'); await window.__wait(300);
   const sh = M.portals().pop().shadowRoot;
-  const bar = sh.querySelector('msh-scope-bar');
-  r.bar = !!bar && bar.shadowRoot.textContent.replace(/\s+/g, ' ').trim();
+  r.romBar = !!sh.querySelector('msh-scope-bar');
   const ed = sh.querySelector('msh-editor');
-  const pill = (re) => [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => re.test(x.textContent));
-  pill(/Tett 4/).click(); await window.__wait(900);
-  r.devAfter = M.store.get('devices.telefon.rooms.stue');
-  r.sharedAfter = M.store.get('rooms.stue') || null;
-  r.ownChip = /Eget oppsett/.test(bar.shadowRoot.textContent);
-  // Alle enheter → felles
-  [...bar.shadowRoot.querySelectorAll('[data-s]')].find((x) => x.dataset.s === 'shared').click(); await window.__wait(200);
-  pill(/Luftig 18/).click(); await window.__wait(900);
-  r.sharedAfter2 = M.store.get('rooms.stue');
-  r.effThis = M.store.eff('rooms.stue').gap;
-  r.cardGapThis = window.__rom().config.gap;
+  [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await window.__wait(900);
+  r.romShared = M.store.get('rooms.stue');
+  r.romDev = M.store.get('devices.telefon.rooms.stue') || null;
+  M.portals().forEach((p) => p.remove());
+  // Kamera: per enhet
+  location.hash = '#kamera'; await window.__wait(1000);
+  const k = window.__kam();
+  r.kamGapThis = k.config.cam_gap;
+  k.customize(); await window.__wait(400);
+  r.kamBar = !!window.__all().find((e) => e.localName === 'msh-scope-bar' && e.isConnected);
+  M.store.scope = 'device';
+  await M.saveCardConfig(window.__h, k._rawConfig, { ...k._rawConfig, cam_gap: 10 }, { card: k, immediate: true });
+  await window.__wait(300);
+  r.kamDev = M.store.get('devices.telefon.cards.pop-kamera');
+  r.kamShared = M.store.get('cards.pop-kamera') || null;
+  r.kamGapAfter = k.config.cam_gap;
   return r;
 }));
 await A.p.waitForTimeout(300);
-// Enhet B (PC) ser felles oppsett, ikke telefonens
+// PC: ser felles rom-oppsett, men ikke telefonens kamera-oppsett
 const B = await open('pc');
 await B.p.evaluate(helpers);
-Object.assign(res, await B.p.evaluate(async () => ({ pcGap: window.__rom().config.gap, pcDevices: window.MSH.store.devices().map((d) => d.name + (d.current ? '*' : '')) })));
-// Tilbake på telefonen: «Bruk felles oppsett» (to trykk = bekreft)
+Object.assign(res, await B.p.evaluate(async () => {
+  const pcRomGap = window.__rom().config.gap;
+  location.hash = '#kamera'; await window.__wait(1000);
+  return { pcRomGap, pcKamGap: window.__kam().config.cam_gap };
+}));
+// Telefon: «Bruk felles oppsett» for kamera
 Object.assign(res, await A.p.evaluate(async () => {
   const M = window.MSH; await M.store.refresh(window.__h);
-  const bar = M.portals().pop().shadowRoot.querySelector('msh-scope-bar');
-  const btn = () => bar.shadowRoot.querySelector('[data-a="clear"]');
-  btn().click(); await window.__wait(100); btn().click(); await window.__wait(700);
+  await M.store.clearOwn('cards.pop-kamera'); await window.__wait(300);
   const set = document.createElement('msh-settings-card'); set.setConfig({ type: 'custom:msh-settings-card' }); set.hass = window.__h; document.body.appendChild(set); await window.__wait(300);
-  return { afterClear: M.store.get('devices.telefon.rooms.stue') || null, gapAfterClear: window.__rom().config.gap, settingsList: set.shadowRoot.textContent.replace(/\s+/g, ' ').match(/Enheter.*?(?=Sebastian)/)?.[0] };
+  return { afterClear: M.store.get('devices.telefon.cards.pop-kamera') || null, settingsDevices: /Ingen enheter med eget oppsett/.test(set.shadowRoot.textContent) };
 }));
 res.errors = [...A.errs, ...B.errs];
 await b.close();
 console.log(JSON.stringify(res, null, 1));
-const ok = res.devAfter && res.devAfter.gap === 4 && !(res.sharedAfter && res.sharedAfter.gap === 4) && res.ownChip
-  && res.sharedAfter2 && res.sharedAfter2.gap === 18 && res.effThis === 4 && res.cardGapThis === 4
-  && res.pcGap === 18 && !res.afterClear && res.gapAfterClear === 18 && /calc\(var\(--ki-nav-h/.test(res.padBottom) && !res.errors.length;
-console.log(ok ? 'OK – oppsett per enhet' : 'FEIL – oppsett per enhet');
+const ok = res.migKjokken && res.migKjokken.gap === 12 && res.migStue.gap === 8 && !res.migDevRooms && res.migKam && res.migKam.cam_gap === 2
+  && !res.romBar && res.romShared && res.romShared.gap === 4 && !res.romDev
+  && res.kamGapThis === 2 && res.kamBar && res.kamDev && res.kamDev.cam_gap === 10 && !(res.kamShared && res.kamShared.cam_gap === 10) && res.kamGapAfter === 10
+  && res.pcRomGap === 4 && res.pcKamGap !== 10 && !res.afterClear && res.settingsDevices
+  && /calc\(var\(--ki-nav-h/.test(res.padBottom) && !res.errors.length;
+console.log(ok ? 'OK – én felles config, oppsett per enhet for Kamera' : 'FEIL – oppsett per enhet');
 process.exit(ok ? 0 : 1);

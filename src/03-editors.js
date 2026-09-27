@@ -140,14 +140,16 @@
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
         ${this._devices()}
-        <div class="who">${M.esc(u.name || '')} · ${M.store ? 'denne enheten: ' + M.esc(M.store.deviceName) + ' · enheter kan ha eget oppsett' : 'innstillingene gjelder for deg'}</div>
+        <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg på alle enhetene dine${M.store ? ' · denne enheten: ' + M.esc(M.store.deviceName) : ''}</div>
       </div>`;
     }
-    // Innstillinger → Enheter: kjente enheter (navn, sist sett, antall kort med eget oppsett) – gi nytt navn, nullstill, slett
+    // Innstillinger → Enheter: enheter med eget oppsett for Kamera/Person (navn, sist sett, antall kort) – gi nytt navn, nullstill, slett.
+    // Alle andre kort har én felles config.
     _devices() {
       if (!M.store) return '';
       this.s('zone.__msh_devices');
-      const list = M.store.devices(), ed = this.ui.devEdit, cf = this.ui.devConfirm || '';
+      const list = M.store.devices().filter((d) => d.own > 0), ed = this.ui.devEdit, cf = this.ui.devConfirm || '';
+      if (!list.length) return `<div class="gh">Enheter</div><div class="grp"><div class="r dv"><span class="ic">${M.icon('mdi:devices', 22)}</span><span class="tx"><b>Ingen enheter med eget oppsett</b><i>Kamera og Person kan ha eget oppsett per enhet. Alt annet er felles.</i></span></div></div>`;
       const rows = list.map((d) => {
         const seen = d.current ? 'denne enheten' : d.seen ? M.relTime(new Date(d.seen).toISOString()) : 'aldri sett';
         const own = d.own ? `${d.own} ${d.own === 1 ? 'kort' : 'kort'} med eget oppsett` : 'følger felles oppsett';
