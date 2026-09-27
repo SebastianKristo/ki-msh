@@ -44,7 +44,7 @@ const out = await p.evaluate(async () => {
   res.scenes = [...r.shadowRoot.querySelectorAll('.sc')].map((e) => `${e.textContent.trim()} ${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}`);
   // Tilpass rom via tannhjulet
   k.shadowRoot.querySelector('.gear').click(); await wait(300);
-  const portal = [...document.querySelectorAll('.msh-portal')].pop();
+  const portal = window.MSH.portals().pop();
   const ed = portal.shadowRoot.querySelector('msh-editor');
   const secs = [...ed.shadowRoot.querySelectorAll('details.sec > summary')].map((s) => s.textContent.trim().replace(/\s+/g, ' '));
   res.firstAccordion = secs[0];

@@ -15,13 +15,25 @@ egen «Tilpass» (samme editor, lagres til kortets YAML-config).
 1. Installer **Bubble Card** (HACS) og temaet **My SmartHome v3** (mørk). KI Rom anbefales.
 2. HACS → Custom repositories → `SebastianKristo/ki-msh` (type *Dashboard*) → last ned *KI MSH*.
    Manuelt: kopier `dist/ki-msh.js` til `/config/www/` og legg til ressursen `/local/ki-msh.js` (JavaScript-modul).
-3. Lag et dashbord fra [`examples/dashboard.yaml`](examples/dashboard.yaml) (Rå konfigurasjonsredigering) og bytt
-   rom-/person-hashene til dine.
+3. Lag et nytt dashbord (Innstillinger → Dashbord → Legg til → «Nytt dashbord fra bunnen») og lim inn i rå konfigurasjon:
+   ```yaml
+   strategy:
+     type: custom:ki-dashboard
+     # valgfritt: exclude_areas: [bod], popups: { kamera: false }, home: { layout_mode: auto }, navbar: { style: glass }
+   ```
+   Strategien bygger Hjem, navbar og alle popups selv: én rom-popup per HA-område med entiteter, og funksjons-popups
+   for det du har (media, klima, kamera, sikkerhet, basseng, ruter, vanning, vær, lys, gjøremål, personer, innstillinger).
+   Nye rom dukker opp automatisk etter reload. Vil du heller skrive YAML selv, se [`examples/dashboard.yaml`](examples/dashboard.yaml).
 
 Kortene heter `msh-…` slik at de kan lastes sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards)
 (som allerede har `ki-rom-card` osv.).
 
 ## Oppsett
+
+- **Dashbord-editorene** åpnes fra navbarens «Mer»-meny («Tilpass Hjem», «Tilpass navbar», «Tilpass header»), ved langt trykk
+  på hilsenen (header) og fra tannhjulet i rommets toppkort («Tilpass rom»). Arkene legger seg over alt, innenfor
+  dashbordflaten. Alt du endrer lagres per HA-bruker (`frontend/set_user_data`, synkes mellom enhetene dine) – ingen
+  Lovelace-lagring, så du blir værende i popupen/fanen.
 
 - Visningen er `type: sections` (grid) – aldri panel.
 - **Navbaren** (`msh-navbar-card`) ligger i egen seksjon, utenfor alle popups. Den portales til dokumentnivå og

@@ -647,6 +647,8 @@
           this._gHold = setTimeout(() => {
             this._gHeld = true;
             M.haptic('heavy');
+            // Langt trykk på hilsenen → «Tilpass header» (kiosk-modus flyttet til hold_kiosk: true)
+            if (this.config.hold_kiosk !== true) { window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return; }
             const k = M.pick(this.config, 'kiosk', M.all(this.hass, 'input_boolean', (s, id) => /kiosk/.test(id))[0]);
             if (!k) { M.hjemToast(this, 'Velg kiosk-entitet i tilpasning'); return; }
             const on = this.hass.states[k] && this.hass.states[k].state === 'on';

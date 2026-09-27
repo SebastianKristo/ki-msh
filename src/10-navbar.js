@@ -381,7 +381,8 @@
       const tools = [];
       if (c.admin_tools !== false) {
         tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray600,#7f7f7f)', 'mtool', null));
-        if (this.hass && this.hass.user && this.hass.user.is_admin) tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray600,#7f7f7f)', 'mtool', null));
+        tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray600,#7f7f7f)', 'mtool', null));
+        tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray600,#7f7f7f)', 'mtool', null));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
       let pos;
@@ -494,8 +495,9 @@
       if (name === 'mclose') return this.setUI({ menu: false });
       if (name === 'mtool') {
         this.setUI({ menu: false });
-        if (el.dataset.id === '__edit') return this.customize();
-        if (el.dataset.id === '__home') return M.navigate(location.pathname + '?edit=1');
+        if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
+        if (el.dataset.id === '__hdr') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
+        if (el.dataset.id === '__home') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'home' } })); }
         return;
       }
       return super.onAction(name, el, ev);

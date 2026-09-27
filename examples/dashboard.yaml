@@ -1,4 +1,9 @@
 # KI MSH · eksempel på dashbord (Rå konfigurasjonsredigering → lim inn / tilpass)
+#
+# ANBEFALT: la strategien lage alt automatisk – hele dashbordets YAML er da bare:
+#   strategy:
+#     type: custom:ki-dashboard
+# Filen under viser tilsvarende manuelt oppsett (brukes også av test/checklist.mjs).
 # Krever: Bubble Card (HACS), KI MSH (denne), temaet My SmartHome v3 (mørk), gjerne KI Rom-integrasjonen.
 # Visningen er et grid (type: sections) – aldri panel. Navbaren ligger i egen seksjon, utenfor alle popups.
 # Alle innholdskort autokonfigureres; bruk kortets editor (blyant / tannhjul) for overrides / exclude / include.

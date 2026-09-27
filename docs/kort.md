@@ -2,6 +2,14 @@
 
 Generert fra kortenes editor-skjema (`node test/docs.mjs`). Alle kort har i tillegg `card_id` (settes automatisk) og kan stå uten config – alt annet autokonfigureres.
 
+## `msh-settings-card`
+
+Innhold i #settings-popupen: snarveier til Tilpass Hjem/navbar/header og HA-innstillinger.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
 ## `msh-navbar-card`
 
 Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm. Åpner popups via hash, merker med vilkår, «Mer»-meny og liquid glass.

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node test/smoke.mjs",
-    "checklist": "node test/checklist.mjs"
+    "checklist": "node test/checklist.mjs",
+    "strategy": "node test/strategy-check.mjs"
   },
   "license": "Apache-2.0"
 }

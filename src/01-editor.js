@@ -129,7 +129,7 @@
     set inline(v) { this._inline = v; if (v) this.setAttribute('inline', ''); }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
-    setConfig(c) { this._config = { ...c }; this._render(); }
+    setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c) : c) }; this._render(); }
     get schema() {
       const cls = this.cardClass;
       let s = cls && cls.schema;
@@ -141,7 +141,7 @@
       if (!c.card_id) c.card_id = M.uid();
       c = clean(c);
       this._config = c;
-      if (!this._inline) this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true }));
+      if (!this._inline) { this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true })); if (M.store && c.card_id && M.store.card(c.card_id)) M.store.setCard(c.card_id, c); } // GUI ↔ egen editor
       else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit } })); // live; commit=false under slider-drag
       this._render();
     }
