@@ -4,6 +4,12 @@
  * Tellertekster: sensor.<rom>_lys|_media|_brytere|_sensorer|_effekt (attributes.tekst) → ellers beregnet.
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
  * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
+ * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
+ * først, så rommets scene.*/script.*. include.scenes (alias include.scener), exclude, order.scenes [ids].
+ * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
+ * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
+ * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
+ * chevron_color, color_presets ("a, b" eller [..])}. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -56,7 +62,7 @@
   // Alle lister for et rom. auto = det autokonfig fant; lists = etter exclude/include/overrides.
   M.roomLists = M.roomLists || function (hass, area, cfg) {
     cfg = cfg || {};
-    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {} };
+    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {}, sceneMeta: {} };
     if (!hass || !area) { LISTS.forEach(([k]) => { out.auto[k] = []; out.lists[k] = []; }); return out; }
     const ov = M.kiRom(hass, area, 'oversikt'), A = (ov && ov.attributes) || {};
     out.ov = ov;
@@ -65,9 +71,16 @@
     const objs = (arr) => (Array.isArray(arr) ? arr : []).map((x) => (typeof x === 'string' ? { entity: x } : x || {})).filter((x) => x.entity);
     const a = out.auto;
     a.gardiner = has('gardiner') ? M.ids(A.gardiner) : reg('cover');
-    // Scener først, så skript. KI Rom først; tomt/mangler → scene.*/script.* med område = rommet.
+    // Scener: KI Rom-lysscenene (button.*) først, så rommets egne scene.* / script.* (unntatt de som
+    // allerede er med – samme entitet eller samme navn som en lysscene).
+    const ls = M.roomLightScenes(hass, area);
+    out.sceneMeta = ls.meta;
     const kiSc = has('scener', 'skript') ? [...M.ids(A.scener), ...M.ids(A.skript)].filter((id) => /^(scene|script)\./.test(id) && hass.states[id]) : [];
-    a.scener = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const own = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9æøå]/g, '');
+    const areaNm = M.areaName(hass, area);
+    const used = new Set(ls.ids.map((id) => norm(ls.meta[id].navn)));
+    a.scener = [...ls.ids, ...own.filter((id) => !ls.ids.includes(id) && !used.has(norm(M.name(hass, id, areaNm))))];
     a.lys = has('lys') ? M.ids(A.lys) : reg('light');
     if (has('brytere', 'vifter')) {
       const d = [...objs(A.brytere), ...objs(A.vifter)];
@@ -83,10 +96,49 @@
       M.ids(A.lysniva).forEach((id) => { if (!a.sensorer.includes(id)) { a.sensorer.push(id); out.cls[id] = 'illuminance'; } });
     } else a.sensorer = [...reg('binary_sensor'), ...reg('sensor', (s) => s.attributes.device_class === 'illuminance')];
     LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, a[k]); });
+    // Scener: include.scenes (alias for include.scener) + order.scenes (sortering fra «Tilpass rom»)
+    (((cfg.include || {}).scenes) || []).forEach((id) => { if (!out.lists.scener.includes(id) && !((cfg.exclude || []).includes(id))) out.lists.scener.push(id); });
+    const so = (cfg.order && Array.isArray(cfg.order.scenes)) ? cfg.order.scenes : null;
+    if (so) { const ix = (id) => { const i = so.indexOf(id); return i < 0 ? 1e6 : i; }; const base = out.lists.scener.slice(); out.lists.scener.sort((x, y) => ix(x) - ix(y) || base.indexOf(x) - base.indexOf(y)); }
     const th = cfg.overrides && (cfg.overrides.climate || cfg.overrides.termostat);
     if (th) out.lists.klima = [th, ...out.lists.klima.filter((x) => x !== th)];
     (((cfg.include || {}).climate) || []).forEach((id) => { if (!out.lists.klima.includes(id)) out.lists.klima.push(id); });
     [...out.lists.enheter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
+    return out;
+  };
+  // KI Rom-lysscener for et rom (button.*). Kilde: sensor med integrasjon ki_lys + ki_type oversikt og
+  // area_id = rommet (eller area_ids inneholder rommet) → attributes.scener [{id, navn, ikon, rekkefolge, entity}]
+  // (allerede sortert). Fallback: alle button.* med ki_type scene og area_id = rommet.
+  // → { ids: [button.…], meta: {id: {navn, ikon}} }. Knapper som ikke finnes i hass.states hoppes over.
+  const LYS_ORDER = ['maks', 'komfort', 'middag', 'tv', 'mindre', 'natt', 'av'];
+  M.roomLightScenes = M.roomLightScenes || function (hass, area) {
+    const out = { ids: [], meta: {} };
+    if (!hass || !area) return out;
+    const S = hass.states;
+    let ov = null, ovZone = null;
+    for (const id in S) {
+      if (!id.startsWith('sensor.')) continue;
+      const a = S[id].attributes || {};
+      if (a.integrasjon !== 'ki_lys' || a.ki_type !== 'oversikt') continue;
+      if (a.area_id === area) { ov = S[id]; break; }
+      if (!ovZone && Array.isArray(a.area_ids) && a.area_ids.includes(area)) ovZone = S[id];
+    }
+    ov = ov || ovZone;
+    const areaNm = M.areaName(hass, area);
+    const strip = (t) => { const r = new RegExp('^' + String(areaNm).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i'); return String(t || '').replace(r, '') || t; };
+    if (ov && Array.isArray(ov.attributes.scener) && ov.attributes.scener.length) {
+      ov.attributes.scener.forEach((sc) => {
+        const id = sc && (sc.entity || (sc.id && ov.attributes.slug ? `button.${ov.attributes.slug}_lys_${sc.id}` : null));
+        if (!id || !S[id] || out.meta[id]) return;
+        out.ids.push(id);
+        out.meta[id] = { navn: sc.navn || strip(S[id].attributes.friendly_name) || sc.id, ikon: sc.ikon || S[id].attributes.icon || null, ki: true };
+      });
+      return out;
+    }
+    const btn = Object.keys(S).filter((id) => { const a = id.startsWith('button.') && S[id].attributes; return a && a.ki_type === 'scene' && (a.area_id === area); });
+    const rank = (id) => { const i = LYS_ORDER.indexOf(S[id].attributes.scene); return i < 0 ? 99 : i; };
+    btn.sort((x, y) => rank(x) - rank(y) || x.localeCompare(y));
+    btn.forEach((id) => { out.ids.push(id); out.meta[id] = { navn: strip(S[id].attributes.friendly_name) || S[id].attributes.scene || id, ikon: S[id].attributes.icon || null, ki: true }; });
     return out;
   };
   const autoLightType = (s) => {
@@ -149,10 +201,48 @@
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
+      if (L) {
+        // Scener: KI Rom-lysscenene først, så rommets scene.*/script.*. Skjul = exclude, sortering = order.scenes,
+        // legg til = include.scenes.
+        const all = [...new Set([...(L.auto.scener || []), ...(((c.include || {}).scener) || []), ...(((c.include || {}).scenes) || [])])];
+        const nmSc = (id) => { const m = L.sceneMeta[id]; return (m && m.navn) || cap(M.name(h, id, M.areaName(h, area))); };
+        out.push({ type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${L.lists.scener.length} av ${all.length} vises`, fields: [
+          { type: 'info', label: 'KI Rom-lysscenene (knapper) først, deretter rommets egne scener og skript. Øye = skjul, piler = rekkefølge.' },
+          ...(all.length ? [{ type: 'order', name: 'order.scenes', hiddenName: 'exclude', label: 'Rekkefølge og synlighet', options: all.map((id) => [id, `${nmSc(id)}${L.sceneMeta[id] ? ' · KI Rom' : id.startsWith('script.') ? ' · skript' : ' · scene'}`]) }] : [{ type: 'info', label: 'Fant ingen scener i rommet' }]),
+          { type: 'entities', name: 'include.scenes', label: 'Lagt til', domains: ['button', 'scene', 'script'], addLabel: '+ Legg til scene', area: () => area },
+        ] });
+      }
       if (L && L.lists.lys.length) {
-        out.push({ type: 'section', id: 'lys', label: 'Lys · type', icon: 'mdi:lightbulb', fields: [
-          { type: 'info', label: 'Velg «Kun av/på» for å tvinge en dimbar lampe til bryter' },
-          ...L.lists.lys.map((id) => ({ type: 'select', name: 'light_types.' + obj(id), label: M.name(h, id), help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(h.states[id])) || [])[1], options: LT_NAMES })),
+        const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
+        const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
+        const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+        const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter.' },
+          ...L.lists.lys.map((id) => {
+            const p = 'lights.' + obj(id), st = h.states[id];
+            return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
+              { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
+              { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
+              { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
+              { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
+              { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
+              { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
+              { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
+              { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
+              { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
+              { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
+              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
+              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
+              { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
+              { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
+              { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
+              { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
+              { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+            ] };
+          }),
         ] });
       }
       if (L) {
@@ -281,57 +371,89 @@
     }
 
     /* ------------ scener (engangshandlinger – ingen aktiv-tilstand) */
+    // KI Rom-lysscener (button.* → button.press) først, så scene.*/script.* (turn_on).
     _scenes() {
       const ids = this._L.lists.scener;
       if (!ids.length) return '';
+      const meta = this._L.sceneMeta || {};
       return `<section class="scn noscroll" data-hs="1" data-key="sec-scenes">${ids.map((id) => {
-        const s = this.s(id), nm = this._nm(id), lk = this._look(id);
+        const s = this.s(id), m = meta[id], lk = this._look(id);
+        const nm = (m && m.navn) || this._nm(id);
         const auto = (SCENE_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1];
-        const icon = lk.icon || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
-        return `<button class="sc" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
+        const icon = lk.icon || (m && m.ikon) || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
+        return `<button class="sc" data-act="scene" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
       }).join('')}</section>`;
     }
 
-    /* ------------ lys */
+    /* ------------ lys (mysmart-light-control per lys, gjenbrukt per entity) */
+    // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
+    // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
+    _lightCfg(id) {
+      const c = this.config, L = c.lights || {}, s = this.hass.states[id];
+      const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
+      const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
+      const romfarge = M.color((c.look && (c.look.col || c.look.color)) || null, M.romColor ? M.romColor(this._area, this.hass) : C.orange);
+      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
+      const out = { entity: id, name: this._nm(id), size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
+        card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
+        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
+      const B = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
+      Object.keys(u).forEach((k) => {
+        let v = u[k];
+        if (v == null || v === '') return;
+        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update'].includes(k)) v = B(v);
+        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
+        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background'].includes(k)) v = M.color(v, undefined);
+        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
+        out[k] = v;
+      });
+      if (out.show_icon === true) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
+      if (T === 'onoff' && u.force_toggle_mode == null) out.force_toggle_mode = true;
+      return out;
+    }
     _lights() {
       const ids = this._L.lists.lys;
       if (!ids.length) return '';
-      const c = this.config, open = !!(this.ui.acc || {}).lys;
+      const open = !!(this.ui.acc || {}).lys;
       let on = 0;
       const rows = ids.map((id) => {
-        const s = this.s(id), a = (s && s.attributes) || {}, isOn = !!s && s.state === 'on';
+        const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return '';
-        const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-        const real = isOn ? Math.max(1, Math.round(((a.brightness != null ? a.brightness : 255) / 255) * 100)) : 0;
-        const v = this._v('light', id, real);
-        const lon = v > 0;
-        const kMin = a.min_color_temp_kelvin || 2200, kMax = a.max_color_temp_kelvin || 6500;
-        const kReal = a.color_temp_kelvin || (a.color_temp ? Math.round(1e6 / a.color_temp) : 3500);
-        const K = this._v('ct', id, Math.round(((kReal - kMin) / (kMax - kMin)) * 100));
-        const kelvin = Math.round(kMin + (K / 100) * (kMax - kMin));
-        const hue = this._v('hue', id, Math.round(((a.hs_color && a.hs_color[0]) != null ? a.hs_color[0] : 30) / 3.6)) * 3.6;
-        const fill = T === 'color' && lon ? `linear-gradient(90deg, hsl(${hue} 55% 40%), hsl(${hue} 85% 62%))` : T === 'ct' && lon ? `linear-gradient(90deg, #a07c5c, ${kelvin > 4500 ? '#e9e4dc' : '#f0c08a'})` : 'linear-gradient(90deg, #a07c5c, #d8b07e)';
-        const canX = T === 'ct' || T === 'color', xOpen = canX && !!(this.ui.lx || {})[id];
-        const unav = M.unavailable(s);
-        const pct = unav ? '–' : T === 'onoff' ? (isOn ? 'På' : 'Av') : `${v}%`;
-        let ctl;
-        if (T === 'onoff') {
-          ctl = `<button class="sw" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success"><span class="swf" style="background:${isOn ? 'linear-gradient(90deg, #b8875a, #e0b27e)' : '#8e7563'};transform:${isOn ? 'translateX(92%)' : 'none'}">${M.icon('power_settings_new', 18, 'color:#e8c9a8')}</span><span class="swd" style="${isOn ? 'left:18px' : 'right:18px'}"></span></button>`;
-        } else {
-          ctl = `<div class="ltr"><div class="sl ${this._dragging('light', id) ? 'drag' : ''}" data-slide="light" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="slf" style="flex:${v} 1 0;display:${v > 0 ? 'block' : 'none'};background:${fill}"></span><span class="slh"></span><span class="slt" style="flex:${100 - v} 1 0;display:${v < 100 ? 'block' : 'none'}"></span></div>${canX ? `<button class="lxb" data-act="lx" data-id="${esc(id)}" data-haptic="selection">${this._chev(xOpen, 22)}</button>` : ''}</div>`;
-        }
-        let x = '';
-        if (xOpen) {
-          const ct = T === 'ct', xv = ct ? K : hue / 3.6, hc = ct ? '#ffcf9e' : `hsl(${hue} 90% 65%)`;
-          x = `<div class="xb"><div class="xh"><span class="xl">${ct ? 'Temperatur' : 'Farge'}</span><span class="xv num">${ct ? `${kelvin} K` : `${Math.round(hue)}°`}</span></div>
-            <div class="xbar ${ct ? 'ct' : 'hue'} ${this._dragging(ct ? 'ct' : 'hue', id) ? 'drag' : ''}" data-slide="${ct ? 'ct' : 'hue'}" data-id="${esc(id)}"><span class="xk" style="left:calc(${M.clamp(xv, 0, 100)}% - 17px);background:${hc}"></span></div></div>`;
-        }
-        return `<div class="lt ${unav ? 'unav' : ''}" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">${pct}</span></div>${ctl}${x}</div>`;
+        if (!s) return `<div class="lt unav" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">Finnes ikke</span></div></div>`;
+        return `<div class="lc" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-nomorph></div>`;
       }).join('');
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
     }
+    // Monter/oppdater mysmart-light-control i plassholderne (data-nomorph → morph rører dem ikke).
+    _mountLights() {
+      const R = this.shadowRoot, h = this.hass;
+      if (!R || !h) return;
+      const map = (this._lc = this._lc || new Map());
+      const ok = !!customElements.get('mysmart-light-control');
+      R.querySelectorAll('[data-lc]').forEach((wrap) => {
+        const id = wrap.dataset.lc;
+        if (!wrap.__lcGuard) {
+          wrap.__lcGuard = true;
+          ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => wrap.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+          wrap.addEventListener('pointerup', () => M.haptic('light'));
+        }
+        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = `<div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span></div>`; return; }
+        let rec = map.get(id);
+        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+        const cfg = this._lightCfg(id), json = JSON.stringify(cfg);
+        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+        if (rec.el.hass !== h) rec.el.hass = h;
+        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      });
+    }
+    set hass(h) {
+      super.hass = h;
+      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    }
+    get hass() { return super.hass; }
 
     /* ------------ enheter (brytere/vifter med effekt) – aktiv enhet har ingen glød */
     _w(id) {
@@ -486,7 +608,7 @@
         const icon0 = a.icon || SENS_ICON[cls] || M.domainIcon(id, s);
         const lk = this._look(id), ctx = { state, name: nm, w: 0, entity: s };
         const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || state, icon = tpl(lk.icon, ctx) || icon0;
-        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), 'currentColor');
+        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), hot ? 'currentColor' : G.g800);
         return `<div class="pill sn" data-act="more" data-id="${esc(id)}" data-key="s-${esc(id)}" style="background:${bg};color:${hot ? G.g200 : G.w}">
           <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24)}</span>
           <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${hot ? 'rgba(31,42,36,0.75)' : G.g700}">${esc(sub)}</span></span></div>`;
@@ -500,7 +622,7 @@
       const d = el.dataset, h = this.hass;
       if (name === 'acc') { const acc = { ...(this.ui.acc || {}) }; acc[d.k] = !acc[d.k]; return this.setUI({ acc }); }
       if (name === 'cvx') return this.setUI({ cvOpen: !this.ui.cvOpen });
-      if (name === 'lx') { const lx = { ...(this.ui.lx || {}) }; lx[d.id] = !lx[d.id]; return this.setUI({ lx }); }
+      if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
       if (name === 'mcmd') return M.call(h, 'media_player', d.cmd, { entity_id: d.id });
@@ -522,20 +644,15 @@
     _commit(kind, id, v) {
       const h = this.hass, s = h.states[id], a = (s && s.attributes) || {};
       this._pend[kind + '|' + id] = { v, t: Date.now() };
-      if (kind === 'light') { if (v <= 0) M.call(h, 'light', 'turn_off', { entity_id: id }).catch(() => {}); else M.call(h, 'light', 'turn_on', { entity_id: id, brightness_pct: v }).catch(() => {}); }
-      else if (kind === 'cover') {
+      if (kind === 'cover') {
         if ((Number(a.supported_features) & 4) || a.current_position != null) M.call(h, 'cover', 'set_cover_position', { entity_id: id, position: v }).catch(() => {});
         else M.call(h, 'cover', v >= 50 ? 'open_cover' : 'close_cover', { entity_id: id }).catch(() => {});
       } else if (kind === 'vol') M.call(h, 'media_player', 'volume_set', { entity_id: id, volume_level: v / 100 }).catch(() => {});
-      else if (kind === 'ct') { const mn = a.min_color_temp_kelvin || 2200, mx = a.max_color_temp_kelvin || 6500; M.call(h, 'light', 'turn_on', { entity_id: id, color_temp_kelvin: Math.round(mn + (v / 100) * (mx - mn)) }).catch(() => {}); }
-      else if (kind === 'hue') M.call(h, 'light', 'turn_on', { entity_id: id, hs_color: [Math.round(v * 3.6), (a.hs_color && a.hs_color[1]) || 90] }).catch(() => {});
       this.update();
     }
     _tap(kind, id, v) {
       const h = this.hass;
-      if (kind === 'light') { M.haptic('success'); this._pend['light|' + id] = { v: h.states[id] && h.states[id].state === 'on' ? 0 : 70, t: Date.now() }; M.toggle(h, id).catch(() => {}); this.update(); return; }
       if (kind === 'cover') { M.haptic('success'); const cur = this._cvPos(id); this._commit('cover', id, cur > 0 ? 0 : 100); return; }
-      if (kind === 'ct' || kind === 'hue') { M.haptic('selection'); this._commit(kind, id, v); }
     }
 
     /* ------------ drag/sveip (touch-action + stopPropagation → Bubble Card lukker ikke popupen) */
@@ -587,11 +704,10 @@
       const R = this.shadowRoot;
       const area = M.roomArea(this);
       if (area && (this._pubArea !== area || this._pubCfg !== this._rawConfig)) { this._pubArea = area; this._pubCfg = this._rawConfig; M.setRoomCfg(area, this._roomCfg()); }
-      const edge = M.popupPad(this);
-      if (edge && this.style.getPropertyValue('--msh-edge') !== edge + 'px') this.style.setProperty('--msh-edge', edge + 'px');
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
-      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x pan-y'); });
+      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      this._mountLights();
       R.querySelectorAll('[data-car]').forEach((el) => {
         if (el.__b) return;
         el.__b = true;
@@ -628,9 +744,9 @@
         .cvn2{font-size:14px;font-weight:500;max-width:100px;flex:none}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
-        .scn{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0 calc(-1 * var(--msh-edge, 0px));padding:0 var(--msh-edge, 0px);scrollbar-width:none}
+        .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
         .scn::-webkit-scrollbar{display:none}
-        .sc{flex:none;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
+        .sc{flex:none;scroll-snap-align:start;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
         .scl{font-size:14px;font-weight:400;max-width:100%}
         /* akkordeon */
@@ -639,31 +755,14 @@
         .acct{flex:1;font-size:16px;font-weight:500}
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
-        /* lys */
+        /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
         .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
         .ltp{font-size:12px;color:${G.g700}}
-        .ltr{display:flex;gap:8px;align-items:center}
-        .sl{flex:1;min-width:0;height:40px;display:flex;align-items:center;gap:6px;touch-action:none;cursor:pointer;user-select:none}
-        .slf{height:34px;border-radius:14px 5px 5px 14px;transition:flex-grow .3s}
-        .slh{width:4px;height:40px;border-radius:2px;flex:none;background:#b08a68}
-        .slt{height:34px;border-radius:5px 14px 14px 5px;background:${G.g400};transition:flex-grow .3s}
-        .sl.drag .slf,.sl.drag .slt{transition:none}
-        .lxb{width:36px;height:40px;display:grid;place-items:center;flex:none;color:${G.g800}}
-        .sw{position:relative;height:48px;width:100%;border-radius:24px;background:#695b51;display:flex;align-items:center;padding:4px}
-        .swf{height:40px;width:52%;border-radius:20px;display:flex;align-items:center;padding-left:14px;transition:transform .35s cubic-bezier(.34,1.4,.64,1),background .25s}
-        .swd{position:absolute;top:20px;width:8px;height:8px;border-radius:4px;background:#e8c9a8;opacity:.8}
-        .xb{display:flex;flex-direction:column;gap:6px;padding-left:11px}
-        .xh{display:flex;justify-content:space-between}
-        .xl{font-size:11px;color:${G.g600}}
-        .xv{font-size:12px;color:${G.g800}}
-        .xbar{position:relative;height:28px;border-radius:14px;touch-action:none;cursor:pointer}
-        .xbar.ct{background:linear-gradient(90deg, #ff9f45, #ffd9a8, #fff6ea, #d6e6ff)}
-        .xbar.hue{background:linear-gradient(90deg, hsl(0 85% 60%), hsl(60 85% 60%), hsl(120 70% 55%), hsl(180 70% 55%), hsl(240 75% 65%), hsl(300 75% 62%), hsl(360 85% 60%))}
-        .xk{position:absolute;top:-3px;width:34px;height:34px;border-radius:17px;box-shadow:0 0 0 3px ${G.w}, 0 2px 8px rgba(0,0,0,0.4);pointer-events:none;transition:left .3s}
-        .xbar.drag .xk{transition:none}
+        .lc{display:block;min-height:40px;background:none;padding:0}
+        .lc mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}
         .pill{display:flex;align-items:center;gap:14px;height:66px;padding:0 16px 0 5px;border-radius:33px;text-align:left;width:100%;box-shadow:none;transition:background .25s,transform .2s}

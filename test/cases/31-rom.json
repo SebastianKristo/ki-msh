@@ -1,7 +1,96 @@
 [
-  { "name": "Rom · stue (KI Rom)", "hash": "#stue", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
-  { "name": "Rom · soverom (HA-registre)", "hash": "#soverom", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
-  { "name": "Rom · kjokken (apparat)", "hash": "#kjokken", "cards": [ { "type": "custom:msh-rom-card", "sections": ["dev", "lys"], "gap": 18 } ] },
-  { "name": "Rom · tomt rom", "hash": "#bod", "cards": [ { "type": "custom:msh-rom-klima-card" }, { "type": "custom:msh-rom-card" } ] },
-  { "name": "Rom · ukjent config", "cards": [ { "type": "custom:msh-rom-card" } ] }
+ {
+  "name": "Rom · stue (KI Rom)",
+  "hash": "#stue",
+  "cards": [
+   {
+    "type": "custom:msh-rom-klima-card"
+   },
+   {
+    "type": "custom:msh-rom-card"
+   }
+  ]
+ },
+ {
+  "name": "Rom · soverom (HA-registre)",
+  "hash": "#soverom",
+  "cards": [
+   {
+    "type": "custom:msh-rom-klima-card"
+   },
+   {
+    "type": "custom:msh-rom-card"
+   }
+  ]
+ },
+ {
+  "name": "Rom · kjokken (apparat)",
+  "hash": "#kjokken",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card",
+    "sections": [
+     "dev",
+     "lys"
+    ],
+    "gap": 18
+   }
+  ]
+ },
+ {
+  "name": "Rom · tomt rom",
+  "hash": "#bod",
+  "cards": [
+   {
+    "type": "custom:msh-rom-klima-card"
+   },
+   {
+    "type": "custom:msh-rom-card"
+   }
+  ]
+ },
+ {
+  "name": "Rom · ukjent config",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card"
+   }
+  ]
+ },
+ {
+  "name": "Rom · kjokken scener (KI Rom-knapper, fallback)",
+  "hash": "#kjokken",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card",
+    "sections": [
+     "scenes",
+     "lys"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Rom · stue lys-innstillinger",
+  "hash": "#stue",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card",
+    "card_id": "rom_lys_test",
+    "lights": {
+     "stue_tak": {
+      "size": "large",
+      "show_icon": true,
+      "bar_foreground": "red",
+      "color_presets": "#ff0000, rgb(0, 128, 255)"
+     }
+    },
+    "order": {
+     "scenes": [
+      "button.stue_lys_av"
+     ]
+    }
+   }
+  ]
+ }
 ]
