@@ -220,6 +220,13 @@
     if (h[0] !== '#') h = '#' + h;
     location.hash = h;
   };
+  // Lukk åpen Bubble Card-popup uten å navigere (Fiks 4 · 1): fjern hashen med replaceState + location-changed,
+  // så Bubble Card lukker. Aldri history.back() – den kan navigere ut av dashbordet.
+  MSH.closePopup = function () {
+    if (!location.hash) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    window.dispatchEvent(new Event('location-changed'));
+  };
 
   /* ------------------------------------------------------------ autokonfig */
   // Entitetsregister-oppslag med samme regler som KI Rom: hopp over skjulte/deaktiverte,
