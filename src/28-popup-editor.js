@@ -875,7 +875,8 @@
           const pick = (v) => { if (v != null && ed.u.pd === p) setIcon(ed, v); };
           try {
             const fn = typeof M.iconPicker === 'function' ? M.iconPicker : M.iconPicker.open.bind(M.iconPicker);
-            const r = fn({ value: cur, hass: ed.hass, onPick: pick, onChange: pick, onSelect: pick });
+            // MSH.iconPicker.open({ value }) → Promise<full ID | '' (tømt) | null (avbrutt)> (09-icon-picker)
+            const r = fn({ value: cur, hass: ed.hass });
             if (r && typeof r.then === 'function') r.then((v) => { if (typeof v === 'string') pick(v); }).catch(() => {});
           } catch (e) { console.warn('[ki-msh] ikonvelger', e); }
           return true;

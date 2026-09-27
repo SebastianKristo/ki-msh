@@ -83,7 +83,9 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `title_size` | Tittel · range | Størrelser |
 | `people` | Personer i headeren · rows | Personer |
 | `zones` | Soner med eget ikon og farge · rows | Soner |
-| `away_marker` | Borte · vis grå markør · boolean | Soner |
+| `zone_away.icon` | Borte · ikon · icon | Soner |
+| `zone_away.color` | Borte · farge · color | Soner |
+| `away_marker` | Borte · vis merke · boolean | Soner |
 | `greeting` | Hilsen | Hilsen |
 | `size` | Størrelse (S \| M \| L) | Bilder |
 | `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
@@ -95,7 +97,19 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `person_tap` | Trykk på person (quick \| popup) | Bilder |
 | `servers` | Bytt sted – Home Assistant-installasjoner (også denne) · rows | Steder (servermeny) |
 | `place_name` | Navn på dette stedet | Steder (servermeny) |
-| `overrides.{weather, sover_cybele, sover_emma, sover_rune, sover_sebastian}` | bytt entitet |  |
+| `overrides.weather` | Vær · entity | Bytt entiteter |
+| `people.0.home` | Cybele · hjemme · entity | Bytt entiteter |
+| `people.0.sleep` | Cybele · søvn · entity | Bytt entiteter |
+| `people.0.zone` | Cybele · sone når borte · boolean | Bytt entiteter |
+| `people.1.home` | Emma · hjemme · entity | Bytt entiteter |
+| `people.1.sleep` | Emma · søvn · entity | Bytt entiteter |
+| `people.1.zone` | Emma · sone når borte · boolean | Bytt entiteter |
+| `people.2.home` | Rune · hjemme · entity | Bytt entiteter |
+| `people.2.sleep` | Rune · søvn · entity | Bytt entiteter |
+| `people.2.zone` | Rune · sone når borte · boolean | Bytt entiteter |
+| `people.3.home` | Sebastian · hjemme · entity | Bytt entiteter |
+| `people.3.sleep` | Sebastian · søvn · entity | Bytt entiteter |
+| `people.3.zone` | Sebastian · sone når borte · boolean | Bytt entiteter |
 
 ## `msh-prosa-card`
 
@@ -166,18 +180,12 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `battery.always` | Vis fanen alltid · boolean | Batterier |
 | `battery.cond` | Vis fanen når denne er på · entity | Batterier |
 | `appliance_animation` | Animasjon (full \| calm \| off) | Hvitevarer |
-| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: kjokken, stue, bad, soverom, vaskerom, basseng, garasje, bod, gang, kontor, hage | Rom og snarveier · Hjem |
-| `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
+| `tabs.hjem.auto_fill` | Autofyll Hjem med alle rom · boolean | Rom og snarveier · Hjem |
+| `layout.hjem.order · layout.hjem.hidden` | rekkefølge/synlighet: stue, kjokken, soverom, bad | Rom og snarveier · Hjem |
 | `layout.hjem.side.stue` | Kolonne · Stue (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.soverom` | Kolonne · Soverom (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.vaskerom` | Kolonne · Vaskerom (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.kontor` | Kolonne · Kontor (L \| R) | Rom og snarveier · Hjem |
-| `layout.hjem.side.hage` | Kolonne · Hage (L \| R) | Rom og snarveier · Hjem |
+| `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
 | `slides.hjem.L.cal` | Sveip-kort · venstre karusell · Kalender · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.L.vaer` | Sveip-kort · venstre karusell · Vær · boolean | Rom og snarveier · Hjem |
@@ -191,9 +199,6 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.hjem.lock.fra` | Dørlås · vis fra (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.lock.til` | Dørlås · vis til (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.garage.slot` | Snarvei · Garasjeport (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
-| `tiles.hjem.garage.stack` | Garasjeport · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
-| `tiles.hjem.garage.fra` | Garasjeport · vis fra (MM-DD) | Rom og snarveier · Hjem |
-| `tiles.hjem.garage.til` | Garasjeport · vis til (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.alarm.slot` | Snarvei · Alarm (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
 | `tiles.hjem.alarm.stack` | Alarm · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
 | `tiles.hjem.alarm.fra` | Alarm · vis fra (MM-DD) | Rom og snarveier · Hjem |
@@ -203,9 +208,6 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.hjem.cam.fra` | Kamera · vis fra (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.cam.til` | Kamera · vis til (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
-| `tiles.hjem.ruter.stack` | Ruter · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
-| `tiles.hjem.ruter.fra` | Ruter · vis fra (MM-DD) | Rom og snarveier · Hjem |
-| `tiles.hjem.ruter.til` | Ruter · vis til (MM-DD) | Rom og snarveier · Hjem |
 | `tiles.hjem.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
 | `tiles.hjem.todo.stack` | Gjøremål · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
 | `tiles.hjem.todo.fra` | Gjøremål · vis fra (MM-DD) | Rom og snarveier · Hjem |
@@ -215,9 +217,9 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.hjem.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
 | `tiles.hjem.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
 | `tiles.hjem.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
-| `swipe.hjem.L-top` | Sveip alle snarveier · Venstre · over rom · boolean | Rom og snarveier · Hjem |
 | `swipe.hjem.R-bottom` | Sveip alle snarveier · Høyre · under rom · boolean | Rom og snarveier · Hjem |
-| `tile_order.hjem · tile_hidden.hjem` | rekkefølge/synlighet: lock, garage, alarm, cam, ruter, todo | Rom og snarveier · Hjem |
+| `tile_order.hjem · tile_hidden.hjem` | rekkefølge/synlighet: lock, alarm, cam, todo | Rom og snarveier · Hjem |
+| `tabs.forste.auto_fill` | Autofyll fra HA-områder/etasjen · boolean | Rom og snarveier · 1. etg |
 | `layout.forste.order · layout.forste.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue | Rom og snarveier · 1. etg |
 | `layout.forste.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · 1. etg |
 | `layout.forste.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · 1. etg |
@@ -235,6 +237,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.forste.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
 | `tiles.forste.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
 | `tiles.forste.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 1. etg |
+| `tabs.andre.auto_fill` | Autofyll fra HA-områder/etasjen · boolean | Rom og snarveier · 2. etg |
 | `layout.andre.order · layout.andre.hidden` | rekkefølge/synlighet: bad, kontor, soverom, vaskerom | Rom og snarveier · 2. etg |
 | `layout.andre.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · 2. etg |
 | `layout.andre.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · 2. etg |
@@ -252,6 +255,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.andre.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
 | `tiles.andre.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
 | `tiles.andre.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · 2. etg |
+| `tabs.ute.auto_fill` | Autofyll fra HA-områder/etasjen · boolean | Rom og snarveier · Ute |
 | `layout.ute.order · layout.ute.hidden` | rekkefølge/synlighet: basseng, hage | Rom og snarveier · Ute |
 | `layout.ute.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · Ute |
 | `layout.ute.side.basseng` | Kolonne · Basseng (L \| R) | Rom og snarveier · Ute |
@@ -267,6 +271,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.ute.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
 | `tiles.ute.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
 | `tiles.ute.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Ute |
+| `tabs.uten_etasje.auto_fill` | Autofyll fra HA-områder/etasjen · boolean | Rom og snarveier · Andre rom |
 | `layout.uten_etasje.order · layout.uten_etasje.hidden` | rekkefølge/synlighet: garasje | Rom og snarveier · Andre rom |
 | `layout.uten_etasje.add.a01` | Hent rom fra en annen etasje · area | Rom og snarveier · Andre rom |
 | `layout.uten_etasje.side.garasje` | Kolonne · Garasje (L \| R) | Rom og snarveier · Andre rom |
@@ -299,26 +304,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.aktuelt.cam.slot` | Snarvei · Kamera (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
 | `tiles.aktuelt.ruter.slot` | Snarvei · Ruter (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
 | `tiles.aktuelt.todo.slot` | Snarvei · Gjøremål (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.dish.slot` | Snarvei · Oppvaskmaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.dish.stack` | Oppvaskmaskin · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.dish.fra` | Oppvaskmaskin · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.dish.til` | Oppvaskmaskin · vis til (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.vacr.slot` | Snarvei · Støvsuger (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.vacr.stack` | Støvsuger · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.vacr.fra` | Støvsuger · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.vacr.til` | Støvsuger · vis til (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.tv.stack` | TV · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.tv.fra` | TV · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.tv.til` | TV · vis til (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.wash.stack` | Vaskemaskin · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.wash.fra` | Vaskemaskin · vis fra (MM-DD) | Rom og snarveier · Aktuelt |
-| `tiles.aktuelt.wash.til` | Vaskemaskin · vis til (MM-DD) | Rom og snarveier · Aktuelt |
 | `tiles.aktuelt.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Aktuelt |
-| `swipe.aktuelt.L-top` | Sveip alle snarveier · Venstre · over rom · boolean | Rom og snarveier · Aktuelt |
-| `swipe.aktuelt.R-top` | Sveip alle snarveier · Høyre · over rom · boolean | Rom og snarveier · Aktuelt |
-| `tile_order.aktuelt · tile_hidden.aktuelt` | rekkefølge/synlighet: dish, vacr, tv, wash | Rom og snarveier · Aktuelt |
 | `tap.lock.card_hash` | Dørlås · trykk på kortet åpner popup · hash | Snarveier · handlinger |
 | `tap.lock.icon` | Dørlås · trykk på ikonet (auto \| popup \| more \| script \| none) | Snarveier · handlinger |
 | `tap.garage.card_hash` | Garasjeport · trykk på kortet åpner popup · hash | Snarveier · handlinger |
