@@ -480,6 +480,7 @@
       this._after();
     }
     _after() {
+      if (this.u.sec === 'pop' && M.popupsPanel) M.popupsPanel.after(this);
       const r = this.root;
       r.querySelectorAll('ha-icon-picker[data-in]').forEach((p) => { p.hass = this.hass; const v = p.getAttribute('data-val') || ''; if (p.value !== v) p.value = v; });
       r.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = this.hass; });
@@ -767,6 +768,7 @@
       return out.map((p) => ({ ...p, ov: P[p.key] || {} }));
     }
     _pops() {
+      if (M.popupsPanel) return M.popupsPanel.render(this); // 28-popup-editor.js (egne popups, YAML)
       const u = this.u, L = this._popList(), G = [['alle', 'mdi:layers-outline', 'Alle'], ['rom', 'mdi:texture-box', 'Rom'], ['fn', 'mdi:apps', 'Funksjoner'], ['person', 'mdi:account', 'Personer']];
       const list = L.filter((p) => u.popG === 'alle' || p.g === u.popG);
       return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops">
@@ -1103,6 +1105,7 @@
       }
     }
     _actPop(a, d) {
+      if (M.popupsPanel && M.popupsPanel.act(this, a, d)) return;
       const u = this.u;
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
@@ -1144,6 +1147,7 @@
       const el = this._el(e, 'in');
       if (!el) return;
       const k = el.dataset.in, d = el.dataset, v = el.value, u = this.u;
+      if (u.sec === 'pop' && M.popupsPanel && M.popupsPanel.input(this, el, kind)) return;
       // live under skriving: kun søk og slidere
       if (kind === 'input') {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
@@ -1270,7 +1274,7 @@
       while (n && n !== this.root) { if (n.dataset && n.dataset.drop && n !== s.el) { tgt = n; break; } n = n.parentNode || n.host; }
       if (tgt && s.type === 'tab' ? !/^tab:/.test(tgt.dataset.drop) : tgt && /^tab:/.test(tgt.dataset.drop)) tgt = null;
       let pos = null;
-      if (tgt && /^(room|tile|tab):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
+      if (tgt && /^(room|tile|tab|pop):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
       const key = tgt ? tgt.dataset.drop + '|' + pos : null;
       if (key !== s.key) {
         this.root.querySelectorAll('.hov-t,.hov-b,.hov').forEach((z) => z.classList.remove('hov-t', 'hov-b', 'hov'));
@@ -1291,6 +1295,7 @@
       try { this._drop(s, target); } catch (x) { console.error('[ki-msh] Tilpass Hjem drop', x); this.render(); }
     }
     _drop(s, tg) {
+      if (s.type === 'pop') return M.popupsPanel ? M.popupsPanel.drop(this, s, tg) : this.render();
       const [kind, a, b] = tg.drop.split(':'), after = tg.pos === 'b';
       if (s.type === 'tab') {
         if (kind !== 'tab' || a === s.id) return this.render();

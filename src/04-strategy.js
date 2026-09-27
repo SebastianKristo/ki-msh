@@ -198,7 +198,7 @@
     const out = [];
     const w = (r, d) => {
       if (!r || d > 16 || !r.querySelectorAll) return;
-      r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && c.hash && !b.__kiTemp) out.push({ el: b, cfg: c, wrap: b.parentElement && b.parentElement.localName === 'hui-card' ? b.parentElement : b }); });
+      r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && c.hash && !b.__kiTemp && !(b.parentElement && b.parentElement.__kiTemp)) out.push({ el: b, cfg: c, wrap: b.parentElement && b.parentElement.localName === 'hui-card' ? b.parentElement : b }); });
       r.querySelectorAll('*').forEach((e) => { if (e.shadowRoot) w(e.shadowRoot, d + 1); });
     };
     w(document, 0);

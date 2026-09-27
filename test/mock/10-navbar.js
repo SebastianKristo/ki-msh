@@ -2,6 +2,7 @@
 // Feil rapporteres med console.error → smoke-testen feiler. Sjekker:
 //  - portalen eies av kortet: fjernes ved disconnect (og padding på dashbordet nullstilles), kommer tilbake ved connect
 //  - åpen-prikk: location.hash = knappens hash → prikk (scale 1) under ikonet; standardprofil har ingen pille
+//  - liquid glass: ingen prikk, men kapsel (.ind) over valgt fane: top/bottom 4, høyde 56, bredde = én fane; navbaren 64 px
 //  - navigasjon (kun over http – file:// tillater ikke pushState til annen sti): /annet-dashbord skjuler, retur viser
 (function () {
   if (/harness-bubble/.test(location.pathname)) return; // ikke i Bubble-sjekklisten (endrer hash)
@@ -44,8 +45,17 @@
     const nav = portal().shadowRoot.querySelector('nav');
     const btn = nav && nav.querySelector('.it[data-id="klima"]');
     const od = btn && btn.querySelector('.od');
-    if (!od || !btn.classList.contains('open') || getComputedStyle(od).transform !== 'matrix(1, 0, 0, 1, 0, 0)') fail('åpen-prikk vises ikke for #klima');
     const ind = nav.querySelector('.ind');
+    if (cfg.style === 'glass') {
+      await sleep(450); // kapselen glir på plass (.5 s fjær)
+      if (!btn || !btn.classList.contains('open')) fail('valgt fane markeres ikke for #klima');
+      if (od) fail('glass-profil viser prikk under navnet');
+      const nr = nav.getBoundingClientRect(), ir = ind && ind.getBoundingClientRect(), br = btn && btn.getBoundingClientRect();
+      if (!nav.classList.contains('rail')) {
+        if (Math.round(nr.height) !== 64) fail('glass-navbaren er ' + Math.round(nr.height) + ' px høy (skal være 64)');
+        if (!ir || Math.round(ir.top - nr.top) !== 4 || Math.round(ir.height) !== 56 || Math.abs(ir.left - br.left) > 1 || Math.abs(ir.width - br.width) > 1) fail('glass-kapselen dekker ikke valgt fane (top 4, høyde 56, bredde = én fane)');
+      }
+    } else if (!od || !btn.classList.contains('open') || getComputedStyle(od).transform !== 'matrix(1, 0, 0, 1, 0, 0)') fail('åpen-prikk vises ikke for #klima');
     if (cfg.style !== 'glass' && ind && getComputedStyle(ind).display !== 'none') fail('standardprofil viser pille bak ikonet');
     if (cfg.style === 'glass' && (!ind || getComputedStyle(ind).opacity !== '1')) fail('glass-profil mangler pille for valgt fane');
     history.replaceState(null, '', location.pathname + location.search);
