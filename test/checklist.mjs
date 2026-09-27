@@ -126,7 +126,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
             c.customize();
             await wait(80);
             const portals = window.MSH.portals();
-            const inner = portals.length > before ? portals[portals.length - 1].shadowRoot.querySelector('.body').firstElementChild : null;
+            const inner = portals.length > before ? [...portals[portals.length - 1].shadowRoot.querySelector('.body').children].find((e) => e.localName !== 'msh-scope-bar') : null; // enhetsvelgeren ligger øverst
             if (!inner || !inner._config || JSON.stringify(inner._config) !== JSON.stringify(got)) mirror = 'ulik';
             portals.forEach((p) => p.remove());
           }
