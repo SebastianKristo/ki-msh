@@ -812,10 +812,20 @@
   };
 
   /* ------------------------------------------------------------ header-kortet */
-  // Fiks 16.4: «Under» og «Kompakt» er fjernet (3 + 3 i rutenettet). Lagret under/kompakt → familie (se _migrateMode).
-  const OLD_MODES = ['under', 'kompakt'];
-  const modeOf = (c) => { const m = (c && c.mode) || 'familie'; return OLD_MODES.includes(m) ? 'familie' : m; };
-  const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
+  // Fiks 16.4: «Under» og «Kompakt» er fjernet (3 + 3 i rutenettet). Fiks 17.13: «Familie» er erstattet av «Hilsen».
+  // Lagret under/kompakt/familie → hilsen (se _migrateMode).
+  const OLD_MODES = ['under', 'kompakt', 'familie'];
+  const modeOf = (c) => { const m = (c && c.mode) || 'hilsen'; return OLD_MODES.includes(m) ? 'hilsen' : m; };
+  // Fiks 17.13/17.15: Hilsen og Sted = én rad, stor tittel + store bilder med status-merker (designets faces «hil»)
+  const isHil = (m) => m === 'hilsen' || m === 'sted';
+  const HIL_DEF = { hFont: 58, hAv: 62, hBadge: 24, hGap: 10, hTGap: 16 };
+  const hilSizes = (c) => {
+    const n = (k, lo, hi) => { const v = c && c[k] != null && c[k] !== '' ? Number(c[k]) : NaN; return isNaN(v) ? HIL_DEF[k] : Math.min(hi, Math.max(lo, v)); };
+    return { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+  };
+  // Estimert tekstbredde i em (samme tegnvekt-estimat som Stor hilsen)
+  const emWidth = (t) => [...String(t || '')].reduce((a, ch) => a + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0);
+  const MODES = [['hilsen', 'Hilsen', 'mdi:human-greeting-variant', 'Stor hilsen og store bilder på én linje'], ['sted', 'Sted', 'location_on', 'Stedsnavn og store bilder på én linje'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
   // Innholdet i avatar-klippet: <img> (object-fit: cover) · ikon · initialer. Mangler/feiler bildet → ikon.
   const faceInner = (p, n, bad) => {
     if (p.pic && !(bad && bad.has(p.pic))) return `<img src="${esc(p.pic)}" alt="" draggable="false" data-pic="${esc(p.pic)}">`;
@@ -827,7 +837,7 @@
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
+      return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
@@ -858,7 +868,17 @@
             { type: 'range', name: 'title_size', label: 'Tittel', min: 28, max: 48, step: 1, default: D.title_size, fmt: (v) => `${v} px` },
             PROSE_GAP,
           ] },
-          { type: 'section', id: 'sizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => !['stor', 'profil'].includes(modeOf(cc)), fields: [PROSE_GAP] },
+          // Fiks 17.15: Hilsen og Sted – egne verdier (uavhengig av Stor hilsen), live i headeren mens man drar
+          { type: 'section', id: 'hsizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => isHil(modeOf(cc)), open: true, fields: [
+            { type: 'range', name: 'hFont', label: 'Tekststørrelse (maks)', icon: 'mdi:format-size', min: 24, max: 72, step: 1, default: HIL_DEF.hFont, unit: 'px' },
+            { type: 'range', name: 'hAv', label: 'Bildestørrelse (maks)', icon: 'mdi:account-circle', min: 32, max: 80, step: 1, default: HIL_DEF.hAv, unit: 'px' },
+            { type: 'range', name: 'hBadge', label: 'Merke (ikon-sirkel)', icon: 'mdi:circle-medium', min: 12, max: 32, step: 1, default: HIL_DEF.hBadge, unit: 'px', help: 'Merket blir aldri større enn halve bildet.' },
+            { type: 'range', name: 'hGap', label: 'Mellom bildene', icon: 'mdi:arrow-expand-horizontal', min: -12, max: 24, step: 1, default: HIL_DEF.hGap, unit: 'px', help: 'Minus = bildene overlapper.' },
+            { type: 'range', name: 'hTGap', label: 'Mellom tekst og bilder', icon: 'mdi:format-letter-spacing', min: 0, max: 48, step: 1, default: HIL_DEF.hTGap, unit: 'px' },
+            PROSE_GAP,
+            { type: 'info', label: 'Teksten krymper for å få plass før den kortes med «…».' },
+          ] },
+          { type: 'section', id: 'sizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => !['stor', 'profil'].includes(modeOf(cc)) && !isHil(modeOf(cc)), fields: [PROSE_GAP] },
           { type: 'section', id: 'people', label: 'Personer', icon: 'mdi:account-multiple', fields: [
             // kind 'people': egne rader (avatar · navn · live status · ▲▼ · vis/skjul · chevron) – se HjemEditor._peopleRows.
             // Utvidet: «{fornavn} · hjemme», «{fornavn} · søvn», «Bruk HA-sone når borte», deretter feltene under.
@@ -987,43 +1007,63 @@
       const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
       const W = this._weather();
       const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
-      const big = Md === 'stor';
+      const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c);
+      // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
+      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
+      if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
+      const HF = hil ? this._hFit || {} : {};
+      const hGapN = HF.gap != null ? HF.gap : HS.gap;
+      const hSZ = HF.av ? HF.av + 'px' : `clamp(32px, ${(HS.av / 5.6).toFixed(2)}cqw, ${HS.av}px)`;
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
       if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
+      else if (hil) {
+        // Startverdi før første måling: max(18px, min((100cqw − bilder) / r, hFont)); endelig størrelse måles i afterRender
+        const n = people.length, pics = n ? `${n} * ${hSZ} + ${(n - 1) * hGapN + HS.badge * 0.2}px + ${HS.tgap}px` : '0px';
+        const r = Math.max(emWidth(title) + 0.1, 1);
+        fs = HF.fs ? HF.fs + 'px' : `max(18px, min(calc((100cqw - (${pics}) - 28px) / ${r.toFixed(2)}), ${HS.font}px))`; fw = 600; ls = '-0.03em'; ht = 'auto'; pb = '0';
+      }
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
       }
       const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = c.g_gap != null && c.g_gap !== '' && !isNaN(Number(c.g_gap)) ? Number(c.g_gap) : -8;
       // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
-      const szN = big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
-      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
-      const RAD = big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
+      const szN = hil ? HS.av : big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
+      const SZ = hil ? hSZ : big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
+      const RAD = hil || big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
       const bad = this._picBad;
-      const ov = !c.show_name && !c.show_place && !big;
+      const ov = !c.show_name && !c.show_place && !big && !hil;
       const face = (p, k, dress) => {
-        const ring = c.badge === 'ring' && !dress && p.badge ? `, 0 0 0 5px ${p.stCol}` : '';
-        const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
+        const ring = c.badge === 'ring' && !dress && !hil && p.badge ? `, 0 0 0 5px ${p.stCol}` : '';
+        const meRing = p.me && c.ring_me && !dress && !hil ? `, 0 0 0 7px ${C.pink}` : '';
         const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? '50%' : RAD, n = dress ? dress.sz : szN;
         // Profil: runde bilder; uten bilde → initialer 18 px/500 på grå 300 (ikon bare når visning = Ikon).
         const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
         const av = ini
           ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.dim ? 0.55 : 1};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
-          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
         let bd = '', bi = '';
         // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
         // Merke = status (M.personStatus): hjemme-bryter → sone → borte. Borte uten away_marker / ukjent → ingen merke.
         if (!p.badge) { /* ingen merke */ }
         else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
+        else if (hil) {
+          // Fiks 17.15: merket skaleres bare med hBadge (aldri med bildet), maks 50 % av bildet; ingen ring
+          if (c.badge !== 'none') {
+            const bs = `min(${HS.badge}px, calc(${SZ} * 0.5))`, o = -HS.badge * 0.2, is = Math.round(HS.badge * 0.6);
+            bd = `right:${o}px;top:${o}px;width:${bs};height:${bs};border-radius:50%;background:${p.stCol};z-index:1`;
+            bi = M.icon(p.sleep ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:min(${is}px, calc(${SZ} * 0.3));width:auto;height:auto`);
+          }
+        }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
         else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 13, 'color:#fafafa'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
-        const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
+        const ml = dress ? 0 : k ? (ov ? -8 : hil ? hGapN : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
-        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 ? `;margin-right:${HS.badge * 0.2}px` : ''}">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [];
@@ -1033,11 +1073,11 @@
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
-      return `<header class="hd${prof ? ' prof' : ''}" data-ent="__tilpass">
-        <div class="top">
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}" data-ent="__tilpass">
+        <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
-              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : hil ? M.icon('arrow_drop_down', 24, 'color:#afafaf;align-self:center') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
@@ -1268,7 +1308,7 @@
       if (i >= 0) { ed._ropen.people = i; ed._render(); }
       return r;
     }
-    // Fiks 16.4: lagret mode under/kompakt vises som Familie og skrives tilbake én gang (ki-store), uten melding.
+    // Fiks 16.4/17.13: lagret mode under/kompakt/familie vises som Hilsen og skrives tilbake én gang (ki-store), uten melding.
     _migrateMode() {
       const raw = this._rawConfig || {};
       if (this._modeMig || !OLD_MODES.includes(raw.mode)) return;
@@ -1276,7 +1316,7 @@
       const key = this._yamlConfig ? M.storeKey(this._yamlConfig, this) : null;
       if (!key) return;
       this._modeMig = true;
-      try { Promise.resolve(M.store.set(key + '.mode', 'familie')).catch(() => {}); } catch (e) { /* */ }
+      try { Promise.resolve(M.store.set(key + '.mode', 'hilsen')).catch(() => {}); } catch (e) { /* */ }
     }
     afterRender() {
       this._migrateMode();
@@ -1305,10 +1345,50 @@
           if (Math.abs(n - (this._gFit || fs)) > 0.4) { this._gFit = n; this.update(); }
         });
       } else if (this._ro) { this._ro.disconnect(); this._ro = null; this._gFit = null; }
+      // Fiks 17.20: Hilsen/Sted – tittelen krymper for å passe (målt, som gFitNow), deretter bildene, så overlapp
+      if (isHil(modeOf(this.config))) {
+        const top = this.shadowRoot.querySelector('.top');
+        if (top && window.ResizeObserver && this._hroEl !== top) {
+          if (this._hro) this._hro.disconnect();
+          this._hroEl = top;
+          this._hro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._hroW) return; this._hroW = w; this._hFit = null; this._hN = 0; this.update(); });
+          this._hro.observe(top);
+        }
+        cancelAnimationFrame(this._hRaf);
+        this._hRaf = requestAnimationFrame(() => this._hFitNow());
+      } else if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; this._hFit = null; }
+    }
+    // px = min(hFont, max(18, fs · (kolonnebredde − pil − 8) / scrollWidth · 0,985)). Får ikke 18 px plass:
+    // bildene krymper (ned til 32 px), deretter overlapper de (mellomrom ned til −12). Først til slutt ellipsis.
+    _hFitNow() {
+      const R = this.shadowRoot, sp = R.querySelector('.hil .ttl .tx'), cl = R.querySelector('.hil .lc');
+      if (!sp || !cl || !sp.isConnected) return;
+      const HS = hilSizes(this.config), cur = this._hFit || {};
+      const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, colW = cl.clientWidth;
+      if (!tw || !colW) return;
+      const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0; // offset*/client* = uten CSS-zoom (bred layout)
+      const room = colW - arr - 8, raw = (fs * room / tw) * 0.985;
+      const next = { ...cur, fs: Math.floor(Math.min(HS.font, Math.max(18, raw)) * 10) / 10 };
+      const faces = [...R.querySelectorAll('.faces .face .av')], n = faces.length;
+      if (raw < 17.9 && n) {
+        // For lite plass selv med 18 px: frigjør bredden fra bildene
+        let deficit = (tw * 18) / fs / 0.985 - room;
+        const avNow = faces[0].offsetWidth, gapNow = cur.gap != null ? cur.gap : HS.gap;
+        const av = Math.max(32, Math.floor(avNow - deficit / n));
+        deficit -= n * (avNow - av);
+        next.av = av;
+        if (deficit > 0 && n > 1) next.gap = Math.max(-12, Math.floor(gapNow - deficit / (n - 1)));
+      }
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap;
+      if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
+      this._hFit = next;
+      this.update();
     }
     disconnectedCallback() {
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; }
+      cancelAnimationFrame(this._hRaf);
       clearTimeout(this._tHold); clearTimeout(this._tTap); this._tHold = this._tTap = null;
     }
     get styles() {
@@ -1338,6 +1418,10 @@
         /* chevron ▾ alltid rett etter navnet (samme linje); navnet kortes heller med … */
         .prof .sub{color:var(--gray800,#afafaf)}
         .prof .row2{gap:14px;padding:0}
+        /* Fiks 17.13/17.20: Hilsen/Sted – én rad, vertikalt sentrert; ▾ rett etter teksten (4 px); ingen klipping av emoji/descendere */
+        .hil .top{align-items:center}
+        .hil .ttl{line-height:1.15;column-gap:4px;max-width:100%}
+        .hil .faces{align-items:center}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }

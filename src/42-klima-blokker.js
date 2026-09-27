@@ -1086,11 +1086,19 @@
       sub: r.tekst || '', tog: !!r.aktiv, act: 'k-tog', data: { id: `input_boolean.ki_lys_${r.key}`, kind: 'veksle' }, ent: r.light || null, haptic: 'selection' })))
       + note('Regler legges til under Konfigurer → Lys. Lys med nærværssensor slås bare av etter fravær; uten sensor etter lang på-tid i tidsvinduet.');
   }
+  const VARSLER = [['input_boolean.ki_varsel_effekt', 'Effektgrense', 'Når en time ender over grensen'], ['input_boolean.ki_varsel_helg', 'Helg', 'Fredagsspørsmål, søndagsspørsmål og helg satt automatisk'],
+    ['input_boolean.ki_varsel_hjemkomst', 'Hjemkomst', 'Når oppvarmingen starter uten svar'], ['input_boolean.ki_varsel_sommer', 'Sommermodus', 'Når den slås av/på automatisk'],
+    ['input_boolean.ki_varsel_vvb', 'Varmtvann', 'Lang oppvarming. Feil og forfalt legionella varsles alltid'], ['input_boolean.ki_varsel_hanklevarmer', 'Håndklevarmer', 'Sikkerhetsavstenging']];
+  // 17.31: hovedbryter i topplinjen (lukket kort). Tilstanden avledes av radene: på = minst én varsel på (og hovedbryteren
+  // for varsler, når den finnes, er på). Ingen egen lagret tilstand.
+  function varslerMaster(K) {
+    const hb = K.st('input_boolean.ki_energi_varsler'), rows = VARSLER.map(([id]) => id).filter((id) => K.st(id));
+    const n = hb && hb.state !== 'on' ? 0 : rows.filter((id) => K.pa(id)).length;
+    return { ids: rows, master: hb ? 'input_boolean.ki_energi_varsler' : null, on: n, total: rows.length };
+  }
   function varslinger(K, card) {
     const pa = K.pa('input_boolean.ki_energi_varsler');
-    const varsler = [['input_boolean.ki_varsel_effekt', 'Effektgrense', 'Når en time ender over grensen'], ['input_boolean.ki_varsel_helg', 'Helg', 'Fredagsspørsmål, søndagsspørsmål og helg satt automatisk'],
-      ['input_boolean.ki_varsel_hjemkomst', 'Hjemkomst', 'Når oppvarmingen starter uten svar'], ['input_boolean.ki_varsel_sommer', 'Sommermodus', 'Når den slås av/på automatisk'],
-      ['input_boolean.ki_varsel_vvb', 'Varmtvann', 'Lang oppvarming. Feil og forfalt legionella varsles alltid'], ['input_boolean.ki_varsel_hanklevarmer', 'Håndklevarmer', 'Sikkerhetsavstenging']];
+    const varsler = VARSLER;
     return list([tog(K, card, 'input_boolean.ki_energi_varsler', 'Varslinger', 'Hovedbryteren slår alt av. Mottakere velges under Konfigurer → Hus og varsler.')])
       + `<div class="${pa ? '' : 'kb-dim'}">${togs(K, card, varsler)}</div>` + note('Kritiske feil (berederen svarer ikke, legionellafrist passert) sendes uansett.');
   }
@@ -1310,7 +1318,7 @@
       { id: 'vannbad', title: 'Vann og bad', icon: 'mdi:shower', body: (K, c) => togs(K, c, [...(K.har('vvb_bryter') ? [['input_boolean.ki_vvb_prisstyring', 'VVB prisstyring', 'Velger de billigste timene'], ['input_boolean.ki_vvb_alltid_pa', 'VVB alltid på', 'Kobler ut prisstyringen']] : []),
         ['input_boolean.ki_vvb_legionella_aktiv', 'Legionellasikring', 'Kan ikke blokkeres av sparing når den er på'], ...(K.har('hanklevarmer') ? [['input_boolean.ki_styr_hanklevarmer', 'Styr håndklevarmer', 'Dusjvinduer og sikkerhetsavstenging']] : [])]) },
       { id: 'lys', title: 'Lys', icon: 'mdi:lightbulb-group-outline', help: 'lys', show: (K) => { const s = K.st('sensor.ki_lys'); return !!(s && (s.attributes.regler || []).length); }, meta: (K) => `${nf(Number(K.a('sensor.ki_lys', 'spart_kr_maned', 0)), 0)} kr spart denne måneden`, body: lys },
-      { id: 'varslinger', title: 'Varslinger', icon: 'mdi:bell-ring-outline', meta: (K) => (K.pa('input_boolean.ki_energi_varsler') ? 'på' : 'av'), body: varslinger },
+      { id: 'varslinger', title: 'Varslinger', icon: 'mdi:bell-ring-outline', meta: (K) => (K.pa('input_boolean.ki_energi_varsler') ? 'på' : 'av'), master: varslerMaster, body: varslinger },
       { id: 'tider', title: 'Tider', icon: 'mdi:clock-outline', meta: () => 'døgnet i huset', body: tider },
       { id: 'dagnatt', title: 'Dag og natt', icon: 'mdi:theme-light-dark', meta: (K) => `${tidKort(K, 'input_datetime.ki_tid_dag_start')}–${tidKort(K, 'input_datetime.ki_tid_natt_start')}`, body: (K, c) => list([step(K, c, 'input_datetime.ki_tid_dag_start', 'Dag starter'), step(K, c, 'input_datetime.ki_tid_natt_start', 'Natt starter'), step(K, c, 'input_number.ki_natt_senk_ute_grense', 'Nattsenk kun under', 0, '°C')]) },
       { id: 'personer', title: 'Ferie og personer', icon: 'mdi:account-group', show: (K) => K.personer.some((p) => p.type !== 'voksen'), meta: (K) => K.personer.filter((p) => p.type !== 'voksen').map((p) => p.navn).join(', '), body: personer },
@@ -1386,14 +1394,18 @@
       try { body = b.body(K, card); } catch (e) { console.error('[ki-msh] klima-blokk', key, e); body = note('Feil i blokken: ' + (e && e.message)); }
       if (body === null || body === undefined) return '';
     }
-    let meta = '';
+    let meta = '', mst = null;
     try { meta = b.meta ? b.meta(K) : ''; } catch (e) { meta = ''; }
+    // 17.31 (master: true): lukket kort viser «N av M på» / «Alle av» + hovedbryter til høyre for chevronen
+    if (col && b.master) { try { mst = b.master(K); } catch (e) { mst = null; } }
+    if (mst) meta = mst.total ? (mst.on ? `${mst.on} av ${mst.total} på` : 'Alle av') : '–';
+    const mSw = mst ? `<button type="button" class="kb-sw kb-msw${mst.on ? ' on' : ''}${mst.total ? '' : ' miss'}" data-act="k-master" data-k="${esc(key)}" data-haptic="selection" role="switch" aria-checked="${mst.on ? 'true' : 'false'}" aria-label="${esc(b.title)}: alle ${mst.on ? 'av' : 'på'}"${mst.total ? '' : ' disabled'}><i></i></button>` : '';
     const extra = hOpen && b.helpExtra ? b.helpExtra(K) : '';
     return `<section class="kb${col ? ' is-col' : ''}" data-key="kb-${esc(key)}" data-block="${esc(b.id)}">
       <div class="kb-h" data-act="k-coll" data-k="${esc(key)}" role="button" aria-expanded="${col ? 'false' : 'true'}">
         <span class="kb-ic">${M.icon(b.icon, 18)}</span><span class="kb-t">${esc(b.title)}</span>
         ${helps.length ? `<button type="button" class="kb-q${hOpen ? ' on' : ''}" data-act="k-help" data-k="b:${esc(key)}" aria-label="Forklaring">?</button>` : ''}
-        <span class="kb-m">${esc(meta || '')}</span><span class="kb-chev">${M.icon('mdi:chevron-down', 20)}</span>
+        <span class="kb-m">${esc(meta || '')}</span><span class="kb-chev">${M.icon('mdi:chevron-down', 20)}</span>${mSw}
       </div>
       ${hOpen ? `<div class="kb-help">${helps.map((h) => esc(HJELP[h])).join('<br><br>')}${extra ? `<div style="margin-top:6px">${esc(extra)}</div>` : ''}</div>` : ''}
       ${col ? '' : `<div class="kb-b">${body}</div>`}
@@ -1455,6 +1467,19 @@
         m[key] = !cur;
         if (m[key] === def) delete m[key];
         uiSet(card, { klima_collapsed: m });
+        return true;
+      }
+      case 'k-master': {
+        // 17.31: alle varsler i kortet på/av i én runde (ett kall per domene), uten å åpne kortet
+        if (ev) ev.stopPropagation();
+        const [tab, bid] = String(d.k || '').split(':'), b = ((BLOCKS[tab] || []).find((x) => x.id === bid)) || null;
+        const m = b && b.master ? b.master(K) : null;
+        if (!m || !m.total) return true;
+        const on = !m.on, ids = m.ids.map(mapId);
+        if (on && m.master) ids.push(mapId(m.master));
+        const byDom = {};
+        ids.forEach((id) => { const dom = id.split('.')[0]; (byDom[dom] = byDom[dom] || []).push(id); });
+        Object.keys(byDom).forEach((dom) => M.call(hass, dom, on ? 'turn_on' : 'turn_off', { entity_id: byDom[dom] }));
         return true;
       }
       case 'k-help': { ev && ev.stopPropagation(); const k = d.k; if (kb.help.has(k)) kb.help.delete(k); else kb.help.add(k); card.update && card.update(); return true; }
@@ -1761,6 +1786,7 @@
     .kb-sw.on{background:rgb(242 133 201)}
     .kb-sw.on i{left:21px}
     .kb-sw.miss{opacity:.35}
+    .kb-msw{margin-left:2px;cursor:pointer}
     .kb-stats{display:grid;gap:6px}
     .kb-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px 4px;border-radius:18px;background:var(--gray100,#2f2f2f);text-align:center;min-width:0}
     .kb-stat b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}

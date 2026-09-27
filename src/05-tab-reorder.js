@@ -51,6 +51,7 @@
 
   // Liquid Glass-FLATEN på fanerader/segmenter (Fiks 15.2): bare med Liquid Glass-temaet (MSH.glassOn()). Drag-/linse-
   // effekten (MSH.glassDrag, MSH.glassTap/glassMorph, tabReorder glass) er ALLTID på – uavhengig av temaet.
+  // Animasjonen kan likevel slås av for hele dashbordet (MSH.animOff, «Tilpass Hjem» → Faner, Fiks 17.18).
   // Temaet speiles som arvede CSS-variabler på <html> (arver inn i alle shadow roots, byttes live uten ny render):
   //   --ki-tr-bg / --ki-tr-blur / --ki-tr-sh  (udefinert uten temaet → kortets standardflate)
   // Bruk: `.tbox{${MSH.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)')}}` → standardflaten uten tema,
@@ -92,14 +93,6 @@
     }
     return out;
   };
-  const lensEl = () => {
-    const l = document.createElement('span');
-    Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-    document.body.appendChild(l);
-    requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
-    return l;
-  };
-
   class TabReorder {
     constructor(row, opts) {
       this.row = row;
@@ -205,7 +198,7 @@
     _begin(b, x, y, pid, type) {
       if (this.st && this.st.phase !== 'hold') return;
       this._clearHold();
-      const st = (this.st = { b, pid, type, x0: x, y0: y, x, y, sl0: this.row.scrollLeft, phase: 'hold', edit: !!(this.o.isEdit && this.o.isEdit()) });
+      const st = (this.st = { b, pid, type, x0: x, y0: y, x, y, sl0: this.row.scrollLeft, phase: 'hold', edit: !!(this.o.isEdit && this.o.isEdit()), off: !!(M.animOff && M.animOff()) }); // off: Liquid Glass-animasjon av (Fiks 17.18)
       if (this.canReorder()) st.timer = setTimeout(() => { if (this.st === st && st.phase === 'hold') this._startDrag(); }, this.o.holdMs);
     }
     _down(e, b) {
@@ -342,7 +335,14 @@
       st.phase = 'glass';
       if (this.o.card) this.o.card._busy = true;
       this._glassOff(true);
-      if (!this.o.onGlassMove) { st.lens = lensEl(); st.fw = M.lensFollow ? M.lensFollow(st.lens, this.row) : null; } // linsen følger raden hver frame
+      // Fiks 17.19: linsen ER den rosa pillen (MSH.glassLens) – aktiv pille skjules, linsen følger fingeren 1:1.
+      // Liquid Glass-animasjon av (MSH.animOff, Fiks 17.18) → ingen linse; slipp velger fanen direkte.
+      if (!this.o.onGlassMove && !st.off && M.glassLens) {
+        const act = this.activeBtn();
+        st.lens = M.glassLens(this.row, { from: act, active: () => this.activeBtn() });
+        if (act) { const r = act.getBoundingClientRect(); st.lens.place(r.left, r.top, r.width, r.height); st.lens.hide(act); }
+        if (M.lensFollow) st.lens.fw = M.lensFollow(st.lens.l, this.row); // linsen følger raden hver frame (Fiks 16.10)
+      }
       if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
     }
     _nearest(x) {
@@ -354,25 +354,23 @@
       const st = this.st, hit = this._nearest(x);
       if (!hit) return;
       if (hit !== st.hit) { st.hit = hit; hap('selection'); }
+      if (st.off) return; // Liquid Glass-animasjon av: ingen linse/indikator under draget
       if (this.o.onGlassMove) return this.o.onGlassMove(hit, x);
+      if (!st.lens) return;
       const r = hit.getBoundingClientRect(), cr = this.row.getBoundingClientRect();
       const L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, x - r.width / 2));
-      Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' });
-      if (st.fw) st.fw.reset();
+      st.lens.place(L, r.top, r.width, r.height);
     }
     _glassEnd(st, commit) {
       const hit = commit ? st.hit : null;
-      if (st.lens) {
-        // Slipp: linsen snapper til valgt knapp (ferske mål) og tones ut der – følger raden hvis innholdet under endrer høyde
-        const l = st.lens, r = hit && hit.isConnected ? hit.getBoundingClientRect() : null;
-        if (r) { Object.assign(l.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }); if (st.fw) st.fw.reset(); }
-        setTimeout(() => { l.style.opacity = '0'; l.style.transform = 'scale(.9)'; }, r ? 160 : 0);
-        setTimeout(() => { l.remove(); if (st.fw) st.fw.stop(); }, r ? 380 : 220);
-      }
+      // Slipp: linsen settes på valgt knapp (ferske mål), fanen velges, ekte pille vises etter to frames og linsen tones ut
+      const r = st.lens && hit && hit.isConnected ? hit.getBoundingClientRect() : null;
+      if (r) st.lens.place(r.left, r.top, r.width, r.height);
       this._glassOff(false);
       if (this.o.card) this.o.card._busy = false;
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
+      if (st.lens) st.lens.finish();
     }
   }
 

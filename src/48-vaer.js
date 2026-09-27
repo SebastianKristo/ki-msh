@@ -3,7 +3,8 @@
  * · Farevarsler (utvidbare, skjult uten varsler) · Time for time · Dagskort (utvidbare, én åpen) · Detaljkort (2×N) · Månefase
  * · knappen «Tilpass været» (alltid nederst).
  * Config: sections [hero, alerts, hours, days, tiles, moon] · hidden_sections [] · tiles [sky, wind, gust, sun, hum, uv, press, rain]
- *   · hidden_tiles [] · hours (24) · days (7) · show_extras · show_pollen · show_graph (valgfri temperaturgraf etter timene).
+ *   · hidden_tiles [] · hours (24) · days (7) · show_extras · show_pollen · show_graph (valgfri temperaturgraf etter timene)
+ *   · hero_fx (true = bakgrunnsanimasjon i toppkortet, Fiks 17.30).
  *   Lagres i kortets config (MSH.saveCardConfig) fra «Tilpass været» og er de samme feltene som i GUI-editoren.
  * Prognose: weather/subscribe_forecast (hourly + daily) KUN mens popupen er åpen; faller tilbake til weather.get_forecasts.
  * Toppkortet er innebygd som seksjonen «hero» (egen plassering i rekkefølgen, MSH.HEROES).
@@ -227,9 +228,10 @@
       const rain = H[0] && num(H[0].precipitation) != null ? `${f1(H[0].precipitation)} ${pu}` : `– ${pu}`;
       const uv = uvSt && M.isNum(uvSt.state) ? num(uvSt.state) : num(A.uv_index) != null ? num(A.uv_index) : H[0] && num(H[0].uv_index) != null ? num(H[0].uv_index) : null;
       const col = cond ? cond.color : 'var(--gray600, #7f7f7f)';
+      const fxOn = c.hero_fx !== false; // 17.30 B: «Bakgrunnsanimasjon» av → ingen partikler/bevegelige lag
       const slides = [];
       slides.push(`<div class="sl now" data-key="s0" data-fxk="${cond ? cond.key : ''}" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}>
-        <div class="fx" data-key="fx-${cond ? cond.key : 'none'}">${cond ? heroFx(cond.key) : ''}</div>
+        <div class="fx" data-key="fx-${cond && fxOn ? cond.key : 'none'}">${cond && fxOn ? heroFx(cond.key) : ''}</div>
         <span class="pl">Været nå · ${esc(place)}${pv ? '<span class="pvt">Forhåndsvisning</span>' : ''}</span>
         <span class="tv"><span class="big num">${temp != null ? f1(temp) : '–'}°</span><span class="fl">${esc(feels)}</span></span>
         <span class="meta">${st || pv ? `<span>${esc(cond.label)}</span><span>${esc(wind)}</span><span>${esc(rain)}</span>` : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</span>
@@ -257,32 +259,29 @@
       const cur = Math.min(this.ui.hero || 0, slides.length - 1);
       return `<section class="hero">
         <div class="car noscroll" data-key="car">${slides.join('')}</div>
-        ${slides.length > 1 ? `<div class="dots">${slides.map((_, i) => `<button class="dt" data-act="slide" data-i="${i}" data-haptic="selection" aria-label="Side ${i + 1}" style="width:${i === cur ? 12 : 10}px;height:${i === cur ? 12 : 10}px;background:${i === cur ? 'var(--gray600, #7f7f7f)' : 'var(--gray400, #545454)'}"></button>`).join('')}</div>` : ''}
+        ${M.dotsHTML(slides.length, cur)}
       </section>`;
     }
-    onAction(name, el, ev) {
-      if (name === 'slide') {
-        const car = this.shadowRoot.querySelector('.car'), i = Number(el.dataset.i);
-        if (car) car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' });
-        return this.setUI({ hero: i });
-      }
-      return super.onAction(name, el, ev);
-    }
-    showSlide(i) { const car = this.shadowRoot && this.shadowRoot.querySelector('.car'); if (car) car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); }
+    showSlide(i) { const S = this._car; if (S) S.go(i); }
+    // Felles karusell (MSH.snapCarousel, 17.12/17.17/17.30 A): aktiv prikk leses alltid fra faktisk scrollLeft og settes
+    // rett i DOM-en (ingen tegning under sveip). Åpning av popupen (hash) og første bredde > 0 → side 1; ny bredde
+    // (rotasjon) → samme side. Ingen scroll-behavior: smooth på containeren – bare i scrollTo ved trykk på prikk.
     afterRender() {
       const car = this.shadowRoot.querySelector('.car');
-      if (!car || car.__b) return;
-      car.__b = true;
+      if (!car) return;
       guardSwipe(car, 'pan-x');
-      car.addEventListener('scroll', () => {
-        const n = Math.round(car.scrollLeft / Math.max(1, car.clientWidth));
-        if (n !== (this.ui.hero || 0)) { M.haptic('selection'); this.setUI({ hero: n }); }
-      }, { passive: true });
+      this._car = M.snapCarousel(car, {
+        dots: () => this.shadowRoot.querySelector('.hero > .msh-dots'),
+        index: () => 0,
+        onIndex: (i) => this.setUI({ hero: i }, true),
+        haptic: 'selection',
+        reset: true,
+      });
     }
     get styles() {
       return `${KEYFRAMES}
         .hero{display:flex;flex-direction:column;align-items:center;gap:10px}
-        .car{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;border-radius:28px;overscroll-behavior-x:contain;touch-action:pan-x}
+        .car{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0;overflow-anchor:none;border-radius:28px;overscroll-behavior-x:contain;touch-action:pan-x}
         .sl{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always;min-height:190px;border-radius:28px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column}
         .now{position:relative;padding:22px 24px;justify-content:space-between;overflow:hidden}
         .fx{position:absolute;inset:0;overflow:hidden;border-radius:28px;pointer-events:none}
@@ -305,8 +304,7 @@
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
         .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
         .pn{font-size:12px;font-weight:500}
-        .dots{display:flex;gap:8px;height:14px;align-items:center}
-        .dt{border-radius:6px;transition:background .2s}
+        .dots{display:flex;height:14px;align-items:center;--dot-w:10px;--dot-on-w:12px;--dot-bg:var(--gray400,#545454);--dot-on-bg:var(--gray600,#7f7f7f)}
       `;
     }
   }
@@ -323,6 +321,7 @@
     { name: 'uv', label: 'UV-indeks (valgfri sensor)', domain: 'sensor', auto: (hh, cc) => M.vaerAuto(hh, { ...cc, overrides: {} }).uv },
   ];
   const VIEW_FIELDS = [
+    { type: 'boolean', name: 'hero_fx', label: 'Bakgrunnsanimasjon', help: 'Regn, snø, sol og vind i toppkortet', default: true },
     { type: 'boolean', name: 'show_extras', label: 'Toppkort side 2 · Andre varsler (sol, måne, UV)', default: true },
     { type: 'boolean', name: 'show_pollen', label: 'Toppkort side 3 · Pollen i dag', default: true },
   ];
@@ -638,10 +637,12 @@
     const draw = () => {
       if (!ov || st.drag) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      const so = sections(), hs = hidS(), to = tiles(), ht = hidT();
+      const so = sections(), hs = hidS(), to = tiles(), ht = hidT(), fxOn = ctl.draft.hero_fx !== false;
       const byS = Object.fromEntries(SECS.map((s) => [s[0], s])), byT = Object.fromEntries(TILES.map((t) => [t[0], t]));
       box.innerHTML = `<div class="hd"><span class="col grow" style="gap:2px;min-width:0"><span class="tt">Tilpass været</span><span class="st">Dra for å flytte · øyet skjuler</span></span>
           <button class="nb" data-a="cancel">Avbryt</button><button class="nb" data-a="reset">Nullstill</button><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+        <div class="r fxr"><span class="ri">${M.icon('mdi:weather-snowy-rainy', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">Bakgrunnsanimasjon</span><span class="rs ell">Regn, snø, sol og vind i toppkortet</span></span>
+          <button class="tsw${fxOn ? ' on' : ''}" data-a="fx" role="switch" aria-checked="${fxOn}" aria-label="Bakgrunnsanimasjon"></button></div>
         <span class="cap">Forhåndsvis vær</span>
         <div class="chips">${PREVIEW.map((k) => `<button class="chip${st.pv === k ? ' on' : ''}" data-a="pv" data-k="${k}" aria-pressed="${st.pv === k}">${M.icon(WX[k][0], 16, `color:${st.pv === k ? '#282828' : WX[k][2]}`)}${esc(WX[k][1])}</button>`).join('')}</div>
         <span class="cap">Seksjoner</span>
@@ -670,6 +671,7 @@
         case 'done': return ctl.done();
         case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'reset': return apply({ sections: undefined, hidden_sections: undefined, tiles: undefined, hidden_tiles: undefined }, 'warning');
+        case 'fx': return apply({ hero_fx: ctl.draft.hero_fx === false }, 'selection'); // standard på (17.30 B)
         case 'pv': st.pv = st.pv === k ? null : k; card.setPreview(st.pv); M.haptic('selection'); return draw();
         case 'mv': { const o = sections(), i = o.indexOf(k), j = i + Number(el.dataset.d); if (i < 0 || j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; return apply({ sections: o }, 'selection'); }
         case 'eye': { const s = hidS(); if (s.has(k)) s.delete(k); else s.add(k); return apply({ hidden_sections: SK.filter((x) => s.has(x)) }, 'selection'); }
@@ -751,6 +753,12 @@
     .ud button:disabled{opacity:.2;pointer-events:none}
     .eye{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--gray800,#afafaf)}
     .eye.off{color:var(--gray500,#696969)}
+    .fxr{height:64px;padding-right:12px}
+    .rs{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
+    .tsw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
+    .tsw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .tsw.on{background:${PINKG}}
+    .tsw.on::after{transform:translateX(18px)}
     .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:10px;border-radius:24px;background:var(--ki-g-seg,rgba(0,0,0,0.18))}
     .g{display:flex;align-items:center;gap:8px;height:48px;padding:0 4px 0 12px;border-radius:16px;background:var(--ki-g-row,var(--gray200,#3a3a3a));cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;min-width:0;transition:opacity .2s,box-shadow .15s}
     .g.off>:not(.eye){opacity:.5}

@@ -18,6 +18,16 @@
  *   Fiks 16.11 (Hjem-fliser): modes kan også ha std (Standard = tom verdi/null), toggle ({ action: 'toggle' }) og service
  *   ({ action: 'perform-action', perform_action: 'script.x', data: {…} } – data skrives som YAML).
  *   Egen hash = fritekst, advarer «Ingen popup med #xyz», men lagres likevel. Hendelse: value-changed { value: tap | null }.
+ * Fiks 17.8: Popup åpner popup-velgeren (ark, MSH.popupPicker) med «Test»; Dashbord-sti får forslag fra dashbordets
+ *   visninger, Tjeneste forslag fra hass.services, More-info en entitet-velger (tom = kortets egen entitet).
+ *
+ * MSH.popupPicker (Fiks 17.8) – gjenbrukbar popup-velger for alle rad-editorer og GUI-editoren:
+ *   open({ value, onPick(hash), title, hass }) → Promise<'#hash' | '' | null>  · arket: søk, liste Rom · Funksjoner ·
+ *     Importert (MSH.allPopups = strategiens liste), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
+ *     (lagres likevel) og «Test» (location.hash).
+ *   html({ name, value, placeholder, key, label, attrs }) → '<msh-popup-field …>' (ikon, navn, #hash · Test · ×).
+ *     Hendelse value-changed { value: '#hash' | '' } – msh-editor lagrer via data-name.
+ *   selector(hass) → ha-selector select { options, custom_value: true } for HAs GUI-editor.  list(hass) · norm(h)
  */
 (function () {
   const M = window.MSH;
@@ -104,11 +114,14 @@
     .gl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:6px 10px 2px}
     .hint{font-size:12px;line-height:1.4;color:#979797;padding:0 4px}
     .hint b{color:#fafafa;font-weight:500}
-    .warn{color:var(--orange,#f2b573)}
+    .warn{color:var(--orange,#f2b573)!important}
+    .pkr{display:flex;align-items:center;gap:6px}
+    .pkr .pk{flex:1;min-width:0}
+    .tst{flex:none;height:48px;padding:0 14px;border-radius:14px;background:var(--msh-tp-bg,#232323);color:var(--pink,#f285c9);font-size:13px;font-weight:500}
     .none{font-size:12px;color:#7f7f7f;padding:10px}
     textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
   `;
-  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Egne og importerte' };
+  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
   const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
 
   class MshTapPicker extends HTMLElement {
@@ -120,6 +133,8 @@
       sr.addEventListener('click', (e) => this._click(e));
       sr.addEventListener('input', (e) => { e.stopPropagation(); this._inp(e.target, false); });
       sr.addEventListener('change', (e) => { e.stopPropagation(); this._inp(e.target, true); });
+      // entitet-velgeren (More-info) sender value-changed – fang den her, ellers når den verten som en tap-verdi
+      sr.addEventListener('value-changed', (e) => { e.stopPropagation(); const t = e.composedPath().find((n) => n.dataset && n.dataset.f === 'ent'); if (t) { const v = (e.detail && e.detail.value) || ''; this._emit(v ? { action: 'more-info', entity: v } : { action: 'more-info' }, 'more'); } });
       sr.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); if (e.target.dataset.f === 'q') { const f = sr.querySelector('.pr[data-v]'); if (f) this._emit({ action: 'navigate', navigation_path: f.dataset.v }, 'popup'); } else e.target.blur(); } });
       ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true }));
     }
@@ -150,7 +165,7 @@
       if (d.p === 'mode') {
         const m = d.v;
         if (m === this.mode) return;
-        this._mode = m; this._open = m === 'popup' && !hashOf(this.value);
+        this._mode = m; this._open = false;
         M.haptic('selection');
         if (m === 'more') return this._emit({ action: 'more-info' }, m);
         if (m === 'none') return this._emit({ action: 'none' }, m);
@@ -158,10 +173,17 @@
         if (m === 'std') return this._emit(null, m);
         if (m === 'toggle') return this._emit({ action: 'toggle' }, m);
         this._render();
+        if (m === 'popup' && !hashOf(this.value) && M.popupPicker) return this._click({ composedPath: () => [{ dataset: { p: 'open' } }] });
         if (m !== 'popup') { const i = this.shadowRoot.querySelector('.in'); if (i) i.focus(); }
         return;
       }
-      if (d.p === 'open') { M.haptic('light'); this._open = !this._open; this._q = ''; this._render(); if (this._open) { const i = this.shadowRoot.querySelector('.pl .in'); if (i) i.focus(); } return; }
+      if (d.p === 'open') { // Fiks 17.8: popup-velgeren (ark) i stedet for innebygd liste
+        M.haptic('light');
+        if (!M.popupPicker) { this._open = !this._open; this._q = ''; this._render(); return; }
+        M.popupPicker.open({ value: hashOf(this.value), hass: this.hass, onPick: (h) => this._emit(h ? { action: 'navigate', navigation_path: h } : null, 'popup') });
+        return;
+      }
+      if (d.p === 'test') { const h = hashOf(this.value); if (h) { M.haptic('light'); M.openPopup(h); } return; }
       if (d.p === 'pick') return this._emit({ action: 'navigate', navigation_path: d.v }, 'popup');
     }
     _inp(t, commit) {
@@ -177,6 +199,7 @@
       if (!commit) return;
       if (f === 'path') { const p = raw && raw[0] !== '/' && raw[0] !== '#' ? '/' + raw : raw; return this._emit(p ? { action: 'navigate', navigation_path: p } : null, 'path'); }
       if (f === 'url') return this._emit(raw ? { action: 'url', url_path: raw } : null, 'url');
+      if (f === 'ent') return this._emit(raw ? { action: 'more-info', entity: raw } : { action: 'more-info' }, 'more');
       if (f === 'svc' || f === 'data') {
         const cur = this.value || {}, sv = f === 'svc' ? raw : String(cur.perform_action || cur.service || '');
         let data = cur.data;
@@ -215,24 +238,28 @@
       let body = '';
       if (mode === 'popup') {
         const p = popupOf(cur, h);
-        body = `<button class="pk" data-p="open">${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i>${esc(p ? p.hash : cur ? 'Ingen popup med ' + cur : 'Alle popups – også egne og importerte')}</i></span>${M.icon(this._open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:#979797')}</button>${this._open ? this._list(cur) : ''}`;
+        body = `<div class="pkr"><button class="pk" data-p="open">${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i class="${cur && !p ? 'warn' : ''}">${esc(p ? p.hash : cur ? cur + ' · Popupen finnes ikke i dette dashbordet' : 'Alle popups – også egne og importerte')}</i></span>${M.icon(this._open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:#979797')}</button>${cur ? '<button class="tst" data-p="test" title="Åpne popupen">Test</button>' : ''}</div>${this._open ? this._list(cur) : ''}`;
       } else if (mode === 'hash') {
         const p = popupOf(cur, h);
         body = `<input class="in" data-f="hash" value="${esc(cur)}" placeholder="#tesla" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint hw${cur && !p ? ' warn' : ''}">${this._hashHint(cur, p)}</span>`;
       } else if (mode === 'path') {
         const p = v && v.action === 'navigate' && v.navigation_path[0] !== '#' ? v.navigation_path : '';
-        body = `<input class="in" data-f="path" value="${esc(p)}" placeholder="/lovelace/energi" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint">Sti i Home Assistant, f.eks. <b>/lovelace/energi</b> eller <b>/dashboard-hytte/0</b>.</span>`;
+        const vp = viewPaths(h); // Fiks 17.8: forslag fra dashbordets visninger
+        body = `<input class="in" data-f="path" list="tp-views" value="${esc(p)}" placeholder="/lovelace/energi" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><datalist id="tp-views">${vp.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist><span class="hint">Sti i Home Assistant, f.eks. <b>/lovelace/energi</b> eller <b>/dashboard-hytte/0</b>.${vp.length ? ` ${vp.length} forslag fra dashbordet.` : ''}</span>`;
       } else if (mode === 'url') {
         const u = v && v.action === 'url' ? v.url_path : '';
         body = `<input class="in" data-f="url" type="url" inputmode="url" value="${esc(u)}" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint">Åpnes i ny fane.</span>`;
-      } else if (mode === 'more') body = '<span class="hint">Viser detaljene (more-info) for entiteten.</span>';
+      } else if (mode === 'more') { // Fiks 17.8: entitet-velger (tom = kortets/flisens egen entitet)
+        const ent = v && v.action === 'more-info' ? v.entity || '' : '';
+        body = `${M.entityPicker ? M.entityPicker.html({ key: 'tp-ent', value: ent, placeholder: 'Kortets egen entitet', attrs: 'data-f="ent"' }) : `<input class="in" data-f="ent" value="${esc(ent)}" placeholder="light.stue" autocomplete="off" autocapitalize="off" spellcheck="false">`}<span class="hint">Viser detaljene (more-info) for entiteten${ent ? '' : ' · tom = kortets egen'}.</span>`;
+      }
       else if (mode === 'lock') body = '<span class="hint">Åpner hurtigarket for dørlåsen.</span>';
       else if (mode === 'std') body = `<span class="hint">${esc(this.getAttribute('std-hint') || 'Standard for kortet.')}</span>`;
       else if (mode === 'toggle') body = '<span class="hint">Veksler entiteten (lås/lås opp, på/av …).</span>';
       else if (mode === 'service') {
         const sv = v && (v.action === 'perform-action' || v.action === 'call-service') ? v.perform_action || v.service || '' : '';
         const data = v && v.data && Object.keys(v.data).length ? (M.yaml && M.yaml.dump ? M.yaml.dump(v.data) : JSON.stringify(v.data)) : '';
-        body = `<input class="in" data-f="svc" value="${esc(sv)}" placeholder="domene.tjeneste, f.eks. script.alarm_toggle" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+        body = `<input class="in" data-f="svc" list="tp-svc" value="${esc(sv)}" placeholder="domene.tjeneste, f.eks. script.alarm_toggle" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><datalist id="tp-svc">${services(h).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>
           <textarea class="in" data-f="data" placeholder="data (YAML), f.eks.&#10;entity_id: lock.inngang" autocapitalize="off" spellcheck="false">${esc(String(data).replace(/\n$/, ''))}</textarea>
           <span class="hint${this._dataErr ? ' warn' : ''}">${this._dataErr ? 'Feil i data: ' + esc(this._dataErr) : 'Kaller tjenesten med data. Tom data = ingen data.'}</span>`;
       }
@@ -242,6 +269,177 @@
     }
   }
   if (!customElements.get('msh-tap-picker')) customElements.define('msh-tap-picker', MshTapPicker);
+
+  /* ------------------------------------------------------------ Fiks 17.8 · popup-velger (ark) + <msh-popup-field> */
+  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Importert.
+  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
+  const popupList = (hass) => { try { return M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { return []; } };
+  const normHash = (s) => { const r = String(s == null ? '' : s).trim(); return r ? '#' + r.replace(/^#+/, '').replace(/\s+/g, '-') : ''; };
+  const MISSING = 'Popupen finnes ikke i dette dashbordet';
+  const PSHEET_CSS = `
+    .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
+    .body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+    *{box-sizing:border-box}
+    button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
+    .hd{display:flex;align-items:center;gap:10px;min-height:40px}
+    .hd b{flex:1;font-size:18px;font-weight:500;color:#fafafa}
+    .hd .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
+    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;flex:none}
+    .sr input{flex:1;min-width:0;height:100%;font-size:16px}
+    .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
+    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
+    .sc{flex:1;min-height:120px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
+    .sc::-webkit-scrollbar{display:none}
+    .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 2px 4px;flex:none}
+    .pr{display:flex;align-items:center;gap:12px;min-height:52px;padding:4px 10px 4px 6px;border-radius:14px;text-align:left;width:100%;flex:none}
+    .pr:active{transform:scale(.99)}
+    .pr.on{background:rgba(255,255,255,0.1)}
+    .pr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
+    .pr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .pr .nm b{font-weight:500;font-size:14px;color:#fafafa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pr .nm i{font-style:normal;font-size:11px;color:#7f7f7f}
+    .pr .h{font-size:12px;color:#979797;font-variant-numeric:tabular-nums;flex:none}
+    .note{font-size:12px;color:#979797;line-height:1.45;padding:8px 2px}
+    .own{display:flex;gap:8px;align-items:center;flex:none}
+    .own input{flex:1;min-width:0;height:44px;border-radius:14px;padding:0 12px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:15px}
+    .own .ok{height:44px;padding:0 16px;border-radius:22px;background:var(--pink,#f285c9);color:#2f2f2f;font-weight:600;font-size:14px}
+    .wr{font-size:12px;color:var(--orange,#f2b573);padding:0 2px;flex:none;min-height:16px}
+    .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:32px}
+    .lnk{font-size:13px;color:var(--pink,#f285c9);font-weight:500;padding:6px 2px}
+    .cur{font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    :host([data-glass]) .sr,:host([data-glass]) .own input,:host([data-glass]) .hd .x,:host([data-glass]) .pr .ci{background:rgba(0,0,0,0.25)}
+  `;
+  // Åpner arket. o: { value, onPick(hash), title, hass } → Promise<'#hash' | '' (tømt) | null (avbrutt)>
+  function openPopupPicker(o = {}) {
+    const hass = o.hass || M.lastHass, cur = normHash(o.value), all = popupList(hass), known = (h) => all.some((p) => p.hash === h);
+    const S = M.overlay({ css: PSHEET_CSS, maxWidth: 440, html: `
+      <div class="hd"><b>${esc(o.title || 'Velg popup')}</b><button class="x" data-p="close" title="Lukk">${M.icon('mdi:close', 20)}</button></div>
+      <div class="sr">${M.icon('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" placeholder="Søk popup – navn eller #hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm">${M.icon('mdi:close-circle', 18)}</button></div>
+      <div class="sc"></div>
+      <div class="lb" style="padding-top:0">Egen hash</div>
+      <div class="own"><input class="oh" placeholder="#tesla" value="${esc(cur && !known(cur) ? cur : '')}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"><button class="ok" data-p="own">Bruk</button></div>
+      <div class="wr">${cur && !known(cur) ? MISSING : ''}</div>
+      <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}<button class="lnk" data-p="test">Test</button></span></div>` });
+    const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), oh = R.querySelector('.oh'), wr = R.querySelector('.wr');
+    const cb = o.onPick || o.onChange || o.onSelect;
+    let picked = null, resolveP;
+    const P = new Promise((r) => { resolveP = r; });
+    S.onClosed = () => resolveP(picked);
+    const done = (v) => { M.haptic('success'); picked = v || ''; S.close(); if (cb) cb(picked); };
+    const draw = () => {
+      const q = fold(qi.value.trim());
+      const hits = all.filter((p) => !q || fold(`${p.name} ${p.hash}`).includes(q));
+      const g = {};
+      hits.forEach((p) => { (g[p.group] = g[p.group] || []).push(p); });
+      const row = (p) => `<button class="pr ${p.hash === cur ? 'on' : ''}" data-v="${esc(p.hash)}"><span class="ci">${M.icon(p.icon || 'mdi:card-outline', 22)}</span><span class="nm"><b>${esc(p.name)}</b>${p.hidden ? '<i>Skjult</i>' : ''}</span><span class="h">${esc(p.hash)}</span></button>`;
+      const order = Object.keys(PGROUPS);
+      sc.innerHTML = Object.keys(g).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99).map((k) => `<div class="lb">${esc(PGROUPS[k] || k)}</div>${g[k].map(row).join('')}`).join('')
+        || `<div class="note">Ingen popups${q ? ` matcher «${esc(qi.value.trim())}»` : ' i dette dashbordet'}. Bruk «Egen hash» under.</div>`;
+    };
+    qi.addEventListener('input', draw);
+    oh.addEventListener('input', () => { const h = normHash(oh.value); wr.textContent = h && !known(h) ? MISSING : ''; });
+    R.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
+      if (e.key !== 'Enter') return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.target === oh) { const h = normHash(oh.value); if (h) done(h); return; }
+      const f = sc.querySelector('[data-v]'); if (f) done(f.dataset.v);
+    });
+    R.addEventListener('click', (e) => {
+      const b = e.composedPath().find((n) => n.dataset && (n.dataset.v != null || n.dataset.p));
+      if (!b) return;
+      const p = b.dataset.p;
+      if (!p) return done(b.dataset.v);
+      if (p === 'close') { M.haptic('light'); return S.close(); }
+      if (p === 'qx') { qi.value = ''; M.haptic('selection'); draw(); qi.focus(); return; }
+      if (p === 'clear') return done('');
+      if (p === 'own') { const h = normHash(oh.value); if (h) done(h); else oh.focus(); return; }
+      if (p === 'test') { const h = normHash(oh.value) || cur; if (!h) return M.toast ? M.toast('Velg en popup først') : null; M.haptic('light'); S.close(); M.openPopup(h); }
+    });
+    draw();
+    requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
+    P.close = S.close; P.sheet = S;
+    return P;
+  }
+  const PF_CSS = `
+    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
+    *{box-sizing:border-box}
+    button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .f{display:flex;align-items:center;gap:4px;height:var(--msh-if-h,48px);padding:0 4px;border-radius:14px;background:var(--msh-if-bg,var(--msh-tp-bg,#282828));min-width:0}
+    .pk{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:10px;padding:0 4px;text-align:left}
+    .pk:active{transform:scale(.99)}
+    .ci{width:38px;height:38px;border-radius:19px;flex:none;display:grid;place-items:center;background:var(--msh-if-ic,#3a3a3a)}
+    .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i.w{color:var(--orange,#f2b573)}
+    .nm.ph b{color:#979797}
+    .x,.t{height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#979797}
+    .x{width:36px}
+    .t{padding:0 10px;font-size:12px;font-weight:500;color:var(--pink,#f285c9)}
+  `;
+  // Feltet: popupens ikon, navn og #hash. Trykk → arket, × tømmer, «Test» åpner popupen. value-changed { value: '#hash' | '' }
+  class MshPopupField extends HTMLElement {
+    static get observedAttributes() { return ['value', 'placeholder', 'label']; }
+    constructor() {
+      super();
+      const sr = this.attachShadow({ mode: 'open' });
+      sr.addEventListener('click', (e) => {
+        const b = e.composedPath().find((n) => n.dataset && n.dataset.p);
+        if (!b) return;
+        e.stopPropagation();
+        M.haptic('light');
+        if (b.dataset.p === 'x') return this._emit('');
+        if (b.dataset.p === 't') { const h = this.value || normHash(this.getAttribute('placeholder')); if (h) M.openPopup(h); return; }
+        this._sheet = openPopupPicker({ value: this.value, title: this.getAttribute('label') || 'Velg popup', hass: this._hass, onPick: (v) => this._emit(v) });
+      });
+    }
+    set hass(h) { this._hass = h; }
+    get value() { return normHash(this.getAttribute('value')); }
+    set value(v) { this.setAttribute('value', v || ''); }
+    connectedCallback() { this._render(); }
+    attributeChangedCallback(n, o, v) { if (o !== v) this._render(); }
+    _emit(v) {
+      this.setAttribute('value', v || '');
+      this.dispatchEvent(new CustomEvent('value-changed', { detail: { value: v || '' }, bubbles: true, composed: true }));
+    }
+    _render() {
+      if (!this.shadowRoot) return;
+      const v = this.value, ph = normHash(this.getAttribute('placeholder')), h = v || ph;
+      const p = h ? popupOf(h, this._hass) : null;
+      const sub = v ? (p ? v : `${v} · ${MISSING}`) : ph ? `Standard · ${ph}` : 'Alle popups i dashbordet';
+      const html = `<style>${PF_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg popup"><span class="ci">${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, v ? '' : 'opacity:.55')}</span>`
+        + `<span class="nm${v ? '' : ' ph'}"><b>${esc(p ? p.name : v || 'Velg popup …')}</b><i class="${v && !p ? 'w' : ''}">${esc(sub)}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`
+        + `${h ? '<button class="t" data-p="t" title="Åpne popupen">Test</button>' : ''}${v ? `<button class="x" data-p="x" title="Tøm">${M.icon('mdi:close', 18)}</button>` : ''}</div>`;
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+    }
+  }
+  if (!customElements.get('msh-popup-field')) customElements.define('msh-popup-field', MshPopupField);
+  M.popupPicker = {
+    tag: 'msh-popup-field', GROUPS: PGROUPS, MISSING,
+    open: openPopupPicker, list: popupList, norm: normHash,
+    // ha-selector select (GUI-editoren): samme liste, egen verdi tillatt
+    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (importert)' : ''}` })) } }),
+    html(o = {}) {
+      return `<msh-popup-field data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} value="${esc(normHash(o.value))}" placeholder="${esc(o.placeholder || '')}"${o.label ? ` label="${esc(o.label)}"` : ''} ${o.attrs || ''}></msh-popup-field>`;
+    },
+  };
+  // Forslag til dashbord-sti (Navigate): visningene i dette dashbordet + andre dashbord (hass.panels)
+  function viewPaths(hass) {
+    const out = [], seen = new Set(), add = (v, l) => { if (v && !seen.has(v)) { seen.add(v); out.push([v, l || v]); } };
+    try {
+      const base = '/' + (location.pathname.split('/')[1] || 'lovelace');
+      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const root = panel && panel.shadowRoot && panel.shadowRoot.querySelector('hui-root');
+      const views = (root && root.lovelace && root.lovelace.config && root.lovelace.config.views) || (panel && panel.lovelace && panel.lovelace.config && panel.lovelace.config.views) || [];
+      views.forEach((v, i) => add(`${base}/${v.path || i}`, v.title || v.path || 'Visning ' + (i + 1)));
+    } catch (e) { /* */ }
+    const P = (hass && hass.panels) || {};
+    Object.keys(P).forEach((k) => { const p = P[k]; if (p && p.component_name === 'lovelace') add('/' + (p.url_path || k), p.title || p.url_path || k); });
+    return out;
+  }
+  const services = (hass) => { const S = (hass && hass.services) || {}, out = []; Object.keys(S).sort().forEach((d) => Object.keys(S[d] || {}).sort().forEach((sv) => out.push(d + '.' + sv))); return out.slice(0, 2000); };
 
   M.tap = {
     tag: 'msh-tap-picker', MODES,

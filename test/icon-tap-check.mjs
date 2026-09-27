@@ -145,13 +145,15 @@ const sheet = await page.evaluate(() => {
 });
 ok('velgeren åpnet med søkefelt i fokus', !!sheet && sheet.focus === 'q', sheet);
 ok('lazy lasting av mdi-lista (én henting)', metaHits === 1, metaHits);
-ok('filterchips per ikonsett (Alle · mdi · phu · hue)', !!sheet && ['Alle', 'mdi'].every((c) => sheet.chips.includes(c)) && sheet.chips.some((c) => /phu/.test(c)) && sheet.chips.some((c) => /hue/.test(c)), sheet && sheet.chips);
-ok('virtualisert rutenett: 6 × 44 px, bare synlige rader rendres (>7000 ikoner)', !!sheet && sheet.cols.split(' ').length === 6 && sheet.cols.startsWith('44px') && Math.round(sheet.cellW) === 44 && sheet.cells > 0 && sheet.cells < 200 && sheet.vgH > 7000 / 6 * 50, sheet);
+// Fiks 17.8: faner MDI · hass · phu · hue · fapro · si · Alle (faner uten sett skjules), MDI først og Alle sist
+ok('faner per ikonsett (MDI · phu · hue · Alle)', !!sheet && sheet.chips[0] === 'MDI' && sheet.chips[sheet.chips.length - 1] === 'Alle' && sheet.chips.includes('phu') && sheet.chips.includes('hue'), sheet && sheet.chips);
+ok('virtualisert rutenett: 6 × 48 px (17.8), bare synlige rader rendres (>7000 ikoner)', !!sheet && sheet.cols.split(' ').length === 6 && sheet.cols.startsWith('48px') && Math.round(sheet.cellW) === 48 && sheet.cells > 0 && sheet.cells < 200 && sheet.vgH > 7000 / 6 * 50, sheet);
 // scroll langt ned → nye celler
 const sc2 = await page.evaluate(async () => { const sc = PK.querySelector('.sc'); sc.scrollTop = 40000; sc.dispatchEvent(new Event('scroll')); await new Promise((r) => setTimeout(r, 100)); const c = PK.querySelectorAll('.vg .ic'); return { n: c.length, first: c[0] && c[0].dataset.v, vis: c[0] && c[0].getBoundingClientRect().bottom > 0 }; });
 ok('rulling rendrer riktige rader', sc2.n > 0 && sc2.n < 200 && sc2.first && !/^mdi:a/.test(sc2.first), sc2);
 // søk «robot» (uten mdi:) – debounce 120 ms
-await page.evaluate(() => { const q = PK.querySelector('.q'); q.focus(); });
+// Fiks 17.8: søk i «Alle»-fanen (standardfanen er MDI)
+await page.evaluate(async () => { PK.querySelector('.chip[data-v="alle"]').click(); await new Promise((r) => setTimeout(r, 50)); const q = PK.querySelector('.q'); q.focus(); });
 await page.keyboard.type('robot');
 await wait(60);
 const early = await page.evaluate(() => (PK.querySelector('.lb') || {}).textContent);
@@ -185,13 +187,13 @@ ok('arket lukkes, «Tilpass navbar» forblir åpent', picked.sheetGone && picked
 ok('«Nylig brukt» oppdatert', picked.recent[0] === 'mdi:robot-vacuum', picked.recent);
 // åpne igjen: «Nylig brukt» øverst, «Skriv inn manuelt»
 await page.touchscreen.tap(fb.x, fb.y); await wait(500);
-const again = await page.evaluate(() => { const hosts = [...document.querySelector('ki-overlay-root').shadowRoot.querySelectorAll('.msh-portal')]; window.PK = hosts.find((x) => x.shadowRoot.querySelector('.q')).shadowRoot; return { lb: PK.querySelector('.lb').textContent, rec: [...PK.querySelectorAll('.sc > .gr .ic')].map((b) => b.dataset.v), man: !!PK.querySelector('[data-p="man"]'), metaHits: 0 }; });
+const again = await page.evaluate(() => { const hosts = [...document.querySelector('ki-overlay-root').shadowRoot.querySelectorAll('.msh-portal')]; window.PK = hosts.find((x) => x.shadowRoot.querySelector('.q')).shadowRoot; return { lb: PK.querySelector('.lb').textContent, rec: [...PK.querySelectorAll('.sc > .gr .ic')].map((b) => b.dataset.v), man: !!PK.querySelector('.mi'), metaHits: 0 }; });
 ok('«Nylig brukt» øverst ved ny åpning (lista er mellomlagret)', again.lb === 'Nylig brukt' && again.rec[0] === 'mdi:robot-vacuum' && metaHits === 1, { again, metaHits });
-await page.evaluate(() => PK.querySelector('[data-p="man"]').click()); await wait(50);
+// Fiks 17.8: «Skriv inn selv» er alltid synlig nederst
 await page.evaluate(() => { const i = PK.querySelector('.mi'); i.value = 'phu:egen-greie'; });
 await page.evaluate(() => PK.querySelector('[data-p="manok"]').click()); await wait(400);
 const man = await page.evaluate(() => ((ED._config.buttons || {}).egen_t || {}).icon);
-ok('«Skriv inn manuelt» lagrer fritekst-ikon', man === 'phu:egen-greie', man);
+ok('«Skriv inn selv» lagrer fritekst-ikon', man === 'phu:egen-greie', man);
 // × tømmer
 await page.evaluate(() => ED.shadowRoot.querySelector('msh-icon-field[data-nbicon="egen_t"]').shadowRoot.querySelector('[data-p="x"]').click()); await wait(300);
 const cleared = await page.evaluate(() => ((ED._config.buttons || {}).egen_t || {}).icon);
@@ -199,14 +201,16 @@ ok('× tømmer ikonet', cleared === undefined, cleared);
 
 /* ---------------- 15.6 · «Handling» i navbar-editoren */
 const tp = (fn) => page.evaluate(fn);
+// Fiks 17.8: Popup åpner popup-velgeren (ark i ki-overlay-root)
 await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; t.shadowRoot.querySelector('[data-p="open"]').click(); });
-await wait(100);
-const list = await tp(() => [...TP.shadowRoot.querySelectorAll('.pr')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()));
+await wait(150);
+await tp(() => { window.PP = MSH.portals().map((x) => x.shadowRoot).filter((r) => r.querySelector('.oh')).pop(); });
+const list = await tp(() => [...PP.querySelectorAll('.pr')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()));
 ok('Popup-listen viser alle popups (ikon, navn, #hash), også egne', list.some((x) => /Tesla.*#tesla/.test(x)) && list.some((x) => /Stue.*#stue/.test(x)) && list.length === 4, list);
-await tp(() => { const i = TP.shadowRoot.querySelector('.pl .in'); i.value = 'vær'; i.dispatchEvent(new Event('input', { bubbles: true })); }); await wait(50);
-const srch = await tp(() => [...TP.shadowRoot.querySelectorAll('.pr')].map((r) => r.dataset.v));
+await tp(() => { const i = PP.querySelector('.q'); i.value = 'vær'; i.dispatchEvent(new Event('input', { bubbles: true })); }); await wait(50);
+const srch = await tp(() => [...PP.querySelectorAll('.pr')].map((r) => r.dataset.v));
 ok('søk i popup-listen', srch.length === 1 && srch[0] === '#vaer', srch);
-await tp(() => TP.shadowRoot.querySelector('.pr[data-v="#vaer"]').click()); await wait(300);
+await tp(() => PP.querySelector('.pr[data-v="#vaer"]').click()); await wait(300);
 let bt = await tp(() => (ED._config.buttons || {}).egen_t);
 ok('valgt popup lagres som tap i HA-format', bt && bt.tap && bt.tap.action === 'navigate' && bt.tap.navigation_path === '#vaer' && !('hash' in bt), bt);
 await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'Egen hash').click(); });
@@ -242,7 +246,7 @@ const gui = await page.evaluate(async () => {
   el.hass = H; el.setConfig({ type: 'custom:msh-prosa-card', prose: [{ id: 'a', pre: 'X', src: 'text', fmt: 'Y', post: '', link: '#lys' }] });
   document.body.appendChild(el);
   await new Promise((r) => setTimeout(r, 200));
-  el.shadowRoot.querySelector('[data-a="x-ropen"]').click();
+  el.shadowRoot.querySelector('[data-a="x-ropen"][data-n="prose"]').click(); // Fiks 17.9: seksjonene har egne rader
   await new Promise((r) => setTimeout(r, 200));
   const t = el.shadowRoot.querySelector('msh-tap-picker');
   if (!t) return { none: true };
