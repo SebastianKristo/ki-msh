@@ -12,6 +12,7 @@ Skriptet endrer ingenting, bortsett fra at det ber kortet tegne seg på nytt én
 
 ```js
 (async () => {
+  'use strict'; // som HAs moduler: tildeling til en getter uten setter kaster (probe)
   const deep = (root, sel, out = []) => { root.querySelectorAll(sel).forEach((e) => out.push(e)); root.querySelectorAll('*').forEach((e) => e.shadowRoot && deep(e.shadowRoot, sel, out)); return out; };
   const up = (e) => e.parentNode || e.host || null;
   const nm = (e) => e ? e.localName + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\s+/).slice(0, 3).join('.') : '') : null;
@@ -32,7 +33,11 @@ Skriptet endrer ingenting, bortsett fra at det ber kortet tegne seg på nytt én
   const pops = deep(document, 'bubble-card').filter((b) => b.config && b.config.hash === '#klima');
   const pop = pops[0];
   const tags = ['msh-klima-card', 'msh-klima-hero-card', 'ki-klima-card'];
-  const el = deep(document, 'msh-klima-card')[0] || deep(document, 'ki-klima-card')[0];
+  // Bubble legger hvert kort i en .card-wrapper med HAs <hui-card>; hui-card._element er kortet selv om det aldri kom i DOM-en
+  const wraps = pop ? deep(pop.shadowRoot || pop, '.bubble-cards-container > .card') : [];
+  const huis = wraps.map((w) => w.querySelector('hui-card')).filter(Boolean);
+  const loose = huis.map((h) => h._element).find((e) => e && /klima/.test(e.localName));
+  const el = deep(document, 'msh-klima-card')[0] || deep(document, 'ki-klima-card')[0] || loose;
   const snap = () => {
     const sr = el && el.shadowRoot, hc = sr && sr.querySelector('ha-card'), slot = sr && sr.querySelector('.msh-hero-slot');
     const hero = slot && slot.querySelector('msh-klima-hero-card'), hs = hero && hero.shadowRoot, kh = hs && hs.querySelector('.kh');
@@ -58,6 +63,12 @@ Skriptet endrer ingenting, bortsett fra at det ber kortet tegne seg på nytt én
     defined: Object.fromEntries(tags.map((t) => [t, !!customElements.get(t)])), bubble: !!customElements.get('bubble-card'), huiCard: !!customElements.get('hui-card'),
     popups: pops.length, popup: !!pop, popupOpen: pop ? deep(pop.shadowRoot || pop, '.bubble-pop-up.is-popup-opened').length > 0 || !!(pop.querySelector && pop.querySelector('.is-popup-opened')) : null,
     cards: pop && pop.config.cards ? pop.config.cards.map((c) => c.type) : null,
+    beholder: pop ? deep(pop.shadowRoot || pop, '.bubble-cards-container').map((c) => c.children.length) : null,
+    // Lag kortet slik HA/Bubble gjør (hui-card._loadElement: setConfig, så .hass/.layout/.preview/.editMode) – fanger feilen
+    // Bubble ellers bare logger som «Failed to create card element»
+    probe: (() => { const cfg = pop && pop.config.cards && pop.config.cards[0]; if (!cfg || !customElements.get(String(cfg.type).replace('custom:', ''))) return null;
+      try { const e = document.createElement(cfg.type.replace('custom:', '')); e.setConfig(JSON.parse(JSON.stringify(cfg))); e.hass = hass; e.layout = 'grid'; e.preview = false; e.editMode = false; return 'ok'; } catch (x) { return 'FEIL: ' + (x && x.message || x); } })(),
+    wrappers: wraps.map((w) => { const hc = w.querySelector('hui-card'), e = hc && hc._element; return { cls: w.className, barn: [...w.children].map(nm), huiCard: hc ? { hidden: hc.hidden, display: hc.style.display, element: e ? e.localName : null, elementIDom: e ? e.isConnected : null, layout: hc.layout } : null }; }),
     antall: Object.fromEntries(tags.map((t) => [t, deep(document, t).length])),
     el: !!el, tag: el && el.localName, connected: el && el.isConnected, hass: !!hass,
     status: { id: statusId, state: hass && hass.states[statusId] ? hass.states[statusId].state : undefined, kiEntiteter: ki.length, registerId: (ki.find((e) => e.translation_key === 'ki_energi_status' || /ki_energi_status/.test(e.entity_id)) || {}).entity_id },
@@ -80,7 +91,8 @@ Skriptet endrer ingenting, bortsett fra at det ber kortet tegne seg på nytt én
 |---|---|---|
 | `popup: false`, eller `cards` uten `custom:msh-klima-card` | Strategien/YAML lager feil popup (eller `#klima` finnes dobbelt: `popups > 1`) | Rett popup-configen (`popup_overrides`, `custom_popups`). |
 | `defined['msh-klima-card']: false` | ki-msh-bundelen er ikke lastet (ressursen mangler eller er gammel/cachet) | Sjekk ressursen `/hacsfiles/ki-msh/ki-msh.js`, tøm cache. `versjon` viser hvilken bundel som kjører. |
-| `el: false` | Bubble har ikke laget kortet (lat lasting: plassholder `.card.is-placeholder`) | Se `chain`/`popupOpen`. |
+| `probe: 'FEIL: Cannot set property layout … which has only a getter'`, `el: false`, `beholder: [0]` (ingen `.card`-wrapper), og konsollen viser «Bubble Card: Failed to create card element» | **Årsaken i 16.13:** kortet ble laget, men kastet i HAs `hui-card._loadElement` (`element.layout = 'grid'` mot en getter uten setter). Bubble logger bare en advarsel, så popupen blir tom uten feilkort | Rettet i fiks 16.13 (setter + vakt i `MSH.define`). Ser du dette fortsatt, kjører en gammel bundel (`versjon`). |
+| `el: false`, `wrappers` med `.card.is-placeholder` | Bubble har ikke laget kortet ennå (lat lasting) | Se `chain`/`popupOpen`. |
 | `tag: 'ki-klima-card'` | Gammelt kortnavn i popupen | Strategien retter dette; lagre dashbordet på nytt. |
 | `state.hasHass: false` | Kortet har aldri fått `hass` | Kortet henter nå `hass` fra `home-assistant` selv (fiks 16.13). |
 | `html: 0` / `shadowChildren: 0` | Tegningen har ikke kjørt | Se `state.raf`/`force`/`pickerFocus` (blokkert tegning) og konsollen for `msh-klima-card`-feil. |

@@ -173,7 +173,10 @@
   }
 
   /* ------------------------------------------------------------ lagring */
-  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true }); } finally { ed._saving = false; } };
+  // Egne popups, overstyringer og maler lagres straks (eksplisitte handlinger: import, Ferdig i underarket, slett) –
+  // også mens «Tilpass Hjem»-utkastet er åpent, så de ikke rulles tilbake om arket lukkes uten Ferdig.
+  const NOW = new Set(['dashboard_globals', 'custom_popups', 'popup_overrides']);
+  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true, now: NOW.has(key) }); } finally { ed._saving = false; } };
   function commit(ed) {
     const u = ed.u, d = u.pd;
     if (!d || d.ro) return back(ed);

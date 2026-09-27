@@ -262,6 +262,7 @@ for (const [navn, mut] of Object.entries(SETS)) {
     const hass = window.mockHass(), res = {};
     // 1 · HA/Bubble setter element.layout/.preview/.editMode/.isPanel på kortet (hui-card._loadElement, uten try/catch)
     res.haProps = (window.customCards || []).map((c) => c.type).filter((t) => /^msh-/.test(t)).map((t) => {
+      'use strict'; // som HAs moduler: tildeling til getter uten setter kaster
       try { const el = document.createElement(t); el.layout = 'grid'; el.preview = false; el.editMode = false; el.isPanel = false; return null; } catch (e) { return `${t}: ${e.message}`; }
     }).filter(Boolean);
     // 2 · Skjelett: tegnet i connectedCallback, før hass
@@ -324,7 +325,7 @@ for (const [navn, mut] of Object.entries(SETS)) {
     return res;
   }, DIAG).catch((e) => ({ feil: e.message }));
   const d = r.diag || {}, f1 = d.fase1 || {};
-  const diagOk = d.el === true && d.tag === 'msh-klima-card' && d.cards && d.cards[0] === 'custom:msh-klima-card' && f1.host && f1.host.height > 100 && f1.host.opacity === '1' && f1.hero && f1.hero.height > 100 && f1.state && f1.state.hasHass;
+  const diagOk = d.el === true && d.tag === 'msh-klima-card' && d.cards && d.cards[0] === 'custom:msh-klima-card' && f1.host && f1.host.height > 100 && f1.host.opacity === '1' && f1.hero && f1.hero.height > 100 && f1.state && f1.state.hasHass && d.probe === 'ok' && d.beholder && d.beholder[0] === 1;
   const ok = !r.feil && !errs.length && !r.haProps.length && r.skjelett && r.utenforBubble.ok && r.lukketVedOppstart.ok && r.gjenapnet.ok && r.raskGjenapning.ok && r.vakt && r.vaktBorte && diagOk;
   if (!ok) fail++;
   const kort = { ...r }; kort.diag = diagOk ? 'ok' : r.diag;

@@ -31,6 +31,8 @@
  *   NB: button-card slår opp malene når kortet får config (setConfig), så endrede maler krever at kortene lages på nytt:
  *   ved endring av dashboard_globals oppdateres lovelace.config straks og HA bes regenerere (config-refresh, som
  *   «Oppdater» i menyen – ingen omlasting av nettleseren, men åpen popup lukkes). Popup-endringer går uten refresh.
+ *   Fiks 16.9/16.12: malene leses fra ÉN kilde (MSH.getGlobals, 03-templates.js) og løses i popupene her
+ *   (MSH.resolveTemplates) før configen returneres – kortene trenger da ikke lovelace.config-oppslaget i setConfig.
  * Re-generering uten omlasting: HA kjører strategien på nytt bare ved «Oppdater» (hui-root → config-refresh →
  *   ha-panel-lovelace._fetchConfig(true)), og det bygger hele visningen på nytt (alle kort lages på nytt, åpen popup
  *   lukkes/animeres). I stedet abonnerer strategien på ki-store (custom_popups/popup_overrides/popups): ved endring

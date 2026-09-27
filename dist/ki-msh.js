@@ -3726,6 +3726,14 @@ try {
       opts = opts || {};
       const before = path ? get(data, path) : data;
       data = path ? setIn(data, path, value) : (value || {});
+      // now: lagres straks også mens et utkast er åpent (eksplisitte handlinger som import) – bare denne stien sendes,
+      // resten av utkastet venter på Ferdig, og Avbryt ruller ikke stien tilbake.
+      if (tx && opts.now && path) {
+        tx.snap = setIn(tx.snap, path, value); tx.touched.delete(path);
+        emit(path, opts.src);
+        if (!hass || !hass.callWS) return Promise.resolve({ ok: false, error: 'Ingen forbindelse til Home Assistant' });
+        return hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: tx.snap }).then(() => { cache(); return { ok: true }; }, (e) => ({ ok: false, error: (e && e.message) || String(e) }));
+      }
       if (tx) { tx.touched.add(path || ''); emit(path, opts.src); return Promise.resolve({ ok: true, draft: true }); } // utkast: sendes ved tx.commit()
       if (!opts.confirm) { cache(); emit(path, opts.src); return push(opts.immediate); }
       // confirm (tilpass-arkenes Ferdig): cache + varsel først når HA har bekreftet; feil → stien rulles tilbake
@@ -5044,6 +5052,8 @@ try {
  *   NB: button-card slår opp malene når kortet får config (setConfig), så endrede maler krever at kortene lages på nytt:
  *   ved endring av dashboard_globals oppdateres lovelace.config straks og HA bes regenerere (config-refresh, som
  *   «Oppdater» i menyen – ingen omlasting av nettleseren, men åpen popup lukkes). Popup-endringer går uten refresh.
+ *   Fiks 16.9/16.12: malene leses fra ÉN kilde (MSH.getGlobals, 03-templates.js) og løses i popupene her
+ *   (MSH.resolveTemplates) før configen returneres – kortene trenger da ikke lovelace.config-oppslaget i setConfig.
  * Re-generering uten omlasting: HA kjører strategien på nytt bare ved «Oppdater» (hui-root → config-refresh →
  *   ha-panel-lovelace._fetchConfig(true)), og det bygger hele visningen på nytt (alle kort lages på nytt, åpen popup
  *   lukkes/animeres). I stedet abonnerer strategien på ki-store (custom_popups/popup_overrides/popups): ved endring
@@ -15125,7 +15135,10 @@ try {
   }
 
   /* ------------------------------------------------------------ lagring */
-  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true }); } finally { ed._saving = false; } };
+  // Egne popups, overstyringer og maler lagres straks (eksplisitte handlinger: import, Ferdig i underarket, slett) –
+  // også mens «Tilpass Hjem»-utkastet er åpent, så de ikke rulles tilbake om arket lukkes uten Ferdig.
+  const NOW = new Set(['dashboard_globals', 'custom_popups', 'popup_overrides']);
+  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true, now: NOW.has(key) }); } finally { ed._saving = false; } };
   function commit(ed) {
     const u = ed.u, d = u.pd;
     if (!d || d.ro) return back(ed);

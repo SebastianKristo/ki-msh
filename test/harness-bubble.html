@@ -37,18 +37,18 @@
     _load(c) {
       const tag = c.type.replace('custom:', ''), el = document.createElement(tag);
       try { el.setConfig(JSON.parse(JSON.stringify(c))); } catch (e) { console.error('hui-card', e); }
-      this._el = el; if (this._h) el.hass = this._h;
+      this._element = el; if (this._h) el.hass = this._h;
       el.layout = this._l; el.preview = this.preview; el.editMode = this.preview;
       while (this.lastChild) this.removeChild(this.lastChild);
       this._vis();
     }
     connectedCallback() { this._vis(); if (this._ch.size) this._req(); }
-    _req(k) { if (k) this._ch.add(k); if (this._q) return; this._q = true; queueMicrotask(() => { this._q = false; if (!this.isConnected) return; const ch = this._ch; this._ch = new Set(); if (this._el && ch.has('hass') && this._h) this._el.hass = this._h; if (this._el && ch.has('layout')) { try { this._el.layout = this._l; this._el.isPanel = this._l === 'panel'; } catch (e) { console.error(this._c && this._c.type, e); } } if (ch.has('hass')) this._vis(); }); }
+    _req(k) { if (k) this._ch.add(k); if (this._q) return; this._q = true; queueMicrotask(() => { this._q = false; if (!this.isConnected) return; const ch = this._ch; this._ch = new Set(); if (this._element && ch.has('hass') && this._h) this._element.hass = this._h; if (this._element && ch.has('layout')) { try { this._element.layout = this._l; this._element.isPanel = this._l === 'panel'; } catch (e) { console.error(this._c && this._c.type, e); } } if (ch.has('hass')) this._vis(); }); }
     _vis() {
-      if (!this._el || !this._h) return;
-      const vis = !this._el.hidden;
+      if (!this._element || !this._h) return;
+      const vis = !this._element.hidden;
       this.style.setProperty('display', vis ? '' : 'none'); this.toggleAttribute('hidden', !vis);
-      if (!vis && this._el.parentElement) this.removeChild(this._el); else if (vis && !this._el.parentElement) this.appendChild(this._el);
+      if (!vis && this._element.parentElement) this.removeChild(this._element); else if (vis && !this._element.parentElement) this.appendChild(this._element);
     }
   });
 </script>
