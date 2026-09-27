@@ -78,7 +78,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     [...edEl.shadowRoot.querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click();
     await wait(1200);
     res.saveCalls = window.__calls.filter((c) => c[0] === 'ws' && /lovelace\/config\/save|frontend\/set_user_data/.test(c[1])).map((c) => c[1]).join(',');
-    res.storeGap = (((window.__userData.ki_dashboard || {}).cards || {})['room-stue'] || {}).gap;
+    res.storeGap = (((window.__userData.ki_dashboard || {}).rooms || {}).stue || {}).gap; // «Tilpass rom» lagres per område
     const rom = all().find((e) => e.localName === 'msh-rom-card' && e.isConnected && e.getBoundingClientRect().height > 0);
     res.liveGap = rom && rom._rawConfig.gap;
     res.hashAfter = location.hash;

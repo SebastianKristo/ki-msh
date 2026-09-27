@@ -62,7 +62,7 @@ const out = await p.evaluate(async () => {
   res.savesAfter200ms = saves;
   await wait(1800);
   res.lovelaceSaves = saves; // skal være 0 – editorene lagrer i ki-store
-  res.storeGap = (((window.__userData.ki_dashboard || {}).cards || {}).rom_stue || {}).gap;
+  res.storeGap = (((window.__userData.ki_dashboard || {}).rooms || {}).stue || {}).gap;
   res.hash = location.hash;
   res.popupOpen = !!popEl() && popEl().classList.contains('is-popup-opened');
   res.newInstance = rom() !== first;

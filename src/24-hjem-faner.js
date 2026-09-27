@@ -3,7 +3,8 @@
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
- * Fane-drag: dra sideveis = liquid glass-valg, hold inne + dra = flytt fanen (lagres i config.tab_order).
+ * Fanerad: scroller vannrett (mange faner), aktiv fane scrolles inn. Dra sideveis = scroll (eller liquid glass-valg når
+ * alle faner får plass); hold inne 400 ms + dra = flytt fanen (lagres i config.tab_order).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -37,6 +38,7 @@
 
   /* ------------------------------------------------------------ swipe (karusell / flis-stabler) */
   // Horisontal sveip med touch-action: pan-y + stopPropagation (Bubble Card lukker/scroller ikke). Klikk etter drag svelges.
+  // Ingen haptic ved sveip/snap – bare trykk (åpne romkort) gir haptic.
   M.hjemSwiper = M.hjemSwiper || function (card, vp, onIndex) {
     if (vp.__sw) return;
     vp.__sw = true;
@@ -72,8 +74,8 @@
       const tr = track();
       tr.style.transition = '';
       tr.style.transform = `translateX(${-i * 100}%)`;
-      if (i !== idx()) M.haptic('selection');
-      onIndex(i);
+      onIndex(i); // ingen haptic ved sveip – kun trykk på et romkort gir haptic
+
     };
     vp.addEventListener('pointerup', end);
     vp.addEventListener('pointercancel', end);
@@ -82,7 +84,7 @@
       e.preventDefault();
       wheel += e.deltaX;
       const now = Date.now();
-      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) { M.haptic('selection'); onIndex(i); } }
+      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) onIndex(i); }
     }, { passive: false });
   };
 
@@ -304,6 +306,7 @@
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
+      if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
     }
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
     _calcLayout() {
@@ -368,15 +371,19 @@
       this.setConfig(nc);
       try { const r = await M.saveCardConfig(this.hass, old, nc); if (r && r.config) { this._rawConfig = r.config; } } catch (e) { /* */ }
     }
+    // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
+    // Linsen (.ind) posisjoneres etter målt fane (afterRender) – bredden følger fanen.
     _tabsHTML(TV, cur) {
-      const c = this.config, n = TV.length, idx = Math.max(0, TV.indexOf(cur));
+      const c = this.config, idx = Math.max(0, TV.indexOf(cur));
       const h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
       const w = c.tab_width || 'std';
-      const cols = w === 'custom' ? `repeat(${n}, ${Number(c.tab_width_px) || 88}px)` : `repeat(${n}, minmax(0, 1fr))`;
+      const tw = w === 'custom' ? `width:${Number(c.tab_width_px) || 88}px;` : '';
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" style="grid-template-columns:${cols}${w === 'full' ? ';width:100%;min-width:100%' : ''}">
-        <span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>
-        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad}">${esc(t.label)}</button>`).join('')}
+      const P = (this._tabPos || {})[(TV[idx] || {}).id];
+      const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" data-tabs="1">
+        <span class="ind" style="${ind}"></span>
+        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
     }
 
@@ -666,13 +673,7 @@
       const root = this.shadowRoot;
       root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } })));
       this._bindTabs();
-      // hold aktiv fane synlig når fanelinjen er bredere enn kortet
-      const strip = root.querySelector('.tabs'), on = strip && strip.querySelector('.tab.on');
-      if (on && strip.scrollWidth > strip.clientWidth + 2 && this._shownTab !== on.dataset.key) {
-        this._shownTab = on.dataset.key;
-        const l = on.offsetLeft, r = l + on.offsetWidth;
-        if (l < strip.scrollLeft || r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.max(0, l - 24);
-      }
+      this._placeTabs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
@@ -688,77 +689,147 @@
         if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
       });
     }
-    // Fanelinjen: dra sideveis = liquid glass-valg; hold inne (450 ms) + dra = flytt fanen (lagres i config).
+    // Linse på aktiv fane + aktiv fane inn i synlig område (row.scrollTo smooth) + kant-fade.
+    _placeTabs() {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row) return;
+      const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
+      if (on && ind && !(this._tabDrag && this._tabDrag.mode)) {
+        const L = on.offsetLeft, W = on.offsetWidth;
+        (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
+        const first = ind.style.opacity === '0';
+        if (first) ind.style.transition = 'none';
+        ind.style.left = L + 'px'; ind.style.width = W + 'px'; ind.style.opacity = '';
+        if (first) { void ind.offsetWidth; ind.style.transition = ''; }
+      }
+      if (on && this._shownTab !== on.dataset.key) {
+        const init = this._shownTab == null;
+        this._shownTab = on.dataset.key;
+        const cw = row.clientWidth, sl = row.scrollLeft, l = on.offsetLeft, r = l + on.offsetWidth, m = 24;
+        let left = null;
+        if (row.scrollWidth > cw + 1) {
+          if (l - m < sl) left = Math.max(0, l - m);
+          else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
+        }
+        if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
+      }
+      this._tabFade();
+    }
+    // Myk fade (12 px) på kanten som har mer innhold; touch-action pan-x når raden scroller.
+    _tabFade() {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row) return;
+      const max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
+      const set = (k, v) => { if (this.style.getPropertyValue(k) !== v) this.style.setProperty(k, v); };
+      set('--msh-tabs-fl', ovf && sl > 1 ? '12px' : '0px');
+      set('--msh-tabs-fr', ovf && sl < max - 1 ? '12px' : '0px');
+      set('--msh-tabs-ta', ovf ? 'pan-x' : 'pan-y');
+    }
+    // Fanelinjen. Vanlig sveip scroller alltid raden (touch: native; mus: dra-scroll). Får fanene plass (ingen
+    // scroll), er sideveis dra = liquid glass-linse. Flytt fane KUN etter langt trykk (400 ms) eller i
+    // redigeringsmodus (this.editMode / window.__kiEditMode). Gester stoppes (stopPropagation) så verken
+    // karusell, dashbord eller Bubble-popup tar dem.
     _bindTabs() {
-      const strip = this.shadowRoot.querySelector('.tabs');
-      if (!strip || strip.__b) return;
-      strip.__b = true;
-      M.guardDrag(strip, 'x');
-      const grid = () => strip.querySelector('.tg'), items = () => [...strip.querySelectorAll('.tab')];
-      const frac = (e) => { const r = grid().getBoundingClientRect(); return (e.clientX - r.left) / Math.max(1, r.width); };
-      let st = null;
-      const capture = () => { try { strip.setPointerCapture(st.id); } catch (x) { /* */ } };
-      strip.addEventListener('pointerdown', (e) => {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row || row.__b) return;
+      row.__b = true;
+      const stop = (e) => e.stopPropagation();
+      row.addEventListener('pointerdown', stop);
+      row.addEventListener('touchstart', stop, { passive: true });
+      row.addEventListener('touchmove', stop, { passive: true });
+      row.addEventListener('scroll', () => {
+        this._tabFade();
+        const st = this._tabDrag;
+        if (st && !st.mode) { clearTimeout(st.t); this._tabDrag = null; } // native scroll → ingen langt trykk
+      }, { passive: true });
+      if (window.ResizeObserver) { this._tabRO = new ResizeObserver(() => this._tabFade()); this._tabRO.observe(row); }
+      const items = () => [...row.querySelectorAll('.tab')];
+      const at = (x, rects) => {
+        let best = 0, bd = Infinity;
+        (rects || items().map((b) => b.getBoundingClientRect())).forEach((r, i) => { const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
+        return best;
+      };
+      const capture = (st) => { try { row.setPointerCapture(st.id); } catch (x) { /* */ } };
+      const startReo = (st) => {
+        st.mode = 'reo'; capture(st); this._busy = true; window.__tabReorder = true;
+        st.rects = items().map((b) => b.getBoundingClientRect());
+        M.haptic('medium');
+        row.classList.add('reo');
+        const it = items()[st.from]; if (it) it.classList.add('lift');
+      };
+      row.addEventListener('pointerdown', (e) => {
         if (e.button) return;
-        const n = items().length, f = frac(e);
-        st = { x: e.clientX, y: e.clientY, id: e.pointerId, mode: null, n, from: M.clamp(Math.floor(f * n), 0, n - 1), near: null, to: null };
-        st.t = setTimeout(() => {
-          if (!st || st.mode || st.n < 2) return;
-          st.mode = 'reo'; capture(); this._busy = true; window.__tabReorder = true;
-          M.haptic('medium');
-          grid().classList.add('reo');
-          const it = items()[st.from]; if (it) it.classList.add('lift');
-        }, 450);
+        const n = items().length, edit = !!(this.editMode || window.__kiEditMode);
+        const st = (this._tabDrag = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType, mode: null, n, edit, ovf: row.scrollWidth > row.clientWidth + 1, sl: row.scrollLeft, from: at(e.clientX), near: null, to: null });
+        st.t = setTimeout(() => { if (this._tabDrag === st && !st.mode && st.n > 1) startReo(st); }, 400);
       });
-      strip.addEventListener('pointermove', (e) => {
-        if (!st) return;
+      row.addEventListener('pointermove', (e) => {
+        const st = this._tabDrag;
+        if (!st || e.pointerId !== st.id) return;
         const dx = e.clientX - st.x, dy = e.clientY - st.y;
         if (!st.mode) {
-          if (Math.abs(dx) > 6 && Math.abs(dx) >= Math.abs(dy)) { clearTimeout(st.t); st.mode = 'glass'; capture(); this._busy = true; grid().classList.add('drag'); } else if (Math.abs(dy) > 10) { clearTimeout(st.t); st = null; return; } else return;
+          if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return;
+          clearTimeout(st.t);
+          if (Math.abs(dx) < Math.abs(dy)) { this._tabDrag = null; return; }
+          if (st.edit && st.n > 1) startReo(st);
+          else if (st.ovf) { if (st.type !== 'touch') { st.mode = 'pan'; capture(st); } else { this._tabDrag = null; return; } } // touch: native scroll
+          else if (st.n > 1) { st.mode = 'glass'; capture(st); this._busy = true; row.classList.add('drag'); }
+          else { this._tabDrag = null; return; }
         }
         e.preventDefault();
-        const f = frac(e), n = st.n;
+        if (st.mode === 'pan') { row.scrollLeft = st.sl - dx; return; }
         if (st.mode === 'glass') {
-          const pos = M.clamp(f, 0.5 / n, 1 - 0.5 / n), near = M.clamp(Math.floor(f * n), 0, n - 1);
-          const ind = grid().querySelector('.ind'); if (ind) ind.style.left = `${(pos - 0.5 / n) * 100}%`;
-          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
-        } else {
-          const to = M.clamp(Math.floor(f * n), 0, n - 1);
-          if (to !== st.to) {
-            st.to = to; M.haptic('selection');
-            const ord = Array.from({ length: n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
-            items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
+          const near = at(e.clientX), nb = items()[near], ind = row.querySelector('.ind');
+          if (nb && ind) {
+            const rr = row.getBoundingClientRect(), x = e.clientX - rr.left + row.scrollLeft, W = nb.offsetWidth;
+            ind.style.width = W + 'px';
+            ind.style.left = M.clamp(x - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
           }
+          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
+          return;
+        }
+        // reo: flytt fanen; auto-scroll ved kantene
+        const rr = row.getBoundingClientRect();
+        if (e.clientX < rr.left + 24) row.scrollLeft -= 8; else if (e.clientX > rr.right - 24) row.scrollLeft += 8;
+        const to = at(e.clientX + (row.scrollLeft - st.sl), st.rects);
+        if (to !== st.to) {
+          st.to = to; M.haptic('selection');
+          const ord = Array.from({ length: st.n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
+          items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
         }
       });
       const end = (e) => {
-        if (!st) return;
+        const st = this._tabDrag;
+        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
         clearTimeout(st.t);
-        const s0 = st; st = null;
-        if (!s0.mode) return;
+        this._tabDrag = null;
+        if (!st.mode) return;
         this._busy = false; window.__tabReorder = false;
         this._swallow = true; setTimeout(() => { this._swallow = false; }, 350);
-        const g = grid(); g.classList.remove('drag', 'reo');
+        if (st.mode === 'pan') return;
+        row.classList.remove('drag', 'reo');
         items().forEach((b) => { b.classList.remove('near', 'lift'); b.style.order = ''; });
-        if (s0.mode === 'glass') { if (e.type === 'pointerup' && s0.near != null) this._pickTab(s0.near); else this.update(); } else if (e.type === 'pointerup' && s0.to != null && s0.to !== s0.from) this._reorderTabs(s0.from, s0.to); else this.update();
+        if (st.mode === 'glass') { if (e.type === 'pointerup' && st.near != null) this._pickTab(st.near); else this.update(); } else if (e.type === 'pointerup' && st.to != null && st.to !== st.from) this._reorderTabs(st.from, st.to); else this.update();
       };
-      strip.addEventListener('pointerup', end);
-      strip.addEventListener('pointercancel', end);
-      strip.addEventListener('contextmenu', (e) => e.preventDefault());
+      row.addEventListener('pointerup', end);
+      row.addEventListener('pointercancel', end);
+      row.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     get styles() {
       return `${M.romkortCSS || ''}
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
         .sec{display:flex;flex-direction:column;gap:12px}
-        .tabs{touch-action:pan-y;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
-        .tabs::-webkit-scrollbar{display:none}
-        .tg{position:relative;display:grid;width:max-content;min-width:max-content;grid-auto-columns:1fr}
-        .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
-        .tab{position:relative;z-index:1;overflow:hidden;text-overflow:ellipsis;min-width:0;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tg{position:relative;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:var(--msh-tabs-ta, pan-x);overscroll-behavior-x:contain;border-radius:999px;
+          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%);mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%)}
+        .tg::-webkit-scrollbar{display:none}
+        .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
+        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tabs.full .tab{flex:1 0 auto}
         .tab.on{color:var(--gray100,#2f2f2f)}
-        .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s}
+        .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
         .tg.reo .ind{opacity:0}

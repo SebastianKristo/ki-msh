@@ -1,12 +1,110 @@
 [
-  { "name": "Hjem-container · standard", "cards": [ { "type": "custom:msh-hjem-card", "card_id": "hjem1", "cards": {
-    "header": { "type": "custom:msh-hjem-header-card", "card_id": "hjem1_header" },
-    "prosa": { "type": "custom:msh-prosa-card", "card_id": "hjem1_prosa" },
-    "faner": { "type": "custom:msh-hjem-faner-card", "card_id": "hjem1_faner" },
-    "soppel": { "type": "custom:msh-soppel-card", "card_id": "hjem1_soppel", "popup_hash": "#soppel", "type_sensor": "sensor.soppel_type" },
-    "strom": { "type": "custom:msh-strompris-card", "card_id": "hjem1_strom" },
-    "gjoremal": { "type": "custom:msh-hjem-gjoremal-card", "card_id": "hjem1_gjoremal" } } } ] },
-  { "name": "Hjem-container · uten barn-config", "cards": [ { "type": "custom:msh-hjem-card" } ] },
-  { "name": "Hjem-container · stor skjerm, skjult strøm", "cards": [ { "type": "custom:msh-hjem-card", "layout_mode": "stor", "hidden": ["strom"], "cards": { "faner": { "default_tab": "forste" } } } ] },
-  { "name": "Hjem-container · ukjent config", "cards": [ { "type": "custom:msh-hjem-card", "layout_mode": "mobil", "order": ["gjoremal", "finnes_ikke", "header"], "hidden": ["prosa"], "cards": { "strom": { "overrides": { "price": "sensor.finnes_ikke" } }, "soppel": { "sensor": "sensor.finnes_ikke" } } } ] }
+  {
+    "name": "Hjem-container · standard",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card",
+        "card_id": "hjem1",
+        "cards": {
+          "header": {
+            "type": "custom:msh-hjem-header-card",
+            "card_id": "hjem1_header"
+          },
+          "prosa": {
+            "type": "custom:msh-prosa-card",
+            "card_id": "hjem1_prosa"
+          },
+          "faner": {
+            "type": "custom:msh-hjem-faner-card",
+            "card_id": "hjem1_faner"
+          },
+          "soppel": {
+            "type": "custom:msh-soppel-card",
+            "card_id": "hjem1_soppel",
+            "popup_hash": "#soppel",
+            "type_sensor": "sensor.soppel_type"
+          },
+          "strom": {
+            "type": "custom:msh-strompris-card",
+            "card_id": "hjem1_strom"
+          },
+          "gjoremal": {
+            "type": "custom:msh-hjem-gjoremal-card",
+            "card_id": "hjem1_gjoremal"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Hjem-container · uten barn-config",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card"
+      }
+    ]
+  },
+  {
+    "name": "Hjem-container · stor skjerm, skjult strøm",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card",
+        "layout_mode": "stor",
+        "hidden": [
+          "strom"
+        ],
+        "cards": {
+          "faner": {
+            "default_tab": "forste"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Hjem-container · ukjent config",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card",
+        "layout_mode": "mobil",
+        "order": [
+          "gjoremal",
+          "finnes_ikke",
+          "header"
+        ],
+        "hidden": [
+          "prosa"
+        ],
+        "cards": {
+          "strom": {
+            "overrides": {
+              "price": "sensor.finnes_ikke"
+            }
+          },
+          "soppel": {
+            "sensor": "sensor.finnes_ikke"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Hjem-container · uten gjøremål",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card",
+        "show_todo": false
+      }
+    ]
+  },
+  {
+    "name": "Hjem-container · stor skjerm uten gjøremål",
+    "cards": [
+      {
+        "type": "custom:msh-hjem-card",
+        "layout_mode": "stor",
+        "show_todo": false
+      }
+    ]
+  }
 ]

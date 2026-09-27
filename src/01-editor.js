@@ -82,6 +82,7 @@
     .btn{height:52px;border-radius:26px;background:#3a3a3a;font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .small{font-size:12px;color:#979797}
+    .stat{font-size:12px;color:#979797;text-align:center;padding:2px 0}.stat.ok{color:var(--green,#66d19e)}.stat.err{color:var(--red,#f28073)}
     .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
     ha-icon-picker,ha-selector{display:block}
     .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
@@ -152,6 +153,7 @@
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
+        ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
@@ -340,7 +342,7 @@
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
       if (!b) { if (!e.composedPath().some((n) => n.dataset && n.dataset.search)) { if (this._menu) { this._menu = null; this._render(); } } return; }
       const d = b.dataset, c = this._config;
-      M.haptic(['setent', 'clear', 'addlist'].includes(d.a) && this._menu ? 'selection' : 'light');
+      if (b.classList && b.classList.contains('pill')) M.haptic('light'); // bare snarvalg gir haptic
       switch (d.a) {
         case 'run': { const f = (this._btns || {})[d.k]; if (f && f.run) Promise.resolve(f.run(this._hass, this._config, this)).catch((e) => M.toast('Feil: ' + e.message)); return; }
         case 'pkopen': this._menu = this._menu === d.k ? null : d.k; this._q = {}; this._render(); { const i = this.shadowRoot.querySelector(`[data-search="${d.k}"]`); if (i) i.focus(); } return;
@@ -364,7 +366,7 @@
     }
     _input(e) {
       const t = e.target;
-      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { M.haptic('selection'); this._set(t.dataset.name, v, false); } return; }
+      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { this._set(t.dataset.name, v, false); } return; }
       if (t.dataset.search) { this._q[t.dataset.search] = t.value; this._menu = t.dataset.search; this._render(); }
     }
     _change(e) {

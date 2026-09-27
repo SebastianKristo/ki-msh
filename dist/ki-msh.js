@@ -698,25 +698,32 @@ try {
   };
   // Editor-lagring: til ki-store (frontend/set_user_data) – ingen Lovelace-rebuild, ingen navigering.
   // opts.lovelace = true skriver i stedet til Lovelace-configen (brukes bare når brukeren ber om det).
-  MSH.saveCardConfig = function (hass, oldCfg, newCfg, opts) {
+  // Nøkkel i ki-store for et kort: rom-kort lagres per område (rooms.<area_id>), andre per card_id (cards.<id>).
+  MSH.storeKey = function (cfg, card) {
+    const cls = (card && card.constructor) || (cfg && customElements.get(String(cfg.type || '').replace('custom:', '')));
+    if (cls && cls.storeKey) { const k = cls.storeKey(cfg || {}, card); if (k) return k; }
+    return cfg && cfg.card_id ? 'cards.' + cfg.card_id : null;
+  };
+  MSH.saveCardConfig = async function (hass, oldCfg, newCfg, opts) {
     opts = opts || {};
     if (opts.lovelace || !MSH.store) return MSH.saveLovelaceCardConfig(hass, oldCfg, newCfg, opts);
     if (!newCfg.card_id) newCfg = { ...newCfg, card_id: (oldCfg && oldCfg.card_id) || MSH.uid() };
-    const { type, ...rest } = newCfg;
-    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type') rest[k] = null; }); // fjernet → null
+    const key = opts.key || MSH.storeKey(newCfg, opts.card);
+    const { type, card_id, ...rest } = newCfg;
+    Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
-    MSH.store.setCard(newCfg.card_id, rest);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    if (opts.toasts !== false && newCfg.toasts !== false) { clearTimeout(MSH._savedT); MSH._savedT = setTimeout(() => MSH.toast('Lagret'), 650); }
-    return Promise.resolve({ ok: true, store: true, config: newCfg });
+    const res = await MSH.store.set(key, { ...(MSH.store.get(key) || {}), ...rest }, { immediate: opts.immediate });
+    return { ...res, store: true, key, config: newCfg };
   };
   // YAML-config + ki-store (null = fjernet)
-  MSH.effectiveConfig = function (yaml) {
-    const st = yaml && yaml.card_id && MSH.store ? MSH.store.card(yaml.card_id) : null;
+  MSH.effectiveConfig = function (yaml, card) {
+    const key = yaml && MSH.store ? MSH.storeKey(yaml, card) : null;
+    const st = key ? MSH.store.get(key) : null;
     if (!st) return yaml;
     const out = { ...yaml };
     Object.keys(st).forEach((k) => { if (st[k] === null) delete out[k]; else out[k] = st[k]; });
-    out.type = yaml.type; out.card_id = yaml.card_id;
+    out.type = yaml.type; if (yaml.card_id) out.card_id = yaml.card_id;
     return out;
   };
   MSH.flushSaves = function () { [...PENDING.keys()].forEach((id) => { const p = PENDING.get(id); clearTimeout(p.timer); doSave(id); }); };
@@ -782,7 +789,7 @@ try {
       if (!config) throw new Error('Mangler config');
       const prevId = this._rawConfig && this._rawConfig.card_id;
       if (config.__eff) { const { __eff, ...c } = config; config = c; } // live-utkast fra editoren
-      else { this._yamlConfig = config; config = MSH.effectiveConfig(config); }
+      else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
       this._firstRender = false;
@@ -819,9 +826,9 @@ try {
       this._register();
       if (MSH.store && !this._storeOff) {
         this._storeOff = MSH.store.subscribe((d, path) => {
-          const id = this._yamlConfig && this._yamlConfig.card_id;
-          if (!id || (path && path !== 'cards.' + id && !String(path).startsWith('cards.' + id + '.') && path !== 'cards')) return;
-          const eff = MSH.effectiveConfig(this._yamlConfig);
+          const key = this._yamlConfig && MSH.storeKey(this._yamlConfig, this);
+          if (!key || (path && path !== key && !String(path).startsWith(key + '.') && !key.startsWith(path + '.'))) return;
+          const eff = MSH.effectiveConfig(this._yamlConfig, this);
           if (JSON.stringify(eff) !== JSON.stringify(this._rawConfig)) this.setConfig(this._yamlConfig);
         });
       }
@@ -1014,22 +1021,44 @@ try {
     if (areaCtx) ed.areaCtx = areaCtx;
     if (title) ed.title = title;
     ed.hass = card.hass;
+    if (MSH.store && card.hass) MSH.store.refresh(card.hass);
     const orig = card._rawConfig || card.config;
-    let cur = orig, dirty = false;
+    let cur = orig, dirty = false, seq = 0;
     ed.setConfig(orig);
-    const save = (immediate) => MSH.saveCardConfig(card.hass, orig, cur, { immediate });
+    const status = (t, kind) => { ed.status = t; ed.statusKind = kind || ''; if (ed._render) ed._render(); };
+    // Autolagring (600 ms) – stille; status i arket: «Lagrer …» → «Lagret» / «Kunne ikke lagre»
+    const save = async (immediate) => {
+      const my = ++seq;
+      status('Lagrer …');
+      const r = await MSH.saveCardConfig(card.hass, orig, cur, { immediate, card });
+      if (my !== seq) return r;
+      if (r && r.ok === false) { status('Kunne ikke lagre' + (r.error ? ' – ' + r.error : ''), 'err'); MSH.haptic('failure'); }
+      else status('Lagret', 'ok');
+      return r;
+    };
     ed.addEventListener('msh-change', (ev) => {
       cur = ev.detail.config;
       if (cur.card_id) MSH.applyLive(cur.card_id, cur);
       if (card._rawConfig !== cur) card.setConfig({ ...cur, __eff: 1 });
       if (ev.detail.commit !== false) { dirty = true; save(false); }
     });
-    ed.addEventListener('msh-save', (ev) => { cur = ev.detail.config || cur; if (dirty || cur !== orig) save(true); ov.close(); });
-    ed.addEventListener('msh-cancel', () => {
-      if (cur !== orig) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true }); }
+    // Lagre/Ferdig: samler ventende endringer, lagrer én gang og venter på svar
+    ed.addEventListener('msh-save', async (ev) => {
+      cur = (ev.detail && ev.detail.config) || cur;
+      if (!dirty && cur === orig) { ov.close(); return; }
+      const r = await save(true);
+      if (r && r.ok === false) return; // endringen beholdes i skjemaet
+      MSH.haptic('success');
+      if (cur.toasts !== false) MSH.toast('Lagret');
+      dirty = false;
       ov.close();
     });
-    ov.onClosed = () => { if (dirty) MSH.flushSaves(); };
+    ed.addEventListener('msh-cancel', () => {
+      if (cur !== orig) { card.setConfig({ ...orig, __eff: 1 }); if (orig.card_id) MSH.applyLive(orig.card_id, orig); if (dirty) MSH.saveCardConfig(card.hass, cur, orig, { immediate: true, card }); }
+      dirty = false;
+      ov.close();
+    });
+    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); };
     ov.body.appendChild(ed);
     return { overlay: ov, editor: ed };
   };
@@ -1134,6 +1163,7 @@ try {
     .btn{height:52px;border-radius:26px;background:#3a3a3a;font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .small{font-size:12px;color:#979797}
+    .stat{font-size:12px;color:#979797;text-align:center;padding:2px 0}.stat.ok{color:var(--green,#66d19e)}.stat.err{color:var(--red,#f28073)}
     .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
     ha-icon-picker,ha-selector{display:block}
     .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
@@ -1204,6 +1234,7 @@ try {
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
+        ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
@@ -1392,7 +1423,7 @@ try {
       const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
       if (!b) { if (!e.composedPath().some((n) => n.dataset && n.dataset.search)) { if (this._menu) { this._menu = null; this._render(); } } return; }
       const d = b.dataset, c = this._config;
-      M.haptic(['setent', 'clear', 'addlist'].includes(d.a) && this._menu ? 'selection' : 'light');
+      if (b.classList && b.classList.contains('pill')) M.haptic('light'); // bare snarvalg gir haptic
       switch (d.a) {
         case 'run': { const f = (this._btns || {})[d.k]; if (f && f.run) Promise.resolve(f.run(this._hass, this._config, this)).catch((e) => M.toast('Feil: ' + e.message)); return; }
         case 'pkopen': this._menu = this._menu === d.k ? null : d.k; this._q = {}; this._render(); { const i = this.shadowRoot.querySelector(`[data-search="${d.k}"]`); if (i) i.focus(); } return;
@@ -1416,7 +1447,7 @@ try {
     }
     _input(e) {
       const t = e.target;
-      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { M.haptic('selection'); this._set(t.dataset.name, v, false); } return; }
+      if (t.dataset.range) { const v = Number(t.value); if (v !== get(this._config, t.dataset.name)) { this._set(t.dataset.name, v, false); } return; }
       if (t.dataset.search) { this._q[t.dataset.search] = t.value; this._menu = t.dataset.search; this._render(); }
     }
     _change(e) {
@@ -1473,25 +1504,50 @@ try {
   };
   const emit = (path) => { subs.forEach((cb) => { try { cb(data, path); } catch (e) { console.error('[ki-store]', e); } }); };
   const cache = () => { try { localStorage.setItem(CACHE, JSON.stringify(data)); } catch (e) { /* */ } };
-  const push = () => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      timer = null;
-      if (!hass || !hass.callWS) return;
-      try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); M.haptic('success'); }
-      catch (e) { M.toast('Kunne ikke lagre: ' + (e.message || e)); }
-    }, 600);
+  // Lagring mot HA: debounce 600 ms; alle som venter får samme svar ({ ok, error }) når callWS har returnert.
+  let waiters = [];
+  const write = async () => {
+    clearTimeout(timer); timer = null;
+    const ws = waiters; waiters = [];
+    let res;
+    if (!hass || !hass.callWS) res = { ok: false, error: 'Ingen forbindelse til Home Assistant' };
+    else {
+      try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); res = { ok: true }; }
+      catch (e) { res = { ok: false, error: (e && e.message) || String(e) }; }
+    }
+    ws.forEach((fn) => fn(res));
+    return res;
   };
+  const push = (immediate) => new Promise((res) => {
+    waiters.push(res);
+    clearTimeout(timer);
+    timer = setTimeout(write, immediate ? 0 : 600);
+  });
 
   M.store = {
     get: (path) => get(data, path),
-    set(path, value) {
+    // set → oppdaterer cache og kort straks; returnerer Promise<{ ok, error }> når HA har bekreftet lagringen
+    set(path, value, opts) {
       data = path ? setIn(data, path, value) : (value || {});
-      cache(); emit(path); push();
+      cache(); emit(path);
+      return push(opts && opts.immediate);
+    },
+    // Tving lagring nå (Lagre-knappen) og vent på svar
+    save() { return push(true); },
+    get pending() { return !!timer; },
+    // Hent på nytt fra HA (ved åpning av popup) – ikke mens egne endringer venter
+    async refresh(h) {
+      if (h) hass = h;
+      if (!hass || !hass.callWS || timer) return data;
+      try {
+        const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
+        if (r && r.value && typeof r.value === 'object' && !timer && JSON.stringify(r.value) !== JSON.stringify(data)) { data = r.value; cache(); emit(''); }
+      } catch (e) { /* */ }
+      return data;
     },
     subscribe(cb) { subs.add(cb); return () => subs.delete(cb); },
     get loaded() { return loaded; },
-    flush() { if (timer) { clearTimeout(timer); timer = null; if (hass) hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }).catch(() => {}); } },
+    flush() { if (timer) write(); },
     async load(h) {
       if (h) hass = h;
       if (loaded || !hass || !hass.callWS) return data;
@@ -1516,11 +1572,11 @@ try {
       return loading;
     },
     // Kortconfig fra editorene
-    card: (id) => (id ? get(data, 'cards.' + id) || null : null),
-    setCard(id, cfg) {
-      if (!id) return;
+    card: (id) => (id ? get(data, String(id).includes('.') ? id : 'cards.' + id) || null : null),
+    setCard(id, cfg, opts) {
+      if (!id) return Promise.resolve({ ok: false });
       const { type, ...rest } = cfg || {};
-      M.store.set('cards.' + id, rest);
+      return M.store.set(String(id).includes('.') ? id : 'cards.' + id, rest, opts);
     },
   };
   window.kiStore = M.store;
@@ -1954,14 +2010,17 @@ try {
   }
   function roomLook(area, hass, user) {
     const S = (user && user.cards) || {}, PO = popOf(user, area) || {};
-    const rc = S[M.CARD_IDS.room(area)] || {}, fc = (S[M.CARD_IDS.faner] || {}).rooms || {};
+    const rc = { ...(S[M.CARD_IDS.room(area)] || {}), ...((user && user.rooms && user.rooms[area]) || {}) }, fc = (S[M.CARD_IDS.faner] || {}).rooms || {};
     const col = PO.color || (rc.look && rc.look.col) || (fc[area] && fc[area].color) || (M.romColor ? M.romColor(area, hass) : 'var(--orange)');
     const icon = PO.icon || (rc.look && rc.look.icon) || (fc[area] && fc[area].icon) || null;
     return { col, icon };
   }
 
+  // «Tilpass rom»-verdiene (ki-store rooms.<area>) tas med i kortets config, så GUI-editoren viser dem
+  const roomCfg = (area) => { const r = (M.store && M.store.get('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
   M.generateDashboardView = async function (config, hass) {
     config = config || {};
+    M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
     if (M.store) await M.store.load(hass);
     const user = (M.store && M.store.get()) || {};
     const R = await registries(hass);
@@ -1985,7 +2044,7 @@ try {
       ...rooms.map((r) => {
         const L = roomLook(r.id, hass, user), o = ov('#' + r.id);
         const au = M.roomAuto(hass, r.id);
-        return M.popupTemplateB({ name: o.name || r.name, icon: o.icon || L.icon || r.icon || (au.A && au.A.ikon) || 'mdi:home', hash: '#' + r.id, color: plainVar(o.color || L.col), card: { type: 'custom:msh-rom-card', card_id: I.room(r.id), area: r.id } });
+        return M.popupTemplateB({ name: o.name || r.name, icon: o.icon || L.icon || r.icon || (au.A && au.A.ikon) || 'mdi:home', hash: '#' + r.id, color: plainVar(o.color || L.col), card: { type: 'custom:msh-rom-card', card_id: I.room(r.id), area: r.id, ...roomCfg(r.id) } });
       }),
       ...funcs.map((f) => {
         const o = ov(f.hash);
@@ -2028,6 +2087,8 @@ try {
         { type: 'section', id: 'home', label: 'Hjem', icon: 'mdi:home', fields: [
           { type: 'select', name: 'home.layout_mode', label: 'Layout', options: [['auto', 'Auto'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
+          { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
+          { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },
         ] },
       ];
       if (!this._ed) {
@@ -2204,7 +2265,7 @@ try {
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:max(8px, calc(env(safe-area-inset-bottom, 0px) - 10px))}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px))}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
     nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
@@ -2255,6 +2316,7 @@ try {
         { type: 'navbar' },
         { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
           { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): bred ≥ 1000 px (iPad ≥ 700 px) = vertikal rail til venstre.' },
+          { type: 'range', name: 'bottom_offset', label: 'Avstand fra bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 60, default: 8, unit: 'px', presets: [[0, 'Inntil 0'], [8, 'Standard 8'], [24, 'Høy 24']] },
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
@@ -2468,6 +2530,9 @@ try {
     }
 
     _renderPortal(N, geo) {
+      // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
+      const off = this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
+      if (document.documentElement.style.getPropertyValue('--ki-nav-bottom') !== off + 'px') document.documentElement.style.setProperty('--ki-nav-bottom', off + 'px');
       if (!this._portal) {
         const p = document.createElement('div');
         p.className = 'msh-navbar-portal';
@@ -3591,17 +3656,17 @@ try {
         if (m) { const f = this._findRows(m[1]); if (f) return get(this._rowsOf(f)[+m[2]] || {}, m[3]); }
         return get(this._config || {}, path);
       }
-      _set(path, v) {
+      _set(path, v, commit) {
         const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
         if (m) {
           const f = this._findRows(m[1]);
           if (f) {
             const list = this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {})));
             if (list[+m[2]]) setIn(list[+m[2]], m[3], v);
-            return super._set(m[1], list);
+            return super._set(m[1], list, commit);
           }
         }
-        return super._set(path, v);
+        return super._set(path, v, commit);
       }
       _field(f, key) {
         const h = this._hass, c = this._config || {};
@@ -3615,6 +3680,8 @@ try {
             return `<div class="f" style="background:transparent;padding:4px 0">${lab}<div class="xmodes">${f.options.map(([v, l, ic, sub]) => `<button class="xmode ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"><span class="iw">${M.icon(ic, 20)}</span><b>${esc(l)}</b><i>${esc(sub || '')}</i></button>`).join('')}</div>${help}</div>`;
           }
           case 'range': {
+            // Felles range (presets + enhet; ha-selector i HA GUI-editoren) når feltet er skrevet for msh-editor
+            if (f.presets || f.unit) return super._field(f, key);
             const v = get(c, f.name) != null ? Number(get(c, f.name)) : Number(f.default);
             return `<div class="f"><div class="line" style="justify-content:space-between;font-size:13px"><span style="color:#c7c7c7">${esc(f.label)}</span><b style="font-weight:500" class="num">${esc(f.fmt ? f.fmt(v) : v)}</b></div><input type="range" class="xrng" data-name="${esc(f.name)}" data-num="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}">${help}</div>`;
           }
@@ -3703,6 +3770,7 @@ try {
     .body{display:flex;flex-direction:column;gap:10px}
     .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
     .orb.pic{background-size:cover;background-position:center;font-size:36px;font-weight:600;color:#232323}
+    .orb.pic img{display:block;width:100%;height:100%;object-fit:cover}
     .nm{display:flex;flex-direction:column;align-items:center;gap:3px;padding-bottom:4px;text-align:center}
     .nm b{font-size:22px;font-weight:600;letter-spacing:-0.01em}
     .nm span{font-size:13px;color:var(--gray600,#7f7f7f)}
@@ -3839,6 +3907,22 @@ try {
     const slug = objId(pid);
     return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
   };
+  const DISPLAYS = ['picture', 'icon', 'initials'];
+  M.hjemPersonCfg = function (c, id) {
+    const o = objId(id), list = Array.isArray(c && c.persons) ? c.persons : [];
+    const y = list.find((x) => x && (x.entity === id || x.entity === o)) || {};
+    const g = (c && c.persons_cfg && c.persons_cfg[o]) || {};
+    const out = { ...y };
+    Object.keys(g).forEach((k) => { if (g[k] != null && g[k] !== '') out[k] = g[k]; });
+    return out;
+  };
+  // Bilde-URL: /local/… og /api/… via hass.hassUrl (riktig base i appen / ekstern tilgang).
+  M.hjemPicUrl = function (hass, u) {
+    u = String(u || '').trim();
+    if (!u) return null;
+    if (u[0] === '/' && u[1] !== '/' && hass && typeof hass.hassUrl === 'function') { try { return hass.hassUrl(u) || u; } catch (e) { return u; } }
+    return u;
+  };
   M.hjemPersons = function (hass, c) {
     const all = M.all(hass, 'person');
     const inc = (c.include && c.include.personer) || [];
@@ -3870,12 +3954,23 @@ try {
     const glyph = sleep ? 'bedtime' : home ? 'home' : zc.icon || 'logout';
     const all = M.all(hass, 'person');
     const me = !!(hass.user && a.user_id && a.user_id === hass.user.id);
-    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), pic: a.entity_picture || null, initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
+    // Visning per person: persons_cfg.<object_id> (editorene) over persons: [{ entity, display, picture }] (YAML).
+    const pc = M.hjemPersonCfg(c, id);
+    const display = DISPLAYS.includes(pc.display) ? pc.display : 'picture';
+    const raw = pc.picture || a.entity_picture || null;
+    const pic = display === 'picture' && raw ? M.hjemPicUrl(hass, raw) : null;
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: s ? place : '–', stCol, glyph, me, sleepId, presId };
   };
 
   /* ------------------------------------------------------------ header-kortet */
   const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['under', 'Under', 'vertical_align_top', 'Stedet under hilsenen'], ['kompakt', 'Kompakt', 'view_agenda', 'Lav og tett'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
-  const avatarBg = (p) => (p.pic ? `${p.bg} url("${esc(p.pic)}") center/cover` : p.bg);
+  // Innholdet i avatar-klippet: <img> (object-fit: cover) · ikon · initialer. Mangler/feiler bildet → ikon.
+  const faceInner = (p, n, bad) => {
+    if (p.pic && !(bad && bad.has(p.pic))) return `<img src="${esc(p.pic)}" alt="" draggable="false" data-pic="${esc(p.pic)}">`;
+    if (p.display === 'initials') return esc(p.initial);
+    return M.icon(p.icon || 'mdi:account', Math.round(n * 0.5), 'color:#232323');
+  };
+  const faceTxt = (p, bad) => p.display === 'initials' && !(p.pic && !(bad && bad.has(p.pic)));
 
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
@@ -3917,6 +4012,14 @@ try {
             { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på.' },
           ] },
           { type: 'order', name: 'person_order', hiddenName: 'hidden_persons', label: 'Personer · rekkefølge og synlighet', options: P.ids.map((id) => [id, M.name(hass, id)]) },
+          { type: 'section', id: 'persons', label: 'Personer · visning', icon: 'mdi:account-box-outline', fields: P.ids.length ? P.ids.flatMap((id) => {
+            const o = objId(id), y = (Array.isArray((c || {}).persons) ? c.persons : []).find((x) => x && (x.entity === id || x.entity === o)) || {};
+            const ep = hass && hass.states[id] && hass.states[id].attributes.entity_picture;
+            return [
+              { type: 'select', name: `persons_cfg.${o}.display`, label: `${M.name(hass, id)} · visning`, options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: DISPLAYS.includes(y.display) ? y.display : 'picture' },
+              { type: 'text', name: `persons_cfg.${o}.picture`, label: `${M.name(hass, id)} · bilde-URL`, placeholder: y.picture || ep || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', when: (h, cc) => (M.hjemPersonCfg(cc, id).display || 'picture') === 'picture' },
+            ];
+          }) : [{ type: 'info', label: 'Fant ingen personer.' }] },
           { type: 'section', label: 'Bilder', icon: 'mdi:account-circle', fields: [
             { type: 'select', name: 'size', label: 'Størrelse', options: [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], default: D.size },
             { type: 'select', name: 'badge', label: 'Merke', options: [['icon', 'Ikon'], ['dot', 'Prikk'], ['ring', 'Ring'], ['none', 'Ingen']], default: D.badge },
@@ -3987,13 +4090,17 @@ try {
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
       }
       const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = Number(c.g_gap) || 0;
-      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : ({ S: 40, M: 52, L: 64 }[c.size] || 52) + 'px';
+      // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
+      const szN = big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
+      const SZ = big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
+      const RAD = big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
+      const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big;
       const face = (p, k, dress) => {
         const ring = c.badge === 'ring' && !dress ? `, 0 0 0 5px ${p.stCol}` : '';
         const meRing = p.me && c.ring_me && !dress ? `, 0 0 0 7px ${C.pink}` : '';
-        const sz = dress ? dress.sz + 'px' : SZ;
-        const av = `display:grid;place-items:center;width:${sz};height:${sz};border-radius:50%;background:${avatarBg(p)};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${p.pic ? 0 : `calc(${sz} * 0.38)`};font-weight:600;color:#232323;transition:opacity .3s`;
+        const sz = dress ? dress.sz + 'px' : SZ, rad = dress ? Math.round((dress.sz * 25) / 55) + 'px' : RAD, n = dress ? dress.sz : szN;
+        const av = `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.home ? 1 : 0.6};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s`;
         let bd = '', bi = '';
         if (dress) { bd = `right:${-dress.bs * 0.3}px;top:${-dress.bs * 0.3}px;width:${dress.bs}px;height:${dress.bs}px;border-radius:${dress.bs / 2}px;background:#2a2a2a;box-shadow:0 0 0 3px ${C.dash};z-index:1`; bi = M.icon(p.glyph, Math.round(dress.bs * 0.56), `color:${p.stCol}`); }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.68), 'color:#fff'); }
@@ -4002,7 +4109,7 @@ try {
         const ml = dress ? 0 : k ? (ov ? -8 : big ? gGap : 6) : 0;
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
         return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px">
-          <span class="fw"><span class="av" style="${av}">${p.pic ? '' : esc(p.initial)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
+          <span class="fw"><span class="av" style="${av}">${faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [];
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
@@ -4073,7 +4180,7 @@ try {
       const render = () => {
         const c = card.config, h = card.hass, p = M.hjemPersonInfo(h, pid, c, (x) => card.s(x));
         const zi = p.home ? 0 : 1, si = p.sleep ? 1 : 0;
-        return `<div class="orb pic" style="background:${avatarBg(p)};box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${p.pic ? '' : esc(p.initial)}</div>
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${faceInner(p, 96, card._picBad)}</div>
           <div class="nm"><b>${esc(p.name)}</b><span>${esc(p.home ? 'Hjemme' : p.place)} · ${p.sleep ? 'Sover' : 'Våken'}</span></div>
           ${segHTML('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], !p.presId)}
           ${segHTML('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], !p.sleepId)}
@@ -4099,6 +4206,14 @@ try {
       });
     }
     afterRender() {
+      // Bilde som ikke laster → ikon (huskes per URL)
+      this.shadowRoot.querySelectorAll('img[data-pic]').forEach((img) => {
+        if (img.__e) return;
+        img.__e = true;
+        const fail = () => { (this._picBad = this._picBad || new Set()).add(img.dataset.pic); this.update(); };
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
+      });
       const t = this.shadowRoot.querySelector('.ttl');
       if (t && !t.__b) {
         t.__b = true;
@@ -4148,7 +4263,9 @@ try {
         .faces{display:flex;flex:none;align-items:flex-start}
         .face{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:none}
         .fw{position:relative;display:block}
-        .av{display:grid}
+        .av{display:grid;place-items:center;overflow:hidden;position:relative}
+        .av img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;-webkit-user-drag:none;user-select:none;pointer-events:none}
+        .bd{z-index:1}
         .bd{position:absolute;display:grid;place-items:center}
         .lb{display:flex;flex-direction:column;align-items:center}
         .ln{font-size:11px;font-weight:500}
@@ -4399,7 +4516,9 @@ try {
 
   class Prosa extends M.Card {
     static get cardName() { return 'Hjem · prosa'; }
-    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet' }; }
+    static get defaults() { return { price_high: 1.5, price_mid: 1.1, alarm_hash: '#sikkerhet', prose_offset: 18 }; }
+    // Avstand over teksten (margin-top på prosa-blokken), −20–60 px, standard 18. Delt med «Tilpass Hjem» → Tekst.
+    static get offsetField() { return { type: 'range', name: 'prose_offset', label: 'Avstand over teksten', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, step: 1, default: 18, unit: 'px', presets: [[0, 'Ingen 0'], [18, 'Standard 18'], [36, 'Luftig 36']] }; }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
       return (hass) => {
@@ -4410,6 +4529,7 @@ try {
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
           { type: 'html', render: (h, c) => previewHTML(h, c) },
+          Prosa.offsetField,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
             defaults: (h, c) => defaultProse(h, c),
@@ -4474,10 +4594,12 @@ try {
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
       this._sheets && this._sheets.forEach((sh) => sh.update());
+      const off = M.clamp(Number(this.config.prose_offset != null && this.config.prose_offset !== '' ? this.config.prose_offset : 18) || 0, -20, 60);
+      const pzS = `style="margin-top:${off}px"`;
       if (!R.vis.length) {
-        return `<div class="pz" data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
+        return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
     }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
@@ -4490,6 +4612,7 @@ try {
     }
     get styles() {
       return `
+        :host{display:flow-root}
         .pz{font-size:19px;font-weight:400;line-height:1.95;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
         .chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
         .chip ha-icon{color:#232323}
@@ -4709,7 +4832,8 @@ try {
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
- * Fane-drag: dra sideveis = liquid glass-valg, hold inne + dra = flytt fanen (lagres i config.tab_order).
+ * Fanerad: scroller vannrett (mange faner), aktiv fane scrolles inn. Dra sideveis = scroll (eller liquid glass-valg når
+ * alle faner får plass); hold inne 400 ms + dra = flytt fanen (lagres i config.tab_order).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -4743,6 +4867,7 @@ try {
 
   /* ------------------------------------------------------------ swipe (karusell / flis-stabler) */
   // Horisontal sveip med touch-action: pan-y + stopPropagation (Bubble Card lukker/scroller ikke). Klikk etter drag svelges.
+  // Ingen haptic ved sveip/snap – bare trykk (åpne romkort) gir haptic.
   M.hjemSwiper = M.hjemSwiper || function (card, vp, onIndex) {
     if (vp.__sw) return;
     vp.__sw = true;
@@ -4778,8 +4903,8 @@ try {
       const tr = track();
       tr.style.transition = '';
       tr.style.transform = `translateX(${-i * 100}%)`;
-      if (i !== idx()) M.haptic('selection');
-      onIndex(i);
+      onIndex(i); // ingen haptic ved sveip – kun trykk på et romkort gir haptic
+
     };
     vp.addEventListener('pointerup', end);
     vp.addEventListener('pointercancel', end);
@@ -4788,7 +4913,7 @@ try {
       e.preventDefault();
       wheel += e.deltaX;
       const now = Date.now();
-      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) { M.haptic('selection'); onIndex(i); } }
+      if (Math.abs(wheel) > 40 && now - wt > 450) { wt = now; const i = M.clamp(idx() + (wheel > 0 ? 1 : -1), 0, n() - 1); wheel = 0; if (i !== idx()) onIndex(i); }
     }, { passive: false });
   };
 
@@ -5010,6 +5135,7 @@ try {
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
+      if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
     }
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
     _calcLayout() {
@@ -5074,15 +5200,19 @@ try {
       this.setConfig(nc);
       try { const r = await M.saveCardConfig(this.hass, old, nc); if (r && r.config) { this._rawConfig = r.config; } } catch (e) { /* */ }
     }
+    // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
+    // Linsen (.ind) posisjoneres etter målt fane (afterRender) – bredden følger fanen.
     _tabsHTML(TV, cur) {
-      const c = this.config, n = TV.length, idx = Math.max(0, TV.indexOf(cur));
+      const c = this.config, idx = Math.max(0, TV.indexOf(cur));
       const h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
       const w = c.tab_width || 'std';
-      const cols = w === 'custom' ? `repeat(${n}, ${Number(c.tab_width_px) || 88}px)` : `repeat(${n}, minmax(0, 1fr))`;
+      const tw = w === 'custom' ? `width:${Number(c.tab_width_px) || 88}px;` : '';
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" style="grid-template-columns:${cols}${w === 'full' ? ';width:100%;min-width:100%' : ''}">
-        <span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>
-        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad}">${esc(t.label)}</button>`).join('')}
+      const P = (this._tabPos || {})[(TV[idx] || {}).id];
+      const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" data-tabs="1">
+        <span class="ind" style="${ind}"></span>
+        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
     }
 
@@ -5372,13 +5502,7 @@ try {
       const root = this.shadowRoot;
       root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } })));
       this._bindTabs();
-      // hold aktiv fane synlig når fanelinjen er bredere enn kortet
-      const strip = root.querySelector('.tabs'), on = strip && strip.querySelector('.tab.on');
-      if (on && strip.scrollWidth > strip.clientWidth + 2 && this._shownTab !== on.dataset.key) {
-        this._shownTab = on.dataset.key;
-        const l = on.offsetLeft, r = l + on.offsetWidth;
-        if (l < strip.scrollLeft || r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.max(0, l - 24);
-      }
+      this._placeTabs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
@@ -5394,77 +5518,147 @@ try {
         if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
       });
     }
-    // Fanelinjen: dra sideveis = liquid glass-valg; hold inne (450 ms) + dra = flytt fanen (lagres i config).
+    // Linse på aktiv fane + aktiv fane inn i synlig område (row.scrollTo smooth) + kant-fade.
+    _placeTabs() {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row) return;
+      const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
+      if (on && ind && !(this._tabDrag && this._tabDrag.mode)) {
+        const L = on.offsetLeft, W = on.offsetWidth;
+        (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
+        const first = ind.style.opacity === '0';
+        if (first) ind.style.transition = 'none';
+        ind.style.left = L + 'px'; ind.style.width = W + 'px'; ind.style.opacity = '';
+        if (first) { void ind.offsetWidth; ind.style.transition = ''; }
+      }
+      if (on && this._shownTab !== on.dataset.key) {
+        const init = this._shownTab == null;
+        this._shownTab = on.dataset.key;
+        const cw = row.clientWidth, sl = row.scrollLeft, l = on.offsetLeft, r = l + on.offsetWidth, m = 24;
+        let left = null;
+        if (row.scrollWidth > cw + 1) {
+          if (l - m < sl) left = Math.max(0, l - m);
+          else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
+        }
+        if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
+      }
+      this._tabFade();
+    }
+    // Myk fade (12 px) på kanten som har mer innhold; touch-action pan-x når raden scroller.
+    _tabFade() {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row) return;
+      const max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
+      const set = (k, v) => { if (this.style.getPropertyValue(k) !== v) this.style.setProperty(k, v); };
+      set('--msh-tabs-fl', ovf && sl > 1 ? '12px' : '0px');
+      set('--msh-tabs-fr', ovf && sl < max - 1 ? '12px' : '0px');
+      set('--msh-tabs-ta', ovf ? 'pan-x' : 'pan-y');
+    }
+    // Fanelinjen. Vanlig sveip scroller alltid raden (touch: native; mus: dra-scroll). Får fanene plass (ingen
+    // scroll), er sideveis dra = liquid glass-linse. Flytt fane KUN etter langt trykk (400 ms) eller i
+    // redigeringsmodus (this.editMode / window.__kiEditMode). Gester stoppes (stopPropagation) så verken
+    // karusell, dashbord eller Bubble-popup tar dem.
     _bindTabs() {
-      const strip = this.shadowRoot.querySelector('.tabs');
-      if (!strip || strip.__b) return;
-      strip.__b = true;
-      M.guardDrag(strip, 'x');
-      const grid = () => strip.querySelector('.tg'), items = () => [...strip.querySelectorAll('.tab')];
-      const frac = (e) => { const r = grid().getBoundingClientRect(); return (e.clientX - r.left) / Math.max(1, r.width); };
-      let st = null;
-      const capture = () => { try { strip.setPointerCapture(st.id); } catch (x) { /* */ } };
-      strip.addEventListener('pointerdown', (e) => {
+      const row = this.shadowRoot.querySelector('.tg');
+      if (!row || row.__b) return;
+      row.__b = true;
+      const stop = (e) => e.stopPropagation();
+      row.addEventListener('pointerdown', stop);
+      row.addEventListener('touchstart', stop, { passive: true });
+      row.addEventListener('touchmove', stop, { passive: true });
+      row.addEventListener('scroll', () => {
+        this._tabFade();
+        const st = this._tabDrag;
+        if (st && !st.mode) { clearTimeout(st.t); this._tabDrag = null; } // native scroll → ingen langt trykk
+      }, { passive: true });
+      if (window.ResizeObserver) { this._tabRO = new ResizeObserver(() => this._tabFade()); this._tabRO.observe(row); }
+      const items = () => [...row.querySelectorAll('.tab')];
+      const at = (x, rects) => {
+        let best = 0, bd = Infinity;
+        (rects || items().map((b) => b.getBoundingClientRect())).forEach((r, i) => { const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
+        return best;
+      };
+      const capture = (st) => { try { row.setPointerCapture(st.id); } catch (x) { /* */ } };
+      const startReo = (st) => {
+        st.mode = 'reo'; capture(st); this._busy = true; window.__tabReorder = true;
+        st.rects = items().map((b) => b.getBoundingClientRect());
+        M.haptic('medium');
+        row.classList.add('reo');
+        const it = items()[st.from]; if (it) it.classList.add('lift');
+      };
+      row.addEventListener('pointerdown', (e) => {
         if (e.button) return;
-        const n = items().length, f = frac(e);
-        st = { x: e.clientX, y: e.clientY, id: e.pointerId, mode: null, n, from: M.clamp(Math.floor(f * n), 0, n - 1), near: null, to: null };
-        st.t = setTimeout(() => {
-          if (!st || st.mode || st.n < 2) return;
-          st.mode = 'reo'; capture(); this._busy = true; window.__tabReorder = true;
-          M.haptic('medium');
-          grid().classList.add('reo');
-          const it = items()[st.from]; if (it) it.classList.add('lift');
-        }, 450);
+        const n = items().length, edit = !!(this.editMode || window.__kiEditMode);
+        const st = (this._tabDrag = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType, mode: null, n, edit, ovf: row.scrollWidth > row.clientWidth + 1, sl: row.scrollLeft, from: at(e.clientX), near: null, to: null });
+        st.t = setTimeout(() => { if (this._tabDrag === st && !st.mode && st.n > 1) startReo(st); }, 400);
       });
-      strip.addEventListener('pointermove', (e) => {
-        if (!st) return;
+      row.addEventListener('pointermove', (e) => {
+        const st = this._tabDrag;
+        if (!st || e.pointerId !== st.id) return;
         const dx = e.clientX - st.x, dy = e.clientY - st.y;
         if (!st.mode) {
-          if (Math.abs(dx) > 6 && Math.abs(dx) >= Math.abs(dy)) { clearTimeout(st.t); st.mode = 'glass'; capture(); this._busy = true; grid().classList.add('drag'); } else if (Math.abs(dy) > 10) { clearTimeout(st.t); st = null; return; } else return;
+          if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return;
+          clearTimeout(st.t);
+          if (Math.abs(dx) < Math.abs(dy)) { this._tabDrag = null; return; }
+          if (st.edit && st.n > 1) startReo(st);
+          else if (st.ovf) { if (st.type !== 'touch') { st.mode = 'pan'; capture(st); } else { this._tabDrag = null; return; } } // touch: native scroll
+          else if (st.n > 1) { st.mode = 'glass'; capture(st); this._busy = true; row.classList.add('drag'); }
+          else { this._tabDrag = null; return; }
         }
         e.preventDefault();
-        const f = frac(e), n = st.n;
+        if (st.mode === 'pan') { row.scrollLeft = st.sl - dx; return; }
         if (st.mode === 'glass') {
-          const pos = M.clamp(f, 0.5 / n, 1 - 0.5 / n), near = M.clamp(Math.floor(f * n), 0, n - 1);
-          const ind = grid().querySelector('.ind'); if (ind) ind.style.left = `${(pos - 0.5 / n) * 100}%`;
-          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
-        } else {
-          const to = M.clamp(Math.floor(f * n), 0, n - 1);
-          if (to !== st.to) {
-            st.to = to; M.haptic('selection');
-            const ord = Array.from({ length: n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
-            items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
+          const near = at(e.clientX), nb = items()[near], ind = row.querySelector('.ind');
+          if (nb && ind) {
+            const rr = row.getBoundingClientRect(), x = e.clientX - rr.left + row.scrollLeft, W = nb.offsetWidth;
+            ind.style.width = W + 'px';
+            ind.style.left = M.clamp(x - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
           }
+          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
+          return;
+        }
+        // reo: flytt fanen; auto-scroll ved kantene
+        const rr = row.getBoundingClientRect();
+        if (e.clientX < rr.left + 24) row.scrollLeft -= 8; else if (e.clientX > rr.right - 24) row.scrollLeft += 8;
+        const to = at(e.clientX + (row.scrollLeft - st.sl), st.rects);
+        if (to !== st.to) {
+          st.to = to; M.haptic('selection');
+          const ord = Array.from({ length: st.n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
+          items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
         }
       });
       const end = (e) => {
-        if (!st) return;
+        const st = this._tabDrag;
+        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
         clearTimeout(st.t);
-        const s0 = st; st = null;
-        if (!s0.mode) return;
+        this._tabDrag = null;
+        if (!st.mode) return;
         this._busy = false; window.__tabReorder = false;
         this._swallow = true; setTimeout(() => { this._swallow = false; }, 350);
-        const g = grid(); g.classList.remove('drag', 'reo');
+        if (st.mode === 'pan') return;
+        row.classList.remove('drag', 'reo');
         items().forEach((b) => { b.classList.remove('near', 'lift'); b.style.order = ''; });
-        if (s0.mode === 'glass') { if (e.type === 'pointerup' && s0.near != null) this._pickTab(s0.near); else this.update(); } else if (e.type === 'pointerup' && s0.to != null && s0.to !== s0.from) this._reorderTabs(s0.from, s0.to); else this.update();
+        if (st.mode === 'glass') { if (e.type === 'pointerup' && st.near != null) this._pickTab(st.near); else this.update(); } else if (e.type === 'pointerup' && st.to != null && st.to !== st.from) this._reorderTabs(st.from, st.to); else this.update();
       };
-      strip.addEventListener('pointerup', end);
-      strip.addEventListener('pointercancel', end);
-      strip.addEventListener('contextmenu', (e) => e.preventDefault());
+      row.addEventListener('pointerup', end);
+      row.addEventListener('pointercancel', end);
+      row.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     get styles() {
       return `${M.romkortCSS || ''}
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
         .sec{display:flex;flex-direction:column;gap:12px}
-        .tabs{touch-action:pan-y;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
-        .tabs::-webkit-scrollbar{display:none}
-        .tg{position:relative;display:grid;width:max-content;min-width:max-content;grid-auto-columns:1fr}
-        .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
-        .tab{position:relative;z-index:1;overflow:hidden;text-overflow:ellipsis;min-width:0;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tg{position:relative;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:var(--msh-tabs-ta, pan-x);overscroll-behavior-x:contain;border-radius:999px;
+          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%);mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%)}
+        .tg::-webkit-scrollbar{display:none}
+        .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
+        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tabs.full .tab{flex:1 0 auto}
         .tab.on{color:var(--gray100,#2f2f2f)}
-        .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s}
+        .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
         .tg.reo .ind{opacity:0}
@@ -5530,7 +5724,7 @@ try {
  * områder, sender hass videre og gir hvert barn egen config under `cards.<navn>` (type + card_id → barnas egen «Tilpass»
  * lagrer via MSH.saveCardConfig, som finner kortet via card_id hvor som helst i lovelace-configen).
  *
- * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 (navbar), 22 px mellom blokkene, maks 420 px sentrert i
+ * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 + (--ki-nav-bottom − 8) (navbar, følger navbarens avstand), 22 px mellom blokkene, maks 420 px sentrert i
  * dashbordflaten. Bred (≥1000 px, iPad ≥700 px): to kolonner .9fr/1.2fr, gap 22/20, venstre 108 (navbar-rail), høyre 24.
  * ≥1500 px: tre kolonner .95fr/1.35fr/1.05fr, gap 32/20, venstre 120, høyre 36; zoom som designet (maks 1,8).
  * Marger måles mot dashbord-containeren (ikke vinduet): kortet bryter ut av HA sections-viewets egen padding
@@ -5579,10 +5773,29 @@ try {
     };
   }
 
+  // Grid-områder for bred layout ut fra hvilke blokker som vises – skjulte blokker (f.eks. gjøremål) gir ingen tom celle.
+  function wideAreas(used, pc) {
+    const has = (a) => used.includes(a), q = (rows) => rows.map((r) => `'${r.join(' ')}'`).join(' ');
+    if (!pc) {
+      const left = ['head', 'trash', 'strom', 'todo'].filter(has);
+      if (!has('rooms')) return `grid-template-columns:minmax(0,1fr);grid-template-areas:${q(left.map((a) => [a]))};grid-template-rows:${left.map(() => 'auto').join(' ')}`;
+      if (!left.length) return `grid-template-columns:minmax(0,1fr);grid-template-areas:'rooms';grid-template-rows:auto`;
+      return `grid-template-areas:${q(left.map((a) => [a, 'rooms']))};grid-template-rows:${left.map((a, i) => (i === left.length - 1 ? '1fr' : 'auto')).join(' ')}`;
+    }
+    // tre kolonner: venstre head/trash, midten rooms, høyre strom/todo
+    const L = ['head', 'trash'].filter(has), R = ['strom', 'todo'].filter(has);
+    const cols = [L.length ? 'L' : null, has('rooms') ? 'M' : null, R.length ? 'R' : null].filter(Boolean);
+    const n = Math.max(L.length, R.length, 1);
+    const colOf = (list, i) => (list.length ? list[Math.min(i, list.length - 1)] : null);
+    const rows = Array.from({ length: n + 1 }, (_, i) => cols.map((cc) => (cc === 'M' ? 'rooms' : colOf(cc === 'L' ? L : R, i))));
+    const W = { L: 'minmax(0,.95fr)', M: 'minmax(0,1.35fr)', R: 'minmax(0,1.05fr)' };
+    return `grid-template-columns:${cols.map((cc) => W[cc]).join(' ')};grid-template-areas:${q(rows)};grid-template-rows:${Array.from({ length: n + 1 }, (_, i) => (i < n ? 'auto' : '1fr')).join(' ')}`;
+  }
+
   class Hjem extends M.Card {
     constructor() { super(); this._kids = {}; this._geo = null; }
     static get cardName() { return 'Hjem'; }
-    static get defaults() { return { layout_mode: 'auto', zoom: true, breakout: true }; }
+    static get defaults() { return { layout_mode: 'auto', zoom: true, breakout: true, show_todo: true }; }
     static getStubConfig() {
       const cards = {};
       BLOCKS.forEach(([k, tag]) => { cards[k] = { type: 'custom:' + tag, card_id: M.uid() }; });
@@ -5596,6 +5809,9 @@ try {
           { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
           { type: 'boolean', name: 'breakout', label: 'Mål margene mot dashbordflaten (bryt ut av seksjonens padding)', default: true },
+        ] },
+        { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:view-dashboard-outline', open: true, fields: [
+          { type: 'boolean', name: 'show_todo', label: 'Vis gjøremål', help: 'Av = gjøremål-kortet vises ikke og tar ingen plass', default: true },
         ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
         { type: 'section', id: 'popups', label: 'Popups', icon: 'mdi:layers-outline', fields: [
@@ -5659,7 +5875,7 @@ try {
     _order() {
       const c = this.config, hid = Array.isArray(c.hidden) ? c.hidden : [];
       const ord = Array.isArray(c.order) ? c.order.filter((k) => KEYS.includes(k)) : [];
-      return [...ord, ...KEYS.filter((k) => !ord.includes(k))].filter((k) => !hid.includes(k));
+      return [...ord, ...KEYS.filter((k) => !ord.includes(k))].filter((k) => !hid.includes(k) && !(k === 'gjoremal' && c.show_todo === false));
     }
     _kidCfg(k) {
       const [, tag] = byKey(k);
@@ -5700,10 +5916,11 @@ try {
       else {
         const head = vis.filter((k) => byKey(k)[3] === 'head');
         const area = (a) => vis.filter((k) => byKey(k)[3] === a).map(slot).join('');
-        inner = `<div class="a a-head" data-key="a-head">${head.map(slot).join('')}</div>`
-          + ['rooms', 'trash', 'strom', 'todo'].map((a) => `<div class="a a-${a}" data-key="a-${a}">${area(a)}</div>`).join('');
+        const used = ['head', 'rooms', 'trash', 'strom', 'todo'].filter((a) => vis.some((k) => byKey(k)[3] === a));
+        inner = used.map((a) => (a === 'head' ? `<div class="a a-head" data-key="a-head">${head.map(slot).join('')}</div>` : `<div class="a a-${a}" data-key="a-${a}">${area(a)}</div>`)).join('');
+        this._areas = wideAreas(used, G.pc);
       }
-      const gs = G.wide ? `zoom:${G.zoom};width:${(G.w / G.zoom).toFixed(2)}px` : '';
+      const gs = G.wide ? `zoom:${G.zoom};width:${(G.w / G.zoom).toFixed(2)}px;${this._areas}` : '';
       return `<div class="out" style="margin:${-G.offT}px ${-G.offR}px 0 ${-G.offL}px">
         <div class="g ${G.wide ? 'wide' : 'mob'} ${G.pc ? 'pc' : ''}" style="${gs}">${inner}</div>
       </div>`;
@@ -5723,7 +5940,7 @@ try {
         ha-card{display:flow-root}
         .out{position:relative}
         .g{box-sizing:border-box}
-        .g.mob{width:100%;max-width:420px;margin:0 auto;padding:20px 18px 120px;display:flex;flex-direction:column;gap:22px}
+        .g.mob{width:100%;max-width:420px;margin:0 auto;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
         .s{display:block;min-width:0}
         .s>*{display:block;width:100%}
         .g.wide{display:grid;margin:0;padding:24px 24px 40px 108px;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);grid-template-rows:auto auto auto 1fr;
@@ -5952,7 +6169,8 @@ try {
  * Fanene: Kort · Faner · Popups · Tekst.
  *   Kort/Faner → msh-hjem-faner-card-config (layout.<fane>.{order,side,hidden,add}, rooms.<id>.*, tiles.<fane>.<kind>.*,
  *                tile_order/tile_hidden, swipe, slides, tab_*, custom_tabs, links, tap, battery)
- *   Tekst      → msh-prosa-card-config (prose)
+ *   Tekst      → msh-prosa-card-config (prose, prose_offset)
+ *   Kort       → også msh-hjem-card-config (show_todo, hidden) – «Kort på Hjem» med øye per kort
  *   Popups     → ki-store popups.<hash uten #> = { hidden, name, icon, color } (leses av strategien ved neste generering)
  * Alt lagres live med MSH.saveCardConfig (ki-store, debounce, ingen navigering); kortene abonnerer på ki-store.
  */
@@ -5973,6 +6191,8 @@ try {
   };
   const pad2 = (n) => String(n).padStart(2, '0');
   const ic = (n, s, st) => M.icon(n, s || 20, st || '');
+  // Blokkene i msh-hjem-card (samme nøkler som BLOCKS i 25-hjem.js)
+  const BLOCKS = [['header', 'Header', 'mdi:account-group'], ['prosa', 'Prosa', 'mdi:text'], ['faner', 'Faner og romkort', 'mdi:tab'], ['soppel', 'Søppel', 'mdi:delete'], ['strom', 'Strømpris', 'mdi:lightning-bolt'], ['gjoremal', 'Gjøremål', 'mdi:format-list-checks']];
 
   /* ------------------------------------------------------------ samme regler som msh-hjem-faner-card (24-hjem-faner.js) */
   const TAB_H = { lav: 32, std: 38, mid: 44, hoy: 50, ekstra: 56 };
@@ -6223,6 +6443,7 @@ try {
     .pro{display:flex;align-items:center;gap:4px;padding:0 8px 0 16px;border-radius:26px;background:var(--gray200,#3a3a3a)}
     .pro.open{background:#545454}
     .pro.hid{opacity:.55}
+    .tr.hid{opacity:.55}
     .pro .pm{flex:1;min-width:0;min-height:54px;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;padding:6px 0}
     .pro .pm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
     .pro .pm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -6265,7 +6486,7 @@ try {
       this._bind();
       this._storeOff = M.store ? M.store.subscribe((d, path) => {
         if (this._saving) return;
-        if (!path || /^cards(\.|$)/.test(path)) { this._F = null; this._P = null; }
+        if (!path || /^cards(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
         this._schedule();
       }) : null;
       if (M.store && this.hass) M.store.load(this.hass);
@@ -6307,20 +6528,23 @@ try {
     }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
+    H() { return this._H || this._raw('msh-hjem-card', 'home'); }
     // patch: { 'sti': verdi } (undefined/'' = fjern)
     _save(tag, key, patch) {
-      const old = this._raw(tag, key), base = (key === 'faner' ? this._F : this._P) || old;
+      const CK = { faner: '_F', prosa: '_P', home: '_H' }[key];
+      const old = this._raw(tag, key), base = this[CK] || old;
       let nc = { ...base };
       Object.keys(patch).forEach((p) => { nc = setIn(nc, p, patch[p]); });
       if (!nc.card_id) nc.card_id = old.card_id || M.CARD_IDS[key];
       if (!nc.type) nc.type = old.type || 'custom:' + tag;
-      if (key === 'faner') this._F = nc; else this._P = nc;
+      this[CK] = nc;
       this._saving = true;
       try { M.saveCardConfig(this.hass, old, nc, { toasts: false }); } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); } finally { this._saving = false; }
       this._schedule();
     }
     saveF(patch) { this._save('msh-hjem-faner-card', 'faner', patch); }
     saveP(patch) { this._save('msh-prosa-card', 'prosa', patch); }
+    saveH(patch) { this._save('msh-hjem-card', 'home', patch); }
     // Snarvei-entiteter (samme autokonfig som kortet): hentes fra en frakoblet faner-instans.
     _E(c) {
       const hass = this.hass, key = JSON.stringify([c.overrides || {}, c.trash_sensor || '']);
@@ -6443,7 +6667,18 @@ try {
       else if (u.sel && u.sel.t === 'room') panel = this._roomPanel(m, m.rooms.find((r) => r.id === u.sel.id));
       else if (u.sel && u.sel.t === 'tile') panel = this._tilePanel(m, u.sel.id);
       const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å hente et rom fra en annen etasje.</span>`;
-      return strip + tgl + grid + panel + hint + (m.car ? this._accSwipe(m) : '') + this._accSnar(m);
+      return strip + tgl + grid + panel + hint + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._blocks();
+    }
+    // Kortene på Hjem (msh-hjem-card): øye per kort (cards skjules via hidden), gjøremål via show_todo.
+    _blocks() {
+      const H = this.H() || {}, hid = Array.isArray(H.hidden) ? H.hidden : [], todo = H.show_todo !== false;
+      const on = (k) => (k === 'gjoremal' ? todo : !hid.includes(k));
+      const n = BLOCKS.filter(([k]) => on(k)).length;
+      const rows = BLOCKS.map(([k, l, icn]) => `<div class="tr ${on(k) ? '' : 'hid'}" data-key="blk-${k}"><span class="tm">${ic(icn, 22, `color:${on(k) ? '#fafafa' : '#696969'}`)}<span class="tt"><b>${esc(l)}</b><i>${on(k) ? 'Vises' : 'Skjult'}${k === 'gjoremal' ? ' · show_todo' : ''}</i></span></span>
+          <button class="sq" data-a="blkeye" data-v="${k}" data-h="selection" title="${on(k) ? 'Skjul' : 'Vis'}">${ic(on(k) ? 'visibility' : 'visibility_off', 18, `color:${on(k) ? '#fafafa' : '#696969'}`)}</button></div>`).join('');
+      return `<div class="box t6" data-key="blocks"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Kort på Hjem</span><span style="font-size:12px;color:#979797">${n} av ${BLOCKS.length} vises</span></span>
+          <button class="tgl" data-a="showtodo" data-h="selection" style="background:var(--gray100,#2f2f2f)">Vis gjøremål${this._sw(todo)}</button>
+          ${rows}</div>`;
     }
     _col(m, sd) {
       const u = this.u, top = m.inSlot(sd + '-top'), bot = m.inSlot(sd + '-bottom'), rooms = m.side(sd);
@@ -6754,7 +6989,11 @@ try {
         </div>`;
         return row + ed;
       }).join('');
-      return `${prev}${rows}
+      const pc = this.P() || {}, off = pc.prose_offset != null && pc.prose_offset !== '' ? Number(pc.prose_offset) : 18;
+      const offHTML = `<div class="fld" data-key="poff"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">Avstand over teksten</span><span class="poffv" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${off} px</span></div>
+          <input type="range" min="-20" max="60" step="1" value="${off}" data-in="poff" style="width:100%">
+          <div class="chs">${[[0, 'Ingen 0'], [18, 'Standard 18'], [36, 'Luftig 36']].map(([v, l]) => `<button class="o36 ${off === v ? 'on-pk' : ''}" data-a="poffset" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>`;
+      return `${offHTML}${prev}${rows}
         <button class="big52 press" data-a="padd">${ic('add', 22)}Ny setning</button>
         <span class="hint">Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.</span>`;
     }
@@ -6792,6 +7031,7 @@ try {
       if (a === 'sec') { u.sec = d.v; u.sel = null; u.pick = null; return this.render(); }
       if (a === 'reset') return this._reset();
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
+      if (a === 'showtodo' || a === 'blkeye') return this._actBlock(a, d);
       if (u.sec === 'kort') return this._actKort(a, d);
       if (u.sec === 'faner') return this._actFaner(a, d);
       if (u.sec === 'pop') return this._actPop(a, d);
@@ -6811,6 +7051,13 @@ try {
         this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
       } else { u.proseSel = null; this.saveP({ prose: undefined }); }
+    }
+    _actBlock(a, d) {
+      const H = this.H() || {};
+      if (a === 'showtodo' || d.v === 'gjoremal') return this.saveH({ show_todo: H.show_todo === false ? undefined : false });
+      const hid = (Array.isArray(H.hidden) ? H.hidden : []).slice(), k = d.v;
+      const nh = hid.includes(k) ? hid.filter((x) => x !== k) : [...hid, k];
+      return this.saveH({ hidden: nh.length ? nh : undefined });
     }
     _roomSet(id, patch) { const p = {}; Object.keys(patch).forEach((k) => { p[`rooms.${id}.${k}`] = patch[k]; }); this.saveF(p); }
     // Frys dagens kolonnevalg (auto-balansering) så én flytting ikke omrokkerer resten.
@@ -6996,6 +7243,7 @@ try {
     _actTekst(a, d) {
       const u = this.u, i = Number(d.i);
       switch (a) {
+        case 'poffset': return this.saveP({ prose_offset: Number(d.v) === 18 ? undefined : Number(d.v) });
         case 'psel': u.proseSel = u.proseSel === i ? null : i; return this.render();
         case 'pmv': { const L = this._proseRows(), j = i + Number(d.v); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; if (u.proseSel === i) u.proseSel = j; M.haptic('selection'); return this.saveP({ prose: L }); }
         case 'peye': return this._proseUp(i, (p) => ({ ...p, hidden: p.hidden ? undefined : true }));
@@ -7028,6 +7276,7 @@ try {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
         if (k === 'blimit') { const l = this.root.querySelector('[data-lim]'); if (l) l.textContent = v + ' %'; return; }
         if (k === 'tabpx') { const s = el.parentNode.querySelector('.stp span'); if (s) s.textContent = v + ' px'; return; }
+        if (k === 'poff') { const s = this.root.querySelector('.poffv'); if (s) s.textContent = v + ' px'; const lp = this.prosaLive; if (lp && lp._rawConfig) lp.setConfig({ ...lp._rawConfig, prose_offset: Number(v), __eff: 1 }); return; }
         return;
       }
       if (el.type === 'color' || el.tagName === 'SELECT' || el.type === 'range') M.haptic('selection');
@@ -7066,6 +7315,7 @@ try {
           return this.saveF({ ['tab_labels.' + t.id]: trim && trim !== t.autoLabel ? trim : undefined });
         }
         case 'tabpx': return this.saveF({ [d.k]: Number(v) });
+        case 'poff': return this.saveP({ prose_offset: Number(v) });
         case 'bcond': return this.saveF({ 'battery.cond': trim || undefined });
         case 'blimit': return this.saveF({ 'battery.limit': Number(v) === 20 ? undefined : Number(v) });
         case 'popname': return this._popSet(d.k, { name: trim || undefined });
@@ -7262,13 +7512,18 @@ try {
     if (!ov && hass && hass.areas && hass.areas[area]) { const g = hass.states[`sensor.${M.slug(hass.areas[area].name)}_oversikt`]; if (g && g.attributes.integrasjon === 'ki_rom') ov = g; }
     const A = (ov && ov.attributes) || {};
     const t = M.attrEnt(hass, A.temperatur), h = M.attrEnt(hass, A.fuktighet);
-    const temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
-    const hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    let temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
+    let hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    // Ingen sensor i rommet → husets sensorer (strategi-config fallback_temperature / fallback_humidity)
+    const FB = M.FALLBACK || {};
+    let tempFallback = false, humFallback = false;
+    if (!temp && t.v == null) { const f = FB.temperature || 'sensor.hus_temperature'; if (hass.states[f]) { temp = f; tempFallback = true; } }
+    if (!hum && h.v == null) { const f = FB.humidity || 'sensor.hus_fuktighet'; if (hass.states[f]) { hum = f; humFallback = true; } }
     const climates = A.klima ? M.ids(A.klima).filter((id) => id.startsWith('climate.')) : [];
     const areaClim = M.all(hass, 'climate', (s, id) => M.areaOf(hass, id) === area);
     const thermo = climates[0] || areaClim[0] || null;
     const lights = A.lys ? M.ids(A.lys) : M.all(hass, 'light', (s, id) => M.areaOf(hass, id) === area);
-    return { ov, A, temp, hum, tempVal: t.id ? null : t.v, humVal: h.id ? null : h.v, thermo, climates: [...new Set([...climates, ...areaClim])], lights };
+    return { ov, A, temp, hum, tempFallback, humFallback, tempVal: t.id ? null : t.v, humVal: h.id ? null : h.v, thermo, climates: [...new Set([...climates, ...areaClim])], lights };
   };
   // Romkonfig publisert av msh-rom-card («Tilpass rom»), så toppkort/romkort bruker samme overstyringer.
   M.roomCfgs = M.roomCfgs || {};
@@ -7282,7 +7537,7 @@ try {
   // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].
   M.roomClimate = function (hass, area, cfg) {
     const a = area ? M.roomAuto(hass, area) : { climates: [] };
-    const rc = (area && M.roomCfgs[area]) || {};
+    const rc = (area && (M.roomCfgs[area] || (M.store && M.store.get('rooms.' + area)))) || {};
     const o = { ...((rc && rc.overrides) || {}), ...((cfg && cfg.overrides) || {}) };
     const tId = o.temperature || o.temperatur || a.temp || null, hId = o.humidity || o.fuktighet || a.hum || null;
     const clim = o.climate || o.termostat || a.thermo || null;
@@ -7594,7 +7849,7 @@ try {
       const out = [
         { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
           { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: 20, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: 20, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
           { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: 40, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']] },
         ] },
         { type: 'section', id: 'look', label: 'Rom', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
@@ -7604,8 +7859,8 @@ try {
         ...(area0 ? [] : [{ type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' }]),
         { type: 'section', id: 'klima', label: 'Klima', icon: 'mdi:thermostat', meta: (hh, cc) => { const ar = cc.area || area0; const rc = ar && hh ? M.roomClimate(hh, ar, cc) : null; return rc && rc.climate ? M.name(hh, rc.climate) : 'Automatisk'; }, fields: [
           { type: 'entity', name: 'overrides.climate', label: 'Termostat', domain: 'climate', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; return ar ? M.roomAuto(hh, ar).thermo : null; } },
-          { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.temp || (a.tempVal != null ? `KI Rom · ${M.nf(a.tempVal, 1)}°` : null); } },
-          { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.hum || (a.humVal != null ? `KI Rom · ${M.nf(a.humVal, 0)} %` : null); } },
+          { type: 'entity', name: 'overrides.temperature', label: 'Temperatursensor', domain: 'sensor', device_class: 'temperature', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.temp ? a.temp + (a.tempFallback ? ' (hus)' : '') : (a.tempVal != null ? `KI Rom · ${M.nf(a.tempVal, 1)}°` : null); } },
+          { type: 'entity', name: 'overrides.humidity', label: 'Fuktsensor', domain: 'sensor', device_class: 'humidity', area: (hh, cc) => cc.area || area0, auto: (hh, cc) => { const ar = cc.area || area0; if (!ar) return null; const a = M.roomAuto(hh, ar); return a.hum ? a.hum + (a.humFallback ? ' (hus)' : '') : (a.humVal != null ? `KI Rom · ${M.nf(a.humVal, 0)} %` : null); } },
           { type: 'entities', name: 'include.climate', label: 'Ekstra termostater', domain: 'climate', addLabel: '+ Legg til termostat', area: (hh, cc) => cc.area || area0 },
           { type: 'color', name: 'graph_t', label: 'Toppkort · graf temperatur', help: 'Tomt = romfargen' },
           { type: 'color', name: 'graph_h', label: 'Toppkort · graf fukt', auto: () => 'var(--blue, #73b9f2)' },
@@ -7656,6 +7911,8 @@ try {
     static get cardName() { return 'Rom'; }
     static get defaults() { return {}; }
     static get schema() { return buildSchema(null); }
+    // «Tilpass rom» lagres per område i ki-store: rooms.<area_id> (uavhengig av card_id)
+    static storeKey(cfg, card) { const a = (cfg && cfg.area) || (card && card.isConnected && M.roomArea(card)); return a ? 'rooms.' + a : null; }
     get cardSize() { return 8; }
     constructor() {
       super();
@@ -7663,7 +7920,12 @@ try {
       this._kpend = {};
       this._onRC = (e) => { const d = e.detail || {}; if (!d.handled && d.area && this.isConnected && d.area === M.roomArea(this)) { d.handled = true; this.customize(d.section); } };
     }
-    connectedCallback() { super.connectedCallback(); window.addEventListener('msh-rom-customize', this._onRC); }
+    connectedCallback() {
+      super.connectedCallback();
+      window.addEventListener('msh-rom-customize', this._onRC);
+      // rommet kan komme fra popupens hash → les rooms.<area> nå som kortet er koblet til
+      if (this._yamlConfig && !this._yamlConfig.area) this.setConfig(this._yamlConfig);
+    }
     disconnectedCallback() { super.disconnectedCallback(); window.removeEventListener('msh-rom-customize', this._onRC); }
 
     // Egen tilpasning: samme editor/skjema som GUI-editoren, men med rommet fra popupens hash kjent.
@@ -8047,7 +8309,7 @@ try {
       this._applySpacing();
     }
     _roomCfg() { const c = this.config; return { overrides: c.overrides || {}, include: c.include || {}, gap: c.gap, pad_top: c.pad_top, pad_bottom: c.pad_bottom }; }
-    onOpen() { this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
+    onOpen() { if (M.store) M.store.refresh(this.hass); this._applySpacing(); setTimeout(() => this._applySpacing(), 350); }
     afterRender() {
       const R = this.shadowRoot;
       const area = M.roomArea(this);
