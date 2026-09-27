@@ -2222,6 +2222,8 @@ try {
       if (id && MSH.liveCards.get(id)) MSH.liveCards.get(id).delete(this);
       window.removeEventListener('hashchange', this._onHash);
       window.removeEventListener('location-changed', this._onHash);
+      // Bubble Card tar innholdet ut av DOM-en når popupen lukkes – neste åpning skal gi onOpen igjen
+      this._open = false;
       this.onClose && this.onClose();
     }
     _checkOpen() {
