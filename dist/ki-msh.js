@@ -1757,8 +1757,8 @@ try {
     const { type, card_id, ...rest } = newCfg;
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    // Denne enheten: lagre bare feltene som avviker fra felles oppsett (YAML + felles ki-store) under devices.<id>
-    if ((opts.scope || MSH.store.scope) === 'device') {
+    // Denne enheten (bare Kamera/Person): lagre bare feltene som avviker fra felles oppsett (YAML + felles ki-store) under devices.<id>
+    if ((opts.scope || MSH.store.scope) === 'device' && MSH.isPerDevice(newCfg, opts.card, key)) {
       const card = opts.card, yaml = card && card._yamlConfig;
       const base = yaml ? MSH.effectiveConfig(yaml, card, { shared: true }) : (MSH.store.get(key) || {});
       const rec = {}, same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -1774,11 +1774,19 @@ try {
     const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
-  // YAML-config + felles ki-store + denne enhetens oppsett (null = fjernet). opts.shared = uten enhetslaget (GUI-editoren).
+  // Oppsett per enhet finnes bare for Kamera og Person (static perDevice = true, eller card_id med kamera/person)
+  MSH.PER_DEVICE_CARDS = ['msh-kamera-card', 'msh-person-card'];
+  MSH.isPerDevice = function (cfg, card, key) {
+    const tag = (card && card.localName) || String((cfg && cfg.type) || '').replace('custom:', '');
+    const cls = (card && card.constructor) || (tag && customElements.get(tag));
+    if ((cls && cls.perDevice) || MSH.PER_DEVICE_CARDS.includes(tag)) return true;
+    return !!(key && MSH.store && MSH.store.perDeviceKey && MSH.store.perDeviceKey(key) && !tag);
+  };
+  // YAML-config + felles ki-store + denne enhetens oppsett (bare Kamera/Person) (null = fjernet). opts.shared = uten enhetslaget (GUI-editoren).
   MSH.effectiveConfig = function (yaml, card, opts) {
     const key = yaml && MSH.store ? MSH.storeKey(yaml, card) : null;
     if (!key) return yaml;
-    const st = MSH.store.get(key), dv = opts && opts.shared ? null : MSH.store.get(MSH.store.devKey(key));
+    const st = MSH.store.get(key), dv = (opts && opts.shared) || !MSH.isPerDevice(yaml, card, key) ? null : MSH.store.get(MSH.store.devKey(key));
     if (!st && !dv) return yaml;
     const out = { ...yaml };
     [st, dv].forEach((o) => { if (o && typeof o === 'object') Object.keys(o).forEach((k) => { if (o[k] === null) delete out[k]; else out[k] = o[k]; }); });
@@ -2100,12 +2108,14 @@ try {
     if (MSH.store && card.hass) MSH.store.refresh(card.hass);
     let orig = card._rawConfig || card.config;
     let cur = orig, dirty = false, seq = 0;
-    // Oppsett per enhet: «Denne enheten · Alle enheter» øverst (standard: denne enheten)
+    // Oppsett per enhet (bare Kamera/Person): «Denne enheten · Alle enheter» øverst (standard: denne enheten).
+    // Alle andre kort har én felles config – ingen omfangsvelger.
     const key = MSH.store ? MSH.storeKey(card._yamlConfig || orig, card) : null;
-    if (MSH.store) MSH.store.scope = 'device';
+    const perDev = !!(key && MSH.isPerDevice(card._yamlConfig || orig, card, key));
+    if (MSH.store) MSH.store.scope = perDev ? 'device' : 'shared';
     const own = () => key && MSH.store.hasOwn(key);
     const cfgFor = () => (card._yamlConfig ? MSH.effectiveConfig(card._yamlConfig, card, { shared: MSH.store.scope === 'shared' }) : orig);
-    if (key && customElements.get('msh-scope-bar')) {
+    if (perDev && customElements.get('msh-scope-bar')) {
       const bar = document.createElement('msh-scope-bar');
       bar.hass = card.hass; bar.storeKey = key;
       bar.addEventListener('scope-change', () => {
@@ -2156,7 +2166,7 @@ try {
       dirty = false;
       ov.close();
     });
-    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'device'; };
+    ov.onClosed = () => { if (dirty && MSH.store) MSH.store.flush(); if (MSH.store) MSH.store.scope = 'shared'; };
     ov.body.appendChild(ed);
     return { overlay: ov, editor: ed };
   };
@@ -2510,7 +2520,7 @@ try {
       const html = `<style>${ED_CSS}</style><div class="wrap">
         ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
-        ${!this._inline && M.store ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
+        ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
         ${this._inline && this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
         ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save">${M.icon('mdi:check', 20)}Ferdig</button></div>` : ''}
       </div>`;
@@ -2750,13 +2760,15 @@ try {
  *   MSH.store.load(hass)           – hent fra HA (kalles automatisk av kortene)
  * Kortconfig: cards.<card_id> = kortets config fra egen editor; effektiv config = { ...YAML, ...store }.
  *
- * Oppsett per enhet: { <felles nøkler: cards/rooms/popups …>, devices: { <enhets-id>: { name, seen, cards/rooms/popups … } } }
- *   Felles oppsett ligger på rotnivå (bakoverkompatibelt – tilsvarer «shared»); enhetens eget under devices.<id>.
- *   Oppslag: devices[id][kort] ?? felles[kort] ?? YAML/strategi-standard, slått sammen felt for felt (null = fjernet).
+ * Én felles config for alle kort (rotnivå). UNNTAK: Kamera og Person kan ha oppsett per enhet:
+ *   { <felles nøkler: cards/rooms/popups …>, devices: { <enhets-id>: { name, seen, cards: { <kamera/person-kort> } } } }
+ *   Oppslag for Kamera/Person: devices[id][kort] ?? felles[kort] ?? YAML, felt for felt (null = fjernet).
+ *   Migrering ved oppstart: annet enhetsoppsett flyttes til felles (hvis felles mangler) og slettes fra alle enheter.
  *   MSH.store.deviceId / deviceName    – denne enheten (browser_mod-ID, ellers egen stabil ID i localStorage ki-device-id)
  *   MSH.store.scope                    – 'device' (standard i Tilpass-menyene) eller 'shared'
- *   MSH.store.eff(key)                 – sammenslått config for en nøkkel (felles + denne enheten)
- *   MSH.store.view()                   – hele configen sett fra denne enheten (strategien bruker denne)
+ *   MSH.store.eff(key)                 – config for en nøkkel (felles; + denne enheten for Kamera/Person)
+ *   MSH.store.view()                   – hele den felles configen (strategien bruker denne)
+ *   MSH.store.perDeviceKey(key)        – om nøkkelen kan ha oppsett per enhet (Kamera/Person)
  *   MSH.store.hasOwn(key) / clearOwn(key) / copyToAll(key) – «Eget oppsett», «Bruk felles oppsett», «Kopier til alle»
  */
 (function () {
@@ -2819,6 +2831,8 @@ try {
     } catch (e) { return 'ukjent'; }
   })();
   const devKey = (key) => 'devices.' + deviceId + '.' + key;
+  // Kamera- og Person-kort (card_id fra strategien: pop-kamera, pop-person-<id>; egne id-er med kamera/camera/person)
+  const perDeviceKey = (key) => /^cards\./.test(String(key)) && /(^|[-_.])(kamera|camera|person)/i.test(String(key).slice(6));
   const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
   // Felt for felt: b vinner, null i b fjerner feltet
   const mergeFields = (a, b) => {
@@ -2827,33 +2841,47 @@ try {
     Object.keys(b).forEach((k) => { out[k] = b[k]; });
     return out;
   };
-  // Hele treet sett fra denne enheten: gruppe (cards/rooms/popups) → id → felt for felt
-  const view = () => {
-    const dev = get(data, 'devices.' + deviceId) || {};
-    const out = { ...data };
-    delete out.devices;
-    Object.keys(dev).forEach((g) => {
-      if (g === 'name' || g === 'seen') return;
-      if (!isObj(dev[g])) { out[g] = dev[g]; return; }
-      const grp = isObj(out[g]) ? { ...out[g] } : {};
-      Object.keys(dev[g]).forEach((id) => { grp[id] = dev[g][id] === null ? null : mergeFields(grp[id], dev[g][id]); });
-      out[g] = grp;
+  let scope = 'shared';
+
+  // Én felles config: flytt enhetsoppsett (utenom Kamera/Person) til felles hvis felles mangler, og slett det fra alle enheter.
+  const migrate = () => {
+    const D = get(data, 'devices');
+    if (!isObj(D)) return false;
+    let changed = false;
+    Object.keys(D).forEach((id) => {
+      const d = D[id] || {};
+      Object.keys(d).forEach((g) => {
+        if (g === 'name' || g === 'seen' || !isObj(d[g])) return;
+        Object.keys(d[g]).forEach((k) => {
+          const key = g + '.' + k;
+          if (perDeviceKey(key)) return;
+          const own = d[g][k];
+          if (get(data, key) == null && isObj(own)) {
+            const clean = {}; Object.keys(own).forEach((f) => { if (own[f] !== null) clean[f] = own[f]; });
+            if (Object.keys(clean).length) data = setIn(data, key, clean);
+          }
+          data = setIn(data, 'devices.' + id + '.' + key, undefined);
+          changed = true;
+        });
+        const left = get(data, 'devices.' + id + '.' + g);
+        if (isObj(left) && !Object.keys(left).length) data = setIn(data, 'devices.' + id + '.' + g, undefined);
+      });
     });
-    return out;
+    return changed;
   };
-  let scope = 'device';
 
   M.store = {
     get deviceId() { return deviceId; },
     get deviceName() { return get(data, 'devices.' + deviceId + '.name') || guessName(); },
     setDeviceName(name, id) { return M.store.set('devices.' + (id || deviceId) + '.name', name || undefined, { immediate: true }); },
     get scope() { return scope; },
-    set scope(v) { scope = v === 'shared' ? 'shared' : 'device'; },
+    set scope(v) { scope = v === 'device' ? 'device' : 'shared'; },
     // nøkkel for lagring i valgt omfang (Tilpass-menyene): devices.<id>.<key> eller <key>
     scoped: (key, sc) => ((sc || scope) === 'device' ? devKey(key) : key),
     devKey,
-    eff: (key) => mergeFields(get(data, key), get(data, devKey(key))),
-    view,
+    eff: (key) => (perDeviceKey(key) ? mergeFields(get(data, key), get(data, devKey(key))) : get(data, key)),
+    view: () => { const out = { ...data }; delete out.devices; return out; },
+    perDeviceKey,
     hasOwn: (key, id) => { const v = get(data, 'devices.' + (id || deviceId) + '.' + key); return isObj(v) ? Object.keys(v).length > 0 : v != null; },
     clearOwn: (key, id) => M.store.set('devices.' + (id || deviceId) + '.' + key, undefined, { immediate: true }),
     copyToAll(key) {
@@ -2871,7 +2899,7 @@ try {
       return Object.keys(D).map((id) => {
         const d = D[id] || {};
         let own = 0;
-        Object.keys(d).forEach((g) => { if (isObj(d[g]) && g !== 'name') own += Object.keys(d[g]).length; });
+        Object.keys((d.cards && isObj(d.cards)) ? d.cards : {}).forEach((k) => { if (perDeviceKey('cards.' + k)) own++; });
         return { id, name: d.name || (id === deviceId ? guessName() : 'Enhet ' + id.slice(0, 6)), seen: d.seen || null, own, current: id === deviceId };
       }).sort((a, b) => (b.current - a.current) || ((b.seen || 0) - (a.seen || 0)));
     },
@@ -2909,6 +2937,7 @@ try {
           if (r && r.value && typeof r.value === 'object' && !timer) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
+        if (migrate()) { cache(); emit(''); push(false); }
         // sist sett (maks hver 6. time, så det ikke gir unødige skriv)
         try {
           const seen = get(data, 'devices.' + deviceId + '.seen') || 0;
@@ -3317,14 +3346,16 @@ try {
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
         ${this._devices()}
-        <div class="who">${M.esc(u.name || '')} · ${M.store ? 'denne enheten: ' + M.esc(M.store.deviceName) + ' · enheter kan ha eget oppsett' : 'innstillingene gjelder for deg'}</div>
+        <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg på alle enhetene dine${M.store ? ' · denne enheten: ' + M.esc(M.store.deviceName) : ''}</div>
       </div>`;
     }
-    // Innstillinger → Enheter: kjente enheter (navn, sist sett, antall kort med eget oppsett) – gi nytt navn, nullstill, slett
+    // Innstillinger → Enheter: enheter med eget oppsett for Kamera/Person (navn, sist sett, antall kort) – gi nytt navn, nullstill, slett.
+    // Alle andre kort har én felles config.
     _devices() {
       if (!M.store) return '';
       this.s('zone.__msh_devices');
-      const list = M.store.devices(), ed = this.ui.devEdit, cf = this.ui.devConfirm || '';
+      const list = M.store.devices().filter((d) => d.own > 0), ed = this.ui.devEdit, cf = this.ui.devConfirm || '';
+      if (!list.length) return `<div class="gh">Enheter</div><div class="grp"><div class="r dv"><span class="ic">${M.icon('mdi:devices', 22)}</span><span class="tx"><b>Ingen enheter med eget oppsett</b><i>Kamera og Person kan ha eget oppsett per enhet. Alt annet er felles.</i></span></div></div>`;
       const rows = list.map((d) => {
         const seen = d.current ? 'denne enheten' : d.seen ? M.relTime(new Date(d.seen).toISOString()) : 'aldri sett';
         const own = d.own ? `${d.own} ${d.own === 1 ? 'kort' : 'kort'} med eget oppsett` : 'følger felles oppsett';
@@ -6463,7 +6494,7 @@ try {
   const ACTS = [['', 'Ingen'], ['more', 'Vis detaljer'], ['lock_toggle', 'Veksle dørlås'], ['lock', 'Lås dør'], ['unlock', 'Lås opp'], ['alarm_toggle', 'Veksle alarm'], ['alarm_on', 'Armer alarm'], ['alarm_off', 'Slå av alarm'], ['lights_on', 'Alle lys på'], ['lights_off', 'Alle lys av'], ['garage_toggle', 'Veksle garasjeport'], ['tv_toggle', 'Veksle TV'], ['vac_toggle', 'Pause/start støvsuger'], ['service', 'Egendefinert tjeneste']];
   const OPS = [['alltid', 'Alltid'], ['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
   const ICONS = [['', 'Ingen'], ['dot', '● Prikk'], ['💡', '💡'], ['⏰', '⏰'], ['🌤️', '🌤️'], ['⚡', '⚡'], ['🔒', '🔒'], ['🚨', '🚨'], ['🗑️', '🗑️'], ['🏠', '🏠'], ['👋', '👋']];
-  const PCOL = { hvit: 'var(--gray1000, #e1e1e1)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
+  const PCOL = { hvit: 'var(--white, #fafafa)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
   const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const LINKS = [['', 'Ingen'], ['lock', 'Dørlås (hurtig)'], ['#vaer', 'Vær'], ['#lys', 'Lys'], ['#sikkerhet', 'Sikkerhet'], ['#kamera', 'Kamera'], ['#klima', 'Klima'], ['#gjoremal', 'Gjøremål'], ['#soppel', 'Søppel'], ['#vanning', 'Vanning'], ['#media', 'Media'], ['#basseng', 'Basseng'], ['#ruter', 'Ruter'], ['#strom', 'Strøm']];
   const srcL = (id) => (SRC.find((x) => x[0] === id) || ['', id || ''])[1];
@@ -6630,9 +6661,14 @@ try {
   }
 
   const chipHTML = (v, cls) => `${v.dot ? `<span class="${cls.dot}" style="background:${v.dot}"></span>` : ''}${v.emoji ? (v.emoji.indexOf(':') > 0 ? M.icon(v.emoji, 14) : `<span class="em">${esc(v.emoji)}</span>`) : ''}<span>${esc(v.chip)}</span>`;
+  // Pille + etterfølgende tegnsetting i én nowrap-bit, så «.» eller «,» aldri brytes alene til neste linje.
+  const glue = (pill, post) => {
+    const m = /^[.,!?:;…»)\]]+/.exec(post || ''), p = m ? m[0] : '';
+    return `<span style="white-space:nowrap">${pill}${p ? `<span>${esc(p)}</span>` : ''}</span><span>${esc(String(post || '').slice(p.length))}</span>`;
+  };
   const previewHTML = (h, c) => {
     const R = compute(h, c);
-    return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>` : ''}<span>${esc(v.post)}</span>`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
+    return `<div class="xprev">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<span class="pc" style="background:${v.bg}">${chipHTML(v, { dot: 'pd' })}</span>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('') || '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div>`;
   };
 
   // Utfør handling for en setning (runAct i designet).
@@ -6790,7 +6826,7 @@ try {
       if (!R.vis.length) {
         return `<div class="pz" ${pzS} data-ent="__tilpass"><span class="dim">–</span> <button class="pick press" data-act="customize" data-section="prose">${M.icon('mdi:plus', 18)}Legg til setning</button></div>`;
       }
-      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>` : ''}<span>${esc(v.post)}</span>`).join('')}</div>`;
+      return `<div class="pz" ${pzS} data-ent="__tilpass">${R.vis.map((v) => `<span>${esc(v.pre)}</span>${v.hasChip ? glue(`<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v, { dot: 'dot' })}</button>`, v.post) : `<span>${esc(v.post)}</span>`}`).join('')}</div>`;
     }
     onHold(id) { if (id === '__tilpass') { this.customize('prose'); return true; } return undefined; }
     onAction(name, el, ev) {
@@ -6807,8 +6843,8 @@ try {
         :host{display:flow-root;font-size:var(--ha-font-size-m, 14px)}
         .pz{margin:0;padding:4px 0 12px 0;font-weight:400;letter-spacing:-0.01em;text-wrap:pretty;color:var(--white,#fafafa)}
         /* Pillene endrer ikke linjehøyden: inline-flex på grunnlinjen, høyde 1,53em (≈30 px) < linjehøyden */
-        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--gray1000,#e1e1e1);color:var(--gray100,#2f2f2f);font-size:inherit;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
-        .chip ha-icon{color:var(--gray100,#2f2f2f);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
+        .chip{display:inline-flex;align-items:center;vertical-align:baseline;gap:6px;height:1.53em;margin:0;padding:0 12px;border-radius:.765em;background:var(--white,#fafafa);color:var(--gray000,#232323);font-size:inherit;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
+        .chip ha-icon{color:var(--gray000,#232323);--mdc-icon-size:14px !important;width:14px !important;height:14px !important}
         .chip .em{font-size:14px;line-height:1;flex:none}
         .dot{width:10px;height:10px;border-radius:5px;flex:none;margin:0 2px;transition:background .3s}
         .pick{vertical-align:baseline}
@@ -8709,7 +8745,7 @@ try {
 
   class HomeEditor {
     constructor(focus) {
-      if (M.store) M.store.scope = 'device'; // standard: Denne enheten
+      if (M.store) M.store.scope = 'shared'; // én felles config
       this.u = { sec: 'kort', ctx: null, sel: null, pick: null, acc: {}, icQ: '', allIc: false, allCol: false, popG: 'alle', popSel: null, proseSel: null };
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
@@ -8742,7 +8778,6 @@ try {
       if (!silent) this.render();
     }
     _closed() {
-      if (M.store) M.store.scope = 'device';
       if (this._storeOff) this._storeOff();
       if (M.flushSaves) M.flushSaves();
       if (M.store && M.store.flush) M.store.flush();
@@ -8766,8 +8801,8 @@ try {
       return M.effectiveConfig({ type: 'custom:' + tag, card_id: M.CARD_IDS[key] }, null, { shared });
     }
     // ki-store-nøklene arket skriver til (for «Eget oppsett» / «Bruk felles oppsett» / «Kopier til alle»)
-    get storeKeys() { return ['cards.' + M.CARD_IDS.faner, 'cards.' + M.CARD_IDS.prosa, 'cards.' + M.CARD_IDS.home, 'popups']; }
-    _pops() { return (M.store && (M.store.scope === 'shared' ? M.store.get('popups') : (M.store.view().popups))) || {}; }
+    // popup-valg (felles config)
+    _popCfg() { return (M.store && M.store.get('popups')) || {}; }
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
@@ -8871,17 +8906,10 @@ try {
       const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done">Ferdig</button></div>
-        <msh-scope-bar data-key="scope" data-nomorph></msh-scope-bar>
         <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
-      const bar = this.body.querySelector('msh-scope-bar');
-      if (bar && !bar.__b) {
-        bar.__b = true; bar.hass = this.hass; bar.storeKeys = this.storeKeys;
-        bar.addEventListener('scope-change', () => { this._F = null; this._P = null; this._H = null; this._schedule(); });
-        if (bar._render) bar._render();
-      }
       this._after();
     }
     _after() {
@@ -9161,7 +9189,7 @@ try {
 
     /* ======================================================== Popups */
     _popList() {
-      const hass = this.hass, c = this.F(), P = this._pops(), out = [];
+      const hass = this.hass, c = this.F(), P = this._popCfg(), out = [];
       M.areas(hass).forEach((a) => {
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
@@ -9197,12 +9225,10 @@ try {
       return row + ed;
     }
     _popSet(key, patch) {
-      const dev = M.store.scope === 'device';
-      const cur = { ...(this._pops()[key] || {}), ...patch };
-      // enhetslaget beholder false (skal kunne overstyre felles «skjult»)
-      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || (cur[k] === false && !dev)) delete cur[k]; });
+      const cur = { ...(this._popCfg()[key] || {}), ...patch };
+      Object.keys(cur).forEach((k) => { if (cur[k] === undefined || cur[k] === '' || cur[k] === null || cur[k] === false) delete cur[k]; });
       this._saving = true;
-      try { if (this.hass) M.store.load(this.hass); M.store.set(M.store.scoped('popups.' + key), Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
+      try { if (this.hass) M.store.load(this.hass); M.store.set('popups.' + key, Object.keys(cur).length ? cur : undefined); } finally { this._saving = false; }
       this._schedule();
     }
 
@@ -9327,7 +9353,7 @@ try {
       } else if (u.sec === 'faner') {
         this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
       } else if (u.sec === 'pop') {
-        this._saving = true; try { M.store.set(M.store.scoped('popups'), undefined); } finally { this._saving = false; }
+        this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
       } else { u.proseSel = null; this.saveP({ prose: undefined, prose_font_size: undefined, prose_line_height: undefined, prose_offset: undefined }); }
     }
@@ -9513,7 +9539,7 @@ try {
       switch (a) {
         case 'popg': u.popG = d.v; return this.render();
         case 'popsel': u.popSel = u.popSel === d.v ? null : d.v; return this.render();
-        case 'pophide': { M.haptic('selection'); const cur = (this._pops()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
+        case 'pophide': { M.haptic('selection'); const cur = (this._popCfg()[d.v] || {}); return this._popSet(d.v, { hidden: !cur.hidden }); }
         case 'popcol': return this._popSet(d.k, { color: d.v });
         case 'popreset': return this._popSet(d.v, { name: undefined, icon: undefined, color: undefined });
         default:
@@ -13476,7 +13502,7 @@ try {
     get styles() {
       return SHARED_CSS + `
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .modes{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
+        .modes{display:flex;gap:12px;overflow-x:auto;padding:2px 0;margin:0}
         .mode{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:66px}
         .mb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),background .25s}
         .mode:active .mb{transform:scale(.94)!important}
@@ -14208,7 +14234,7 @@ try {
         .del{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
         .add{flex:1;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
         .rst{height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:var(--gray800,#afafaf);background:var(--gray400,#545454)}
-        .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
+        .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 0;margin:0}
         .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
         .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .scb:active .scbb{transform:scale(.9)}
@@ -16630,10 +16656,9 @@ try {
   const WX = { sun: ['clear_day', 'Sol', SUNY], moon: ['bedtime', 'Klarvær', MOON], part: ['partly_cloudy_day', 'Delvis skyet', SUNY], partn: ['partly_cloudy_night', 'Delvis skyet', MOON], cloud: ['cloud', 'Overskyet', CLOUD], rain: ['rainy', 'Regn', RAIN], sleet: ['weather_mix', 'Sludd', C.lightBlue], snow: ['weather_snowy', 'Snø', 'var(--white, #fafafa)'], fog: ['foggy', 'Tåke', CLOUD], thunder: ['thunderstorm', 'Torden', SUNY], wind: ['air', 'Kraftig vind', RAIN] };
   // HA-condition → [nøkkel, norsk etikett]
   const COND = { sunny: ['sun', 'Sol'], 'clear-night': ['moon', 'Klarvær'], partlycloudy: ['part', 'Delvis skyet'], cloudy: ['cloud', 'Overskyet'], rainy: ['rain', 'Regn'], pouring: ['rain', 'Kraftig regn'], snowy: ['snow', 'Snø'], 'snowy-rainy': ['sleet', 'Sludd'], hail: ['sleet', 'Hagl'], fog: ['fog', 'Tåke'], lightning: ['thunder', 'Torden'], 'lightning-rainy': ['thunder', 'Torden og regn'], windy: ['wind', 'Kraftig vind'], 'windy-variant': ['wind', 'Vind og skyer'], exceptional: ['cloud', 'Ekstremvær'] };
-  const WXANIM = { clear_day: 'wx-spin 24s linear infinite, wx-glow 4s ease-in-out infinite', partly_cloudy_day: 'wx-drift 5s ease-in-out infinite', partly_cloudy_night: 'wx-drift 6s ease-in-out infinite', cloud: 'wx-drift 6s ease-in-out infinite', rainy: 'wx-bob 1.1s ease-in-out infinite', weather_mix: 'wx-sway 2.6s ease-in-out infinite', weather_snowy: 'wx-sway 3.4s ease-in-out infinite', foggy: 'wx-fade 4s ease-in-out infinite', thunderstorm: 'wx-flash 3.2s linear infinite', air: 'wx-drift 1.6s ease-in-out infinite', bedtime: 'wx-bob 5s ease-in-out infinite' };
+  const WXANIM = { clear_day: 'wx-spin 24s linear infinite', partly_cloudy_day: 'wx-drift 5s ease-in-out infinite', partly_cloudy_night: 'wx-drift 6s ease-in-out infinite', cloud: 'wx-drift 6s ease-in-out infinite', rainy: 'wx-bob 1.1s ease-in-out infinite', weather_mix: 'wx-sway 2.6s ease-in-out infinite', weather_snowy: 'wx-sway 3.4s ease-in-out infinite', foggy: 'wx-fade 4s ease-in-out infinite', thunderstorm: 'wx-flash 3.2s linear infinite', air: 'wx-drift 1.6s ease-in-out infinite', bedtime: 'wx-bob 5s ease-in-out infinite' };
   const KEYFRAMES = `
     @keyframes wx-spin{to{transform:rotate(360deg)}}
-    @keyframes wx-glow{0%,100%{filter:drop-shadow(0 0 14px rgb(242 210 111 / .3))}50%{filter:drop-shadow(0 0 32px rgb(242 210 111 / .65))}}
     @keyframes wx-drift{0%,100%{transform:translateX(-4px)}50%{transform:translateX(4px)}}
     @keyframes wx-bob{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
     @keyframes wx-sway{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
@@ -16643,7 +16668,6 @@ try {
     @keyframes wx-snow{0%{transform:translate(0,-20px);opacity:0}10%{opacity:1}50%{transform:translate(14px,120px)}100%{transform:translate(-8px,260px);opacity:0}}
     @keyframes wx-fog{0%{transform:translateX(-25%)}100%{transform:translateX(25%)}}
     @keyframes wx-bolt{0%,84%,100%{opacity:0}85%,88%{opacity:.55}86%{opacity:.1}}
-    @keyframes wx-ray{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.7;transform:scale(1.12)}}
     @keyframes wx-wind{0%{transform:translateX(-120%);opacity:0}20%{opacity:.7}100%{transform:translateX(320%);opacity:0}}
     @media (prefers-reduced-motion: reduce){ha-icon,.fx span{animation:none !important}}
   `;
@@ -16732,16 +16756,15 @@ try {
     if (k === 'snow') flakes(28, 4.2);
     if (k === 'fog') [18, 62, 108, 150].forEach((y, i) => P.push(`left:-30%;top:${y}px;width:160%;height:36px;border-radius:18px;background:linear-gradient(90deg, transparent, rgba(220,220,220,0.16), rgba(220,220,220,0.22), transparent);filter:blur(6px);animation:wx-fog ${7 + i * 1.5}s ease-in-out ${-i * 2}s infinite alternate`));
     if (k === 'thunder') P.push('inset:0;background:rgba(255,255,240,0.5);animation:wx-bolt 4.5s linear infinite');
-    if (k === 'sun') P.push(`right:-60px;top:-60px;width:300px;height:300px;border-radius:150px;background:radial-gradient(circle, ${M.alpha(C.yellow, 0.28)}, transparent 65%);animation:wx-ray 5s ease-in-out infinite`);
     if (k === 'part' || k === 'cloud' || k === 'partn') [[-10, 20, 220], [40, 90, 260]].forEach(([x, y, w], i) => P.push(`left:${x}%;top:${y}px;width:${w}px;height:70px;border-radius:35px;background:rgba(255,255,255,${k === 'cloud' ? 0.07 : 0.05});filter:blur(10px);animation:wx-drift ${8 + i * 3}s ease-in-out infinite`));
     if (k === 'wind') for (let i = 0; i < 7; i++) P.push(`left:0;top:${20 + i * 24}px;width:${90 + (i % 3) * 40}px;height:2px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(220,230,245,0.45), transparent);animation:wx-wind ${(1.4 + (i % 4) * 0.3).toFixed(1)}s linear ${(-i * 0.4).toFixed(1)}s infinite`);
     return P.map((s) => `<span style="position:absolute;${s}"></span>`).join('');
   };
   // Horisontal sveip (karusell/timeliste): la nettleseren scrolle, men stopp Bubble Cards swipe-to-close.
-  const guardSwipe = (el) => {
+  const guardSwipe = (el, ta = 'pan-x pan-y') => {
     if (!el || el.__mshSwipe) return;
     el.__mshSwipe = true;
-    el.__mshTA = 'pan-x pan-y'; // bevares av MSH.morph
+    el.__mshTA = ta; // bevares av MSH.morph
     el.style.touchAction = el.__mshTA;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, stop, { passive: true }));
@@ -16819,14 +16842,13 @@ try {
       const rain = H[0] && num(H[0].precipitation) != null ? `${f1(H[0].precipitation)} ${pu}` : '';
       const uv = num(A.uv_index) != null ? num(A.uv_index) : H[0] && num(H[0].uv_index) != null ? num(H[0].uv_index) : null;
       const col = cond ? cond.color : 'var(--gray600, #7f7f7f)';
-      const glow = !cond || cond.key === 'sun' ? '' : `filter:drop-shadow(0 0 20px ${/gray|white/.test(col) ? 'rgba(255,255,255,0.15)' : M.alpha(col, 0.3)})`;
       const slides = [];
       slides.push(`<div class="sl now" data-key="s0" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}>
         <div class="fx">${cond ? heroFx(cond.key) : ''}</div>
         <span class="pl">Været nå · ${esc(place)}</span>
         <span class="tv"><span class="big num">${temp != null ? f1(temp) : '–'}°</span>${feels ? `<span class="fl">${esc(feels)}</span>` : ''}</span>
         <span class="meta">${st ? `<span>${esc(cond.label)}</span>${wind ? `<span>${esc(wind)}</span>` : ''}${rain ? `<span>${esc(rain)}</span>` : ''}` : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</span>
-        <span class="hi">${wxIcon(cond ? cond.icon : 'cloud', 120, col, glow)}</span>
+        <span class="hi">${wxIcon(cond ? cond.icon : 'cloud', 120, col)}</span>
       </div>`);
       if (c.show_extras !== false) {
         const uvL = uvOf(uv);
@@ -16886,12 +16908,12 @@ try {
         .ex{gap:14px}
         .po{gap:12px}
         .exg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--gray300,#404040);min-width:0}
+        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--gray100,#2f2f2f);min-width:0}
         .ext span{font-size:12px;color:var(--gray900,#c7c7c7);text-align:center;line-height:1.25;padding:0 4px}
         .ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 8px}
         .src{font-size:11px;color:var(--gray600,#7f7f7f)}
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);min-width:0}
+        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
         .pn{font-size:12px;font-weight:500}
         .pe{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--gray700,#979797)}
         .dots{display:flex;gap:8px;height:14px;align-items:center}
@@ -17078,7 +17100,7 @@ try {
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      guardSwipe(this.shadowRoot.querySelector('.hrs'));
+      guardSwipe(this.shadowRoot.querySelector('.hrs'), 'pan-x');
       const sc = this.shadowRoot.querySelector('.scrub');
       if (!sc || sc.__b) return;
       sc.__b = true;
@@ -17102,9 +17124,9 @@ try {
         .lb{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px}
         .ax{display:flex;flex-direction:column;gap:10px;width:100%;padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.06);text-align:left}
         .map{display:flex;align-items:center;gap:4px;color:var(--gray800,#afafaf);text-decoration:none;white-space:nowrap}
-        .hrs{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
-        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0}
-        .hb.first{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08)}
+        .hrs{width:100%;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain;margin:0;padding:0}
+        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0;scroll-snap-align:start}
+        .hb.first .ht{color:var(--white,#fafafa);font-weight:600}
         .hb.ph,.day.ph{width:100%;height:auto;min-height:72px;justify-content:center;font-size:13px;color:var(--gray700,#979797)}
         .ht{font-size:13px;color:var(--gray800,#afafaf)}
         .htv{font-size:24px;font-weight:300;letter-spacing:-0.02em}
@@ -17133,10 +17155,10 @@ try {
         .arr{position:absolute;top:12px;left:50%;margin-left:-11px;line-height:0;transition:transform .4s}
         .arc{position:relative;height:56px;overflow:hidden}
         .ell0{position:absolute;left:4px;right:4px;top:6px;height:100px;border-radius:50%;border:1.5px dashed var(--gray400,#545454)}
-        .sd{position:absolute;width:18px;height:18px;border-radius:9px;background:${SUNY};box-shadow:0 0 16px ${M.alpha(SUNY, 0.6)}}
+        .sd{position:absolute;width:18px;height:18px;border-radius:9px;background:${SUNY}}
         .base{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--gray400,#545454)}
         .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
-        .moon{position:relative;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden;box-shadow:0 0 30px rgba(233,228,214,0.18)}
+        .moon{position:relative;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden}
         .own{width:100%;height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
         .own:active{transform:scale(0.98)}
       `;

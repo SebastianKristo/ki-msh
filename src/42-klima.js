@@ -809,7 +809,7 @@
     get styles() {
       return SHARED_CSS + `
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .modes{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
+        .modes{display:flex;gap:12px;overflow-x:auto;padding:2px 0;margin:0}
         .mode{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:66px}
         .mb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),background .25s}
         .mode:active .mb{transform:scale(.94)!important}

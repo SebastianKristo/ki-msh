@@ -662,7 +662,7 @@
         .del{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
         .add{flex:1;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
         .rst{height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:var(--gray800,#afafaf);background:var(--gray400,#545454)}
-        .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
+        .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 0;margin:0}
         .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
         .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .scb:active .scbb{transform:scale(.9)}
