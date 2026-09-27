@@ -9,7 +9,8 @@
     "test": "node test/smoke.mjs",
     "checklist": "node test/checklist.mjs",
     "strategy": "node test/strategy-check.mjs",
-    "device": "node test/device-check.mjs"
+    "device": "node test/device-check.mjs",
+    "picker": "node test/picker-check.mjs"
   },
   "license": "Apache-2.0"
 }
