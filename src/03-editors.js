@@ -66,6 +66,58 @@
     return true;
   };
 
+  /* ------------------------------------------------------------ oppsett per enhet */
+  // Øverst i hver «Tilpass …»-meny: «Denne enheten · Alle enheter». Endrer MSH.store.scope og sender 'scope-change'.
+  // Har enheten eget oppsett: chip «Eget oppsett», «Bruk felles oppsett» (bekreft) og «Kopier til alle».
+  const SCOPE_CSS = `:host{display:block;margin:0 0 12px}
+    .seg{display:flex;padding:4px;border-radius:22px;background:var(--gray200,#3a3a3a);gap:4px}
+    .seg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
+    .seg button.on{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323)}
+    .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 4px 0;font-size:12px;color:var(--gray700,#979797)}
+    .sub .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chip{height:22px;padding:0 9px;border-radius:11px;background:rgb(115 185 242);color:#1f2a36;font-size:11px;font-weight:600;display:inline-flex;align-items:center}
+    .act{display:flex;gap:6px;margin:8px 0 0}
+    .act button{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500}
+    .act button.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}`;
+  class ScopeBar extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); this.shadowRoot.addEventListener('click', (e) => this._click(e)); }
+    connectedCallback() { this._off = M.store && M.store.subscribe(() => this._render()); this._render(); }
+    disconnectedCallback() { if (this._off) this._off(); clearTimeout(this._ct); }
+    _render() {
+      const S = M.store; if (!S) return;
+      const dev = S.scope === 'device', own = this.storeKey && S.hasOwn(this.storeKey), u = (this.hass && this.hass.user && this.hass.user.name) || '';
+      const who = `For ${u ? M.esc(u) + ' · ' : ''}${dev ? M.esc(S.deviceName) : 'alle enheter'}`;
+      const hint = dev ? `Lagres for ${M.esc(S.deviceName)}` : 'Gjelder alle enheter uten eget oppsett';
+      this.shadowRoot.innerHTML = `<style>${M.BASE_CSS}${SCOPE_CSS}</style>
+        <div class="seg" role="tablist"><button class="${dev ? 'on' : ''}" data-s="device">Denne enheten</button><button class="${dev ? '' : 'on'}" data-s="shared">Alle enheter</button></div>
+        <div class="sub"><span class="who" title="${hint}">${who} · ${hint}</span>${own ? '<span class="chip">Eget oppsett</span>' : ''}</div>
+        ${own ? `<div class="act"><button class="warn" data-a="clear">${this._confirm ? 'Trykk igjen for å bekrefte' : 'Bruk felles oppsett'}</button><button data-a="copy">Kopier til alle</button></div>` : ''}`;
+    }
+    async _click(e) {
+      const b = e.composedPath().find((n) => n.dataset && (n.dataset.s || n.dataset.a));
+      if (!b || !M.store) return;
+      const S = M.store;
+      if (b.dataset.s) {
+        if (S.scope === b.dataset.s) return;
+        M.haptic('selection'); S.scope = b.dataset.s; this._render();
+        this.dispatchEvent(new CustomEvent('scope-change', { detail: { scope: S.scope } }));
+        return;
+      }
+      if (b.dataset.a === 'clear') {
+        if (!this._confirm) { M.haptic('light'); this._confirm = true; this._render(); clearTimeout(this._ct); this._ct = setTimeout(() => { this._confirm = false; this._render(); }, 3500); return; }
+        this._confirm = false;
+        const r = await S.clearOwn(this.storeKey);
+        M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Bruker felles oppsett');
+      } else if (b.dataset.a === 'copy') {
+        const r = await S.copyToAll(this.storeKey);
+        M.haptic(r && r.ok === false ? 'failure' : 'success'); M.toast(r && r.ok === false ? 'Kunne ikke lagre' : 'Kopiert til alle enheter');
+      }
+      this._render();
+      this.dispatchEvent(new CustomEvent('scope-change', { detail: { scope: S.scope } }));
+    }
+  }
+  if (!customElements.get('msh-scope-bar')) customElements.define('msh-scope-bar', ScopeBar);
+
   /* ------------------------------------------------------------ #settings-popupens kort */
   class Settings extends M.Card {
     static get cardName() { return 'Innstillinger'; }
@@ -84,11 +136,53 @@
           ${row('nav', 'mdi:cog', 'Home Assistant', 'Innstillinger', 'data-path="/config"')}
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
-        <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg, på alle enhetene dine</div>
+        ${this._devices()}
+        <div class="who">${M.esc(u.name || '')} · ${M.store ? 'denne enheten: ' + M.esc(M.store.deviceName) + ' · enheter kan ha eget oppsett' : 'innstillingene gjelder for deg'}</div>
       </div>`;
+    }
+    // Innstillinger → Enheter: kjente enheter (navn, sist sett, antall kort med eget oppsett) – gi nytt navn, nullstill, slett
+    _devices() {
+      if (!M.store) return '';
+      this.s('zone.__msh_devices');
+      const list = M.store.devices(), ed = this.ui.devEdit, cf = this.ui.devConfirm || '';
+      const rows = list.map((d) => {
+        const seen = d.current ? 'denne enheten' : d.seen ? M.relTime(new Date(d.seen).toISOString()) : 'aldri sett';
+        const own = d.own ? `${d.own} ${d.own === 1 ? 'kort' : 'kort'} med eget oppsett` : 'følger felles oppsett';
+        if (ed === d.id) return `<div class="r dv" data-key="dv-${M.esc(d.id)}"><span class="ic">${M.icon('mdi:rename', 22)}</span><form class="tx" data-act="devname" data-id="${M.esc(d.id)}"><input data-input="devname" value="${M.esc(d.name)}" aria-label="Enhetsnavn" autofocus></form><button class="sm" data-act="devname" data-id="${M.esc(d.id)}">Lagre</button></div>`;
+        return `<div class="r dv" data-key="dv-${M.esc(d.id)}"><span class="ic">${M.icon(/iphone|android-tel/i.test(d.name) ? 'mdi:cellphone' : /ipad|nettbrett/i.test(d.name) ? 'mdi:tablet' : 'mdi:monitor', 22)}</span>
+          <span class="tx"><b>${M.esc(d.name)}${d.current ? ' <em>denne</em>' : ''}</b><i>${M.esc(seen)} · ${M.esc(own)}</i></span>
+          <span class="dva">
+            <button class="sm" data-act="devren" data-id="${M.esc(d.id)}" aria-label="Gi nytt navn">${M.icon('mdi:pencil', 18)}</button>
+            ${d.own ? `<button class="sm ${cf === 'r' + d.id ? 'warn' : ''}" data-act="devreset" data-id="${M.esc(d.id)}" aria-label="Nullstill">${cf === 'r' + d.id ? 'Nullstill?' : M.icon('mdi:backup-restore', 18)}</button>` : ''}
+            ${d.current ? '' : `<button class="sm ${cf === 'd' + d.id ? 'warn' : ''}" data-act="devdel" data-id="${M.esc(d.id)}" aria-label="Slett">${cf === 'd' + d.id ? 'Slett?' : M.icon('mdi:delete-outline', 18)}</button>`}
+          </span></div>`;
+      }).join('');
+      return `<div class="gh">Enheter</div><div class="grp">${rows}</div>`;
+    }
+    onInput(name, el) { if (name === 'devname') this._devName = el.value; }
+    connectedCallback() { super.connectedCallback(); if (M.store && !this._devOff) this._devOff = M.store.subscribe((d, p) => { if (!p || String(p).startsWith('devices')) this.update(); }); }
+    disconnectedCallback() { super.disconnectedCallback(); if (this._devOff) { this._devOff(); this._devOff = null; } }
+    async _devAct(name, id) {
+      const S = M.store;
+      if (name === 'devren') { this._devName = null; return this.setUI({ devEdit: id, devConfirm: null }); }
+      if (name === 'devname') {
+        const v = (this._devName != null ? this._devName : (this.shadowRoot.querySelector('[data-input="devname"]') || {}).value || '').trim();
+        this.setUI({ devEdit: null });
+        const r = await S.setDeviceName(v, id);
+        return M.haptic(r && r.ok === false ? 'failure' : 'success');
+      }
+      const tag = (name === 'devreset' ? 'r' : 'd') + id;
+      if (this.ui.devConfirm !== tag) { this.setUI({ devConfirm: tag }); clearTimeout(this._dct); this._dct = setTimeout(() => this.setUI({ devConfirm: null }), 3500); return; }
+      this.setUI({ devConfirm: null });
+      let r;
+      if (name === 'devdel') r = await S.removeDevice(id);
+      else { const d = S.get('devices.' + id) || {}; const keep = {}; if (d.name) keep.name = d.name; if (d.seen) keep.seen = d.seen; r = await S.set('devices.' + id, keep, { immediate: true }); }
+      M.haptic(r && r.ok === false ? 'failure' : 'success');
+      M.toast(r && r.ok === false ? 'Kunne ikke lagre' : name === 'devdel' ? 'Enheten er slettet' : 'Enheten følger felles oppsett');
     }
     onAction(name, el, ev) {
       if (name === 'ed') return M.openDashEditor({ editor: el.dataset.e });
+      if (/^dev/.test(name)) return this._devAct(name, el.dataset.id);
       if (name === 'nav') return M.navigate(el.dataset.path);
       return super.onAction(name, el, ev);
     }
@@ -99,7 +193,13 @@
         .r+.r{border-top:1px solid rgba(255,255,255,.06)}
         .ic{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tx b{font-size:15px;font-weight:500}.tx i{font-style:normal;font-size:12px;color:var(--gray700,#979797)}
-        .who{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px}`;
+        .who{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px}
+        .gh{font-size:13px;font-weight:500;color:var(--gray700,#979797);padding:8px 8px 0}
+        .dv{cursor:default}.tx em{font-style:normal;font-size:11px;font-weight:600;padding:2px 7px;border-radius:9px;background:rgb(115 185 242);color:#1f2a36;margin-left:6px;vertical-align:1px}
+        .dva{display:flex;gap:6px;flex:none}
+        .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+        .sm.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}
+        form.tx input{height:40px;border-radius:14px;background:var(--gray300,#404040);padding:0 12px;font-size:15px;width:100%}`;
     }
   }
   M.define('msh-settings-card', Settings, 'MSH Innstillinger', 'Innhold i #settings-popupen: snarveier til Tilpass Hjem/navbar/header og HA-innstillinger.');

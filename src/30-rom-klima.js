@@ -62,7 +62,7 @@
   // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].
   M.roomClimate = function (hass, area, cfg) {
     const a = area ? M.roomAuto(hass, area) : { climates: [] };
-    const rc = (area && (M.roomCfgs[area] || (M.store && M.store.get('rooms.' + area)))) || {};
+    const rc = (area && (M.roomCfgs[area] || (M.store && M.store.eff('rooms.' + area)))) || {};
     const o = { ...((rc && rc.overrides) || {}), ...((cfg && cfg.overrides) || {}) };
     const tId = o.temperature || o.temperatur || a.temp || null, hId = o.humidity || o.fuktighet || a.hum || null;
     const clim = o.climate || o.termostat || a.thermo || null;

@@ -6,6 +6,15 @@
  *   MSH.store.subscribe(cb)        – cb(data, path) ved endring; returnerer avmelding
  *   MSH.store.load(hass)           – hent fra HA (kalles automatisk av kortene)
  * Kortconfig: cards.<card_id> = kortets config fra egen editor; effektiv config = { ...YAML, ...store }.
+ *
+ * Oppsett per enhet: { <felles nøkler: cards/rooms/popups …>, devices: { <enhets-id>: { name, seen, cards/rooms/popups … } } }
+ *   Felles oppsett ligger på rotnivå (bakoverkompatibelt – tilsvarer «shared»); enhetens eget under devices.<id>.
+ *   Oppslag: devices[id][kort] ?? felles[kort] ?? YAML/strategi-standard, slått sammen felt for felt (null = fjernet).
+ *   MSH.store.deviceId / deviceName    – denne enheten (browser_mod-ID, ellers egen stabil ID i localStorage ki-device-id)
+ *   MSH.store.scope                    – 'device' (standard i Tilpass-menyene) eller 'shared'
+ *   MSH.store.eff(key)                 – sammenslått config for en nøkkel (felles + denne enheten)
+ *   MSH.store.view()                   – hele configen sett fra denne enheten (strategien bruker denne)
+ *   MSH.store.hasOwn(key) / clearOwn(key) / copyToAll(key) – «Eget oppsett», «Bruk felles oppsett», «Kopier til alle»
  */
 (function () {
   const M = window.MSH;
@@ -46,7 +55,84 @@
     timer = setTimeout(write, immediate ? 0 : 600);
   });
 
+  /* ------------------------------------------------------------ enheter */
+  const guessName = () => {
+    const ua = navigator.userAgent || '';
+    if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+    if (/iPhone/.test(ua)) return 'iPhone';
+    if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android-telefon' : 'Android-nettbrett';
+    if (/Macintosh|Mac OS X/.test(ua)) return 'Mac';
+    if (/Windows/.test(ua)) return 'Windows';
+    if (/Linux/.test(ua)) return 'Linux';
+    return 'Ukjent enhet';
+  };
+  const deviceId = (() => {
+    try {
+      const bm = localStorage.getItem('browser_mod-browser-id');
+      if (bm) return String(bm).replace(/^"|"$/g, '').replace(/[^\w-]/g, '_');
+      let id = localStorage.getItem('ki-device-id');
+      if (!id) { id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); localStorage.setItem('ki-device-id', id); }
+      return id;
+    } catch (e) { return 'ukjent'; }
+  })();
+  const devKey = (key) => 'devices.' + deviceId + '.' + key;
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  // Felt for felt: b vinner, null i b fjerner feltet
+  const mergeFields = (a, b) => {
+    if (!isObj(b)) return isObj(a) ? a : (b === undefined ? a : b);
+    const out = isObj(a) ? { ...a } : {};
+    Object.keys(b).forEach((k) => { out[k] = b[k]; });
+    return out;
+  };
+  // Hele treet sett fra denne enheten: gruppe (cards/rooms/popups) → id → felt for felt
+  const view = () => {
+    const dev = get(data, 'devices.' + deviceId) || {};
+    const out = { ...data };
+    delete out.devices;
+    Object.keys(dev).forEach((g) => {
+      if (g === 'name' || g === 'seen') return;
+      if (!isObj(dev[g])) { out[g] = dev[g]; return; }
+      const grp = isObj(out[g]) ? { ...out[g] } : {};
+      Object.keys(dev[g]).forEach((id) => { grp[id] = dev[g][id] === null ? null : mergeFields(grp[id], dev[g][id]); });
+      out[g] = grp;
+    });
+    return out;
+  };
+  let scope = 'device';
+
   M.store = {
+    get deviceId() { return deviceId; },
+    get deviceName() { return get(data, 'devices.' + deviceId + '.name') || guessName(); },
+    setDeviceName(name, id) { return M.store.set('devices.' + (id || deviceId) + '.name', name || undefined, { immediate: true }); },
+    get scope() { return scope; },
+    set scope(v) { scope = v === 'shared' ? 'shared' : 'device'; },
+    // nøkkel for lagring i valgt omfang (Tilpass-menyene): devices.<id>.<key> eller <key>
+    scoped: (key, sc) => ((sc || scope) === 'device' ? devKey(key) : key),
+    devKey,
+    eff: (key) => mergeFields(get(data, key), get(data, devKey(key))),
+    view,
+    hasOwn: (key, id) => { const v = get(data, 'devices.' + (id || deviceId) + '.' + key); return isObj(v) ? Object.keys(v).length > 0 : v != null; },
+    clearOwn: (key, id) => M.store.set('devices.' + (id || deviceId) + '.' + key, undefined, { immediate: true }),
+    copyToAll(key) {
+      const own = get(data, devKey(key));
+      if (own == null) return Promise.resolve({ ok: true });
+      const merged = mergeFields(get(data, key), own);
+      if (isObj(merged)) Object.keys(merged).forEach((k) => { if (merged[k] === null) delete merged[k]; });
+      data = setIn(data, key, merged);
+      return M.store.set(devKey(key), undefined, { immediate: true });
+    },
+    // Kjente enheter: [{ id, name, seen, own (antall kort med eget oppsett), current }]
+    devices() {
+      const D = get(data, 'devices') || {};
+      if (!D[deviceId]) D[deviceId] = {};
+      return Object.keys(D).map((id) => {
+        const d = D[id] || {};
+        let own = 0;
+        Object.keys(d).forEach((g) => { if (isObj(d[g]) && g !== 'name') own += Object.keys(d[g]).length; });
+        return { id, name: d.name || (id === deviceId ? guessName() : 'Enhet ' + id.slice(0, 6)), seen: d.seen || null, own, current: id === deviceId };
+      }).sort((a, b) => (b.current - a.current) || ((b.seen || 0) - (a.seen || 0)));
+    },
+    removeDevice: (id) => M.store.set('devices.' + id, undefined, { immediate: true }),
     get: (path) => get(data, path),
     // set → oppdaterer cache og kort straks; returnerer Promise<{ ok, error }> når HA har bekreftet lagringen
     set(path, value, opts) {
@@ -80,6 +166,15 @@
           if (r && r.value && typeof r.value === 'object' && !timer) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
+        // sist sett (maks hver 6. time, så det ikke gir unødige skriv)
+        try {
+          const seen = get(data, 'devices.' + deviceId + '.seen') || 0;
+          if (Date.now() - seen > 6 * 3600e3) {
+            data = setIn(data, 'devices.' + deviceId + '.seen', Date.now());
+            if (!get(data, 'devices.' + deviceId + '.name')) data = setIn(data, 'devices.' + deviceId + '.name', guessName());
+            cache(); push(false);
+          }
+        } catch (e) { /* */ }
         // endringer fra andre enheter/faner
         try {
           if (hass.connection && hass.connection.subscribeMessage && !unsubRemote) {
