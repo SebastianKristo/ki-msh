@@ -256,7 +256,8 @@
     .ppt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
     .ppt button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:13px;font-weight:500;text-align:center}
     .ppt button i{font-style:normal;font-size:11px;color:#979797;font-weight:400}
-    .ppt button.on{box-shadow:inset 0 0 0 2px ${PINK}}
+    .ppt button.on{background:#545454;box-shadow:inset 0 0 0 2px ${PINK}}
+    .ppbar .pg{height:36px;padding:0 12px 0 10px;font-size:13px}
   `;
 
   /* ------------------------------------------------------------ render */

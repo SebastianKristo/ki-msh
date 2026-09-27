@@ -372,8 +372,8 @@
       // Timeetiketter 00/06/12/18 (skjules nær kantene)
       const labels = [0, 6, 12, 18].map((hh) => { const d = new Date(p.now); d.setHours(hh, 0, 0, 0); let t = d.getTime(); while (t <= p.now) t += p.D; return [hh, pos(t)]; }).filter(([, x]) => x > 6 && x < 94);
       const off = Number(o.offset || 0);
-      const onSub = mins(o.on) != null ? 'Fast tid' : p.set == null ? 'Mangler sol-entitet' : `${mode === 'auto' ? 'ca. ' : ''}${off ? `solnedgang ${off > 0 ? '+' : '−'}${Math.abs(off)} min` : 'ved solnedgang'}`;
-      const offSub = p.latest ? `Senest ${o.latest}` : mins(o.off) != null ? 'Fast tid' : p.rise == null ? 'Mangler sol-entitet' : `${mode === 'auto' ? 'ca. ' : ''}ved soloppgang`;
+      const onSub = mins(o.on) != null ? 'Fast tid' : p.set == null ? 'Mangler sol-entitet' : off ? `Solnedgang ${off > 0 ? '+' : '−'}${Math.abs(off)} min` : 'Ved solnedgang';
+      const offSub = p.latest ? `Senest ${o.latest}` : mins(o.off) != null ? 'Fast tid' : p.rise == null ? 'Mangler sol-entitet' : 'Ved soloppgang';
       const tile = (k) => {
         const next = !man && p.first === k, t = k === 'on' ? p.on : p.off;
         return `<div class="evt${next ? ' nx' : ''}" data-key="ev-${k}"><span class="evl">${M.icon(k === 'on' ? 'mdi:lightbulb-on-outline' : 'mdi:lightbulb-off-outline', 16)}${k === 'on' ? 'Tennes' : 'Slukkes'}</span>
@@ -683,7 +683,9 @@
       <button class="eye" data-a="${act}" data-k="${esc(key)}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`;
     const field = (label, path, type, ph, extra) => {
       const v = getPath(st.draft, path);
-      return `<label class="r fr"><span class="rl">${esc(label)}</span><input class="in${type === 'number' ? ' nm' : ''}" data-f="${esc(path)}" data-t="${type}" type="${type}" value="${esc(v != null ? v : '')}" placeholder="${esc(ph != null ? ph : '')}" ${extra || ''}></label>`;
+      // type=time har ingen plassholder: tomt felt vises som tekst med automatisk verdi til det får fokus
+      const tph = type === 'time' && (v == null || v === '') && ph != null && ph !== '' ? ` data-ph="${esc(ph)}"` : '';
+      return `<label class="r fr"><span class="rl">${esc(label)}</span><input class="in${type === 'number' ? ' nm' : ''}" data-f="${esc(path)}" data-t="${type}" type="${type}" value="${esc(v != null ? v : '')}" placeholder="${esc(ph != null ? ph : '')}"${tph} ${extra || ''}></label>`;
     };
     const sw = (label, sub, path, on) => `<button class="r" data-a="sw" data-k="${esc(path)}" data-v="${on ? 0 : 1}"><span class="rl col"><span>${esc(label)}</span>${sub ? `<span class="rs">${esc(sub)}</span>` : ''}</span><span class="sw${on ? ' on' : ''}"><span></span></span></button>`;
 
@@ -739,8 +741,8 @@
       const lamps = sheetLamps(d, A, h);
       return `<span class="cap">Tider og terskler</span><div class="grp">
           ${seg('Styring', 'outdoor.mode', [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']], o.mode)}
-          ${field('Tennes', 'outdoor.on', 'time', '', sOn != null && !getPath(d, 'outdoor.on') ? `data-ph="${fmt(sOn + Number(o.offset || 0))}"` : '')}
-          ${field('Slukkes', 'outdoor.off', 'time', '', sOff != null && !getPath(d, 'outdoor.off') ? `data-ph="${fmt(sOff)}"` : '')}
+          ${field('Tennes', 'outdoor.on', 'time', sOn != null ? fmt(sOn + Number(o.offset || 0)) : '')}
+          ${field('Slukkes', 'outdoor.off', 'time', sOff != null ? fmt(sOff) : '')}
           ${field('Slukk senest', 'outdoor.latest', 'time')}
           ${field('Morgen fra', 'outdoor.morning', 'time', DEF.morning)}
           ${field('Forskyvning skumring (min)', 'outdoor.offset', 'number', DEF.offset, 'step="5"')}
@@ -769,9 +771,9 @@
       if (!ov) return;
       const A = M.lysAuto(hass(), st.draft);
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      ov.body.innerHTML = nav() + `<div class="pg">${(PAGES[st.page] || pageMain)(A)}</div>`;
+      box.innerHTML = nav() + `<div class="pg">${(PAGES[st.page] || pageMain)(A)}</div>`;
       // Tidsfelt uten verdi: vis automatisk tid som plassholder (type=time har ikke placeholder)
-      ov.body.querySelectorAll('input[data-ph]').forEach((i) => { i.type = 'text'; i.placeholder = i.dataset.ph; i.addEventListener('focus', () => { i.type = 'time'; }, { once: true }); });
+      box.querySelectorAll('input[data-ph]').forEach((i) => { i.type = 'text'; i.placeholder = i.dataset.ph; i.addEventListener('focus', () => { i.type = 'time'; }, { once: true }); });
       if (sh && st.keepScroll) sh.scrollTop = top;
       st.keepScroll = true;
     };
@@ -795,6 +797,11 @@
 
     ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, onClose: () => { if (!st.saved) card.setConfig({ ...orig, __eff: 1 }); card._sheet = null; } });
     const R = ov.root;
+    // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
+    const box = document.createElement('div');
+    box.className = 'lys-sheet';
+    Object.defineProperty(box, '_config', { get: () => st.draft });
+    ov.body.appendChild(box);
     R.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el || el.disabled) return;
@@ -951,7 +958,7 @@
     .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray1000,#e1e1e1)}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
     .lpf .in{width:100%}
-    .lpr{display:grid;grid-template-columns:1.4fr 1fr;gap:6px}
+    .lpr{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:6px}
     .del{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
     .add{margin-top:10px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
   `;

@@ -472,7 +472,7 @@
         const alt = unav ? '' : P ? (st.bg !== G.g300 ? P.verb : '') : pctF.replace(' · ', '');
         return M.universal({ ...lk, mode: lk.mode || 'toggle', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
           icon_html: aIcon || M.icon(icon, 30, `animation:${st.anim}`),
-          main_text: lk.main_text || lk.label || (unav ? 'Utilgjengelig' : w != null ? `${M.nf(w)} W` : isOn ? 'På' : 'Av'),
+          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : unav ? 'Utilgjengelig' : w != null ? `${M.nf(w)} W` : isOn ? 'På' : 'Av'),
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : alt,
           background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color,
           toggle_on: lk.toggle_on_value ? undefined : isOn });
@@ -592,7 +592,7 @@
         return M.universal({
           state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || icon0,
-          main_text: lk.main_text || lk.label || dflt.main_text, symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label ? null : dflt.symbol,
+          main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : dflt.symbol,
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
           background_color: lk.background_color || lk.bg, circle_color: lk.cell, icon_color: lk.icon_color });
       }).join('');
