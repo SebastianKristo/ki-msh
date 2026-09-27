@@ -113,12 +113,17 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const edEl = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
     [...edEl.shadowRoot.querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click();
     await wait(1200);
+    // utkast-flyt (fiks 15.13): ingen lagring før Ferdig, deretter nøyaktig én, og arket lukkes
+    res.noSaveBefore = !window.__calls.some((c) => c[0] === 'ws' && /lovelace\/config\/save|frontend\/set_user_data/.test(c[1]));
+    res.editorOpenBefore = window.MSH.portals().length > 0;
+    edEl.shadowRoot.querySelector('[data-a="save"]').click();
+    await wait(1200);
     res.saveCalls = window.__calls.filter((c) => c[0] === 'ws' && /lovelace\/config\/save|frontend\/set_user_data/.test(c[1])).map((c) => c[1]).join(',');
     res.storeGap = (((window.__userData.ki_dashboard || {}).rooms || {}).stue || {}).gap; // «Tilpass rom» lagres per område
     const rom = all().find((e) => e.localName === 'msh-rom-card' && e.isConnected && e.getBoundingClientRect().height > 0);
     res.liveGap = rom && rom._rawConfig.gap;
     res.hashAfter = location.hash;
-    res.editorStillOpen = window.MSH.portals().length > 0;
+    res.editorClosed = window.MSH.portals().length === 0;
 
     console.log('STEG // egne popups'); // tre kilder, overstyringer, false-skjuling og kollisjon
     const M = window.MSH;
@@ -335,7 +340,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     return res;
   }, [vp, FX]);
   const hashes = r.popups.split(' '); const unique = new Set(hashes).size === hashes.length;
-  const ok = !errs.length && unique && r.oneCardEach && r.newArea && r.excluded && r.opened.every((x) => /åpen\/1kort\/header\/innhold/.test(x)) && r.editors.every((x) => /åpen z=9000/.test(x)) && r.saveCalls === 'frontend/set_user_data' && r.storeGap === 18 && r.hashAfter === '#stue' && r.editorStillOpen
+  const ok = !errs.length && unique && r.oneCardEach && r.newArea && r.excluded && r.opened.every((x) => /åpen\/1kort\/header\/innhold/.test(x)) && r.editors.every((x) => /åpen z=9000/.test(x)) && r.saveCalls === 'frontend/set_user_data' && r.storeGap === 18 && r.hashAfter === '#stue' && r.noSaveBefore && r.editorOpenBefore && r.editorClosed
     && Object.values(r.ruter).every(Boolean) && Object.values(r.merge).every(Boolean) && Object.values(r.live).every(Boolean) && Object.values(r.editor).every((v) => v === true || typeof v === 'number' || typeof v === 'string') && Object.values(r.import).every(Boolean);
   if (!ok) fail++;
   console.log(`${ok ? '✔' : '✘'} [${vp.n}]`, JSON.stringify(r, null, 1), errs.slice(0, 3).join(' | '));

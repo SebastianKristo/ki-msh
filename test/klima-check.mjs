@@ -60,6 +60,9 @@ const SETS = {
     };
     flytt('ki_energi_ki_energi_status');
     flytt('ki_energi_ki_helgemodus', 'switch.bortemodus');
+    // Gjenglemt pakke-/template-sensor fra før integrasjonen holder på grunn-ID-en: HA viser den som unavailable (restored)
+    S['sensor.ki_energi_status'] = { entity_id: 'sensor.ki_energi_status', state: 'unavailable', attributes: { restored: true, friendly_name: 'KI Energistatus' }, last_changed: '', last_updated: '', context: {} };
+    E['sensor.ki_energi_status'] = { entity_id: 'sensor.ki_energi_status', platform: 'template', hidden: false };
   },
   // Ingen KI Energi (ingen ki_*-entiteter) og ingen climate/fan → #klima lages bare fordi navbaren peker dit (REF_POPUPS)
   uten_ki: ({ S, E }) => {

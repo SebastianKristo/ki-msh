@@ -35,7 +35,13 @@
   };
   // … og deretter til den FAKTISKE entitets-ID-en fra registeret (fiks 15.12): «sensor.ki_energi_status» kan hete
   // «sensor.ki_energi_status_2» (kollisjon med pakke-/pyscript-sensoren ved installasjon) eller være omdøpt av brukeren.
-  const mapId = (id) => mapDom(id);
+  // Oppslaget (KI.ids) bygges fra siste hass (billig: bygges bare på nytt når hass.entities byttes eller registeret er hentet).
+  const mapId = (id) => {
+    const d = mapDom(id);
+    if (!d || typeof d !== 'string') return d;
+    if (M.lastHass) kiIndex(M.lastHass);
+    return KI.ids.get(d) || d;
+  };
 
   /* ================================================================ KI Energi i registeret (fiks 15.12) */
   // Integrasjonen (entity.py): entity_id = <domene>.<nøkkel>, unique_id = "ki_energi_<nøkkel>", platform = "ki_energi",
@@ -43,7 +49,7 @@
   // der (eldre/andre frontend-versjoner) eller fra config/entity_registry/list (reserve, én gang). Uten unique_id godtas
   // HAs kollisjonssuffiks (_2, _3 …) når grunn-ID-en ikke selv finnes.
   const DOMENE = 'ki_energi', STATUS = 'sensor.ki_energi_status';
-  const KI = { ents: undefined, built: -1, ver: 0, ids: new Map(), n: 0, reg: null, regAsked: false, entry: undefined, entryAsked: false, logged: false, cards: new Set() };
+  const KI = { ents: undefined, built: -1, ver: 0, ids: new Map(), n: 0, avvik: false, reg: null, regAsked: false, entry: undefined, entryAsked: false, logged: false, cards: new Set() };
   const uidKey = (u) => (typeof u === 'string' && u.startsWith(DOMENE + '_') ? u.slice(DOMENE.length + 1) : null);
   function kiBuild(hass) {
     const ents = hass && hass.entities;
@@ -69,12 +75,15 @@
     });
     // Oppslaget skal aldri peke vekk fra en ID som selv er integrasjonens
     egne.forEach((id) => ids.delete(id));
-    KI.ids = ids; KI.n = list.length; KI.ents = ents; KI.built = KI.ver;
+    // Tegn på avvikende ID-er uten unique_id i hass.entities (kollisjonssuffiks, eller omdøpt vekk fra ki_/vvb_-mønsteret)
+    // → registeret hentes over WS for å få unique_id. Regnes én gang per hass.entities, ikke per oppslag.
+    const avvik = list.some((e) => { if (e.unique_id) return false; const o = String(e.entity_id).split('.')[1] || ''; return /_\d+$/.test(o) || !/^(ki_|vvb_)/.test(o); });
+    KI.ids = ids; KI.n = list.length; KI.ents = ents; KI.built = KI.ver; KI.avvik = avvik;
   }
   function kiIndex(hass) {
     if (!hass) return KI;
     if (hass.entities !== KI.ents || KI.built !== KI.ver) kiBuild(hass);
-    kiAsk(hass);
+    if (!KI.entryAsked || !KI.regAsked) kiAsk(hass);
     return KI;
   }
   const kiBump = () => { KI.ver++; KI.cards.forEach((c) => { if (c.isConnected) { if (c.update) c.update(); } else KI.cards.delete(c); }); };
@@ -92,8 +101,7 @@
     // Registeret hentes bare når noe tyder på avvikende ID-er: statussensoren er ikke funnet, eller en ki_energi-entitet
     // har kollisjonssuffiks / et navn som ikke følger integrasjonens mønster (omdøpt av brukeren) og mangler unique_id.
     const funnet = (hass.states && hass.states[STATUS] && (!hass.entities || !hass.entities[STATUS] || hass.entities[STATUS].platform === DOMENE)) || KI.ids.has(STATUS);
-    const avvik = () => Object.keys(hass.entities || {}).some((id) => { const e = hass.entities[id]; if (!e || e.platform !== DOMENE || e.unique_id) return false; const o = id.split('.')[1] || ''; return /_\d+$/.test(o) || !/^(ki_|vvb_)/.test(o); });
-    if (!KI.regAsked && (!funnet || avvik())) {
+    if (!KI.regAsked && (!funnet || KI.avvik)) {
       KI.regAsked = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config/entity_registry/list' }))
         .then((r) => { if (Array.isArray(r)) { KI.reg = r.filter((e) => e && e.platform === DOMENE); kiBump(); } })
