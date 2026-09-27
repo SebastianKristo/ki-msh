@@ -1,13 +1,13 @@
-/* msh-strompris-card · Hjem, strømpriskortet. Kilde: strøm-dataene i Hjem v2.dc.html (SPOT/TMR, price(), priceHead,
- * priceBars, priceDays, strøm-sliden «Strøm nå · Billigst kl. …») + oppsettet i ki-strompris-card (ki-cards, «Strømpriser»):
- * nåpris, søyler per time for i dag / i morgen med dag-bytter, billigste time og scrub (dra for å se en time).
- * Autokonfig (entiteter.md «Strøm»): pris-sensor fra plattform nordpool / tibber / energi_data_service (M.priceSensor –
- * samme sensor som prosa-boblen «Strømmen koster …»), timespriser fra attributtene raw_today/raw_tomorrow ({start,end,value})
- * eller today/tomorrow (tall-lister). Effekt: sensor.hele_huset_effekt (KI Rom). Overstyr: overrides.price / overrides.watt.
- * Kortet vises alltid: mangler data → «–» og tomme søyler.
+/* msh-strompris-card · Hjem, «Strømpriser» (spesifikasjon punkt 14): header-rad med tittel + I dag / I morgen utenfor
+ * kortflaten; kortflate med verdirad (Spot nå / valgt time · Norgespris), legende, trinnlinje-graf i øre/kWh (teal, oransje
+ * over terskel, fylt område, stiplet Norgespris-linje, valgt time med bånd + prikk) og x-akse. Scrub på grafen velger time.
+ * Autokonfig (entiteter.md «Strøm»): pris-sensor M.priceSensor (nordpool / tibber / energi_data_service – samme sensor som
+ * prosa-boblen «Strømmen koster …»), config `entity` / overrides.price overstyrer. Timespriser fra today/tomorrow (24 tall
+ * eller 96 kvarter → timesnitt), ellers raw_today/raw_tomorrow ({start, value}). Norgespris: sensor.*norgespris* (kr/kWh)
+ * eller config `norgespris` (0,50). Kortet vises alltid: mangler data → «–» og tom graf (bare rutenettet).
  */
 (function () {
-  const M = window.MSH, esc = M.esc, C = M.C;
+  const M = window.MSH, esc = M.esc;
   const HOUR = 3600000;
   const hh = (h) => String(h).padStart(2, '0');
   const nf2 = (v) => (v == null || isNaN(v) ? '–' : M.nf(v, 2));
@@ -64,7 +64,7 @@
       sum[i][0] += Number(v) * k; sum[i][1]++;
     };
     [['raw_today', 'today', 'prices_today', 0], ['raw_tomorrow', 'tomorrow', 'prices_tomorrow', 1]].forEach(([rk, tk, pk, day]) => {
-      const list = [a[rk], a[pk], a[tk]].find((x) => Array.isArray(x) && x.length);
+      const list = [a[tk], a[rk], a[pk]].find((x) => Array.isArray(x) && x.length);
       if (!list) return;
       if (list[0] != null && typeof list[0] === 'object') {
         list.forEach((p) => { if (!p) return; const st = p.start || p.startsAt || p.time || p.hour; const v = p.value !== undefined ? p.value : p.price !== undefined ? p.price : p.total; put(new Date(st).getTime(), v); });
@@ -77,117 +77,217 @@
     return out;
   };
 
+
+  // Norgespris-sensor: config norgespris_entity → første sensor.*norgespris* med tallverdi og enhet …/kWh (eller uten enhet).
+  M.norgesprisSensor = M.norgesprisSensor || function (hass, cfg) {
+    if (cfg && cfg.norgespris_entity) return cfg.norgespris_entity;
+    if (!hass || !hass.states) return null;
+    return Object.keys(hass.states).filter((id) => {
+      if (!/^sensor\..*norgespris/i.test(id)) return false;
+      const s = hass.states[id], u = String((s.attributes || {}).unit_of_measurement || '');
+      return M.isNum(s.state) && (!u || PER_KWH.test(u));
+    }).sort()[0] || null;
+  };
+
   /* ------------------------------------------------------------ kort */
+  const TEAL = 'oklch(0.78 0.13 175)', ORANGE = 'oklch(0.74 0.17 55)', PINK = 'oklch(0.78 0.13 350)';
+  const VW = 480, VH = 150, PT = 6, PB = 6; // viewBox + innrykk topp/bunn for rutenettet
+  const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+  // «Pen» y-skala med 5 verdier (4 steg) som dekker lo..hi.
+  const scale = (lo, hi) => {
+    if (!(hi > lo)) hi = lo + 100;
+    const raw = (hi - lo) / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 3, 4, 5, 6, 8, 10, 20]) {
+      const st = m * p, y0 = Math.floor(lo / st) * st;
+      if (y0 + 4 * st >= hi - 1e-9) return { y0, st };
+    }
+    return { y0: lo, st: raw };
+  };
+
   class Strompris extends M.Card {
-    static get cardName() { return 'Hjem · strømpris'; }
-    static get defaults() { return { title: 'Strømpris', popup_hash: '#strom', price_high: 1.5, price_mid: 1.1, show_watt: true }; }
+    static get cardName() { return 'Hjem · strømpriser'; }
+    static get defaults() { return { show_norgespris: true }; }
     static get schema() {
       return [
-        { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:flash', open: true, fields: [
-          { type: 'text', name: 'title', label: 'Overskrift', placeholder: 'Strømpris' },
-          { type: 'hash', name: 'popup_hash', label: 'Popup-hash (trykk på prisen)', placeholder: '#strom' },
-          { type: 'select', name: 'day', label: 'Dag som vises først', options: [['today', 'I dag'], ['tomorrow', 'I morgen']], default: 'today' },
-          { type: 'boolean', name: 'show_watt', label: 'Vis effekt nå (W)', default: true },
-          { type: 'number', name: 'price_high', label: 'Rød søyle over (kr/kWh)', step: 0.1, placeholder: '1.5' },
-          { type: 'number', name: 'price_mid', label: 'Gul søyle over (kr/kWh)', step: 0.1, placeholder: '1.1' },
-        ] },
-        { type: 'overrides', label: 'Bytt entiteter', fields: [
-          { name: 'price', label: 'Strømpris (kr/kWh, med today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
-          { name: 'watt', label: 'Effekt nå (W)', domain: 'sensor', device_class: 'power', auto: (h) => M.kiRomId(h, null, 'effekt') },
+        { type: 'section', id: 'kort', label: 'Strømpriser', icon: 'mdi:flash', open: true, fields: [
+          { type: 'entity', name: 'entity', label: 'Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
+          { type: 'entity', name: 'norgespris_entity', label: 'Norgespris-sensor (kr/kWh)', domain: 'sensor', auto: (h) => M.norgesprisSensor(h, {}) },
+          { type: 'number', name: 'norgespris', label: 'Norgespris uten sensor (kr/kWh)', step: 0.01, placeholder: '0.50' },
+          { type: 'number', name: 'threshold', label: 'Oransje linje over (kr/kWh)', step: 0.05, placeholder: 'Norgespris', help: 'Tomt = Norgespris' },
+          { type: 'boolean', name: 'show_norgespris', label: 'Vis Norgespris', default: true },
         ] },
       ];
     }
-    get cardSize() { return 4; }
-    _lvl(p) {
+    get cardSize() { return 5; }
+    _priceId() {
       const c = this.config;
-      return p > (Number(c.price_high) || 1.5) ? C.red : p > (Number(c.price_mid) || 1.1) ? C.yellow : C.green;
+      return c.entity ? c.entity : M.priceSensor(this.hass, c);
+    }
+    _norgespris() {
+      const c = this.config, id = M.norgesprisSensor(this.hass, c), st = this.s(id);
+      if (st && M.isNum(st.state)) return { v: Number(st.state) * M.priceScale(st), id };
+      const v = num(c.norgespris);
+      return { v: v != null ? v : 0.5, id: null };
     }
     render() {
       const c = this.config, hass = this.hass, ui = this.ui;
-      const id = M.priceSensor(hass, c), st = this.s(id);
-      const wattId = M.pick(c, 'watt', M.kiRomId(hass, null, 'effekt')), watt = c.show_watt !== false ? this.n(wattId) : null;
+      const id = this._priceId(), st = this.s(id);
       const all = st ? M.priceSeries(hass, id) : Array(48).fill(null);
-      const day = ui.day || (c.day === 'tomorrow' ? 'tomorrow' : 'today'), isToday = day === 'today';
+      const hasT = all.slice(0, 24).some((v) => v != null), hasM = all.slice(24).some((v) => v != null);
+      const isToday = !(ui.day === 'tomorrow' && hasM);
       const ser = isToday ? all.slice(0, 24) : all.slice(24);
+      const has = isToday ? hasT : hasM;
       const nowH = new Date().getHours();
-      let pNow = M.priceNow(hass, id);
-      if (pNow == null && all[nowH] != null) pNow = all[nowH];
-      const has = ser.some((v) => v != null);
-      const future = ser.map((p, h) => [p, h]).filter(([p, h]) => p != null && (!isToday || h >= nowH));
-      const cheap = future.length ? future.reduce((m, x) => (x[0] < m[0] ? x : m)) : null;
-      const maxP = Math.max(0.01, ...ser.filter((v) => v != null));
-      const sel = ui.sel != null ? ui.sel : null;
-      const cheapTxt = cheap ? `Billigst kl. ${hh(cheap[1])} · ${nf2(cheap[0])} kr` : '';
-      let head;
-      if (sel != null) head = { label: `${isToday ? 'I dag' : 'I morgen'} kl. ${hh(sel)}–${hh((sel + 1) % 24)}`, v: nf2(ser[sel]), meta: isToday && sel < nowH ? 'Tidligere i dag' : cheapTxt };
-      else if (isToday) head = { label: 'Nå', v: nf2(pNow), meta: cheapTxt || (st ? '' : 'Fant ingen strømpris-sensor') };
-      else head = { label: 'Snitt i morgen', v: has ? nf2(ser.filter((v) => v != null).reduce((x, y) => x + y, 0) / ser.filter((v) => v != null).length) : '–', meta: has ? cheapTxt : 'Kommer ca. kl. 13' };
-      const bars = ser.map((p, h) => {
-        const past = isToday && h < nowH, now = isToday && h === nowH, on = sel === h;
-        if (p == null) return `<span class="b" data-key="b${h}"><i class="e"></i></span>`;
-        const hgt = Math.max(4, (p / maxP) * 100);
-        return `<span class="b" data-key="b${h}"><i style="height:${hgt.toFixed(1)}%;background:${on || (now && sel == null) ? 'var(--white,#fafafa)' : this._lvl(p)};opacity:${past && !on ? 0.3 : 1}"></i></span>`;
-      }).join('');
-      const seg = [['today', 'I dag'], ['tomorrow', 'I morgen']];
-      const di = isToday ? 0 : 1;
-      return `<section class="sp">
-        <div class="top">
-          <span class="ttl ell">${esc(c.title || 'Strømpris')}</span>
-          ${watt != null ? `<span class="w num" data-ent="${esc(wattId)}">${M.nf(watt, 0)} W</span>` : ''}
-          <div class="seg"><span class="ind" style="left:calc(3px + ${di} * (100% - 6px) / 2)"></span>${seg.map(([k, l], i) => `<button class="sg ${i === di ? 'on' : ''}" data-act="day" data-d="${k}" data-haptic="selection">${l}</button>`).join('')}</div>
+      const np = this._norgespris(), showNp = c.show_norgespris !== false;
+      const thr = num(c.threshold) != null ? num(c.threshold) : np.v;
+      const scrub = ui.sel != null && has;
+      const sel = scrub ? ui.sel : isToday && has ? nowH : null;
+
+      // Verdirad (kr/kWh)
+      let label, val;
+      if (scrub) { label = `Spot ${isToday ? 'i dag' : 'i morgen'} kl. ${hh(sel)}`; val = ser[sel]; }
+      else if (isToday) { label = 'Spot nå'; val = M.priceNow(hass, id); if (val == null) val = ser[nowH]; }
+      else { const v = ser.filter((x) => x != null); label = 'Spot snitt i morgen'; val = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+
+      // Graf (øre/kWh)
+      const ore = ser.map((v) => (v == null ? null : v * 100)), vals = ore.filter((v) => v != null);
+      const npO = np.v * 100, thrO = thr * 100;
+      const lo = Math.min(0, ...vals), hi = vals.length ? Math.max(...vals, showNp ? npO : 0) * 1.05 : 100;
+      const { y0, st: step } = scale(lo, hi), span = 4 * step;
+      const Y = (v) => PT + (1 - (v - y0) / span) * (VH - PT - PB);
+      const X = (h) => (h * VW) / 24;
+      const f1 = (n) => Math.round(n * 10) / 10;
+      const ticks = [0, 1, 2, 3, 4].map((i) => y0 + i * step);
+      const base = f1(Y(Math.max(y0, Math.min(0, y0 + span))));
+      let line = '', fill = '', runStart = null;
+      ore.forEach((v, h) => {
+        if (v == null) { if (runStart != null) fill += `V${base}Z`; runStart = null; return; }
+        const y = f1(Y(v));
+        if (runStart == null) { runStart = h; line += `M${f1(X(h))} ${y}`; fill += `M${f1(X(h))} ${base}V${y}`; } else { line += `V${y}`; fill += `V${y}`; }
+        line += `H${f1(X(h + 1))}`; fill += `H${f1(X(h + 1))}`;
+      });
+      if (runStart != null) fill += `V${base}Z`;
+      const tOff = M.clamp(Y(thrO) / VH, 0, 1).toFixed(4);
+      const grid = ticks.map((v) => `<line x1="0" x2="${VW}" y1="${f1(Y(v))}" y2="${f1(Y(v))}" class="gl"/>`).join('');
+      const gid = 'sp' + (this._gid || (this._gid = Math.random().toString(36).slice(2, 8)));
+      const svg = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gid}s" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${TEAL}"/><stop offset="1" stop-color="${TEAL}"/></linearGradient>
+          <linearGradient id="${gid}f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}" stop-opacity="0.28"/><stop offset="${tOff}" stop-color="${ORANGE}" stop-opacity="0.12"/><stop offset="${tOff}" stop-color="${TEAL}" stop-opacity="0.14"/><stop offset="1" stop-color="${TEAL}" stop-opacity="0"/></linearGradient>
+        </defs>
+        ${grid}
+        ${has ? `<path class="fill" d="${fill}" fill="url(#${gid}f)"/>
+        <path class="spot" d="${line}" stroke="url(#${gid}s)"/>
+        ${showNp ? `<line class="np" x1="0" x2="${VW}" y1="${f1(Y(npO))}" y2="${f1(Y(npO))}"/>` : ''}` : ''}
+      </svg>`;
+      let marker = '';
+      if (sel != null && ore[sel] != null) {
+        const col = ore[sel] > thrO ? ORANGE : TEAL, top = (Y(ore[sel]) / VH) * 100, left = ((sel + 0.5) / 24) * 100;
+        marker = `<span class="band" style="left:${((sel / 24) * 100).toFixed(3)}%"></span>
+          <span class="halo" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:color-mix(in oklch, ${col} 30%, transparent)"></span>
+          <span class="dot" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:${col}"></span>`;
+      }
+      const yax = ticks.map((v) => `<span style="top:${((Y(v) / VH) * 100).toFixed(2)}%">${M.nf(v, step % 1 ? 1 : 0)}</span>`).join('');
+      const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
+      const seg = [['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]];
+      return `<div class="sp">
+        <div class="hdr">
+          <span class="ttl ell">Strømpriser</span>
+          <div class="seg" role="tablist">${seg.map(([k, l, ok]) => {
+            const on = (k === 'today') === isToday;
+            return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
+          }).join('')}</div>
         </div>
-        <button class="hd" data-act="open" ${id ? `data-ent="${esc(id)}"` : ''}>
-          <span class="lb">${esc(head.label)}</span>
-          <span class="v num">${esc(head.v)}<small> kr/kWh</small></span>
-          <span class="meta ell">${esc(head.meta || '')}</span>
-        </button>
-        ${st ? '' : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}
-        <div class="bars" role="img" aria-label="Strømpris per time ${isToday ? 'i dag' : 'i morgen'}">${bars}
-          ${sel != null ? `<span class="band" style="left:${(sel / 24) * 100}%"></span>` : ''}</div>
-        <div class="xa num"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
-      </section>`;
+        <div class="srf">
+          <div class="vr">
+            <div class="vc" ${id ? `data-ent="${esc(id)}"` : ''}>
+              <span class="lb">${esc(label)}</span>
+              <span class="v num">${nf2(val)}<small> kr/kWh</small></span>
+            </div>
+            ${showNp ? `<div class="vc r" ${np.id ? `data-ent="${esc(np.id)}"` : ''}>
+              <span class="lb">Norgespris</span>
+              <span class="v num np">${nf2(np.v)}<small> kr/kWh</small></span>
+            </div>` : ''}
+          </div>
+          <div class="lg"><span class="li"><i style="background:${TEAL}"></i>Nord Pool spot</span>${showNp ? `<span class="li"><i style="background:${PINK}"></i>Norgespris</span>` : ''}<span class="unit">øre/kWh</span></div>
+          <div class="gr">
+            <div class="ya num">${yax}</div>
+            <div class="plot" role="img" aria-label="Spotpris per time ${isToday ? 'i dag' : 'i morgen'} i øre/kWh">${svg}${marker}
+              ${st ? '' : `<button class="pick" data-act="customize" data-section="kort">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
+          </div>
+          <div class="xa num">${xax}</div>
+        </div>
+      </div>`;
     }
     onAction(name, el, ev) {
-      if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null });
-      if (name === 'open') { if (this._dragged) { this._dragged = false; return; } return M.openPopup(this.config.popup_hash || '#strom'); }
+      if (name === 'day') { if (el.disabled) return; return this.setUI({ day: el.dataset.d, sel: null }); }
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      const b = this.shadowRoot.querySelector('.bars');
-      if (!b || b.__b) return;
-      b.__b = true;
-      let t = null;
-      M.drag(b, {
-        axis: 'x',
-        onStart: () => { clearTimeout(t); this._busy = false; },
-        onMove: (f) => { const i = M.clamp(Math.floor(f * 24), 0, 23); if (i !== this.ui.sel) this.setUI({ sel: i }); },
-        onEnd: () => { clearTimeout(t); t = setTimeout(() => this.setUI({ sel: null }), 2500); },
+      const p = this.shadowRoot.querySelector('.plot');
+      if (!p || p.__sc) return;
+      p.__sc = true;
+      M.guardDrag(p, 'x'); // touch-action: pan-y + stopPropagation (Bubble Card swipe-to-close)
+      let down = false;
+      const pick = (e) => {
+        const r = p.getBoundingClientRect();
+        if (!r.width || !p.querySelector('path.spot')) return;
+        const h = M.clamp(Math.floor(((e.clientX - r.left) / r.width) * 24), 0, 23);
+        if (h !== this.ui.sel) { M.haptic('selection'); this.setUI({ sel: h }); }
+      };
+      const reset = () => { down = false; if (this.ui.sel != null) this.setUI({ sel: null }); };
+      p.addEventListener('pointerdown', (e) => {
+        if (e.button || (e.target.closest && e.target.closest('button'))) return;
+        down = true;
+        try { p.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        pick(e);
       });
+      p.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e); });
+      p.addEventListener('pointerup', reset);
+      p.addEventListener('pointercancel', reset);
+      p.addEventListener('pointerleave', reset);
     }
     get styles() {
       return `
-        .sp{display:flex;flex-direction:column;gap:10px;padding:18px 18px 14px;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04)}
-        .top{display:flex;align-items:center;gap:10px;min-width:0}
-        .ttl{flex:1;min-width:0;font-size:15px;font-weight:500}
-        .w{font-size:13px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:12px;background:var(--gray000,#232323);flex:none}
-        .ind{position:absolute;top:3px;bottom:3px;width:calc((100% - 6px) / 2);border-radius:9px;background:${C.accent};transition:left .45s cubic-bezier(.34,1.4,.64,1)}
-        .sg{position:relative;z-index:1;height:30px;padding:0 12px;border-radius:9px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--gray700,#979797);transition:color .25s}
-        .sg.on{color:var(--gray100,#2f2f2f)}
-        .hd{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;min-width:0}
-        .lb{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .v{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1;white-space:nowrap}
-        .v small{font-size:13px;letter-spacing:0;color:var(--gray600,#7f7f7f)}
-        .meta{font-size:12px;color:var(--gray700,#979797);max-width:100%;min-height:15px}
-        .pick{align-self:flex-start}
-        .bars{position:relative;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;height:96px;padding-top:6px;cursor:crosshair;touch-action:none}
-        .b{display:flex;align-items:flex-end;height:100%;min-width:0}
-        .b i{display:block;width:100%;border-radius:4px;transition:background .2s,height .3s}
-        .b i.e{height:8%;background:var(--gray300,#404040)}
-        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.08);pointer-events:none;transition:left .12s}
-        .xa{display:flex;justify-content:space-between;font-size:10px;color:var(--gray500,#696969)}
+        .sp{display:flex;flex-direction:column;gap:12px}
+        .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+        .ttl{min-width:0;font-size:18px;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#303030;flex:none}
+        .sg{height:30px;padding:0 20px;border-radius:15px;font-size:14px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
+        .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+        .sg:disabled{opacity:.4;cursor:default}
+        .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030}
+        .vr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+        .vc{display:flex;flex-direction:column;gap:4px;min-width:0}
+        .vc.r{align-items:flex-end;text-align:right}
+        .lb{font-size:12px;color:#8e8d89;white-space:nowrap}
+        .v{font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1.05;white-space:nowrap}
+        .v small{font-size:13px;letter-spacing:0;color:#8e8d89}
+        .v.np{color:${PINK}}
+        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap}
+        .li{display:inline-flex;align-items:center;gap:6px}
+        .li i{display:block;width:14px;height:2.5px;border-radius:2px}
+        .unit{margin-left:auto;color:#6d6c69}
+        .gr{display:flex;gap:6px;height:150px}
+        .ya{position:relative;flex:none;width:20px;font-size:9px;color:#6d6c69}
+        .ya span{position:absolute;right:0;transform:translateY(-50%);line-height:1;white-space:nowrap}
+        .plot{position:relative;flex:1;min-width:0;height:150px;cursor:crosshair;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+        .plot svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+        .plot svg *{vector-effect:non-scaling-stroke}
+        .gl{stroke:rgba(255,255,255,0.07);stroke-width:1}
+        .spot{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+        .np{stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
+        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.12);pointer-events:none;transition:left .15s}
+        .halo,.dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;transition:left .15s,top .15s,background .15s}
+        .halo{width:34px;height:34px}
+        .dot{width:14px;height:14px;box-shadow:0 0 0 3px #303030}
+        .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+        .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:#6d6c69}
+        .xa span{position:absolute;top:0;transform:translateX(-50%);line-height:11px}
+        .xa span:first-child{transform:none}
+        .xa span:last-child{transform:translateX(-100%)}
       `;
     }
   }
-  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpris', 'Strømpris nå, søyler per time i dag / i morgen, billigste time og dra for å se en time. Trykk åpner #strom.');
+  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpriser', 'Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.');
 })();

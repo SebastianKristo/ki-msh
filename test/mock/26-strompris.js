@@ -14,6 +14,12 @@ window.mockExtend(({ add, areas }) => {
   // Pris-sensoren (erstatter den enkle i mock-hass.js): nåpris + raw_today/raw_tomorrow ({start,end,value}) og tall-lister
   add('sensor.nordpool_kwh', now, { unit_of_measurement: 'NOK/kWh', friendly_name: 'Strømpris', today: SPOT.map(price), tomorrow: TMR.map(price), raw_today: raw(SPOT, 0), raw_tomorrow: raw(TMR, 1), tomorrow_valid: true }, { platform: 'nordpool' });
 
+  // Norgespris-sensor (kr/kWh) – finnes via sensor.*norgespris*
+  add('sensor.norgespris', 0.5, { unit_of_measurement: 'NOK/kWh', friendly_name: 'Norgespris' });
+  // Pris-sensor uten morgendagens priser, i dag som 96 kvarterpriser (spot i kr/kWh) – velges kun via config entity
+  const Q = []; SPOT.forEach((v) => { for (let q = 0; q < 4; q++) Q.push(Math.round((v + (q - 1.5) * 0.02) * 1000) / 1000); });
+  add('sensor.strompris_uten_morgen', SPOT[new Date().getHours()], { unit_of_measurement: 'NOK/kWh', friendly_name: 'Spot uten i morgen', today: Q, tomorrow: [], raw_tomorrow: [], tomorrow_valid: false });
+
   // KI Rom: temperatur som TALL (kontor) og som entity_id-STRENG + fukt som liste (vaskerom)
   areas.kontor = { area_id: 'kontor', name: 'Kontor', icon: 'mdi:desk', floor_id: 'andre', picture: null };
   areas.vaskerom = { area_id: 'vaskerom', name: 'Vaskerom', icon: 'mdi:washing-machine', floor_id: 'andre', picture: null };
