@@ -1342,12 +1342,109 @@ try {
   let lastHaptic = 0;
   MSH.haptic = function (type) {
     type = HP[type] ? type : 'light';
-    try { if (localStorage.getItem('haptic') === 'off') return; } catch (e) { /* */ }
+    if (MSH.hapticOff()) return; // Fiks 18.5: av på denne enheten → verken haptic-event eller vibrate
     const now = Date.now();
     if (now - lastHaptic < 40) return;
     lastHaptic = now;
     try { window.dispatchEvent(new CustomEvent('haptic', { detail: type, bubbles: true, composed: true })); } catch (e) { /* */ }
     try { navigator.vibrate && navigator.vibrate(HP[type]); } catch (e) { /* */ }
+  };
+
+  /* ------------------------------------------------------------ enhet (Fiks 18.5 / 18.6) */
+  // Modell: navigator.userAgentData (høy entropi, async – mellomlagres i localStorage ki-device-model) ellers UA.
+  let devModel = '';
+  try { devModel = localStorage.getItem('ki-device-model') || ''; } catch (e) { /* */ }
+  try {
+    const uad = navigator.userAgentData;
+    if (uad && uad.getHighEntropyValues) {
+      uad.getHighEntropyValues(['model']).then((v) => {
+        const m = v && String(v.model || '').trim();
+        if (!m || m === devModel) return;
+        devModel = m;
+        try { localStorage.setItem('ki-device-model', m); } catch (e) { /* */ }
+        window.dispatchEvent(new CustomEvent('ki-device-info'));
+      }).catch(() => {});
+    }
+  } catch (e) { /* */ }
+  // { model, os, label } – label «Pixel 9 Pro · Android», «iPhone · iOS», ellers «Ukjent enhet»
+  MSH.deviceInfo = function () {
+    const ua = navigator.userAgent || '';
+    const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const os = ipad ? 'iPadOS' : /iPhone|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh|Mac OS X/.test(ua) ? 'macOS' : /Linux|CrOS/.test(ua) ? 'Linux' : '';
+    let model = devModel;
+    if (!model && os === 'Android') {
+      const m = ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build\/[^;)]*)?\s*(?:;|\))/);
+      if (m && m[1] && m[1].length > 1 && !/^(wv|K|Mobile)$/i.test(m[1])) model = m[1].trim();
+    }
+    if (!model && os === 'iOS') model = 'iPhone';
+    if (!model && ipad) model = 'iPad';
+    return { model, os, label: model ? model + (os ? ' · ' + os : '') : os || 'Ukjent enhet' };
+  };
+  // browser_mod-ID (samme form som MSH.store.deviceId) eller null når browser_mod ikke finnes
+  MSH.bmId = function () {
+    try {
+      const bm = localStorage.getItem('browser_mod-browser-id');
+      return bm ? String(bm).replace(/^"|"$/g, '').replace(/[^\w-]/g, '_') : null;
+    } catch (e) { return null; }
+  };
+
+  // Fiks 18.5 · haptisk feedback av per enhet: localStorage ki-haptic-off = '1' (+ ki-store haptic_off_devices: [browser_id])
+  MSH.hapticOff = function () {
+    let off = false;
+    try { off = localStorage.getItem('ki-haptic-off') === '1' || localStorage.getItem('haptic') === 'off'; } catch (e) { /* */ }
+    if (!off && MSH.store) {
+      const id = MSH.bmId(), L = id ? MSH.store.get('haptic_off_devices') : null;
+      if (Array.isArray(L) && L.includes(id)) { off = true; try { localStorage.setItem('ki-haptic-off', '1'); } catch (e) { /* */ } }
+    }
+    window.__kiHapticOff = off;
+    return off;
+  };
+  // Lagres straks (ikke med i Tilpass-arkets Ferdig/Avbryt)
+  MSH.setHapticOff = function (off) {
+    try { if (off) localStorage.setItem('ki-haptic-off', '1'); else { localStorage.removeItem('ki-haptic-off'); localStorage.removeItem('haptic'); } } catch (e) { /* */ }
+    const id = MSH.bmId();
+    if (id && MSH.store) {
+      const L = (MSH.store.get('haptic_off_devices') || []).filter((x) => x !== id);
+      if (off) L.push(id);
+      MSH.store.set('haptic_off_devices', L.length ? L : undefined, { now: true, immediate: true });
+    }
+    return MSH.hapticOff();
+  };
+  // Bubble Cards / HAs egne haptic-eventer: stoppes tidlig (capture på window) når haptic er av på denne enheten
+  if (!window.__kiHapticGuard) {
+    window.__kiHapticGuard = true;
+    window.addEventListener('haptic', (e) => { if (MSH.hapticOff()) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
+  }
+  MSH.hapticOff();
+
+  // Fiks 18.6 · navbarens avstand fra bunnen per enhet: localStorage ki-nav-bottom (+ ki-store nav_bottom_devices.<browser_id>)
+  MSH.navBottomDefault = function () {
+    const ua = navigator.userAgent || '', d = MSH.deviceInfo(), s = d.model + ' ' + ua;
+    if (d.os === 'iOS') return 0;
+    if (d.os === 'iPadOS') return 12;
+    if (/OnePlus|\bCPH2\d{3}\b|\bPJ[A-Z]\d{3}\b|\bPJ[A-Z0-9]{4}\b/i.test(s)) return 20;
+    if (d.os === 'Android') return 16; // Pixel 9 Pro / Pixel 9 Pro Fold lukket / annen Android
+    return 8;
+  };
+  // Egen verdi på denne enheten (px) eller null
+  MSH.navBottomOwn = function () {
+    let v = null;
+    try { const s = localStorage.getItem('ki-nav-bottom'); if (s != null && s !== '' && !isNaN(Number(s))) v = Number(s); } catch (e) { /* */ }
+    if (v == null && MSH.store) {
+      const id = MSH.bmId(), sv = id ? MSH.store.get('nav_bottom_devices.' + id) : null;
+      if (sv != null && !isNaN(Number(sv))) { v = Number(sv); try { localStorage.setItem('ki-nav-bottom', String(v)); } catch (e) { /* */ } }
+    }
+    return v == null ? null : Math.max(0, Math.min(48, Math.round(v)));
+  };
+  MSH.navBottom = () => { const v = MSH.navBottomOwn(); return v == null ? MSH.navBottomDefault() : v; };
+  // v = px eller null (Standard). save=false: bare live (under dra); save=true: lagres straks
+  MSH.setNavBottom = function (v, save) {
+    const n = v == null || v === '' ? null : Math.max(0, Math.min(48, Math.round(Number(v))));
+    try { if (n == null) localStorage.removeItem('ki-nav-bottom'); else localStorage.setItem('ki-nav-bottom', String(n)); } catch (e) { /* */ }
+    const id = MSH.bmId();
+    if (save !== false && id && MSH.store) MSH.store.set('nav_bottom_devices.' + id, n == null ? undefined : n, { now: true, immediate: true });
+    window.dispatchEvent(new CustomEvent('ki-nav-bottom'));
+    return n;
   };
 
   /* ------------------------------------------------------------ hass-hjelpere */
@@ -1625,6 +1722,17 @@ try {
     const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
     return W >= 1000 || (touch && W >= 680);
   };
+  // Fiks 18.4/18.7: Fold-oppsettet (designets isFold) = telefon-innholdet i én kolonne i full bredde + vertikal navbar
+  // til venstre. Containerbredde ≥ 1000 px, eller berøringsenhet med bredde ≥ 600 px (Fold åpen, iPad, PC). Erstatter
+  // den brede griden (isWide brukes ikke lenger til layout). w = containerens bredde, ikke vinduets.
+  MSH.isFold = function (w) {
+    const W = w != null ? w : MSH.dashRect().width;
+    const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
+    return W >= 1000 || (touch && W >= 600);
+  };
+  // Vertikal navbar (rail): bredde (10 + 60 + 10) og avstand til dashbordkanten. Innholdet får padding-left = w + 2 × gap.
+  MSH.RAIL = { w: 80, gap: 20 };
+  MSH.railPad = () => MSH.RAIL.w + 2 * MSH.RAIL.gap;
 
   /* ------------------------------------------------------------ portal/overlegg */
   // Overlegg (ark, tastatur, tilpasning) portales til document.body og plasseres mot dashbordflaten,
@@ -1978,8 +2086,10 @@ try {
     const gl = glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
-    const R = MSH.dashRect();
-    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto' });
+    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) dekker arket bare innholdsflaten til høyre for railen
+    const railX = () => (MSH.railOn && MSH.railPad ? MSH.railPad() : 0);
+    const R = MSH.dashRect(), rx = railX();
+    Object.assign(host.style, { position: 'fixed', left: R.left + rx + 'px', top: '0', width: R.width - rx + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
     const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
@@ -2031,7 +2141,7 @@ try {
     if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + x + 'px'; host.style.width = D.width - x + 'px'; };
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
@@ -2044,14 +2154,14 @@ try {
   // Bekreftelsesmelding: 44 px pill, #e1e1e1 / #232323, top 106 px, sentrert i dashbordflaten, 2,2 s.
   MSH.toast = function (text, opts) {
     if (opts && opts.enabled === false) return;
-    const R = MSH.dashRect();
+    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0; // fiks 18.4: midt på innholdsflaten
     const old = MSH.overlayRoot().querySelector('#msh-toast');
     if (old) old.remove();
     const t = document.createElement('div');
     t.id = 'msh-toast';
     t.textContent = text;
     Object.assign(t.style, {
-      position: 'fixed', top: '106px', left: R.left + R.width / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
+      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
       display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 14px ${MSH.FONT}`,
       boxShadow: '0 12px 30px rgba(0,0,0,0.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none',
     });
@@ -2062,7 +2172,8 @@ try {
 
   /* ------------------------------------------------------------ karusell-prikker (Fiks 17.12/17.17/17.30) */
   // Felles for ALLE sveip-karuseller (Hjem-romkort/flis-stabler, Rom → Klima/Media, Media-hero, Vær).
-  // Prikkene er knapper med 32×32 treffflate (synlig prikk via ::after, størrelse/farge via --dot-*-variabler).
+  // Prikkene er knapper like store som prikken (10 px, aktiv 12 px, gap 8 px – Hjem v3 «hasDots»); treffflaten
+  // (32 px høy) ligger i ::before (inset −11px −4px), så den ikke påvirker avstanden (18.3). Størrelse/farge via --dot-*.
   // Trykk → go(i) (mykt, «auto» ved prefers-reduced-motion), haptic light, stopPropagation (åpner ikke kortet
   // under), trykk på aktiv prikk gjør ingenting, ←/→ når raden har fokus. Aktiv prikk settes rett i DOM-en
   // (MSH.setDots) – ALDRI re-render av kortet mens man sveiper (17.17).
@@ -2425,11 +2536,11 @@ try {
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:13px;text-align:center}
     .pick{height:36px;padding:0 14px;border-radius:18px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
-    .dots.msh-dots{gap:0;justify-content:center;outline:none;border-radius:16px}
+    .dots.msh-dots{display:flex;gap:8px;height:14px;align-items:center;justify-content:center;outline:none;border-radius:16px}
     .msh-dots:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
-    .msh-dot{flex:none;width:32px;height:32px;display:grid;place-items:center;cursor:pointer;border-radius:16px;-webkit-tap-highlight-color:transparent}
-    .msh-dot::after{content:'';width:var(--dot-w,9px);height:var(--dot-h,var(--dot-w,9px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray300,#404040));transition:background .2s,width .2s,height .2s}
-    .msh-dot.on::after{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray500,#696969))}
+    .msh-dot{flex:none;position:relative;width:var(--dot-w,10px);height:var(--dot-h,var(--dot-w,10px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray400,#545454));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s,width .2s,height .2s}
+    .msh-dot.on{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray600,#7f7f7f))}
+    .msh-dot::before{content:'';position:absolute;inset:-11px -4px} /* 18.3: treffflate utenfor layouten, naboene møtes i gap-midten */
   `;
 
   /* ------------------------------------------------------------ basekort */
@@ -8057,7 +8168,7 @@ try {
  * Plasseres mot dashbordflaten – aldri vinduet:
  *   mobil  = bunn (8 px over bunnen / safe area), sentrert i dashbordflaten, bredde min(flate − 28, 392), høyde 68
  *            (liquid glass: 64 – padding 4, kapsel 56 × én fane, radius 32/28, ikon 22, navn 11/600)
- *   bred   = vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren), zoom opptil 1,8×
+ *   bred   = vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren), Fold-oppsettet (MSH.isFold), ingen zoom
  * Knapper åpner Bubble Card-popups via hash. Åpen popup (location.hash = knappens hash) markeres med en prikk under
  * ikonet (standard: #232323); liquid glass: ingen prikk, rosa ikon + mørk glass-kapsel som følger valgt fane.
  * Liquid glass speiles til <html data-ki-glass> (MSH.glassOn) → «Mer»-menyen og alle Tilpass-ark blir glass (MSH.glassSurface).
@@ -8285,7 +8396,7 @@ try {
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px))}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:var(--ki-nav-bottom, 8px)}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
     nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
@@ -8352,8 +8463,7 @@ try {
       return [
         { type: 'navbar' },
         { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
-          { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): bred ≥ 1000 px (iPad ≥ 700 px) = vertikal rail til venstre.' },
-          { type: 'range', name: 'bottom_offset', label: 'Avstand fra bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 60, default: 8, unit: 'px', presets: [[0, 'Inntil 0'], [8, 'Standard 8'], [24, 'Høy 24']] },
+          { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): ≥ 1000 px, eller berøring ≥ 600 px (Fold åpen, iPad) = vertikal rail til venstre.' },
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
@@ -8378,6 +8488,9 @@ try {
       window.addEventListener('location-changed', this._onHashNav);
       window.addEventListener('popstate', this._onHashNav);
       window.addEventListener('resize', this._onResize);
+      window.addEventListener('ki-nav-bottom', this._onResize); // Fiks 18.6: slideren i Tilpass navbar (live)
+      window.addEventListener('ki-device-info', this._onResize);
+      window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
       window.addEventListener('scroll', this._onScroll, { passive: true });
     }
     disconnectedCallback() {
@@ -8387,6 +8500,9 @@ try {
       window.removeEventListener('location-changed', this._onHashNav);
       window.removeEventListener('popstate', this._onHashNav);
       window.removeEventListener('resize', this._onResize);
+      window.removeEventListener('ki-nav-bottom', this._onResize);
+      window.removeEventListener('ki-device-info', this._onResize);
+      window.removeEventListener('msh-tcol', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
@@ -8401,6 +8517,7 @@ try {
       document.documentElement.style.setProperty('--ki-mini-h', '0px');
       this._mShow = false;
       if (this._portal) { this._portal.remove(); this._portal = null; }
+      this._railVars(false);
       this._reserve(null);
       if (this.ui.menu) this._ui = { ...this._ui, menu: false };
     }
@@ -8474,7 +8591,7 @@ try {
       const p = this.config.layout || 'auto';
       if (p === 'mobil') return false;
       if (p === 'stor') return true;
-      return M.isWide(w); // fiks 17.20: ≥ 1000 px, berøring ≥ 680 px (Fold/nettbrett)
+      return M.isFold(w); // fiks 18.7: Fold-oppsettet – ≥ 1000 px, berøring ≥ 600 px (Fold åpen, iPad, PC)
     }
     _zoom(w) {
       const vh = window.innerHeight || 900;
@@ -8512,7 +8629,7 @@ try {
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
-      else if (rail) style = `left:${geo.left + 20}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
+      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
       else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
@@ -8566,7 +8683,7 @@ try {
       this._syncGlass();
       this.s('zone.__msh_navbar'); // fast avhengighet: rendres kun når badge-entiteter endres
       const R = this._dash(), rail = this._wide(R.width);
-      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: rail ? this._zoom(R.width) : 1 };
+      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: 1 }; // fiks 18.7: ingen zoom
       if (this._inline) {
         if (this._portal) { this._portal.remove(); this._portal = null; }
         this._reserve(null);
@@ -8580,7 +8697,8 @@ try {
 
     _renderPortal(N, geo) {
       // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
-      const off = geo.rail ? 0 : this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
+      // Fiks 18.6: per enhet (MSH.navBottom – egen verdi eller enhetens standard), uten effekt som rail
+      const off = geo.rail ? 0 : M.navBottom();
       if (document.documentElement.style.getPropertyValue('--ki-nav-bottom') !== off + 'px') document.documentElement.style.setProperty('--ki-nav-bottom', off + 'px');
       if (!this._portal) {
         const p = document.createElement('div');
@@ -8604,6 +8722,7 @@ try {
         this._pFirst = true;
       }
       // Helst inni kortet (følger dashbordet); document.body kun når en forelder ødelegger position: fixed.
+      this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
@@ -8691,12 +8810,16 @@ try {
       const ci = Math.max(0, L.indexOf(this._mCur));
       const W = Math.round(Math.min(geo.width - 28, 392));
       let pos;
-      if (geo.rail) pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);transform:translateX(-50%) translateY(var(--mo,0px))`;
+      if (geo.rail) {
+        // Fiks 18.4/18.8: nederst til høyre, nøyaktig over høyre fliskolonne i Hjem (målt av msh-hjem-faner-card → M.hjemTCol)
+        const T = this._tCol(geo);
+        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px))`;
+      }
       else {
         // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
         const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
         const dy = compact ? nh * 0.2 + 6.4 : 0;
-        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
       }
       const vo = this._mVolV;
       const rows = L.map((id) => {
@@ -8726,6 +8849,23 @@ try {
       }).join('');
       const dots = L.length > 1 ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
       return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+    }
+    // Høyre fliskolonne (fiks 18.8): målt verdi (siste måling beholdes på andre faner), ellers utregningen fra 18.4:
+    // bredde (innholdsbredde − 8) / 2 (min. 260), høyrekant = innholdets padding-right (18).
+    _tCol(geo) {
+      const T = M.hjemTCol;
+      if (T && T.width > 0) return T;
+      const cw = geo.width - M.railPad() - 18, w = Math.max(260, (cw - 8) / 2);
+      return { left: Math.round(geo.left + geo.width - 18 - w), width: Math.round(w) };
+    }
+    // Fiks 18.4: popups (Bubble Card) og ark sentreres på innholdsflaten til høyre for railen og dekker den ikke.
+    // Bubble leser --bubble-content-inline-start (arves fra dashbordelementet); egne ark leser M.railOn.
+    _railVars(rail, geo) {
+      M.railOn = !!rail;
+      const el = this._dEl;
+      if (!el || !el.style) return;
+      const v = rail ? Math.round(geo.left + M.railPad()) + 'px' : '';
+      if (el.style.getPropertyValue('--bubble-content-inline-start') !== v) { if (v) el.style.setProperty('--bubble-content-inline-start', v); else el.style.removeProperty('--bubble-content-inline-start'); }
     }
     // Hendelser i mini-spilleren (kobles én gang på portalens shadow root)
     _miniBind(sr) {
@@ -9020,6 +9160,12 @@ try {
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
     .trk.on .knb{left:23px;background:#2f2f2f}
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a}
+    .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#3a3a3a}
+    .nbbot .ln{display:flex;align-items:center;gap:10px}
+    .nbbot input[type=range]{flex:1;min-width:0;accent-color:#f285c9;touch-action:none;cursor:pointer}
+    .nbbot .nbbv{flex:none;min-width:48px;text-align:right;font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
+    .nbbot .rsb{flex:none;height:36px;padding:0 14px;border-radius:18px}
+    :host([glass]) .nbbot{${M.glassSurface('row')}}
     .wseg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf}
     .wseg button.on{background:${PINK};color:#2f2f2f}
     .profs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -9044,6 +9190,16 @@ try {
   class NavEditor extends Base {
     constructor() {
       super();
+      // Fiks 18.6: «Avstand fra bunnen» oppdaterer navbaren live mens man drar (lagres ved slipp i _change)
+      this.shadowRoot.addEventListener('input', (e) => {
+        const t = e.target;
+        if (!t.dataset || !t.dataset.nbbot) return;
+        M.setNavBottom(t.value, false);
+        const lb = t.parentNode && t.parentNode.querySelector('.nbbv');
+        if (lb) lb.textContent = t.value + ' px';
+      });
+      // Fallgruve 2: dra i slideren skal ikke nå popupen/arket under
+      ['pointerdown', 'touchstart', 'touchmove'].forEach((ev) => this.shadowRoot.addEventListener(ev, (e) => { if (e.target && e.target.dataset && e.target.dataset.nbbot) e.stopPropagation(); }, { passive: true }));
       // Ikonvelger (msh-icon-field) og «Handling» (msh-tap-picker) sender value-changed
       this.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.composedPath().find((n) => n.dataset && (n.dataset.nbicon || n.dataset.nbtap));
@@ -9162,6 +9318,7 @@ try {
         ${tog('Krymp ved scrolling', 'shrink', c.shrink !== false)}
         <span class="gt">Bredde</span>
         <div class="wseg">${[['kompakt', 'Kompakt'], ['std', 'Standard'], ['full', 'Full']].map(([k, l]) => `<button class="${W === k ? 'on' : ''}" aria-selected="${W === k}" data-a="nbw" data-v="${k}">${l}</button>`).join('')}</div>
+        ${this._nbBottom()}
         <span class="gt">Stil</span>
         <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
@@ -9170,6 +9327,15 @@ try {
         <span class="gt">Mini-spiller</span>
         ${this._mini(c)}
       </div>`;
+    }
+    // Fiks 18.6 · «Avstand fra bunnen» – per enhet (MSH.navBottom, localStorage ki-nav-bottom + ki-store), ikke kortets config
+    _nbBottom() {
+      if (!M.navBottom) return '';
+      const own = M.navBottomOwn(), def = M.navBottomDefault(), v = own == null ? def : own, dev = M.deviceInfo().model || M.deviceInfo().label;
+      const rail = document.documentElement.style.getPropertyValue('--ki-nav-h') === '0px';
+      return `<span class="gt">Avstand fra bunnen</span>
+        <div class="nbbot" data-key="nbbot"><div class="ln"><input type="range" min="0" max="48" step="1" value="${v}" data-nbbot="1" aria-label="Avstand fra bunnen"><span class="nbbv num">${v} px</span></div>
+        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare ${esc(dev)} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
     }
     // «Mini-spiller» (Fiks 17.26): navbar.mini – samme felt i «Tilpass navbar» og GUI-editoren (samme element)
     _mini(c) {
@@ -9233,6 +9399,7 @@ try {
           if (!next.length) return undefined; // minst én spiller
           return this._set('mini.players', next.length === all.length ? undefined : next);
         }
+        case 'nbbotstd': M.setNavBottom(null, true); return this._render(); // Fiks 18.6: enhetens standard igjen
         case 'nbtheme': M.setGlassTheme(d.v === '1'); return this._render(); // ki-store theme.liquid_glass – ikke kortets config
         default:
       }
@@ -9240,6 +9407,7 @@ try {
     }
     _change(e) {
       const t = e.target;
+      if (t.dataset && t.dataset.nbbot) { M.setNavBottom(Number(t.value) === M.navBottomDefault() ? null : t.value, true); M.haptic('light'); return this._render(); } // Fiks 18.6: lagres ved slipp
       if (t.dataset && t.dataset.search && t.dataset.act === 'nbment') {
         const v = t.value.trim();
         if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) { this._q = {}; this._menu = null; this._set('mini.entity', v); }
@@ -11070,9 +11238,13 @@ try {
   // Fiks 17.13/17.15: Hilsen og Sted = én rad, stor tittel + store bilder med status-merker (designets faces «hil»)
   const isHil = (m) => m === 'hilsen' || m === 'sted';
   const HIL_DEF = { hFont: 58, hAv: 62, hBadge: 24, hGap: 10, hTGap: 16 };
-  const hilSizes = (c) => {
+  // Fiks 18.4: i Fold-oppsettet (fold = true) skaleres tekst, bilder og merker med 0,72 og mellomrom mellom bildene med 0,8
+  // (58 → 42, 62 → 45, 24 → 17 px) – oppå brukerens egne verdier; config endres ikke.
+  const hilSizes = (c, fold) => {
     const n = (k, lo, hi) => { const v = c && c[k] != null && c[k] !== '' ? Number(c[k]) : NaN; return isNaN(v) ? HIL_DEF[k] : Math.min(hi, Math.max(lo, v)); };
-    return { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    if (fold) { S.font = Math.round(S.font * 0.72); S.av = Math.round(S.av * 0.72); S.badge = Math.round(S.badge * 0.72); S.gap = Math.round(S.gap * 0.8); }
+    return S;
   };
   // Estimert tekstbredde i em (samme tegnvekt-estimat som Stor hilsen)
   const emWidth = (t) => [...String(t || '')].reduce((a, ch) => a + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0);
@@ -11245,6 +11417,8 @@ try {
       const t = s.attributes.temperature;
       return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}` };
     }
+    // Fiks 18.4/18.7: Fold-oppsett? Satt av msh-hjem-card (mshFold); frittstående header måler dashbordflaten selv.
+    _isFold() { return this.mshFold != null ? !!this.mshFold : !!(M.isFold && M.isFold()); }
     render() {
       const c = this.config, h = this.hass, Md = modeOf(c);
       const rd = (id) => this.s(id);
@@ -11258,7 +11432,7 @@ try {
       const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
       const W = this._weather();
       const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
-      const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c);
+      const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
       const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
@@ -11614,7 +11788,7 @@ try {
     _hFitNow() {
       const R = this.shadowRoot, sp = R.querySelector('.hil .ttl .tx'), cl = R.querySelector('.hil .lc');
       if (!sp || !cl || !sp.isConnected) return;
-      const HS = hilSizes(this.config), cur = this._hFit || {};
+      const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, colW = cl.clientWidth;
       if (!tw || !colW) return;
       const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0; // offset*/client* = uten CSS-zoom (bred layout)
@@ -11704,6 +11878,8 @@ try {
  *   standard-config (SEC_STD) i getStubConfig og fylt inn for manglende nøkler (exclude: [pris] / pris: false = av).
  *   Hver seksjon vises bare når entiteten finnes. Rekkefølge: rekkefolge[] (standard vær → hjemkomst → ringeklokke →
  *   apparater → planter → pris → setninger (prose[]) → bursdag). Aktive vær/pris-seksjoner erstatter standardprosaens vær/pris.
+ * Fiks 18.1: aktive vær/pris-seksjoner erstatter også lagrede vær/pris-setninger i prose[] (cleanProse, migreres og lagres én gang),
+ *   eldre weather/price/strom-nøkler → vaer/pris, hver fast kilde maks én gang, og «og vi bruker …» fortsetter pris-setningen.
  *   planter: KI Planter-steder via entitetsregisteret (platform ki_planter) eller attributtet integrasjon: ki_planter;
  *   sensor.<sted>_planter_trenger_vann (antall, trenger_vann[], trenger_vann_tekst). Trykk → path (#planter),
  *   hold → «Merk alle som vannet?» → button.<sted>_planter_alle_vannet. Maler: {pille}/{planter}, {navn}, {antall}, {sted}.
@@ -11875,22 +12051,48 @@ try {
   function defaultProse(h, c, skip) {
     const S = { ...sources(h, c) };
     // Fiks 17.9: vær/pris vises av seksjonene når de er aktive – ikke dobbelt
+    // Fiks 18.1: aktiv pris-seksjon = prisen finnes; effekt/lys fortsetter pris-setningen («… kr og vi bruker …»)
+    const secP = !!(skip && skip.pris);
     if (skip && skip.vaer) delete S.weather;
-    if (skip && skip.pris) delete S.price;
+    if (secP) delete S.price;
     const out = [];
     const row = (id, pre, src, post, extra) => out.push({ id, pre, src, fmt: '{v}', post, icon: '', color: 'hvit', cop: 'alltid', ...(extra || {}) });
     if (S.weather) row('p1', 'Ute er det', 'weather', '.', nav('#vaer'));
-    const P = !!S.price, W = !!S.watt, L = !!S.lights;
-    if (P && W && L) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
-    else if (P && W) { row('p2', 'Strømmen koster', 'price', '', { icon: 'dot' }); row('p3', 'og vi bruker', 'watt', '.'); }
-    else if (P && L) { row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' }); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
+    const P = secP || !!S.price, W = !!S.watt, L = !!S.lights;
+    const pr = (post) => { if (!secP) row('p2', 'Strømmen koster', 'price', post, { icon: 'dot' }); };
+    if (P && W && L) { pr(''); row('p3', 'og vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
+    else if (P && W) { pr(''); row('p3', 'og vi bruker', 'watt', '.'); }
+    else if (P && L) { if (secP) row('p4', 'og vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); else { pr('.'); row('p4', 'Vi har', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); } }
     else if (W && L) { row('p3', 'Vi bruker', 'watt', ''); row('p4', 'med', 'lights', 'på.', { icon: '✨', ...nav('#lys') }); }
-    else if (P) row('p2', 'Strømmen koster', 'price', '.', { icon: 'dot' });
+    else if (P) pr('.');
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
     else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', ...nav('#lys') });
     if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', tap: { action: 'more-info' } });
     return out;
   }
+  // Fiks 18.1 · én vær/pris: lagrede setninger (prose[] fra før 17.9, eller lagret av editoren) med kilde vær/strømpris
+  // fjernes når vær-/pris-seksjonen er aktiv (config vinner over autokonfig). Idempotent, så ingen dobbel etter omlasting;
+  // editorene viser og lagrer den rensede listen (migreringen følger med ved første lagring, se også Prosa._migrate).
+  const SEC_SRC = { weather: 'vaer', price: 'pris' };
+  function cleanProse(rows, active) {
+    return (rows || []).filter((p) => !(p && SEC_SRC[p.src] && active && active[SEC_SRC[p.src]]));
+  }
+  // Eldre toppnivå-nøkler → vaer/pris (entitet), slettes fra config
+  const LEGACY = { weather: 'vaer', 'vær': 'vaer', price: 'pris', strom: 'pris', 'strøm': 'pris', strompris: 'pris' };
+  function legacyOf(c) {
+    if (!c) return null;
+    let o = null;
+    Object.keys(LEGACY).forEach((k) => {
+      if (c[k] == null || typeof c[k] === 'boolean') return;
+      o = o || { ...c };
+      const t = LEGACY[k], v = c[k];
+      // weather.* → tilstand + temperatur (som den gamle autokonfigen), ikke attributtet «weather» fra standarden
+      if (o[t] == null) o[t] = typeof v === 'string' ? (t === 'vaer' && v.indexOf('weather.') === 0 ? { entity: v, attributt: '', enhet: '' } : { entity: v }) : v;
+      delete o[k];
+    });
+    return o;
+  }
+  let LH = null; // siste hass (editorens rad-normalisering har ikke hass)
 
 
   /* ------------------------------------------------------------ Fiks 17.9 · seksjoner (standard-config + KI Planter) */
@@ -12107,9 +12309,12 @@ try {
 
   // Beregn synlige setninger → [{ pre, post, chip, hasChip, dot, emoji, bg, i, row, id, tap }]
   function compute(h, c, rd) {
+    c = legacyOf(c) || c; // Fiks 18.1: eldre weather/price/strom-nøkler → vaer/pris
+    if (h) LH = h;
     const S = sources(h, c, rd), getS = getter(h, c, S, rd);
     const SX = sections(h, c, rd);
-    const rows = Array.isArray(c.prose) ? c.prose : defaultProse(h, c, SX.active);
+    // Fiks 18.1: lagrede setninger renses for vær/pris når seksjonen er aktiv (én kilde per type)
+    const rows = Array.isArray(c.prose) ? cleanProse(c.prose, SX.active) : defaultProse(h, c, SX.active);
     // Verdi for en kilde. Faste kilder kan pekes til en annen entitet (ent_override / cent); «Egendefinert» bruker ent.
     const valFor = (src, ov) => {
       if (src === 'custom') return getS(ov) || null;
@@ -12132,7 +12337,9 @@ try {
       const eq = num ? sv[1] === x : String(sv[0]).toLowerCase() === String(p.cval || '').trim().toLowerCase();
       return op === '=' ? eq : !eq;
     };
-    const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p)).map(({ p, i }) => {
+    const seen = new Set(); // Fiks 18.1: hver fast kilde (vær, pris, effekt, lys …) vises maks én gang – første synlige vinner
+    const once = (p) => { const k = p.src; if (!FIXED.includes(k)) return true; if (seen.has(k)) return false; seen.add(k); return true; };
+    const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p) && once(p)).map(({ p, i }) => {
       const post = fill(p.post), sv = valOf(p);
       const bg = p.color === 'auto' ? (sv && sv[2]) || '#fafafa' : PCOL[p.color] || M.color(p.color, '#fafafa');
       return { i, row: p, pre: p.pre ? fill(p.pre) + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post) + ' ' : ' ', hasChip: (p.src || 'none') !== 'none',
@@ -12144,6 +12351,14 @@ try {
     // Fiks 17.9: seksjonene og setningene i valgt rekkefølge («setninger» = prose[])
     const ex = exOf(c), all = [];
     secOrder(c).forEach((k) => { if (k === 'setninger') { if (!ex.has('setninger')) all.push(...vis); } else if (SX.items[k]) all.push(...SX.items[k]); });
+    // Fiks 18.1: setning som fortsetter (liten forbokstav, «og vi bruker …») slås sammen med pris-pillen foran
+    // («Strømmen koster 1,16 kr og vi bruker …»); står den ikke etter en setning som fortsetter, får den stor forbokstav.
+    for (let i = 0; i < all.length; i++) {
+      const v = all[i], pv = all[i - 1];
+      if (v.sec || !/^[a-zæøå]/.test(v.pre)) continue;
+      if (pv && pv.sec === 'pris' && /\.\s*$/.test(pv.post)) all[i - 1] = { ...pv, post: pv.post.replace(/\s*\.\s*$/, ' ') };
+      else if (!pv || /[.!?]\s*$/.test(pv.post)) all[i] = { ...v, pre: v.pre.charAt(0).toUpperCase() + v.pre.slice(1) };
+    }
     return { S, getS, rows, vis: all, rowVis: vis, test, valOf, valFor, autoOf, fill, SX };
   }
 
@@ -12199,7 +12414,8 @@ try {
     @media (prefers-reduced-motion: reduce){.pz .an{animation:none!important}}
   `;
   // Standard: clamp(22px, 7,4cqi, 34px) – kortet (eller forhåndsvisningen) er container (container-type: inline-size)
-  const AUTO_FS = 'clamp(22px, 7.4cqi, 34px)';
+  // Fiks 18.4: i Fold-oppsettet setter msh-hjem-card --msh-prosa-max (telefonens størrelse) – prosaen blir ikke større enn på telefon
+  const AUTO_FS = 'clamp(22px, 7.4cqi, var(--msh-prosa-max, 34px))';
   M.PROSA_AUTO_FS = AUTO_FS;
   const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
   const previewHTML = (h, c) => {
@@ -12366,7 +12582,8 @@ try {
           ...SEC_SCHEMA,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',
             help: 'Hver setning kan ha en boble med live verdi. Lag to setninger med motsatte betingelser for å bytte tekst eller farge etter tilstand.',
-            defaults: (h, c) => defaultProse(h, c),
+            defaults: (h, c) => defaultProse(h, c, sections(h, legacyOf(c) || c).active),
+            norm: (list, c) => (LH ? cleanProse(list, sections(LH, legacyOf(c) || c).active) : list), // Fiks 18.1
             newRow: () => ({ id: 'p' + Date.now().toString(36), pre: 'Ny tekst', src: 'none', fmt: '{v}', post: '', icon: '', color: 'hvit', cop: 'alltid' }),
             title: (p) => [p.pre, (p.src || 'none') === 'none' ? '' : `[${p.src === 'text' ? p.fmt || '' : p.src === 'custom' ? p.ent || 'state' : srcL(p.src)}]`, p.post].filter(Boolean).join(' ') || 'Tom setning',
             sub: (p, i, h, c) => { const op = p.cop || 'alltid'; if (op === 'alltid') return 'Vises alltid'; const R = compute(h, c); return `Når ${srcL(p.csrc || p.src).toLowerCase()} ${(OPS.find((o) => o[0] === op) || ['', ''])[1].toLowerCase()} ${p.cval || '…'} · ${R.test(p) ? 'vises nå' : 'skjult nå'}`; },
@@ -12428,6 +12645,7 @@ try {
       if (M.powerPriceWatch) M.powerPriceWatch(this); // power_price i ki-store endret → tegn på nytt
       const R = compute(this.hass, this.config, (id) => this.s(id));
       this._R = R;
+      this._migrate(R);
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const pzS = `style="${textStyle(this.config)}"`;
       if (!R.vis.length) {
@@ -12436,6 +12654,21 @@ try {
       return `<div class="pz" ${pzS} data-ent="__tilpass">${prosaHTML(R.vis, (v) => (v.sec
         ? `<button class="chip press" data-key="s-${v.sec}-${v.j}" data-act="sec" data-s="${v.sec}" data-j="${v.j}" ${v.id || v.hold ? `data-ent="${esc(v.id || '__' + v.hold)}"` : ''} ${v.hold ? `data-hold="${esc(v.hold)}"` : ''} style="background:${v.bg};cursor:pointer">${chipHTML(v)}</button>`
         : `<button class="chip ${v.tap ? 'press' : ''}" data-key="c${v.i}" data-act="chip" data-i="${v.i}" ${v.id ? `data-ent="${esc(v.id)}"` : ''} ${v.tap ? '' : 'data-haptic="off"'} style="background:${v.bg};cursor:${v.tap ? 'pointer' : 'default'}">${chipHTML(v)}</button>`))}</div>`;
+    }
+    // Fiks 18.1 · migrering, lagres én gang per kort: eldre vær/pris-nøkler → vaer/pris, og vær/pris-setninger i prose[]
+    // fjernes når seksjonen er aktiv. Bare det levende kortet (ikke editorens frakoblede instans), ikke mens et utkast er åpent.
+    _migrate(R) {
+      const raw = this._rawConfig, id = raw && raw.card_id;
+      if (!id || !this.isConnected || !this.hass || !M.store || !M.store.loaded || (M.draftOf && M.draftOf(this))) return;
+      const done = (M._prosaMig = M._prosaMig || new Set());
+      if (done.has(id)) return;
+      const L = legacyOf(raw), base = L || raw;
+      const cut = Array.isArray(base.prose) && R.rows.length !== base.prose.length;
+      if (!L && !cut) return;
+      done.add(id);
+      const nc = { ...base };
+      if (cut) nc.prose = R.rows.map((x) => clone(x));
+      try { M.saveCardConfig(this.hass, raw, nc, { toasts: false, card: this }); } catch (e) { console.warn('[ki-msh] prosa-migrering', e); }
     }
     onHold(id, el) {
       if (id === '__tilpass') { this.customize('prose'); return true; }
@@ -12500,6 +12733,7 @@ try {
  *   Tilstand «0,Restavfall,Plastavfall» (brukerens sensor.neste_tomming): første del = dager, resten = avfallstypene.
  *   Config: sensor (alias entity; standard sensor.neste_tomming hvis den finnes), rosa (standard på), rosa_dager (0 | 1),
  *   tekst_i_dag / tekst_en / tekst_flere (titlene). Trykk → popup_hash, hold → more-info.
+ * Fiks 18.2: ingen søppelkasse-ikon (som Hjem v3) – tallet står alene og sentrert i venstre kolonne; `ikon` i config ignoreres.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -12549,7 +12783,7 @@ try {
       const pink = c.rosa !== false && n != null && n >= 0 && n <= (Number(c.rosa_dager) || 0); // Fiks 17.14
       const anim = c.animate !== false;
       return `<section class="tr press ${anim ? 'an' : ''} ${due ? 'due' : ''} ${pink ? 'pink' : ''}" data-act="open" ${id ? `data-ent="${esc(id)}"` : ''}>
-          <div class="nw"><span class="n num" data-key="n${n == null ? 'x' : n}">${n == null ? '–' : n}</span>${anim && !pink ? `<span class="bin">${M.icon('delete', 26)}</span>` : ''}</div>
+          <div class="nw"><span class="n num" data-key="n${n == null ? 'x' : n}">${n == null ? '–' : n}</span></div>
           <div class="tx">
             <div class="l1">${esc(label)}</div>
             ${type ? `<div class="l2">${esc(type)}</div>` : !st ? `<button class="pick press" data-act="customize">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
@@ -12574,17 +12808,14 @@ try {
         .tr.press:active{transform:scale(.97)}
         .nw{position:relative;display:grid;place-items:center;height:72px;overflow:visible}
         .n{display:block;text-align:center;font-size:72px;font-weight:600;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums}
-        .bin{position:absolute;right:calc(50% - 64px);top:-14px;color:var(--gray700,#979797);opacity:0;transform:translateY(6px) scale(.8);transition:opacity .3s,transform .4s cubic-bezier(.34,1.6,.64,1)}
         .tx{display:flex;flex-direction:column;gap:10px;min-width:0;align-items:flex-start}
         .l1{font-size:21px;font-weight:500;line-height:1.3}
         .l2{font-size:14px;font-weight:500}
         .an .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both}
         .an.due .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both,nudge 3.6s ease-in-out 1s infinite}
-        .an.due .bin{opacity:1;transform:none;color:var(--orange,#f2b573);animation:lid 3.6s ease-in-out 1s infinite}
         @keyframes roll{0%{opacity:0;transform:translateY(40%) scale(.7);filter:blur(4px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none}}
         @keyframes nudge{0%,82%,100%{transform:none}86%{transform:rotate(-5deg) scale(1.04)}90%{transform:rotate(4deg) scale(1.04)}94%{transform:rotate(-2deg)}}
-        @keyframes lid{0%,80%,100%{transform:none}85%{transform:translateY(-6px) rotate(-14deg)}92%{transform:translateY(-2px) rotate(6deg)}}
-        @media (prefers-reduced-motion: reduce){.an .n,.an.due .n,.an.due .bin{animation:none}}
+        @media (prefers-reduced-motion: reduce){.an .n,.an.due .n{animation:none}}
       `;
     }
   }
@@ -12870,13 +13101,13 @@ try {
   };
 
   /* ------------------------------------------------------------ adaptiv layout */
-  // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), bred = to kolonner, ≥1500 px = tre; zoom opptil 1,8×.
+  // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), Fold (MSH.isFold) = samme kolonne i full bredde.
   M.hjemLayout = M.hjemLayout || function (mode, vw) {
-    const w = vw || M.dashRect().width, vh = window.innerHeight || 900;
-    const wide = mode === 'stor' ? true : mode === 'mobil' ? false : M.isWide(w); // Fiks 17.20: samme regel som header/navbar
-    const pc = wide && w >= 1500;
-    const zoom = !wide ? 1 : pc ? M.clamp(Math.min(w / 1480, vh / 820), 1, 1.8) : M.clamp(Math.min(w / 1024, vh / 760), 1, 1.4);
-    return { wide, pc, cols: pc ? 3 : wide ? 2 : 1, zoom: Math.round(zoom * 100) / 100, vw: w };
+    const w = vw || M.dashRect().width;
+    // Fiks 18.7: den brede griden (2/3 kolonner + zoom) er erstattet av Fold-oppsettet: telefon-innholdet i full bredde,
+    // ingen max-width og ingen zoom. «Stor» = Fold.
+    const fold = mode === 'stor' ? true : mode === 'mobil' ? false : M.isFold(w);
+    return { wide: false, fold, pc: false, cols: 1, zoom: 1, vw: w };
   };
 
   /* ------------------------------------------------------------ swipe (karusell / flis-stabler) */
@@ -13317,8 +13548,7 @@ try {
           ] });
         });
         fields.push({ type: 'section', id: 'utseende', label: 'Layout', icon: 'mdi:page-layout-body', fields: [
-          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
-          { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
+          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto', help: 'Stor skjerm = Fold-oppsettet: telefon-innholdet i full bredde (auto: ≥ 1000 px, berøring ≥ 600 px).' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes»)', default: true },
         ] });
         return fields;
@@ -13329,7 +13559,7 @@ try {
     connectedCallback() {
       super.connectedCallback();
       if (!this._ro && window.ResizeObserver) {
-        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.wide !== L.wide || o.zoom !== L.zoom || o.pc !== L.pc) this.update(); });
+        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.wide !== L.wide || o.fold !== L.fold || o.zoom !== L.zoom || o.pc !== L.pc) this.update(); });
         this._ro.observe(this);
       }
     }
@@ -13339,6 +13569,7 @@ try {
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this._mT) { clearInterval(this._mT); this._mT = null; }
       if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
+      if (this._tcRO) { this._tcRO.disconnect(); this._tcRO = null; this._tcEl = null; }
     }
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
     _calcLayout() {
@@ -13347,7 +13578,7 @@ try {
       const vw = ha ? M.dashRect().width : ((this.parentElement && this.parentElement.getBoundingClientRect().width) || M.dashRect().width);
       const L = M.hjemLayout(c.layout_mode || 'auto', vw);
       if (c.zoom === false || this.mshEmbedded) L.zoom = 1; // i msh-hjem-card zoomer containeren hele griden
-      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; }
+      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; L.fold = !!this.mshEmbedded.fold; }
       return L;
     }
 
@@ -13926,7 +14157,7 @@ try {
       if (!M.romkortHTML || !M.romData) return '<div class="empty">Romkort-modulen mangler</div>';
       const L = (this._L = this._calcLayout());
       this._ticking = false;
-      const wrap = (inner) => `<div class="hf ${L.wide ? 'wide' : ''}" style="${L.zoom !== 1 ? `zoom:${L.zoom}` : ''}">${inner}</div>`;
+      const wrap = (inner) => `<div class="hf ${L.wide ? 'wide' : ''} ${L.fold ? 'fold' : ''}" style="${L.zoom !== 1 ? `zoom:${L.zoom}` : ''}">${inner}</div>`;
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
       const B = this._batteries(), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
@@ -13978,6 +14209,7 @@ try {
       this._bindTileHold();
       this._bindTabs();
       this._placeTabs();
+      this._tColObs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
       else if (!this._ticking && this._tick) { clearInterval(this._tick); this._tick = null; }
@@ -13985,6 +14217,27 @@ try {
       const need = !!this._minTick; this._minTick = false;
       if (need && !this._mT) this._mT = setInterval(() => { if (this.isConnected) this.update(); }, 60000);
       else if (!need && this._mT) { clearInterval(this._mT); this._mT = null; }
+    }
+    // Fiks 18.8: høyre fliskolonne måles (ikke regnes) for mini-spilleren i Fold-oppsettet (msh-navbar-card).
+    // ResizeObserver på flis-griden (.cols, to kolonner, gap 8): bredde = (grid − 8) / 2, left = grid.left + bredde + 8
+    // i viewport-koordinater. Siste målte verdi beholdes når griden ikke finnes (andre faner).
+    _tColObs() {
+      if (!window.ResizeObserver) return;
+      const g = this.shadowRoot.querySelector('.cols');
+      if (!this._tcRO) this._tcRO = new ResizeObserver(() => this._tColMeasure());
+      if (this._tcEl !== g) { if (this._tcEl) this._tcRO.unobserve(this._tcEl); this._tcEl = g; if (g) this._tcRO.observe(g); }
+      this._tColMeasure();
+    }
+    _tColMeasure() {
+      const g = this._tcEl;
+      if (!g || !g.isConnected) return;
+      const r = g.getBoundingClientRect();
+      if (!r.width) return;
+      const w = (r.width - 8) / 2, v = { left: Math.round((r.left + w + 8) * 10) / 10, width: Math.round(w * 10) / 10 };
+      const o = M.hjemTCol;
+      if (o && o.left === v.left && o.width === v.width) return;
+      M.hjemTCol = v;
+      window.dispatchEvent(new CustomEvent('msh-tcol', { detail: v }));
     }
     _tickAppl() {
       if (!this.isConnected || !this._applT) return;
@@ -14043,6 +14296,7 @@ try {
         ${M.APPLIANCE_CSS || ''}
         .hf{display:block;width:100%}
         .hf:not(.wide){max-width:420px;margin:0 auto}
+        .hf.fold{max-width:none;margin:0}
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
@@ -14089,8 +14343,7 @@ try {
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
         .slot{flex:none;width:100%;min-width:0}
         /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
-        .dots{display:flex;gap:10px;height:14px;align-items:center}
-        .dots{--dot-w:9px;--dot-on-w:12px;--dot-bg:var(--gray300,#404040);--dot-on-bg:var(--gray500,#696969)}
+        /* prikkrader: felles .msh-dots i BASE_CSS (18.3: 10/12 px, gap 8 px) */
         .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
         .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}
@@ -14142,14 +14395,16 @@ try {
  * lagrer via MSH.saveCardConfig, som finner kortet via card_id hvor som helst i lovelace-configen).
  *
  * Mål (fra designet): mobil = sidemarg 18, topp 20, bunn 120 + (--ki-nav-bottom − 8) (navbar, følger navbarens avstand), 22 px mellom blokkene, full bredde av
- * dashbordflaten (fiks 17.20: ingen maks 420 px). Bred (MSH.isWide: ≥1000 px, berøring ≥680 px): to kolonner .9fr/1.2fr, gap 22/20, venstre 108 (navbar-rail), høyre 24.
- * ≥1500 px: tre kolonner .95fr/1.35fr/1.05fr, gap 32/20, venstre 120, høyre 36; zoom som designet (maks 1,8).
+ * dashbordflaten (fiks 17.20: ingen maks 420 px).
+ * Fold (fiks 18.4/18.7, MSH.isFold: ≥1000 px, eller berøring ≥600 px – Fold åpen, iPad, PC; layout «Stor»): samme telefon-
+ * innhold i én kolonne i full bredde, padding-left = navbar-rail + 2 × avstand (MSH.railPad()), høyre = telefonens sidemarg,
+ * ingen max-width og ingen zoom. Den brede griden (2/3 kolonner + zoom) er fjernet.
  * Marger måles mot dashbord-containeren (ikke vinduet): kortet bryter ut av HA sections-viewets egen padding
  * (negativ margin beregnet fra egen rect mot dashbordflaten, ResizeObserver).
  */
 (function () {
   const M = window.MSH, esc = M.esc;
-  // [nøkkel, tag, navn, område i bred layout]
+  // [nøkkel, tag, navn, område (fra den tidligere brede layouten)]
   const BLOCKS = [
     ['header', 'msh-hjem-header-card', 'Header (hilsen, vær, personer)', 'head'],
     ['prosa', 'msh-prosa-card', 'Prosa', 'head'],
@@ -14190,25 +14445,6 @@ try {
     };
   }
 
-  // Grid-områder for bred layout ut fra hvilke blokker som vises – skjulte blokker (f.eks. gjøremål) gir ingen tom celle.
-  function wideAreas(used, pc) {
-    const has = (a) => used.includes(a), q = (rows) => rows.map((r) => `'${r.join(' ')}'`).join(' ');
-    if (!pc) {
-      const left = ['head', 'trash', 'strom', 'todo'].filter(has);
-      if (!has('rooms')) return `grid-template-columns:minmax(0,1fr);grid-template-areas:${q(left.map((a) => [a]))};grid-template-rows:${left.map(() => 'auto').join(' ')}`;
-      if (!left.length) return `grid-template-columns:minmax(0,1fr);grid-template-areas:'rooms';grid-template-rows:auto`;
-      return `grid-template-areas:${q(left.map((a) => [a, 'rooms']))};grid-template-rows:${left.map((a, i) => (i === left.length - 1 ? '1fr' : 'auto')).join(' ')}`;
-    }
-    // tre kolonner: venstre head/trash, midten rooms, høyre strom/todo
-    const L = ['head', 'trash'].filter(has), R = ['strom', 'todo'].filter(has);
-    const cols = [L.length ? 'L' : null, has('rooms') ? 'M' : null, R.length ? 'R' : null].filter(Boolean);
-    const n = Math.max(L.length, R.length, 1);
-    const colOf = (list, i) => (list.length ? list[Math.min(i, list.length - 1)] : null);
-    const rows = Array.from({ length: n + 1 }, (_, i) => cols.map((cc) => (cc === 'M' ? 'rooms' : colOf(cc === 'L' ? L : R, i))));
-    const W = { L: 'minmax(0,.95fr)', M: 'minmax(0,1.35fr)', R: 'minmax(0,1.05fr)' };
-    return `grid-template-columns:${cols.map((cc) => W[cc]).join(' ')};grid-template-areas:${q(rows)};grid-template-rows:${Array.from({ length: n + 1 }, (_, i) => (i < n ? 'auto' : '1fr')).join(' ')}`;
-  }
-
   class Hjem extends M.Card {
     constructor() { super(); this._kids = {}; this._geo = null; }
     static get cardName() { return 'Hjem'; }
@@ -14223,8 +14459,7 @@ try {
       return [
         { type: 'info', label: 'Hjem-visningen i ett kort. Hvert delkort har egen «Tilpass» (hold / tannhjul) og lagres under cards.<navn>.' },
         { type: 'section', id: 'layout', label: 'Layout', icon: 'mdi:page-layout-body', open: true, fields: [
-          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
-          { type: 'boolean', name: 'zoom', label: 'Skaler opp på store skjermer (opptil 1,8×)', default: true },
+          { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto', help: 'Stor skjerm = Fold-oppsettet: telefon-innholdet i full bredde med navbaren til venstre (auto: ≥ 1000 px, berøring ≥ 600 px).' },
           { type: 'boolean', name: 'breakout', label: 'Mål margene mot dashbordflaten (bryt ut av seksjonens padding)', default: true },
         ] },
         { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:view-dashboard-outline', open: true, fields: [
@@ -14265,36 +14500,37 @@ try {
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._onRs) { window.removeEventListener('resize', this._onRs); this._onRs = null; }
     }
-    // Egen rect mot dashbordflaten → negative marger (sidemarg måles fra dashbordkanten) + bredde/zoom.
+    // Egen rect mot dashbordflaten → negative marger (sidemarg måles fra dashbordkanten) + bredde og Fold-oppsett.
     _calc() {
       const c = this.config, host = this.getBoundingClientRect();
       const de = findDash();
-      let D;
+      let D, full;
       if (de) {
         const r = de.getBoundingClientRect(), cs = getComputedStyle(de);
         D = { l: r.left + (parseFloat(cs.paddingLeft) || 0), r: r.right - (parseFloat(cs.paddingRight) || 0), t: r.top + (parseFloat(cs.paddingTop) || 0), sc: de.scrollTop || 0 };
+        full = { l: r.left, w: r.width };
       } else {
         const p = this.parentElement, r = p ? p.getBoundingClientRect() : { left: 0, right: window.innerWidth, top: 0 };
-        D = { l: r.left, r: r.right, t: r.top, sc: 0 };
+        D = { l: r.left, r: r.right, t: r.top, sc: 0 }; full = { l: r.left, w: r.width };
       }
       D.l = Math.max(0, D.l); D.r = Math.min(window.innerWidth || D.r, D.r);
+      // Fiks 18.7: Fold avgjøres av hele dashbordflaten (samme mål som navbaren), ikke innholdsboksen etter railens padding
+      const lm = c.layout_mode || 'auto', fw = full ? full.w : D.r - D.l;
+      const fold = lm === 'stor' ? true : lm === 'mobil' ? false : M.isFold(fw);
+      // I Fold regnes venstremargen fra dashbordkanten (railens reserverte padding tas tilbake – vi legger egen padding-left)
+      if (fold && full) D.l = Math.max(0, full.l);
       const out = c.breakout !== false;
       const offL = out ? Math.max(0, Math.round(host.left - D.l)) : 0, offR = out ? Math.max(0, Math.round(D.r - host.right)) : 0;
       const w = Math.round(host.width) + offL + offR;
       // Toppmarg: trekk opp HA-viewets egen luft (maks 64 px) – kun målt øverst på siden.
       let offT = this._geo ? this._geo.offT : 0;
       if (out && (window.scrollY || 0) === 0 && !D.sc) { const t = Math.round(host.top - D.t); offT = t >= 0 && t <= 64 ? t : 0; }
-      const L = M.hjemLayout ? { ...M.hjemLayout(c.layout_mode || 'auto', w) } : { wide: w >= 1000, pc: w >= 1500, zoom: 1 };
-      // Fiks 17.20: bred = MSH.isWide (≥ 1000 px, berøring ≥ 680 px – Pixel/Galaxy Fold åpen, Android-nettbrett)
-      const lm = c.layout_mode || 'auto';
-      if (M.isWide && lm !== 'stor' && lm !== 'mobil') { L.wide = M.isWide(w); L.pc = L.wide && w >= 1500; if (!L.wide || L.zoom == null) L.zoom = 1; }
-      const zoom = c.zoom === false || !L.wide ? 1 : L.zoom;
-      return { offL, offR, offT, w, wide: !!L.wide, pc: !!L.pc, zoom };
+      return { offL, offR, offT, w, fold, pad: fold ? M.railPad() : 0, lm };
     }
     _measure() {
       if (!this.isConnected || !this._config) return;
       const g = this._calc(), o = this._geo;
-      if (!o || ['offL', 'offR', 'offT', 'w', 'wide', 'pc', 'zoom'].some((k) => o[k] !== g[k])) { this._geo = g; this.update(); }
+      if (!o || ['offL', 'offR', 'offT', 'w', 'fold', 'pad'].some((k) => o[k] !== g[k])) { this._geo = g; this.update(); }
     }
     _order() {
       const c = this.config, hid = Array.isArray(c.hidden) ? c.hidden : [];
@@ -14318,9 +14554,11 @@ try {
         this._kids[k] = el;
       }
       if (k === 'faner') {
-        const e = { wide: G.wide, pc: G.pc };
-        if (!el.mshEmbedded || el.mshEmbedded.wide !== e.wide || el.mshEmbedded.pc !== e.pc) { el.mshEmbedded = e; if (el.__cfgJson) el.update && el.update(); }
+        const e = { wide: false, pc: false, fold: !!G.fold };
+        if (!el.mshEmbedded || el.mshEmbedded.fold !== e.fold) { el.mshEmbedded = e; if (el.__cfgJson) el.update && el.update(); }
       }
+      // Fiks 18.4: headeren skaleres (0,72 / mellomrom 0,8) i Fold – oppå brukerens egne størrelser, config endres ikke
+      if (k === 'header' && el.mshFold !== !!G.fold) { el.mshFold = !!G.fold; if (el.__cfgJson) el.update && el.update(); }
       const cfg = this._kidCfg(k), js = JSON.stringify(cfg);
       if (el.__cfgJson !== js) {
         el.__cfgJson = js;
@@ -14331,22 +14569,15 @@ try {
     }
     render() {
       this._lastAreas = this.hass && this.hass.areas;
-      const G = this._geo || (this._geo = this._calc());
+      // layout «Mobil»/«Stor» endret i editoren → mål på nytt (Fold-oppsettet følger valget straks)
+      const G = this._geo && this._geo.lm === (this.config.layout_mode || 'auto') ? this._geo : (this._geo = this._calc());
       const vis = this._order();
       this._vis = vis;
       const slot = (k) => `<div class="s s-${k}" data-key="s-${k}" data-slot="${k}" data-nomorph></div>`;
-      let inner;
-      if (!G.wide) inner = vis.map(slot).join('');
-      else {
-        const head = vis.filter((k) => byKey(k)[3] === 'head');
-        const area = (a) => vis.filter((k) => byKey(k)[3] === a).map(slot).join('');
-        const used = ['head', 'rooms', 'trash', 'strom', 'todo'].filter((a) => vis.some((k) => byKey(k)[3] === a));
-        inner = used.map((a) => (a === 'head' ? `<div class="a a-head" data-key="a-head">${head.map(slot).join('')}</div>` : `<div class="a a-${a}" data-key="a-${a}">${area(a)}</div>`)).join('');
-        this._areas = wideAreas(used, G.pc);
-      }
-      const gs = G.wide ? `zoom:${G.zoom};width:${(G.w / G.zoom).toFixed(2)}px;${this._areas}` : '';
+      const inner = vis.map(slot).join('');
+      const gs = G.fold ? `padding-left:${G.pad}px` : '';
       return `<div class="out" style="margin:${-G.offT}px ${-G.offR}px 0 ${-G.offL}px">
-        <div class="g ${G.wide ? 'wide' : 'mob'} ${G.pc ? 'pc' : ''}" style="${gs}">${inner}</div>
+        <div class="g mob ${G.fold ? 'fold' : ''}" style="${gs}">${inner}</div>
       </div>`;
     }
     afterRender() {
@@ -14379,17 +14610,7 @@ try {
         .g.mob{width:100%;margin:0;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
         .s{display:block;min-width:0}
         .s>*{display:block;width:100%}
-        .g.wide{display:grid;margin:0;padding:24px 24px 40px 108px;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);grid-template-rows:auto auto auto 1fr;
-          grid-template-areas:"head rooms" "trash rooms" "strom rooms" "todo rooms";column-gap:22px;row-gap:20px;align-items:start}
-        .g.wide.pc{padding:32px 36px 40px 120px;grid-template-columns:minmax(0,.95fr) minmax(0,1.35fr) minmax(0,1.05fr);grid-template-rows:auto auto 1fr;
-          grid-template-areas:"head rooms strom" "trash rooms todo" "trash rooms todo";column-gap:32px}
-        .a{min-width:0}
-        .a-head{grid-area:head;display:flex;flex-direction:column;gap:22px}
-        .a-rooms{grid-area:rooms;position:sticky;top:24px}
-        .a-trash{grid-area:trash}
-        .a-strom{grid-area:strom}
-        .a-todo{grid-area:todo}
-        .a:empty{display:none}
+        .g.fold{padding-bottom:calc(40px + var(--ki-mini-h, 0px));--msh-prosa-max:28px}
       `;
     }
   }
@@ -15778,7 +15999,10 @@ try {
       // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:#979797">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
-      return `${gaRow}${rows}
+      // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
+      const hOn = M.hapticOff ? !M.hapticOff() : true;
+      const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:#979797">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:#7f7f7f">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
+      return `${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <div class="tset"><span class="lb">Faner</span>
           <div class="fld"><span class="fl">Høyde</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
@@ -16329,6 +16553,7 @@ try {
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
         }
+        case 'hapticdev': { this._saving = true; try { M.setHapticOff(!M.hapticOff()); } finally { this._saving = false; } return this.render(); } // Fiks 18.5: per enhet, lagres straks
         case 'glassanim': { if (M.setGlassAnim) { this._saving = true; try { M.setGlassAnim(!(M.glassAnimOn && M.glassAnimOn())); } finally { this._saving = false; } } return this.render(); } // ki-store ui.glass_anim (Fiks 17.18)
         case 'tabview': return this.saveF({ ['tab_views.' + d.k]: d.v });
         case 'tabcards': u.sec = 'kort'; u.ctx = d.k; u.sel = null; u.pick = null; return this.render();
@@ -19061,8 +19286,7 @@ try {
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
-        .dots{display:flex;gap:8px;height:14px;align-items:center}
-        .dots{--dot-w:10px;--dot-on-w:12px;--dot-bg:${G.g400};--dot-on-bg:${G.g600}}
+        .dots{display:flex;height:14px;align-items:center} /* prikkene: felles .msh-dots (18.3) */
         /* klima */
         .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;overflow:hidden;transition:background .4s,border-radius .3s}
         /* 16.8: rosa «varmer»-lag (opasitet → 300 ms overgang), mørk tekst */
@@ -19098,7 +19322,7 @@ try {
         .mctl{display:flex;align-items:center;justify-content:space-between;margin-top:28px}
         .mb{width:44px;height:44px;display:grid;place-items:center}
         .mp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center}
-        .vs .cvt{background:var(--gray000, #232323)}
+        .vs .cvt{background:var(--gray200, #3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)} /* 18.9: samme spor som Media (kortfarge) */
         .mp:active{transform:scale(.94)}
         .mv{display:flex;align-items:center;gap:16px;padding:16px 12px 6px 20px}
         .mvl{font-size:14px;font-weight:500}
@@ -25495,7 +25719,7 @@ try {
     },
     CSS: `
       .mvr{display:flex;align-items:center;gap:8px;min-width:0}
-      .mvp{position:relative;flex:1;min-width:0;height:56px;border-radius:28px;background:var(--gray300,#404040);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+      .mvp{position:relative;flex:1;min-width:0;height:56px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       .mvp.dis{opacity:.45}
       .mvl{touch-action:none;cursor:pointer}
       .mvc{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 20px;font-size:15px;font-weight:500;color:var(--white,#fafafa);pointer-events:none}
@@ -25503,7 +25727,7 @@ try {
       .mvn{margin-left:auto;font-variant-numeric:tabular-nums}
       .mvf{position:absolute;inset:0;background:${VOL_PINK};clip-path:inset(0 calc(100% - var(--v, 0%)) 0 0);pointer-events:none}
       .mvs{display:flex;align-items:center;gap:8px;padding:0 6px}
-      .mvb{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:var(--white,#fafafa);transition:transform .12s}
+      .mvb{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);transition:transform .12s} /* 18.9: spor = kortfarge #3a3a3a, knapper/inaktive trinn #2f2f2f */
       .mvb:active{transform:scale(.9)}
       .mvbars{flex:1;min-width:0;height:30px;display:flex;align-items:flex-end;gap:3px;touch-action:none;cursor:pointer;padding:0 2px}
       .mvbars span{flex:1;min-width:2px;border-radius:2px;background:var(--gray100,#2f2f2f);transition:background .12s}
@@ -28508,7 +28732,6 @@ try {
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
         .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
         .pn{font-size:12px;font-weight:500}
-        .dots{display:flex;height:14px;align-items:center;--dot-w:10px;--dot-on-w:12px;--dot-bg:var(--gray400,#545454);--dot-on-bg:var(--gray600,#7f7f7f)}
       `;
     }
   }

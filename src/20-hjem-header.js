@@ -819,9 +819,13 @@
   // Fiks 17.13/17.15: Hilsen og Sted = én rad, stor tittel + store bilder med status-merker (designets faces «hil»)
   const isHil = (m) => m === 'hilsen' || m === 'sted';
   const HIL_DEF = { hFont: 58, hAv: 62, hBadge: 24, hGap: 10, hTGap: 16 };
-  const hilSizes = (c) => {
+  // Fiks 18.4: i Fold-oppsettet (fold = true) skaleres tekst, bilder og merker med 0,72 og mellomrom mellom bildene med 0,8
+  // (58 → 42, 62 → 45, 24 → 17 px) – oppå brukerens egne verdier; config endres ikke.
+  const hilSizes = (c, fold) => {
     const n = (k, lo, hi) => { const v = c && c[k] != null && c[k] !== '' ? Number(c[k]) : NaN; return isNaN(v) ? HIL_DEF[k] : Math.min(hi, Math.max(lo, v)); };
-    return { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    if (fold) { S.font = Math.round(S.font * 0.72); S.av = Math.round(S.av * 0.72); S.badge = Math.round(S.badge * 0.72); S.gap = Math.round(S.gap * 0.8); }
+    return S;
   };
   // Estimert tekstbredde i em (samme tegnvekt-estimat som Stor hilsen)
   const emWidth = (t) => [...String(t || '')].reduce((a, ch) => a + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0);
@@ -994,6 +998,8 @@
       const t = s.attributes.temperature;
       return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}` };
     }
+    // Fiks 18.4/18.7: Fold-oppsett? Satt av msh-hjem-card (mshFold); frittstående header måler dashbordflaten selv.
+    _isFold() { return this.mshFold != null ? !!this.mshFold : !!(M.isFold && M.isFold()); }
     render() {
       const c = this.config, h = this.hass, Md = modeOf(c);
       const rd = (id) => this.s(id);
@@ -1007,7 +1013,7 @@
       const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
       const W = this._weather();
       const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
-      const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c);
+      const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
       const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
@@ -1363,7 +1369,7 @@
     _hFitNow() {
       const R = this.shadowRoot, sp = R.querySelector('.hil .ttl .tx'), cl = R.querySelector('.hil .lc');
       if (!sp || !cl || !sp.isConnected) return;
-      const HS = hilSizes(this.config), cur = this._hFit || {};
+      const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, colW = cl.clientWidth;
       if (!tw || !colW) return;
       const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0; // offset*/client* = uten CSS-zoom (bred layout)

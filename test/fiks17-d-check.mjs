@@ -72,7 +72,7 @@ ok('17.9 vær fra sensor.dashboard_index (attributt weather, små bokstaver)', /
 ok('17.9 hjemkomst: «Mamma kommer hjem ca. kl HH:MM.»', /Mamma kommer hjem ca\. kl \S*\d\d:\d\d\./.test(p), p);
 ok('17.9 apparat: «Vaskemaskinen vasker 1180W nå.»', /Vaskemaskinen vasker 1180W nå\./.test(p), p);
 ok('17.9 planter fra KI Planter (registry platform)', /Arekapalme og Palmelilje trenger vann\./.test(p), p);
-ok('17.9 pris fra norgespris', /Strømmen koster 1,16 kr\./.test(p), p);
+ok('17.9 pris fra norgespris', /Strømmen koster 1,16 kr( og vi bruker|\.)/.test(p), p);
 ok('17.9 rekkefølge vær → hjemkomst → apparater → planter → pris', ['Ute er det', 'Mamma kommer', 'Vaskemaskinen', 'Arekapalme', 'Strømmen koster'].map((s) => p.indexOf(s)).every((v, i, a) => v >= 0 && (!i || v > a[i - 1])), p);
 ok('17.9 ingen dobbel vær/pris fra standardprosaen', (p.match(/Ute er det/g) || []).length === 1 && (p.match(/Strømmen koster/g) || []).length === 1, p);
 const hasAppl = await page.evaluate(() => !!__last.shadowRoot.querySelector('.chip svg.ma-washer'));

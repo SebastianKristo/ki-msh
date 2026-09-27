@@ -1,4 +1,4 @@
-// Fiks 17.12/17.17/17.30: felles karusell-prikker (trykk → side, 32 px treffflate, aria, ingen re-render under
+// Fiks 17.12/17.17/17.30/18.3: felles karusell-prikker (trykk → side, 10/12 px prikker med 8 px gap og treffflate via ::before, aria, ingen re-render under
 // sveip), Vær-toppkortet åpner alltid på side 1 (også etter rotasjon og gjentatte åpninger), og «Bakgrunnsanimasjon».
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -27,6 +27,20 @@ const run = async () => p.evaluate(async () => {
     bc.querySelector('.inner').appendChild(el);
     return bc;
   };
+  // 18.3: layout = prikken (10 px, aktiv 12 px, gap 8 px); treffflaten (::before) nås 12 px over midten og 3 px utenfor kanten
+  const geo = (root, ds) => {
+    const R = ds.map((d) => d.getBoundingClientRect());
+    const at = (x, y) => root.elementFromPoint(x, y);
+    const k = ds.findIndex((d) => !d.classList.contains('on'));
+    const r = R[k], cy = r.top + r.height / 2, cx = r.left + r.width / 2;
+    return {
+      sizes: R.map((q) => `${Math.round(q.width)}x${Math.round(q.height)}`).join(' '),
+      gaps: R.slice(1).map((q, j) => Math.round(q.left - R[j].right)).join(' '),
+      rowH: Math.round(ds[0].parentElement.getBoundingClientRect().height),
+      hitUp: at(cx, cy - 12) === ds[k], hitDown: at(cx, cy + 12) === ds[k],
+      hitRight: at(r.right + 3, cy) === ds[k], hitNext: ds[k + 1] ? at(r.right + 5, cy) === ds[k + 1] : at(r.left - 5, cy) === ds[k - 1], hitLeft: k > 0 ? at(r.left - 3, cy) === ds[k] : true,
+    };
+  };
   const renders = (el) => { let n = 0; const o = el.render.bind(el); el.render = () => { n++; return o(); }; return () => n; }; // teller faktiske tegninger
   // ---------- Vær (17.30)
   const v = document.createElement('msh-vaer-card');
@@ -37,8 +51,7 @@ const run = async () => p.evaluate(async () => {
   const on = () => dots().findIndex((d) => d.classList.contains('on'));
   const page = () => Math.round(car().scrollLeft / car().clientWidth);
   res.vDots = dots().length;
-  const r0 = dots()[1].getBoundingClientRect();
-  res.hit = `${Math.round(r0.width)}x${Math.round(r0.height)}`;
+  res.geo = geo(H().shadowRoot, dots());
   res.aria = dots().map((d) => d.getAttribute('aria-label') + (d.getAttribute('aria-current') ? '*' : '')).join(' | ');
   // trykk på prikk 3 → side 3, klikket bobler ikke til kortet
   let bubbled = 0; v.addEventListener('click', () => bubbled++);
@@ -98,9 +111,9 @@ const run = async () => p.evaluate(async () => {
   if (vp) {
     const hc = renders(hj);
     const hd = () => [...vp.nextElementSibling.querySelectorAll('.msh-dot')];
-    const r1 = hd()[1].getBoundingClientRect();
+    res.hjemGeo = geo(hj.shadowRoot, hd());
     hd()[1].click(); await wait(100);
-    res.hjemTap = { i: vp.dataset.i, tr: vp.firstElementChild.style.transform, on: hd().findIndex((d) => d.classList.contains('on')), renders: hc(), hit: `${Math.round(r1.width)}x${Math.round(r1.height)}` };
+    res.hjemTap = { i: vp.dataset.i, tr: vp.firstElementChild.style.transform, on: hd().findIndex((d) => d.classList.contains('on')), renders: hc() };
     // hass-oppdatering under snap-animasjonen tegnes først etterpå
     hj._schedule(); await wait(100); // som en hass-oppdatering
     res.hjemDuringSnap = hc();
@@ -120,7 +133,13 @@ const out = await run();
 console.log(JSON.stringify(out, null, 1));
 const fail = [];
 const ok = (c, m) => { if (!c) fail.push(m); };
-ok(out.hit === '32x32', 'Vær: treffflate 32×32');
+const geoOk = (g, m) => {
+  ok(g && /^(10x10|12x12)( (10x10|12x12))+$/.test(g.sizes) && (g.sizes.match(/12x12/g) || []).length === 1, m + ': prikker 10 px, aktiv 12 px');
+  ok(g && g.gaps.split(' ').every((x) => x === '8'), m + ': 8 px mellom prikkene');
+  ok(g && g.rowH === 14, m + ': raden er 14 px høy');
+  ok(g && g.hitUp && g.hitDown && g.hitRight && g.hitLeft && g.hitNext, m + ': treffflate via ::before (12 px over/under, 3 px ved siden)');
+};
+geoOk(out.geo, 'Vær');
 ok(/Side 1 av 3\*/.test(out.aria), 'Vær: aria-label/aria-current');
 ok(out.tap.page === 2 && out.tap.on === 2 && out.tap.bubbled === 0, 'Vær: trykk på prikk 3');
 ok(out.swipe.page === 1 && out.swipe.on === 1 && out.swipe.renders === 0, 'Vær: sveip uten re-render');
@@ -132,7 +151,8 @@ ok(out.fxOn > 0 && out.fxOff === 0, 'Vær: hero_fx av fjerner animasjonen');
 ok(out.sheetFirst === 1 && out.sheetOff.aria === 'false' && out.sheetOff.fx === 0, 'Tilpass været: bryter øverst virker');
 ok(out.guiField, 'GUI-editor: Bakgrunnsanimasjon');
 if (typeof out.hjemTap === 'object') {
-  ok(out.hjemTap.i === '1' && out.hjemTap.on === 1 && out.hjemTap.renders === 0 && out.hjemTap.hit === '32x32', 'Hjem: trykk på prikk uten re-render');
+  ok(out.hjemTap.i === '1' && out.hjemTap.on === 1 && out.hjemTap.renders === 0, 'Hjem: trykk på prikk uten re-render');
+  geoOk(out.hjemGeo, 'Hjem');
   ok(out.hjemDuringSnap === 0 && out.hjemAfterSnap >= 1, 'Hjem: hass venter til snap er ferdig');
   ok(out.hjemKept.i === '1' && out.hjemKept.on === 1, 'Hjem: siden beholdes etter tegning');
   ok(out.hjemSwipe.i === '0' && out.hjemSwipe.on === 0 && out.hjemSwipe.rendersAtRelease === 0, 'Hjem: sveip uten re-render ved slipp');

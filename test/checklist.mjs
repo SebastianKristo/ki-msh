@@ -105,7 +105,9 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const nv = np && np.shadowRoot && np.shadowRoot.querySelector('[data-nav]');
       const nr = nv && nv.getBoundingClientRect();
       res.navDbg = nr ? `x ${Math.round(nr.left)} b ${Math.round(nr.width)} h ${Math.round(nr.height)}` : '';
-      res.navbar = nr && nr.width > 0 ? (nr.left >= vp.sb - 1 && nr.right <= vp.w + 1 ? `ok (${vp.w > 800 ? 'rail' : 'bunn'} x=${Math.round(nr.left)})` : 'DEKKER') : 'ikke funnet';
+      // Fiks 18.7: PC = Fold-oppsettet → vertikal navbar (rail); popupen sentreres på innholdsflaten og dekker ikke railen
+      const railOk = vp.w > 800 ? nv.classList.contains('rail') && !!P && P.getBoundingClientRect().left >= nr.right - 1 && Math.abs((P.getBoundingClientRect().left + P.getBoundingClientRect().right) / 2 - (vp.sb + 120 + vp.w) / 2) < 2 : !nv.classList.contains('rail');
+      res.navbar = nr && nr.width > 0 ? (nr.left >= vp.sb - 1 && nr.right <= vp.w + 1 && railOk ? `ok (${vp.w > 800 ? 'rail' : 'bunn'} x=${Math.round(nr.left)})` : railOk ? 'DEKKER' : `FEIL ${vp.w > 800 ? 'ikke rail / popup over railen' : 'rail på mobil'}`) : 'ikke funnet';
       // 10. GUI-editor (Bubble «Legg til kort») + speiling mot kortets egen editor
       const eds = [];
       for (const c of cards) {

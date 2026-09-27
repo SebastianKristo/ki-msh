@@ -7,7 +7,7 @@
  * Plasseres mot dashbordflaten – aldri vinduet:
  *   mobil  = bunn (8 px over bunnen / safe area), sentrert i dashbordflaten, bredde min(flate − 28, 392), høyde 68
  *            (liquid glass: 64 – padding 4, kapsel 56 × én fane, radius 32/28, ikon 22, navn 11/600)
- *   bred   = vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren), zoom opptil 1,8×
+ *   bred   = vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren), Fold-oppsettet (MSH.isFold), ingen zoom
  * Knapper åpner Bubble Card-popups via hash. Åpen popup (location.hash = knappens hash) markeres med en prikk under
  * ikonet (standard: #232323); liquid glass: ingen prikk, rosa ikon + mørk glass-kapsel som følger valgt fane.
  * Liquid glass speiles til <html data-ki-glass> (MSH.glassOn) → «Mer»-menyen og alle Tilpass-ark blir glass (MSH.glassSurface).
@@ -235,7 +235,7 @@
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px))}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:var(--ki-nav-bottom, 8px)}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
     nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
@@ -302,8 +302,7 @@
       return [
         { type: 'navbar' },
         { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
-          { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): bred ≥ 1000 px (iPad ≥ 700 px) = vertikal rail til venstre.' },
-          { type: 'range', name: 'bottom_offset', label: 'Avstand fra bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 60, default: 8, unit: 'px', presets: [[0, 'Inntil 0'], [8, 'Standard 8'], [24, 'Høy 24']] },
+          { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): ≥ 1000 px, eller berøring ≥ 600 px (Fold åpen, iPad) = vertikal rail til venstre.' },
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
@@ -328,6 +327,9 @@
       window.addEventListener('location-changed', this._onHashNav);
       window.addEventListener('popstate', this._onHashNav);
       window.addEventListener('resize', this._onResize);
+      window.addEventListener('ki-nav-bottom', this._onResize); // Fiks 18.6: slideren i Tilpass navbar (live)
+      window.addEventListener('ki-device-info', this._onResize);
+      window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
       window.addEventListener('scroll', this._onScroll, { passive: true });
     }
     disconnectedCallback() {
@@ -337,6 +339,9 @@
       window.removeEventListener('location-changed', this._onHashNav);
       window.removeEventListener('popstate', this._onHashNav);
       window.removeEventListener('resize', this._onResize);
+      window.removeEventListener('ki-nav-bottom', this._onResize);
+      window.removeEventListener('ki-device-info', this._onResize);
+      window.removeEventListener('msh-tcol', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
@@ -351,6 +356,7 @@
       document.documentElement.style.setProperty('--ki-mini-h', '0px');
       this._mShow = false;
       if (this._portal) { this._portal.remove(); this._portal = null; }
+      this._railVars(false);
       this._reserve(null);
       if (this.ui.menu) this._ui = { ...this._ui, menu: false };
     }
@@ -424,7 +430,7 @@
       const p = this.config.layout || 'auto';
       if (p === 'mobil') return false;
       if (p === 'stor') return true;
-      return M.isWide(w); // fiks 17.20: ≥ 1000 px, berøring ≥ 680 px (Fold/nettbrett)
+      return M.isFold(w); // fiks 18.7: Fold-oppsettet – ≥ 1000 px, berøring ≥ 600 px (Fold åpen, iPad, PC)
     }
     _zoom(w) {
       const vh = window.innerHeight || 900;
@@ -462,7 +468,7 @@
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
-      else if (rail) style = `left:${geo.left + 20}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
+      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
       else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
@@ -516,7 +522,7 @@
       this._syncGlass();
       this.s('zone.__msh_navbar'); // fast avhengighet: rendres kun når badge-entiteter endres
       const R = this._dash(), rail = this._wide(R.width);
-      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: rail ? this._zoom(R.width) : 1 };
+      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: 1 }; // fiks 18.7: ingen zoom
       if (this._inline) {
         if (this._portal) { this._portal.remove(); this._portal = null; }
         this._reserve(null);
@@ -530,7 +536,8 @@
 
     _renderPortal(N, geo) {
       // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
-      const off = geo.rail ? 0 : this.config.bottom_offset != null ? Number(this.config.bottom_offset) : 8;
+      // Fiks 18.6: per enhet (MSH.navBottom – egen verdi eller enhetens standard), uten effekt som rail
+      const off = geo.rail ? 0 : M.navBottom();
       if (document.documentElement.style.getPropertyValue('--ki-nav-bottom') !== off + 'px') document.documentElement.style.setProperty('--ki-nav-bottom', off + 'px');
       if (!this._portal) {
         const p = document.createElement('div');
@@ -554,6 +561,7 @@
         this._pFirst = true;
       }
       // Helst inni kortet (følger dashbordet); document.body kun når en forelder ødelegger position: fixed.
+      this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
@@ -641,12 +649,16 @@
       const ci = Math.max(0, L.indexOf(this._mCur));
       const W = Math.round(Math.min(geo.width - 28, 392));
       let pos;
-      if (geo.rail) pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);transform:translateX(-50%) translateY(var(--mo,0px))`;
+      if (geo.rail) {
+        // Fiks 18.4/18.8: nederst til høyre, nøyaktig over høyre fliskolonne i Hjem (målt av msh-hjem-faner-card → M.hjemTCol)
+        const T = this._tCol(geo);
+        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px))`;
+      }
       else {
         // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
         const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
         const dy = compact ? nh * 0.2 + 6.4 : 0;
-        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(max(0px, env(safe-area-inset-bottom, 0px) - 10px) + var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
       }
       const vo = this._mVolV;
       const rows = L.map((id) => {
@@ -676,6 +688,23 @@
       }).join('');
       const dots = L.length > 1 ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
       return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+    }
+    // Høyre fliskolonne (fiks 18.8): målt verdi (siste måling beholdes på andre faner), ellers utregningen fra 18.4:
+    // bredde (innholdsbredde − 8) / 2 (min. 260), høyrekant = innholdets padding-right (18).
+    _tCol(geo) {
+      const T = M.hjemTCol;
+      if (T && T.width > 0) return T;
+      const cw = geo.width - M.railPad() - 18, w = Math.max(260, (cw - 8) / 2);
+      return { left: Math.round(geo.left + geo.width - 18 - w), width: Math.round(w) };
+    }
+    // Fiks 18.4: popups (Bubble Card) og ark sentreres på innholdsflaten til høyre for railen og dekker den ikke.
+    // Bubble leser --bubble-content-inline-start (arves fra dashbordelementet); egne ark leser M.railOn.
+    _railVars(rail, geo) {
+      M.railOn = !!rail;
+      const el = this._dEl;
+      if (!el || !el.style) return;
+      const v = rail ? Math.round(geo.left + M.railPad()) + 'px' : '';
+      if (el.style.getPropertyValue('--bubble-content-inline-start') !== v) { if (v) el.style.setProperty('--bubble-content-inline-start', v); else el.style.removeProperty('--bubble-content-inline-start'); }
     }
     // Hendelser i mini-spilleren (kobles én gang på portalens shadow root)
     _miniBind(sr) {
@@ -970,6 +999,12 @@
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
     .trk.on .knb{left:23px;background:#2f2f2f}
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a}
+    .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#3a3a3a}
+    .nbbot .ln{display:flex;align-items:center;gap:10px}
+    .nbbot input[type=range]{flex:1;min-width:0;accent-color:#f285c9;touch-action:none;cursor:pointer}
+    .nbbot .nbbv{flex:none;min-width:48px;text-align:right;font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
+    .nbbot .rsb{flex:none;height:36px;padding:0 14px;border-radius:18px}
+    :host([glass]) .nbbot{${M.glassSurface('row')}}
     .wseg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf}
     .wseg button.on{background:${PINK};color:#2f2f2f}
     .profs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -994,6 +1029,16 @@
   class NavEditor extends Base {
     constructor() {
       super();
+      // Fiks 18.6: «Avstand fra bunnen» oppdaterer navbaren live mens man drar (lagres ved slipp i _change)
+      this.shadowRoot.addEventListener('input', (e) => {
+        const t = e.target;
+        if (!t.dataset || !t.dataset.nbbot) return;
+        M.setNavBottom(t.value, false);
+        const lb = t.parentNode && t.parentNode.querySelector('.nbbv');
+        if (lb) lb.textContent = t.value + ' px';
+      });
+      // Fallgruve 2: dra i slideren skal ikke nå popupen/arket under
+      ['pointerdown', 'touchstart', 'touchmove'].forEach((ev) => this.shadowRoot.addEventListener(ev, (e) => { if (e.target && e.target.dataset && e.target.dataset.nbbot) e.stopPropagation(); }, { passive: true }));
       // Ikonvelger (msh-icon-field) og «Handling» (msh-tap-picker) sender value-changed
       this.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.composedPath().find((n) => n.dataset && (n.dataset.nbicon || n.dataset.nbtap));
@@ -1112,6 +1157,7 @@
         ${tog('Krymp ved scrolling', 'shrink', c.shrink !== false)}
         <span class="gt">Bredde</span>
         <div class="wseg">${[['kompakt', 'Kompakt'], ['std', 'Standard'], ['full', 'Full']].map(([k, l]) => `<button class="${W === k ? 'on' : ''}" aria-selected="${W === k}" data-a="nbw" data-v="${k}">${l}</button>`).join('')}</div>
+        ${this._nbBottom()}
         <span class="gt">Stil</span>
         <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
@@ -1120,6 +1166,15 @@
         <span class="gt">Mini-spiller</span>
         ${this._mini(c)}
       </div>`;
+    }
+    // Fiks 18.6 · «Avstand fra bunnen» – per enhet (MSH.navBottom, localStorage ki-nav-bottom + ki-store), ikke kortets config
+    _nbBottom() {
+      if (!M.navBottom) return '';
+      const own = M.navBottomOwn(), def = M.navBottomDefault(), v = own == null ? def : own, dev = M.deviceInfo().model || M.deviceInfo().label;
+      const rail = document.documentElement.style.getPropertyValue('--ki-nav-h') === '0px';
+      return `<span class="gt">Avstand fra bunnen</span>
+        <div class="nbbot" data-key="nbbot"><div class="ln"><input type="range" min="0" max="48" step="1" value="${v}" data-nbbot="1" aria-label="Avstand fra bunnen"><span class="nbbv num">${v} px</span></div>
+        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare ${esc(dev)} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
     }
     // «Mini-spiller» (Fiks 17.26): navbar.mini – samme felt i «Tilpass navbar» og GUI-editoren (samme element)
     _mini(c) {
@@ -1183,6 +1238,7 @@
           if (!next.length) return undefined; // minst én spiller
           return this._set('mini.players', next.length === all.length ? undefined : next);
         }
+        case 'nbbotstd': M.setNavBottom(null, true); return this._render(); // Fiks 18.6: enhetens standard igjen
         case 'nbtheme': M.setGlassTheme(d.v === '1'); return this._render(); // ki-store theme.liquid_glass – ikke kortets config
         default:
       }
@@ -1190,6 +1246,7 @@
     }
     _change(e) {
       const t = e.target;
+      if (t.dataset && t.dataset.nbbot) { M.setNavBottom(Number(t.value) === M.navBottomDefault() ? null : t.value, true); M.haptic('light'); return this._render(); } // Fiks 18.6: lagres ved slipp
       if (t.dataset && t.dataset.search && t.dataset.act === 'nbment') {
         const v = t.value.trim();
         if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) { this._q = {}; this._menu = null; this._set('mini.entity', v); }

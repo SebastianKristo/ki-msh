@@ -1037,7 +1037,10 @@
       // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:#979797">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
-      return `${gaRow}${rows}
+      // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
+      const hOn = M.hapticOff ? !M.hapticOff() : true;
+      const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:#979797">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:#7f7f7f">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
+      return `${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <div class="tset"><span class="lb">Faner</span>
           <div class="fld"><span class="fl">Høyde</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
@@ -1588,6 +1591,7 @@
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
         }
+        case 'hapticdev': { this._saving = true; try { M.setHapticOff(!M.hapticOff()); } finally { this._saving = false; } return this.render(); } // Fiks 18.5: per enhet, lagres straks
         case 'glassanim': { if (M.setGlassAnim) { this._saving = true; try { M.setGlassAnim(!(M.glassAnimOn && M.glassAnimOn())); } finally { this._saving = false; } } return this.render(); } // ki-store ui.glass_anim (Fiks 17.18)
         case 'tabview': return this.saveF({ ['tab_views.' + d.k]: d.v });
         case 'tabcards': u.sec = 'kort'; u.ctx = d.k; u.sel = null; u.pick = null; return this.render();

@@ -6,6 +6,7 @@
  *   Tilstand «0,Restavfall,Plastavfall» (brukerens sensor.neste_tomming): første del = dager, resten = avfallstypene.
  *   Config: sensor (alias entity; standard sensor.neste_tomming hvis den finnes), rosa (standard på), rosa_dager (0 | 1),
  *   tekst_i_dag / tekst_en / tekst_flere (titlene). Trykk → popup_hash, hold → more-info.
+ * Fiks 18.2: ingen søppelkasse-ikon (som Hjem v3) – tallet står alene og sentrert i venstre kolonne; `ikon` i config ignoreres.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -55,7 +56,7 @@
       const pink = c.rosa !== false && n != null && n >= 0 && n <= (Number(c.rosa_dager) || 0); // Fiks 17.14
       const anim = c.animate !== false;
       return `<section class="tr press ${anim ? 'an' : ''} ${due ? 'due' : ''} ${pink ? 'pink' : ''}" data-act="open" ${id ? `data-ent="${esc(id)}"` : ''}>
-          <div class="nw"><span class="n num" data-key="n${n == null ? 'x' : n}">${n == null ? '–' : n}</span>${anim && !pink ? `<span class="bin">${M.icon('delete', 26)}</span>` : ''}</div>
+          <div class="nw"><span class="n num" data-key="n${n == null ? 'x' : n}">${n == null ? '–' : n}</span></div>
           <div class="tx">
             <div class="l1">${esc(label)}</div>
             ${type ? `<div class="l2">${esc(type)}</div>` : !st ? `<button class="pick press" data-act="customize">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
@@ -80,17 +81,14 @@
         .tr.press:active{transform:scale(.97)}
         .nw{position:relative;display:grid;place-items:center;height:72px;overflow:visible}
         .n{display:block;text-align:center;font-size:72px;font-weight:600;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums}
-        .bin{position:absolute;right:calc(50% - 64px);top:-14px;color:var(--gray700,#979797);opacity:0;transform:translateY(6px) scale(.8);transition:opacity .3s,transform .4s cubic-bezier(.34,1.6,.64,1)}
         .tx{display:flex;flex-direction:column;gap:10px;min-width:0;align-items:flex-start}
         .l1{font-size:21px;font-weight:500;line-height:1.3}
         .l2{font-size:14px;font-weight:500}
         .an .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both}
         .an.due .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both,nudge 3.6s ease-in-out 1s infinite}
-        .an.due .bin{opacity:1;transform:none;color:var(--orange,#f2b573);animation:lid 3.6s ease-in-out 1s infinite}
         @keyframes roll{0%{opacity:0;transform:translateY(40%) scale(.7);filter:blur(4px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none}}
         @keyframes nudge{0%,82%,100%{transform:none}86%{transform:rotate(-5deg) scale(1.04)}90%{transform:rotate(4deg) scale(1.04)}94%{transform:rotate(-2deg)}}
-        @keyframes lid{0%,80%,100%{transform:none}85%{transform:translateY(-6px) rotate(-14deg)}92%{transform:translateY(-2px) rotate(6deg)}}
-        @media (prefers-reduced-motion: reduce){.an .n,.an.due .n,.an.due .bin{animation:none}}
+        @media (prefers-reduced-motion: reduce){.an .n,.an.due .n{animation:none}}
       `;
     }
   }

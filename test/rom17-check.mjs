@@ -40,8 +40,9 @@ const out = await p.evaluate(async () => {
   // 17.4
   const mt = [...R.querySelectorAll('.mt')];
   res.m = mt.map((e) => ({ pk: e.classList.contains('pk'), name: e.querySelector('.mn').textContent, t: e.querySelector('.ms').textContent, img: !!e.querySelector('.art img'), op: cs(e.querySelector('.mpk')).opacity }));
-  res.m_dots = [...R.querySelectorAll('.mcw .msh-dot')].map((d) => getComputedStyle(d, '::after').backgroundColor);
+  res.m_dots = [...R.querySelectorAll('.mcw .msh-dot')].map((d) => { const q = d.getBoundingClientRect(); return `${cs(d).backgroundColor} ${Math.round(q.width)}x${Math.round(q.height)}@${Math.round(q.left)}`; }); // 18.3: prikken er knappen
   res.m_track = R.querySelector('.vs .cvt') && cs(R.querySelector('.vs .cvt')).height;
+  res.m_track_bg = R.querySelector('.vs .cvt') && `${cs(R.querySelector('.vs .cvt')).backgroundColor} ${cs(R.querySelector('.vs .cvt')).boxShadow}`; // 18.9
   // 17.5
   const lux = R.querySelector('[data-key="s-sensor.stue_lux2"]');
   res.lux = lux && { cls: lux.className, bg: cs(lux).backgroundColor, l: lux.querySelector('.u-l').textContent, n: lux.querySelector('.u-n').textContent, nfs: cs(lux.querySelector('.u-n')).fontSize, icon: lux.querySelector('ha-icon').getAttribute('icon') };

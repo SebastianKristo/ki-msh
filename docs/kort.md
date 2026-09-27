@@ -19,7 +19,6 @@ Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `layout` | Oppsett (auto \| mobil \| stor) | Plassering og oppførsel |
-| `bottom_offset` | Avstand fra bunnen · range | Plassering og oppførsel |
 | `reserve_space` | Gi innholdet plass (padding i bunnen / til venstre) · boolean | Plassering og oppførsel |
 | `toasts` | Bekreftelsesmeldinger · boolean | Plassering og oppførsel |
 | `admin_tools` | Vis «Tilpass» i Mer-menyen · boolean | Plassering og oppførsel |
@@ -555,7 +554,6 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `rooms.garasje.climate` | Termostat · entity | Rom · Garasje |
 | `rooms.garasje.badges_own` | Egne varsel-vilkår · boolean | Rom · Garasje |
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
-| `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
 | `toasts` | Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes») · boolean | Layout |
 
 ## `msh-hjem-card`
@@ -565,7 +563,6 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
-| `zoom` | Skaler opp på store skjermer (opptil 1,8×) · boolean | Layout |
 | `breakout` | Mål margene mot dashbordflaten (bryt ut av seksjonens padding) · boolean | Layout |
 | `show_todo` | Vis gjøremål · boolean | Kort |
 | `order · hidden` | rekkefølge/synlighet: header, prosa, faner, soppel, strom, gjoremal |  |
