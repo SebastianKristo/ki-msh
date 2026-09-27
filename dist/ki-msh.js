@@ -1,5 +1,5 @@
-/*! KI MSH 1.1.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
-window.KI_MSH_VERSION = "1.1.0";
+/*! KI MSH 1.2.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
+window.KI_MSH_VERSION = "1.2.0";
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
@@ -23367,4 +23367,4 @@ try {
 
 } catch (e) { console.error('[ki-msh] 99-ui-persist.js', e); }
 
-console.info('%c KI MSH %c 1.1.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
+console.info('%c KI MSH %c 1.2.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
