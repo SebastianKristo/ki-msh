@@ -392,7 +392,7 @@
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
       const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
-      const head = `<div class="tabs"><span></span><div class="seg">${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
       if (this._pid !== p.id) { this._pid = p.id; ui.act = ''; ui.lastKey = ''; }
@@ -474,7 +474,6 @@
     onAction(name, el, ev) {
       const h = this.hass, R = this._R, p = R && R.p;
       if (name === 'tab') {
-        if (Date.now() - (this._eat || 0) < 350) return;
         this._ui = { ...this._ui, act: '', lastKey: '' };
         return this.select(el.dataset.t);
       }
@@ -561,58 +560,15 @@
         ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => root.addEventListener(t, clear));
         root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab')) e.preventDefault(); });
       }
-      // Faner: langt trykk + dra = omorganiser (lagres i config.tab_order)
+      // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
-      if (seg && !seg.__b) {
-        seg.__b = true;
-        M.guardDrag(seg, 'x');
-        seg.addEventListener('pointerdown', (e) => {
-          const t = e.target.closest && e.target.closest('.tab');
-          if (!t || e.button) return;
-          clearTimeout(this._th);
-          this._txy = [e.clientX, e.clientY];
-          this._th = setTimeout(() => this._beginTab(seg, t, e.clientX), 380);
-        });
-        seg.addEventListener('pointermove', (e) => { if (this._txy && Math.hypot(e.clientX - this._txy[0], e.clientY - this._txy[1]) > 8) clearTimeout(this._th); });
-        ['pointerup', 'pointercancel'].forEach((ty) => seg.addEventListener(ty, () => clearTimeout(this._th)));
-      }
-    }
-    _beginTab(seg, el, x0) {
-      const sib = [...seg.querySelectorAll('.tab')];
-      if (sib.length < 2) return;
-      const rects = sib.map((c) => c.getBoundingClientRect()), i = sib.indexOf(el), keys = sib.map((c) => c.dataset.t);
-      M.haptic('medium');
-      this._busy = true;
-      el.classList.add('drag');
-      sib.forEach((c) => { if (c !== el) c.classList.add('dim'); });
-      const mv = (e) => { e.preventDefault(); e.stopPropagation(); el.style.transform = `translateX(${e.clientX - x0}px) scale(1.06)`; };
-      const fin = (e) => {
-        window.removeEventListener('pointermove', mv, true);
-        window.removeEventListener('pointerup', fin, true);
-        window.removeEventListener('pointercancel', fin, true);
-        e.stopPropagation();
-        el.style.transform = '';
-        el.classList.remove('drag');
-        sib.forEach((c) => c.classList.remove('dim'));
-        this._busy = false;
-        this._eat = Date.now();
-        if (e.type === 'pointerup') {
-          const r0 = rects[i], cx = r0.left + r0.width / 2 + (e.clientX - x0);
-          let j = rects.findIndex((r) => cx >= r.left && cx <= r.right);
-          if (j < 0) j = cx < rects[0].left ? 0 : rects.length - 1;
-          const k = keys[i], a2 = keys.filter((x) => x !== k);
-          a2.splice(j, 0, k);
-          if (a2.join() !== keys.join()) {
-            M.haptic('success');
-            const all = this._R ? this._R.orderAll : a2;
-            this._save({ tab_order: [...a2, ...all.filter((x) => !a2.includes(x))] });
-          }
-        }
-        this.update();
-      };
-      window.addEventListener('pointermove', mv, { capture: true, passive: false });
-      window.addEventListener('pointerup', fin, true);
-      window.addEventListener('pointercancel', fin, true);
+      if (seg) M.tabReorder(seg, {
+        card: this,
+        items: () => Array.from(seg.querySelectorAll('.tab')),
+        idOf: (b) => b.dataset.t,
+        active: () => this._R && this._R.tab,
+        onReorder: (keys) => { const all = this._R ? this._R.orderAll : keys; this._save({ tab_order: [...keys, ...all.filter((x) => !keys.includes(x))] }); },
+      });
     }
     async _save(patch) {
       const old = this._rawConfig || this.config, n = { ...old, ...patch };
@@ -635,12 +591,11 @@
     get styles() {
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
-        .tabs{display:grid;grid-template-columns:46px 1fr 46px;align-items:center;gap:8px}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
-        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:opacity .2s}
+        ${M.TAB_ROW_CSS || ''}
+        .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
+        .seg{gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
+        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);background:transparent}
         .tab.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tab.drag{position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px ${PINKC};transition:none}
-        .tab.dim{opacity:.65}
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}

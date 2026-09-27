@@ -1,5 +1,1050 @@
 /*! KI MSH 1.0.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
 
+/* ---- vendor/mysmart-light-control-no.js ---- */
+try {
+/* mysmart-light-control – norsk kopi (tekster oversatt, ikke i «Legg til kort»). Original: src/vendor/mysmart-light-control.js */
+const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,r=Symbol(),i=new WeakMap;let s=class{constructor(e,t,i){if(this._$cssResult$=!0,i!==r)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o;const r=this.t;if(t&&void 0===e){const t=void 0!==r&&1===r.length;t&&(e=i.get(r)),void 0===e&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),t&&i.set(r,e))}return e}toString(){return this.cssText}};const o=(e,...t)=>{const i=1===e.length?e[0]:t.reduce((t,r,i)=>t+(e=>{if(!0===e._$cssResult$)return e.cssText;if("number"==typeof e)return e;throw Error("Value passed to 'css' function must be a 'css' function result: "+e+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(r)+e[i+1],e[0]);return new s(i,e,r)},n=t?e=>e:e=>e instanceof CSSStyleSheet?(e=>{let t="";for(const r of e.cssRules)t+=r.cssText;return(e=>new s("string"==typeof e?e:e+"",void 0,r))(t)})(e):e,{is:a,defineProperty:l,getOwnPropertyDescriptor:d,getOwnPropertyNames:h,getOwnPropertySymbols:c,getPrototypeOf:u}=Object,g=globalThis,p=g.trustedTypes,m=p?p.emptyScript:"",_=g.reactiveElementPolyfillSupport,b=(e,t)=>e,f={toAttribute(e,t){switch(t){case Boolean:e=e?m:null;break;case Object:case Array:e=null==e?e:JSON.stringify(e)}return e},fromAttribute(e,t){let r=e;switch(t){case Boolean:r=null!==e;break;case Number:r=null===e?null:Number(e);break;case Object:case Array:try{r=JSON.parse(e)}catch(e){r=null}}return r}},v=(e,t)=>!a(e,t),y={attribute:!0,type:String,converter:f,reflect:!1,useDefault:!1,hasChanged:v};Symbol.metadata??=Symbol("metadata"),g.litPropertyMetadata??=new WeakMap;let $=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=y){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){const r=Symbol(),i=this.getPropertyDescriptor(e,r,t);void 0!==i&&l(this.prototype,e,i)}}static getPropertyDescriptor(e,t,r){const{get:i,set:s}=d(this.prototype,e)??{get(){return this[t]},set(e){this[t]=e}};return{get:i,set(t){const o=i?.call(this);s?.call(this,t),this.requestUpdate(e,o,r)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??y}static _$Ei(){if(this.hasOwnProperty(b("elementProperties")))return;const e=u(this);e.finalize(),void 0!==e.l&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(b("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(b("properties"))){const e=this.properties,t=[...h(e),...c(e)];for(const r of t)this.createProperty(r,e[r])}const e=this[Symbol.metadata];if(null!==e){const t=litPropertyMetadata.get(e);if(void 0!==t)for(const[e,r]of t)this.elementProperties.set(e,r)}this._$Eh=new Map;for(const[e,t]of this.elementProperties){const r=this._$Eu(e,t);void 0!==r&&this._$Eh.set(r,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){const t=[];if(Array.isArray(e)){const r=new Set(e.flat(1/0).reverse());for(const e of r)t.unshift(n(e))}else void 0!==e&&t.push(n(e));return t}static _$Eu(e,t){const r=t.attribute;return!1===r?void 0:"string"==typeof r?r:"string"==typeof e?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),void 0!==this.renderRoot&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){const e=new Map,t=this.constructor.elementProperties;for(const r of t.keys())this.hasOwnProperty(r)&&(e.set(r,this[r]),delete this[r]);e.size>0&&(this._$Ep=e)}createRenderRoot(){const r=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((r,i)=>{if(t)r.adoptedStyleSheets=i.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(const t of i){const i=document.createElement("style"),s=e.litNonce;void 0!==s&&i.setAttribute("nonce",s),i.textContent=t.cssText,r.appendChild(i)}})(r,this.constructor.elementStyles),r}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,r){this._$AK(e,r)}_$ET(e,t){const r=this.constructor.elementProperties.get(e),i=this.constructor._$Eu(e,r);if(void 0!==i&&!0===r.reflect){const s=(void 0!==r.converter?.toAttribute?r.converter:f).toAttribute(t,r.type);this._$Em=e,null==s?this.removeAttribute(i):this.setAttribute(i,s),this._$Em=null}}_$AK(e,t){const r=this.constructor,i=r._$Eh.get(e);if(void 0!==i&&this._$Em!==i){const e=r.getPropertyOptions(i),s="function"==typeof e.converter?{fromAttribute:e.converter}:void 0!==e.converter?.fromAttribute?e.converter:f;this._$Em=i;const o=s.fromAttribute(t,e.type);this[i]=o??this._$Ej?.get(i)??o,this._$Em=null}}requestUpdate(e,t,r,i=!1,s){if(void 0!==e){const o=this.constructor;if(!1===i&&(s=this[e]),r??=o.getPropertyOptions(e),!((r.hasChanged??v)(s,t)||r.useDefault&&r.reflect&&s===this._$Ej?.get(e)&&!this.hasAttribute(o._$Eu(e,r))))return;this.C(e,t,r)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(e,t,{useDefault:r,reflect:i,wrapped:s},o){r&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,o??t??this[e]),!0!==s||void 0!==o)||(this._$AL.has(e)||(this.hasUpdated||r||(t=void 0),this._$AL.set(e,t)),!0===i&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}const e=this.scheduleUpdate();return null!=e&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[e,t]of this._$Ep)this[e]=t;this._$Ep=void 0}const e=this.constructor.elementProperties;if(e.size>0)for(const[t,r]of e){const{wrapped:e}=r,i=this[t];!0!==e||this._$AL.has(t)||void 0===i||this.C(t,void 0,r,i)}}let e=!1;const t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(e=>e.hostUpdate?.()),this.update(t)):this._$EM()}catch(t){throw e=!1,this._$EM(),t}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(e){}firstUpdated(e){}};$.elementStyles=[],$.shadowRootOptions={mode:"open"},$[b("elementProperties")]=new Map,$[b("finalized")]=new Map,_?.({ReactiveElement:$}),(g.reactiveElementVersions??=[]).push("2.1.2");const w=globalThis,x=e=>e,C=w.trustedTypes,S=C?C.createPolicy("lit-html",{createHTML:e=>e}):void 0,k="$lit$",A=`lit$${Math.random().toFixed(9).slice(2)}$`,P="?"+A,M=`<${P}>`,E=document,T=()=>E.createComment(""),H=e=>null===e||"object"!=typeof e&&"function"!=typeof e,z=Array.isArray,N="[ \t\n\f\r]",U=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,B=/-->/g,R=/>/g,V=RegExp(`>|${N}(?:([^\\s"'>=/]+)(${N}*=${N}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),L=/'/g,D=/"/g,O=/^(?:script|style|textarea|title)$/i,I=(e=>(t,...r)=>({_$litType$:e,strings:t,values:r}))(1),j=Symbol.for("lit-noChange"),F=Symbol.for("lit-nothing"),W=new WeakMap,G=E.createTreeWalker(E,129);function Y(e,t){if(!z(e)||!e.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==S?S.createHTML(t):t}const X=(e,t)=>{const r=e.length-1,i=[];let s,o=2===t?"<svg>":3===t?"<math>":"",n=U;for(let t=0;t<r;t++){const r=e[t];let a,l,d=-1,h=0;for(;h<r.length&&(n.lastIndex=h,l=n.exec(r),null!==l);)h=n.lastIndex,n===U?"!--"===l[1]?n=B:void 0!==l[1]?n=R:void 0!==l[2]?(O.test(l[2])&&(s=RegExp("</"+l[2],"g")),n=V):void 0!==l[3]&&(n=V):n===V?">"===l[0]?(n=s??U,d=-1):void 0===l[1]?d=-2:(d=n.lastIndex-l[2].length,a=l[1],n=void 0===l[3]?V:'"'===l[3]?D:L):n===D||n===L?n=V:n===B||n===R?n=U:(n=V,s=void 0);const c=n===V&&e[t+1].startsWith("/>")?" ":"";o+=n===U?r+M:d>=0?(i.push(a),r.slice(0,d)+k+r.slice(d)+A+c):r+A+(-2===d?t:c)}return[Y(e,o+(e[r]||"<?>")+(2===t?"</svg>":3===t?"</math>":"")),i]};class q{constructor({strings:e,_$litType$:t},r){let i;this.parts=[];let s=0,o=0;const n=e.length-1,a=this.parts,[l,d]=X(e,t);if(this.el=q.createElement(l,r),G.currentNode=this.el.content,2===t||3===t){const e=this.el.content.firstChild;e.replaceWith(...e.childNodes)}for(;null!==(i=G.nextNode())&&a.length<n;){if(1===i.nodeType){if(i.hasAttributes())for(const e of i.getAttributeNames())if(e.endsWith(k)){const t=d[o++],r=i.getAttribute(e).split(A),n=/([.?@])?(.*)/.exec(t);a.push({type:1,index:s,name:n[2],strings:r,ctor:"."===n[1]?ee:"?"===n[1]?te:"@"===n[1]?re:Q}),i.removeAttribute(e)}else e.startsWith(A)&&(a.push({type:6,index:s}),i.removeAttribute(e));if(O.test(i.tagName)){const e=i.textContent.split(A),t=e.length-1;if(t>0){i.textContent=C?C.emptyScript:"";for(let r=0;r<t;r++)i.append(e[r],T()),G.nextNode(),a.push({type:2,index:++s});i.append(e[t],T())}}}else if(8===i.nodeType)if(i.data===P)a.push({type:2,index:s});else{let e=-1;for(;-1!==(e=i.data.indexOf(A,e+1));)a.push({type:7,index:s}),e+=A.length-1}s++}}static createElement(e,t){const r=E.createElement("template");return r.innerHTML=e,r}}function K(e,t,r=e,i){if(t===j)return t;let s=void 0!==i?r._$Co?.[i]:r._$Cl;const o=H(t)?void 0:t._$litDirective$;return s?.constructor!==o&&(s?._$AO?.(!1),void 0===o?s=void 0:(s=new o(e),s._$AT(e,r,i)),void 0!==i?(r._$Co??=[])[i]=s:r._$Cl=s),void 0!==s&&(t=K(e,s._$AS(e,t.values),s,i)),t}class J{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){const{el:{content:t},parts:r}=this._$AD,i=(e?.creationScope??E).importNode(t,!0);G.currentNode=i;let s=G.nextNode(),o=0,n=0,a=r[0];for(;void 0!==a;){if(o===a.index){let t;2===a.type?t=new Z(s,s.nextSibling,this,e):1===a.type?t=new a.ctor(s,a.name,a.strings,this,e):6===a.type&&(t=new ie(s,this,e)),this._$AV.push(t),a=r[++n]}o!==a?.index&&(s=G.nextNode(),o++)}return G.currentNode=E,i}p(e){let t=0;for(const r of this._$AV)void 0!==r&&(void 0!==r.strings?(r._$AI(e,r,t),t+=r.strings.length-2):r._$AI(e[t])),t++}}class Z{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,r,i){this.type=2,this._$AH=F,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=r,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode;const t=this._$AM;return void 0!==t&&11===e?.nodeType&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=K(this,e,t),H(e)?e===F||null==e||""===e?(this._$AH!==F&&this._$AR(),this._$AH=F):e!==this._$AH&&e!==j&&this._(e):void 0!==e._$litType$?this.$(e):void 0!==e.nodeType?this.T(e):(e=>z(e)||"function"==typeof e?.[Symbol.iterator])(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==F&&H(this._$AH)?this._$AA.nextSibling.data=e:this.T(E.createTextNode(e)),this._$AH=e}$(e){const{values:t,_$litType$:r}=e,i="number"==typeof r?this._$AC(e):(void 0===r.el&&(r.el=q.createElement(Y(r.h,r.h[0]),this.options)),r);if(this._$AH?._$AD===i)this._$AH.p(t);else{const e=new J(i,this),r=e.u(this.options);e.p(t),this.T(r),this._$AH=e}}_$AC(e){let t=W.get(e.strings);return void 0===t&&W.set(e.strings,t=new q(e)),t}k(e){z(this._$AH)||(this._$AH=[],this._$AR());const t=this._$AH;let r,i=0;for(const s of e)i===t.length?t.push(r=new Z(this.O(T()),this.O(T()),this,this.options)):r=t[i],r._$AI(s),i++;i<t.length&&(this._$AR(r&&r._$AB.nextSibling,i),t.length=i)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){const t=x(e).nextSibling;x(e).remove(),e=t}}setConnected(e){void 0===this._$AM&&(this._$Cv=e,this._$AP?.(e))}}class Q{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,r,i,s){this.type=1,this._$AH=F,this._$AN=void 0,this.element=e,this.name=t,this._$AM=i,this.options=s,r.length>2||""!==r[0]||""!==r[1]?(this._$AH=Array(r.length-1).fill(new String),this.strings=r):this._$AH=F}_$AI(e,t=this,r,i){const s=this.strings;let o=!1;if(void 0===s)e=K(this,e,t,0),o=!H(e)||e!==this._$AH&&e!==j,o&&(this._$AH=e);else{const i=e;let n,a;for(e=s[0],n=0;n<s.length-1;n++)a=K(this,i[r+n],t,n),a===j&&(a=this._$AH[n]),o||=!H(a)||a!==this._$AH[n],a===F?e=F:e!==F&&(e+=(a??"")+s[n+1]),this._$AH[n]=a}o&&!i&&this.j(e)}j(e){e===F?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}}class ee extends Q{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===F?void 0:e}}class te extends Q{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==F)}}class re extends Q{constructor(e,t,r,i,s){super(e,t,r,i,s),this.type=5}_$AI(e,t=this){if((e=K(this,e,t,0)??F)===j)return;const r=this._$AH,i=e===F&&r!==F||e.capture!==r.capture||e.once!==r.once||e.passive!==r.passive,s=e!==F&&(r===F||i);i&&this.element.removeEventListener(this.name,this,r),s&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}}class ie{constructor(e,t,r){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=r}get _$AU(){return this._$AM._$AU}_$AI(e){K(this,e)}}const se=w.litHtmlPolyfillSupport;se?.(q,Z),(w.litHtmlVersions??=[]).push("3.3.2");const oe=globalThis;class ne extends ${constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){const t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=((e,t,r)=>{const i=r?.renderBefore??t;let s=i._$litPart$;if(void 0===s){const e=r?.renderBefore??null;i._$litPart$=s=new Z(t.insertBefore(T(),e),e,void 0,r??{})}return s._$AI(e),s})(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return j}}ne._$litElement$=!0,ne.finalized=!0,oe.litElementHydrateSupport?.({LitElement:ne});const ae=oe.litElementPolyfillSupport;ae?.({LitElement:ne}),(oe.litElementVersions??=[]).push("4.2.2");const le=[{label:"Warm",rgb:[255,183,76]},{label:"Amber",rgb:[255,138,101]},{label:"Rose",rgb:[244,143,177]},{label:"Lavender",rgb:[179,157,219]},{label:"Sky",rgb:[129,212,250]},{label:"Mint",rgb:[165,214,167]}],de=le.map(e=>`rgb(${e.rgb.join(", ")})`),he=3700,ce="custom",ue="custom_temperature",ge="light_temperature",pe="light_rgb",me="legacy_adaptive",_e="spectrum",be="presets",fe="both",ve="title_outside_icon_inside",ye="icon_title_outside",$e=ge,we=fe,xe=ye,Ce="large",Se="var(--gray1000)",ke=!0,Ae=!1,Pe=100,Me={small:{trackHeight:16,handleHeight:28,handleWidth:4,splitGap:10,sliderPadding:6,bubbleSize:34,radius:8,iconSize:14},medium:{trackHeight:24,handleHeight:40,handleWidth:4,splitGap:12,sliderPadding:8,bubbleSize:38,radius:12,iconSize:18},large:{trackHeight:40,handleHeight:56,handleWidth:4,splitGap:14,sliderPadding:10,bubbleSize:40,radius:16,iconSize:20},xlarge:{trackHeight:56,handleHeight:68,handleWidth:4,splitGap:16,sliderPadding:12,bubbleSize:42,radius:16,iconSize:24},jumbo:{trackHeight:72,handleHeight:84,handleWidth:4,splitGap:20,sliderPadding:14,bubbleSize:46,radius:20,iconSize:28}},Ee=new Set(["brightness","color_temp","hs","xy","rgb","rgbw","rgbww","white"]),Te=new Set(["hs","xy","rgb","rgbw","rgbww"]);function He(e){if(Array.isArray(e?.color_presets)&&e.color_presets.length)return e.color_presets.map(e=>{const t=Array.isArray(e?.rgb)?e.rgb:Ne(e);return t?`rgb(${t.join(", ")})`:null}).filter(Boolean);const t=Array.from({length:6},(e,t)=>`preset_color_${t+1}`).map(t=>e?.[t]||"").filter(Boolean);return t.length?t:de}function ze(e){const t={...e||{}},r=He({color_presets:t.color_presets});var i,s;return t.size===Ce&&delete t.size,Be(t)===$e&&delete t.slider_color_mode,Re(t)===we&&delete t.color_control,Ve(t)===xe&&delete t.label_layout,t.icon_color===Se&&delete t.icon_color,t.hide_color_controls===ke&&delete t.hide_color_controls,t.hide_color_presets===Ae&&delete t.hide_color_presets,0===Number(t.brightness_min)&&delete t.brightness_min,Number(t.brightness_max)===Pe&&delete t.brightness_max,!1===t.hide_rgb_presets&&delete t.hide_rgb_presets,Array.isArray(t.color_presets)&&0===t.color_presets.length&&delete t.color_presets,i=r,s=de,Array.isArray(i)&&Array.isArray(s)&&i.length===s.length&&i.every((e,t)=>e===s[t])&&delete t.color_presets,t}function Ne(e){if(Array.isArray(e)&&e.length>=3)return e.slice(0,3).map(e=>Math.max(0,Math.min(255,Number(e)||0)));if("string"!=typeof e)return null;const t=e.trim(),r=t.match(/^#([\da-f]{3}|[\da-f]{6})$/i);if(r){const e=r[1];return 3===e.length?e.split("").map(e=>Number.parseInt(e+e,16)):[Number.parseInt(e.slice(0,2),16),Number.parseInt(e.slice(2,4),16),Number.parseInt(e.slice(4,6),16)]}const i=t.match(/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);if(i)return i.slice(1,4).map(e=>Math.max(0,Math.min(255,Number(e))));const s=t.match(/^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})$/);return s?s.slice(1,4).map(e=>Math.max(0,Math.min(255,Number(e)))):null}function Ue(e){return e?`mysmart-light-control:last-adaptive-color:${e}`:null}function Be(e){return e?.slider_color_mode?e.slider_color_mode:e?.adaptive_slider_color?me:$e}function Re(e){return[_e,be,fe].includes(e?.color_control)?e.color_control:we}function Ve(e){return[ve,ye].includes(e?.label_layout)?e.label_layout:xe}function Le(e,t=0){const r=Number(e);return Number.isFinite(r)?Math.max(0,Math.min(100,Math.round(r))):t}function De(e){const t=Le(e?.brightness_min,0),r=Le(e?.brightness_max,Pe);return r<t?{min:r,max:t}:{min:t,max:r}}class Oe extends ne{static get properties(){return{hass:{},_config:{state:!0}}}setConfig(e){this._config=this._withEditorDefaults(e)}_withEditorDefaults(e){const t=De(e);return{...e,size:e?.size||Ce,slider_color_mode:Be(e),color_control:Re(e),label_layout:Ve(e),icon_color:e?.icon_color??Se,hide_color_controls:e?.hide_color_controls??ke,hide_color_presets:!0===e?.hide_color_presets||!0===e?.hide_rgb_presets,brightness_min:t.min,brightness_max:t.max,color_presets:He(e)}}_stripDefaultConfig(e){return ze(e)}_updateConfig(e,t){const r={...this._config||{}};"slider_color_mode"===e&&delete r.adaptive_slider_color,"hide_color_presets"===e&&delete r.hide_rgb_presets,""===t||null==t||Array.isArray(t)&&0===t.length||"boolean"==typeof t&&"show_icon"===e&&!0===t||"boolean"==typeof t&&"show_name"===e&&!0===t||"boolean"==typeof t&&"show_brightness"===e&&!1===t||"boolean"==typeof t&&"force_toggle_mode"===e&&!1===t||"boolean"==typeof t&&"show_expand_toggle"===e&&!0===t||"boolean"==typeof t&&"hide_temperature_slider"===e&&!1===t||"boolean"==typeof t&&"hide_color_controls"===e&&t===ke||"boolean"==typeof t&&"hide_color_presets"===e&&t===Ae||"boolean"==typeof t&&"hide_rgb_presets"===e&&!1===t||"boolean"==typeof t&&"live_update"===e&&!1===t||"boolean"==typeof t&&"show_icon_on_small_sizes"===e&&!1===t||"brightness_min"===e&&0===Number(t)||"brightness_max"===e&&Number(t)===Pe||"label_layout"===e&&t===xe||"slider_color_mode"===e&&t===$e||"color_control"===e&&t===we||"icon_color"===e&&t===Se||"size"===e&&t===Ce?delete r[e]:r[e]=t;const i=this._stripDefaultConfig(r);this._config=this._withEditorDefaults(i),this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:i},bubbles:!0,composed:!0}))}_valueChanged(e){const t=e.target,r=t.configValue;if(!r)return;let i=e.detail?.value??t.value;"checkbox"===t.type||"ha-switch"===t.localName?i=t.checked:"number"===t.type&&(i=Number(i)),this._updateConfig(r,i)}_presetValueChanged(e,t){const r=[...this._config?.color_presets||[]];r[e]=t,this._updateConfig("color_presets",r.filter(e=>e))}_addPreset(){const e=[...this._config?.color_presets||[]];e.push("#d7c3ff"),this._updateConfig("color_presets",e)}_removePreset(e){const t=[...this._config?.color_presets||[]];t.splice(e,1),this._updateConfig("color_presets",t)}_normalizeColorForPicker(e){const t=Ne(e);return t?`#${t.map(e=>e.toString(16).padStart(2,"0")).join("")}`:"#d7c3ff"}_getSliderColorMode(){return Be(this._config)}_renderColorField(e,t){return I`
+      <ha-input
+        .value=${this._config?.[t]||""}
+        .configValue=${t}
+        .label=${e}
+        @input=${this._valueChanged}
+      ></ha-input>
+    `}_renderSelectSelector(e,t,r,i){return I`
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{select:{mode:"dropdown",options:i}}}
+        .value=${r}
+        .configValue=${t}
+        .label=${e}
+        @value-changed=${this._valueChanged}
+      ></ha-selector>
+    `}render(){if(!this.hass)return I``;const e=Array.isArray(this._config?.color_presets)?this._config.color_presets:He(this._config),t=this._getSliderColorMode(),r=Re(this._config),i=Ve(this._config);return I`
+      <div class="editor">
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{entity:{domain:"light"}}}
+          .value=${this._config?.entity||""}
+          .configValue=${"entity"}
+          .label=${"Light entity"}
+          @value-changed=${this._valueChanged}
+        ></ha-selector>
+
+        <ha-input
+          .value=${this._config?.name||""}
+          .configValue=${"name"}
+          label="Title (optional)"
+          @input=${this._valueChanged}
+        ></ha-input>
+
+        <ha-icon-picker
+          .hass=${this.hass}
+          .value=${this._config?.icon||""}
+          .configValue=${"icon"}
+          label="Icon override"
+          @value-changed=${this._valueChanged}
+        ></ha-icon-picker>
+
+        ${this._renderSelectSelector("Size","size",this._config?.size||Ce,[{value:"small",label:"Small"},{value:"medium",label:"Medium"},{value:"large",label:"Large"},{value:"xlarge",label:"Extra Large"},{value:"jumbo",label:"Jumbo"}])}
+
+        ${this._renderSelectSelector("Label layout","label_layout",i,[{value:ve,label:"Title outside, icon inside slider"},{value:ye,label:"Icon and title outside slider"}])}
+
+        <ha-formfield label="Show icon">
+          <ha-switch
+            .checked=${!1!==this._config?.show_icon}
+            .configValue=${"show_icon"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Show icon on small sizes">
+          <ha-switch
+            .checked=${!0===this._config?.show_icon_on_small_sizes}
+            .configValue=${"show_icon_on_small_sizes"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Show title">
+          <ha-switch
+            .checked=${!1!==this._config?.show_name}
+            .configValue=${"show_name"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Show state value">
+          <ha-switch
+            .checked=${!0===this._config?.show_brightness}
+            .configValue=${"show_brightness"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-input
+          .value=${String(this._config?.brightness_min??0)}
+          .configValue=${"brightness_min"}
+          label="Minimum brightness (%)"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          @input=${this._valueChanged}
+        ></ha-input>
+
+        <ha-input
+          .value=${String(this._config?.brightness_max??Pe)}
+          .configValue=${"brightness_max"}
+          label="Maximum brightness (%)"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          @input=${this._valueChanged}
+        ></ha-input>
+
+        <ha-formfield label="Force toggle mode">
+          <ha-switch
+            .checked=${!0===this._config?.force_toggle_mode}
+            .configValue=${"force_toggle_mode"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Show expand chevron">
+          <ha-switch
+            .checked=${!1!==this._config?.show_expand_toggle}
+            .configValue=${"show_expand_toggle"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Live update while dragging">
+          <ha-switch
+            .checked=${!0===this._config?.live_update}
+            .configValue=${"live_update"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Hide expanded temperature slider">
+          <ha-switch
+            .checked=${!0===this._config?.hide_temperature_slider}
+            .configValue=${"hide_temperature_slider"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Hide expanded color slider">
+          <ha-switch
+            .checked=${!0===this._config?.hide_color_controls}
+            .configValue=${"hide_color_controls"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield label="Hide expanded color presets">
+          <ha-switch
+            .checked=${!0===this._config?.hide_color_presets}
+            .configValue=${"hide_color_presets"}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        ${this._renderSelectSelector("Expanded color controls","color_control",r,[{value:_e,label:"Spectrum slider"},{value:be,label:"Preset buttons"},{value:fe,label:"Spectrum and presets"}])}
+
+        ${this._renderSelectSelector("Main slider color source","slider_color_mode",t,[{value:ce,label:"Custom colors"},{value:ue,label:"Custom temperature color"},{value:ge,label:"Match light temperature"},{value:pe,label:"Match light color"}])}
+
+        ${t===ue?I`
+          <ha-input
+            .value=${String(this._config?.slider_color_temperature||he)}
+            .configValue=${"slider_color_temperature"}
+            label="Slider color temperature (K)"
+            type="number"
+            min="1000"
+            max="40000"
+            step="50"
+            @input=${this._valueChanged}
+          ></ha-input>
+        `:""}
+
+        <details class="panel">
+          <summary>Farger</summary>
+          <div class="panel-content">
+            ${this._renderColorField("Bar foreground","bar_foreground")}
+            ${this._renderColorField("Bar background","bar_background")}
+            ${this._renderColorField("Card background","card_background")}
+            ${this._renderColorField("Handle color","handle_color")}
+            ${this._renderColorField("Popup number color","popup_number_color")}
+            ${this._renderColorField("Icon color","icon_color")}
+            ${this._renderColorField("Chevron color","chevron_color")}
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary>Forhåndsvalg</summary>
+          <div class="panel-content">
+            ${e.map((e,t)=>I`
+              <div class="preset-editor-row">
+                <input
+                  class="color-input"
+                  type="color"
+                  .value=${this._normalizeColorForPicker(e)}
+                  @input=${e=>this._presetValueChanged(t,e.target.value)}
+                />
+                <ha-input
+                  .value=${e}
+                  label="Preset ${t+1}"
+                  @input=${e=>this._presetValueChanged(t,e.target.value)}
+                ></ha-input>
+                <button class="remove-button" type="button" @click=${()=>this._removePreset(t)}>Remove</button>
+              </div>
+            `)}
+
+            <button class="add-button" type="button" @click=${this._addPreset}>Add preset</button>
+          </div>
+        </details>
+      </div>
+    `}static get styles(){return o`
+      .editor {
+        display: grid;
+        gap: 16px;
+      }
+
+      .panel {
+        border: 1px solid var(--divider-color);
+        border-radius: 14px;
+        padding: 0 14px 14px;
+      }
+
+      .panel summary {
+        cursor: pointer;
+        color: var(--primary-text-color);
+        font-weight: 500;
+        padding: 14px 0;
+      }
+
+      .panel-content {
+        display: grid;
+        gap: 12px;
+      }
+
+      .preset-editor-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .color-input {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border: 1px solid var(--divider-color);
+        border-radius: 10px;
+        background: transparent;
+      }
+
+      .add-button,
+      .remove-button {
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        border-radius: 10px;
+        font: inherit;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      .add-button {
+        justify-self: start;
+      }
+    `}}customElements.get("mysmart-light-control-editor")||customElements.define("mysmart-light-control-editor",Oe);class Ie extends ne{static get properties(){return{hass:{},config:{},_dragging:{state:!0},_dragValue:{state:!0},_pendingBrightness:{state:!0},_pendingSince:{state:!0},_expanded:{state:!0},_tempPreviewValue:{state:!0},_colorPreviewHue:{state:!0},_sliderColorSource:{state:!0},_sliderColorValue:{state:!0}}}constructor(){super(),this._dragging=!1,this._dragValue=null,this._pendingBrightness=null,this._pendingSince=0,this._expanded=!1,this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._trackRect=null,this._lastBrightnessSentAt=0,this._brightnessTimer=null,this._previewUpdatedAt=0,this._lastAdaptiveColor=null,this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._suppressNextClick=!1,this._moveHandler=this._handlePointerMove.bind(this),this._upHandler=this._handlePointerUp.bind(this)}disconnectedCallback(){super.disconnectedCallback(),this._teardownPointerListeners(),window.clearTimeout(this._brightnessTimer)}updated(e){if(super.updated(e),!e.has("hass")||!this.config?.entity)return;const t=this.hass?.states?.[this.config.entity];t&&(this._syncPendingBrightness(t),this._syncPreviewState(t))}_syncPendingBrightness(e){if(null==this._pendingBrightness)return;const t=null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0;if(Math.abs(t-this._pendingBrightness)<=2)return void this._clearPendingBrightness();Date.now()-this._pendingSince>1e4&&this._clearPendingBrightness()}_syncPreviewState(e){if(!this._sliderColorSource)return;const t=Date.now()-this._previewUpdatedAt;if(t>1e4)this._clearPreviewState();else{if("temp"===this._sliderColorSource){const r=Number(e.attributes.color_temp_kelvin);return!Number.isFinite(r)||r<=0?void(t>1500&&this._clearPreviewState()):void((Math.abs(r-Number(this._sliderColorValue))<=50||t>1500)&&this._clearPreviewState())}if("rgb"===this._sliderColorSource){const r=Array.isArray(e.attributes.rgb_color)?e.attributes.rgb_color.slice(0,3):this._hsColorToRgb(e.attributes.hs_color);if(!r)return void(t>1500&&this._clearPreviewState());(this._rgbArraysClose(r,this._sliderColorValue)||t>1500)&&this._clearPreviewState()}}}setConfig(e){if(!e.entity)throw new Error("You need to define a light entity");const t=He(e),r=this._loadStoredAdaptiveColor(e.entity),i=Be(e),s=Re(e),o=Ve(e),n=De(e),a=Number(e.slider_color_temperature);this.config={name:"",show_icon:!0,show_icon_on_small_sizes:!1,icon:"",size:Ce,label_layout:o,show_name:!0,show_brightness:!1,force_toggle_mode:!1,show_expand_toggle:!0,hide_temperature_slider:!1,hide_color_controls:ke,hide_color_presets:Ae,hide_rgb_presets:!1,brightness_min:0,brightness_max:Pe,color_control:s,live_update:!1,adaptive_slider_color:!1,slider_color_mode:i,slider_color_temperature:he,bar_background:"#5f5872",bar_foreground:"#d7c3ff",card_background:"transparent",handle_color:"#d7c3ff",popup_number_color:"#ffffff",icon_color:Se,chevron_color:"#bdb4d2",color_presets:t,...e,card_background:e.card_background??"transparent",icon_background:"transparent",slider_color_mode:i,color_control:s,label_layout:o,brightness_min:n.min,brightness_max:n.max,slider_color_temperature:Number.isFinite(a)&&a>0?a:he,color_presets:t},this._lastAdaptiveColor=r}static getConfigForm(){return{schema:[{name:"entity",required:!0,selector:{entity:{domain:"light"}}},{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}},{name:"size",selector:{select:{mode:"dropdown",options:[{value:"small",label:"Small"},{value:"medium",label:"Medium"},{value:"large",label:"Large"},{value:"xlarge",label:"Extra Large"},{value:"jumbo",label:"Jumbo"}]}}},{name:"show_icon",selector:{boolean:{}}},{name:"show_icon_on_small_sizes",selector:{boolean:{}}},{name:"label_layout",selector:{select:{mode:"dropdown",options:[{value:ve,label:"Title outside, icon inside slider"},{value:ye,label:"Icon and title outside slider"}]}}},{name:"show_name",selector:{boolean:{}}},{name:"show_brightness",selector:{boolean:{}}},{name:"brightness_min",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"brightness_max",selector:{number:{min:0,max:100,step:1,mode:"box"}}},{name:"force_toggle_mode",selector:{boolean:{}}},{name:"show_expand_toggle",selector:{boolean:{}}},{name:"hide_temperature_slider",selector:{boolean:{}}},{name:"hide_color_controls",selector:{boolean:{}}},{name:"hide_color_presets",selector:{boolean:{}}},{name:"color_control",selector:{select:{mode:"dropdown",options:[{value:_e,label:"Spectrum slider"},{value:be,label:"Preset buttons"},{value:fe,label:"Spectrum and presets"}]}}},{name:"live_update",selector:{boolean:{}}},{name:"slider_color_mode",selector:{select:{mode:"dropdown",options:[{value:ce,label:"Custom colors"},{value:ue,label:"Custom temperature / Kelvin"},{value:ge,label:"Light temperature"},{value:pe,label:"Light RGB"}]}}},{name:"slider_color_temperature",selector:{number:{min:1e3,max:4e4,step:50,mode:"box"}}},{name:"bar_background",selector:{text:{}}},{name:"bar_foreground",selector:{text:{}}},{name:"card_background",selector:{text:{}}},{name:"handle_color",selector:{text:{}}},{name:"icon_color",selector:{text:{}}},{name:"popup_number_color",selector:{text:{}}}],computeHelper:e=>"entity"===e.name?"Choose a light entity with brightness support.":"show_icon"===e.name?"Show the leading icon inside the active segment.":"show_icon_on_small_sizes"===e.name?"Show the icon on Small and Medium sliders. Off by default to keep those sizes cleaner.":"label_layout"===e.name?"Choose whether the slider icon stays inside the active segment or moves beside the title.":"force_toggle_mode"===e.name?"Render this card as a simple on/off toggle even when the light supports brightness.":"size"===e.name?"Slider thickness preset. Large and Extra Large are closest to your screenshot.":"show_expand_toggle"===e.name?"Show a chevron for lights with extra controls like color temperature or color.":"show_brightness"===e.name?"Show the current value in the header: brightness percent for sliders, On/Off state for switches.":"brightness_min"===e.name?"Minimum non-zero brightness sent by the slider, as a percent.":"brightness_max"===e.name?"Maximum brightness sent by the slider, as a percent.":"hide_temperature_slider"===e.name?"Hide the color temperature slider even for lights that support it.":"hide_color_controls"===e.name?"Hide the color spectrum slider even for lights that support color.":"hide_color_presets"===e.name?"Hide preset color buttons even for lights that support color.":"color_control"===e.name?"Choose how color-capable lights expose color controls.":"live_update"===e.name?"When enabled, brightness updates continuously while dragging. Off by default to reduce device traffic.":"slider_color_mode"===e.name?"Choose whether the slider uses your custom colors, a fixed Kelvin value, or the light temperature/RGB.":"slider_color_temperature"===e.name?"Only used when Slider color mode is set to Custom temperature / Kelvin.":void 0}}static async getConfigElement(){return document.createElement("mysmart-light-control-editor")}static getStubConfig(){return{entity:"light.living_room"}}getCardSize(){const e=this.hass?.states?.[this.config?.entity];if(e&&this._shouldRenderToggleMode(e))return 1;const t=!!e&&this._hasExtraControls(e),r=t&&!1!==this.config?.show_expand_toggle;return!t||r&&!this._expanded?2:3}render(){if(!this.hass||!this.config)return I``;const e=this.hass.states[this.config.entity];if(!e)return this._renderMessage(`Entity not found: ${this.config.entity}`);if(!e.entity_id?.startsWith("light."))return this._renderMessage(`${this.config.entity} is not a light entity.`);if(this._shouldRenderToggleMode(e))return this._renderToggleControl(e);const t=this._getDisplayBrightness(e),r=this._dragging?this._dragValue??t:t,i=this._percentFromBrightness(r),s="on"===e.state,o=this._isUnavailableState(e),n=this._hasExtraControls(e),a=n&&this.config.show_expand_toggle,l=n&&(!a||this._expanded),d=this.config.name||e.attributes.friendly_name||this.config.entity,h=this.config.icon||e.attributes.icon||"mdi:lightbulb",c=this.config.icon_color,u=Ve(this.config),g=!1!==this.config.show_icon&&(this.config.show_icon_on_small_sizes||!["small","medium"].includes(this.config.size)),p=g&&u===ye,m=g&&u===ve,_=this.config.show_brightness||o,b=this.config.show_name||_||p,f=this._getSizeMetrics(),v=[a?"":"no-expand"].join(" ").trim(),y=this._mainActiveWidth(i),$=this._mainInactiveWidth(y),w=this._mainHandleLeft(y),x=this._getSliderPalette(e),C=`\n      --mysmart-slider-card-background: transparent;\n      --mysmart-slider-bar-background: ${x.inactiveColor};\n      --mysmart-slider-bar-foreground: ${x.activeColor};\n      --mysmart-slider-handle-color: ${x.handleColor};\n      --mysmart-slider-popup-number-color: ${this.config.popup_number_color};\n      --mysmart-slider-popup-background: ${x.popupColor};\n      --mysmart-slider-popup-stem-color: ${x.popupColor};\n      --mysmart-slider-icon-background: transparent;\n      --mysmart-slider-icon-color: ${c};\n      --mysmart-slider-chevron-color: ${this.config.chevron_color};\n      --mysmart-slider-track-height: ${f.trackHeight}px;\n      --mysmart-slider-handle-height: ${f.handleHeight}px;\n      --mysmart-slider-handle-width: ${f.handleWidth}px;\n      --mysmart-slider-gap: ${f.splitGap}px;\n      --mysmart-slider-padding: ${f.sliderPadding}px;\n      --mysmart-slider-bubble-size: ${f.bubbleSize}px;\n      --mysmart-slider-radius: ${f.radius}px;\n      --mysmart-slider-inner-radius: ${Math.max(4,Math.round(.375*f.radius))}px;\n      --mysmart-slider-icon-size: ${f.iconSize}px;\n      --mysmart-secondary-gap: ${f.splitGap}px;\n    `;return I`
+      <ha-card class="${o?"unavailable":""}" style="${C}">
+        <div class="card-shell ${this._expanded?"expanded":""} ${o?"is-disabled":""}">
+          ${b?I`
+            <div class="slider-header">
+              ${p||this.config.show_name?I`
+                <div class="slider-label">
+                  ${p?I`
+                    <button
+                      class="header-icon-button"
+                      type="button"
+                      @click=${this._handleIconClick}
+                      title="${s?"Slå av":"Slå på"} ${d}"
+                      aria-label="${s?"Slå av":"Slå på"} ${d}"
+                      ?disabled=${o}
+                    >
+                      <ha-icon icon="${h}"></ha-icon>
+                    </button>
+                  `:""}
+                  ${this.config.show_name?I`<div class="name" title="${d}">${d}</div>`:""}
+                </div>
+              `:I`<div></div>`}
+              ${_?I`<div class="value-readout">${o?this._formatUnavailableState(e):`${i}%`}</div>`:""}
+            </div>
+          `:""}
+
+          <div class="primary-row ${v}">
+            <div class="slider-area">
+              <div
+                class="slider-track-shell ${o?"disabled":""}"
+                @click=${this._handleTrackClick}
+                @pointerdown=${this._handlePointerDown}
+                @mousedown=${this._preventTrackMouseDown}
+                aria-disabled="${o}"
+              >
+                <div class="value-bubble ${this._dragging?"visible":""}" style=${this._bubbleStyle(w)}>
+                  <div class="value-bubble-label">${i}</div>
+                  <div class="value-bubble-stem"></div>
+                </div>
+
+                <div class="slider-track">
+                  <div class="slider-track-active" style="width: ${y};">
+                    ${m?I`
+                      <button
+                        class="icon-button"
+                        type="button"
+                        @click=${this._handleIconClick}
+                        title="${s?"Slå av":"Slå på"} ${d}"
+                        aria-label="${s?"Slå av":"Slå på"} ${d}"
+                        ?disabled=${o}
+                      >
+                        <ha-icon icon="${h}"></ha-icon>
+                      </button>
+                    `:""}
+                  </div>
+                  <div class="slider-track-inactive" style="width: ${$};"></div>
+                  <button
+                    class="slider-handle ${this._dragging?"dragging":""} ${null!=this._pendingBrightness?"pending":""}"
+                    type="button"
+                    style="left: ${w};"
+                    aria-label="Lysstyrke"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="${i}"
+                    aria-valuetext="${i}% brightness"
+                    aria-disabled="${o}"
+                    ?disabled=${o}
+                    role="slider"
+                  ></button>
+                </div>
+              </div>
+            </div>
+
+            ${a?I`
+              <button
+                class="expand-button"
+                type="button"
+                @click=${this._toggleExpanded}
+                title="${this._expanded?"Hide extra controls":"Show extra controls"}"
+                aria-label="${this._expanded?"Hide extra controls":"Show extra controls"}"
+                ?disabled=${o}
+              >
+                <ha-icon icon="${this._expanded?"mdi:chevron-up":"mdi:chevron-down"}"></ha-icon>
+              </button>
+            `:""}
+          </div>
+
+          ${l?this._renderExpandedControls(e):""}
+        </div>
+      </ha-card>
+    `}_renderToggleControl(e){const t="on"===e.state,r=this._isUnavailableState(e),i=this.config.name||e.attributes.friendly_name||this.config.entity,s=this.config.icon||e.attributes.icon||"mdi:lightbulb",o=this._getSizeMetrics(),n=this._getSliderPalette(e),a=Ve(this.config),l=!1!==this.config.show_icon&&(this.config.show_icon_on_small_sizes||!["small","medium"].includes(this.config.size)),d=l&&a===ye,h=l&&a===ve,c=!0===this.config.show_brightness||r,u=!1!==this.config.show_name||d||c,g=this.config.card_background||"transparent",p=!this._isTransparentBackground(g),m=Math.max(8,o.sliderPadding),_=Math.max(10,Math.round(1.25*o.sliderPadding)),b=`\n      --mysmart-slider-card-background: transparent;\n      --mysmart-toggle-background: ${g};\n      --mysmart-slider-bar-background: ${n.inactiveColor};\n      --mysmart-slider-bar-foreground: ${n.activeColor};\n      --mysmart-slider-handle-color: ${n.handleColor};\n      --mysmart-slider-icon-color: ${this.config.icon_color};\n      --mysmart-slider-track-height: ${o.trackHeight}px;\n      --mysmart-slider-radius: ${o.radius}px;\n      --mysmart-slider-padding: ${o.sliderPadding}px;\n      --mysmart-slider-icon-size: ${o.iconSize}px;\n      --mysmart-slider-gap: ${o.splitGap}px;\n      --mysmart-toggle-track-inset: 4px;\n      --mysmart-toggle-padding-top: ${p?`${m}px`:"2px"};\n      --mysmart-toggle-padding-right: ${p?`${_}px`:"0px"};\n      --mysmart-toggle-padding-bottom: ${p?`${m}px`:"2px"};\n      --mysmart-toggle-padding-left: ${p?`${_}px`:"0px"};\n    `;return I`
+      <ha-card class="${r?"unavailable":""}" style="${b}">
+        <div class="toggle-card-shell ${p?"has-background":""} ${r?"is-disabled":""}">
+          ${u?I`
+            <div class="slider-header toggle-header">
+              ${d||!1!==this.config.show_name?I`
+                <div class="slider-label">
+                  ${d?I`
+                    <button
+                      class="header-icon-button"
+                      type="button"
+                      @click=${this._handleIconClick}
+                      title="${t?"Turn off":"Turn on"} ${i}"
+                      aria-label="${t?"Turn off":"Turn on"} ${i}"
+                      ?disabled=${r}
+                    >
+                      <ha-icon icon="${s}"></ha-icon>
+                    </button>
+                  `:""}
+                  ${!1!==this.config.show_name?I`<div class="name" title="${i}">${i}</div>`:""}
+                </div>
+              `:I`<div></div>`}
+              ${c?I`<div class="toggle-state-readout">${r?this._formatUnavailableState(e):t?"På":"Av"}</div>`:I`<div></div>`}
+            </div>
+          `:""}
+          <button
+            class="light-toggle-track ${t?"on":"off"} ${h?"with-icon":"without-icon"} ${r?"disabled":""}"
+            type="button"
+            @click=${this._handleToggleClick}
+            role="switch"
+            aria-checked="${t}"
+            aria-disabled="${r}"
+            aria-label="${t?"Turn off":"Turn on"} ${i}"
+            title="${t?"Turn off":"Turn on"} ${i}"
+            ?disabled=${r}
+          >
+            <span class="toggle-state-icons" aria-hidden="true">
+              <span class="toggle-state-icon toggle-state-icon-left">
+                <ha-icon icon="mdi:power-standby"></ha-icon>
+              </span>
+              <span class="toggle-state-icon toggle-state-icon-right">
+                <span class="toggle-state-dot"></span>
+              </span>
+            </span>
+            <span class="toggle-state-segment">
+              ${h?I`<ha-icon icon="${s}"></ha-icon>`:""}
+            </span>
+          </button>
+        </div>
+      </ha-card>
+    `}_renderExpandedControls(e){const t=this._shouldShowTemperatureControl(e),r=this._shouldShowColorSpectrum(e),i=this._shouldShowColorPresets(e);return I`
+      <div class="secondary-panel">
+        ${t?this._renderColorTempControl(e):""}
+        ${r?this._renderColorSpectrum(e):""}
+        ${i?this._renderColorPresets(e):""}
+      </div>
+    `}_renderColorTempControl(e){const t=this._isUnavailableState(e),r=Number(e.attributes.min_color_temp_kelvin||2e3),i=Number(e.attributes.max_color_temp_kelvin||6500),s=Number(this._tempPreviewValue||e.attributes.color_temp_kelvin||Math.round((r+i)/2)),o=Math.max(0,Math.min(100,(s-r)/(i-r)*100));return I`
+      <div class="secondary-group">
+        <div class="secondary-label-row">
+          <span>Temperatur</span>
+          <span>${s}K</span>
+        </div>
+        <div class="secondary-slider-shell">
+          <div class="secondary-slider-track">
+            <div class="secondary-slider-active" style="width: ${this._segmentWidth(o,100-o,"secondary")};"></div>
+            <div class="secondary-slider-inactive" style="left: ${this._segmentLeft(o,"secondary")}; width: ${this._segmentWidth(100-o,o,"secondary")};"></div>
+            <div class="secondary-slider-handle" style="left: ${o}%;"></div>
+            <input
+              class="secondary-range"
+              type="range"
+              min="${r}"
+              max="${i}"
+              step="50"
+              aria-label="Temperatur"
+              .value="${String(s)}"
+              @input=${this._handleColorTempInput}
+              @change=${this._handleColorTempChange}
+              ?disabled=${t}
+            />
+          </div>
+        </div>
+      </div>
+    `}_renderColorPresets(e){const t=this._isUnavailableState(e),r=this._getResolvedColorPresets();return I`
+      <div class="secondary-group">
+        <div class="secondary-label-row">
+          <span>Forhåndsvalg</span>
+          <span>Forhåndsvalg</span>
+        </div>
+        <div class="preset-row">
+          ${r.map(e=>I`
+            <button
+              class="preset-chip"
+              type="button"
+              style="--preset-color: ${e.cssColor};"
+              @click=${()=>this._setColorPreset(e.rgb)}
+              title="${e.label}"
+              aria-label="${e.label}"
+              ?disabled=${t}
+            ></button>
+          `)}
+        </div>
+      </div>
+    `}_renderColorSpectrum(e){const t=this._isUnavailableState(e),r=this._getDisplayHue(e),i=Math.max(0,Math.min(100,r/360*100)),s=this._getHueColorName(r);return I`
+      <div class="secondary-group">
+        <div class="secondary-label-row">
+          <span>Farge</span>
+          <span>${s}</span>
+        </div>
+        <div class="secondary-slider-shell">
+          <div class="secondary-slider-track hue-slider-track">
+            <div
+              class="hue-slider-segment hue-slider-segment-active"
+              style="${this._hueSegmentStyle("active",i)}"
+            ></div>
+            <div
+              class="hue-slider-segment hue-slider-segment-inactive"
+              style="${this._hueSegmentStyle("inactive",i)}"
+            ></div>
+            <div class="secondary-slider-handle hue-slider-handle" style="left: ${i}%;"></div>
+            <input
+              class="secondary-range"
+              type="range"
+              min="0"
+              max="360"
+              step="1"
+              aria-label="Farge"
+              .value="${String(Math.round(r))}"
+              @input=${this._handleColorHueInput}
+              @change=${this._handleColorHueChange}
+              ?disabled=${t}
+            />
+          </div>
+        </div>
+      </div>
+    `}_renderMessage(e){return I`
+      <ha-card>
+        <div class="message">${e}</div>
+      </ha-card>
+    `}_supportsBrightness(e){if(!e||!e.entity_id?.startsWith("light."))return!1;if(null!=e.attributes.brightness)return!0;return(e.attributes.supported_color_modes||[]).some(e=>Ee.has(e))}_isUnavailableState(e){return"unavailable"===e?.state||"unknown"===e?.state}_formatUnavailableState(e){return"unknown"===e?.state?"Ukjent":"Utilgjengelig"}_isCurrentEntityUnavailable(){const e=this.hass?.states?.[this.config?.entity];return this._isUnavailableState(e)}_shouldRenderToggleMode(e){return!0===this.config.force_toggle_mode||!this._supportsBrightness(e)}_supportsColorTemp(e){const t=e.attributes.supported_color_modes||[];return Boolean(t.includes("color_temp")||e.attributes.min_color_temp_kelvin||e.attributes.max_color_temp_kelvin||e.attributes.color_temp_kelvin)}_supportsColor(e){return(e.attributes.supported_color_modes||[]).some(e=>Te.has(e))}_shouldShowTemperatureControl(e){return!this.config.hide_temperature_slider&&this._supportsColorTemp(e)}_shouldShowColorSpectrum(e){const t=Re(this.config);return!this.config.hide_color_controls&&this._supportsColor(e)&&(t===_e||t===fe)}_shouldShowColorPresets(e){const t=Re(this.config);return!this.config.hide_color_presets&&!this.config.hide_rgb_presets&&this._supportsColor(e)&&(t===be||t===fe)}_hasExtraControls(e){return this._shouldShowTemperatureControl(e)||this._shouldShowColorSpectrum(e)||this._shouldShowColorPresets(e)}_getDisplayBrightness(e){return this._dragging&&null!=this._dragValue?this._dragValue:null!=this._pendingBrightness?this._pendingBrightness:null!=e.attributes.brightness?Number(e.attributes.brightness):"on"===e.state?255:0}_percentFromBrightness(e){return Math.max(0,Math.min(100,Math.round(Number(e||0)/255*100)))}_brightnessClampRange(){return De(this.config)}_brightnessFromClampPercent(e){return this._brightnessFromPercent(e)}_clampBrightness(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return 0;const r=this._brightnessClampRange(),i=this._brightnessFromClampPercent(r.min),s=this._brightnessFromClampPercent(r.max);return Math.max(i,Math.min(s,Math.round(t)))}_getMaxBrightness(){const e=this._brightnessClampRange();return this._brightnessFromClampPercent(e.max)}_getSizeMetrics(){return Me[this.config.size]||Me.large}_resolveSliderColor(e){const t=Be(this.config),r=this.config.bar_foreground,i=this._temperatureValueToCss(he)||r;if(t===ce)return{color:r,isAdaptive:!1};const s=this._getConfiguredSliderColor(e,t);return s?(this._setLastAdaptiveColor(s),{color:s,isAdaptive:!0}):t===ue||t===ge||t===me?{color:i,isAdaptive:!0}:{color:r,isAdaptive:!1}}_getSliderPalette(e){const{color:t,isAdaptive:r}=this._resolveSliderColor(e);if(Be(this.config)===ce||!r)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const i=Ne(t);if(!i)return{activeColor:t,inactiveColor:this.config.bar_background,handleColor:this.config.handle_color,popupColor:this.config.handle_color};const s=this._mixRgb(i,[0,0,0],.32);return{activeColor:t,inactiveColor:`rgba(${i.join(", ")}, 0.24)`,handleColor:s,popupColor:s}}_getConfiguredSliderColor(e,t=Be(this.config)){if(t===ue){const e=Number(this.config.slider_color_temperature);return this._temperatureValueToCss(Number.isFinite(e)&&e>0?e:he)}return t===ge?this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor:t===pe?this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._lastAdaptiveColor:this._getOverrideSliderColor("rgb",e)||this._getOverrideSliderColor("temp",e)||this._getStateRgbColor(e)||this._getStateTemperatureColor(e)||this._lastAdaptiveColor}_getOverrideSliderColor(e,t){if(this._sliderColorSource!==e)return null;if("rgb"===e){return this._colorValueToCss(this._sliderColorValue)||this._getStateRgbColor(t)}if("temp"===e){return this._temperatureValueToCss(this._sliderColorValue)||this._getStateTemperatureColor(t)}return null}_getStateRgbColor(e){const t=Array.isArray(e?.attributes?.rgb_color)?e.attributes.rgb_color:this._hsColorToRgb(e?.attributes?.hs_color);return this._colorValueToCss(t)}_getStateTemperatureColor(e){const t=Number(e?.attributes?.color_temp_kelvin);return this._temperatureValueToCss(t)}_colorValueToCss(e){const t=Ne(e);return t?`rgb(${t.join(", ")})`:null}_temperatureValueToCss(e){const t=this._kelvinToRgb(e);return t?`rgb(${t.join(", ")})`:null}_setLastAdaptiveColor(e){e&&(this._lastAdaptiveColor=e,this._persistAdaptiveColor(e))}_loadStoredAdaptiveColor(e=this.config?.entity){const t=Ue(e);if(!t)return null;try{const e=window.localStorage.getItem(t);return this._colorValueToCss(e)}catch(e){return null}}_persistAdaptiveColor(e){const t=Ue(this.config?.entity);if(t)try{window.localStorage.setItem(t,e)}catch(e){}}_mixRgb(e,t,r){const i=Math.max(0,Math.min(1,Number(r)||0));return`rgb(${e.map((e,r)=>{const s=e+((t[r]||0)-e)*i;return Math.round(Math.max(0,Math.min(255,s)))}).join(", ")})`}_hsColorToRgb(e){if(!Array.isArray(e)||e.length<2)return null;const t=Number(e[0]),r=Math.max(0,Math.min(100,Number(e[1])||0))/100;if(!Number.isFinite(t))return null;const i=r,s=(t%360+360)%360/60,o=i*(1-Math.abs(s%2-1));let n=0,a=0,l=0;s>=0&&s<1?(n=i,a=o):s<2?(n=o,a=i):s<3?(a=i,l=o):s<4?(a=o,l=i):s<5?(n=o,l=i):(n=i,l=o);const d=1-i;return[n,a,l].map(e=>Math.round(255*(e+d)))}_hueToRgb(e){return this._hsColorToRgb([e,100])}_rgbToHue(e){const t=Ne(e);if(!t)return null;const[r,i,s]=t.map(e=>Math.max(0,Math.min(255,Number(e)))/255),o=Math.max(r,i,s),n=o-Math.min(r,i,s);if(0===n)return 0;let a;return a=o===r?(i-s)/n%6:o===i?(s-r)/n+2:(r-i)/n+4,Math.round((60*a%360+360)%360)}_kelvinToRgb(e){const t=Number(e);if(!Number.isFinite(t)||t<=0)return null;const r=Math.max(1e3,Math.min(4e4,t))/100;let i,s,o;return r<=66?(i=255,s=99.4708025861*Math.log(r)-161.1195681661):(i=329.698727446*Math.pow(r-60,-.1332047592),s=288.1221695283*Math.pow(r-60,-.0755148492)),o=r>=66?255:r<=19?0:138.5177312231*Math.log(r-10)-305.0447927307,[i,s,o].map(e=>{const t=Math.max(0,Math.min(255,e));return Math.round(t)})}_getResolvedColorPresets(){const e=(Array.isArray(this.config?.color_presets)?this.config.color_presets:[]).map((e,t)=>{const r=this._parseColorToRgb(e);return r?{label:`Preset ${t+1}`,rgb:r,cssColor:`rgb(${r.join(", ")})`}:null}).filter(Boolean);return e.length?e:this._defaultResolvedColorPresets()}_defaultResolvedColorPresets(){return le.map((e,t)=>({label:e.label||`Preset ${t+1}`,rgb:e.rgb,cssColor:`rgb(${e.rgb.join(", ")})`}))}_getDisplayHue(e){if(null!=this._colorPreviewHue)return this._clampHueSliderValue(this._colorPreviewHue);const t=Number(e?.attributes?.hs_color?.[0]);if(Number.isFinite(t))return this._normalizeHue(t);const r=this._rgbToHue(e?.attributes?.rgb_color);return null!=r?r:0}_normalizeHue(e){const t=Number(e);return Number.isFinite(t)?(t%360+360)%360:0}_clampHueSliderValue(e){const t=Number(e);return Number.isFinite(t)?Math.max(0,Math.min(360,t)):0}_getHueColorName(e){const t=this._normalizeHue(e);return t<15||t>=345?"Red":t<45?"Orange":t<75?"Yellow":t<150?"Green":t<195?"Cyan":t<255?"Blue":t<285?"Purple":t<330?"Magenta":"Pink"}_parseColorToRgb(e){return Ne(e)}_isTransparentBackground(e){if(null==e)return!0;const t=String(e).trim().toLowerCase();if(!t||"transparent"===t||"none"===t)return!0;if(/^#[0-9a-f]{4}$/i.test(t))return"0"===t.slice(-1);if(/^#[0-9a-f]{8}$/i.test(t))return"00"===t.slice(-2);const r=t.match(/^rgba?\([^)]*,\s*(0|0?\.0+)\s*\)$/i);return Boolean(r)}_brightnessFromPercent(e){return Math.max(0,Math.min(255,Math.round(Number(e)/100*255)))}_mainActiveWidth(e){const t="var(--mysmart-slider-gap)";return e<=0?"0px":e>=100?`max(0px, calc(100% - ${t}))`:`max(0px, calc(${`clamp(0%, ${e}%, 100%)`} - (${t} / 2)))`}_mainInactiveWidth(e){return`max(0px, calc(100% - (${e}) - var(--mysmart-slider-gap)))`}_mainHandleLeft(e){return`calc(${e} + (var(--mysmart-slider-gap) / 2))`}_segmentWidth(e,t,r="main"){return`max(0px, calc(clamp(0%, ${e}%, 100%) - ${e>0&&e<100||t>0&&t<100?`(${"secondary"===r?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"}))`}_segmentLeft(e,t="main"){return`calc(clamp(0%, ${e}%, 100%) + ${e>0&&e<100?`(${"secondary"===t?"var(--mysmart-secondary-gap)":"var(--mysmart-slider-gap)"} / 2)`:"0px"})`}_bubbleStyle(e){return`left: ${e};`}_hueSegmentStyle(e,t){if("active"===e){return`clip-path: inset(0 calc(100% - (${this._segmentWidth(t,100-t,"secondary")})) 0 0 round var(--mysmart-secondary-radius));`}return`clip-path: inset(0 0 0 ${this._segmentLeft(t,"secondary")} round var(--mysmart-secondary-radius));`}_preventTrackMouseDown(e){e.target===e.currentTarget&&e.preventDefault()}_toggleExpanded(){this._isCurrentEntityUnavailable()||(this._expanded=!this._expanded)}_handleIconClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_handleToggleClick(e){e.preventDefault(),e.stopPropagation(),this._toggleLight()}_toggleLight(){const e=this.hass.states[this.config.entity];if(!e||this._isUnavailableState(e))return;if("on"===e.state)return void this.hass.callService("light","turn_off",{entity_id:this.config.entity});const t={entity_id:this.config.entity},r=this._supportsBrightness(e)?this._getMaxBrightness():null;null!=r&&r>0&&(t.brightness=r),this.hass.callService("light","turn_on",t)}_handleTrackClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;if(e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)))return;const t=this.shadowRoot.querySelector(".slider-track");if(!t)return;const r=t.getBoundingClientRect(),i=(e.clientX-r.left)/r.width*100,s=this._clampBrightness(this._brightnessFromPercent(i));this._setPendingBrightness(s),this._sendBrightness(s)}_handlePointerDown(e){if(this._isCurrentEntityUnavailable())return;if(null!=e.button&&0!==e.button)return;const t=e.composedPath().find(e=>e instanceof HTMLElement&&("BUTTON"===e.tagName||"INPUT"===e.tagName)),r=t?.classList?.contains("slider-handle");if(t&&!r)return;const i=this.shadowRoot.querySelector(".slider-track");i&&(this._trackRect=i.getBoundingClientRect(),this._gestureMode="pending",this._gesturePointerId=e.pointerId,this._gestureStartX=e.clientX,this._gestureStartY=e.clientY,window.addEventListener("pointermove",this._moveHandler),window.addEventListener("pointerup",this._upHandler),window.addEventListener("pointercancel",this._upHandler),"mouse"===e.pointerType&&(this._startBrightnessDrag(e.clientX),e.preventDefault(),e.stopPropagation()))}_handlePointerMove(e){if(null==this._gesturePointerId||e.pointerId===this._gesturePointerId){if("pending"===this._gestureMode){const t=e.clientX-this._gestureStartX,r=e.clientY-this._gestureStartY,i=Math.abs(t),s=Math.abs(r);if(Math.max(i,s)<8)return;if(s>i)return void this._cancelPendingGesture();this._startBrightnessDrag(e.clientX)}this._dragging&&(e.preventDefault(),this._updateDragBrightness(e.clientX))}}_handlePointerUp(e){if(null!=this._gesturePointerId&&e.pointerId!==this._gesturePointerId)return;if(!this._dragging)return void this._cancelPendingGesture();e.preventDefault();const t=this._dragValue??0;this._setPendingBrightness(t),this._sendBrightness(t),this._dragging=!1,this._dragValue=null,this._clearGestureState()}_teardownPointerListeners(){window.removeEventListener("pointermove",this._moveHandler),window.removeEventListener("pointerup",this._upHandler),window.removeEventListener("pointercancel",this._upHandler)}_startBrightnessDrag(e){this._gestureMode="dragging",this._dragging=!0,this._suppressNextClick=!0,this._updateDragBrightness(e)}_cancelPendingGesture(){this._dragging=!1,this._dragValue=null,this._clearGestureState()}_clearGestureState(){this._gestureMode=null,this._gesturePointerId=null,this._gestureStartX=0,this._gestureStartY=0,this._teardownPointerListeners()}_updateDragBrightness(e){if(!this._trackRect)return;const t=(e-this._trackRect.left)/this._trackRect.width*100,r=Math.max(0,Math.min(100,t)),i=this._clampBrightness(this._brightnessFromPercent(r));this._dragValue=i,this.config.live_update&&this._commitLiveBrightness(i)}_sendBrightness(e){if(this._isCurrentEntityUnavailable())return;this._lastBrightnessSentAt=Date.now(),window.clearTimeout(this._brightnessTimer);const t=this._clampBrightness(e);t<=0?this.hass.callService("light","turn_off",{entity_id:this.config.entity}):this.hass.callService("light","turn_on",{entity_id:this.config.entity,brightness:t})}_setPendingBrightness(e){this._pendingBrightness=this._clampBrightness(e),this._pendingSince=Date.now()}_clearPendingBrightness(){this._pendingBrightness=null,this._pendingSince=0}_commitLiveBrightness(e){if(Date.now()-this._lastBrightnessSentAt<90)return window.clearTimeout(this._brightnessTimer),void(this._brightnessTimer=window.setTimeout(()=>{this._sendBrightness(e)},90));this._sendBrightness(e)}_handleColorTempInput(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now()}_handleColorTempChange(e){if(this._isCurrentEntityUnavailable())return;const t=Number(e.target.value);this._tempPreviewValue=t,this._sliderColorSource="temp",this._sliderColorValue=t,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,color_temp_kelvin:t})}_handleColorHueInput(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._hueToRgb(this._normalizeHue(t));this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=r,this._previewUpdatedAt=Date.now()}_handleColorHueChange(e){if(this._isCurrentEntityUnavailable())return;const t=this._clampHueSliderValue(e.target.value),r=this._normalizeHue(t),i=this._hueToRgb(r);this._tempPreviewValue=null,this._colorPreviewHue=t,this._sliderColorSource="rgb",this._sliderColorValue=i,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,hs_color:[r,100]})}_setColorPreset(e){this._isCurrentEntityUnavailable()||(this._tempPreviewValue=null,this._colorPreviewHue=this._rgbToHue(e),this._sliderColorSource="rgb",this._sliderColorValue=Array.isArray(e)?e.slice(0,3):e,this._previewUpdatedAt=Date.now(),this.hass.callService("light","turn_on",{entity_id:this.config.entity,rgb_color:e}))}_clearPreviewState(){this._tempPreviewValue=null,this._colorPreviewHue=null,this._sliderColorSource=null,this._sliderColorValue=null,this._previewUpdatedAt=0}_rgbArraysClose(e,t){return!(!Array.isArray(e)||!Array.isArray(t)||e.length<3||t.length<3)&&e.slice(0,3).every((e,r)=>Math.abs(Number(e)-Number(t[r]))<=2)}static get styles(){return o`
+      :host {
+        --ha-card-background: transparent;
+        --ha-card-border-width: 0;
+        --ha-card-box-shadow: none;
+        display: block;
+      }
+
+      ha-card {
+        background: var(--mysmart-slider-card-background, transparent);
+        border: none;
+        box-shadow: none;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      button:disabled,
+      input:disabled {
+        cursor: not-allowed;
+      }
+
+      .is-disabled {
+        opacity: 0.58;
+      }
+
+      .is-disabled .name,
+      .is-disabled .value-readout,
+      .is-disabled .toggle-state-readout,
+      .is-disabled .secondary-label-row {
+        color: var(--disabled-text-color, var(--secondary-text-color));
+      }
+
+      .slider-track-shell.disabled,
+      .light-toggle-track.disabled {
+        cursor: not-allowed;
+      }
+
+      .slider-track-shell.disabled .slider-track,
+      .light-toggle-track.disabled,
+      .secondary-range:disabled,
+      .preset-chip:disabled {
+        pointer-events: none;
+      }
+
+      .toggle-card-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding:
+          var(--mysmart-toggle-padding-top, 2px)
+          var(--mysmart-toggle-padding-right, 0px)
+          var(--mysmart-toggle-padding-bottom, 2px)
+          var(--mysmart-toggle-padding-left, 0px);
+        border-radius: var(--mysmart-slider-radius);
+      }
+
+      .toggle-card-shell.has-background {
+        background: var(--mysmart-toggle-background, transparent);
+      }
+
+      .toggle-header {
+        padding: 0;
+      }
+
+      .toggle-state-readout {
+        color: var(--secondary-text-color);
+        font-size: 0.88rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+      }
+
+      .light-toggle-track {
+        box-sizing: border-box;
+        display: block;
+        position: relative;
+        width: 100%;
+        height: var(--mysmart-slider-track-height);
+        margin: 2px 0 0;
+        padding: var(--mysmart-toggle-track-inset);
+        border: none;
+        border-radius: var(--mysmart-slider-radius);
+        background: var(--mysmart-slider-bar-background, rgba(103, 80, 164, 0.18));
+        color: var(--secondary-text-color);
+        cursor: pointer;
+        overflow: hidden;
+        transition: background 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+      }
+
+      .light-toggle-track.on {
+        background: var(--mysmart-slider-bar-background, rgba(103, 80, 164, 0.18));
+      }
+
+      .light-toggle-track:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--mysmart-slider-bar-foreground, var(--primary-color)) 40%, transparent);
+      }
+
+      .toggle-state-icons,
+      .toggle-state-segment {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .toggle-state-icons {
+        left: var(--mysmart-toggle-track-inset);
+        right: var(--mysmart-toggle-track-inset);
+        height: calc(100% - (var(--mysmart-toggle-track-inset) * 2));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 calc(var(--mysmart-slider-padding) + 2px);
+        color: color-mix(in srgb, var(--mysmart-slider-bar-foreground, var(--primary-color)) 80%, white 20%);
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .toggle-state-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: calc((var(--mysmart-slider-track-height) - (var(--mysmart-toggle-track-inset) * 2)) * 0.58);
+        height: calc((var(--mysmart-slider-track-height) - (var(--mysmart-toggle-track-inset) * 2)) * 0.58);
+      }
+
+      .toggle-state-icon ha-icon {
+        --mdc-icon-size: calc(var(--mysmart-slider-icon-size) * 0.8);
+      }
+
+      .toggle-state-segment {
+        left: var(--mysmart-toggle-track-inset);
+        width: calc((100% - (var(--mysmart-toggle-track-inset) * 2) + var(--mysmart-slider-gap)) / 2);
+        height: calc(100% - (var(--mysmart-toggle-track-inset) * 2));
+        background: var(--mysmart-slider-bar-background, rgba(103, 80, 164, 0.18));
+        color: var(--mysmart-slider-icon-color, var(--primary-text-color));
+        border-radius: max(6px, calc(var(--mysmart-slider-radius) - var(--mysmart-toggle-track-inset) - 2px));
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transform: translateY(-50%);
+        transition:
+          left 180ms ease,
+          background 180ms ease,
+          color 180ms ease,
+          transform 180ms ease;
+      }
+
+      .light-toggle-track.on .toggle-state-segment {
+        left: calc(50% - (var(--mysmart-slider-gap) / 2));
+        background: var(--mysmart-slider-bar-foreground, var(--primary-color));
+        color: var(--card-background-color, #ffffff);
+        z-index: 2;
+      }
+
+      .light-toggle-track.with-icon .toggle-state-segment ha-icon {
+        --mdc-icon-size: var(--mysmart-slider-icon-size);
+      }
+
+      .light-toggle-track.without-icon .toggle-state-segment {
+        border-radius: 12px;
+      }
+
+      .toggle-state-dot {
+        width: calc(var(--mysmart-slider-track-height) * 0.18);
+        height: calc(var(--mysmart-slider-track-height) * 0.18);
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.72;
+      }
+
+      .light-toggle-track:active .toggle-state-segment {
+        transform: translateY(-50%) scale(0.98);
+      }
+
+      .card-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 2px 0;
+        --mysmart-secondary-track-height: 20px;
+        --mysmart-secondary-handle-height: 34px;
+        --mysmart-secondary-handle-width: 4px;
+        --mysmart-secondary-radius: 10px;
+      }
+
+      .primary-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .primary-row.no-expand {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .icon-button,
+      .header-icon-button,
+      .expand-button {
+        border: none;
+        outline: none;
+        cursor: pointer;
+        flex: 0 0 auto;
+      }
+
+      .icon-button {
+        position: absolute;
+        top: 50%;
+        left: calc(var(--mysmart-slider-padding) * 0.75);
+        width: calc(var(--mysmart-slider-icon-size) + 10px);
+        height: calc(var(--mysmart-slider-icon-size) + 10px);
+        min-width: 18px;
+        min-height: 18px;
+        border-radius: 999px;
+        background: var(--mysmart-slider-icon-background, rgba(103, 80, 164, 0.18));
+        color: var(--mysmart-slider-icon-color, var(--primary-text-color));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 160ms ease, background 160ms ease;
+        transform: translateY(-50%);
+        z-index: 2;
+        pointer-events: auto;
+      }
+
+      .expand-button:active,
+      .preset-chip:active {
+        transform: scale(0.97);
+      }
+
+      .slider-handle:active {
+        transform: translate(-50%, -50%) scale(0.97);
+      }
+
+      .icon-button:active {
+        filter: brightness(0.96);
+      }
+
+      .header-icon-button:active {
+        transform: scale(0.97);
+      }
+
+      .icon-button ha-icon,
+      .header-icon-button ha-icon,
+      .expand-button ha-icon {
+        --mdc-icon-size: var(--mysmart-slider-icon-size);
+      }
+
+      .expand-button {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--mysmart-slider-chevron-color, var(--secondary-text-color));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: center;
+      }
+
+      .slider-area {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        align-self: center;
+      }
+
+      .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 2px;
+        margin-bottom: 0;
+      }
+
+      .slider-label {
+        min-width: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .header-icon-button {
+        width: calc(var(--mysmart-slider-icon-size) + 8px);
+        height: calc(var(--mysmart-slider-icon-size) + 8px);
+        min-width: 24px;
+        min-height: 24px;
+        margin: 0;
+        padding: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--mysmart-slider-icon-color, var(--primary-text-color));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 160ms ease, filter 160ms ease;
+      }
+
+      .name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--primary-text-color);
+        font-size: 1rem;
+        font-weight: 500;
+        letter-spacing: 0.0125em;
+      }
+
+      .value-readout {
+        color: var(--secondary-text-color);
+        font-size: 0.85rem;
+      }
+
+      .slider-track-shell {
+        position: relative;
+        padding: 0 0 4px;
+        cursor: pointer;
+        overflow: visible;
+        touch-action: pan-y;
+      }
+
+      .slider-track {
+        position: relative;
+        height: var(--mysmart-slider-track-height);
+        overflow: visible;
+        touch-action: pan-y;
+      }
+
+      .slider-track-active {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        border-radius: var(--mysmart-slider-radius) var(--mysmart-slider-inner-radius) var(--mysmart-slider-inner-radius) var(--mysmart-slider-radius);
+        background: var(--mysmart-slider-bar-foreground, var(--primary-color));
+        overflow: hidden;
+      }
+
+      .slider-track-inactive {
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        border-radius: var(--mysmart-slider-inner-radius) var(--mysmart-slider-radius) var(--mysmart-slider-radius) var(--mysmart-slider-inner-radius);
+        background: var(--mysmart-slider-bar-background, rgba(103, 80, 164, 0.18));
+      }
+
+      .slider-handle {
+        position: absolute;
+        top: 50%;
+        width: var(--mysmart-slider-handle-width);
+        height: var(--mysmart-slider-handle-height);
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 999px;
+        background: var(--mysmart-slider-handle-color, #ffffff);
+        box-sizing: border-box;
+        appearance: none;
+        -webkit-appearance: none;
+        transform: translate(-50%, -50%);
+        cursor: grab;
+        touch-action: pan-y;
+        z-index: 3;
+      }
+
+      .slider-handle.dragging {
+        cursor: grabbing;
+      }
+
+      .slider-handle.pending:not(.dragging) {
+        opacity: 0.88;
+      }
+
+      .value-bubble {
+        position: absolute;
+        top: calc((var(--mysmart-slider-bubble-size) * -1) - 10px);
+        transform: translate(-50%, 0) scale(0.72);
+        transform-origin: center bottom;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+        z-index: 5;
+      }
+
+      .value-bubble.visible {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+      }
+
+      .value-bubble-label {
+        width: var(--mysmart-slider-bubble-size);
+        height: var(--mysmart-slider-bubble-size);
+        padding: 0;
+        border-radius: 50%;
+        background: var(--mysmart-slider-popup-background, #211f26);
+        color: var(--mysmart-slider-popup-number-color, #ffffff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      .value-bubble-stem {
+        display: none;
+      }
+
+      .secondary-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 4px 0 0 0;
+      }
+
+      .secondary-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .secondary-label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        color: var(--secondary-text-color);
+        font-size: 0.82rem;
+      }
+
+      .secondary-range {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .secondary-slider-shell {
+        position: relative;
+      }
+
+      .secondary-slider-track {
+        position: relative;
+        height: var(--mysmart-secondary-track-height);
+      }
+
+      .secondary-slider-track.hue-slider-track {
+        border-radius: var(--mysmart-secondary-radius);
+        overflow: visible;
+      }
+
+      .hue-slider-segment {
+        position: absolute;
+        inset: 0;
+        border-radius: var(--mysmart-secondary-radius);
+        background-image: linear-gradient(
+          90deg,
+          #ff0000 0%,
+          #ffff00 16.66%,
+          #00ff00 33.33%,
+          #00ffff 50%,
+          #0000ff 66.66%,
+          #ff00ff 83.33%,
+          #ff0000 100%
+        );
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .secondary-slider-active,
+      .secondary-slider-inactive {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        border-radius: var(--mysmart-secondary-radius);
+      }
+
+      .secondary-slider-active {
+        left: 0;
+        background: var(--mysmart-slider-bar-foreground, var(--primary-color));
+      }
+
+      .secondary-slider-inactive {
+        background: var(--mysmart-slider-bar-background, rgba(103, 80, 164, 0.18));
+      }
+
+      .secondary-slider-handle {
+        position: absolute;
+        top: 50%;
+        width: var(--mysmart-secondary-handle-width);
+        height: var(--mysmart-secondary-handle-height);
+        border-radius: 999px;
+        background: var(--mysmart-slider-handle-color, #ffffff);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .hue-slider-handle {
+        background: var(--primary-text-color, #ffffff);
+        box-shadow:
+          0 0 0 2px rgba(0, 0, 0, 0.42),
+          0 1px 4px rgba(0, 0, 0, 0.32);
+      }
+
+      .preset-row {
+        --preset-chip-size: var(--mysmart-secondary-track-height);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        width: 100%;
+      }
+
+      .preset-chip {
+        flex: 0 0 var(--preset-chip-size);
+        width: var(--preset-chip-size);
+        aspect-ratio: 1 / 1;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: var(--preset-color);
+        cursor: pointer;
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+          0 1px 3px rgba(0, 0, 0, 0.22);
+      }
+
+      .message {
+        padding: 16px;
+        color: var(--secondary-text-color);
+      }
+
+      @media (max-width: 480px) {
+        .primary-row {
+          gap: 10px;
+        }
+
+        .secondary-panel {
+          padding-left: 0;
+        }
+      }
+    `}}customElements.get("mysmart-light-control")||customElements.define("mysmart-light-control",Ie);
+//# sourceMappingURL=mysmart-light-control.js.map
+
+} catch (e) { console.error('[ki-msh] vendor/mysmart-light-control-no.js', e); }
+
 /* ---- 00-base.js ---- */
 try {
 /* KI MSH · felles hjelpere (window.MSH)
@@ -713,7 +1758,9 @@ try {
     Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    const res = await MSH.store.set(key, { ...(MSH.store.get(key) || {}), ...rest }, { immediate: opts.immediate });
+    const prev = MSH.store.get(key) || {};
+    Object.keys(prev).forEach((k) => { if (!(k in newCfg) && !(k in rest) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet siden forrige lagring
+    const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
   // YAML-config + ki-store (null = fjernet)
@@ -792,7 +1839,7 @@ try {
       else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
-      this._firstRender = false;
+      // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
       const keys = this.constructor.uiPersist || [];
       if (config.card_id && keys.length && prevId !== config.card_id) {
         const saved = MSH.uiLoad(config.card_id), pick = {};
@@ -2112,6 +3159,361 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 04-strategy.js', e); }
+
+/* ---- 05-tab-reorder.js ---- */
+try {
+/* KI MSH · felles fanerad: vannrett scroll + langt trykk/dra = omorganiser (mus, telefon og iPad).
+ *   MSH.tabReorder(row, {
+ *     items: () => [knapper],          // standard: row > button
+ *     idOf: (btn) => id,               // standard: data-tab-id || data-key
+ *     active: () => id,                // aktiv fane (scrolles inn); standard: .on / [aria-selected=true]
+ *     onReorder(newOrderIds),          // ved slipp (kun når rekkefølgen er endret) – kortet lagrer i config
+ *     onSelect(id),                    // valgfritt: «liquid glass»-valg når alle faner får plass (glass: true)
+ *     holdMs: 400, isEdit: () => bool, // redigeringsmodus: dra starter uten langt trykk
+ *     card,                            // kortet (settes _busy under dra så render ikke river DOM-en)
+ *     glass, onGlassMove(btn, x), onGlassEnd(btn|null, commit)   // egen linse (Hjem) i stedet for standardlinsen
+ *   }) → kontroller { refresh(), scrollActive(smooth), fade() }. Kall igjen etter hver render (idempotent).
+ * Raden: klassen .msh-tr (CSS i MSH.TAB_ROW_CSS – legg den i kortets styles). Knappene krymper aldri og kuttes aldri.
+ * Touch: touchstart/touchmove {passive:false} direkte på knappen. Under holdet avbryter > 8 px bevegelse (vanlig
+ * scroll). Når draget er i gang: touchmove → preventDefault + stopPropagation, og pointercancel ignoreres (dra
+ * fortsetter via touch-hendelsene). Glass-drag slås av på containeren (dataset.glassDragOff = '1') mens man drar.
+ * Haptic: medium (dra starter) → selection (fanen passerer en annen) → light (slipp). Ingen haptic ved scroll.
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.tabReorder) return;
+
+  M.TAB_ROW_CSS = `
+    .msh-tr{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;min-width:0;max-width:100%;
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%)}
+    .msh-tr::-webkit-scrollbar{display:none}
+    .msh-tr.tr-fitglass{touch-action:pan-y}
+    .msh-tr>button{flex:0 0 auto;min-width:max-content;scroll-snap-align:start;white-space:nowrap;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+    .msh-tr.tr-drag{scroll-snap-type:none}
+    .msh-tr.tr-drag>button{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px var(--pink,#f285c9)}
+    .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--gray300,#404040) !important;color:var(--white,#fafafa) !important}
+    .msh-tr.tr-settle>button{transition:none !important}
+  `;
+
+  // Glass-drag (10-navbar.js: M.glassDrag) respekterer dataset.glassDragOff = '1' på containeren.
+  (function () {
+    const wrap = (fn) => {
+      if (typeof fn !== 'function' || fn.__trWrap) return fn;
+      const w = function (c, opt) {
+        opt = opt || {};
+        const en = opt.enabled;
+        return fn.call(this, c, { ...opt, enabled: () => !(c && c.dataset && c.dataset.glassDragOff === '1') && (!en || en()) });
+      };
+      w.__trWrap = true;
+      return w;
+    };
+    let inner = wrap(M.glassDrag);
+    try { Object.defineProperty(M, 'glassDrag', { configurable: true, enumerable: true, get: () => inner, set: (fn) => { inner = wrap(fn); } }); } catch (e) { /* */ }
+  })();
+
+  const SLOP = 8;
+  let lastHap = 0;
+  const hap = (type) => { lastHap = Date.now(); M.haptic(type); };
+  // M.haptic slipper maks én per 40 ms – slipp-haptic skal ikke forsvinne rett etter en «selection».
+  const hapLater = (type) => { const w = 45 - (Date.now() - lastHap); if (w > 0) setTimeout(() => hap(type), w); else hap(type); };
+  // Alle containere som kan ha glass-drag: raden, kortet og forfedre (også gjennom shadow roots).
+  const glassHosts = (row, card) => {
+    const out = [row];
+    if (card) out.push(card);
+    let n = row.parentNode || row.host, d = 0;
+    while (n && d++ < 60) {
+      if (n.nodeType === 1 && (n.__gd || (n.hasAttribute && n.hasAttribute('data-glass-drag')))) out.push(n);
+      n = n.parentNode || n.host;
+    }
+    return out;
+  };
+  const lensEl = () => {
+    const l = document.createElement('span');
+    Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
+    document.body.appendChild(l);
+    requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
+    return l;
+  };
+
+  class TabReorder {
+    constructor(row, opts) {
+      this.row = row;
+      this.opts = opts;
+      this.st = null;
+      this.eatUntil = 0;
+      this._bindRow();
+    }
+    get o() { return { holdMs: 400, styleRow: true, ...this.opts }; }
+    items() { const f = this.o.items; return (f ? Array.from(f() || []) : Array.from(this.row.children).filter((b) => b.tagName === 'BUTTON')).filter((b) => b && b.isConnected); }
+    idOf(b) { return this.o.idOf ? this.o.idOf(b) : (b.dataset.tabId || b.dataset.key); }
+    overflow() { return this.row.scrollWidth > this.row.clientWidth + 1; }
+    canReorder() { return !!this.o.onReorder && this.items().length > 1; }
+
+    /* ---------------- oppsett */
+    _bindRow() {
+      const row = this.row, stop = (e) => e.stopPropagation();
+      // Bubble Card (swipe-to-close), karusell og dashbord skal ikke få gestene
+      row.addEventListener('pointerdown', stop);
+      row.addEventListener('touchstart', stop, { passive: true });
+      row.addEventListener('touchmove', stop, { passive: true });
+      row.addEventListener('contextmenu', (e) => e.preventDefault());
+      // Ingen click / fanebytte etter et drag
+      row.addEventListener('click', (e) => { if (Date.now() < this.eatUntil) { this.eatUntil = 0; e.stopPropagation(); e.preventDefault(); } }, true);
+      row.addEventListener('scroll', () => {
+        this.fade();
+        const st = this.st;
+        if (st && st.phase === 'hold' && st.type !== 'mouse') this._abortHold(); // native scroll → ikke langt trykk
+      }, { passive: true });
+      if (window.ResizeObserver) { this._ro = new ResizeObserver(() => this.fade()); this._ro.observe(row); }
+    }
+    _bindBtn(b) {
+      if (b.__trB === this) return;
+      b.__trB = this;
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+      b.addEventListener('pointerdown', (e) => this._down(e, b));
+      b.addEventListener('pointermove', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._move(e.clientX, e.clientY, e, false); });
+      b.addEventListener('pointerup', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._end(true, e.clientX); });
+      b.addEventListener('pointercancel', (e) => {
+        const st = this.st;
+        if (!st || st.b !== b || e.pointerId !== st.pid) return;
+        if ((st.phase === 'drag' || st.phase === 'glass') && st.touchLock) return; // touch-lytteren har stoppet scrollen – dra videre
+        if (st.phase === 'hold') this._abortHold(); else this._end(false);
+      });
+      b.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        const t = e.changedTouches[0];
+        if (!t) return;
+        if (!this.st || this.st.b !== b) this._begin(b, t.clientX, t.clientY, null, 'touch');
+        if (this.st) this.st.tid = t.identifier;
+      }, { passive: false });
+      b.addEventListener('touchmove', (e) => {
+        e.stopPropagation();
+        const st = this.st;
+        if (!st || st.b !== b) return;
+        const t = [...e.touches].find((x) => st.tid == null || x.identifier === st.tid) || e.touches[0];
+        if (!t) return;
+        if (st.phase === 'drag' || st.phase === 'glass') { if (e.cancelable) e.preventDefault(); st.touchLock = true; }
+        this._move(t.clientX, t.clientY, e, true);
+      }, { passive: false });
+      b.addEventListener('touchend', (e) => { const st = this.st; if (st && st.b === b && (st.phase === 'drag' || st.phase === 'glass')) { const t = e.changedTouches[0]; this._end(true, t ? t.clientX : st.x); } });
+      b.addEventListener('touchcancel', () => { const st = this.st; if (st && st.b === b && st.phase !== 'hold') this._end(false); });
+    }
+    refresh() {
+      const row = this.row;
+      if (this.o.styleRow !== false && !row.classList.contains('msh-tr')) row.classList.add('msh-tr');
+      if (this.st && this.st.phase === 'drag') return;
+      this.items().forEach((b) => this._bindBtn(b));
+      this.fade();
+      this.scrollActive();
+    }
+    // Myk fade (12 px) på kanten som har mer innhold; touch-action etter om raden scroller.
+    fade() {
+      const row = this.row, max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
+      const set = (k, v) => { if (row.style.getPropertyValue(k) !== v) row.style.setProperty(k, v); };
+      set('--tr-fl', ovf && sl > 1 ? '12px' : '0px');
+      set('--tr-fr', ovf && sl < max - 1 ? '12px' : '0px');
+      row.classList.toggle('tr-fitglass', !ovf && !!this.o.glass);
+    }
+    activeBtn() {
+      const a = this.o.active ? this.o.active() : null, its = this.items();
+      if (a != null) return its.find((b) => this.idOf(b) === a) || null;
+      return its.find((b) => b.classList.contains('on') || b.getAttribute('aria-selected') === 'true' || b.hasAttribute('data-active')) || null;
+    }
+    // Aktiv fane inn i synlig område (row.scrollTo smooth; første gang uten animasjon).
+    scrollActive(force) {
+      const row = this.row, b = this.activeBtn();
+      if (!b) return;
+      const id = this.idOf(b);
+      if (!force && this._shown === id) return;
+      const init = this._shown == null;
+      this._shown = id;
+      const cw = row.clientWidth, sl = row.scrollLeft, l = b.getBoundingClientRect().left - row.getBoundingClientRect().left + sl, r = l + b.offsetWidth, m = 24;
+      if (!cw || row.scrollWidth <= cw + 1) return;
+      let left = null;
+      if (l - m < sl) left = Math.max(0, l - m);
+      else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
+      if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
+    }
+
+    /* ---------------- gest */
+    _begin(b, x, y, pid, type) {
+      if (this.st && this.st.phase !== 'hold') return;
+      this._clearHold();
+      const st = (this.st = { b, pid, type, x0: x, y0: y, x, y, sl0: this.row.scrollLeft, phase: 'hold', edit: !!(this.o.isEdit && this.o.isEdit()) });
+      if (this.canReorder()) st.timer = setTimeout(() => { if (this.st === st && st.phase === 'hold') this._startDrag(); }, this.o.holdMs);
+    }
+    _down(e, b) {
+      if (e.button) return;
+      e.stopPropagation();
+      if (this.st && this.st.b === b && this.st.phase === 'hold' && this.st.pid == null) this.st.pid = e.pointerId; // touchstart kom først
+      else this._begin(b, e.clientX, e.clientY, e.pointerId, e.pointerType);
+      if (this.st) { this.st.pid = e.pointerId; this.st.type = e.pointerType || this.st.type; }
+      try { b.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+    }
+    _clearHold() { if (this.st && this.st.timer) { clearTimeout(this.st.timer); this.st.timer = null; } }
+    _abortHold() { this._clearHold(); this.st = null; }
+    _move(x, y, e, touch) {
+      const st = this.st;
+      if (!st) return;
+      st.x = x; st.y = y;
+      const dx = x - st.x0, dy = y - st.y0;
+      if (st.phase === 'hold') {
+        if (Math.hypot(dx, dy) <= SLOP) return;
+        this._clearHold();
+        const horiz = Math.abs(dx) >= Math.abs(dy);
+        if (st.edit && horiz && this.canReorder()) this._startDrag();
+        else if (horiz && this.o.glass && this.o.onSelect && !this.overflow() && this.items().length > 1) this._startGlass();
+        else if (horiz && st.type === 'mouse' && this.overflow()) { st.phase = 'pan'; }
+        else { this.st = null; return; } // vanlig scroll (touch: native)
+        if (touch && e.cancelable) { e.preventDefault(); st.touchLock = true; }
+      }
+      if (st.phase === 'hold') return;
+      if (!touch && e.cancelable) e.preventDefault();
+      if (st.phase === 'pan') { this.row.scrollLeft = st.sl0 - dx; return; }
+      if (st.phase === 'glass') { this._glassMove(x, y); return; }
+      if (st.phase === 'drag') this._layout(st);
+    }
+
+    /* ---------------- omorganisering */
+    _glassOff(on) {
+      const st = this.st;
+      if (on) {
+        st.gh = glassHosts(this.row, this.o.card).filter((n) => n.dataset && n.dataset.glassDragOff !== '1');
+        st.gh.forEach((n) => { n.dataset.glassDragOff = '1'; });
+      } else if (st && st.gh) st.gh.forEach((n) => { delete n.dataset.glassDragOff; });
+    }
+    _startDrag() {
+      const st = this.st, row = this.row, its = this.items();
+      const from = its.indexOf(st.b);
+      if (from < 0 || its.length < 2) { this.st = null; return; }
+      this._clearHold();
+      st.phase = 'drag';
+      const rr = row.getBoundingClientRect();
+      st.its = its;
+      st.ids = its.map((b) => this.idOf(b));
+      st.rects = its.map((b) => { const r = b.getBoundingClientRect(); return { l: r.left - rr.left + row.scrollLeft, w: r.width }; });
+      const cs = getComputedStyle(row);
+      st.gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || (its[1] ? Math.max(0, st.rects[1].l - st.rects[0].l - st.rects[0].w) : 0);
+      st.from = from; st.to = from;
+      st.sl0 = row.scrollLeft; st.x0 = st.x;
+      if (this.o.card) this.o.card._busy = true;
+      window.__tabReorder = true;
+      this._glassOff(true);
+      row.classList.add('tr-drag');
+      st.b.classList.add('tr-lift');
+      st.b.style.transform = 'scale(1.06)';
+      if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
+      hap('medium');
+      const tick = () => {
+        if (this.st !== st || st.phase !== 'drag') return;
+        const r = row.getBoundingClientRect(), E = 28;
+        let v = 0;
+        if (st.x < r.left + E) v = -Math.ceil((r.left + E - st.x) / 4);
+        else if (st.x > r.right - E) v = Math.ceil((st.x - (r.right - E)) / 4);
+        if (v) { const before = row.scrollLeft; row.scrollLeft = before + v; if (row.scrollLeft !== before) this._layout(st); }
+        st.raf = requestAnimationFrame(tick);
+      };
+      st.raf = requestAnimationFrame(tick);
+    }
+    _layout(st) {
+      const row = this.row;
+      const dx = st.x - st.x0 + (row.scrollLeft - st.sl0);
+      const R = st.rects, f = st.from, wf = R[f].w + st.gap;
+      const minDx = -R[f].l, maxDx = R[R.length - 1].l + R[R.length - 1].w - (R[f].l + R[f].w);
+      const cdx = Math.max(minDx - 12, Math.min(maxDx + 12, dx));
+      st.b.style.transform = `translateX(${cdx}px) scale(1.06)`;
+      const c = R[f].l + R[f].w / 2 + cdx;
+      let to = 0;
+      R.forEach((r, i) => { if (i !== f && r.l + r.w / 2 < c) to++; });
+      if (to === st.to) return;
+      st.to = to;
+      hap('selection');
+      st.its.forEach((b, i) => {
+        if (i === f) return;
+        const s = i > f && i <= to ? -wf : i < f && i >= to ? wf : 0;
+        b.style.transform = s ? `translateX(${s}px)` : '';
+      });
+    }
+    _end(commit, x) {
+      const st = this.st;
+      if (!st) return;
+      this.st = null;
+      this._clearHold();
+      if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte
+      this.eatUntil = Date.now() + 350;
+      if (st.phase === 'pan') return;
+      if (st.phase === 'glass') return this._glassEnd(st, commit);
+      // drag
+      cancelAnimationFrame(st.raf);
+      if (x != null && commit) { st.x = x; this._layout(st); }
+      const row = this.row, ids = st.ids.slice(), [m] = ids.splice(st.from, 1);
+      ids.splice(st.to, 0, m);
+      const changed = commit && ids.join('\u0001') !== st.ids.join('\u0001');
+      // Legg nodene i ny rekkefølge straks (morph finner dem via data-key) → ingen blink før re-render
+      row.classList.add('tr-settle');
+      if (changed) {
+        const order = st.its.slice(), [bm] = order.splice(st.from, 1);
+        order.splice(st.to, 0, bm);
+        const anchor = st.its[st.its.length - 1].nextSibling;
+        order.forEach((b) => row.insertBefore(b, anchor));
+      }
+      st.its.forEach((b) => { b.style.transform = ''; b.classList.remove('tr-lift'); });
+      row.classList.remove('tr-drag');
+      void row.offsetWidth;
+      requestAnimationFrame(() => row.classList.remove('tr-settle'));
+      this._glassOff(false);
+      window.__tabReorder = false;
+      if (this.o.card) this.o.card._busy = false;
+      if (commit) hapLater('light');
+      if (changed && this.o.onReorder) this.o.onReorder(ids);
+      else if (this.o.card && this.o.card.update) this.o.card.update();
+    }
+
+    /* ---------------- liquid glass-valg (når alle faner får plass) */
+    _startGlass() {
+      const st = this.st;
+      st.phase = 'glass';
+      if (this.o.card) this.o.card._busy = true;
+      this._glassOff(true);
+      if (!this.o.onGlassMove) st.lens = lensEl();
+      if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
+    }
+    _nearest(x) {
+      let best = null, bd = Infinity;
+      this.items().forEach((b) => { const r = b.getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = b; } });
+      return best;
+    }
+    _glassMove(x) {
+      const st = this.st, hit = this._nearest(x);
+      if (!hit) return;
+      if (hit !== st.hit) { st.hit = hit; hap('selection'); }
+      if (this.o.onGlassMove) return this.o.onGlassMove(hit, x);
+      const r = hit.getBoundingClientRect(), cr = this.row.getBoundingClientRect();
+      const L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, x - r.width / 2));
+      Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' });
+    }
+    _glassEnd(st, commit) {
+      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
+      this._glassOff(false);
+      if (this.o.card) this.o.card._busy = false;
+      const hit = commit ? st.hit : null;
+      if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
+      if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
+    }
+  }
+
+  M.tabReorder = function (row, opts) {
+    if (!row) return null;
+    let T = row.__tabReorder;
+    if (T) { T.opts = { ...T.opts, ...(opts || {}) }; T.refresh(); return T; }
+    T = row.__tabReorder = new TabReorder(row, opts || {});
+    T.refresh();
+    return T;
+  };
+})();
+
+} catch (e) { console.error('[ki-msh] 05-tab-reorder.js', e); }
 
 /* ---- 10-navbar.js ---- */
 try {
@@ -4832,8 +6234,8 @@ try {
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
- * Fanerad: scroller vannrett (mange faner), aktiv fane scrolles inn. Dra sideveis = scroll (eller liquid glass-valg når
- * alle faner får plass); hold inne 400 ms + dra = flytt fanen (lagres i config.tab_order).
+ * Fanerad (felles MSH.tabReorder, 05-tab-reorder.js): scroller vannrett, aktiv fane scrolles inn. Dra sideveis = scroll
+ * (eller liquid glass-valg når alle faner får plass); hold inne 400 ms + dra = flytt fanen (config.tab_order) – mus og touch.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -5189,9 +6591,13 @@ try {
     async _reorderTabs(from, to) {
       const TV = this._TV || [], all = allTabs(this.hass, this.config).map((t) => t.id), vis = TV.map((t) => t.id);
       const nv = vis.slice(); const [m] = nv.splice(from, 1); nv.splice(to, 0, m);
+      return this._saveTabOrder(nv);
+    }
+    // Ny rekkefølge for de synlige fanene → full tab_order (skjulte beholder plassen sin)
+    async _saveTabOrder(nv) {
+      const all = allTabs(this.hass, this.config).map((t) => t.id), vis = (this._TV || []).map((t) => t.id);
       let k = 0;
       const order = all.map((id) => (vis.includes(id) ? nv[k++] : id));
-      M.haptic('success');
       await this._saveCfg({ tab_order: order });
     }
     async _saveCfg(patch) {
@@ -5210,7 +6616,7 @@ try {
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
       const P = (this._tabPos || {})[(TV[idx] || {}).id];
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" data-tabs="1">
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
         <span class="ind" style="${ind}"></span>
         ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
@@ -5518,12 +6924,13 @@ try {
         if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
       });
     }
-    // Linse på aktiv fane + aktiv fane inn i synlig område (row.scrollTo smooth) + kant-fade.
+    // Linse (.ind) på aktiv fane. Scroll av aktiv fane inn i synlig område (row.scrollTo smooth) og kant-fade: MSH.tabReorder.
     _placeTabs() {
       const row = this.shadowRoot.querySelector('.tg');
       if (!row) return;
+      const T = row.__tabReorder, busy = T && T.st && T.st.phase !== 'hold';
       const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
-      if (on && ind && !(this._tabDrag && this._tabDrag.mode)) {
+      if (on && ind && !busy) {
         const L = on.offsetLeft, W = on.offsetWidth;
         (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
         const first = ind.style.opacity === '0';
@@ -5531,118 +6938,32 @@ try {
         ind.style.left = L + 'px'; ind.style.width = W + 'px'; ind.style.opacity = '';
         if (first) { void ind.offsetWidth; ind.style.transition = ''; }
       }
-      if (on && this._shownTab !== on.dataset.key) {
-        const init = this._shownTab == null;
-        this._shownTab = on.dataset.key;
-        const cw = row.clientWidth, sl = row.scrollLeft, l = on.offsetLeft, r = l + on.offsetWidth, m = 24;
-        let left = null;
-        if (row.scrollWidth > cw + 1) {
-          if (l - m < sl) left = Math.max(0, l - m);
-          else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
-        }
-        if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
-      }
-      this._tabFade();
     }
-    // Myk fade (12 px) på kanten som har mer innhold; touch-action pan-x når raden scroller.
-    _tabFade() {
-      const row = this.shadowRoot.querySelector('.tg');
-      if (!row) return;
-      const max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
-      const set = (k, v) => { if (this.style.getPropertyValue(k) !== v) this.style.setProperty(k, v); };
-      set('--msh-tabs-fl', ovf && sl > 1 ? '12px' : '0px');
-      set('--msh-tabs-fr', ovf && sl < max - 1 ? '12px' : '0px');
-      set('--msh-tabs-ta', ovf ? 'pan-x' : 'pan-y');
-    }
-    // Fanelinjen. Vanlig sveip scroller alltid raden (touch: native; mus: dra-scroll). Får fanene plass (ingen
-    // scroll), er sideveis dra = liquid glass-linse. Flytt fane KUN etter langt trykk (400 ms) eller i
-    // redigeringsmodus (this.editMode / window.__kiEditMode). Gester stoppes (stopPropagation) så verken
-    // karusell, dashbord eller Bubble-popup tar dem.
+    // Fanelinjen: felles MSH.tabReorder. Vanlig sveip scroller raden (touch: native; mus: dra-scroll). Får fanene
+    // plass, er sideveis dra = liquid glass-linse (.ind følger fingeren). Flytt fane KUN etter langt trykk (400 ms)
+    // eller i redigeringsmodus (this.editMode / window.__kiEditMode).
     _bindTabs() {
       const row = this.shadowRoot.querySelector('.tg');
-      if (!row || row.__b) return;
-      row.__b = true;
-      const stop = (e) => e.stopPropagation();
-      row.addEventListener('pointerdown', stop);
-      row.addEventListener('touchstart', stop, { passive: true });
-      row.addEventListener('touchmove', stop, { passive: true });
-      row.addEventListener('scroll', () => {
-        this._tabFade();
-        const st = this._tabDrag;
-        if (st && !st.mode) { clearTimeout(st.t); this._tabDrag = null; } // native scroll → ingen langt trykk
-      }, { passive: true });
-      if (window.ResizeObserver) { this._tabRO = new ResizeObserver(() => this._tabFade()); this._tabRO.observe(row); }
+      if (!row) return;
       const items = () => [...row.querySelectorAll('.tab')];
-      const at = (x, rects) => {
-        let best = 0, bd = Infinity;
-        (rects || items().map((b) => b.getBoundingClientRect())).forEach((r, i) => { const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
-        return best;
-      };
-      const capture = (st) => { try { row.setPointerCapture(st.id); } catch (x) { /* */ } };
-      const startReo = (st) => {
-        st.mode = 'reo'; capture(st); this._busy = true; window.__tabReorder = true;
-        st.rects = items().map((b) => b.getBoundingClientRect());
-        M.haptic('medium');
-        row.classList.add('reo');
-        const it = items()[st.from]; if (it) it.classList.add('lift');
-      };
-      row.addEventListener('pointerdown', (e) => {
-        if (e.button) return;
-        const n = items().length, edit = !!(this.editMode || window.__kiEditMode);
-        const st = (this._tabDrag = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType, mode: null, n, edit, ovf: row.scrollWidth > row.clientWidth + 1, sl: row.scrollLeft, from: at(e.clientX), near: null, to: null });
-        st.t = setTimeout(() => { if (this._tabDrag === st && !st.mode && st.n > 1) startReo(st); }, 400);
-      });
-      row.addEventListener('pointermove', (e) => {
-        const st = this._tabDrag;
-        if (!st || e.pointerId !== st.id) return;
-        const dx = e.clientX - st.x, dy = e.clientY - st.y;
-        if (!st.mode) {
-          if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return;
-          clearTimeout(st.t);
-          if (Math.abs(dx) < Math.abs(dy)) { this._tabDrag = null; return; }
-          if (st.edit && st.n > 1) startReo(st);
-          else if (st.ovf) { if (st.type !== 'touch') { st.mode = 'pan'; capture(st); } else { this._tabDrag = null; return; } } // touch: native scroll
-          else if (st.n > 1) { st.mode = 'glass'; capture(st); this._busy = true; row.classList.add('drag'); }
-          else { this._tabDrag = null; return; }
-        }
-        e.preventDefault();
-        if (st.mode === 'pan') { row.scrollLeft = st.sl - dx; return; }
-        if (st.mode === 'glass') {
-          const near = at(e.clientX), nb = items()[near], ind = row.querySelector('.ind');
-          if (nb && ind) {
-            const rr = row.getBoundingClientRect(), x = e.clientX - rr.left + row.scrollLeft, W = nb.offsetWidth;
+      M.tabReorder(row, {
+        card: this, glass: true, holdMs: 400,
+        items, idOf: (b) => b.dataset.id,
+        isEdit: () => !!(this.editMode || window.__kiEditMode),
+        onReorder: (ids) => this._saveTabOrder(ids),
+        onSelect: (id) => { const i = (this._TV || []).findIndex((t) => t.id === id); if (i >= 0) this._pickTab(i); },
+        onGlassMove: (b, x) => {
+          row.classList.add('drag');
+          const ind = row.querySelector('.ind');
+          if (ind) {
+            const rr = row.getBoundingClientRect(), W = b.offsetWidth, cx = x - rr.left + row.scrollLeft;
             ind.style.width = W + 'px';
-            ind.style.left = M.clamp(x - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
+            ind.style.left = M.clamp(cx - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
           }
-          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
-          return;
-        }
-        // reo: flytt fanen; auto-scroll ved kantene
-        const rr = row.getBoundingClientRect();
-        if (e.clientX < rr.left + 24) row.scrollLeft -= 8; else if (e.clientX > rr.right - 24) row.scrollLeft += 8;
-        const to = at(e.clientX + (row.scrollLeft - st.sl), st.rects);
-        if (to !== st.to) {
-          st.to = to; M.haptic('selection');
-          const ord = Array.from({ length: st.n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
-          items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
-        }
+          items().forEach((t) => t.classList.toggle('near', t === b));
+        },
+        onGlassEnd: (b) => { row.classList.remove('drag'); items().forEach((t) => t.classList.remove('near')); if (!b) this.update(); },
       });
-      const end = (e) => {
-        const st = this._tabDrag;
-        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
-        clearTimeout(st.t);
-        this._tabDrag = null;
-        if (!st.mode) return;
-        this._busy = false; window.__tabReorder = false;
-        this._swallow = true; setTimeout(() => { this._swallow = false; }, 350);
-        if (st.mode === 'pan') return;
-        row.classList.remove('drag', 'reo');
-        items().forEach((b) => { b.classList.remove('near', 'lift'); b.style.order = ''; });
-        if (st.mode === 'glass') { if (e.type === 'pointerup' && st.near != null) this._pickTab(st.near); else this.update(); } else if (e.type === 'pointerup' && st.to != null && st.to !== st.from) this._reorderTabs(st.from, st.to); else this.update();
-      };
-      row.addEventListener('pointerup', end);
-      row.addEventListener('pointercancel', end);
-      row.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     get styles() {
       return `${M.romkortCSS || ''}
@@ -5651,9 +6972,8 @@ try {
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
-        .tg{position:relative;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:var(--msh-tabs-ta, pan-x);overscroll-behavior-x:contain;border-radius:999px;
-          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%);mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%)}
-        .tg::-webkit-scrollbar{display:none}
+        ${M.TAB_ROW_CSS || ''}
+        .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
@@ -5661,9 +6981,9 @@ try {
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
-        .tg.reo .ind{opacity:0}
-        .tg.reo .tab{color:var(--gray800,#afafaf)}
-        .tab.lift{color:#fff !important;background:rgba(255,255,255,0.14);transform:scale(1.08);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
+        .tg.tr-drag .ind{opacity:0}
+        .tg.tr-drag .tab{color:var(--gray800,#afafaf)}
+        .tg.tr-drag>.tab.tr-lift{color:#fff !important;background:rgba(255,255,255,0.14);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
         .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start}
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
@@ -5964,16 +7284,16 @@ try {
 
 /* ---- 26-hjem-strompris.js ---- */
 try {
-/* msh-strompris-card · Hjem, strømpriskortet. Kilde: strøm-dataene i Hjem v2.dc.html (SPOT/TMR, price(), priceHead,
- * priceBars, priceDays, strøm-sliden «Strøm nå · Billigst kl. …») + oppsettet i ki-strompris-card (ki-cards, «Strømpriser»):
- * nåpris, søyler per time for i dag / i morgen med dag-bytter, billigste time og scrub (dra for å se en time).
- * Autokonfig (entiteter.md «Strøm»): pris-sensor fra plattform nordpool / tibber / energi_data_service (M.priceSensor –
- * samme sensor som prosa-boblen «Strømmen koster …»), timespriser fra attributtene raw_today/raw_tomorrow ({start,end,value})
- * eller today/tomorrow (tall-lister). Effekt: sensor.hele_huset_effekt (KI Rom). Overstyr: overrides.price / overrides.watt.
- * Kortet vises alltid: mangler data → «–» og tomme søyler.
+/* msh-strompris-card · Hjem, «Strømpriser» (spesifikasjon punkt 14): header-rad med tittel + I dag / I morgen utenfor
+ * kortflaten; kortflate med verdirad (Spot nå / valgt time · Norgespris), legende, trinnlinje-graf i øre/kWh (teal, oransje
+ * over terskel, fylt område, stiplet Norgespris-linje, valgt time med bånd + prikk) og x-akse. Scrub på grafen velger time.
+ * Autokonfig (entiteter.md «Strøm»): pris-sensor M.priceSensor (nordpool / tibber / energi_data_service – samme sensor som
+ * prosa-boblen «Strømmen koster …»), config `entity` / overrides.price overstyrer. Timespriser fra today/tomorrow (24 tall
+ * eller 96 kvarter → timesnitt), ellers raw_today/raw_tomorrow ({start, value}). Norgespris: sensor.*norgespris* (kr/kWh)
+ * eller config `norgespris` (0,50). Kortet vises alltid: mangler data → «–» og tom graf (bare rutenettet).
  */
 (function () {
-  const M = window.MSH, esc = M.esc, C = M.C;
+  const M = window.MSH, esc = M.esc;
   const HOUR = 3600000;
   const hh = (h) => String(h).padStart(2, '0');
   const nf2 = (v) => (v == null || isNaN(v) ? '–' : M.nf(v, 2));
@@ -6030,7 +7350,7 @@ try {
       sum[i][0] += Number(v) * k; sum[i][1]++;
     };
     [['raw_today', 'today', 'prices_today', 0], ['raw_tomorrow', 'tomorrow', 'prices_tomorrow', 1]].forEach(([rk, tk, pk, day]) => {
-      const list = [a[rk], a[pk], a[tk]].find((x) => Array.isArray(x) && x.length);
+      const list = [a[tk], a[rk], a[pk]].find((x) => Array.isArray(x) && x.length);
       if (!list) return;
       if (list[0] != null && typeof list[0] === 'object') {
         list.forEach((p) => { if (!p) return; const st = p.start || p.startsAt || p.time || p.hour; const v = p.value !== undefined ? p.value : p.price !== undefined ? p.price : p.total; put(new Date(st).getTime(), v); });
@@ -6043,119 +7363,219 @@ try {
     return out;
   };
 
+
+  // Norgespris-sensor: config norgespris_entity → første sensor.*norgespris* med tallverdi og enhet …/kWh (eller uten enhet).
+  M.norgesprisSensor = M.norgesprisSensor || function (hass, cfg) {
+    if (cfg && cfg.norgespris_entity) return cfg.norgespris_entity;
+    if (!hass || !hass.states) return null;
+    return Object.keys(hass.states).filter((id) => {
+      if (!/^sensor\..*norgespris/i.test(id)) return false;
+      const s = hass.states[id], u = String((s.attributes || {}).unit_of_measurement || '');
+      return M.isNum(s.state) && (!u || PER_KWH.test(u));
+    }).sort()[0] || null;
+  };
+
   /* ------------------------------------------------------------ kort */
+  const TEAL = 'oklch(0.78 0.13 175)', ORANGE = 'oklch(0.74 0.17 55)', PINK = 'oklch(0.78 0.13 350)';
+  const VW = 480, VH = 150, PT = 6, PB = 6; // viewBox + innrykk topp/bunn for rutenettet
+  const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+  // «Pen» y-skala med 5 verdier (4 steg) som dekker lo..hi.
+  const scale = (lo, hi) => {
+    if (!(hi > lo)) hi = lo + 100;
+    const raw = (hi - lo) / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 3, 4, 5, 6, 8, 10, 20]) {
+      const st = m * p, y0 = Math.floor(lo / st) * st;
+      if (y0 + 4 * st >= hi - 1e-9) return { y0, st };
+    }
+    return { y0: lo, st: raw };
+  };
+
   class Strompris extends M.Card {
-    static get cardName() { return 'Hjem · strømpris'; }
-    static get defaults() { return { title: 'Strømpris', popup_hash: '#strom', price_high: 1.5, price_mid: 1.1, show_watt: true }; }
+    static get cardName() { return 'Hjem · strømpriser'; }
+    static get defaults() { return { show_norgespris: true }; }
     static get schema() {
       return [
-        { type: 'section', id: 'kort', label: 'Kort', icon: 'mdi:flash', open: true, fields: [
-          { type: 'text', name: 'title', label: 'Overskrift', placeholder: 'Strømpris' },
-          { type: 'hash', name: 'popup_hash', label: 'Popup-hash (trykk på prisen)', placeholder: '#strom' },
-          { type: 'select', name: 'day', label: 'Dag som vises først', options: [['today', 'I dag'], ['tomorrow', 'I morgen']], default: 'today' },
-          { type: 'boolean', name: 'show_watt', label: 'Vis effekt nå (W)', default: true },
-          { type: 'number', name: 'price_high', label: 'Rød søyle over (kr/kWh)', step: 0.1, placeholder: '1.5' },
-          { type: 'number', name: 'price_mid', label: 'Gul søyle over (kr/kWh)', step: 0.1, placeholder: '1.1' },
-        ] },
-        { type: 'overrides', label: 'Bytt entiteter', fields: [
-          { name: 'price', label: 'Strømpris (kr/kWh, med today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
-          { name: 'watt', label: 'Effekt nå (W)', domain: 'sensor', device_class: 'power', auto: (h) => M.kiRomId(h, null, 'effekt') },
+        { type: 'section', id: 'kort', label: 'Strømpriser', icon: 'mdi:flash', open: true, fields: [
+          { type: 'entity', name: 'entity', label: 'Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow)', domain: 'sensor', auto: (h) => M.priceSensor(h, {}) },
+          { type: 'entity', name: 'norgespris_entity', label: 'Norgespris-sensor (kr/kWh)', domain: 'sensor', auto: (h) => M.norgesprisSensor(h, {}) },
+          { type: 'number', name: 'norgespris', label: 'Norgespris uten sensor (kr/kWh)', step: 0.01, placeholder: '0.50' },
+          { type: 'number', name: 'threshold', label: 'Oransje linje over (kr/kWh)', step: 0.05, placeholder: 'Norgespris', help: 'Tomt = Norgespris' },
+          { type: 'boolean', name: 'show_norgespris', label: 'Vis Norgespris', default: true },
         ] },
       ];
     }
-    get cardSize() { return 4; }
-    _lvl(p) {
+    get cardSize() { return 5; }
+    _priceId() {
       const c = this.config;
-      return p > (Number(c.price_high) || 1.5) ? C.red : p > (Number(c.price_mid) || 1.1) ? C.yellow : C.green;
+      return c.entity ? c.entity : M.priceSensor(this.hass, c);
+    }
+    _norgespris() {
+      const c = this.config, id = M.norgesprisSensor(this.hass, c), st = this.s(id);
+      if (st && M.isNum(st.state)) return { v: Number(st.state) * M.priceScale(st), id };
+      const v = num(c.norgespris);
+      return { v: v != null ? v : 0.5, id: null };
     }
     render() {
       const c = this.config, hass = this.hass, ui = this.ui;
-      const id = M.priceSensor(hass, c), st = this.s(id);
-      const wattId = M.pick(c, 'watt', M.kiRomId(hass, null, 'effekt')), watt = c.show_watt !== false ? this.n(wattId) : null;
+      const id = this._priceId(), st = this.s(id);
       const all = st ? M.priceSeries(hass, id) : Array(48).fill(null);
-      const day = ui.day || (c.day === 'tomorrow' ? 'tomorrow' : 'today'), isToday = day === 'today';
+      const hasT = all.slice(0, 24).some((v) => v != null), hasM = all.slice(24).some((v) => v != null);
+      const isToday = !(ui.day === 'tomorrow' && hasM);
       const ser = isToday ? all.slice(0, 24) : all.slice(24);
+      const has = isToday ? hasT : hasM;
       const nowH = new Date().getHours();
-      let pNow = M.priceNow(hass, id);
-      if (pNow == null && all[nowH] != null) pNow = all[nowH];
-      const has = ser.some((v) => v != null);
-      const future = ser.map((p, h) => [p, h]).filter(([p, h]) => p != null && (!isToday || h >= nowH));
-      const cheap = future.length ? future.reduce((m, x) => (x[0] < m[0] ? x : m)) : null;
-      const maxP = Math.max(0.01, ...ser.filter((v) => v != null));
-      const sel = ui.sel != null ? ui.sel : null;
-      const cheapTxt = cheap ? `Billigst kl. ${hh(cheap[1])} · ${nf2(cheap[0])} kr` : '';
-      let head;
-      if (sel != null) head = { label: `${isToday ? 'I dag' : 'I morgen'} kl. ${hh(sel)}–${hh((sel + 1) % 24)}`, v: nf2(ser[sel]), meta: isToday && sel < nowH ? 'Tidligere i dag' : cheapTxt };
-      else if (isToday) head = { label: 'Nå', v: nf2(pNow), meta: cheapTxt || (st ? '' : 'Fant ingen strømpris-sensor') };
-      else head = { label: 'Snitt i morgen', v: has ? nf2(ser.filter((v) => v != null).reduce((x, y) => x + y, 0) / ser.filter((v) => v != null).length) : '–', meta: has ? cheapTxt : 'Kommer ca. kl. 13' };
-      const bars = ser.map((p, h) => {
-        const past = isToday && h < nowH, now = isToday && h === nowH, on = sel === h;
-        if (p == null) return `<span class="b" data-key="b${h}"><i class="e"></i></span>`;
-        const hgt = Math.max(4, (p / maxP) * 100);
-        return `<span class="b" data-key="b${h}"><i style="height:${hgt.toFixed(1)}%;background:${on || (now && sel == null) ? 'var(--white,#fafafa)' : this._lvl(p)};opacity:${past && !on ? 0.3 : 1}"></i></span>`;
-      }).join('');
-      const seg = [['today', 'I dag'], ['tomorrow', 'I morgen']];
-      const di = isToday ? 0 : 1;
-      return `<section class="sp">
-        <div class="top">
-          <span class="ttl ell">${esc(c.title || 'Strømpris')}</span>
-          ${watt != null ? `<span class="w num" data-ent="${esc(wattId)}">${M.nf(watt, 0)} W</span>` : ''}
-          <div class="seg"><span class="ind" style="left:calc(3px + ${di} * (100% - 6px) / 2)"></span>${seg.map(([k, l], i) => `<button class="sg ${i === di ? 'on' : ''}" data-act="day" data-d="${k}" data-haptic="selection">${l}</button>`).join('')}</div>
+      const np = this._norgespris(), showNp = c.show_norgespris !== false;
+      const thr = num(c.threshold) != null ? num(c.threshold) : np.v;
+      const scrub = ui.sel != null && has;
+      const sel = scrub ? ui.sel : isToday && has ? nowH : null;
+
+      // Verdirad (kr/kWh)
+      let label, val;
+      if (scrub) { label = `Spot ${isToday ? 'i dag' : 'i morgen'} kl. ${hh(sel)}`; val = ser[sel]; }
+      else if (isToday) { label = 'Spot nå'; val = M.priceNow(hass, id); if (val == null) val = ser[nowH]; }
+      else { const v = ser.filter((x) => x != null); label = 'Spot snitt i morgen'; val = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+
+      // Graf (øre/kWh)
+      const ore = ser.map((v) => (v == null ? null : v * 100)), vals = ore.filter((v) => v != null);
+      const npO = np.v * 100, thrO = thr * 100;
+      const lo = Math.min(0, ...vals), hi = vals.length ? Math.max(...vals, showNp ? npO : 0) * 1.05 : 100;
+      const { y0, st: step } = scale(lo, hi), span = 4 * step;
+      const Y = (v) => PT + (1 - (v - y0) / span) * (VH - PT - PB);
+      const X = (h) => (h * VW) / 24;
+      const f1 = (n) => Math.round(n * 10) / 10;
+      const ticks = [0, 1, 2, 3, 4].map((i) => y0 + i * step);
+      const base = f1(Y(Math.max(y0, Math.min(0, y0 + span))));
+      let line = '', fill = '', runStart = null;
+      ore.forEach((v, h) => {
+        if (v == null) { if (runStart != null) fill += `V${base}Z`; runStart = null; return; }
+        const y = f1(Y(v));
+        if (runStart == null) { runStart = h; line += `M${f1(X(h))} ${y}`; fill += `M${f1(X(h))} ${base}V${y}`; } else { line += `V${y}`; fill += `V${y}`; }
+        line += `H${f1(X(h + 1))}`; fill += `H${f1(X(h + 1))}`;
+      });
+      if (runStart != null) fill += `V${base}Z`;
+      const tOff = M.clamp(Y(thrO) / VH, 0, 1).toFixed(4);
+      const grid = ticks.map((v) => `<line x1="0" x2="${VW}" y1="${f1(Y(v))}" y2="${f1(Y(v))}" class="gl"/>`).join('');
+      const gid = 'sp' + (this._gid || (this._gid = Math.random().toString(36).slice(2, 8)));
+      const svg = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gid}s" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${ORANGE}"/><stop offset="${tOff}" stop-color="${TEAL}"/><stop offset="1" stop-color="${TEAL}"/></linearGradient>
+          <linearGradient id="${gid}f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${VH}"><stop offset="0" stop-color="${ORANGE}" stop-opacity="0.28"/><stop offset="${tOff}" stop-color="${ORANGE}" stop-opacity="0.12"/><stop offset="${tOff}" stop-color="${TEAL}" stop-opacity="0.14"/><stop offset="1" stop-color="${TEAL}" stop-opacity="0"/></linearGradient>
+        </defs>
+        ${grid}
+        ${has ? `<path class="fill" d="${fill}" fill="url(#${gid}f)"/>
+        <path class="spot" d="${line}" stroke="url(#${gid}s)"/>
+        ${showNp ? `<line class="np" x1="0" x2="${VW}" y1="${f1(Y(npO))}" y2="${f1(Y(npO))}"/>` : ''}` : ''}
+      </svg>`;
+      let marker = '';
+      if (sel != null && ore[sel] != null) {
+        const col = ore[sel] > thrO ? ORANGE : TEAL, top = (Y(ore[sel]) / VH) * 100, left = ((sel + 0.5) / 24) * 100;
+        marker = `<span class="band" style="left:${((sel / 24) * 100).toFixed(3)}%"></span>
+          <span class="halo" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:color-mix(in oklch, ${col} 30%, transparent)"></span>
+          <span class="dot" style="left:${left.toFixed(3)}%;top:${top.toFixed(2)}%;background:${col}"></span>`;
+      }
+      const yax = ticks.map((v) => `<span style="top:${((Y(v) / VH) * 100).toFixed(2)}%">${M.nf(v, step % 1 ? 1 : 0)}</span>`).join('');
+      const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
+      const seg = [['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]];
+      return `<div class="sp">
+        <div class="hdr">
+          <span class="ttl ell">Strømpriser</span>
+          <div class="seg" role="tablist">${seg.map(([k, l, ok]) => {
+            const on = (k === 'today') === isToday;
+            return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
+          }).join('')}</div>
         </div>
-        <button class="hd" data-act="open" ${id ? `data-ent="${esc(id)}"` : ''}>
-          <span class="lb">${esc(head.label)}</span>
-          <span class="v num">${esc(head.v)}<small> kr/kWh</small></span>
-          <span class="meta ell">${esc(head.meta || '')}</span>
-        </button>
-        ${st ? '' : `<button class="pick press" data-act="customize" data-section="overrides">${M.icon('mdi:plus', 18)}Velg entitet</button>`}
-        <div class="bars" role="img" aria-label="Strømpris per time ${isToday ? 'i dag' : 'i morgen'}">${bars}
-          ${sel != null ? `<span class="band" style="left:${(sel / 24) * 100}%"></span>` : ''}</div>
-        <div class="xa num"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
-      </section>`;
+        <div class="srf">
+          <div class="vr">
+            <div class="vc" ${id ? `data-ent="${esc(id)}"` : ''}>
+              <span class="lb">${esc(label)}</span>
+              <span class="v num">${nf2(val)}<small> kr/kWh</small></span>
+            </div>
+            ${showNp ? `<div class="vc r" ${np.id ? `data-ent="${esc(np.id)}"` : ''}>
+              <span class="lb">Norgespris</span>
+              <span class="v num np">${nf2(np.v)}<small> kr/kWh</small></span>
+            </div>` : ''}
+          </div>
+          <div class="lg"><span class="li"><i style="background:${TEAL}"></i>Nord Pool spot</span>${showNp ? `<span class="li"><i style="background:${PINK}"></i>Norgespris</span>` : ''}<span class="unit">øre/kWh</span></div>
+          <div class="gr">
+            <div class="ya num">${yax}</div>
+            <div class="plot" role="img" aria-label="Spotpris per time ${isToday ? 'i dag' : 'i morgen'} i øre/kWh">${svg}${marker}
+              ${st ? '' : `<button class="pick" data-act="customize" data-section="kort">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
+          </div>
+          <div class="xa num">${xax}</div>
+        </div>
+      </div>`;
     }
     onAction(name, el, ev) {
-      if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null });
-      if (name === 'open') { if (this._dragged) { this._dragged = false; return; } return M.openPopup(this.config.popup_hash || '#strom'); }
+      if (name === 'day') { if (el.disabled) return; return this.setUI({ day: el.dataset.d, sel: null }); }
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      const b = this.shadowRoot.querySelector('.bars');
-      if (!b || b.__b) return;
-      b.__b = true;
-      let t = null;
-      M.drag(b, {
-        axis: 'x',
-        onStart: () => { clearTimeout(t); this._busy = false; },
-        onMove: (f) => { const i = M.clamp(Math.floor(f * 24), 0, 23); if (i !== this.ui.sel) this.setUI({ sel: i }); },
-        onEnd: () => { clearTimeout(t); t = setTimeout(() => this.setUI({ sel: null }), 2500); },
+      const p = this.shadowRoot.querySelector('.plot');
+      if (!p || p.__sc) return;
+      p.__sc = true;
+      M.guardDrag(p, 'x'); // touch-action: pan-y + stopPropagation (Bubble Card swipe-to-close)
+      let down = false;
+      const pick = (e) => {
+        const r = p.getBoundingClientRect();
+        if (!r.width || !p.querySelector('path.spot')) return;
+        const h = M.clamp(Math.floor(((e.clientX - r.left) / r.width) * 24), 0, 23);
+        if (h !== this.ui.sel) { M.haptic('selection'); this.setUI({ sel: h }); }
+      };
+      const reset = () => { down = false; if (this.ui.sel != null) this.setUI({ sel: null }); };
+      p.addEventListener('pointerdown', (e) => {
+        if (e.button || (e.target.closest && e.target.closest('button'))) return;
+        down = true;
+        try { p.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        pick(e);
       });
+      p.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e); });
+      p.addEventListener('pointerup', reset);
+      p.addEventListener('pointercancel', reset);
+      p.addEventListener('pointerleave', reset);
     }
     get styles() {
       return `
-        .sp{display:flex;flex-direction:column;gap:10px;padding:18px 18px 14px;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04)}
-        .top{display:flex;align-items:center;gap:10px;min-width:0}
-        .ttl{flex:1;min-width:0;font-size:15px;font-weight:500}
-        .w{font-size:13px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:12px;background:var(--gray000,#232323);flex:none}
-        .ind{position:absolute;top:3px;bottom:3px;width:calc((100% - 6px) / 2);border-radius:9px;background:${C.accent};transition:left .45s cubic-bezier(.34,1.4,.64,1)}
-        .sg{position:relative;z-index:1;height:30px;padding:0 12px;border-radius:9px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--gray700,#979797);transition:color .25s}
-        .sg.on{color:var(--gray100,#2f2f2f)}
-        .hd{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;min-width:0}
-        .lb{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .v{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1;white-space:nowrap}
-        .v small{font-size:13px;letter-spacing:0;color:var(--gray600,#7f7f7f)}
-        .meta{font-size:12px;color:var(--gray700,#979797);max-width:100%;min-height:15px}
-        .pick{align-self:flex-start}
-        .bars{position:relative;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;height:96px;padding-top:6px;cursor:crosshair;touch-action:none}
-        .b{display:flex;align-items:flex-end;height:100%;min-width:0}
-        .b i{display:block;width:100%;border-radius:4px;transition:background .2s,height .3s}
-        .b i.e{height:8%;background:var(--gray300,#404040)}
-        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.08);pointer-events:none;transition:left .12s}
-        .xa{display:flex;justify-content:space-between;font-size:10px;color:var(--gray500,#696969)}
+        .sp{display:flex;flex-direction:column;gap:12px}
+        .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+        .ttl{min-width:0;font-size:18px;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#303030;flex:none}
+        .sg{height:30px;padding:0 20px;border-radius:15px;font-size:14px;font-weight:400;white-space:nowrap;color:#c9c7c2;background:transparent;transition:background .25s,color .25s,opacity .25s}
+        .sg.on{background:linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20));color:#5a3a48}
+        .sg:disabled{opacity:.4;cursor:default}
+        .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030}
+        .vr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+        .vc{display:flex;flex-direction:column;gap:4px;min-width:0}
+        .vc.r{align-items:flex-end;text-align:right}
+        .lb{font-size:12px;color:#8e8d89;white-space:nowrap}
+        .v{font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1.05;white-space:nowrap}
+        .v small{font-size:13px;letter-spacing:0;color:#8e8d89}
+        .v.np{color:${PINK}}
+        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap}
+        .li{display:inline-flex;align-items:center;gap:6px}
+        .li i{display:block;width:14px;height:2.5px;border-radius:2px}
+        .unit{margin-left:auto;color:#6d6c69}
+        .gr{display:flex;gap:6px;height:150px}
+        .ya{position:relative;flex:none;width:20px;font-size:9px;color:#6d6c69}
+        .ya span{position:absolute;right:0;transform:translateY(-50%);line-height:1;white-space:nowrap}
+        .plot{position:relative;flex:1;min-width:0;height:150px;cursor:crosshair;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+        .plot svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+        .plot svg *{vector-effect:non-scaling-stroke}
+        .gl{stroke:rgba(255,255,255,0.07);stroke-width:1}
+        .spot{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+        .np{stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
+        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.12);pointer-events:none;transition:left .15s}
+        .halo,.dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;transition:left .15s,top .15s,background .15s}
+        .halo{width:34px;height:34px}
+        .dot{width:14px;height:14px;box-shadow:0 0 0 3px #303030}
+        .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+        .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:#6d6c69}
+        .xa span{position:absolute;top:0;transform:translateX(-50%);line-height:11px}
+        .xa span:first-child{transform:none}
+        .xa span:last-child{transform:translateX(-100%)}
       `;
     }
   }
-  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpris', 'Strømpris nå, søyler per time i dag / i morgen, billigste time og dra for å se en time. Trykk åpner #strom.');
+  M.define('msh-strompris-card', Strompris, 'MSH Hjem · strømpriser', 'Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.');
 })();
 
 } catch (e) { console.error('[ki-msh] 26-hjem-strompris.js', e); }
@@ -7731,6 +9151,12 @@ try {
  * Tellertekster: sensor.<rom>_lys|_media|_brytere|_sensorer|_effekt (attributes.tekst) → ellers beregnet.
  * Overstyring: overrides {termostat, fuktighet}, exclude [ids], include {gardiner, scener, lys, enheter,
  * klima, media, sensorer}, light_types {<object_id>: dim|ct|color|onoff}, looks {<domene>: {<object_id>: {…}}}.
+ * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
+ * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
+ * Lys: mysmart-light-control per lys (gjenbrukt per entity). lights.<object_id> {size, label_layout, show_icon,
+ * show_name, show_brightness, brightness_min/max, slider_color_mode, color_control, hide_temperature_slider,
+ * hide_color_controls, hide_color_presets, bar_foreground, bar_background, handle_color, icon_color,
+ * chevron_color, color_presets ("a, b" eller [..])}. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -7783,7 +9209,7 @@ try {
   // Alle lister for et rom. auto = det autokonfig fant; lists = etter exclude/include/overrides.
   M.roomLists = M.roomLists || function (hass, area, cfg) {
     cfg = cfg || {};
-    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {} };
+    const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {}, sceneMeta: {} };
     if (!hass || !area) { LISTS.forEach(([k]) => { out.auto[k] = []; out.lists[k] = []; }); return out; }
     const ov = M.kiRom(hass, area, 'oversikt'), A = (ov && ov.attributes) || {};
     out.ov = ov;
@@ -7792,9 +9218,16 @@ try {
     const objs = (arr) => (Array.isArray(arr) ? arr : []).map((x) => (typeof x === 'string' ? { entity: x } : x || {})).filter((x) => x.entity);
     const a = out.auto;
     a.gardiner = has('gardiner') ? M.ids(A.gardiner) : reg('cover');
-    // Scener først, så skript. KI Rom først; tomt/mangler → scene.*/script.* med område = rommet.
+    // Scener: KI Rom-lysscenene (button.*) først, så rommets egne scene.* / script.* (unntatt de som
+    // allerede er med – samme entitet eller samme navn som en lysscene).
+    const ls = M.roomLightScenes(hass, area);
+    out.sceneMeta = ls.meta;
     const kiSc = has('scener', 'skript') ? [...M.ids(A.scener), ...M.ids(A.skript)].filter((id) => /^(scene|script)\./.test(id) && hass.states[id]) : [];
-    a.scener = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const own = (kiSc.length ? kiSc : reg(['scene', 'script'])).sort((x, y) => (x.startsWith('scene.') ? 0 : 1) - (y.startsWith('scene.') ? 0 : 1));
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9æøå]/g, '');
+    const areaNm = M.areaName(hass, area);
+    const used = new Set(ls.ids.map((id) => norm(ls.meta[id].navn)));
+    a.scener = [...ls.ids, ...own.filter((id) => !ls.ids.includes(id) && !used.has(norm(M.name(hass, id, areaNm))))];
     a.lys = has('lys') ? M.ids(A.lys) : reg('light');
     if (has('brytere', 'vifter')) {
       const d = [...objs(A.brytere), ...objs(A.vifter)];
@@ -7810,10 +9243,49 @@ try {
       M.ids(A.lysniva).forEach((id) => { if (!a.sensorer.includes(id)) { a.sensorer.push(id); out.cls[id] = 'illuminance'; } });
     } else a.sensorer = [...reg('binary_sensor'), ...reg('sensor', (s) => s.attributes.device_class === 'illuminance')];
     LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, a[k]); });
+    // Scener: include.scenes (alias for include.scener) + order.scenes (sortering fra «Tilpass rom»)
+    (((cfg.include || {}).scenes) || []).forEach((id) => { if (!out.lists.scener.includes(id) && !((cfg.exclude || []).includes(id))) out.lists.scener.push(id); });
+    const so = (cfg.order && Array.isArray(cfg.order.scenes)) ? cfg.order.scenes : null;
+    if (so) { const ix = (id) => { const i = so.indexOf(id); return i < 0 ? 1e6 : i; }; const base = out.lists.scener.slice(); out.lists.scener.sort((x, y) => ix(x) - ix(y) || base.indexOf(x) - base.indexOf(y)); }
     const th = cfg.overrides && (cfg.overrides.climate || cfg.overrides.termostat);
     if (th) out.lists.klima = [th, ...out.lists.klima.filter((x) => x !== th)];
     (((cfg.include || {}).climate) || []).forEach((id) => { if (!out.lists.klima.includes(id)) out.lists.klima.push(id); });
     [...out.lists.enheter, ...out.lists.klima].forEach((id) => { if (!out.eff[id] && !id.startsWith('climate.')) { const p = M.powerOf(hass, id, area); if (p) out.eff[id] = p; } });
+    return out;
+  };
+  // KI Rom-lysscener for et rom (button.*). Kilde: sensor med integrasjon ki_lys + ki_type oversikt og
+  // area_id = rommet (eller area_ids inneholder rommet) → attributes.scener [{id, navn, ikon, rekkefolge, entity}]
+  // (allerede sortert). Fallback: alle button.* med ki_type scene og area_id = rommet.
+  // → { ids: [button.…], meta: {id: {navn, ikon}} }. Knapper som ikke finnes i hass.states hoppes over.
+  const LYS_ORDER = ['maks', 'komfort', 'middag', 'tv', 'mindre', 'natt', 'av'];
+  M.roomLightScenes = M.roomLightScenes || function (hass, area) {
+    const out = { ids: [], meta: {} };
+    if (!hass || !area) return out;
+    const S = hass.states;
+    let ov = null, ovZone = null;
+    for (const id in S) {
+      if (!id.startsWith('sensor.')) continue;
+      const a = S[id].attributes || {};
+      if (a.integrasjon !== 'ki_lys' || a.ki_type !== 'oversikt') continue;
+      if (a.area_id === area) { ov = S[id]; break; }
+      if (!ovZone && Array.isArray(a.area_ids) && a.area_ids.includes(area)) ovZone = S[id];
+    }
+    ov = ov || ovZone;
+    const areaNm = M.areaName(hass, area);
+    const strip = (t) => { const r = new RegExp('^' + String(areaNm).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i'); return String(t || '').replace(r, '') || t; };
+    if (ov && Array.isArray(ov.attributes.scener) && ov.attributes.scener.length) {
+      ov.attributes.scener.forEach((sc) => {
+        const id = sc && (sc.entity || (sc.id && ov.attributes.slug ? `button.${ov.attributes.slug}_lys_${sc.id}` : null));
+        if (!id || !S[id] || out.meta[id]) return;
+        out.ids.push(id);
+        out.meta[id] = { navn: sc.navn || strip(S[id].attributes.friendly_name) || sc.id, ikon: sc.ikon || S[id].attributes.icon || null, ki: true };
+      });
+      return out;
+    }
+    const btn = Object.keys(S).filter((id) => { const a = id.startsWith('button.') && S[id].attributes; return a && a.ki_type === 'scene' && (a.area_id === area); });
+    const rank = (id) => { const i = LYS_ORDER.indexOf(S[id].attributes.scene); return i < 0 ? 99 : i; };
+    btn.sort((x, y) => rank(x) - rank(y) || x.localeCompare(y));
+    btn.forEach((id) => { out.ids.push(id); out.meta[id] = { navn: strip(S[id].attributes.friendly_name) || S[id].attributes.scene || id, ikon: S[id].attributes.icon || null, ki: true }; });
     return out;
   };
   const autoLightType = (s) => {
@@ -7876,10 +9348,48 @@ try {
       ];
       if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
       out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
+      if (L) {
+        // Scener: KI Rom-lysscenene først, så rommets scene.*/script.*. Skjul = exclude, sortering = order.scenes,
+        // legg til = include.scenes.
+        const all = [...new Set([...(L.auto.scener || []), ...(((c.include || {}).scener) || []), ...(((c.include || {}).scenes) || [])])];
+        const nmSc = (id) => { const m = L.sceneMeta[id]; return (m && m.navn) || cap(M.name(h, id, M.areaName(h, area))); };
+        out.push({ type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${L.lists.scener.length} av ${all.length} vises`, fields: [
+          { type: 'info', label: 'KI Rom-lysscenene (knapper) først, deretter rommets egne scener og skript. Øye = skjul, piler = rekkefølge.' },
+          ...(all.length ? [{ type: 'order', name: 'order.scenes', hiddenName: 'exclude', label: 'Rekkefølge og synlighet', options: all.map((id) => [id, `${nmSc(id)}${L.sceneMeta[id] ? ' · KI Rom' : id.startsWith('script.') ? ' · skript' : ' · scene'}`]) }] : [{ type: 'info', label: 'Fant ingen scener i rommet' }]),
+          { type: 'entities', name: 'include.scenes', label: 'Lagt til', domains: ['button', 'scene', 'script'], addLabel: '+ Legg til scene', area: () => area },
+        ] });
+      }
       if (L && L.lists.lys.length) {
-        out.push({ type: 'section', id: 'lys', label: 'Lys · type', icon: 'mdi:lightbulb', fields: [
-          { type: 'info', label: 'Velg «Kun av/på» for å tvinge en dimbar lampe til bryter' },
-          ...L.lists.lys.map((id) => ({ type: 'select', name: 'light_types.' + obj(id), label: M.name(h, id), help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(h.states[id])) || [])[1], options: LT_NAMES })),
+        const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
+        const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
+        const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+        const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter.' },
+          ...L.lists.lys.map((id) => {
+            const p = 'lights.' + obj(id), st = h.states[id];
+            return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
+              { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
+              { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
+              { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
+              { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
+              { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
+              { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
+              { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
+              { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
+              { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
+              { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
+              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
+              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
+              { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
+              { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
+              { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
+              { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
+              { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
+              { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+            ] };
+          }),
         ] });
       }
       if (L) {
@@ -8008,57 +9518,89 @@ try {
     }
 
     /* ------------ scener (engangshandlinger – ingen aktiv-tilstand) */
+    // KI Rom-lysscener (button.* → button.press) først, så scene.*/script.* (turn_on).
     _scenes() {
       const ids = this._L.lists.scener;
       if (!ids.length) return '';
+      const meta = this._L.sceneMeta || {};
       return `<section class="scn noscroll" data-hs="1" data-key="sec-scenes">${ids.map((id) => {
-        const s = this.s(id), nm = this._nm(id), lk = this._look(id);
+        const s = this.s(id), m = meta[id], lk = this._look(id);
+        const nm = (m && m.navn) || this._nm(id);
         const auto = (SCENE_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1];
-        const icon = lk.icon || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
-        return `<button class="sc" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
+        const icon = lk.icon || (m && m.ikon) || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
+        return `<button class="sc" data-act="scene" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
       }).join('')}</section>`;
     }
 
-    /* ------------ lys */
+    /* ------------ lys (mysmart-light-control per lys, gjenbrukt per entity) */
+    // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
+    // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
+    _lightCfg(id) {
+      const c = this.config, L = c.lights || {}, s = this.hass.states[id];
+      const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
+      const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
+      const romfarge = M.color((c.look && (c.look.col || c.look.color)) || null, M.romColor ? M.romColor(this._area, this.hass) : C.orange);
+      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
+      const out = { entity: id, name: this._nm(id), size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
+        card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
+        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
+      const B = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
+      Object.keys(u).forEach((k) => {
+        let v = u[k];
+        if (v == null || v === '') return;
+        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update'].includes(k)) v = B(v);
+        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
+        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background'].includes(k)) v = M.color(v, undefined);
+        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
+        out[k] = v;
+      });
+      if (out.show_icon === true) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
+      if (T === 'onoff' && u.force_toggle_mode == null) out.force_toggle_mode = true;
+      return out;
+    }
     _lights() {
       const ids = this._L.lists.lys;
       if (!ids.length) return '';
-      const c = this.config, open = !!(this.ui.acc || {}).lys;
+      const open = !!(this.ui.acc || {}).lys;
       let on = 0;
       const rows = ids.map((id) => {
-        const s = this.s(id), a = (s && s.attributes) || {}, isOn = !!s && s.state === 'on';
+        const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return '';
-        const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-        const real = isOn ? Math.max(1, Math.round(((a.brightness != null ? a.brightness : 255) / 255) * 100)) : 0;
-        const v = this._v('light', id, real);
-        const lon = v > 0;
-        const kMin = a.min_color_temp_kelvin || 2200, kMax = a.max_color_temp_kelvin || 6500;
-        const kReal = a.color_temp_kelvin || (a.color_temp ? Math.round(1e6 / a.color_temp) : 3500);
-        const K = this._v('ct', id, Math.round(((kReal - kMin) / (kMax - kMin)) * 100));
-        const kelvin = Math.round(kMin + (K / 100) * (kMax - kMin));
-        const hue = this._v('hue', id, Math.round(((a.hs_color && a.hs_color[0]) != null ? a.hs_color[0] : 30) / 3.6)) * 3.6;
-        const fill = T === 'color' && lon ? `linear-gradient(90deg, hsl(${hue} 55% 40%), hsl(${hue} 85% 62%))` : T === 'ct' && lon ? `linear-gradient(90deg, #a07c5c, ${kelvin > 4500 ? '#e9e4dc' : '#f0c08a'})` : 'linear-gradient(90deg, #a07c5c, #d8b07e)';
-        const canX = T === 'ct' || T === 'color', xOpen = canX && !!(this.ui.lx || {})[id];
-        const unav = M.unavailable(s);
-        const pct = unav ? '–' : T === 'onoff' ? (isOn ? 'På' : 'Av') : `${v}%`;
-        let ctl;
-        if (T === 'onoff') {
-          ctl = `<button class="sw" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="success"><span class="swf" style="background:${isOn ? 'linear-gradient(90deg, #b8875a, #e0b27e)' : '#8e7563'};transform:${isOn ? 'translateX(92%)' : 'none'}">${M.icon('power_settings_new', 18, 'color:#e8c9a8')}</span><span class="swd" style="${isOn ? 'left:18px' : 'right:18px'}"></span></button>`;
-        } else {
-          ctl = `<div class="ltr"><div class="sl ${this._dragging('light', id) ? 'drag' : ''}" data-slide="light" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="slf" style="flex:${v} 1 0;display:${v > 0 ? 'block' : 'none'};background:${fill}"></span><span class="slh"></span><span class="slt" style="flex:${100 - v} 1 0;display:${v < 100 ? 'block' : 'none'}"></span></div>${canX ? `<button class="lxb" data-act="lx" data-id="${esc(id)}" data-haptic="selection">${this._chev(xOpen, 22)}</button>` : ''}</div>`;
-        }
-        let x = '';
-        if (xOpen) {
-          const ct = T === 'ct', xv = ct ? K : hue / 3.6, hc = ct ? '#ffcf9e' : `hsl(${hue} 90% 65%)`;
-          x = `<div class="xb"><div class="xh"><span class="xl">${ct ? 'Temperatur' : 'Farge'}</span><span class="xv num">${ct ? `${kelvin} K` : `${Math.round(hue)}°`}</span></div>
-            <div class="xbar ${ct ? 'ct' : 'hue'} ${this._dragging(ct ? 'ct' : 'hue', id) ? 'drag' : ''}" data-slide="${ct ? 'ct' : 'hue'}" data-id="${esc(id)}"><span class="xk" style="left:calc(${M.clamp(xv, 0, 100)}% - 17px);background:${hc}"></span></div></div>`;
-        }
-        return `<div class="lt ${unav ? 'unav' : ''}" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">${pct}</span></div>${ctl}${x}</div>`;
+        if (!s) return `<div class="lt unav" data-key="l-${esc(id)}"><div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span><span class="ltp num">Finnes ikke</span></div></div>`;
+        return `<div class="lc" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-nomorph></div>`;
       }).join('');
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
     }
+    // Monter/oppdater mysmart-light-control i plassholderne (data-nomorph → morph rører dem ikke).
+    _mountLights() {
+      const R = this.shadowRoot, h = this.hass;
+      if (!R || !h) return;
+      const map = (this._lc = this._lc || new Map());
+      const ok = !!customElements.get('mysmart-light-control');
+      R.querySelectorAll('[data-lc]').forEach((wrap) => {
+        const id = wrap.dataset.lc;
+        if (!wrap.__lcGuard) {
+          wrap.__lcGuard = true;
+          ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => wrap.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+          wrap.addEventListener('pointerup', () => M.haptic('light'));
+        }
+        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = `<div class="lth">${M.icon('lightbulb', 20)}<span class="ltn ell">${esc(this._nm(id))}</span></div>`; return; }
+        let rec = map.get(id);
+        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+        const cfg = this._lightCfg(id), json = JSON.stringify(cfg);
+        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+        if (rec.el.hass !== h) rec.el.hass = h;
+        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      });
+    }
+    set hass(h) {
+      super.hass = h;
+      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    }
+    get hass() { return super.hass; }
 
     /* ------------ enheter (brytere/vifter med effekt) – aktiv enhet har ingen glød */
     _w(id) {
@@ -8213,7 +9755,7 @@ try {
         const icon0 = a.icon || SENS_ICON[cls] || M.domainIcon(id, s);
         const lk = this._look(id), ctx = { state, name: nm, w: 0, entity: s };
         const name = tpl(lk.name, ctx) || nm, sub = tpl(lk.label, ctx) || state, icon = tpl(lk.icon, ctx) || icon0;
-        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), 'currentColor');
+        const bg = M.color(tpl(lk.bg, ctx), hot ? C.green : G.g300), cell = M.color(tpl(lk.cell, ctx), hot ? 'rgba(0,0,0,0.1)' : C.popup), icol = M.color(tpl(lk.icon_color, ctx), hot ? 'currentColor' : G.g800);
         return `<div class="pill sn" data-act="more" data-id="${esc(id)}" data-key="s-${esc(id)}" style="background:${bg};color:${hot ? G.g200 : G.w}">
           <span class="iw" style="background:${cell};color:${icol}">${M.icon(icon, 24)}</span>
           <span class="pt"><span class="pn ell">${esc(name)}</span><span class="ps ell" style="color:${hot ? 'rgba(31,42,36,0.75)' : G.g700}">${esc(sub)}</span></span></div>`;
@@ -8227,7 +9769,7 @@ try {
       const d = el.dataset, h = this.hass;
       if (name === 'acc') { const acc = { ...(this.ui.acc || {}) }; acc[d.k] = !acc[d.k]; return this.setUI({ acc }); }
       if (name === 'cvx') return this.setUI({ cvOpen: !this.ui.cvOpen });
-      if (name === 'lx') { const lx = { ...(this.ui.lx || {}) }; lx[d.id] = !lx[d.id]; return this.setUI({ lx }); }
+      if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
       if (name === 'mcmd') return M.call(h, 'media_player', d.cmd, { entity_id: d.id });
@@ -8249,20 +9791,15 @@ try {
     _commit(kind, id, v) {
       const h = this.hass, s = h.states[id], a = (s && s.attributes) || {};
       this._pend[kind + '|' + id] = { v, t: Date.now() };
-      if (kind === 'light') { if (v <= 0) M.call(h, 'light', 'turn_off', { entity_id: id }).catch(() => {}); else M.call(h, 'light', 'turn_on', { entity_id: id, brightness_pct: v }).catch(() => {}); }
-      else if (kind === 'cover') {
+      if (kind === 'cover') {
         if ((Number(a.supported_features) & 4) || a.current_position != null) M.call(h, 'cover', 'set_cover_position', { entity_id: id, position: v }).catch(() => {});
         else M.call(h, 'cover', v >= 50 ? 'open_cover' : 'close_cover', { entity_id: id }).catch(() => {});
       } else if (kind === 'vol') M.call(h, 'media_player', 'volume_set', { entity_id: id, volume_level: v / 100 }).catch(() => {});
-      else if (kind === 'ct') { const mn = a.min_color_temp_kelvin || 2200, mx = a.max_color_temp_kelvin || 6500; M.call(h, 'light', 'turn_on', { entity_id: id, color_temp_kelvin: Math.round(mn + (v / 100) * (mx - mn)) }).catch(() => {}); }
-      else if (kind === 'hue') M.call(h, 'light', 'turn_on', { entity_id: id, hs_color: [Math.round(v * 3.6), (a.hs_color && a.hs_color[1]) || 90] }).catch(() => {});
       this.update();
     }
     _tap(kind, id, v) {
       const h = this.hass;
-      if (kind === 'light') { M.haptic('success'); this._pend['light|' + id] = { v: h.states[id] && h.states[id].state === 'on' ? 0 : 70, t: Date.now() }; M.toggle(h, id).catch(() => {}); this.update(); return; }
       if (kind === 'cover') { M.haptic('success'); const cur = this._cvPos(id); this._commit('cover', id, cur > 0 ? 0 : 100); return; }
-      if (kind === 'ct' || kind === 'hue') { M.haptic('selection'); this._commit(kind, id, v); }
     }
 
     /* ------------ drag/sveip (touch-action + stopPropagation → Bubble Card lukker ikke popupen) */
@@ -8314,11 +9851,10 @@ try {
       const R = this.shadowRoot;
       const area = M.roomArea(this);
       if (area && (this._pubArea !== area || this._pubCfg !== this._rawConfig)) { this._pubArea = area; this._pubCfg = this._rawConfig; M.setRoomCfg(area, this._roomCfg()); }
-      const edge = M.popupPad(this);
-      if (edge && this.style.getPropertyValue('--msh-edge') !== edge + 'px') this.style.setProperty('--msh-edge', edge + 'px');
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
-      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x pan-y'); });
+      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      this._mountLights();
       R.querySelectorAll('[data-car]').forEach((el) => {
         if (el.__b) return;
         el.__b = true;
@@ -8355,9 +9891,9 @@ try {
         .cvn2{font-size:14px;font-weight:500;max-width:100px;flex:none}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
-        .scn{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0 calc(-1 * var(--msh-edge, 0px));padding:0 var(--msh-edge, 0px);scrollbar-width:none}
+        .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
         .scn::-webkit-scrollbar{display:none}
-        .sc{flex:none;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
+        .sc{flex:none;scroll-snap-align:start;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
         .scl{font-size:14px;font-weight:400;max-width:100%}
         /* akkordeon */
@@ -8366,31 +9902,14 @@ try {
         .acct{flex:1;font-size:16px;font-weight:500}
         .accs{font-size:13px;color:${G.g700};white-space:nowrap}
         .bd{padding:0 8px 8px}
-        /* lys */
+        /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
         .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
         .ltp{font-size:12px;color:${G.g700}}
-        .ltr{display:flex;gap:8px;align-items:center}
-        .sl{flex:1;min-width:0;height:40px;display:flex;align-items:center;gap:6px;touch-action:none;cursor:pointer;user-select:none}
-        .slf{height:34px;border-radius:14px 5px 5px 14px;transition:flex-grow .3s}
-        .slh{width:4px;height:40px;border-radius:2px;flex:none;background:#b08a68}
-        .slt{height:34px;border-radius:5px 14px 14px 5px;background:${G.g400};transition:flex-grow .3s}
-        .sl.drag .slf,.sl.drag .slt{transition:none}
-        .lxb{width:36px;height:40px;display:grid;place-items:center;flex:none;color:${G.g800}}
-        .sw{position:relative;height:48px;width:100%;border-radius:24px;background:#695b51;display:flex;align-items:center;padding:4px}
-        .swf{height:40px;width:52%;border-radius:20px;display:flex;align-items:center;padding-left:14px;transition:transform .35s cubic-bezier(.34,1.4,.64,1),background .25s}
-        .swd{position:absolute;top:20px;width:8px;height:8px;border-radius:4px;background:#e8c9a8;opacity:.8}
-        .xb{display:flex;flex-direction:column;gap:6px;padding-left:11px}
-        .xh{display:flex;justify-content:space-between}
-        .xl{font-size:11px;color:${G.g600}}
-        .xv{font-size:12px;color:${G.g800}}
-        .xbar{position:relative;height:28px;border-radius:14px;touch-action:none;cursor:pointer}
-        .xbar.ct{background:linear-gradient(90deg, #ff9f45, #ffd9a8, #fff6ea, #d6e6ff)}
-        .xbar.hue{background:linear-gradient(90deg, hsl(0 85% 60%), hsl(60 85% 60%), hsl(120 70% 55%), hsl(180 70% 55%), hsl(240 75% 65%), hsl(300 75% 62%), hsl(360 85% 60%))}
-        .xk{position:absolute;top:-3px;width:34px;height:34px;border-radius:17px;box-shadow:0 0 0 3px ${G.w}, 0 2px 8px rgba(0,0,0,0.4);pointer-events:none;transition:left .3s}
-        .xbar.drag .xk{transition:none}
+        .lc{display:block;min-height:40px;background:none;padding:0}
+        .lc mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}
         .pill{display:flex;align-items:center;gap:14px;height:66px;padding:0 16px 0 5px;border-radius:33px;text-align:left;width:100%;box-shadow:none;transition:background .25s,transform .2s}
@@ -10256,81 +11775,11 @@ try {
     card.setConfig(next);
     try { const res = await M.saveCardConfig(card.hass, old, next); if (res && res.config && res.config.card_id !== next.card_id) card.setConfig(res.config); } catch (e) { /* */ }
   };
-  // Faner: langt trykk (380 ms) + dra = omorganiser (onReorder(keys)); valgfritt «liquid glass»-drag på tvers
-  // av segmentene (onSelect(key)). Knappene må ha data-key. touch-action pan-y + stopPropagation.
+  // Bakoverkompatibel tynn wrapper rundt MSH.tabReorder (05-tab-reorder.js): langt trykk + dra = omorganiser
+  // (onReorder(keys)); valgfritt «liquid glass»-valg (onSelect(key), glass: true). Knappene må ha data-key.
   M.mshTabDrag = M.mshTabDrag || function (card, nav, { onReorder, onSelect, glass } = {}) {
-    if (!nav || nav.__mshTab) return;
-    nav.__mshTab = true;
-    M.guardDrag(nav, 'x');
-    let st = null;
-    const items = () => Array.from(nav.querySelectorAll('[data-key]'));
-    const reset = () => {
-      if (!st) return;
-      clearTimeout(st.hold);
-      items().forEach((b) => { b.style.transform = ''; b.style.boxShadow = ''; b.style.opacity = ''; b.style.zIndex = ''; b.style.position = ''; b.style.transition = ''; });
-      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
-      card._busy = false;
-      st = null;
-    };
-    const eat = () => { card._swallow = true; setTimeout(() => { card._swallow = false; }, 400); };
-    const lensEl = () => {
-      const l = document.createElement('span');
-      Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-      document.body.appendChild(l);
-      requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
-      return l;
-    };
-    const nearest = (x, y) => { let best = null, bd = 1e9; items().forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
-    nav.addEventListener('pointerdown', (e) => {
-      if (e.button) return;
-      const b = e.target.closest && e.target.closest('[data-key]');
-      if (!b) return;
-      reset();
-      st = { b, x0: e.clientX, y0: e.clientY, id: e.pointerId, mode: null };
-      if (onReorder) st.hold = setTimeout(() => {
-        if (!st || st.mode) return;
-        st.mode = 're';
-        st.rects = items().map((x) => x.getBoundingClientRect());
-        st.idx = items().indexOf(b);
-        card._busy = true;
-        M.haptic('medium');
-        try { nav.setPointerCapture(st.id); } catch (x) { /* */ }
-        items().forEach((x) => { if (x !== b) { x.style.opacity = '0.65'; x.style.transition = 'opacity .2s'; } });
-        Object.assign(b.style, { position: 'relative', zIndex: '5', transform: 'scale(1.06)', boxShadow: '0 8px 20px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgb(242 133 201)', transition: 'none' });
-      }, 380);
-    });
-    nav.addEventListener('pointermove', (e) => {
-      if (!st || e.pointerId !== st.id) return;
-      const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-      if (st.mode === 're') { e.preventDefault(); st.b.style.transform = `translateX(${dx}px) scale(1.06)`; return; }
-      if (st.mode === 'glass') { e.preventDefault(); const hit = nearest(e.clientX, e.clientY); if (hit) { if (hit !== st.hit) M.haptic('selection'); st.hit = hit; const r = hit.getBoundingClientRect(), cr = nav.getBoundingClientRect(); let L = e.clientX - r.width / 2; L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, L)); Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' }); } return; }
-      if (Math.hypot(dx, dy) > 8) {
-        clearTimeout(st.hold);
-        if (glass && onSelect && Math.abs(dx) > Math.abs(dy)) { st.mode = 'glass'; st.lens = lensEl(); try { nav.setPointerCapture(st.id); } catch (x) { /* */ } }
-        else st = null;
-      }
-    });
-    const end = (e) => {
-      if (!st) return;
-      const s0 = st;
-      if (s0.mode === 're' && e.type === 'pointerup') {
-        const keys = items().map((x) => x.dataset.key), k = s0.b.dataset.key, r0 = s0.rects[Math.max(0, s0.idx)] || s0.rects[0];
-        const cx = r0.left + r0.width / 2 + (e.clientX - s0.x0);
-        let j = s0.rects.findIndex((r) => cx >= r.left && cx <= r.right);
-        if (j < 0) j = cx < s0.rects[0].left ? 0 : s0.rects.length - 1;
-        const a2 = keys.filter((x) => x !== k); a2.splice(j, 0, k);
-        reset(); eat();
-        M.haptic('success');
-        onReorder(a2);
-        return;
-      }
-      if (s0.mode === 'glass') { const hit = s0.hit; reset(); eat(); if (hit && e.type === 'pointerup') { M.haptic('light'); onSelect(hit.dataset.key); } return; }
-      if (s0.mode === 're') { reset(); eat(); return; }
-      clearTimeout(s0.hold);
-      st = null;
-    };
-    nav.addEventListener('pointerup', end);
-    nav.addEventListener('pointercancel', end);
+    if (!nav) return null;
+    return M.tabReorder(nav, { card, onReorder, onSelect, glass, styleRow: false, items: () => Array.from(nav.querySelectorAll('[data-key]')) });
   };
   // Ordne liste etter lagret rekkefølge; skjulte fjernes.
   M.mshOrder = M.mshOrder || function (keys, order, hidden) {
@@ -10740,7 +12189,7 @@ try {
       const body = { ov: () => this._ov(A, K), so: () => this._so(A), en: () => this._en2(A, K), vb: () => this._vb(A), ta: () => this._ta(A, K), op: () => this._op(A), av: () => this._av(A, K) }[tab];
       return `<div class="wrap">
         ${this._modes(A)}
-        ${tabs.length ? `<nav class="tabs" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map((k) => { const act = k === tab; return `<button class="tab" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav>` : ''}
+        ${tabs.length ? `<div class="tbox"><nav class="tabs msh-tr" data-gd-skip>${tabs.map((k) => { const act = k === tab; return `<button class="tab${act ? ' on' : ''}" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav></div>` : ''}
         ${body ? body() : ''}
       </div>`;
     }
@@ -11107,7 +12556,7 @@ try {
     }
     afterRender() {
       const nav = this.shadowRoot.querySelector('.tabs');
-      M.mshTabDrag(this, nav, { onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
+      M.tabReorder(nav, { card: this, onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
       const md = this.shadowRoot.querySelector('.modes');
       if (md && !md.__b) { md.__b = true; const st = (e) => e.stopPropagation(); md.addEventListener('touchstart', st, { passive: true }); md.addEventListener('touchmove', st, { passive: true }); }
     }
@@ -11119,9 +12568,11 @@ try {
         .mb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),background .25s}
         .mode:active .mb{transform:scale(.94)!important}
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
-        .tabs{display:grid;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-        .tab{height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s;min-width:0}
-        .tl{font-size:9.5px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+        ${M.TAB_ROW_CSS || ''}
+        .tbox{padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0;overflow:hidden}
+        .tabs{gap:2px;border-radius:20px}
+        .tabs>.tab{flex:1 0 auto;min-width:56px;padding:0 8px;height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s}
+        .tl{font-size:9.5px;font-weight:500;white-space:nowrap}
         .bars{position:relative;display:flex;align-items:flex-end;gap:4px;height:96px}
         .bars>span:not(.lim){flex:1;border-radius:6px;transition:height .4s}
         .bars .lim{position:absolute;left:0;right:0;bottom:88px;border-top:1px dashed var(--gray400,#545454)}
@@ -11181,11 +12632,14 @@ try {
 /* ---- 43-lys.js ---- */
 try {
 /* msh-lys-card · Lys-popup (#lys). Kilde: Lys v4.dc.html.
- * Faner: Utelys · én per etasje (hass.floors) · Lys på. Kan omorganiseres (langt trykk + dra → config.tab_order)
- * og velges med «liquid glass»-drag på tvers av segmentene.
+ * Faner: Utelys · én per etasje (hass.floors) · Lys på. Raden scroller vannrett; langt trykk + dra = omorganiser
+ * (MSH.tabReorder, 05-tab-reorder.js → config.tab_order via ki-store) – virker med mus og touch.
+ * Lys: mysmart-light-control per lys (gjenbrukt per entity, i data-nomorph-plassholdere). Innstillinger per lys under
+ * lights.<object_id> {size, label_layout, show_icon/name/brightness, brightness_min/max, slider_color_mode,
+ * color_control, force_toggle_mode, hide_*, farger, color_presets} – i kortets egen editor og GUI-editoren.
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
  * Utelys = lys i utendørs etasje/område (Ute, Hage, Terrasse …) eller med «ute» i navnet; config.lamps overstyrer.
- * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Sol fra sun.*. Dimmere med drag-vern.
+ * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Sol fra sun.*. Slidere med drag-vern.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -11201,6 +12655,20 @@ try {
   const P = (m) => ((((m - 720) % 1440) + 1440) % 1440) / 1440 * 100;
   const pctOf = (s) => (!s || s.state !== 'on' ? 0 : s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : 100);
   const dimmable = (s) => { const m = (s && s.attributes.supported_color_modes) || []; return m.length ? m.some((x) => x !== 'onoff') : s && s.attributes.brightness != null; };
+  const obj = (id) => String(id || '').split('.').slice(1).join('.');
+  const cap = (n) => String(n || '').charAt(0).toUpperCase() + String(n || '').slice(1);
+  // Lystype fra supported_color_modes: farge (hs/rgb/xy) → temperatur → dimbar → kun av/på
+  const lightType = (s) => {
+    const m = (s && s.attributes.supported_color_modes) || [];
+    if (m.some((x) => ['hs', 'rgb', 'rgbw', 'rgbww', 'xy'].includes(x))) return 'color';
+    if (m.includes('color_temp')) return 'ct';
+    if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
+    return 'onoff';
+  };
+  const LS = [['', 'Auto'], ['small', 'Liten'], ['medium', 'Middels'], ['large', 'Stor'], ['xlarge', 'Ekstra stor'], ['jumbo', 'Jumbo']];
+  const LL = [['', 'Auto'], ['title_outside_icon_inside', 'Tittel over, ikon i slideren'], ['icon_title_outside', 'Ikon og tittel over']];
+  const LM = [['', 'Auto (etter type)'], ['custom', 'Egne farger'], ['custom_temperature', 'Fast fargetemperatur'], ['light_temperature', 'Lysets temperatur'], ['light_rgb', 'Lysets farge']];
+  const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
 
   /* ------------------------------------------------------------ autokonfig */
   M.lysAuto = function (hass, cfg) {
@@ -11286,6 +12754,33 @@ try {
             { type: 'boolean', name: 'kveld', label: 'Kveld · tenn i skumringen', default: true },
             { type: 'boolean', name: 'morgen', label: 'Morgen · tenn før det lysner', default: true },
           ] },
+          { type: 'section', label: 'Lys · slidere', id: 'lys', icon: 'mdi:lightbulb', meta: () => `${lightIds(a).length} lys`, fields: [
+            { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto: farge-/temperatur-/dimbar slider etter lystype, romfargen som fyll.' },
+            ...lightIds(a).map((id) => {
+              const p = 'lights.' + obj(id), st = h && h.states[id];
+              return { type: 'section', label: cap(M.name(h, id)), icon: 'mdi:lightbulb', meta: () => ({ color: 'Farge', ct: 'Temperatur', dim: 'Dimbar', onoff: 'Av/på' })[lightType(st)], fields: [
+                { type: 'select', name: p + '.size', label: 'Størrelse', options: LS, help: 'Auto: Middels' },
+                { type: 'select', name: p + '.label_layout', label: 'Tittel og ikon', options: LL },
+                { type: 'boolean', name: p + '.show_name', label: 'Vis navn', default: true },
+                { type: 'boolean', name: p + '.show_icon', label: 'Vis ikon', default: false },
+                { type: 'boolean', name: p + '.show_brightness', label: 'Vis lysstyrke (%)', default: true },
+                { type: 'boolean', name: p + '.force_toggle_mode', label: 'Kun av/på (bryter)', default: lightType(st) === 'onoff' },
+                { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
+                { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
+                { type: 'select', name: p + '.slider_color_mode', label: 'Sliderfarge', options: LM },
+                { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
+                { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
+                { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
+                { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
+                { type: 'color', name: p + '.bar_foreground', label: 'Slider · fylt del', help: 'Tomt = romfargen' },
+                { type: 'color', name: p + '.bar_background', label: 'Slider · bakgrunn', auto: () => 'var(--gray300, #404040)' },
+                { type: 'color', name: p + '.handle_color', label: 'Håndtak', auto: () => 'var(--gray1000, #e1e1e1)' },
+                { type: 'color', name: p + '.icon_color', label: 'Ikonfarge', auto: () => 'var(--gray1000, #e1e1e1)' },
+                { type: 'color', name: p + '.chevron_color', label: 'Pil (utvid)' },
+                { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+              ] };
+            }),
+          ] },
           { type: 'gap' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
         ];
@@ -11312,12 +12807,82 @@ try {
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       return `<div class="wrap">
-        <div class="tw"><div class="tabs noscroll">${tabs.map((k) => `<button class="tab" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'};padding:0 ${tabs.length > 4 ? 11 : 14}px">${esc(names[k])}</button>`).join('')}</div></div>
+        <div class="tw"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div></div>
         ${body || ''}
       </div>`;
     }
 
-    /* ---------------- lampefliser */
+    /* ---------------- lys: mysmart-light-control per lys (plassholder data-nomorph, fylles i _mountLights) */
+    _light(id, name, area) {
+      const s = this.s(id);
+      if (!s) return this._tile(id, false, name);
+      return `<div class="lsl" data-key="lc-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(name || '')}" data-area="${esc(area || '')}" data-nomorph></div>`;
+    }
+    _lightCfg(id, name, area) {
+      const h = this.hass, c = this.config, L = c.lights || {}, s = h.states[id];
+      const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
+      const T = lightType(s);
+      const romfarge = area && M.romColor ? M.romColor(area, h) : Y;
+      const mode = T === 'color' ? { slider_color_mode: 'light_rgb', color_control: 'both' } : T === 'ct' ? { slider_color_mode: 'light_temperature' } : T === 'dim' ? { slider_color_mode: 'custom' } : { force_toggle_mode: true };
+      const out = { entity: id, size: 'medium', label_layout: 'title_outside_icon_inside', show_brightness: true, live_update: false,
+        slider_color_mode: mode.slider_color_mode, card_background: 'transparent', bar_background: 'var(--gray300, #404040)', bar_foreground: romfarge,
+        handle_color: 'var(--gray1000, #e1e1e1)', icon_color: 'var(--gray1000, #e1e1e1)', ...mode };
+      if (name) out.name = name;
+      if (!out.slider_color_mode) delete out.slider_color_mode;
+      const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
+      Object.keys(u).forEach((k) => {
+        let v = u[k];
+        if (v == null || v === '') return;
+        if (['show_icon', 'show_name', 'show_brightness', 'hide_temperature_slider', 'hide_color_controls', 'hide_color_presets', 'force_toggle_mode', 'live_update', 'show_icon_on_small_sizes', 'show_expand_toggle'].includes(k)) v = B(v);
+        else if (k === 'brightness_min' || k === 'brightness_max') v = Number(v);
+        else if (k === 'color_presets') v = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
+        else if (['bar_foreground', 'bar_background', 'handle_color', 'icon_color', 'chevron_color', 'card_background', 'popup_number_color'].includes(k)) v = M.color(v, undefined);
+        if (v === undefined || (typeof v === 'number' && isNaN(v)) || (Array.isArray(v) && !v.length)) return;
+        out[k] = v;
+      });
+      if (out.show_icon === true && out.show_icon_on_small_sizes == null) out.show_icon_on_small_sizes = true; // medium skjuler ellers ikonet
+      if (out.force_toggle_mode === false && T === 'onoff') delete out.force_toggle_mode;
+      return out;
+    }
+    // Monter/oppdater lys-elementene: gjenbrukes per entity, setConfig bare ved endret config, hass ved hver endring.
+    _mountLights() {
+      const R = this.shadowRoot, h = this.hass;
+      if (!R || !h) return;
+      const map = (this._lc = this._lc || new Map());
+      const ok = !!customElements.get('mysmart-light-control');
+      R.querySelectorAll('[data-lc]').forEach((wrap) => {
+        const id = wrap.dataset.lc;
+        if (!wrap.__lcGuard) {
+          wrap.__lcGuard = true;
+          // Drag-vern mot Bubble Cards swipe-to-close; haptic «light» ved slipp / trykk på ikon (ikke per trinn)
+          const stop = (e) => e.stopPropagation();
+          wrap.addEventListener('pointerdown', (e) => {
+            stop(e);
+            if (e.button) return;
+            const up = () => { window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', cancel, true); M.haptic('light'); };
+            const cancel = () => { window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', cancel, true); };
+            window.addEventListener('pointerup', up, true);
+            window.addEventListener('pointercancel', cancel, true);
+          });
+          wrap.addEventListener('touchstart', stop, { passive: true });
+          wrap.addEventListener('touchmove', stop, { passive: true });
+        }
+        if (!ok) { if (!wrap.firstChild) wrap.innerHTML = this._tile(id, false, wrap.dataset.name); return; }
+        let rec = map.get(id);
+        if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+        const cfg = this._lightCfg(id, wrap.dataset.name, wrap.dataset.area), json = JSON.stringify(cfg);
+        if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+        if (rec.el.hass !== h) rec.el.hass = h;
+        if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      });
+    }
+    set hass(h) {
+      super.hass = h;
+      if (this._lc) this._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
+    }
+    get hass() { return super.hass; }
+
+    /* ---------------- reserveflis (lys som ikke finnes / uten light-control) */
     _tile(id, big, name, icon) {
       const s = this.s(id), p = pctOf(s), on = s && s.state === 'on', un = M.unavailable(s);
       const val = !s ? 'Finnes ikke' : un ? 'Utilgjengelig' : on ? (dimmable(s) ? `${p} %` : 'På') : 'Av';
@@ -11357,7 +12922,7 @@ try {
           <div class="mk">${marks.map(([m, ic, col, top]) => `<span style="left:${P(m)}%;top:${top}px;color:${col}">${M.icon(ic, 14)}${fmt(m)}</span>`).join('')}</div>
         </div>
       </section>`;
-      out += L.length ? `<section class="g2">${L.map((l) => this._tile(l.id, true, l.name, l.icon)).join('')}</section>` : M.emptyState('Fant ingen utelamper', 'entities');
+      out += L.length ? `<section class="lbox" data-key="lb-out">${L.map((l) => this._light(l.id, l.name, (A.aOf || {})[l.id] || M.areaOf(this.hass, l.id))).join('')}</section>` : M.emptyState('Fant ingen utelamper', 'entities');
       // Styring
       const lx = A.lux ? M.name(this.hass, A.lux) : 'lysnivåsensoren';
       const info = mode === 'auto' ? `Tennes når ${lx} er under ${c.lux_on} lx, og slukkes over ${c.lux_off} lx.` : mode === 'tid' ? `Tennes ${fmt(T.on)} (skumring ${Number(c.offset) >= 0 ? '+' : '−'}${Math.abs(Number(c.offset || 0))} min) og slukkes ${fmt(T.off)}${c.latest ? `, senest ${c.latest}` : ''}.` : 'Automatikken er av. Utelyset styres bare fra knappene over.';
@@ -11420,7 +12985,7 @@ try {
         return `<section class="col" style="gap:8px" data-key="r-${esc(r.area || '_')}">
           <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--gray700,#979797)')}<span class="grow t15 ell">${esc(r.name)}</span><span class="t12 dim" style="white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
             <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--gray800,#afafaf)' : Y}">${n ? 'Av' : 'På'}</button></div>
-          <div class="g2">${r.ids.map((id) => this._tile(id, false, ((n) => n.charAt(0).toUpperCase() + n.slice(1))(M.name(this.hass, id, r.name)))).join('')}</div></section>`;
+          <div class="lbox">${r.ids.map((id) => this._light(id, cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
       }).join('');
       return out;
     }
@@ -11514,66 +13079,20 @@ try {
       if (name === 'lamp') { const L = this._lamps(this._A); if (!L[d.i]) return; L[d.i][d.f] = v; return M.mshPatchConfig(this, { lamps: L }); }
     }
 
-    /* ---------------- drag: dimmere og faner */
+    /* ---------------- faner (felles MSH.tabReorder) og lys-slidere */
     afterRender() {
-      M.mshTabDrag(this, this.shadowRoot.querySelector('.tabs'), { glass: true, onSelect: (k) => this.setUI({ tab: k }), onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
+      const row = this.shadowRoot.querySelector('.tabs');
+      M.tabReorder(row, {
+        card: this, glass: true,
+        items: () => Array.from(row.querySelectorAll('.tab')),
+        active: () => this._curTab(),
+        onSelect: (k) => this.setUI({ tab: k }),
+        onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
+      });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
       const sc = this.shadowRoot.querySelector('.sc');
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
-      this.shadowRoot.querySelectorAll('.lt').forEach((el) => this._bindDim(el));
-    }
-    _bindDim(el) {
-      if (el.__b) return;
-      el.__b = true;
-      M.guardDrag(el, 'x'); // touch-action: pan-y + stopPropagation → Bubble Card lukker ikke popupen
-      let d = null;
-      const setVis = (p) => {
-        const f = el.querySelector('.lf'), v = el.querySelector('.lv'), i = el.querySelector('.li');
-        if (f) { f.style.transition = 'none'; f.style.width = p + '%'; }
-        if (v) { v.textContent = p ? p + ' %' : 'Av'; v.style.color = p ? 'var(--gray900,#c7c7c7)' : 'var(--gray500,#696969)'; }
-        if (i) { i.style.background = p ? Y : C.ctrl; i.style.color = p ? '#282828' : 'var(--gray500,#696969)'; }
-      };
-      const frac = (e) => { const r = el.getBoundingClientRect(); return M.clamp((e.clientX - r.left) / r.width, 0, 1); };
-      el.addEventListener('pointerdown', (e) => {
-        if (e.button) return;
-        d = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId, last: null };
-        d.hold = setTimeout(() => { if (d && !d.moved) { d.held = true; M.haptic('medium'); M.moreInfo(this, el.dataset.dim); } }, 520);
-      });
-      el.addEventListener('pointermove', (e) => {
-        if (!d || e.pointerId !== d.id) return;
-        const dx = e.clientX - d.x, dy = e.clientY - d.y;
-        if (!d.moved) {
-          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { clearTimeout(d.hold); d = null; return; }
-          if (Math.abs(dx) > 6 && el.dataset.can === '1') { d.moved = true; clearTimeout(d.hold); this._busy = true; try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ } }
-          else return;
-        }
-        e.preventDefault();
-        const p = Math.round(frac(e) * 100);
-        const step = Math.round(p / 5);
-        if (step !== d.last) { d.last = step; M.haptic('selection'); }
-        d.p = p;
-        setVis(p);
-      });
-      const end = (e) => {
-        if (!d) return;
-        const s0 = d; d = null;
-        clearTimeout(s0.hold);
-        if (e.type === 'pointercancel') { this._busy = false; this.update(); return; }
-        if (s0.held) return;
-        const id = el.dataset.dim;
-        if (s0.moved) {
-          this._busy = false;
-          const p = s0.p != null ? s0.p : 0;
-          M.call(this.hass, 'light', p > 0 ? 'turn_on' : 'turn_off', p > 0 ? { entity_id: id, brightness_pct: p } : { entity_id: id });
-          setTimeout(() => this.update(), 50);
-          return;
-        }
-        M.haptic('light');
-        M.toggle(this.hass, id);
-      };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); M.haptic('light'); M.toggle(this.hass, el.dataset.dim); } });
+      this._mountLights();
     }
 
     get styles() {
@@ -11582,9 +13101,15 @@ try {
         .t15{font-size:15px;font-weight:500} .t14{font-size:14px;font-weight:500} .t13{font-size:13px} .t12{font-size:12px} .t11{font-size:11px}
         .dim{color:var(--gray600,#7f7f7f)}
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
+        ${M.TAB_ROW_CSS || ''}
         .tw{display:flex;justify-content:center;min-width:0}
-        .tabs{display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);max-width:100%;overflow-x:auto;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-        .tab{height:38px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;transition:background .2s;flex:none}
+        .tbox{padding:4px;border-radius:23px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);max-width:100%;min-width:0;overflow:hidden}
+        .tabs{gap:2px;border-radius:19px}
+        .tab{height:38px;padding:0 14px;border-radius:19px;font-size:13px;font-weight:500;transition:background .2s}
+        .lbox{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .lsl{display:block;min-height:40px}
+        .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
+        .lbox>.lt{background:var(--gray300,#404040)}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .oc{display:flex;flex-direction:column;gap:18px;padding:18px;border-radius:30px;transition:background .4s}
         .ol{font-size:48px;font-weight:300;letter-spacing:-0.03em;line-height:1}
@@ -11645,6 +13170,8 @@ try {
       `;
     }
   }
+  // Alle lys kortet viser (etasjer + utelys) – for innstillinger per lys i editoren
+  function lightIds(a) { return [...new Set([...(a.lamps || []).map((l) => l.id), ...(a.all || [])])]; }
   function fmtSun(h, c, which) {
     const A = M.lysAuto(h, c || {}), s = A.sun && h.states[A.sun], at = (s && s.attributes) || {};
     const m = which === 'on' ? hm(at.next_setting) : hm(at.next_rising);
@@ -12051,7 +13578,7 @@ try {
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
       const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
-      const head = `<div class="tabs"><span></span><div class="seg">${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a, ui = this.ui;
       if (this._pid !== p.id) { this._pid = p.id; ui.act = ''; ui.lastKey = ''; }
@@ -12133,7 +13660,6 @@ try {
     onAction(name, el, ev) {
       const h = this.hass, R = this._R, p = R && R.p;
       if (name === 'tab') {
-        if (Date.now() - (this._eat || 0) < 350) return;
         this._ui = { ...this._ui, act: '', lastKey: '' };
         return this.select(el.dataset.t);
       }
@@ -12220,58 +13746,15 @@ try {
         ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => root.addEventListener(t, clear));
         root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab')) e.preventDefault(); });
       }
-      // Faner: langt trykk + dra = omorganiser (lagres i config.tab_order)
+      // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
-      if (seg && !seg.__b) {
-        seg.__b = true;
-        M.guardDrag(seg, 'x');
-        seg.addEventListener('pointerdown', (e) => {
-          const t = e.target.closest && e.target.closest('.tab');
-          if (!t || e.button) return;
-          clearTimeout(this._th);
-          this._txy = [e.clientX, e.clientY];
-          this._th = setTimeout(() => this._beginTab(seg, t, e.clientX), 380);
-        });
-        seg.addEventListener('pointermove', (e) => { if (this._txy && Math.hypot(e.clientX - this._txy[0], e.clientY - this._txy[1]) > 8) clearTimeout(this._th); });
-        ['pointerup', 'pointercancel'].forEach((ty) => seg.addEventListener(ty, () => clearTimeout(this._th)));
-      }
-    }
-    _beginTab(seg, el, x0) {
-      const sib = [...seg.querySelectorAll('.tab')];
-      if (sib.length < 2) return;
-      const rects = sib.map((c) => c.getBoundingClientRect()), i = sib.indexOf(el), keys = sib.map((c) => c.dataset.t);
-      M.haptic('medium');
-      this._busy = true;
-      el.classList.add('drag');
-      sib.forEach((c) => { if (c !== el) c.classList.add('dim'); });
-      const mv = (e) => { e.preventDefault(); e.stopPropagation(); el.style.transform = `translateX(${e.clientX - x0}px) scale(1.06)`; };
-      const fin = (e) => {
-        window.removeEventListener('pointermove', mv, true);
-        window.removeEventListener('pointerup', fin, true);
-        window.removeEventListener('pointercancel', fin, true);
-        e.stopPropagation();
-        el.style.transform = '';
-        el.classList.remove('drag');
-        sib.forEach((c) => c.classList.remove('dim'));
-        this._busy = false;
-        this._eat = Date.now();
-        if (e.type === 'pointerup') {
-          const r0 = rects[i], cx = r0.left + r0.width / 2 + (e.clientX - x0);
-          let j = rects.findIndex((r) => cx >= r.left && cx <= r.right);
-          if (j < 0) j = cx < rects[0].left ? 0 : rects.length - 1;
-          const k = keys[i], a2 = keys.filter((x) => x !== k);
-          a2.splice(j, 0, k);
-          if (a2.join() !== keys.join()) {
-            M.haptic('success');
-            const all = this._R ? this._R.orderAll : a2;
-            this._save({ tab_order: [...a2, ...all.filter((x) => !a2.includes(x))] });
-          }
-        }
-        this.update();
-      };
-      window.addEventListener('pointermove', mv, { capture: true, passive: false });
-      window.addEventListener('pointerup', fin, true);
-      window.addEventListener('pointercancel', fin, true);
+      if (seg) M.tabReorder(seg, {
+        card: this,
+        items: () => Array.from(seg.querySelectorAll('.tab')),
+        idOf: (b) => b.dataset.t,
+        active: () => this._R && this._R.tab,
+        onReorder: (keys) => { const all = this._R ? this._R.orderAll : keys; this._save({ tab_order: [...keys, ...all.filter((x) => !keys.includes(x))] }); },
+      });
     }
     async _save(patch) {
       const old = this._rawConfig || this.config, n = { ...old, ...patch };
@@ -12294,12 +13777,11 @@ try {
     get styles() {
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
-        .tabs{display:grid;grid-template-columns:46px 1fr 46px;align-items:center;gap:8px}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
-        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:opacity .2s}
+        ${M.TAB_ROW_CSS || ''}
+        .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
+        .seg{gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);justify-self:center}
+        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);background:transparent}
         .tab.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tab.drag{position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px ${PINKC};transition:none}
-        .tab.dim{opacity:.65}
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}

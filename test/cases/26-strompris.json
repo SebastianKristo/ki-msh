@@ -1,5 +1,7 @@
 [
   { "name": "Strømpris · i dag", "cards": [ { "type": "custom:msh-strompris-card" } ] },
-  { "name": "Strømpris · i morgen", "cards": [ { "type": "custom:msh-strompris-card", "day": "tomorrow", "show_watt": false } ] },
-  { "name": "Strømpris · tom", "cards": [ { "type": "custom:msh-strompris-card", "overrides": { "price": "sensor.finnes_ikke", "watt": "sensor.finnes_ikke" } } ] }
+  { "name": "Strømpris · terskel", "cards": [ { "type": "custom:msh-strompris-card", "threshold": 1.6, "norgespris_entity": "sensor.finnes_ikke", "norgespris": 1.3 } ] },
+  { "name": "Strømpris · uten i morgen (96 kvarter)", "cards": [ { "type": "custom:msh-strompris-card", "entity": "sensor.strompris_uten_morgen" } ] },
+  { "name": "Strømpris · uten Norgespris", "cards": [ { "type": "custom:msh-strompris-card", "show_norgespris": false } ] },
+  { "name": "Strømpris · tom", "cards": [ { "type": "custom:msh-strompris-card", "entity": "sensor.finnes_ikke" } ] }
 ]

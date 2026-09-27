@@ -3,8 +3,8 @@
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
- * Fanerad: scroller vannrett (mange faner), aktiv fane scrolles inn. Dra sideveis = scroll (eller liquid glass-valg når
- * alle faner får plass); hold inne 400 ms + dra = flytt fanen (lagres i config.tab_order).
+ * Fanerad (felles MSH.tabReorder, 05-tab-reorder.js): scroller vannrett, aktiv fane scrolles inn. Dra sideveis = scroll
+ * (eller liquid glass-valg når alle faner får plass); hold inne 400 ms + dra = flytt fanen (config.tab_order) – mus og touch.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -360,9 +360,13 @@
     async _reorderTabs(from, to) {
       const TV = this._TV || [], all = allTabs(this.hass, this.config).map((t) => t.id), vis = TV.map((t) => t.id);
       const nv = vis.slice(); const [m] = nv.splice(from, 1); nv.splice(to, 0, m);
+      return this._saveTabOrder(nv);
+    }
+    // Ny rekkefølge for de synlige fanene → full tab_order (skjulte beholder plassen sin)
+    async _saveTabOrder(nv) {
+      const all = allTabs(this.hass, this.config).map((t) => t.id), vis = (this._TV || []).map((t) => t.id);
       let k = 0;
       const order = all.map((id) => (vis.includes(id) ? nv[k++] : id));
-      M.haptic('success');
       await this._saveCfg({ tab_order: order });
     }
     async _saveCfg(patch) {
@@ -381,7 +385,7 @@
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
       const P = (this._tabPos || {})[(TV[idx] || {}).id];
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg" data-tabs="1">
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
         <span class="ind" style="${ind}"></span>
         ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
       </div></div>`;
@@ -689,12 +693,13 @@
         if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
       });
     }
-    // Linse på aktiv fane + aktiv fane inn i synlig område (row.scrollTo smooth) + kant-fade.
+    // Linse (.ind) på aktiv fane. Scroll av aktiv fane inn i synlig område (row.scrollTo smooth) og kant-fade: MSH.tabReorder.
     _placeTabs() {
       const row = this.shadowRoot.querySelector('.tg');
       if (!row) return;
+      const T = row.__tabReorder, busy = T && T.st && T.st.phase !== 'hold';
       const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
-      if (on && ind && !(this._tabDrag && this._tabDrag.mode)) {
+      if (on && ind && !busy) {
         const L = on.offsetLeft, W = on.offsetWidth;
         (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
         const first = ind.style.opacity === '0';
@@ -702,118 +707,32 @@
         ind.style.left = L + 'px'; ind.style.width = W + 'px'; ind.style.opacity = '';
         if (first) { void ind.offsetWidth; ind.style.transition = ''; }
       }
-      if (on && this._shownTab !== on.dataset.key) {
-        const init = this._shownTab == null;
-        this._shownTab = on.dataset.key;
-        const cw = row.clientWidth, sl = row.scrollLeft, l = on.offsetLeft, r = l + on.offsetWidth, m = 24;
-        let left = null;
-        if (row.scrollWidth > cw + 1) {
-          if (l - m < sl) left = Math.max(0, l - m);
-          else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
-        }
-        if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
-      }
-      this._tabFade();
     }
-    // Myk fade (12 px) på kanten som har mer innhold; touch-action pan-x når raden scroller.
-    _tabFade() {
-      const row = this.shadowRoot.querySelector('.tg');
-      if (!row) return;
-      const max = row.scrollWidth - row.clientWidth, sl = row.scrollLeft, ovf = max > 1;
-      const set = (k, v) => { if (this.style.getPropertyValue(k) !== v) this.style.setProperty(k, v); };
-      set('--msh-tabs-fl', ovf && sl > 1 ? '12px' : '0px');
-      set('--msh-tabs-fr', ovf && sl < max - 1 ? '12px' : '0px');
-      set('--msh-tabs-ta', ovf ? 'pan-x' : 'pan-y');
-    }
-    // Fanelinjen. Vanlig sveip scroller alltid raden (touch: native; mus: dra-scroll). Får fanene plass (ingen
-    // scroll), er sideveis dra = liquid glass-linse. Flytt fane KUN etter langt trykk (400 ms) eller i
-    // redigeringsmodus (this.editMode / window.__kiEditMode). Gester stoppes (stopPropagation) så verken
-    // karusell, dashbord eller Bubble-popup tar dem.
+    // Fanelinjen: felles MSH.tabReorder. Vanlig sveip scroller raden (touch: native; mus: dra-scroll). Får fanene
+    // plass, er sideveis dra = liquid glass-linse (.ind følger fingeren). Flytt fane KUN etter langt trykk (400 ms)
+    // eller i redigeringsmodus (this.editMode / window.__kiEditMode).
     _bindTabs() {
       const row = this.shadowRoot.querySelector('.tg');
-      if (!row || row.__b) return;
-      row.__b = true;
-      const stop = (e) => e.stopPropagation();
-      row.addEventListener('pointerdown', stop);
-      row.addEventListener('touchstart', stop, { passive: true });
-      row.addEventListener('touchmove', stop, { passive: true });
-      row.addEventListener('scroll', () => {
-        this._tabFade();
-        const st = this._tabDrag;
-        if (st && !st.mode) { clearTimeout(st.t); this._tabDrag = null; } // native scroll → ingen langt trykk
-      }, { passive: true });
-      if (window.ResizeObserver) { this._tabRO = new ResizeObserver(() => this._tabFade()); this._tabRO.observe(row); }
+      if (!row) return;
       const items = () => [...row.querySelectorAll('.tab')];
-      const at = (x, rects) => {
-        let best = 0, bd = Infinity;
-        (rects || items().map((b) => b.getBoundingClientRect())).forEach((r, i) => { const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
-        return best;
-      };
-      const capture = (st) => { try { row.setPointerCapture(st.id); } catch (x) { /* */ } };
-      const startReo = (st) => {
-        st.mode = 'reo'; capture(st); this._busy = true; window.__tabReorder = true;
-        st.rects = items().map((b) => b.getBoundingClientRect());
-        M.haptic('medium');
-        row.classList.add('reo');
-        const it = items()[st.from]; if (it) it.classList.add('lift');
-      };
-      row.addEventListener('pointerdown', (e) => {
-        if (e.button) return;
-        const n = items().length, edit = !!(this.editMode || window.__kiEditMode);
-        const st = (this._tabDrag = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType, mode: null, n, edit, ovf: row.scrollWidth > row.clientWidth + 1, sl: row.scrollLeft, from: at(e.clientX), near: null, to: null });
-        st.t = setTimeout(() => { if (this._tabDrag === st && !st.mode && st.n > 1) startReo(st); }, 400);
-      });
-      row.addEventListener('pointermove', (e) => {
-        const st = this._tabDrag;
-        if (!st || e.pointerId !== st.id) return;
-        const dx = e.clientX - st.x, dy = e.clientY - st.y;
-        if (!st.mode) {
-          if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return;
-          clearTimeout(st.t);
-          if (Math.abs(dx) < Math.abs(dy)) { this._tabDrag = null; return; }
-          if (st.edit && st.n > 1) startReo(st);
-          else if (st.ovf) { if (st.type !== 'touch') { st.mode = 'pan'; capture(st); } else { this._tabDrag = null; return; } } // touch: native scroll
-          else if (st.n > 1) { st.mode = 'glass'; capture(st); this._busy = true; row.classList.add('drag'); }
-          else { this._tabDrag = null; return; }
-        }
-        e.preventDefault();
-        if (st.mode === 'pan') { row.scrollLeft = st.sl - dx; return; }
-        if (st.mode === 'glass') {
-          const near = at(e.clientX), nb = items()[near], ind = row.querySelector('.ind');
-          if (nb && ind) {
-            const rr = row.getBoundingClientRect(), x = e.clientX - rr.left + row.scrollLeft, W = nb.offsetWidth;
+      M.tabReorder(row, {
+        card: this, glass: true, holdMs: 400,
+        items, idOf: (b) => b.dataset.id,
+        isEdit: () => !!(this.editMode || window.__kiEditMode),
+        onReorder: (ids) => this._saveTabOrder(ids),
+        onSelect: (id) => { const i = (this._TV || []).findIndex((t) => t.id === id); if (i >= 0) this._pickTab(i); },
+        onGlassMove: (b, x) => {
+          row.classList.add('drag');
+          const ind = row.querySelector('.ind');
+          if (ind) {
+            const rr = row.getBoundingClientRect(), W = b.offsetWidth, cx = x - rr.left + row.scrollLeft;
             ind.style.width = W + 'px';
-            ind.style.left = M.clamp(x - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
+            ind.style.left = M.clamp(cx - W / 2, 0, Math.max(0, row.scrollWidth - W)) + 'px';
           }
-          if (near !== st.near) { st.near = near; M.haptic('selection'); items().forEach((b, i) => b.classList.toggle('near', i === near)); }
-          return;
-        }
-        // reo: flytt fanen; auto-scroll ved kantene
-        const rr = row.getBoundingClientRect();
-        if (e.clientX < rr.left + 24) row.scrollLeft -= 8; else if (e.clientX > rr.right - 24) row.scrollLeft += 8;
-        const to = at(e.clientX + (row.scrollLeft - st.sl), st.rects);
-        if (to !== st.to) {
-          st.to = to; M.haptic('selection');
-          const ord = Array.from({ length: st.n }, (_, i) => i); ord.splice(st.from, 1); ord.splice(to, 0, st.from);
-          items().forEach((b, i) => { b.style.order = String(ord.indexOf(i)); });
-        }
+          items().forEach((t) => t.classList.toggle('near', t === b));
+        },
+        onGlassEnd: (b) => { row.classList.remove('drag'); items().forEach((t) => t.classList.remove('near')); if (!b) this.update(); },
       });
-      const end = (e) => {
-        const st = this._tabDrag;
-        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
-        clearTimeout(st.t);
-        this._tabDrag = null;
-        if (!st.mode) return;
-        this._busy = false; window.__tabReorder = false;
-        this._swallow = true; setTimeout(() => { this._swallow = false; }, 350);
-        if (st.mode === 'pan') return;
-        row.classList.remove('drag', 'reo');
-        items().forEach((b) => { b.classList.remove('near', 'lift'); b.style.order = ''; });
-        if (st.mode === 'glass') { if (e.type === 'pointerup' && st.near != null) this._pickTab(st.near); else this.update(); } else if (e.type === 'pointerup' && st.to != null && st.to !== st.from) this._reorderTabs(st.from, st.to); else this.update();
-      };
-      row.addEventListener('pointerup', end);
-      row.addEventListener('pointercancel', end);
-      row.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     get styles() {
       return `${M.romkortCSS || ''}
@@ -822,9 +741,8 @@
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
-        .tg{position:relative;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:var(--msh-tabs-ta, pan-x);overscroll-behavior-x:contain;border-radius:999px;
-          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%);mask-image:linear-gradient(to right, transparent 0, #000 var(--msh-tabs-fl, 0px), #000 calc(100% - var(--msh-tabs-fr, 0px)), transparent 100%)}
-        .tg::-webkit-scrollbar{display:none}
+        ${M.TAB_ROW_CSS || ''}
+        .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
@@ -832,9 +750,9 @@
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
-        .tg.reo .ind{opacity:0}
-        .tg.reo .tab{color:var(--gray800,#afafaf)}
-        .tab.lift{color:#fff !important;background:rgba(255,255,255,0.14);transform:scale(1.08);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
+        .tg.tr-drag .ind{opacity:0}
+        .tg.tr-drag .tab{color:var(--gray800,#afafaf)}
+        .tg.tr-drag>.tab.tr-lift{color:#fff !important;background:rgba(255,255,255,0.14);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
         .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start}
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}

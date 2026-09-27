@@ -709,7 +709,9 @@
     Object.keys(oldCfg || {}).forEach((k) => { if (!(k in newCfg) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet → null
     if (hass) MSH.store.load(hass);
     try { MSH.syncLivePopups && MSH.syncLivePopups(newCfg, hass); } catch (e) { /* */ }
-    const res = await MSH.store.set(key, { ...(MSH.store.get(key) || {}), ...rest }, { immediate: opts.immediate });
+    const prev = MSH.store.get(key) || {};
+    Object.keys(prev).forEach((k) => { if (!(k in newCfg) && !(k in rest) && k !== 'type' && k !== 'card_id') rest[k] = null; }); // fjernet siden forrige lagring
+    const res = await MSH.store.set(key, { ...prev, ...rest }, { immediate: opts.immediate });
     return { ...res, store: true, key, config: newCfg };
   };
   // YAML-config + ki-store (null = fjernet)
@@ -788,7 +790,7 @@
       else { this._yamlConfig = config; config = MSH.effectiveConfig(config, this); }
       this._rawConfig = config;
       this._config = { ...this.constructor.defaults, ...config };
-      this._firstRender = false;
+      // ikke full re-render ved config-endring – morph bevarer scroll, fokus og innebygde elementer
       const keys = this.constructor.uiPersist || [];
       if (config.card_id && keys.length && prevId !== config.card_id) {
         const saved = MSH.uiLoad(config.card_id), pick = {};

@@ -21,81 +21,11 @@
     card.setConfig(next);
     try { const res = await M.saveCardConfig(card.hass, old, next); if (res && res.config && res.config.card_id !== next.card_id) card.setConfig(res.config); } catch (e) { /* */ }
   };
-  // Faner: langt trykk (380 ms) + dra = omorganiser (onReorder(keys)); valgfritt «liquid glass»-drag på tvers
-  // av segmentene (onSelect(key)). Knappene må ha data-key. touch-action pan-y + stopPropagation.
+  // Bakoverkompatibel tynn wrapper rundt MSH.tabReorder (05-tab-reorder.js): langt trykk + dra = omorganiser
+  // (onReorder(keys)); valgfritt «liquid glass»-valg (onSelect(key), glass: true). Knappene må ha data-key.
   M.mshTabDrag = M.mshTabDrag || function (card, nav, { onReorder, onSelect, glass } = {}) {
-    if (!nav || nav.__mshTab) return;
-    nav.__mshTab = true;
-    M.guardDrag(nav, 'x');
-    let st = null;
-    const items = () => Array.from(nav.querySelectorAll('[data-key]'));
-    const reset = () => {
-      if (!st) return;
-      clearTimeout(st.hold);
-      items().forEach((b) => { b.style.transform = ''; b.style.boxShadow = ''; b.style.opacity = ''; b.style.zIndex = ''; b.style.position = ''; b.style.transition = ''; });
-      if (st.lens) { const l = st.lens; l.style.opacity = '0'; l.style.transform = 'scale(.9)'; setTimeout(() => l.remove(), 220); }
-      card._busy = false;
-      st = null;
-    };
-    const eat = () => { card._swallow = true; setTimeout(() => { card._swallow = false; }, 400); };
-    const lensEl = () => {
-      const l = document.createElement('span');
-      Object.assign(l.style, { position: 'fixed', zIndex: '9998', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0', transform: 'scale(.8)', transition: 'left .16s cubic-bezier(.34,1.5,.64,1), top .16s cubic-bezier(.34,1.5,.64,1), width .2s, height .2s, opacity .15s, transform .3s cubic-bezier(.34,1.8,.64,1)' });
-      document.body.appendChild(l);
-      requestAnimationFrame(() => { l.style.opacity = '1'; l.style.transform = 'scale(1.1)'; });
-      return l;
-    };
-    const nearest = (x, y) => { let best = null, bd = 1e9; items().forEach((b) => { const r = b.getBoundingClientRect(), cx = Math.max(r.left, Math.min(r.right, x)), cy = Math.max(r.top, Math.min(r.bottom, y)), d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; best = b; } }); return best; };
-    nav.addEventListener('pointerdown', (e) => {
-      if (e.button) return;
-      const b = e.target.closest && e.target.closest('[data-key]');
-      if (!b) return;
-      reset();
-      st = { b, x0: e.clientX, y0: e.clientY, id: e.pointerId, mode: null };
-      if (onReorder) st.hold = setTimeout(() => {
-        if (!st || st.mode) return;
-        st.mode = 're';
-        st.rects = items().map((x) => x.getBoundingClientRect());
-        st.idx = items().indexOf(b);
-        card._busy = true;
-        M.haptic('medium');
-        try { nav.setPointerCapture(st.id); } catch (x) { /* */ }
-        items().forEach((x) => { if (x !== b) { x.style.opacity = '0.65'; x.style.transition = 'opacity .2s'; } });
-        Object.assign(b.style, { position: 'relative', zIndex: '5', transform: 'scale(1.06)', boxShadow: '0 8px 20px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgb(242 133 201)', transition: 'none' });
-      }, 380);
-    });
-    nav.addEventListener('pointermove', (e) => {
-      if (!st || e.pointerId !== st.id) return;
-      const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-      if (st.mode === 're') { e.preventDefault(); st.b.style.transform = `translateX(${dx}px) scale(1.06)`; return; }
-      if (st.mode === 'glass') { e.preventDefault(); const hit = nearest(e.clientX, e.clientY); if (hit) { if (hit !== st.hit) M.haptic('selection'); st.hit = hit; const r = hit.getBoundingClientRect(), cr = nav.getBoundingClientRect(); let L = e.clientX - r.width / 2; L = Math.max(cr.left + 2, Math.min(cr.right - r.width - 2, L)); Object.assign(st.lens.style, { left: L + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', borderRadius: Math.min(r.width, r.height) / 2 + 'px' }); } return; }
-      if (Math.hypot(dx, dy) > 8) {
-        clearTimeout(st.hold);
-        if (glass && onSelect && Math.abs(dx) > Math.abs(dy)) { st.mode = 'glass'; st.lens = lensEl(); try { nav.setPointerCapture(st.id); } catch (x) { /* */ } }
-        else st = null;
-      }
-    });
-    const end = (e) => {
-      if (!st) return;
-      const s0 = st;
-      if (s0.mode === 're' && e.type === 'pointerup') {
-        const keys = items().map((x) => x.dataset.key), k = s0.b.dataset.key, r0 = s0.rects[Math.max(0, s0.idx)] || s0.rects[0];
-        const cx = r0.left + r0.width / 2 + (e.clientX - s0.x0);
-        let j = s0.rects.findIndex((r) => cx >= r.left && cx <= r.right);
-        if (j < 0) j = cx < s0.rects[0].left ? 0 : s0.rects.length - 1;
-        const a2 = keys.filter((x) => x !== k); a2.splice(j, 0, k);
-        reset(); eat();
-        M.haptic('success');
-        onReorder(a2);
-        return;
-      }
-      if (s0.mode === 'glass') { const hit = s0.hit; reset(); eat(); if (hit && e.type === 'pointerup') { M.haptic('light'); onSelect(hit.dataset.key); } return; }
-      if (s0.mode === 're') { reset(); eat(); return; }
-      clearTimeout(s0.hold);
-      st = null;
-    };
-    nav.addEventListener('pointerup', end);
-    nav.addEventListener('pointercancel', end);
+    if (!nav) return null;
+    return M.tabReorder(nav, { card, onReorder, onSelect, glass, styleRow: false, items: () => Array.from(nav.querySelectorAll('[data-key]')) });
   };
   // Ordne liste etter lagret rekkefølge; skjulte fjernes.
   M.mshOrder = M.mshOrder || function (keys, order, hidden) {
@@ -505,7 +435,7 @@
       const body = { ov: () => this._ov(A, K), so: () => this._so(A), en: () => this._en2(A, K), vb: () => this._vb(A), ta: () => this._ta(A, K), op: () => this._op(A), av: () => this._av(A, K) }[tab];
       return `<div class="wrap">
         ${this._modes(A)}
-        ${tabs.length ? `<nav class="tabs" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map((k) => { const act = k === tab; return `<button class="tab" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav>` : ''}
+        ${tabs.length ? `<div class="tbox"><nav class="tabs msh-tr" data-gd-skip>${tabs.map((k) => { const act = k === tab; return `<button class="tab${act ? ' on' : ''}" data-act="tab" data-key="${k}" data-haptic="selection" style="background:${act ? PINK : 'transparent'};color:${act ? INK : 'var(--gray700,#979797)'}">${M.icon(T[k][2], 20)}<span class="tl">${esc(T[k][1])}</span></button>`; }).join('')}</nav></div>` : ''}
         ${body ? body() : ''}
       </div>`;
     }
@@ -872,7 +802,7 @@
     }
     afterRender() {
       const nav = this.shadowRoot.querySelector('.tabs');
-      M.mshTabDrag(this, nav, { onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
+      M.tabReorder(nav, { card: this, onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); } });
       const md = this.shadowRoot.querySelector('.modes');
       if (md && !md.__b) { md.__b = true; const st = (e) => e.stopPropagation(); md.addEventListener('touchstart', st, { passive: true }); md.addEventListener('touchmove', st, { passive: true }); }
     }
@@ -884,9 +814,11 @@
         .mb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),background .25s}
         .mode:active .mb{transform:scale(.94)!important}
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
-        .tabs{display:grid;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-        .tab{height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s;min-width:0}
-        .tl{font-size:9.5px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+        ${M.TAB_ROW_CSS || ''}
+        .tbox{padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0;overflow:hidden}
+        .tabs{gap:2px;border-radius:20px}
+        .tabs>.tab{flex:1 0 auto;min-width:56px;padding:0 8px;height:54px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .25s}
+        .tl{font-size:9.5px;font-weight:500;white-space:nowrap}
         .bars{position:relative;display:flex;align-items:flex-end;gap:4px;height:96px}
         .bars>span:not(.lim){flex:1;border-radius:6px;transition:height .4s}
         .bars .lim{position:absolute;left:0;right:0;bottom:88px;border-top:1px dashed var(--gray400,#545454)}

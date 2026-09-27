@@ -12,6 +12,9 @@
 | `sensor.<rom>_sensorer` | antall aktive | Sensorer-seksjon (`tekst` = «1 aktiv - 5 stille») |
 | `sensor.<rom>_effekt` | sum W | Rom-kort/enheter (`tekst` = «412 W», `kilder` = W per entitet) |
 | `sensor.hele_huset_*` | totaler | Hjem-header/prosa (lys på, total effekt) |
+| `sensor.<slug>_lys_oversikt` («<Rom> lysscener») | antall lys på | **Kilde for scene-raden i Rom-popupen.** Attributt `scener` = liste `{id, navn, ikon, rekkefolge, entity}` der `entity` = `button.<slug>_lys_<id>`. Også `lys`, `roller`, `paa_naa`, `area_id`, `slug`. Merket `integrasjon: ki_lys`, `ki_type: oversikt` |
+| `button.<slug>_lys_<id>` | – | Én knapp per lysscene (`maks`, `komfort`, `middag`, `tv`, `mindre`, `natt`, `av` + egne). Kjøres med `button.press`. Attributter `ki_type: scene`, `scene`, `area_id` |
+| `switch.<slug>_lys_alle` | på/av | Alle lys i rommet |
 
 Rom-listen, navn, ikon og etasje hentes fra HA (`hass.areas`, `hass.floors`) + `sensor.<rom>_oversikt`. Nye rom dukker opp automatisk.
 

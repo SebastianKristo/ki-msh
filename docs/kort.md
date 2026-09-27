@@ -445,17 +445,15 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 
 ## `msh-strompris-card`
 
-Strømpris nå, søyler per time i dag / i morgen, billigste time og dra for å se en time. Trykk åpner #strom.
+Spotpris nå og per time i dag / i morgen som trinnlinje i øre/kWh, med Norgespris og terskel. Dra på grafen for å se en time.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `title` | Overskrift | Kort |
-| `popup_hash` | Popup-hash (trykk på prisen) · hash | Kort |
-| `day` | Dag som vises først (today \| tomorrow) | Kort |
-| `show_watt` | Vis effekt nå (W) · boolean | Kort |
-| `price_high` | Rød søyle over (kr/kWh) · number | Kort |
-| `price_mid` | Gul søyle over (kr/kWh) · number | Kort |
-| `overrides.{price, watt}` | bytt entitet |  |
+| `entity` | Pris-sensor (spot, today/tomorrow eller raw_today/raw_tomorrow) · entity | Strømpriser |
+| `norgespris_entity` | Norgespris-sensor (kr/kWh) · entity | Strømpriser |
+| `norgespris` | Norgespris uten sensor (kr/kWh) · number | Strømpriser |
+| `threshold` | Oransje linje over (kr/kWh) · number | Strømpriser |
+| `show_norgespris` | Vis Norgespris · boolean | Strømpriser |
 
 ## `msh-rom-klima-card`
 
@@ -666,6 +664,253 @@ Utelys med tidslinje og styring, lys per etasje og rom med dimmere, og oversikt 
 | `lux_off` | Slukk over (lx) · number | Utelys · tider |
 | `kveld` | Kveld · tenn i skumringen · boolean | Utelys · tider |
 | `morgen` | Morgen · tenn før det lysner · boolean | Utelys · tider |
+| `lights.basseng_lys.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.show_name` | Vis navn · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.show_icon` | Vis ikon · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.bar_foreground` | Slider · fylt del · color | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.bar_background` | Slider · bakgrunn · color | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.handle_color` | Håndtak · color | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.icon_color` | Ikonfarge · color | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.chevron_color` | Pil (utvid) · color | Lys · slidere › Basseng lys |
+| `lights.basseng_lys.color_presets` | Fargeforhåndsvalg | Lys · slidere › Basseng lys |
+| `lights.utelys_inngang.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.show_name` | Vis navn · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.show_icon` | Vis ikon · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.bar_foreground` | Slider · fylt del · color | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.bar_background` | Slider · bakgrunn · color | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.handle_color` | Håndtak · color | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.icon_color` | Ikonfarge · color | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.chevron_color` | Pil (utvid) · color | Lys · slidere › Utelys inngang |
+| `lights.utelys_inngang.color_presets` | Fargeforhåndsvalg | Lys · slidere › Utelys inngang |
+| `lights.veranda_flomlys.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.show_name` | Vis navn · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.show_icon` | Vis ikon · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.bar_foreground` | Slider · fylt del · color | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.bar_background` | Slider · bakgrunn · color | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.handle_color` | Håndtak · color | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.icon_color` | Ikonfarge · color | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.chevron_color` | Pil (utvid) · color | Lys · slidere › Veranda flomlys |
+| `lights.veranda_flomlys.color_presets` | Fargeforhåndsvalg | Lys · slidere › Veranda flomlys |
+| `lights.verandalampe.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Verandalampe |
+| `lights.verandalampe.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Verandalampe |
+| `lights.verandalampe.show_name` | Vis navn · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.show_icon` | Vis ikon · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Verandalampe |
+| `lights.verandalampe.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Verandalampe |
+| `lights.verandalampe.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Verandalampe |
+| `lights.verandalampe.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Verandalampe |
+| `lights.verandalampe.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Verandalampe |
+| `lights.verandalampe.bar_foreground` | Slider · fylt del · color | Lys · slidere › Verandalampe |
+| `lights.verandalampe.bar_background` | Slider · bakgrunn · color | Lys · slidere › Verandalampe |
+| `lights.verandalampe.handle_color` | Håndtak · color | Lys · slidere › Verandalampe |
+| `lights.verandalampe.icon_color` | Ikonfarge · color | Lys · slidere › Verandalampe |
+| `lights.verandalampe.chevron_color` | Pil (utvid) · color | Lys · slidere › Verandalampe |
+| `lights.verandalampe.color_presets` | Fargeforhåndsvalg | Lys · slidere › Verandalampe |
+| `lights.bad_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Bad tak |
+| `lights.bad_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Bad tak |
+| `lights.bad_tak.show_name` | Vis navn · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.show_icon` | Vis ikon · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Bad tak |
+| `lights.bad_tak.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Bad tak |
+| `lights.bad_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Bad tak |
+| `lights.bad_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Bad tak |
+| `lights.bad_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Bad tak |
+| `lights.bad_tak.bar_foreground` | Slider · fylt del · color | Lys · slidere › Bad tak |
+| `lights.bad_tak.bar_background` | Slider · bakgrunn · color | Lys · slidere › Bad tak |
+| `lights.bad_tak.handle_color` | Håndtak · color | Lys · slidere › Bad tak |
+| `lights.bad_tak.icon_color` | Ikonfarge · color | Lys · slidere › Bad tak |
+| `lights.bad_tak.chevron_color` | Pil (utvid) · color | Lys · slidere › Bad tak |
+| `lights.bad_tak.color_presets` | Fargeforhåndsvalg | Lys · slidere › Bad tak |
+| `lights.gang_speil.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Gang speil |
+| `lights.gang_speil.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Gang speil |
+| `lights.gang_speil.show_name` | Vis navn · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.show_icon` | Vis ikon · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Gang speil |
+| `lights.gang_speil.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Gang speil |
+| `lights.gang_speil.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Gang speil |
+| `lights.gang_speil.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Gang speil |
+| `lights.gang_speil.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Gang speil |
+| `lights.gang_speil.bar_foreground` | Slider · fylt del · color | Lys · slidere › Gang speil |
+| `lights.gang_speil.bar_background` | Slider · bakgrunn · color | Lys · slidere › Gang speil |
+| `lights.gang_speil.handle_color` | Håndtak · color | Lys · slidere › Gang speil |
+| `lights.gang_speil.icon_color` | Ikonfarge · color | Lys · slidere › Gang speil |
+| `lights.gang_speil.chevron_color` | Pil (utvid) · color | Lys · slidere › Gang speil |
+| `lights.gang_speil.color_presets` | Fargeforhåndsvalg | Lys · slidere › Gang speil |
+| `lights.gang_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Gang tak |
+| `lights.gang_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Gang tak |
+| `lights.gang_tak.show_name` | Vis navn · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.show_icon` | Vis ikon · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Gang tak |
+| `lights.gang_tak.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Gang tak |
+| `lights.gang_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Gang tak |
+| `lights.gang_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Gang tak |
+| `lights.gang_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Gang tak |
+| `lights.gang_tak.bar_foreground` | Slider · fylt del · color | Lys · slidere › Gang tak |
+| `lights.gang_tak.bar_background` | Slider · bakgrunn · color | Lys · slidere › Gang tak |
+| `lights.gang_tak.handle_color` | Håndtak · color | Lys · slidere › Gang tak |
+| `lights.gang_tak.icon_color` | Ikonfarge · color | Lys · slidere › Gang tak |
+| `lights.gang_tak.chevron_color` | Pil (utvid) · color | Lys · slidere › Gang tak |
+| `lights.gang_tak.color_presets` | Fargeforhåndsvalg | Lys · slidere › Gang tak |
+| `lights.kjokken_spot.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.show_name` | Vis navn · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.show_icon` | Vis ikon · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.bar_foreground` | Slider · fylt del · color | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.bar_background` | Slider · bakgrunn · color | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.handle_color` | Håndtak · color | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.icon_color` | Ikonfarge · color | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.chevron_color` | Pil (utvid) · color | Lys · slidere › Kjøkken spot |
+| `lights.kjokken_spot.color_presets` | Fargeforhåndsvalg | Lys · slidere › Kjøkken spot |
+| `lights.soverom_nattbord.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.show_name` | Vis navn · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.show_icon` | Vis ikon · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.bar_foreground` | Slider · fylt del · color | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.bar_background` | Slider · bakgrunn · color | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.handle_color` | Håndtak · color | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.icon_color` | Ikonfarge · color | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.chevron_color` | Pil (utvid) · color | Lys · slidere › Soverom nattbord |
+| `lights.soverom_nattbord.color_presets` | Fargeforhåndsvalg | Lys · slidere › Soverom nattbord |
+| `lights.soverom_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.show_name` | Vis navn · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.show_icon` | Vis ikon · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.bar_foreground` | Slider · fylt del · color | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.bar_background` | Slider · bakgrunn · color | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.handle_color` | Håndtak · color | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.icon_color` | Ikonfarge · color | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.chevron_color` | Pil (utvid) · color | Lys · slidere › Soverom tak |
+| `lights.soverom_tak.color_presets` | Fargeforhåndsvalg | Lys · slidere › Soverom tak |
+| `lights.stue_lampe.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.show_name` | Vis navn · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.show_icon` | Vis ikon · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.bar_foreground` | Slider · fylt del · color | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.bar_background` | Slider · bakgrunn · color | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.handle_color` | Håndtak · color | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.icon_color` | Ikonfarge · color | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.chevron_color` | Pil (utvid) · color | Lys · slidere › Stue lampe |
+| `lights.stue_lampe.color_presets` | Fargeforhåndsvalg | Lys · slidere › Stue lampe |
+| `lights.stue_led.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Stue LED |
+| `lights.stue_led.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Stue LED |
+| `lights.stue_led.show_name` | Vis navn · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.show_icon` | Vis ikon · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Stue LED |
+| `lights.stue_led.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Stue LED |
+| `lights.stue_led.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Stue LED |
+| `lights.stue_led.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Stue LED |
+| `lights.stue_led.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Stue LED |
+| `lights.stue_led.bar_foreground` | Slider · fylt del · color | Lys · slidere › Stue LED |
+| `lights.stue_led.bar_background` | Slider · bakgrunn · color | Lys · slidere › Stue LED |
+| `lights.stue_led.handle_color` | Håndtak · color | Lys · slidere › Stue LED |
+| `lights.stue_led.icon_color` | Ikonfarge · color | Lys · slidere › Stue LED |
+| `lights.stue_led.chevron_color` | Pil (utvid) · color | Lys · slidere › Stue LED |
+| `lights.stue_led.color_presets` | Fargeforhåndsvalg | Lys · slidere › Stue LED |
+| `lights.stue_tak.size` | Størrelse ( \| small \| medium \| large \| xlarge \| jumbo) | Lys · slidere › Stue tak |
+| `lights.stue_tak.label_layout` | Tittel og ikon ( \| title_outside_icon_inside \| icon_title_outside) | Lys · slidere › Stue tak |
+| `lights.stue_tak.show_name` | Vis navn · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.show_icon` | Vis ikon · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.show_brightness` | Vis lysstyrke (%) · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.force_toggle_mode` | Kun av/på (bryter) · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.brightness_min` | Minste lysstyrke (%) · number | Lys · slidere › Stue tak |
+| `lights.stue_tak.brightness_max` | Største lysstyrke (%) · number | Lys · slidere › Stue tak |
+| `lights.stue_tak.slider_color_mode` | Sliderfarge ( \| custom \| custom_temperature \| light_temperature \| light_rgb) | Lys · slidere › Stue tak |
+| `lights.stue_tak.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Lys · slidere › Stue tak |
+| `lights.stue_tak.hide_temperature_slider` | Skjul temperaturslider · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.hide_color_controls` | Skjul fargespekter · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Lys · slidere › Stue tak |
+| `lights.stue_tak.bar_foreground` | Slider · fylt del · color | Lys · slidere › Stue tak |
+| `lights.stue_tak.bar_background` | Slider · bakgrunn · color | Lys · slidere › Stue tak |
+| `lights.stue_tak.handle_color` | Håndtak · color | Lys · slidere › Stue tak |
+| `lights.stue_tak.icon_color` | Ikonfarge · color | Lys · slidere › Stue tak |
+| `lights.stue_tak.chevron_color` | Pil (utvid) · color | Lys · slidere › Stue tak |
+| `lights.stue_tak.color_presets` | Fargeforhåndsvalg | Lys · slidere › Stue tak |
 | `gap` | 4 / 8 / 18 px |  |
 | `toasts` | Bekreftelsesmeldinger · boolean |  |
 
