@@ -11,7 +11,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 const bundle = resolve(`test/.build/strategy-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 // Fiks 15.5/15.8 · fixturene (TextEdit/Cocoa-HTML) og fasit fra PyYAML (json per popup-dokument / hele malfilen)
-const FX = { popups: readFileSync('test/fixtures/popups.html', 'utf8'), deps: readFileSync('test/fixtures/dependencies_dash.html', 'utf8') };
+const FX = { popups: readFileSync('test/fixtures/popups.html', 'utf8'), deps: readFileSync('test/fixtures/dependencies_dash.html', 'utf8'), depsYaml: readFileSync('examples/import/dependencies_dash.yaml', 'utf8'), popupsYaml: readFileSync('examples/import/popups.yaml', 'utf8') };
 {
   const ctx = { window: { MSH: {} } }; vm.createContext(ctx);
   vm.runInContext(readFileSync('src/02-yaml.js', 'utf8'), ctx);
@@ -281,11 +281,22 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const DG = M.store.get('dashboard_globals') || {};
     I.malerUendret = DG.yaml === M.yaml.toText(FX.deps);
     I.malAdvarselBorte = !q('[data-key="pptpl"]');
+    // Fiks 16.9 · én kilde: getGlobals = det editoren viser = det advarselen sjekker
+    const GG = M.getGlobals();
+    I.getGlobals = Object.keys(GG.button_card_templates || {}).length === 40 && Object.keys(GG.decluttering_templates || {}).length === 6 && Object.keys((GG.paper_buttons_row || {}).presets || {}).join() === 'weather,button'
+      && M.dashboardGlobals().globals === GG && M.missingTemplates(M.store.get('custom_popups').map((c) => M.customPopupConfig(c).cfg)).length === 0;
+    I.importResultat = /Importert: 40 button-card-maler, 6 decluttering-maler, 2 paper-buttons-presets/.test((q('[data-key="ppimpres"]') || {}).textContent || '');
     // generert dashbord: popups i stacken + globale nøkler på rotnivå
     const dI = await S.generate({}, hass);
     const stI = dI.views[0].cards[0], pI = stI.cards.filter((c) => c.card_type === 'pop-up'), byI = (h) => pI.filter((c) => c.hash === h);
     const want = ['#rolf', '#server', '#settings', '#kalender', '#tesla', '#3d', '#vanning', '#norgespris', '#stromregning', '#planter'];
-    I.tiIStacken = want.every((h) => byI(h).length === 1) && want.every((h, i) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.yaml.parse(docs[i].text)));
+    I.tiIStacken = want.every((h) => byI(h).length === 1) && want.every((h, i) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.resolveTemplates(M.yaml.parse(docs[i].text))));
+    // Fiks 16.12 · malene er løst i strategien: ingen template: på button-card/decluttering-card i popupene
+    const tplLeft = (v, out) => { out = out || []; if (!v || typeof v !== 'object') return out; if (Array.isArray(v)) { v.forEach((x) => tplLeft(x, out)); return out; } if (/^custom:(button-card|decluttering-card)$/.test(v.type || '') && 'template' in v) out.push(v.template); Object.values(v).forEach((x) => tplLeft(x, out)); return out; };
+    const hadTpl = (h) => tplLeft(M.yaml.parse(docs[want.indexOf(h)].text)).length > 0;
+    // (#stromregning bruker ingen maler i fixturen – sjekkes likevel for rester)
+    I.malerLost = ['#server', '#rolf', '#tesla', '#vanning', '#stromregning'].every((h) => byI(h).length === 1 && tplLeft(byI(h)[0]).length === 0) && ['#server', '#rolf', '#tesla', '#vanning'].every(hadTpl)
+      && JSON.stringify(byI('#server')[0]).includes('[[[') && (M.customPopupConfig(CP[1]).cfg.cards || []).length > 0 && tplLeft(M.customPopupConfig(CP[1]).cfg).length > 0;
     I.stackRekkefolge = pI.map((c) => c.hash).slice(-10).join() === want.join();
     I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && !byI('#settings')[0].cards.some((c) => c.type === 'custom:msh-settings-card') && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')
       && ['#vanning', '#settings'].every((h) => (M.popupReport.replaced || []).some((x) => x.hash === h)) && !(M.popupReport.collisions || []).some((c) => c.kind !== 'replace');
@@ -335,6 +346,16 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     I.malFeil = q('[data-key="ppsave"]').disabled && /Linje/.test(q('.pperrw').textContent);
     await act('ppback');
     I.malUendretEtterAvbryt = (M.store.get('dashboard_globals') || {}).yaml === M.yaml.toText(FX.deps);
+    // .yaml direkte (examples/import) gir det samme; ugyldig YAML → linjenummer + «Vis konvertert YAML»
+    await act('ppglobals');
+    await act('ppimport', 'globals');
+    await paste(FX.depsYaml);
+    I.yamlImport = qa('.ppchk').length === 1 && /40 button_card_templates/.test(q('.ppchk').textContent) && /6 decluttering_templates/.test(q('.ppchk').textContent);
+    await paste('button_card_templates:\n  a:\n    color: red\n   feil: [1\n');
+    I.yamlFeilVis = /linje \d+/.test((q('[data-key="ppimperr"]') || {}).textContent || '') && !!q('[data-a="ppimpconv"]');
+    if (q('[data-a="ppimpconv"]')) { await act('ppimpconv'); await wait(100); }
+    I.konvertertVises = !!q('.ppconv') && !!q('.ppconv [data-errline]');
+    await act('ppback'); await act('ppback');
     res.import = I;
     M.portals().forEach((x) => x.remove());
     return res;

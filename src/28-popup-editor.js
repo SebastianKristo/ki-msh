@@ -46,7 +46,8 @@
   const cfgOf = (c) => (M.customPopupConfig ? M.customPopupConfig(c).cfg : isWrap(c) ? null : c);
   const globalsRaw = () => store().dashboard_globals;
   const globalsText = () => { const g = globalsRaw(); return !isObj(g) ? '' : typeof g.yaml === 'string' ? g.yaml : Yd(g); };
-  const globalsObj = () => (M.dashboardGlobals ? M.dashboardGlobals().globals : {});
+  // Én kilde for malene (fiks 16.9): MSH.getGlobals() – det samme som strategien og mal-løseren bruker
+  const globalsObj = () => (M.getGlobals ? M.getGlobals() : {});
   const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const HASH_RX = /^#[a-z0-9_-]+$/;
 
@@ -66,24 +67,10 @@
     return out;
   }
   M.popupMissingCards = (cfg) => [...customTypes(cfg)].filter((t) => !defined(t));
-  // Maler popupen bruker (button-card/decluttering-card «template:», streng eller liste)
-  function templateRefs(v, out, d) {
-    out = out || new Set();
-    if (d > 40 || v == null || typeof v !== 'object') return out;
-    if (Array.isArray(v)) { v.forEach((x) => templateRefs(x, out, (d || 0) + 1)); return out; }
-    const t = v.template;
-    if (typeof t === 'string' && t && !/[[{]/.test(t)) out.add(t);
-    else if (Array.isArray(t)) t.forEach((x) => { if (typeof x === 'string' && x) out.add(x); });
-    Object.keys(v).forEach((k) => { if (v[k] && typeof v[k] === 'object') templateRefs(v[k], out, (d || 0) + 1); });
-    return out;
-  }
-  // Maler som brukes av egne popups men ikke finnes i dashboard_globals
-  function missingTemplates(list) {
-    const G = globalsObj(), have = new Set([...Object.keys(G.button_card_templates || {}), ...Object.keys(G.decluttering_templates || {})]);
-    const miss = new Set();
-    (list || customList().map(cfgOf)).forEach((c) => { if (c) templateRefs(c).forEach((t) => { if (!have.has(t)) miss.add(t); }); });
-    return [...miss];
-  }
+  // Maler popupen bruker (button-card/decluttering-card «template:», streng eller liste) → Set med navn
+  const templateRefs = (v) => { const r = M.templateRefs(v); return new Set([...r.bc, ...r.dc]); };
+  // Maler som brukes av egne popups (også via arv: template: [universal_base]) men ikke finnes i MSH.getGlobals()
+  const missingTemplates = (list) => M.missingTemplates((list || customList().map(cfgOf)).filter(Boolean), globalsObj());
   M.popupMissingTemplates = missingTemplates;
   const nCards = (c) => (c && Array.isArray(c.cards) ? c.cards.length : 0);
   const kortN = (n) => `${n} kort`;
@@ -186,7 +173,10 @@
   }
 
   /* ------------------------------------------------------------ lagring */
-  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true }); } finally { ed._saving = false; } };
+  // Egne popups, overstyringer og maler lagres straks (eksplisitte handlinger: import, Ferdig i underarket, slett) –
+  // også mens «Tilpass Hjem»-utkastet er åpent, så de ikke rulles tilbake om arket lukkes uten Ferdig.
+  const NOW = new Set(['dashboard_globals', 'custom_popups', 'popup_overrides']);
+  const save = (ed, key, val) => { ed._saving = true; try { if (ed.hass) M.store.load(ed.hass); return M.store.set(key, val, { immediate: true, now: NOW.has(key) }); } finally { ed._saving = false; } };
   function commit(ed) {
     const u = ed.u, d = u.pd;
     if (!d || d.ro) return back(ed);
@@ -361,6 +351,10 @@
     .ppchk .pn b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ppchk .pn i{font-style:normal;font-size:12px;color:#979797}
     .ppicf{display:flex;gap:8px;align-items:center}
+    .ppconv{max-height:320px;overflow:auto;border-radius:16px;background:var(--gray000,#232323);padding:8px 0;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--gray900,#c7c7c7);-webkit-user-select:text;user-select:text}
+    .ppconv>div{display:flex;gap:10px;padding:0 10px;white-space:pre}
+    .ppconv>div.bad{background:rgb(242 128 115 / 0.18)}
+    .ppconv i{font-style:normal;color:var(--gray600,#7f7f7f);min-width:36px;text-align:right;flex:none}
     .ppicf ha-icon-picker{flex:1}
   `;
 
@@ -379,6 +373,7 @@
     const hacs = own.length || globalsText() ? M.missingHacs() : [];
     const mt = own.length ? missingTemplates(ownCfg) : [];
     const warns = [
+      impNote(u),
       hacs.length ? `<div class="ppwarn" data-key="pphacs">${ic('mdi:puzzle-remove-outline', 20)}<span><b>Mangler: ${esc(hacs.join(', '))} (HACS)</b><br>Egne/importerte popups som bruker disse kortene viser HAs feilkort til de er installert.</span></div>` : '',
       mt.length ? `<div class="ppwarn" data-key="pptpl">${ic('mdi:file-alert-outline', 20)}<span>Popupene bruker maler som mangler: <b>${esc(mt.slice(0, 8).join(', '))}${mt.length > 8 ? ` … (+${mt.length - 8})` : ''}</b><br><button class="ppb" data-a="ppimport" data-v="globals">${ic('mdi:import', 18)}Importer maler</button></span></div>` : '',
       ...(R.collisions || []).filter((c) => c.kind !== 'replace').map((c) => `<div class="ppwarn">${ic('mdi:alert-outline', 20)}<span><b>${esc(c.hash)}</b> er definert flere steder – ${esc(SRCLONG[c.winner])} brukes, ${c.losers.map((l) => esc(SRCLONG[l])).join(' og ')} ignoreres. Gi popupen en annen hash.</span></div>`),
@@ -657,7 +652,10 @@
       const G = A.globals && A.globals.obj, cnt = (k) => Object.keys((G && isObj(G[k]) && G[k]) || {}).length;
       if (A.globals) list += chk('g', sel.g !== false, false, 'mdi:file-code-outline', 'Maler og globale innstillinger', esc([cnt('button_card_templates') && `${cnt('button_card_templates')} button_card_templates`, cnt('decluttering_templates') && `${cnt('decluttering_templates')} decluttering_templates`, G.paper_buttons_row && 'paper_buttons_row', ...Object.keys(G).filter((k) => !GLOBAL_KEYS.includes(k))].filter(Boolean).join(' · ')) + (globalsText() ? ' · slås sammen med eksisterende (samme navn erstattes)' : ''));
       A.popups.forEach((p, i) => { const bad = !!p.err || !HASH_RX.test(normH(p.cfg && p.cfg.hash)); list += chk(i, !bad && sel[i] !== false, bad, (p.cfg && p.cfg.icon) || 'mdi:card-outline', (p.cfg && (p.cfg.name || p.cfg.hash)) || 'Popup ' + (i + 1), st(p)); });
-      if (!A.globals && !A.popups.length) list = `<div class="ppwarn err">${ic('mdi:alert-circle-outline', 20)}<span>${A.err ? `${A.err.line ? `<b>Linje ${A.err.line}:</b> ` : ''}${esc(A.err.msg)}` : 'Fant ingen Bubble Card-popups (type: custom:bubble-card, card_type: pop-up) eller maler i teksten.'}</span></div>`;
+      if (!A.globals && !A.popups.length) list = `<div class="ppwarn err" data-key="ppimperr">${ic('mdi:alert-circle-outline', 20)}<span>${A.err ? `YAML-feil${A.err.line ? ` på <b>linje ${A.err.line}</b>` : ''} i den konverterte teksten: ${esc(A.err.msg)}` : 'Fant ingen Bubble Card-popups (type: custom:bubble-card, card_type: pop-up) eller maler i teksten.'}</span></div>`;
+      else if (A.err) list = `<div class="ppwarn err" data-key="ppimperr">${ic('mdi:alert-circle-outline', 20)}<span>YAML-feil${A.err.line ? ` på <b>linje ${A.err.line}</b>` : ''} i den konverterte teksten (hoppet over): ${esc(A.err.msg)}</span></div>` + list;
+      const anyErr = !!A.err || A.popups.some((p) => p.err);
+      if (anyErr || I.showConv) list += `<button class="ppb" style="align-self:flex-start" data-a="ppimpconv" data-key="ppimpconvb">${ic(I.showConv ? 'mdi:eye-off-outline' : 'mdi:code-braces', 18)}${I.showConv ? 'Skjul konvertert YAML' : 'Vis konvertert YAML'}</button>${I.showConv ? convView(I) : ''}`;
     }
     const n = A ? (A.globals && sel.g !== false ? 1 : 0) + A.popups.filter((p, i) => !p.err && HASH_RX.test(normH(p.cfg.hash)) && sel[i] !== false).length : 0;
     const hacs = A ? M.missingHacs() : [];
@@ -671,6 +669,16 @@
       ${A ? `<span class="fl" style="padding:0 4px">Funnet – kryss av det som skal importeres</span><div style="display:flex;flex-direction:column;gap:6px" data-key="ppimplist">${list}</div>` : ''}
       ${hacs.length ? `<div class="ppwarn">${ic('mdi:puzzle-remove-outline', 20)}<span><b>Mangler: ${esc(hacs.join(', '))} (HACS)</b> – importen går likevel, men kortene vises som feil til de er installert.</span></div>` : ''}
     </div>`;
+  }
+  // Resultatet av siste import (vises øverst i listen og i «Maler og globale innstillinger» til neste import)
+  const impNote = (u) => (u && u.impRes ? `<div class="${u.impRes.err ? 'ppwarn err' : 'ppnote'}" data-key="ppimpres">${ic(u.impRes.err ? 'mdi:alert-circle-outline' : 'mdi:check-circle-outline', 20)}<span>${esc(u.impRes.msg)}</span></div>` : '');
+  // «Vis konvertert YAML»: teksten etter HTML → YAML-konverteringen med linjenumre, feillinjen markert
+  function convView(I) {
+    const A = I.res, errs = new Set();
+    if (A && A.err && A.err.line) errs.add(A.err.line);
+    if (A) A.popups.forEach((p) => { if (p.err && p.err.line) errs.add(p.err.line); });
+    const L = String(I.conv || '').split('\n');
+    return `<div class="ppconv" data-key="ppconv">${L.map((l, i) => `<div class="${errs.has(i + 1) ? 'bad' : ''}"${errs.has(i + 1) ? ' data-errline' : ''}><i>${i + 1}</i><span>${esc(l) || ' '}</span></div>`).join('')}</div>`;
   }
   const normH = (h) => { const x = String(h == null ? '' : h).trim(); return x ? (x[0] === '#' ? x : '#' + x) : ''; };
   const R0 = () => M.popupReport || {};
@@ -689,7 +697,11 @@
         Object.keys(A.globals.obj).forEach((k) => { mg[k] = isObj(old[k]) && isObj(A.globals.obj[k]) ? { ...old[k], ...A.globals.obj[k] } : A.globals.obj[k]; });
         val = { yaml: Yd(mg) };
       }
-      save(ed, 'dashboard_globals', val); nG = 1;
+      const p = save(ed, 'dashboard_globals', val); nG = 1;
+      // Resultat fra samme kilde som advarselen og strategien (MSH.globalsInfo): «Importert: 40 button-card-maler, …»
+      const gi = M.globalsInfo(val);
+      u.impRes = gi.err ? { err: true, msg: `Malene ble lagret, men YAML-en har en feil${gi.err.line ? ` på linje ${gi.err.line}` : ''}: ${gi.err.msg}` } : { msg: 'Importert: ' + M.globalsSummary(gi.counts) };
+      if (p && p.then) p.then((r) => { if (r && r.ok === false) { u.impRes = { err: true, msg: 'Malene ble ikke lagret i Home Assistant: ' + (r.error || 'ukjent feil') }; ed.render(); } });
     }
     const L = customList().slice();
     A.popups.forEach((p, i) => {
@@ -705,14 +717,19 @@
     });
     if (nP) save(ed, 'custom_popups', L);
     M.haptic('success');
-    M.toast(nP && nG ? `Importerte ${nP} popups og maler` : nP ? `Importerte ${nP} popup${nP === 1 ? '' : 's'}` : 'Maler importert · dashbordet oppdateres');
+    if (nP && !nG) u.impRes = { msg: `Importert: ${nP} popup${nP === 1 ? '' : 's'}` };
+    else if (nP && u.impRes && !u.impRes.err) u.impRes.msg += ` og ${nP} popup${nP === 1 ? '' : 's'}`;
+    M.toast(u.impRes ? u.impRes.msg : 'Importert');
+    const ret = I.ret;
     u.imp = null;
+    if (ret === 'globals') { u.pd = globalsDraft(ed); u.pv = 'globals'; ed.render(); return; }
     back(ed);
   }
   function readImport(ed, text, file) {
     const I = ed.u.imp || (ed.u.imp = {});
     I.text = M.yaml.isCocoaHtml(text) ? M.yaml.toText(text) : text;
     if (file) I.file = file;
+    I.conv = M.yaml.toText(text); I.showConv = false;
     I.res = analyse(text); I.sel = {};
     if (I.kind === 'globals' && I.res.popups.length && I.res.globals) I.res.popups.forEach((p, i) => { I.sel[i] = false; });
     ed.render();
@@ -725,7 +742,7 @@
     return d;
   }
   function renderGlobals(ed) {
-    const d = ed.u.pd, valid = !(d.v && d.v.err), o = (d.v && d.v.obj) || {};
+    const d = ed.u.pd, valid = !(d.v && d.v.err), o = d.dirty ? (d.v && d.v.obj) || {} : globalsObj();
     const cnt = (k) => Object.keys(isObj(o[k]) ? o[k] : {}).length;
     const hacs = M.missingHacs(), mt = missingTemplates();
     const used = new Set(); customList().map(cfgOf).forEach((c) => { if (c) templateRefs(c).forEach((t) => used.add(t)); });
@@ -733,6 +750,7 @@
       <div class="pphd"><button class="b40" data-a="ppback" title="Avbryt">${d.dirty ? 'Avbryt' : ic('mdi:chevron-left', 18)}</button><span class="t">Maler og globale innstillinger</span><button class="done press" data-a="ppsave" data-key="ppsave" ${valid ? '' : 'disabled'}>Ferdig</button></div>
       <div class="ppmeta">${chip('Egen')}<span>${cnt('button_card_templates')} button_card_templates · ${cnt('decluttering_templates')} decluttering_templates · paper_buttons_row: ${isObj(o.paper_buttons_row) ? Object.keys(o.paper_buttons_row.presets || o.paper_buttons_row).join(', ') || 'ja' : '–'}</span>${d.dirty ? '<span>· ulagret</span>' : ''}</div>
       <span class="hint">Dashbord-globale nøkler som legges på rotnivå i dashbordet (der button-card, decluttering-card og paper-buttons-row finner dem). ${used.size ? `Egne popups bruker ${used.size} maler.` : ''} Endringer oppdaterer dashbordet (som «Oppdater» – åpen popup lukkes).</span>
+      ${impNote(ed.u)}
       ${mt.length ? `<div class="ppwarn">${ic('mdi:file-alert-outline', 20)}<span>Popupene bruker maler som mangler: <b>${esc(mt.join(', '))}</b></span></div>` : ''}
       ${hacs.length ? `<div class="ppwarn" data-key="pphacsg">${ic('mdi:puzzle-remove-outline', 20)}<span><b>Mangler: ${esc(hacs.join(', '))} (HACS)</b></span></div>` : `<div class="ppnote">${ic('mdi:check-circle-outline', 20)}<span>Alle HACS-kortene er installert (button-card, decluttering-card, paper-buttons-row, layout-card, my-cards, mini-graph-card, expander-card, simple-tabs, bubble-card, gap-card).</span></div>`}
       <div class="ppcode" data-nomorph data-key="ppc-${d.id}"></div>${errBox(d)}
@@ -840,10 +858,11 @@
         case 'ppexport': u.ppMenu = false; u.pv = 'export'; u.pd = { id: 'x' + ++seq, text: exportText(), ro: true, src: 'export' }; ed.render(); return true;
         case 'ppdl': download(u.pd ? u.pd.text : exportText(), 'ki-popups.yaml'); return true;
         case 'ppnew': u.pv = 'new'; u.ppMenu = false; ed.render(); return true;
-        case 'ppimport': u.imp = { text: '', kind: d.v === 'globals' ? 'globals' : null, ret: u.pv === 'globals' ? 'globals' : null }; u.pv = 'import'; u.pd = null; u.ppMenu = false; ed.render(); return true;
+        case 'ppimport': u.impRes = null; u.imp = { text: '', kind: d.v === 'globals' ? 'globals' : null, ret: u.pv === 'globals' ? 'globals' : null }; u.pv = 'import'; u.pd = null; u.ppMenu = false; ed.render(); return true;
         case 'ppimpread': { const ta = ed.root.querySelector('[data-in="ppimptext"]'); readImport(ed, ta ? ta.value : (u.imp && u.imp.text) || ''); return true; }
         case 'ppimpchk': { const I = u.imp; if (!I) return true; I.sel = I.sel || {}; const k = d.v; I.sel[k] = I.sel[k] === false; ed.render(); return true; }
         case 'ppimpdo': doImport(ed); return true;
+        case 'ppimpconv': { const I = u.imp; if (!I) return true; I.showConv = !I.showConv; ed.render(); if (I.showConv) setTimeout(() => { const e = ed.root.querySelector('.ppconv [data-errline]'); if (e) e.scrollIntoView({ block: 'center' }); }, 30); return true; }
         case 'ppglobals': u.ppMenu = false; u.pd = globalsDraft(ed); u.pv = 'globals'; ed.render(); return true;
         case 'ppdlg': download(u.pd ? u.pd.text : globalsText(), 'dashboard_globals.yaml'); return true;
         case 'ppexportown': u.ppMenu = false; download(exportCustomText(), 'egne-popups.yaml'); return true;

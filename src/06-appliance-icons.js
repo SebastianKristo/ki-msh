@@ -11,6 +11,8 @@
  * MSH.APPLIANCES[type] = { name, verb, color, icon } – typefarger fra designet. Nye typer legges til her (SVG + CSS).
  * Regler: bare deler animeres (transform/opacity/clip-path), transform-box: fill-box, prefers-reduced-motion → statisk.
  * Nivå «calm» = halv amplitude og halv fart (CSS-variablene --ma-k og --ma-t).
+ * Rom → Enheter (fiks 16.5) bruker ikke SVG-ikonene lenger: profil-ikonet (Material Symbols → mdi) animeres med
+ * rist/spinn/puls i 31-rom.js; applianceType/applianceStatus brukes fortsatt der, og samme appliance_animation-nivå.
  */
 (function () {
   const M = window.MSH;

@@ -15,13 +15,15 @@
  *   html({ value, modes, labels: { path: 'Sti' }, key, attrs }) → '<msh-tap-picker …>'
  * <msh-tap-picker value='{"action":…}' modes="popup,hash,path,url,more,lock,none">: segment Popup · Egen hash ·
  *   Dashbord-sti · URL (· More-info · Dørlås · Ingen). Popup = søkbar liste over ALLE popups (ikon, navn, #hash).
+ *   Fiks 16.11 (Hjem-fliser): modes kan også ha std (Standard = tom verdi/null), toggle ({ action: 'toggle' }) og service
+ *   ({ action: 'perform-action', perform_action: 'script.x', data: {…} } – data skrives som YAML).
  *   Egen hash = fritekst, advarer «Ingen popup med #xyz», men lagres likevel. Hendelse: value-changed { value: tap | null }.
  */
 (function () {
   const M = window.MSH;
   if (!M || M.tap) return;
   const esc = M.esc;
-  const MODES = { popup: 'Popup', hash: 'Egen hash', path: 'Dashbord-sti', url: 'URL', more: 'More-info', lock: 'Dørlås', none: 'Ingen' };
+  const MODES = { std: 'Standard', toggle: 'Veksle', popup: 'Popup', hash: 'Egen hash', path: 'Dashbord-sti', url: 'URL', more: 'More-info', service: 'Tjeneste', lock: 'Dørlås', none: 'Ingen' };
 
   function norm(t) {
     if (t == null || t === '') return null;
@@ -47,6 +49,13 @@
     if (t.action === 'navigate') { const p = t.navigation_path; if (p[0] === '#') M.openPopup(p); else M.navigate(p); return true; }
     if (t.action === 'url') { try { window.open(t.url_path, t.new_tab === false ? '_self' : '_blank', 'noopener'); } catch (e) { /* */ } return true; }
     if (t.action === 'more-info') { const id = t.entity || o.entity; if (id) { M.moreInfo(el, id); return true; } return false; }
+    if (t.action === 'toggle') { if (o.toggle) { o.toggle(); return true; } const id = t.entity || o.entity; if (id && M.lastHass) { M.toggle(M.lastHass, id); return true; } return false; }
+    if (t.action === 'perform-action' || t.action === 'call-service') {
+      const sv = String(t.perform_action || t.service || ''), i = sv.indexOf('.'), h = o.hass || M.lastHass;
+      if (i < 1 || !h) return false;
+      M.call(h, sv.slice(0, i), sv.slice(i + 1), { ...(t.data || t.service_data || {}), ...(t.target || {}) }).catch(() => {});
+      return true;
+    }
     return false;
   }
   function modeOf(t, hass) {
@@ -55,6 +64,8 @@
     if (t.action === 'url') return 'url';
     if (t.action === 'more-info') return 'more';
     if (t.action === 'lock-sheet') return 'lock';
+    if (t.action === 'toggle') return 'toggle';
+    if (t.action === 'perform-action' || t.action === 'call-service') return 'service';
     if (t.action === 'navigate') return t.navigation_path[0] === '#' ? (popupOf(t.navigation_path, hass) ? 'popup' : 'hash') : 'path';
     return 'none';
   }
@@ -64,6 +75,8 @@
     if (m === 'popup') { const p = popupOf(t.navigation_path, hass); return 'Popup · ' + (p ? p.name : t.navigation_path); }
     if (m === 'hash' || m === 'path') return t.navigation_path;
     if (m === 'url') return 'URL · ' + t.url_path;
+    if (m === 'service') return 'Tjeneste · ' + (t.perform_action || t.service || '–');
+    if (m === 'none' && !t) return MODES.std;
     return MODES[m];
   }
 
@@ -93,6 +106,7 @@
     .hint b{color:#fafafa;font-weight:500}
     .warn{color:var(--orange,#f2b573)}
     .none{font-size:12px;color:#7f7f7f;padding:10px}
+    textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
   `;
   const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Egne og importerte' };
   const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
@@ -120,7 +134,7 @@
       if (n === 'value') { const nm = modeOf(this.value, this.hass); if (!(this._mode && (nm === this._mode || ((nm === 'popup' || nm === 'hash') && (this._mode === 'popup' || this._mode === 'hash'))))) this._mode = null; }
       this._render();
     }
-    get mode() { const m = this._mode || modeOf(this.value, this.hass); return this.modes.includes(m) ? m : m === 'hash' && this.modes.includes('popup') ? 'popup' : this.modes[0]; }
+    get mode() { const v = this.value, m = this._mode || (!v && this.modes.includes('std') ? 'std' : modeOf(v, this.hass)); return this.modes.includes(m) ? m : m === 'hash' && this.modes.includes('popup') ? 'popup' : this.modes[0]; }
     _emit(v, mode) {
       if (mode) this._mode = mode;
       this._open = false; this._q = '';
@@ -141,6 +155,8 @@
         if (m === 'more') return this._emit({ action: 'more-info' }, m);
         if (m === 'none') return this._emit({ action: 'none' }, m);
         if (m === 'lock') return this._emit({ action: 'lock-sheet' }, m);
+        if (m === 'std') return this._emit(null, m);
+        if (m === 'toggle') return this._emit({ action: 'toggle' }, m);
         this._render();
         if (m !== 'popup') { const i = this.shadowRoot.querySelector('.in'); if (i) i.focus(); }
         return;
@@ -161,6 +177,21 @@
       if (!commit) return;
       if (f === 'path') { const p = raw && raw[0] !== '/' && raw[0] !== '#' ? '/' + raw : raw; return this._emit(p ? { action: 'navigate', navigation_path: p } : null, 'path'); }
       if (f === 'url') return this._emit(raw ? { action: 'url', url_path: raw } : null, 'url');
+      if (f === 'svc' || f === 'data') {
+        const cur = this.value || {}, sv = f === 'svc' ? raw : String(cur.perform_action || cur.service || '');
+        let data = cur.data;
+        if (f === 'data') {
+          if (!raw) data = undefined;
+          else { try { data = M.yaml ? M.yaml.parse(t.value) : JSON.parse(t.value); } catch (e) { this._dataErr = (e && e.message) || 'Ugyldig YAML'; this._render(); return; } }
+          if (data != null && (typeof data !== 'object' || Array.isArray(data))) { this._dataErr = 'Data må være nøkkel: verdi'; this._render(); return; }
+        }
+        this._dataErr = '';
+        if (!sv) { this._svcDraft = f === 'data' ? data : undefined; return this._render(); }
+        const v = { action: 'perform-action', perform_action: sv };
+        if (data && Object.keys(data).length) v.data = data;
+        else if (f === 'svc' && this._svcDraft) v.data = this._svcDraft;
+        return this._emit(v, 'service');
+      }
     }
     _hashHint(h, p) {
       if (!h) return 'Skriv hashen til popupen, f.eks. <b>#tesla</b>.';
@@ -196,6 +227,15 @@
         body = `<input class="in" data-f="url" type="url" inputmode="url" value="${esc(u)}" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint">Åpnes i ny fane.</span>`;
       } else if (mode === 'more') body = '<span class="hint">Viser detaljene (more-info) for entiteten.</span>';
       else if (mode === 'lock') body = '<span class="hint">Åpner hurtigarket for dørlåsen.</span>';
+      else if (mode === 'std') body = `<span class="hint">${esc(this.getAttribute('std-hint') || 'Standard for kortet.')}</span>`;
+      else if (mode === 'toggle') body = '<span class="hint">Veksler entiteten (lås/lås opp, på/av …).</span>';
+      else if (mode === 'service') {
+        const sv = v && (v.action === 'perform-action' || v.action === 'call-service') ? v.perform_action || v.service || '' : '';
+        const data = v && v.data && Object.keys(v.data).length ? (M.yaml && M.yaml.dump ? M.yaml.dump(v.data) : JSON.stringify(v.data)) : '';
+        body = `<input class="in" data-f="svc" value="${esc(sv)}" placeholder="domene.tjeneste, f.eks. script.alarm_toggle" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+          <textarea class="in" data-f="data" placeholder="data (YAML), f.eks.&#10;entity_id: lock.inngang" autocapitalize="off" spellcheck="false">${esc(String(data).replace(/\n$/, ''))}</textarea>
+          <span class="hint${this._dataErr ? ' warn' : ''}">${this._dataErr ? 'Feil i data: ' + esc(this._dataErr) : 'Kaller tjenesten med data. Tom data = ingen data.'}</span>`;
+      }
       else body = '<span class="hint">Ingen handling ved trykk.</span>';
       const html = `<style>${CSS}</style><div class="w"><div class="seg" role="tablist">${this.modes.map((m) => `<button class="${m === mode ? 'on' : ''}" aria-selected="${m === mode}" data-p="mode" data-v="${m}">${esc(this.getAttribute('label-' + m) || MODES[m])}</button>`).join('')}</div>${body}</div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
@@ -208,7 +248,7 @@
     norm, hashOf, run, popupOf, label, modeOf,
     html(o = {}) {
       const t = norm(o.value);
-      return `<msh-tap-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} value="${esc(t ? JSON.stringify(t) : '')}" modes="${esc((o.modes || ['popup', 'hash', 'path', 'url']).join(','))}"${Object.keys(o.labels || {}).map((k) => ` label-${esc(k)}="${esc(o.labels[k])}"`).join('')} ${o.attrs || ''}></msh-tap-picker>`;
+      return `<msh-tap-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} value="${esc(t ? JSON.stringify(t) : '')}" modes="${esc((o.modes || ['popup', 'hash', 'path', 'url']).join(','))}"${o.stdHint ? ` std-hint="${esc(o.stdHint)}"` : ''}${Object.keys(o.labels || {}).map((k) => ` label-${esc(k)}="${esc(o.labels[k])}"`).join('')} ${o.attrs || ''}></msh-tap-picker>`;
     },
   };
 })();

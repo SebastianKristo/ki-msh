@@ -450,7 +450,10 @@
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
       const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" role="tab" aria-selected="${k === R.tab}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
-      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      // Fiks 16.10: rosa indikator = eget element med indeks-/prosentbasert posisjon (--i/--n, like brede faner) – aldri
+      // piksler fra et gammelt mål, så den lander riktig selv om innholdet under endrer høyde eller popupen scroller.
+      const ti = Math.max(0, R.order.indexOf(R.tab));
+      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
@@ -529,11 +532,15 @@
           <div class="vs" data-id="${esc(p.id)}"><div class="vt"></div><div class="vf" style="width:${v}%"></div><span class="vk" style="left:calc(${v}% - 12px)"></span></div>
           <span class="vv num">${canVol || live ? v + '%' : '–'}</span></div>`;
       }
-      return `<div class="mc">${head}${chipsSec}${transport}${remote}${volume}</div>`;
+      // Innholdsflaten under fanene: min-høyde = den høyeste av TV/Musikk (målt), så byttet ikke flytter layouten (Fiks 16.10)
+      return `<div class="mc">${head}<div class="mb" style="${this._mbMin ? `min-height:${this._mbMin}px` : ''}">${chipsSec}${transport}${remote}${volume}</div></div>`;
     }
     onAction(name, el, ev) {
       const h = this.hass, R = this._R, p = R && R.p;
       if (name === 'tab') {
+        // Liquid Glass: indikatoren strekker seg mens den glir (transform – ingen layout); posisjonen kommer fra --i
+        const ind = this.shadowRoot.querySelector('.seg .ind');
+        if (ind && ind.animate && !el.classList.contains('on') && !this._gDrag) ind.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.16, .9)', offset: 0.45 }, { transform: 'scale(1.05, 1.03)', offset: 0.75 }, { transform: 'scale(1)' }], { duration: 380, easing: 'cubic-bezier(.3,.9,.3,1)' });
         return this.select(el.dataset.t);
       }
       if (!p) return super.onAction(name, el, ev);
@@ -610,6 +617,13 @@
     }
     afterRender() {
       const root = this.shadowRoot;
+      // Innholdsflaten: mål naturlig høyde ved hver tegning og når innholdet endrer størrelse (Fiks 16.10)
+      const mb = root.querySelector('.mb');
+      if (mb && window.ResizeObserver) {
+        if (!this._mbRO) this._mbRO = new ResizeObserver(() => this._mbMeasure());
+        if (this._mbObs !== mb) { this._mbRO.disconnect(); this._mbRO.observe(mb); this._mbObs = mb; }
+      }
+      if (mb) requestAnimationFrame(() => this._mbMeasure());
       // Volum-slider (drag-vern: touch-action none + stopPropagation via M.drag)
       const vs = root.querySelector('.vs');
       if (vs && !vs.__b) {
@@ -697,12 +711,48 @@
       const seg = root.querySelector('.seg');
       if (seg) M.tabReorder(seg, {
         card: this, glass: true, // Liquid Glass-drag (linse ved sideveis dra) alltid – uavhengig av temaet (Fiks 15.2)
+        // Fiks 16.10: den rosa indikatoren ER glasslinsen – den følger fingeren (regnet fra sporets ferske mål hver frame),
+        // snapper til nærmeste fane ved slipp og bytter først da. Ingen ekstra trykk-linse (glassTap) oppå den.
+        glassTap: false,
+        onGlassMove: (hit, x) => this._indDrag(seg, x),
+        onGlassEnd: (hit) => this._indDrag(seg, null, hit),
         onSelect: (k) => { const b = seg.querySelector(`.tab[data-t="${k}"]`); if (b && !b.classList.contains('on')) this.onAction('tab', b); },
         items: () => Array.from(seg.querySelectorAll('.tab')),
         idOf: (b) => b.dataset.t,
         active: () => this._R && this._R.tab,
         onReorder: (keys) => { const all = this._R ? this._R.orderAll : keys; this._save({ tab_order: [...keys, ...all.filter((x) => !keys.includes(x))] }); },
       });
+    }
+    // Indikatoren under glass-dra: brøkdel av sporet fra FERSKE mål (skala fra Bubble-transform tatt med), left i %.
+    // x = null → slipp: tilbake til --i (satt til valgt fane straks, så den ikke glir tilbake før ny tegning).
+    _indDrag(seg, x, hit) {
+      const ind = seg.querySelector('.ind'), its = Array.from(seg.querySelectorAll('.tab')), n = its.length || 1;
+      if (!ind) return;
+      if (x == null) {
+        this._gDrag = false;
+        const i = hit ? its.indexOf(hit) : -1;
+        if (i >= 0) seg.style.setProperty('--i', i);
+        ind.classList.remove('drag');
+        ind.style.left = '';
+        return;
+      }
+      this._gDrag = true;
+      const r = seg.getBoundingClientRect(), k = seg.offsetWidth ? r.width / seg.offsetWidth : 1;
+      const W = seg.clientWidth - 8, g = 2, cw = (W - g * (n - 1)) / n;
+      const f = Math.max(0, Math.min(n - 1, ((x - r.left) / k - seg.clientLeft - 4 - cw / 2) / (cw + g)));
+      ind.classList.add('drag');
+      ind.style.left = `calc(4px + (100% - 6px) * ${f.toFixed(4)} / var(--n))`;
+    }
+    // Mål innholdsflatens naturlige høyde per fane (uten min-høyde) → min-høyde = den høyeste (Fiks 16.10)
+    _mbMeasure() {
+      const mb = this.shadowRoot && this.shadowRoot.querySelector('.mb'), tab = this._R && this._R.tab;
+      if (!mb || !tab || !mb.lastElementChild) return;
+      const r = mb.getBoundingClientRect(), k = mb.offsetHeight ? r.height / mb.offsetHeight : 1;
+      const nat = Math.round((mb.lastElementChild.getBoundingClientRect().bottom - r.top) / k);
+      if (!nat) return;
+      this._mbH = { ...(this._mbH || {}), [tab]: nat };
+      const min = Math.max(...Object.values(this._mbH));
+      if (min !== this._mbMin) { this._mbMin = min; mb.style.minHeight = min + 'px'; }
     }
     async _save(patch) {
       const old = this._rawConfig || this.config, n = { ...old, ...patch };
@@ -731,6 +781,16 @@
         .seg{gap:2px;padding:4px;border-radius:22px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.14)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);'}justify-self:center}
         .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);background:transparent}
         .tab.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+        /* Fiks 16.10: like brede faner + indikator med indeks-/prosentposisjon (--i/--n) – glir med transition, følger fingeren ved dra */
+        .seg.msh-tr{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+        .seg .tab{position:relative;z-index:1;transition:color .25s}
+        .seg .tab.on{background:transparent}
+        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:19px;background:${PINK};pointer-events:none;
+          transition:left .34s cubic-bezier(.34,1.25,.64,1),box-shadow .2s,scale .2s cubic-bezier(.34,1.8,.64,1)}
+        .seg .ind.off{opacity:0}
+        .seg .ind.drag{transition:left .12s cubic-bezier(.34,1.5,.64,1),box-shadow .2s,scale .25s cubic-bezier(.34,1.8,.64,1);scale:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4),0 10px 24px rgba(0,0,0,0.35)}
+        .seg.tr-drag .ind{opacity:0}
+        .mb{display:flex;flex-direction:column;gap:var(--msh-gap,14px);transition:min-height .3s cubic-bezier(.2,.8,.2,1)}
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}

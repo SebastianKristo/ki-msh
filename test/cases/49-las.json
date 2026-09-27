@@ -1,0 +1,5 @@
+[
+  { "name": "Dørlås", "hash": "#dorlas", "cards": [ { "type": "custom:msh-las-card" } ] },
+  { "name": "Dørlås · én lås og PIN", "hash": "#dorlas", "cards": [ { "type": "custom:msh-las-card", "exclude": ["lock.inngangsdor"], "confirm": "pin", "sections": ["log", "battery", "auto"] } ] },
+  { "name": "Dørlås · tom", "hash": "#dorlas", "cards": [ { "type": "custom:msh-las-card", "exclude": ["lock.inngangsdor", "lock.bod"] } ] }
+]

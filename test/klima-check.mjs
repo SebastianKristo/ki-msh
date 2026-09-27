@@ -98,7 +98,8 @@ for (const [navn, mut] of Object.entries(SETS)) {
   p.on('console', async (m) => { if (m.type() === 'info' && /msh-klima-card/.test(m.text())) { try { info.push(await Promise.all(m.args().map((a) => a.jsonValue()))); } catch (e) { info.push([m.text()]); } } });
   p.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(m.text()) && !/TVUNGET/.test(m.text())) errs.push(m.text().slice(0, 200)); });
-  await p.goto('file://' + resolve('test/harness-bubble.html'));
+  // Fiks 16.13: ekte hui-card-oppførsel (?huiekte) – stubben skjulte at kortet kastet i HAs _loadElement (element.layout = …)
+  await p.goto('file://' + resolve('test/harness-bubble.html') + '?huiekte');
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   // Opptaket + WS-svar (config_entries/get, config/entity_registry/list) for datasettene som bruker det
   await p.evaluate(({ F, opptak }) => {
@@ -219,6 +220,116 @@ for (const [navn, mut] of Object.entries(SETS)) {
     && Object.values(r.tvunget).every((v) => v === 'feilkort');
   if (!ok) fail++;
   console.log(`${ok ? '✔' : '✘'} [${navn}]`, JSON.stringify(r), errs.slice(0, 4).join(' | '));
+  await p.close();
+}
+// ---------------------------------------------------------------------------------------------------------------------
+// Fiks 16.13 · ekte Bubble-oppførsel: HAs hui-card (?huiekte), popupen lukket når kortet lages og hass settes, lang tid før
+// åpning, fanen «skjult» (rAF stoppet) når popupen åpnes, gjenåpning (kortet kobles fra/til), prefers-reduced-motion av.
+// Innholdet skal være synlig (effektiv opacity 1, høyde > 0) etter åpning, ingen animasjon med fill som skjuler innhold,
+// diagnose-skriptet i docs/klima-diagnose.md skal kjøre, skjelettet tegnes før hass, vakten gir feilkort etter 3 s usynlig,
+// alle msh-kort tåler HAs element.layout/.preview/.editMode, og kontrolltesten utenfor Bubble rendrer.
+{
+  const md = readFileSync(resolve('docs/klima-diagnose.md'), 'utf8');
+  const s0 = md.indexOf('```js') + 5, DIAG = md.slice(s0, md.indexOf('```', s0)).trim().replace(/;\s*$/, '');
+  const p = await b.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
+  const errs = [];
+  p.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
+  p.on('console', (m) => {
+    const t = m.text();
+    if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(t) && !/ingenting synlig/.test(t)) errs.push(t.slice(0, 300));
+    if (m.type() === 'warning' && /Failed to create card element|animasjon hang/.test(t)) errs.push(t.slice(0, 300));
+  });
+  await p.goto('file://' + resolve('test/harness-bubble.html') + '?huiekte');
+  for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
+  await p.evaluate(({ F, opptak }) => {
+    window.__KI_FIX = F;
+    const mh = window.mockHass;
+    window.mockHass = () => { const h = mh(), ws = h.callWS; h.callWS = (m) => (window.__KI_WS && window.__KI_WS[m.type] ? Promise.resolve(JSON.parse(JSON.stringify(window.__KI_WS[m.type]))) : ws(m)); return h; };
+    window.mockExtend(eval('(' + opptak + ')'));
+    // «Skjult fane»: document.hidden + rAF stoppet til __show()
+    const q = [], raf = window.requestAnimationFrame.bind(window);
+    window.__hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (window.__hidden ? 'hidden' : 'visible') });
+    window.requestAnimationFrame = (cb) => { if (window.__hidden) { q.push(cb); return 1e6 + q.length; } return raf(cb); };
+    window.__show = () => { window.__hidden = false; document.dispatchEvent(new Event('visibilitychange')); q.splice(0).forEach((cb) => raf(cb)); };
+  }, { F: FIX, opptak: brukOpptak.toString() });
+  await p.addScriptTag({ path: bundle });
+  await p.addScriptTag({ path: BC, type: 'module' });
+  await p.waitForFunction(() => customElements.get('bubble-card'));
+  const r = await p.evaluate(async (DIAG) => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const hass = window.mockHass(), res = {};
+    // 1 · HA/Bubble setter element.layout/.preview/.editMode/.isPanel på kortet (hui-card._loadElement, uten try/catch)
+    res.haProps = (window.customCards || []).map((c) => c.type).filter((t) => /^msh-/.test(t)).map((t) => {
+      'use strict'; // som HAs moduler: tildeling til getter uten setter kaster
+      try { const el = document.createElement(t); el.layout = 'grid'; el.preview = false; el.editMode = false; el.isPanel = false; return null; } catch (e) { return `${t}: ${e.message}`; }
+    }).filter(Boolean);
+    // 2 · Skjelett: tegnet i connectedCallback, før hass
+    const sk = document.createElement('msh-klima-card');
+    sk.setConfig({ type: 'custom:msh-klima-card' });
+    document.body.appendChild(sk);
+    const skel = sk.shadowRoot.querySelector('[data-skeleton]');
+    res.skjelett = !!skel && /–/.test(skel.textContent) && /Oversikt/.test(skel.textContent) && Math.round(sk.getBoundingClientRect().height) > 100;
+    sk.remove();
+    const all = () => { const o = []; const w = (x) => x.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
+    // Effektiv opasitet (gjennom shadow-grenser opp til dokumentet) og høyde
+    const eop = (el) => { let o = 1; for (let n = el; n && n.nodeType === 1; n = n.parentNode && n.parentNode.nodeType === 11 ? n.parentNode.host : n.parentNode) { const c = getComputedStyle(n); if (c.display === 'none' || c.visibility === 'hidden') return 0; o *= Number(c.opacity); } return Math.round(o * 100) / 100; };
+    const h = (el) => (el ? Math.round(el.getBoundingClientRect().height) : 0);
+    const syn = (card) => {
+      const sr = card && card.shadowRoot, hero = sr && sr.querySelector('msh-klima-hero-card'), hs = hero && hero.shadowRoot;
+      const q = (x) => hs && hs.querySelector(x);
+      const deler = { kort: card, kh: q('.kh'), stt: q('.stt'), sen: q('.sen'), ring: q('.ring'), us: q('.bar .us'), faner: sr && sr.querySelector('.trow'), innhold: sr && sr.querySelector('.kbody') };
+      const o = {}; let ok = true;
+      Object.entries(deler).forEach(([k, el]) => { const v = [eop(el), h(el)]; o[k] = v.join('/'); if (!(v[0] >= 0.99 && v[1] > 0)) ok = false; });
+      const us = q('.bar .us'); if (us && !/matrix\(1, 0, 0, 1|none/.test(getComputedStyle(us).transform)) { ok = false; o.usTransform = getComputedStyle(us).transform; }
+      const an = [...(sr ? sr.getAnimations() : []), ...(hs ? hs.getAnimations() : [])];
+      o.anims = an.map((a) => { const t = a.effect.getComputedTiming(); return `${a.effect.target.getAttribute('class') || a.effect.target.localName}:${a.playState}:${t.fill}:${Math.round(a.currentTime || 0)}`; });
+      if (an.some((a) => ['backwards', 'both'].includes(a.effect.getComputedTiming().fill))) ok = false;
+      if (an.some((a) => a.effect.getComputedTiming().iterations !== Infinity && a.playState !== 'finished')) ok = false;
+      o.ok = ok; return o;
+    };
+    // 3 · Kontrolltest: vanlig visning utenfor Bubble
+    const plain = document.createElement('msh-klima-card');
+    plain.setConfig({ type: 'custom:msh-klima-card' }); plain.hass = hass;
+    document.getElementById('dash').appendChild(plain);
+    await wait(2600);
+    res.utenforBubble = syn(plain);
+    plain.remove();
+    // 4 · Via strategien: popupen lukket når kortet lages; hass oppdateres mens den er lukket; lang tid før åpning
+    const S = customElements.get('ll-strategy-dashboard-ki-dashboard');
+    const dash = await S.generate({}, hass);
+    const stack = dash.views[0].cards[0], pop = stack.cards.find((c) => c.card_type === 'pop-up' && c.hash === '#klima');
+    const els = [];
+    for (const c of [stack.cards[1], pop]) { const el = document.createElement(c.type.replace('custom:', '')); el.setConfig(c); el.hass = hass; document.getElementById('dash').appendChild(el); els.push(el); }
+    for (let i = 0; i < 5; i++) { await wait(800); const h2 = { ...hass, states: { ...hass.states } }; els.forEach((e) => (e.hass = h2)); }
+    const card = () => { const pe = all().find((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened')); return pe && [...pe.querySelectorAll('*')].find((e) => e.localName === 'msh-klima-card'); };
+    // Åpnes mens fanen er «skjult» (rAF stoppet), vises 500 ms senere
+    window.__hidden = true; location.hash = '#klima'; await wait(500); window.__show(); await wait(2600);
+    res.lukketVedOppstart = syn(card());
+    res.diag = await eval(DIAG);
+    // 5 · Gjenåpning (Bubble kobler innholdet fra/til), også rask lukk/åpne
+    const lukk = () => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); };
+    lukk(); await wait(1500); location.hash = '#klima'; await wait(2600);
+    res.gjenapnet = syn(card());
+    for (let k = 0; k < 3; k++) { lukk(); await wait(40); location.hash = '#klima'; await wait(60); }
+    await wait(2600);
+    res.raskGjenapning = syn(card());
+    // 6 · Vakten: gjør kortet usynlig (opacity 0 på verten), åpne på nytt → feilkort med diagnosen etter 3 s; synlig igjen → borte
+    lukk(); await wait(700); location.hash = '#klima'; await wait(80);
+    const c1 = card(); c1.style.opacity = '0'; await wait(3500);
+    const fk = c1.shadowRoot.querySelector('[data-blank]');
+    res.vakt = !!fk && /"synlig": false/.test(fk.textContent) && /"host"/.test(fk.textContent);
+    c1.style.opacity = ''; await wait(3400);
+    res.vaktBorte = !c1.shadowRoot.querySelector('[data-blank]') && syn(c1).ok;
+    return res;
+  }, DIAG).catch((e) => ({ feil: e.message }));
+  const d = r.diag || {}, f1 = d.fase1 || {};
+  const diagOk = d.el === true && d.tag === 'msh-klima-card' && d.cards && d.cards[0] === 'custom:msh-klima-card' && f1.host && f1.host.height > 100 && f1.host.opacity === '1' && f1.hero && f1.hero.height > 100 && f1.state && f1.state.hasHass && d.probe === 'ok' && d.beholder && d.beholder[0] === 1;
+  const ok = !r.feil && !errs.length && !r.haProps.length && r.skjelett && r.utenforBubble.ok && r.lukketVedOppstart.ok && r.gjenapnet.ok && r.raskGjenapning.ok && r.vakt && r.vaktBorte && diagOk;
+  if (!ok) fail++;
+  const kort = { ...r }; kort.diag = diagOk ? 'ok' : r.diag;
+  console.log(`${ok ? '✔' : '✘'} [16.13 ekte Bubble-oppførsel]`, JSON.stringify(kort), errs.slice(0, 4).join(' | '));
   await p.close();
 }
 await b.close();

@@ -207,6 +207,8 @@
     }
     get cardSize() { return 4; }
     get preview() { return (this._host && this._host._preview) || this._preview || null; }
+    // HAs hui-card setter element.preview (editor-forhåndsvisning, bool) uten try/catch – må ha setter (fiks 16.13)
+    set preview(v) { this._haPreview = v; }
     render() {
       const c = this.config, h = this.hass, a = M.vaerAuto(h, c);
       this._checkEnt(a.weather);

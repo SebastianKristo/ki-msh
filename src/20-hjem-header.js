@@ -20,6 +20,46 @@
   const toasts = (card) => ({ enabled: !(card && card.config && card.config.toasts === false) });
   M.hjemToast = (card, text) => M.toast(text, toasts(card));
 
+  /* ------------------------------------------------------------ avstand header → prosa (fiks 16.2) */
+  // header.prose_gap (px, −20–60, standard 16): mellomrommet mellom headeren og prosaen i msh-hjem-card.
+  // Én kilde: header-kortets config (ki-store cards.ki-home-header). Redigeres i «Tilpass header» → Størrelser og
+  // «Tilpass Hjem» → Tekst.
+  M.HJEM_PROSE_GAP = { min: -20, max: 60, step: 2, def: 16 };
+  M.HJEM_PROSE_GAP_PRESETS = [[4, 'Tett 4'], [16, 'Standard 16'], [32, 'Luftig 32']];
+  M.hjemProseGap = function (c) {
+    const v = c && c.prose_gap, n = Number(v), G = M.HJEM_PROSE_GAP;
+    return v === '' || v == null || !isFinite(n) ? G.def : Math.max(G.min, Math.min(G.max, n));
+  };
+
+  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3) */
+  // servers: [{ name, icon, color, url_path, fallback_url, encode }]. Eldre { url: 'https://…' } → fallback_url.
+  M.hjemServerNorm = function (r) {
+    if (!r || typeof r !== 'object') return r;
+    const { url, ...o } = r;
+    if (url) {
+      if (/^homeassistant:\/\//i.test(url)) { if (!o.url_path) o.url_path = url; }
+      else if (!o.fallback_url) o.fallback_url = url;
+    }
+    return o;
+  };
+  // Lenken HA-appen åpner: egen url_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet som standard)
+  M.hjemServerUrl = function (r) {
+    r = M.hjemServerNorm(r) || {};
+    if (r.url_path) return String(r.url_path).trim();
+    const n = String(r.name || '').trim();
+    if (!n) return '';
+    return 'homeassistant://navigate/lovelace?server=' + (r.encode === false ? n : encodeURIComponent(n));
+  };
+  // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
+  M.hjemIsApp = function () {
+    try {
+      if (/Home ?Assistant/i.test(navigator.userAgent || '')) return true;
+      if (window.externalApp) return true;
+      const mh = window.webkit && window.webkit.messageHandlers;
+      return !!(mh && (mh.getExternalAuth || mh.externalBus));
+    } catch (e) { return false; }
+  };
+
   /* ------------------------------------------------------------ handlinger på tittelen (Fiks 9) */
   // title_actions: { tap, double_tap, hold } – hver er én av TACTS. kiosk_entity: input_boolean (standard input_boolean.kiosk_mode).
   const TACTS = [['server', 'Bytt sted', 'mdi:swap-horizontal'], ['kiosk', 'Kiosk-modus av/på', 'mdi:fullscreen'], ['config', 'Innstillinger', 'mdi:cog'], ['edit', 'Rediger dashbord', 'mdi:pencil'], ['header', 'Tilpass header', 'mdi:page-layout-header'], ['vaer', 'Åpne Vær', 'mdi:weather-partly-cloudy'], ['none', 'Ingen', 'mdi:cancel']];
@@ -295,7 +335,8 @@
           case 'rows': return this._rows(f, key);
           case 'titleacts': return this._titleActs();
           case 'modes': {
-            const cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
+            let cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
+            if (!f.options.some(([v]) => String(v) === cur)) cur = String(f.default || ''); // fjernet oppsett (under/kompakt) → standard
             return `<div class="f" style="background:transparent;padding:4px 0">${lab}<div class="xmodes">${f.options.map(([v, l, ic, sub]) => `<button class="xmode ${String(v) === cur ? 'on' : ''}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"><span class="iw">${M.icon(ic, 20)}</span><b>${esc(l)}</b><i>${esc(sub || '')}</i></button>`).join('')}</div>${help}</div>`;
           }
           case 'range': {
@@ -471,6 +512,8 @@
     .seg .o{position:relative;z-index:1;height:48px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;color:#afafaf;transition:color .25s}
     .seg .o.on{color:#232323}
     .seg.ro{cursor:default}
+    .seg.off{opacity:.45}
+    .hint{margin-top:-4px;font-size:12px;line-height:1.3;color:var(--gray600,#7f7f7f);text-align:center}
     .opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:26px;background:var(--gray000,#232323)}
     .opt{height:48px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;color:#979797;transition:background .25s}
     .lst{display:flex;flex-direction:column;padding:4px 10px;border-radius:22px;background:var(--gray000,#232323)}
@@ -525,7 +568,6 @@
     };
     seg.addEventListener('pointermove', mv); seg.addEventListener('pointerup', up); seg.addEventListener('pointercancel', up);
   };
-  const segHTML = (key, idx, opts, ro) => `<div class="seg ${ro ? 'ro' : ''}" data-seg="${key}"><span class="ind" style="left:calc(4px + (100% - 8px) * ${idx / 2});background:${opts[idx][3]}"></span>${opts.map(([icon, label, v], i) => `<span class="o ${i === idx ? 'on' : ''}" data-a="seg" data-seg="${key}" data-i="${i}" data-haptic="selection">${M.icon(icon, 20)}${esc(label)}</span>`).join('')}</div>`;
 
   /* ------------------------------------------------------------ dørlås-hurtigark (lock.*) */
   const devSib = (hass, id, test) => {
@@ -649,7 +691,7 @@
   // Effektive valg for én person: { home, sleep, zone, use_gps_when_off } (home/sleep = null → Automatisk).
   M.hjemPersonOpts = function (c, id) {
     const r = M.hjemPeopleNorm(c, M.hjemPeopleRow(c, id) || { person: id }) || {};
-    return { home: r.home || null, sleep: r.sleep || null, zone: r.zone !== false, use_gps_when_off: r.use_gps_when_off === true };
+    return { home: r.home || null, sleep: r.sleep || null, zone: r.zone !== false, use_gps_when_off: r.use_gps_when_off === true, sleep_invert: r.sleep_invert === true };
   };
   M.hjemPersonCfg = function (c, id) {
     const o = objId(id), list = Array.isArray(c && c.persons) ? c.persons : [];
@@ -747,13 +789,16 @@
     rd = rd || ((x) => hass.states[x]);
     const s = rd(id), a = (s && s.attributes) || {};
     const o = objId(id);
-    const sleepId = M.hjemPersonOpts(c, id).sleep || M.hjemSleepAuto(hass, id);
+    const PO = M.hjemPersonOpts(c, id);
+    const sleepId = PO.sleep || M.hjemSleepAuto(hass, id);
     const st = M.personStatus(hass, id, c, rd);
-    // Hurtigarket: Hjemme/Borte skriver til hjemme-bryteren (eller en manuell input_boolean ved siden av personen)
-    const presId = st.switchId || sibling(hass, id, PRES_RE, ['input_boolean']);
+    // Hurtigarket (fiks 16.14): Hjemme/Borte skriver bare til valgt hjemme-bryter (people[].home). Uten bryter → bare visning.
+    const presId = st.switchId || null;
     const sl = sleepId ? rd(sleepId) : null;
     const home = st.kind === 'home';
-    const sleep = !!sl && sl.state === 'on';
+    // Søvn: på = sover, eller omvendt med «På = våken» (people[].sleep_invert – noen Homey-brytere er omvendt)
+    const sleepInv = PO.sleep_invert;
+    const sleep = !!sl && !M.unavailable(sl) && (sl.state === 'on') !== sleepInv;
     const stCol = sleep ? C.purple : st.color || 'transparent';
     const glyph = sleep ? 'bedtime' : st.icon || 'mdi:account';
     const all = M.all(hass, 'person');
@@ -763,11 +808,14 @@
     const display = DISPLAYS.includes(pc.display) ? pc.display : 'picture';
     const raw = pc.picture || a.entity_picture || null;
     const pic = display === 'picture' && raw ? M.hjemPicUrl(hass, raw) : null;
-    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: st.place, stCol, glyph, badge: sleep || st.badge, dim: !sleep && st.dim, status: st, me, sleepId, presId };
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: st.place, stCol, glyph, badge: sleep || st.badge, dim: !sleep && st.dim, status: st, me, sleepId, presId, sleepInv };
   };
 
   /* ------------------------------------------------------------ header-kortet */
-  const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['under', 'Under', 'vertical_align_top', 'Stedet under hilsenen'], ['kompakt', 'Kompakt', 'view_agenda', 'Lav og tett'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
+  // Fiks 16.4: «Under» og «Kompakt» er fjernet (3 + 3 i rutenettet). Lagret under/kompakt → familie (se _migrateMode).
+  const OLD_MODES = ['under', 'kompakt'];
+  const modeOf = (c) => { const m = (c && c.mode) || 'familie'; return OLD_MODES.includes(m) ? 'familie' : m; };
+  const MODES = [['familie', 'Familie', 'groups', 'Hilsen og bilder'], ['sted', 'Sted', 'location_on', 'Stedet som tittel'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
   // Innholdet i avatar-klippet: <img> (object-fit: cover) · ikon · initialer. Mangler/feiler bildet → ikon.
   const faceInner = (p, n, bad) => {
     if (p.pic && !(bad && bad.has(p.pic))) return `<img src="${esc(p.pic)}" alt="" draggable="false" data-pic="${esc(p.pic)}">`;
@@ -779,13 +827,15 @@
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36 };
+      return { mode: 'familie', greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
       return (hass, c) => {
         const D = HjemHeader.defaults;
         // Samme liste (og indekser) som Personer-radene i editoren: lagret people[] eller standardrader
+        // Fiks 16.2: «Avstand til prosa» (header.prose_gap) – samme felt i «Tilpass Hjem» → Tekst. Brukes av msh-hjem-card.
+        const PROSE_GAP = { type: 'range', name: 'prose_gap', label: 'Avstand til prosa', icon: 'mdi:arrow-expand-vertical', min: -20, max: 60, step: 2, default: D.prose_gap, unit: 'px', presets: M.HJEM_PROSE_GAP_PRESETS, help: 'Mellomrommet mellom headeren og prosaen. Minus trekker prosaen opp mot headeren.' };
         const PL = (Array.isArray(c && c.people) ? c.people : peopleDefaults(hass, c || {})).map((r) => M.hjemPeopleNorm(c || {}, r));
         return [
           { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
@@ -794,18 +844,21 @@
             { type: 'entity', name: 'kiosk_entity', label: 'Kiosk-modus-entitet', domain: 'input_boolean', auto: (h, cc) => ((cc.overrides || {}).kiosk) || KIOSK_DEF },
             { type: 'info', label: 'Standard: trykk åpner «Bytt sted», hold slår kiosk-modus av/på, dobbelttrykk åpner innstillinger.' },
           ] },
-          { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'stor', open: true, fields: [
+          { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => modeOf(cc) === 'stor', open: true, fields: [
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
             { type: 'range', name: 'g_avatar', label: 'Bilder', min: 36, max: 64, step: 1, default: D.g_avatar, fmt: (v) => `${v} px` },
             { type: 'range', name: 'g_badge', label: 'Merke', min: 14, max: 28, step: 1, default: D.g_badge, fmt: (v) => `${v} px` },
             { type: 'range', name: 'g_gap', label: 'Avstand (minus = overlapp)', min: -16, max: 16, step: 1, default: D.g_gap, fmt: (v) => `${v} px` },
+            PROSE_GAP,
             { type: 'info', label: 'Navnet blir så stort som skjermen tillater, opp til maks.' },
           ] },
-          { type: 'section', id: 'psizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => (cc.mode || D.mode) === 'profil', open: true, fields: [
+          { type: 'section', id: 'psizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => modeOf(cc) === 'profil', open: true, fields: [
             { type: 'range', name: 'pic_size', label: 'Profilbilde', min: 40, max: 72, step: 1, default: D.pic_size, fmt: (v) => `${v} px` },
             { type: 'range', name: 'persons_size', label: 'Personer', min: 32, max: 56, step: 1, default: D.persons_size, fmt: (v) => `${v} px` },
             { type: 'range', name: 'title_size', label: 'Tittel', min: 28, max: 48, step: 1, default: D.title_size, fmt: (v) => `${v} px` },
+            PROSE_GAP,
           ] },
+          { type: 'section', id: 'sizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => !['stor', 'profil'].includes(modeOf(cc)), fields: [PROSE_GAP] },
           { type: 'section', id: 'people', label: 'Personer', icon: 'mdi:account-multiple', fields: [
             // kind 'people': egne rader (avatar · navn · live status · ▲▼ · vis/skjul · chevron) – se HjemEditor._peopleRows.
             // Utvidet: «{fornavn} · hjemme», «{fornavn} · søvn», «Bruk HA-sone når borte», deretter feltene under.
@@ -814,6 +867,7 @@
               title: (r, i, h) => (r.person ? M.name(h, r.person) : '') || 'Velg person',
               newRow: (h, cc, list) => { const used = new Set(list.map((x) => x.person)); return { person: M.all(h, 'person').find((x) => !used.has(x)) || '' }; },
               fields: [
+                { type: 'boolean', name: 'sleep_invert', label: 'Søvn-bryter: På = våken', default: false, help: 'For brytere som er omvendt (f.eks. Homey «sovn_vaken»). Av: på = sover.', rowWhen: (r, h) => !!(r.sleep || (h && r.person && M.hjemSleepAuto(h, r.person))) },
                 { type: 'boolean', name: 'use_gps_when_off', label: 'Bruk GPS når bryteren er av', default: false, help: 'Av: bryter av = Borte selv om GPS sier hjemme.', rowWhen: (r) => !!r.home },
                 { type: 'select', name: 'display', label: 'Visning', options: [['picture', 'Bilde'], ['icon', 'Ikon'], ['initials', 'Initialer']], default: 'picture' },
                 { type: 'text', name: 'picture', label: 'Bilde', auto: (r, h) => (r.person && h && h.states[r.person] && h.states[r.person].attributes.entity_picture) || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', rowWhen: (r) => (r.display || 'picture') === 'picture' },
@@ -855,14 +909,25 @@
             { type: 'hash', name: 'weather_hash', label: 'Vær-popup', placeholder: D.weather_hash },
             { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap },
           ] },
-          { type: 'section', label: 'Steder (servermeny)', icon: 'mdi:swap-horizontal', fields: [
-            { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-installasjoner (også denne)', defaults: () => [], addLabel: 'Legg til sted',
-              help: 'Trykk på stedsnavnet/hilsenen åpner menyen (se «Handlinger på tittelen»). «Du er her» settes på stedet med samme adresse (origin) som dashbordet eller hassUrl – ingen treff gir «Denne serveren · <host>». Trykk på et annet sted åpner samme dashbord og popup der (adresse + sti + #hash).',
-              title: (r) => r.name || 'Nytt sted', sub: (r) => r.url || '',
+          { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', fields: [
+            // Fiks 16.3: «Du er her» = dette stedet (this_server); de andre stedene åpnes med HA-appens egen URL-handling
+            { type: 'text', name: 'this_server.name', label: 'Navn på dette stedet', auto: (h, cc) => (cc && cc.place_name) || (h && h.config && h.config.location_name) || 'Hjem', help: 'Vises øverst i «Bytt sted» som «Du er her», og som tittel i «Sted»-oppsettet. Står samme navn i listen under, skjules det der.' },
+            { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
+            { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
+            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-servere', defaults: () => [], addLabel: 'Legg til sted',
+              help: 'Trykk bytter server i Home Assistant-appen (homeassistant://navigate/lovelace?server=<navn>, samme navn som i appens serverliste). I nettleser brukes «Adresse i nettleser» hvis den er satt, ellers vises en melding.',
+              norm: (list) => list.map((r) => M.hjemServerNorm(r)),
+              title: (r) => r.name || 'Nytt sted', sub: (r) => M.hjemServerUrl(r) || '',
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
-              newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length], url: '' }),
-              fields: [{ type: 'text', name: 'name', label: 'Navn' }, { type: 'text', name: 'url', label: 'Adresse', placeholder: 'https://…' }, { type: 'icon', name: 'icon', label: 'Ikon' }, { type: 'color', name: 'color', label: 'Farge' }] },
-            { type: 'text', name: 'place_name', label: 'Navn på dette stedet', auto: (h) => (h && h.config && h.config.location_name) || 'Hjem' },
+              newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
+              fields: [
+                { type: 'text', name: 'name', label: 'Navn (som i appens serverliste)' },
+                { type: 'icon', name: 'icon', label: 'Ikon' },
+                { type: 'color', name: 'color', label: 'Farge' },
+                { type: 'text', name: 'url_path', label: 'Lenke (url_path)', auto: (r) => M.hjemServerUrl({ ...r, url_path: '' }) || 'homeassistant://navigate/lovelace?server=…', help: 'Tom = homeassistant://navigate/lovelace?server=<navn>. Lim inn din egen lenke hvis appen vil ha noe annet.' },
+                { type: 'boolean', name: 'encode', label: 'URL-kod navnet (Strømstad → Str%C3%B8mstad)', default: true, help: 'Av: navnet brukes slik det er skrevet. Prøv av hvis appen ikke finner serveren.', rowWhen: (r) => !r.url_path },
+                { type: 'text', name: 'fallback_url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
+              ] },
           ] },
           // «Bytt entiteter»: vær + per person «· hjemme», «· søvn» og «Sone når borte» (samme people[]-felt som Personer).
           { type: 'section', id: 'overrides', label: 'Bytt entiteter', icon: 'mdi:swap-horizontal', fields: [
@@ -882,16 +947,25 @@
     }
     get cardSize() { return 2; }
     customize(focus) { return M.hjemCustomize(this, focus); }
-    // Gjeldende server = den der new URL(url).origin er lik location.origin eller origin til hass.auth.data.hassUrl.
-    // Ingen treff → cur = -1 (ingen «Du er her»; menyen viser «Denne serveren · <host>»). Ingen lokal «valgt»-tilstand.
+    // Dette stedet (fiks 16.3): this_server { name, icon, color } (eldre place_name) → ellers stedet i listen med samme
+    // navn eller samme adresse (fallback_url-origin = location.origin / hassUrl) → ellers hass.config.location_name.
+    // cur = indeksen til dette stedet i listen (skjules i menyen), -1 = ikke i listen.
     _server() {
       const c = this.config, h = this.hass;
-      const here = c.place_name || (h && h.config && h.config.location_name) || 'Hjem';
-      const list = Array.isArray(c.servers) ? c.servers.filter((x) => x && x.name) : [];
+      const ts = c.this_server && typeof c.this_server === 'object' ? c.this_server : {};
+      const list = (Array.isArray(c.servers) ? c.servers : []).map((x) => M.hjemServerNorm(x)).filter((x) => x && x.name);
       const org = (u) => { try { return new URL(u).origin; } catch (e) { return null; } };
-      const mine = [location.origin, org(h && h.auth && h.auth.data && h.auth.data.hassUrl)].filter(Boolean);
-      const cur = list.findIndex((x) => x.url && mine.includes(org(x.url)));
-      return { name: cur >= 0 ? list[cur].name : here, list, cur, host: location.host || here };
+      const hu = h && h.auth && h.auth.data && h.auth.data.hassUrl;
+      const mine = [location.origin, org(hu)].filter(Boolean);
+      const same = (x, y) => String(x || '').trim().toLowerCase() === String(y || '').trim().toLowerCase();
+      let name = String(ts.name || c.place_name || '').trim();
+      let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
+      if (cur < 0) cur = list.findIndex((x) => x.fallback_url && mine.includes(org(x.fallback_url)));
+      if (!name) name = cur >= 0 ? list[cur].name : (h && h.config && h.config.location_name) || 'Hjem';
+      const cs = cur >= 0 ? list[cur] : {};
+      let host = location.hostname || '';
+      if (!host && hu) { try { host = new URL(hu).hostname; } catch (e) { /* */ } }
+      return { name, icon: ts.icon || cs.icon || 'mdi:home', color: ts.color || cs.color || C.green, list, cur, host: host || name };
     }
     _weather() {
       const id = M.pick(this.config, 'weather', M.all(this.hass, 'weather')[0]);
@@ -901,7 +975,7 @@
       return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}` };
     }
     render() {
-      const c = this.config, h = this.hass, Md = c.mode || 'familie';
+      const c = this.config, h = this.hass, Md = modeOf(c);
       const rd = (id) => this.s(id);
       const P = M.hjemPersons(h, c);
       const people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
@@ -912,14 +986,13 @@
       const greet = fill(c.greeting != null ? c.greeting : '👋 {name}!');
       const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
       const W = this._weather();
-      const sub = Md === 'under' ? srv.name : (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
+      const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
       const big = Md === 'stor';
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
       if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
-      else if (Md === 'kompakt') { fs = '22px'; ht = '26px'; }
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
@@ -966,7 +1039,7 @@
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
               <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
-            ${sub ? `<button class="sub" ${c.weather_tap !== false && Md !== 'under' ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id && Md !== 'under' ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false && Md !== 'under' ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
+            ${sub ? `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
           <div class="faces">${facesHTML}${empty}</div>
         </div>
@@ -1054,13 +1127,17 @@
     // Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet (touch → click) aldri lukker menyen igjen.
     // Haptic gis av gesten (_titleTap), ingen ved lukking via bakteppet.
     _srvClose() { if (this._srv) this._srv.close(); }
+    // Menyen (fiks 16.3): «Du er her» øverst (ikke trykkbar, grønn hake), deretter de andre stedene. Samme sted står
+    // aldri to ganger. Trykk → _goServer (HAs egen url-handling, som tap_action: action: url).
     _serverMenu(anchor) {
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
-      const top = S.cur < 0 ? `<div class="me">${M.icon('mdi:map-marker-outline', 16, 'color:#7f7f7f')}<span>Denne serveren · ${esc(S.host)}</span></div>` : '';
+      const hc = M.color(S.color, C.green);
+      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i>Denne serveren · ${esc(S.host)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:#232323')}</span></div>`;
       const rows = S.list.map((v, i) => {
-        const act = i === S.cur, col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}" style="background:${act ? 'rgba(255,255,255,0.08)' : 'transparent'}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm">${esc(v.name)}</span>${act ? '<span class="here">Du er her</span>' : M.icon('chevron_right', 20, 'color:#979797')}</button>`;
+        if (i === S.cur) return '';
+        const col = M.color(v.color, C.blue);
+        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm">${esc(v.name)}</span>${M.icon('chevron_right', 20, 'color:#979797')}</button>`;
       }).join('');
       const css = `.bg{background:transparent}
         .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);
@@ -1068,56 +1145,144 @@
         :host(.on) .sh{opacity:1;transform:none}
         .body{display:flex;flex-direction:column;gap:2px}
         .hd{font-size:11px;font-weight:500;color:#979797;padding:0 10px 4px}
-        .me{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 10px;font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .me span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+        .me{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 8px;border-radius:14px;background:rgba(255,255,255,0.08);cursor:default;user-select:none;-webkit-user-select:none}
+        .me .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .me b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .me i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ok{width:22px;height:22px;border-radius:11px;flex:none;display:grid;place-items:center;background:var(--green,#66d19e)}
+        .sep{height:1px;margin:4px 10px;background:rgba(255,255,255,0.08)}
         .sv{height:52px;padding:0 8px;border-radius:14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left}
         .sv:hover{background:rgba(255,255,255,0.06)}
+        .sv:active{transform:scale(.98)}
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
         .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .here{height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;font-size:11px;font-weight:600;background:rgb(115 185 242);color:#1f2a36;white-space:nowrap;flex:none}`;
-      const ov = M.overlay({ html: `<span class="hd">Bytt sted</span>${top}${rows}`, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
+        .none{padding:8px 10px 6px;font-size:12px;color:#7f7f7f}`;
+      const html = `<span class="hd">Bytt sted</span>${top}${rows ? `<span class="sep"></span>${rows}` : '<span class="none">Legg til steder i Tilpass header → Steder</span>'}`;
+      const ov = M.overlay({ html, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
       this._srv = ov;
       ov.root.addEventListener('click', (e) => {
         const b = e.composedPath().find((n) => n && n.dataset && n.dataset.a);
-        if (!b) return;
-        const i = Number(b.dataset.i), v = S.list[i];
+        if (!b || b.dataset.a !== 'go') return;
+        const v = S.list[Number(b.dataset.i)];
         M.haptic('light');
         ov.close();
-        // Samme dashbord og popup (hash) på den andre serveren
-        if (v && v.url && i !== S.cur) window.location.href = String(v.url).replace(/\/$/, '') + location.pathname + location.hash;
+        if (v) this._goServer(v);
       });
     }
+    // Bytt server: i HA-appen via HAs url-handling (hass-action → tap_action: url, som brukerens eget oppsett),
+    // i nettleser: fallback_url hvis satt, ellers melding. Aldri location.href til en http-adresse.
+    _goServer(v) {
+      const url = M.hjemServerUrl(v), fb = String((M.hjemServerNorm(v) || {}).fallback_url || '').trim();
+      const deep = /^homeassistant:\/\//i.test(url);
+      if (!url || (deep && !M.hjemIsApp())) {
+        if (fb) { window.open(fb, '_self'); return 'fallback'; }
+        M.hjemToast(this, 'Bytte sted virker i Home Assistant-appen');
+        return 'toast';
+      }
+      const config = { tap_action: { action: 'url', url_path: url } };
+      if (this.isConnected && document.querySelector('home-assistant')) {
+        this.dispatchEvent(new CustomEvent('hass-action', { bubbles: true, composed: true, detail: { config, action: 'tap' } }));
+        return 'hass-action';
+      }
+      window.open(url, '_self');
+      return 'open';
+    }
+    // Person-hurtigarket (fiks 16.14): Hjemme/Borte styrer people[].home, Våken/Sover styrer people[].sleep (toveis).
+    // Aktivt segment = entitetens faktiske tilstand (live). Trykk/dra → optimistisk bytte + tjenestekall; har entiteten
+    // ikke endret seg innen 5 s, går segmentet tilbake med «Kunne ikke endre {navn}». binary_sensor → «Styres av {navn}».
+    // Uten hjemme-bryter: person.* vises (ikke skrivbar) med hint; uten søvn-bryter er Våken/Sover deaktivert.
     _quick(pid) {
-      const card = this;
-      const render = () => {
+      const card = this, pend = {};
+      const onOf = (st) => !!st && st.state === 'on';
+      const info = () => {
         const c = card.config, h = card.hass, p = M.hjemPersonInfo(h, pid, c, (x) => card.s(x));
-        const zi = p.home ? 0 : 1, si = p.sleep ? 1 : 0;
-        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${p.home ? C.green : C.purple}">${faceInner(p, 96, card._picBad)}</div>
-          <div class="nm"><b>${esc(p.name)}</b><span>${esc(p.home ? 'Hjemme' : p.place)} · ${p.sleep ? 'Sover' : 'Våken'}</span></div>
-          ${segHTML('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], !p.presId)}
-          ${segHTML('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], !p.sleepId)}
+        const seg = (key, ent) => {
+          const st = ent ? card.s(ent) : null, d = ent ? ent.split('.')[0] : null, nm = ent ? M.name(h, ent) || ent : '';
+          const ro = !ent || d === 'binary_sensor' || !st || M.unavailable(st);
+          const hint = !ent ? (key === 'zone' ? 'Velg hjemme-bryter i Tilpass header' : 'Velg søvn-bryter i Tilpass header')
+            : d === 'binary_sensor' ? `Styres av ${nm}` : !st || M.unavailable(st) ? `${nm} er utilgjengelig` : '';
+          return { ent, st, d, nm, ro, hint, off: key === 'sleep' && !ent };
+        };
+        return { p, h, Z: seg('zone', p.presId), S: seg('sleep', p.sleepId) };
+      };
+      // Ønsket tilstand for bryteren: Hjemme → på; Sover → på (omvendt med «På = våken»)
+      const want = (key, i, p) => (key === 'zone' ? i === 0 : (i === 1) !== !!p.sleepInv);
+      const settle = (key, X) => {
+        const q = pend[key];
+        if (q && onOf(X.st) === q.want) { clearTimeout(q.timer); delete pend[key]; }
+      };
+      const segH = (key, idx, opts, X) => `<div class="seg ${X.ro ? 'ro' : ''} ${X.off ? 'off' : ''}" data-seg="${key}" aria-disabled="${X.ro}"><span class="ind" style="left:calc(4px + (100% - 8px) * ${idx / 2});background:${opts[idx][3]}"></span>${opts.map(([icon, label], i) => `<span class="o ${i === idx ? 'on' : ''}" ${X.ro ? '' : `data-a="seg" data-seg="${key}" data-i="${i}" data-haptic="selection"`} role="button" aria-pressed="${i === idx}">${M.icon(icon, 20)}${esc(label)}</span>`).join('')}</div>${X.hint ? `<span class="hint">${esc(X.hint)}</span>` : ''}`;
+      const render = () => {
+        const { p, Z, S } = info();
+        settle('zone', Z); settle('sleep', S);
+        const zi = pend.zone ? pend.zone.i : p.home ? 0 : 1;
+        const si = pend.sleep ? pend.sleep.i : p.sleep ? 1 : 0;
+        const place = pend.zone ? (zi === 0 ? 'Hjemme' : 'Borte') : p.place;
+        const slp = pend.sleep ? si === 1 : p.sleep;
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${slp ? C.purple : zi === 0 ? C.green : p.status.kind === 'zone' && !pend.zone ? p.stCol : 'var(--gray500,#696969)'}">${faceInner(p, 96, card._picBad)}</div>
+          <div class="nm"><b>${esc(p.name)}</b><span data-st>${esc(place)} · ${slp ? 'Sover' : 'Våken'}</span></div>
+          ${segH('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], Z)}
+          ${segH('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], S)}
           <button class="done" data-a="close">Ferdig</button>
           <button class="more" data-a="details">Mobil, soner og søvn${M.icon('chevron_right', 18)}</button>`;
       };
+      let sheet = null;
       const setSeg = (key, i) => {
-        const p = M.hjemPersonInfo(card.hass, pid, card.config);
-        const ent = key === 'zone' ? p.presId : p.sleepId;
-        if (!ent) { M.hjemToast(card, key === 'zone' ? 'Hjemme/borte styres av sporing' : 'Velg søvn-entitet i tilpasning'); return; }
-        const on = key === 'zone' ? i === 0 : i === 1;
-        const d = ent.split('.')[0];
-        if (d === 'binary_sensor') { M.moreInfo(card, ent); return; }
-        M.call(card.hass, d === 'switch' ? 'switch' : 'input_boolean', on ? 'turn_on' : 'turn_off', { entity_id: ent });
+        const { p, h, Z, S } = info(), X = key === 'zone' ? Z : S;
+        if (X.ro) { if (X.hint) M.hjemToast(card, X.hint); return; }
+        const w = want(key, i, p);
+        if (pend[key]) { clearTimeout(pend[key].timer); delete pend[key]; }
+        if (onOf(X.st) === w) { if (sheet) sheet.update(); return; }
+        const fail = () => {
+          if (!pend[key] || pend[key].id !== q.id) return;
+          clearTimeout(pend[key].timer); delete pend[key];
+          M.hjemToast(card, `Kunne ikke endre ${X.nm}`);
+          M.haptic('failure');
+          if (sheet) sheet.update();
+        };
+        const q = { i, want: w, ent: X.ent, id: M.uid(), timer: 0 };
+        q.timer = setTimeout(fail, 5000);
+        pend[key] = q;
+        if (sheet) sheet.update();
+        const dom = X.d === 'switch' || X.d === 'input_boolean' ? X.d : 'homeassistant';
+        try { Promise.resolve(h.callService(dom, w ? 'turn_on' : 'turn_off', { entity_id: X.ent })).catch(fail); } catch (e) { fail(); }
       };
-      M.hjemSheet(card, {
+      sheet = M.hjemSheet(card, {
         render,
-        onAct(a, el, sheet) {
+        onAct(a, el, sh) {
           if (a === 'seg') { const seg = el.closest('.seg'); if (seg && seg.__dragged) return; setSeg(el.dataset.seg, Number(el.dataset.i)); }
-          if (a === 'details') { sheet.ov.close(); setTimeout(() => M.openPopup('#person-' + objId(pid)), 30); }
+          if (a === 'details') { sh.ov.close(); setTimeout(() => card._openPeople(pid), 30); }
         },
-        drag(seg, e, sheet) { M.hjemSegDrag(seg, e, (i) => { setSeg(seg.dataset.seg, i); sheet.update(); }); },
+        drag(seg, e, sh) { M.hjemSegDrag(seg, e, (i) => { setSeg(seg.dataset.seg, i); sh.update(); }); },
       });
+      return sheet;
+    }
+    // «Mobil, soner og søvn ›»: «Tilpass header» → Personer med denne personen utvidet
+    _openPeople(pid) {
+      const tag = customElements.get('msh-hjem-editor') ? 'msh-hjem-editor' : 'msh-editor';
+      const r = M.openEditor(this, { cardClass: this.constructor, focus: 'people', tag });
+      const ed = r && r.editor;
+      if (!ed || !ed._findRows) return r;
+      const f = ed._findRows('people');
+      const i = f ? ed._rowsOf(f).findIndex((x) => x && x.person === pid) : -1;
+      if (i >= 0) { ed._ropen.people = i; ed._render(); }
+      return r;
+    }
+    // Fiks 16.4: lagret mode under/kompakt vises som Familie og skrives tilbake én gang (ki-store), uten melding.
+    _migrateMode() {
+      const raw = this._rawConfig || {};
+      if (this._modeMig || !OLD_MODES.includes(raw.mode)) return;
+      if (!this.hass || !M.store || !M.store.loaded || M.draftOf(this)) return;
+      const key = this._yamlConfig ? M.storeKey(this._yamlConfig, this) : null;
+      if (!key) return;
+      this._modeMig = true;
+      try { Promise.resolve(M.store.set(key + '.mode', 'familie')).catch(() => {}); } catch (e) { /* */ }
     }
     afterRender() {
+      this._migrateMode();
+      // Fiks 16.2: msh-hjem-card setter avstanden til prosaen (prose_gap) – si fra når headerens config er tegnet
+      const host = this.getRootNode && this.getRootNode().host;
+      if (host && typeof host._proseGap === 'function') host._proseGap();
       // Bilde som ikke laster → ikon (huskes per URL)
       this.shadowRoot.querySelectorAll('img[data-pic]').forEach((img) => {
         if (img.__e) return;
@@ -1127,7 +1292,7 @@
         if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
       });
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
-      if ((this.config.mode || 'familie') === 'stor') {
+      if (modeOf(this.config) === 'stor') {
         const col = this.shadowRoot.querySelector('.lc');
         if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._roW) return; this._roW = w; this._gFit = null; this.update(); }); this._ro.observe(col); }
         requestAnimationFrame(() => {

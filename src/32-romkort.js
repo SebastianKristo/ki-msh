@@ -259,11 +259,12 @@
     .rk-t{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:1}
     .rk-h{font-size:13px;color:var(--gray600,#7f7f7f)}
     .kl .rk-tv{right:72px}
-    /* Termostat-stepper: vertikal pille #2f2f2f med tynn kant, full høyde under ikon-sirkelen (4 px luft) */
-    .rk-kv{position:absolute;right:4px;top:68px;bottom:4px;width:60px;border-radius:30px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
-    .rk-kv .rk-kb{width:60px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:var(--gray900,#c7c7c7);touch-action:manipulation;transition:transform .15s}
-    .rk-kv .rk-kb:active{transform:scale(.86)}
-    .rk-kv .rk-kt{font-size:15px;font-weight:500;flex:none}
+    /* Termostat-stepper: vertikal pille ett trinn lysere enn kortet (16.1: #404040 på #2f2f2f; på #3a3a3a-flate
+       settes --rk-kv-bg: #454545) med tynn kant, full høyde under ikon-sirkelen (4 px luft). Trykk: #4a4a4a ~120 ms. */
+    .rk-kv{position:absolute;right:4px;top:68px;bottom:4px;width:60px;border-radius:30px;background:var(--rk-kv-bg, var(--gray300,#404040));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);color:#fafafa;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    .rk-kv .rk-kb{width:60px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:#fafafa;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
+    .rk-kv .rk-kb:active{transform:scale(.86);background:#4a4a4a;transition:transform .15s,background 0s}
+    .rk-kv .rk-kt{font-size:15px;font-weight:500;flex:none;color:#fafafa}
     .rk-s{display:flex;align-items:center;gap:12px;height:66px;padding:0 6px 0 4px;border-radius:33px;box-shadow:none}
     .rk-sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .rk-sn{font-size:15px;font-weight:500}

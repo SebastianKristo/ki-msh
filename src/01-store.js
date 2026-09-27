@@ -184,6 +184,14 @@
       opts = opts || {};
       const before = path ? get(data, path) : data;
       data = path ? setIn(data, path, value) : (value || {});
+      // now: lagres straks også mens et utkast er åpent (eksplisitte handlinger som import) – bare denne stien sendes,
+      // resten av utkastet venter på Ferdig, og Avbryt ruller ikke stien tilbake.
+      if (tx && opts.now && path) {
+        tx.snap = setIn(tx.snap, path, value); tx.touched.delete(path);
+        emit(path, opts.src);
+        if (!hass || !hass.callWS) return Promise.resolve({ ok: false, error: 'Ingen forbindelse til Home Assistant' });
+        return hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: tx.snap }).then(() => { cache(); return { ok: true }; }, (e) => ({ ok: false, error: (e && e.message) || String(e) }));
+      }
       if (tx) { tx.touched.add(path || ''); emit(path, opts.src); return Promise.resolve({ ok: true, draft: true }); } // utkast: sendes ved tx.commit()
       if (!opts.confirm) { cache(); emit(path, opts.src); return push(opts.immediate); }
       // confirm (tilpass-arkenes Ferdig): cache + varsel først når HA har bekreftet; feil → stien rulles tilbake

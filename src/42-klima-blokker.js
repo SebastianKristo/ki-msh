@@ -95,7 +95,7 @@
       KI.entryAsked = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config_entries/get', domain: DOMENE }))
         .then((r) => { KI.entry = Array.isArray(r) ? (r.find((e) => e && e.domain === DOMENE) || null) : undefined; })
-        .catch(() => { KI.entry = undefined; })
+        .catch((e) => { console.warn('msh-klima-card', 'config_entries/get', e); KI.entry = undefined; })
         .then(() => { kiLog(M.lastHass || hass); kiBump(); });
     }
     // Registeret hentes bare når noe tyder på avvikende ID-er: statussensoren er ikke funnet, eller en ki_energi-entitet
@@ -105,7 +105,7 @@
       KI.regAsked = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config/entity_registry/list' }))
         .then((r) => { if (Array.isArray(r)) { KI.reg = r.filter((e) => e && e.platform === DOMENE); kiBump(); } })
-        .catch(() => { /* ikke admin / ikke tilgjengelig – oppslaget fra hass.entities står */ });
+        .catch((e) => { console.warn('msh-klima-card', 'config/entity_registry/list (ikke admin?) – bruker hass.entities', e); });
     }
   }
   function kiLog(hass) {
@@ -392,7 +392,7 @@
         kb.hist[key] = { t: Date.now(), d: d || {} };
         delete kb.pending[key];
         if (kb.drag) kb.dirty = true; else if (kb.open || card.isOpen) card.update && card.update();
-      }).catch(() => { delete kb.pending[key]; });
+      }).catch((e) => { console.warn('msh-klima-card', e); delete kb.pending[key]; });
     }
     return c ? c.d : null;
   }
@@ -1476,7 +1476,7 @@
       case 'k-more': if (d.id) M.moreInfo(card, mapId(d.id)); return true;
       case 'k-tab': if (d.seg) uiSet(card, { klima_vb: d.seg }); goTab(card, d.tab); return true;
       case 'k-svc': {
-        let data = {}; try { data = JSON.parse(d.json || '{}'); } catch (e) { /* */ }
+        let data = {}; try { data = JSON.parse(d.json || '{}'); } catch (e) { console.error('msh-klima-card', e); }
         M.haptic('light');
         svc(card, d.dom, d.svc, data, d.ok);
         return true;
@@ -1485,7 +1485,7 @@
         const k = d.k;
         if (kb.armed && kb.armed.k === k && Date.now() < kb.armed.until) {
           kb.armed = null; clearTimeout(kb.armT);
-          let data = {}; try { data = JSON.parse(d.json || '{}'); } catch (e) { /* */ }
+          let data = {}; try { data = JSON.parse(d.json || '{}'); } catch (e) { console.error('msh-klima-card', e); }
           svc(card, d.dom, d.svc, data, d.ok);
         } else {
           kb.armed = { k, until: Date.now() + 3000 };
@@ -1596,7 +1596,7 @@
       t.style.right = x > 0.6 ? `calc(${((1 - x) * 100).toFixed(2)}% + 6px)` : 'auto';
       if (kb.scrubI !== i) { kb.scrubI = i; M.haptic('selection'); }
     };
-    el.addEventListener('pointerdown', (e) => { if (e.button) return; on = true; kb.drag = true; card._busy = true; try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ } vis(e); });
+    el.addEventListener('pointerdown', (e) => { if (e.button) return; on = true; kb.drag = true; card._busy = true; try { el.setPointerCapture(e.pointerId); } catch (x) { console.warn('msh-klima-card', x); } vis(e); });
     el.addEventListener('pointermove', (e) => { if (on || e.pointerType === 'mouse') { if (on) e.preventDefault(); vis(e); } });
     const end = () => {
       const box = el.querySelector('.kb-scrub'); if (box) box.hidden = true;
@@ -1617,7 +1617,7 @@
     el.addEventListener('pointerdown', (e) => {
       if (e.button || el.classList.contains('dis')) return;
       i0 = i1 = idx(e); kb.drag = true; card._busy = true;
-      try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      try { el.setPointerCapture(e.pointerId); } catch (x) { console.warn('msh-klima-card', x); }
       M.haptic('selection'); preview();
     });
     el.addEventListener('pointermove', (e) => { if (i0 == null) return; e.preventDefault(); const i = idx(e); if (i !== i1) { i1 = i; M.haptic('selection'); preview(); } });
