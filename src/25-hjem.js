@@ -1,4 +1,4 @@
-/* msh-hjem-card · Hjem-visningen som ÉN container. Kilde: Hjem v2.dc.html layoutVals()/isWide()/curZoom().
+/* msh-hjem-card · Hjem-visningen som ÉN container. Kilde: Hjem v3.dc.html (mobil + Fold-oppsettet, isFold).
  * Tegner selv griden og oppretter barnekortene (header, prosa, faner/romkort, søppel, strømpris, gjøremål) i riktige
  * områder, sender hass videre og gir hvert barn egen config under `cards.<navn>` (type + card_id → barnas egen «Tilpass»
  * lagrer via MSH.saveCardConfig, som finner kortet via card_id hvor som helst i lovelace-configen).
@@ -13,14 +13,14 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc;
-  // [nøkkel, tag, navn, område (fra den tidligere brede layouten)]
+  // [nøkkel, tag, navn]
   const BLOCKS = [
-    ['header', 'msh-hjem-header-card', 'Header (hilsen, vær, personer)', 'head'],
-    ['prosa', 'msh-prosa-card', 'Prosa', 'head'],
-    ['faner', 'msh-hjem-faner-card', 'Faner og romkort', 'rooms'],
-    ['soppel', 'msh-soppel-card', 'Søppel', 'trash'],
-    ['strom', 'msh-strompris-card', 'Strømpris', 'strom'],
-    ['gjoremal', 'msh-hjem-gjoremal-card', 'Gjøremål', 'todo'],
+    ['header', 'msh-hjem-header-card', 'Header (hilsen, vær, personer)'],
+    ['prosa', 'msh-prosa-card', 'Prosa'],
+    ['faner', 'msh-hjem-faner-card', 'Faner og romkort'],
+    ['soppel', 'msh-soppel-card', 'Søppel'],
+    ['strom', 'msh-strompris-card', 'Strømpris'],
+    ['gjoremal', 'msh-hjem-gjoremal-card', 'Gjøremål'],
   ];
   const KEYS = BLOCKS.map((b) => b[0]);
   const byKey = (k) => BLOCKS.find((b) => b[0] === k);
@@ -57,11 +57,12 @@
   class Hjem extends M.Card {
     constructor() { super(); this._kids = {}; this._geo = null; }
     static get cardName() { return 'Hjem'; }
-    static get defaults() { return { layout_mode: 'auto', zoom: true, breakout: true, show_todo: true }; }
+    static get defaults() { return { layout_mode: 'auto', breakout: true, show_todo: true }; }
     static getStubConfig() {
       const cards = {};
       BLOCKS.forEach(([k, tag]) => { cards[k] = { type: 'custom:' + tag, card_id: M.uid() }; });
       cards.soppel.popup_hash = '#soppel';
+      if (M.hjemTiles && M.hjemTiles.CAM_NAV) cards.faner.tile_cfg = { cam: { tap_card: { ...M.hjemTiles.CAM_NAV } } }; // fiks 19.3
       return { card_id: M.uid(), layout_mode: 'auto', cards };
     }
     static get schema() {
@@ -90,6 +91,8 @@
       const first = !this._hass;
       this._hass = h;
       Object.values(this._kids).forEach((k) => { k.hass = h; });
+      if (M.ringTick) M.ringTick(h); // 19.18: ringeklokke (50-ringeklokke.js)
+      if (this._ring) this._ring.hass = h;
       if (first) { this._schedule(true); this._checkOpen(); }
       else if (this._lastAreas !== h.areas) this._schedule(true);
     }
@@ -103,6 +106,7 @@
       }
       if (!this._onRs) { this._onRs = () => this._measure(); window.addEventListener('resize', this._onRs); }
       requestAnimationFrame(() => this._measure());
+      if (M.ringHjemBind) M.ringHjemBind(this); // 19.18/19.19: ringe-kort + #ringeklokke fra URL ved kaldstart
     }
     disconnectedCallback() {
       super.disconnectedCallback();
@@ -134,12 +138,19 @@
       // Toppmarg: trekk opp HA-viewets egen luft (maks 64 px) – kun målt øverst på siden.
       let offT = this._geo ? this._geo.offT : 0;
       if (out && (window.scrollY || 0) === 0 && !D.sc) { const t = Math.round(host.top - D.t); offT = t >= 0 && t <= 64 ? t : 0; }
-      return { offL, offR, offT, w, fold, pad: fold ? M.railPad() : 0, lm };
+      return { offL, offR, offT, w, fold, pad: fold ? M.railPad() : 0, lm, cw: Math.round(fw) };
     }
     _measure() {
       if (!this.isConnected || !this._config) return;
       const g = this._calc(), o = this._geo;
-      if (!o || ['offL', 'offR', 'offT', 'w', 'fold', 'pad'].some((k) => o[k] !== g[k])) { this._geo = g; this.update(); }
+      if (!o || ['offL', 'offR', 'offT', 'w', 'fold', 'pad'].some((k) => o[k] !== g[k])) { this._geo = g; this._logLayout(g); this.update(); }
+    }
+    // Fiks 19.11: logg valgt layout én gang (og ved bytte) – «[ki-home] layout=fold 840px» + bredde og berøringspunkter
+    _logLayout(g) {
+      const k = (g.fold ? 'fold' : 'mobil') + ' ' + g.cw + 'px';
+      if (g.cw <= 0 || this._logK === k) return;
+      this._logK = k;
+      console.info(`[ki-home] layout=${k}`, { containerWidth: g.cw, maxTouchPoints: navigator.maxTouchPoints || 0, layout_mode: g.lm });
     }
     _order() {
       const c = this.config, hid = Array.isArray(c.hidden) ? c.hidden : [];
@@ -163,7 +174,7 @@
         this._kids[k] = el;
       }
       if (k === 'faner') {
-        const e = { wide: false, pc: false, fold: !!G.fold };
+        const e = { fold: !!G.fold };
         if (!el.mshEmbedded || el.mshEmbedded.fold !== e.fold) { el.mshEmbedded = e; if (el.__cfgJson) el.update && el.update(); }
       }
       // Fiks 18.4: headeren skaleres (0,72 / mellomrom 0,8) i Fold – oppå brukerens egne størrelser, config endres ikke
@@ -180,10 +191,12 @@
       this._lastAreas = this.hass && this.hass.areas;
       // layout «Mobil»/«Stor» endret i editoren → mål på nytt (Fold-oppsettet følger valget straks)
       const G = this._geo && this._geo.lm === (this.config.layout_mode || 'auto') ? this._geo : (this._geo = this._calc());
+      this._logLayout(G);
       const vis = this._order();
       this._vis = vis;
       const slot = (k) => `<div class="s s-${k}" data-key="s-${k}" data-slot="${k}" data-nomorph></div>`;
-      const inner = vis.map(slot).join('');
+      // 19.18: ringe-kortet – i fanekortets slot under fanelinjen; egen slot øverst bare når fanekortet er skjult
+      const inner = (M.ringShowCard && M.ringShowCard() && !vis.includes('faner') ? slot('ring') : '') + vis.map(slot).join('');
       const gs = G.fold ? `padding-left:${G.pad}px` : '';
       return `<div class="out" style="margin:${-G.offT}px ${-G.offR}px 0 ${-G.offL}px">
         <div class="g mob ${G.fold ? 'fold' : ''}" style="${gs}">${inner}</div>
@@ -196,10 +209,12 @@
         if (s && el && el.parentNode !== s) s.appendChild(el);
       });
       // skjulte blokker: fjern fra DOM (beholdes i minnet)
-      Object.keys(this._kids).forEach((k) => { if (!(this._vis || []).includes(k) && this._kids[k].parentNode) this._kids[k].remove(); });      this._proseGap();
+      Object.keys(this._kids).forEach((k) => { if (!(this._vis || []).includes(k) && this._kids[k].parentNode) this._kids[k].remove(); });
+      if (M.ringHjem) M.ringHjem(this); // 19.18
+      this._proseGap();
     }
     // Fiks 16.2: «Avstand til prosa» (header.prose_gap, −20–60 px, standard 16) = synlig mellomrom mellom header og prosa,
-    // som margin-top på prosa-sloten når den står rett under headeren (mobil og bred). Kilden er header-kortets config
+    // som margin-top på prosa-sloten når den står rett under headeren (mobil og Fold). Kilden er header-kortets config
     // (også utkastet mens «Tilpass header»/«Tilpass Hjem» er åpent); headeren kaller denne etter hver tegning.
     _proseGap() {
       const s = this.shadowRoot && this.shadowRoot.querySelector('[data-slot="prosa"]');
@@ -223,5 +238,5 @@
       `;
     }
   }
-  M.define('msh-hjem-card', Hjem, 'MSH Hjem', 'Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpris og gjøremål med designets marger (mobil og bred).');
+  M.define('msh-hjem-card', Hjem, 'MSH Hjem', 'Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpris og gjøremål med designets marger (mobil og Fold).');
 })();

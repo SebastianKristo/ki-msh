@@ -558,7 +558,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 
 ## `msh-hjem-card`
 
-Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpris og gjøremål med designets marger (mobil og bred).
+Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpris og gjøremål med designets marger (mobil og Fold).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -612,34 +612,7 @@ Rom-popupen: rullegardin, scener, lys, enheter, klima, media og sensorer – aut
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `gap` | Mellom seksjonene · range | Mellomrom |
-| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
-| `pad_bottom` | Luft i bunnen · range | Mellomrom |
-| `look.col` | Romfarge · color | Utseende |
-| `icon_color_mode` | Ikonfarge på romkortet (Hjem) (lights \| always \| never) | Utseende |
-| `look.icon` | Rom-ikon · icon | Utseende |
-| `icon_tap` | Trykk på ikonet (romkortet på Hjem) (toggle_lights \| open_popup \| none) | Handlinger |
-| `area` | Rom (område) · area |  |
-| `overrides.climate` | Termostat · entity | Klima |
-| `overrides.temperature` | Temperatursensor · entity | Klima |
-| `overrides.humidity` | Fuktsensor · entity | Klima |
-| `include.climate` | Ekstra termostater · entities | Klima |
-| `include.vifter` | Ekstra vifter · entities | Klima |
-| `graph_t` | Toppkort · graf temperatur · color | Klima |
-| `graph_h` | Toppkort · graf fukt · color | Klima |
-| `graph_fill` | Toppkort · fyll (0 \| 0.2 \| 0.4) | Klima |
-| `graph_width` | Toppkort · linje (1.5 \| 2 \| 3) | Klima |
-| `header_icon` | Rommets ikon i popup-headeren · boolean | Klima |
-| `klima_bg` | Klima-kort · bakgrunn · color | Klima |
-| `klima_ring` | Klima-kort · knappfarge · color | Klima |
-| `klima_btn` | Klima-kort · knapp (outline \| fill) | Klima |
-| `klima_mode` | Farg etter modus · boolean | Klima |
-| `sections · hidden_sections` | rekkefølge/synlighet: curtain, scenes, lys, dev, klima, media, sens |  |
-| `klima_order · klima_hidden` | rekkefølge/synlighet: cards, fans |  |
-| `exclude · include.{}` | skjul / legg til |  |
-| `appliance_animation` | Animasjon (full \| calm \| off) | Hvitevarer |
-| `run_threshold_w` | Kjører over (W) · number | Hvitevarer |
-| `customize_button` | Vis «Tilpass rommet»-knapp nederst · boolean |  |
+
 
 ## `msh-romkort-card`
 
@@ -779,8 +752,8 @@ KI Energi: hero med ring og timebudsjett, moduser, 8 faner (Oversikt, Soner, Ene
 | `hero_style` | Toppkort-stil (ring \| hus \| batteri \| maaler \| puls \| blokker) | Visning |
 | `layout.show_modes` | Modus-bobler · boolean | Visning |
 | `layout.tab_style` | Fanestil (both \| text \| icon) | Visning |
-| `layout.default_tab` | Standardfane (oversikt \| soner \| energi \| vann \| lading \| tanker \| oppsett \| avansert) | Faner |
-| `remember_tab` | Husk sist valgte fane · boolean | Faner |
+| `layout.default_tab` | Åpne med (oversikt \| soner \| energi \| vann \| lading \| tanker \| oppsett \| avansert) | Faner |
+| `layout.remember_tab` | Husk siste fane · boolean | Faner |
 | `layout.tab_order · layout.hidden_tabs` | rekkefølge/synlighet: oversikt, soner, energi, vann, lading, tanker, oppsett, avansert | Faner |
 | `layout.block_order.oversikt · layout.hidden_blocks.oversikt` | rekkefølge/synlighet: siste12, forventet, leggetid, styrer, tiltak, budsjett, varmtvann, borte | Blokker |
 | `layout.block_order.soner · layout.hidden_blocks.soner` | rekkefølge/synlighet: soner | Blokker |
@@ -986,6 +959,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
 | `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
 | `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
+| `players.stue_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Stue TV · TV · Stue |
 | `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
 | `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
@@ -1001,6 +975,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
 | `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
 | `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
@@ -1016,6 +991,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
 | `players.prosjektor.platform` | Plattform (apple \| google) | Prosjektor · TV |
+| `players.prosjektor.remote_style` | Fjernkontroll (kompakt \| sirkel) | Prosjektor · TV |
 | `players.prosjektor.remote` | Fjernkontroll (remote) · entity | Prosjektor · TV |
 | `players.prosjektor.back_hold_action` | Hold Tilbake · action | Prosjektor · TV |
 | `players.prosjektor.home_hold_action` | Hold Hjem · action | Prosjektor · TV |
@@ -1046,6 +1022,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
 | `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
 | `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
+| `players.stue_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Stue TV · TV · Stue |
 | `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
 | `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
@@ -1061,6 +1038,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
 | `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
 | `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
@@ -1076,6 +1054,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
 | `players.prosjektor.platform` | Plattform (apple \| google) | Prosjektor · TV |
+| `players.prosjektor.remote_style` | Fjernkontroll (kompakt \| sirkel) | Prosjektor · TV |
 | `players.prosjektor.remote` | Fjernkontroll (remote) · entity | Prosjektor · TV |
 | `players.prosjektor.back_hold_action` | Hold Tilbake · action | Prosjektor · TV |
 | `players.prosjektor.home_hold_action` | Hold Hjem · action | Prosjektor · TV |
@@ -1127,7 +1106,7 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `events_limit` | Maks antall hendelser · number | Hendelser |
 | `events_columns` | Kolonner · number | Hendelser |
 | `events_height` | Maks høyde | Hendelser |
-| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.pakke, camera.veranda, camera.garasje, camera.innkjorsel |  |
+| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.garasje, camera.innkjorsel |  |
 | `exclude · include.{kameraer}` | skjul / legg til |  |
 | `cameras.inngang.name` | Navn | Inngang |
 | `cameras.inngang.icon` | Ikon · icon | Inngang |
@@ -1137,6 +1116,14 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.inngang.privacy` | Personvern-modus · entity | Inngang |
 | `cameras.inngang.motion` | Bevegelse · entity | Inngang |
 | `cameras.inngang.last_motion` | Siste bevegelse · entity | Inngang |
+| `cameras.inngang_package_camera.name` | Navn | Inngang Package camera |
+| `cameras.inngang_package_camera.icon` | Ikon · icon | Inngang Package camera |
+| `cameras.inngang_package_camera.light` | Lys · entity | Inngang Package camera |
+| `cameras.inngang_package_camera.siren` | Sirene · entity | Inngang Package camera |
+| `cameras.inngang_package_camera.talk` | Snakk (script/button) · entity | Inngang Package camera |
+| `cameras.inngang_package_camera.privacy` | Personvern-modus · entity | Inngang Package camera |
+| `cameras.inngang_package_camera.motion` | Bevegelse · entity | Inngang Package camera |
+| `cameras.inngang_package_camera.last_motion` | Siste bevegelse · entity | Inngang Package camera |
 | `cameras.pakke.name` | Navn | Pakke |
 | `cameras.pakke.icon` | Ikon · icon | Pakke |
 | `cameras.pakke.light` | Lys · entity | Pakke |
@@ -1297,20 +1284,33 @@ Avvik (Entur SX) og avganger per stopp (Entur). #ruter
 | `stops.entur_bislett.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Bislett |
 | `stops.entur_bislett.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Bislett |
 | `stops.entur_bislett.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Bislett |
+| `stops.entur_bislett.walk_min` | Gangtid (min) · tomt = tall fra teksten · number | Stopp · navn, ikon, gangtid og linjer › Bislett |
 | `stops.entur_bislett.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Bislett |
 | `stops.entur_bislett.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Bislett |
 | `stops.entur_stoppested.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
 | `stops.entur_stoppested.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
 | `stops.entur_stoppested.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
+| `stops.entur_stoppested.walk_min` | Gangtid (min) · tomt = tall fra teksten · number | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
 | `stops.entur_stoppested.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
 | `stops.entur_stoppested.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Majorstuen |
 | `stops.entur_holbergs_plass.name` | Navn | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
 | `stops.entur_holbergs_plass.icon` | Ikon · icon | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
 | `stops.entur_holbergs_plass.walk` | Gangtid / tekst | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
+| `stops.entur_holbergs_plass.walk_min` | Gangtid (min) · tomt = tall fra teksten · number | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
 | `stops.entur_holbergs_plass.lines` | Linjer (line_whitelist) · tomt = alle | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
 | `stops.entur_holbergs_plass.count` | Antall avganger · number | Stopp · navn, ikon, gangtid og linjer › Holbergs plass |
 | `overrides.{avvik}` | bytt entitet |  |
-| `show_disruptions` | Vis avvikskort · øverst i popupen · boolean | Visning |
+| `hero` | Toppkort · nedtelling til neste avgang du rekker · boolean | Visning |
+| `hero_stop` | Toppkort-stopp ( \| sensor.entur_bislett \| sensor.entur_stoppested \| sensor.entur_holbergs_plass) | Visning |
+| `timeline` | Tidslinje · neste 30 min · boolean | Visning |
+| `go_now` | «Gå nå»-varsel · boolean | Visning |
+| `show_trips` | Reise · Til skolen / Hjem · boolean | Visning |
+| `platform` | Perrong / spor · boolean | Visning |
+| `aimed` | Forsinkelse og rutetid · boolean | Visning |
+| `next` | Neste etter («så 12 min») · boolean | Visning |
+| `occupancy` | Belegg · boolean | Visning |
+| `updated` | Sist oppdatert · boolean | Visning |
+| `show_disruptions` | Vis avvikskort · rett under toppkortet · boolean | Visning |
 | `hide_zero` | Skjul når ingen avvik · boolean | Visning |
 | `planned` | Ta med planlagte avvik · boolean | Visning |
 | `walk` | Vis gangtid · teksten ved hvert stopp · boolean | Visning |
@@ -1376,6 +1376,31 @@ Dørlås-popup (#dorlas): status, lås/lås opp med hold eller PIN, batteri, aut
 | `code_length` | PIN-lengde (auto \| 4 \| 6) | Opplåsing |
 | `sections · hidden_sections` | rekkefølge/synlighet: battery, auto, log |  |
 | `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-ringeklokke-card`
+
+Ringeklokke-popup (#ringeklokke): live-video, deteksjoner, Ta bilde / Lås opp (hold) / Avvis, svar via høyttaleren og siste hendelser.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `ring_entity` | Ringe-utløser (binary_sensor.*_doorbell / event.*) · entity | Enhet |
+| `camera` | Kamera · entity | Enhet |
+| `package_camera` | Pakkekamera · entity | Enhet |
+| `lock` | Lås som låses opp · entity | Enhet |
+| `speaker` | Høyttaler for svar · entity | Enhet |
+| `tts` | TTS-tjeneste · entity | Enhet |
+| `hold_ms` | Hold-tid for Lås opp (500 \| 1000 \| 2000 \| 0) | Handlinger |
+| `mute_min` | «Avvis» demper ringelyden i (0 \| 5 \| 15 \| 60) | Handlinger |
+| `snapshot` | Ta bilde · boolean | Handlinger |
+| `haptic` | Vibrer når det ringer · boolean | Handlinger |
+| `package_first` | Vis pakkekamera først (når pakke er oppdaget) · boolean | Handlinger |
+| `auto_close_min` | Lukk automatisk etter (1 \| 2 \| 5 \| 0) | Visning |
+| `auto_open` | Åpne automatisk (Popup-modus) · boolean | Visning |
+| `show_replies` | Svar via høyttaleren · boolean | Visning |
+| `show_history` | Tidligere i dag · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |

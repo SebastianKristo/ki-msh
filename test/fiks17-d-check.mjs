@@ -40,9 +40,9 @@ const setState = (id, state, attrs) => page.evaluate(async ([id, state, attrs]) 
 /* ---------------- 17.14 · søppelkortet */
 await mk('msh-soppel-card', { type: 'custom:msh-soppel-card', card_id: 'sop1' });
 let t = await page.evaluate(() => { const r = __last.shadowRoot, s = r.querySelector('.tr'); const cs = getComputedStyle(s); return { pink: s.classList.contains('pink'), n: r.querySelector('.n').textContent, l1: r.querySelector('.l1').textContent, l2: (r.querySelector('.l2') || {}).textContent, bg: cs.backgroundImage, rad: cs.borderRadius, h: Math.round(s.getBoundingClientRect().height), nfs: getComputedStyle(r.querySelector('.n')).fontSize, nfw: getComputedStyle(r.querySelector('.n')).fontWeight, ent: s.dataset.ent }; });
-ok('17.14 tømmedag (0,Restavfall,Plastavfall) → rosa kort', t.pink && t.n === '0' && /f294c8|242, 148, 200/.test(t.bg) && t.rad === '40px', t);
-ok('17.14 tittel + avfallstyper', t.l1 === 'Søppeltømming i dag' && t.l2 === 'Restavfall og Plastavfall', { l1: t.l1, l2: t.l2 });
-ok('17.14 stort tall 110px/800 og høyde ≈ 208', t.nfs === '110px' && t.nfw === '800' && t.h >= 200 && t.h <= 240, { nfs: t.nfs, h: t.h });
+ok('17.14 tømmedag (0,Restavfall,Plastavfall) → rosa kort', t.pink && t.n === '0' && /242, 146, 204/.test(t.bg) && t.rad === '30px', t);
+ok('17.14 tittel + avfallstyper', t.l1 === 'Søppel tømmes i dag' && t.l2 === 'Restavfall og Plastavfall', { l1: t.l1, l2: t.l2 });
+ok('19.10 tall 60px/600 og høyde ≈ 120', t.nfs === '60px' && t.nfw === '600' && t.h >= 100 && t.h <= 145, { nfs: t.nfs, h: t.h });
 ok('17.14 standard-entitet sensor.neste_tomming (hold → more-info)', t.ent === 'sensor.neste_tomming', t.ent);
 if (SHOTS) await page.locator('msh-soppel-card').first().screenshot({ path: SHOTS + '/soppel-rosa.png' });
 await setState('sensor.neste_tomming', '3,Papir');

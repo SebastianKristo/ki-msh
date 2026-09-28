@@ -121,6 +121,7 @@
       '#lys': () => has('light'),
       '#gjoremal': () => has('todo'),
       '#dorlas': () => has('lock'), // fiks 16.7
+      '#ringeklokke': () => plat('unifiprotect') && !!(M.ringFind && M.ringFind(hass)), // fiks 19.17: binary_sensor.*_doorbell (unifiprotect)
     };
     const hide = (config.popups || {});
     const out = [];

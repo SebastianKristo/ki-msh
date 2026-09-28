@@ -12,6 +12,8 @@
  * Hero kan ligge innebygd i hovedkortets shadow DOM (config.embedded: true, config fra hovedkortet).
  * Fjernkontroll (TV): sveip på styreflaten (config.remote_swipe, std på) og hold-handlinger på Tilbake/Hjem/Meny
  * (players.<obj>.back_hold_action / home_hold_action / menu_hold_action, HA action-format).
+ * Fiks 19.4: players.<obj>.remote_style = 'kompakt' (std) | 'sirkel' (styrekors 260 px, fem runde knapper, volumlinje).
+ * (Nøkkelen heter remote_style fordi players.<obj>.remote allerede er remote.*-entiteten.)
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -80,8 +82,8 @@
   };
   const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + p.obj] ? 'remote.' + p.obj : null);
   const REMOTE = {
-    apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', hold: { command: 'home', hold_secs: 1 } },
-    google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', hold: { command: 'KEYCODE_HOME', hold_secs: 1 } },
+    apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', mic: 'voice', hold: { command: 'home', hold_secs: 1 } },
+    google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', mic: 'SEARCH', hold: { command: 'KEYCODE_HOME', hold_secs: 1 } },
   };
   /* Hold-handlinger på Tilbake/Hjem/Meny (config <knapp>_hold_action, HA action-format, per TV under
    * players.<obj> eller felles på rotnivå). Hjem uten verdi = plattform-standard (Apple TV: `home` hold_secs 1 =
@@ -317,7 +319,7 @@
       .mvt:active{transform:scale(.9)}
     `,
   };
-  const CARD_H = 248; // Fiks 17.24: fast høyde for alle kort i karusellen (config.card_height 200–320)
+  const CARD_H = 256; // Fiks 17.24/19.5: fast høyde for alle kort i karusellen (config.card_height 200–320)
   // Faktisk TV-volum ved knapp-volum: players.<obj>.volume_sensor, ellers sensor.*_volume på samme enhet / sensor.<obj>_volume
   const volSensor = (hass, p) => {
     if (!hass) return null;
@@ -423,6 +425,8 @@
           const pl = autoPlat(h, p), rem = remoteOf(h, { ...p, pc: {} });
           fields.push(
             { type: 'select', name: b + '.platform', label: 'Plattform', options: [['apple', 'Apple TV'], ['google', 'Google TV']], default: pl },
+            // Fiks 19.4: forhåndsvalg for fjernkontrollen per TV (Kompakt = styrekors + 2×2 knapper, Sirkel = stort styrekors + fem runde knapper + volumlinje)
+            { type: 'select', name: b + '.remote_style', label: 'Fjernkontroll', options: [['kompakt', 'Kompakt'], ['sirkel', 'Sirkel']], default: 'kompakt' },
             { type: 'entity', name: b + '.remote', label: 'Fjernkontroll (remote)', domain: 'remote', auto: () => rem, help: `${REMOTE[platOf(h, p)].hw} · ${rem || 'ingen remote funnet'}` },
             ...HOLD_KEYS.map((k) => {
               const hp = holdPlan(h, c, p, k), apps = ((h.states[p.id] || {}).attributes || {}).source_list;
@@ -603,10 +607,9 @@
       if (!R.L.length) {
         const txt = R.P.all.length ? `Ingen ${R.tab === 'tv' ? 'TV-er' : 'musikkspillere'}` : 'Fant ingen mediaspillere';
         return `<div class="wrap"><div class="sw noscroll" style="--mh:${hgt}px"><section class="pc off" data-key="_none" style="background:linear-gradient(150deg, #343434, #2f2f2f)">
-          <div class="top"><span class="pl">${M.icon('speaker', 16)}<span class="ell">–</span></span></div>
+          <button class="pw press" data-act="customize" data-section="entities" title="Velg entitet">${M.icon('add', 20)}</button>
           <div class="mid"><div class="art" style="background:var(--gray300,#404040);color:var(--gray600,#7f7f7f)">${M.icon('music_note', 36)}</div>
-            <div class="tt"><div class="ti">–</div><span class="ar ell">${esc(txt)}</span></div>
-            <button class="pw press" data-act="customize" data-section="entities" title="Velg entitet">${M.icon('add', 20)}</button></div>
+            <div class="tt"><div class="dl">${M.icon('speaker', 15)}<b class="ell">–</b></div><div class="ti">–</div><span class="ar ell">${esc(txt)}</span></div></div>
           <div class="bot"></div>
         </section></div><div class="dots"><span class="dot on"></span></div></div>`;
       }
@@ -614,36 +617,51 @@
       const dots = R.L.map((p, j) => `<button class="dot ${j === R.i ? 'on' : ''}" data-act="dot" data-i="${j}" data-haptic="selection" data-key="${esc(p.id)}" title="${esc(p.name)}"></button>`).join('');
       return `<div class="wrap"><div class="sw noscroll" style="--mh:${hgt}px">${cards}</div><div class="dots">${dots}</div></div>`;
     }
-    // Ett kort i karusellen: samme oppbygning for Musikk og TV (topplinje · omslag/app-flis + tittel + chips · fremdrift)
+    // Ett kort i karusellen (Fiks 19.5): samme oppbygning for Musikk og TV – ingen egen topprad. Plakat/omslag til venstre,
+    // tekstkolonnen starter med enhetslinjen (ikon · navn · app/kilde · eq), av/på ligger absolutt øverst til høyre.
+    // TV: plakat 84×118 + merke (LIVE/4K/HD), kicker bygd bare fra data som finnes, chips på én linje, fremdrift og kontrollrad.
     _card(p) {
       const h = this.hass, I = info(this, p), a = I.a, s = I.s, tv = I.tv, V = volInfo(this, p);
       const col = tv ? (I.col || fallbackCol(p.id)) : (artColor(I.pic, () => this.update()) || fallbackCol(p.id));
       const bg = I.off ? 'linear-gradient(150deg, #343434, #2f2f2f)' : `linear-gradient(150deg, color-mix(in srgb, ${col} ${tv ? 20 : 22}%, #343434), #343434 55%, #2f2f2f)`;
       const eq = [0, 1, 2, 3].map((k) => `<span style="animation-duration:${(0.7 + (k % 3) * 0.18).toFixed(2)}s;animation-delay:${(k * 0.12).toFixed(2)}s"></span>`).join('');
-      const src = I.off ? '' : tv ? I.app : (a.source || a.app_name || a.media_channel || '');
-      const top = `<div class="top"><span class="pl">${M.icon(p.pc.icon || (tv ? 'tv' : I.icon), 16)}<span class="ell">${esc(p.name)}</span></span>${src ? `<span class="src ell">${esc(src)}</span>` : ''}${I.off ? '' : `<span class="eq">${eq}</span>`}
-        <button class="pw press" data-act="power" data-id="${esc(p.id)}" title="Av/på">${M.icon('power_settings_new', 18)}</button></div>`;
-      // Tittel + undertittel
-      let title, sub, live = false;
+      const has0 = (v) => v != null && v !== '';
+      const ct = String(a.media_content_type || '').toLowerCase();
+      // Tittel, undertittel og kicker (app-delen av enhetslinjen)
+      let title, sub, kick = '', live = false;
       if (I.off) { title = I.title; sub = p.areaName || ''; }
       else if (tv) {
         title = a.media_title || I.app || (s.state === 'idle' ? 'Hjem' : '–');
-        const se = a.media_season != null && a.media_season !== '' ? `Sesong ${a.media_season}${a.media_episode != null && a.media_episode !== '' ? ' · episode ' + a.media_episode : ''}` : (a.media_episode ? 'Episode ' + a.media_episode : '');
-        live = a.media_content_type === 'channel';
-        sub = [a.media_series_title, se, a.media_channel].filter(Boolean).join(' · ');
-        if (live && !/direkte/i.test(sub)) sub = [sub || a.media_channel || I.app, 'direkte'].filter(Boolean).join(' · ');
-        if (!sub && a.media_title) sub = I.app;
-        live = live || /direkte/i.test(sub);
+        live = ct === 'channel' || /direkte/i.test([a.media_series_title, a.media_channel].filter(Boolean).join(' '));
+        const film = ct === 'movie' || ct === 'film';
+        const yr = (String(a.media_year || a.year || a.media_release_date || a.release_date || '').match(/\b(19|20)\d{2}\b/) || [])[0];
+        const ser = !live && !film && (has0(a.media_season) || ct === 'tvshow' || ct === 'episode') && has0(a.media_episode);
+        if (live) kick = [I.app, 'direkte'].filter(Boolean).join(' · ');
+        else if (ser) kick = ['Serie', has0(a.media_season) ? 'S' + a.media_season : '', 'E' + a.media_episode].filter(Boolean).join(' · ');
+        else if (film) kick = 'Film' + (yr ? ' · ' + yr : '');
+        else kick = I.app;
+        sub = [a.media_series_title, a.media_channel, a.app_name].find((x) => x && x !== title) || '';
       } else {
         title = a.media_title || a.source || (s.state === 'idle' ? 'Klar' : '–');
         sub = a.media_title ? [a.media_artist, a.media_album_name || a.media_channel].filter(Boolean).join(' · ') : (a.media_channel || '');
+        kick = a.media_channel || a.source || a.app_name || '';
       }
-      // Omslag / app-flis
-      const shadow = I.off ? '' : `box-shadow:0 10px 26px color-mix(in srgb, ${col} 38%, transparent);`;
+      // Enhetslinjen (første linje i tekstkolonnen) + av/på (absolutt øverst til høyre)
+      const dl = `<div class="dl">${M.icon(p.pc.icon || (tv ? 'tv' : I.icon), 15)}<b class="ell">${esc(p.name)}</b>${kick ? `<span class="kk ell">· ${esc(kick)}</span>` : ''}${I.off ? '' : `<span class="eq">${eq}</span>`}</div>`;
+      const pw = `<button class="pw press" data-act="power" data-id="${esc(p.id)}" title="Av/på">${M.icon('power_settings_new', 18)}</button>`;
+      // Plakat (TV) / omslag (musikk)
+      const pic = tv ? (I.pic || (a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '')) : I.pic;
+      const sc = I.off ? null : tv ? (artColor(pic, () => this.update()) || col) : col;
+      const shadow = sc ? `box-shadow:0 10px 26px color-mix(in srgb, ${sc} 38%, transparent);` : '';
       const tile = I.off ? 'background:var(--gray300,#404040);color:var(--gray600,#7f7f7f)' : tv ? `background:${col};color:#fff` : `background:linear-gradient(145deg, ${col}, color-mix(in srgb, ${col} 45%, #2f2f2f));color:#fff`;
-      const pic = tv ? (a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : I.pic) : I.pic;
-      const art = `<div class="art" style="${tile};${shadow}">${pic ? `<img src="${esc(pic)}" alt="" data-key="img">` : M.icon(tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 36)}</div>`;
-      // Chips (skjules når verdien mangler – aldri mock)
+      let badge = '';
+      if (tv && !I.off) {
+        const rs = [a.media_resolution, a.video_resolution, a.resolution, a.media_video_format, a.video_format, ct].filter(Boolean).join(' ');
+        const rz = /2160|4k|uhd/i.test(rs) ? '4K' : /1080|720|\bhd\b|fhd/i.test(rs) ? 'HD' : '';
+        badge = live ? '<span class="bdg rd">LIVE</span>' : rz ? `<span class="bdg">${rz}</span>` : '';
+      }
+      const art = `<div class="art" style="${tile};${shadow}">${pic ? `<img src="${esc(pic)}" alt="" data-key="img">` : M.icon(tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 36)}${badge}</div>`;
+      // Chips (én linje, skjules når verdien mangler – aldri mock)
       const ch = [];
       const chip = (ic, txt, act, id) => (act ? `<button class="ch press" data-act="${act}" data-id="${esc(id)}" data-key="ch-${esc(txt)}">` : `<span class="ch" data-key="ch-${esc(txt)}">`) + `${M.icon(ic, 13)}<span class="ell">${esc(txt)}</span>` + (act ? '</button>' : '</span>');
       if (!I.off) {
@@ -651,6 +669,8 @@
         else if (V.level != null) ch.push(chip(volIcon(V.level, false), `${V.approx ? '≈' : ''}${V.level} %`));
         if (tv) {
           if (a.source && a.app_name && a.source !== a.app_name) ch.push(chip(appStyle(a.source).icon || 'mdi:video-input-hdmi', a.source));
+          const au = a.audio_format || a.media_audio_format || a.audio_codec || a.sound_mode;
+          if (au) ch.push(chip('mdi:surround-sound', String(au)));
           const w = (Array.isArray(p.pc.watch) ? p.pc.watch : []).filter(Boolean)[0];
           if (w) { this.s(w); const st = screenTime(h, w); if (st) ch.push(chip('mdi:timer-outline', st)); }
         } else {
@@ -660,7 +680,7 @@
           if (sn) ch.push(chip(appStyle(sn).icon || 'mdi:music-circle-outline', [sn, br ? `${br} kbps` : ''].filter(Boolean).join(' · ')));
         }
       }
-      const mid = `<div class="mid">${art}<div class="tt"><div class="ti">${esc(title)}</div>${sub ? `<span class="ar ell">${esc(sub)}</span>` : ''}${ch.length ? `<div class="chs">${ch.join('')}</div>` : ''}</div></div>`;
+      const mid = `<div class="mid">${art}<div class="tt">${dl}<div class="ti">${esc(title)}</div>${sub ? `<span class="ar ell">${esc(sub)}</span>` : ''}${ch.length ? `<div class="chs">${ch.join('')}</div>` : ''}</div></div>`;
       // Bunnen: fremdrift / DIREKTE
       const P = I.off ? null : posOf(s), seek = !!P && ((V.sf & 2) === 2);
       const bar = (fill) => `<div class="pg ${seek ? 'sk' : ''}" data-seek="${esc(p.id)}" data-dur="${P.dur}" data-key="pg"><div class="pgt"><div class="pgf" style="width:${((P.pos / P.dur) * 100).toFixed(2)}%;background:${fill}"></div></div></div>`;
@@ -672,21 +692,31 @@
           const endT = clockOf(a.end_time || a.media_end_time || a.program_end), nxT = clockOf(a.next_start || a.next_start_time);
           bot = `${P ? bar(C.red) : ''}<div class="lrow">${liveTag}${nxt ? `<span class="nx ell">Neste: ${esc(nxt)}${nxT ? ' ' + esc(nxT) : ''}</span>` : '<span class="nx"></span>'}${endT ? `<span class="end">Slutter ${esc(endT)}</span>` : ''}</div>`;
         } else if (tv && P) {
-          bot = `${bar(PINK)}<div class="tm"><span class="t0">${fmtT(P.pos)}</span><span class="nx ell">${Math.max(0, Math.ceil((P.dur - P.pos) / 60))} min igjen</span><span class="t1">${fmtT(P.dur)}</span></div>`;
+          const left = Math.max(0, P.dur - P.pos), endT = s.state === 'playing' ? clockOf(Date.now() + left * 1000) : null;
+          bot = `${bar(PINK)}<div class="tm"><span class="t0">${fmtT(P.pos)}</span><span class="nx ell">${Math.ceil(left / 60)} min igjen${endT ? ' · slutter ' + esc(endT) : ''}</span><span class="t1">${fmtT(P.dur)}</span></div>`;
         } else if (!tv && P) {
           const pl = nxt ? `Neste: ${nxt}` : '';
           bot = `${bar(PINK)}<div class="tm"><span class="t0">${fmtT(P.pos)}</span><span class="nx ell">${esc(pl)}</span><span class="t1">${fmtT(P.dur)}</span></div>`;
         } else if (!tv && (a.media_title || a.media_channel) && ['playing', 'paused', 'buffering'].includes(s.state)) {
           // Radio / direkte: neste snarvei i listen
-          const sc = Array.isArray(p.pc.shortcuts) && p.pc.shortcuts.length ? p.pc.shortcuts : autoShortcuts(h, p);
+          const sc2 = Array.isArray(p.pc.shortcuts) && p.pc.shortcuts.length ? p.pc.shortcuts : autoShortcuts(h, p);
           const hay = [a.media_title, a.media_artist, a.media_channel, a.media_album_name, a.source].filter(Boolean).join(' | ').toLowerCase();
-          const nm = sc.map((id) => M.name(h, id, p.name)), cur = nm.findIndex((n) => n.length > 2 && hay.includes(n.toLowerCase()));
+          const nm = sc2.map((id) => M.name(h, id, p.name)), cur = nm.findIndex((n) => n.length > 2 && hay.includes(n.toLowerCase()));
           const nx = cur >= 0 && nm.length > 1 ? nm[(cur + 1) % nm.length] : '';
           bot = `<div class="lrow">${liveTag}${nx ? `<span class="nx ell">Neste: ${esc(nx)}</span>` : ''}</div>`;
         }
       }
+      // Kontrollrad (TV, bare når den er på): ⟲10 · play/pause · 30⟳ · neste. Ustøttede tjenester skjules (supported_features).
+      let ctl = '';
+      if (tv && !I.off) {
+        const sf = V.sf, has = (f) => !sf || (sf & f) === f, id = esc(p.id), sk = !!P && has(2);
+        const b = (act, ic, t, x) => `<button class="cb press" data-act="${act}" data-id="${id}" ${x || ''} title="${t}" aria-label="${t}">${M.icon(ic, 22)}</button>`;
+        const pp = has(1) || has(16384);
+        ctl = `<div class="ctl">${sk ? b('seek', 'mdi:rewind-10', 'Tilbake 10 s', 'data-d="-10"') : ''}${pp ? `<button class="cb pp press" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 26)}</button>` : ''}${sk ? b('seek', 'mdi:fast-forward-30', 'Frem 30 s', 'data-d="30"') : ''}${has(32) ? b('next', 'skip_next', 'Neste') : ''}</div>`;
+        if (ctl === '<div class="ctl"></div>') ctl = '';
+      }
       return `<section class="pc ${I.off ? 'off' : ''} ${I.run ? 'run' : ''} ${tv ? 'tv' : 'mus'}" data-key="${esc(p.id)}" data-ent="${esc(p.id)}" style="background:${bg}">
-        ${top}${mid}<div class="bot">${bot}</div></section>`;
+        ${pw}${mid}<div class="bot">${bot}</div>${ctl}</section>`;
     }
     onAction(name, el, ev) {
       if (name === 'power') {
@@ -695,6 +725,13 @@
         return M.call(this.hass, 'media_player', off ? 'turn_on' : 'turn_off', { entity_id: el.dataset.id });
       }
       if (name === 'group') return M.moreInfo(this, el.dataset.id);
+      // Kontrollraden i TV-kortet (Fiks 19.5): media_seek ± s, media_play_pause, media_next_track
+      if (name === 'pp' || name === 'next') return M.call(this.hass, 'media_player', name === 'pp' ? 'media_play_pause' : 'media_next_track', { entity_id: el.dataset.id });
+      if (name === 'seek') {
+        const P = posOf(this.hass.states[el.dataset.id]);
+        if (!P) return;
+        return M.call(this.hass, 'media_player', 'media_seek', { entity_id: el.dataset.id, seek_position: Math.round(M.clamp(P.pos + Number(el.dataset.d || 0), 0, P.dur)) });
+      }
       if (name === 'dot') {
         const sw = this.shadowRoot.querySelector('.sw'), i = Number(el.dataset.i);
         if (sw) sw.scrollTo({ left: i * sw.clientWidth, behavior: 'smooth' });
@@ -759,29 +796,36 @@
         @keyframes mhlive{0%,100%{opacity:1}50%{opacity:.35}}
         .wrap{display:flex;flex-direction:column;gap:8px}
         .sw{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:28px;overscroll-behavior-x:contain}
-        /* Fiks 17.24: fast høyde for alle kort (TV og Musikk), innhold fordelt med space-between */
-        .pc{flex:none;width:100%;height:var(--mh,${CARD_H}px);box-sizing:border-box;overflow:hidden;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:18px;border-radius:28px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);min-width:0;transition:background .5s}
-        .pc.off .mid,.pc.off .top .pl,.pc.off .top .src{opacity:.6}
-        .top{display:flex;align-items:center;gap:8px;min-width:0;height:36px;flex:none}
-        .pl{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px 0 9px;border-radius:14px;background:rgba(255,255,255,0.08);font-size:12px;font-weight:500;color:var(--white,#fafafa);min-width:0;max-width:55%;flex:none}
-        .pl .ell{min-width:0}
-        .src{font-size:12px;color:var(--gray700,#979797);min-width:0;flex:0 1 auto}
-        .eq{display:flex;gap:2px;align-items:flex-end;height:10px;flex:none}
+        /* Fiks 17.24/19.5: fast høyde (256) for alle kort (TV og Musikk), innhold fordelt med space-between. Ingen topprad:
+           enhetslinjen er første linje i tekstkolonnen, av/på ligger absolutt øverst til høyre. */
+        .pc{position:relative;flex:none;width:100%;height:var(--mh,${CARD_H}px);box-sizing:border-box;overflow:hidden;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:16px;border-radius:28px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);min-width:0;transition:background .5s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .pc.off .mid{opacity:.6}
+        .eq{display:flex;gap:2px;align-items:flex-end;height:10px;flex:none;margin-left:2px}
         .eq span{width:2px;height:10px;border-radius:1px;background:var(--gray700,#979797);transform-origin:bottom;transform:scaleY(.3)}
         .run .eq span{animation-name:eq;animation-timing-function:ease-in-out;animation-iteration-count:infinite}
-        .pw{margin-left:auto;width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:var(--white,#fafafa)}
+        .pw{position:absolute;top:16px;right:16px;z-index:1;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:var(--white,#fafafa)}
         .off .pw{background:${M.alpha(C.red, 0.2)};color:${C.red}}
-        .mid{display:flex;gap:14px;align-items:center;min-width:0}
-        .art{width:84px;height:84px;flex:none;border-radius:18px;display:grid;place-items:center;overflow:hidden}
+        .mid{display:flex;gap:14px;align-items:stretch;min-width:0;height:118px;flex:none}
+        .art{position:relative;width:118px;height:118px;flex:none;border-radius:20px;display:grid;place-items:center;overflow:hidden}
+        .tv .art{width:84px;border-radius:16px}
         .art img{width:100%;height:100%;object-fit:cover;display:block}
-        .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+        .bdg{position:absolute;left:6px;bottom:6px;height:18px;padding:0 6px;border-radius:6px;display:inline-flex;align-items:center;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;font-weight:700;letter-spacing:.06em}
+        .bdg.rd{background:${C.red};color:#2a1720}
+        .tt{flex:1;min-width:0;height:118px;padding-right:40px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+        .dl{display:flex;align-items:center;gap:5px;height:18px;flex:none;min-width:0;white-space:nowrap;overflow:hidden;font-size:13px;color:var(--gray1000,#e1e1e1)}
+        .dl b{font-weight:500;flex:0 0 auto;min-width:0;max-width:62%}
+        .dl .kk{flex:0 1 auto;min-width:0;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--gray700,#979797)}
         /* Fiks 17.22: tittel inntil 2 linjer uten rulling */
-        .ti{font-size:19px;font-weight:600;line-height:1.22;letter-spacing:-0.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-        .ar{font-size:14px;color:var(--gray800,#afafaf)}
-        .chs{display:flex;gap:4px;overflow:hidden;margin-top:5px;min-width:0}
-        .ch{flex:0 1 auto;min-width:0;max-width:100%;height:22px;display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:11px;background:rgba(255,255,255,0.07);font-size:11px;color:var(--gray900,#c7c7c7);white-space:nowrap}
-        .ch:first-child{flex:none}
+        .ti{font-size:22px;font-weight:600;line-height:1.15;letter-spacing:-0.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;flex:none;margin-top:2px}
+        .ar{font-size:14px;color:var(--gray900,#c7c7c7);flex:none}
+        /* Én linje chips (19.5): de som ikke får plass brytes ned og skjules */
+        .chs{display:flex;flex-wrap:wrap;gap:4px;max-height:22px;overflow:hidden;margin-top:auto;min-width:0;flex:none}
+        .ch{flex:0 1 auto;min-width:0;max-width:100%;height:22px;display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:11px;background:rgba(255,255,255,0.08);font-size:11px;color:var(--gray900,#c7c7c7);white-space:nowrap;box-sizing:border-box}
         .ch .ell{min-width:0}
+        .ctl{display:flex;align-items:center;justify-content:center;gap:22px;flex:none}
+        .cb{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:var(--white,#fafafa);flex:none;transition:transform .12s}
+        .cb.pp{width:48px;height:48px;border-radius:24px;background:${PINK};color:#2a1720}
+        .cb:active{transform:scale(.92)}
         .bot{display:flex;flex-direction:column;gap:7px;min-width:0;min-height:0}
         .bot:empty{display:none}
         .pg{padding:8px 0;margin:-8px 0}
@@ -804,7 +848,8 @@
 
   /* ============================================================ hovedkort */
   const KEYS = [['back', 'arrow_back', 'Tilbake'], ['home', 'home', 'Hjem'], ['menu', 'menu', 'Meny'], ['play', 'play_pause', 'Spill/pause']];
-  const KEYL = { up: 'Opp', down: 'Ned', left: 'Venstre', right: 'Høyre', ok: 'OK', back: 'Tilbake', home: 'Hjem', menu: 'Meny', play: 'Spill/pause' };
+  const KEYL = { up: 'Opp', down: 'Ned', left: 'Venstre', right: 'Høyre', ok: 'OK', back: 'Tilbake', home: 'Hjem', menu: 'Meny', play: 'Spill/pause', mic: 'Mikrofon' };
+  const HOME_HOLD_MS = 550; // Fiks 19.4: Sirkel – hold Hjem fyller knappen rosa over 550 ms
   class MediaCard extends MediaBase {
     static get cardName() { return 'Media'; }
     static get defaults() { return { default_tab: 'tv' }; }
@@ -903,7 +948,7 @@
       </div>`;
       // Fjernkontroll (TV)
       const swipe = cfg.remote_swipe !== false;
-      const remote = !I.tv ? '' : `<div class="rm">
+      let remote = !I.tv ? '' : `<div class="rm">
         <div class="dp ${swipe ? 'swipe' : ''}" ${swipe ? 'title="Trykk eller sveip"' : ''}>
           <button class="d du" data-act="rk" data-c="up" title="Opp">${M.icon('keyboard_arrow_up', 30)}</button>
           <button class="d dd" data-act="rk" data-c="down" title="Ned">${M.icon('keyboard_arrow_down', 30)}</button>
@@ -921,7 +966,32 @@
       </div>`;
       // Volum (Fiks 17.21/17.23): Musikk = Pille | Trinn, TV = Trinn | Knapper, bryter til høyre (MSH.volumeRow)
       const V = volInfo(this, p), VP = M.volumeRow.pref(I.tv ? 'tv' : 'musikk', cfg);
-      const volume = M.volumeRow.html({ key: p.id, style: VP.style, alt: VP.alt, level: V.level, approx: V.approx, muted: V.muted, dis: V.dis || (V.noLevel && !V.btn && VP.style === 'pille') });
+      let volume = M.volumeRow.html({ key: p.id, style: VP.style, alt: VP.alt, level: V.level, approx: V.approx, muted: V.muted, dis: V.dis || (V.noLevel && !V.btn && VP.style === 'pille') });
+      // Fiks 19.4: Sirkel-fjernkontroll (players.<obj>.remote_style = 'sirkel') – erstatter styrekors/knapper og volum-raden
+      if (I.tv && p.pc.remote_style === 'sirkel') {
+        const hb = holdPlan(h, cfg, p, 'back'), hh = holdPlan(h, cfg, p, 'home');
+        const rb = (cls, act, c, ic, t, x) => `<button class="rb ${cls}" data-act="${act}" ${c ? `data-c="${c}"` : ''} ${x || ''} title="${esc(t)}" aria-label="${esc(t)}">${M.icon(ic, 26)}</button>`;
+        const vol = M.volumeRow.html({ key: p.id, style: 'knapper', alt: null, level: V.level, approx: V.approx, muted: V.muted, dis: V.dis }).split(`color:${C.red}`).join(`color:${PINKC}`);
+        volume = '';
+        remote = `<div class="rs">
+          <div class="sp ${swipe ? 'swipe' : ''}">
+            <button class="sa su" data-act="rk" data-c="up" title="Opp" aria-label="Opp">${M.icon('keyboard_arrow_up', 22)}</button>
+            <button class="sa sd" data-act="rk" data-c="down" title="Ned" aria-label="Ned">${M.icon('keyboard_arrow_down', 22)}</button>
+            <button class="sa sl" data-act="rk" data-c="left" title="Venstre" aria-label="Venstre">${M.icon('keyboard_arrow_left', 22)}</button>
+            <button class="sa sr" data-act="rk" data-c="right" title="Høyre" aria-label="Høyre">${M.icon('keyboard_arrow_right', 22)}</button>
+            <button class="sok" data-act="rk" data-c="ok">OK</button>
+            ${swipe ? '<span class="glow" aria-hidden="true"></span>' : ''}
+          </div>
+          <div class="r5">
+            ${rb('pwr', 'rpower', '', 'power_settings_new', 'Av/på')}
+            ${rb('bk', 'rk', 'back', 'arrow_back', hb ? `Tilbake · hold for ${hb.label}` : 'Tilbake', hb ? 'data-hold="1"' : '')}
+            <button class="rb hh" data-act="rk" data-c="home" ${hh ? 'data-hh="1"' : ''} title="${esc(hh ? `Hjem · hold for ${hh.label}` : 'Hjem')}" aria-label="Hjem">${M.icon('home', 26)}${hh ? '<span class="hb"></span>' : ''}</button>
+            ${rb('', 'rk', 'mic', 'mdi:microphone', 'Mikrofon')}
+            ${rb('pp', 'rk', 'play', I.run ? 'pause' : 'play_arrow', 'Spill/pause')}
+          </div>
+          <div class="svol">${vol}</div>
+        </div>`;
+      }
       // Innholdsflaten under fanene: min-høyde = den høyeste av TV/Musikk (målt), så byttet ikke flytter layouten (Fiks 16.10)
       return `<div class="mc">${head}<div class="mb" style="${this._mbMin ? `min-height:${this._mbMin}px` : ''}">${chipsSec}${transport}${remote}${volume}</div></div>`;
     }
@@ -956,6 +1026,7 @@
         case 'repeat': { const nx = { off: 'all', all: 'one', one: 'off' }[a.repeat || 'off'] || 'off'; return mp('repeat_set', { repeat: nx }); }
         case 'shuffle': return mp('shuffle_set', { shuffle: !a.shuffle });
         case 'rk': return this._remote(p, el.dataset.c, false);
+        case 'rpower': return mp(!s || ['off', 'standby'].includes(s.state) ? 'turn_on' : 'turn_off');
         default:
       }
       return super.onAction(name, el, ev);
@@ -994,9 +1065,9 @@
     // Styreflaten: glød-sirkel (52 px) følger fingeren. Posisjon via CSS-variabler på verten, så morph ikke nullstiller den.
     _glow(dp, e) {
       if (!dp || !e) { this.style.setProperty('--msh-glow-o', '0'); return; }
-      const r = dp.getBoundingClientRect();
-      this.style.setProperty('--msh-gx', (e.clientX - r.left - 26).toFixed(1) + 'px');
-      this.style.setProperty('--msh-gy', (e.clientY - r.top - 26).toFixed(1) + 'px');
+      const r = dp.getBoundingClientRect(), g = dp.querySelector('.glow'), o = g && g.offsetWidth ? g.offsetWidth / 2 : 26;
+      this.style.setProperty('--msh-gx', (e.clientX - r.left - o).toFixed(1) + 'px');
+      this.style.setProperty('--msh-gy', (e.clientY - r.top - o).toFixed(1) + 'px');
       this.style.setProperty('--msh-glow-o', '1');
     }
     afterRender() {
@@ -1027,7 +1098,7 @@
         root.addEventListener('pointerdown', (e) => {
           this._held = false;
           clear();
-          const k = this._el(e, '.key[data-hold]');
+          const k = this._el(e, '.key[data-hold],.rb[data-hold]');
           if (!k || e.button) return;
           this._hx0 = e.clientX; this._hy0 = e.clientY;
           this._ht = setTimeout(() => { this._ht = null; const p = this._R && this._R.p; if (p && this._holdRun(p, k.dataset.c)) this._held = true; }, HOLD_MS);
@@ -1038,12 +1109,12 @@
         root.addEventListener('click', (e) => {
           if (this._held || Date.now() - (this._swEnd || 0) < 60) { this._held = false; e.stopPropagation(); e.preventDefault(); }
         }, true);
-        root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab,.dp')) e.preventDefault(); });
+        root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab,.dp,.rs')) e.preventDefault(); });
         // Sveip på D-paden: < 10 px = trykk (knappene virker som før), deretter én kommando per 34 px i dominerende
         // retning, og startpunktet nullstilles (ett langt sveip = flere steg). Bubble Card skal ikke få gesten
         // (swipe-to-close/scroll): touch-action:none på flaten + stopPropagation/preventDefault.
         root.addEventListener('pointerdown', (e) => {
-          const dp = this._el(e, '.dp.swipe');
+          const dp = this._el(e, '.dp.swipe,.sp.swipe');
           if (!dp || !swOn() || (e.pointerType === 'mouse' && e.button)) return;
           e.stopPropagation(); e.preventDefault();
           this._sw = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, dp };
@@ -1057,7 +1128,8 @@
           if (!s.on) {
             if (Math.hypot(e.clientX - s.x0, e.clientY - s.y0) < SW_MIN) return;
             s.on = true;
-            try { s.dp.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+            // Sirkel (19.4): ingen setPointerCapture – ellers når klikkene på pilene ikke frem
+            if (!s.dp.classList.contains('sp')) try { s.dp.setPointerCapture(e.pointerId); } catch (x) { /* */ }
           }
           const dx = e.clientX - s.x, dy = e.clientY - s.y;
           if (Math.max(Math.abs(dx), Math.abs(dy)) < SW_STEP) return;
@@ -1065,7 +1137,7 @@
           s.x = e.clientX; s.y = e.clientY;
           const p = this._R && this._R.p;
           if (!p) return;
-          M.haptic('selection');
+          M.haptic(s.dp.classList.contains('sp') ? 'light' : 'selection');
           this._remote(p, c, false, true);
         });
         const end = (e) => {
@@ -1078,10 +1150,26 @@
         };
         root.addEventListener('pointerup', end);
         root.addEventListener('pointercancel', end);
-        const tstop = (e) => { if (swOn() && this._el(e, '.dp.swipe')) { e.stopPropagation(); if (e.type === 'touchmove' && e.cancelable) e.preventDefault(); } };
+        const tstop = (e) => { if (swOn() && this._el(e, '.dp.swipe,.sp.swipe')) { e.stopPropagation(); if (e.type === 'touchmove' && e.cancelable) e.preventDefault(); } };
         // touchstart: bare stopPropagation – preventDefault her ville fjerne klikket på pilene/OK på touch.
         root.addEventListener('touchstart', tstop, { passive: true });
         root.addEventListener('touchmove', tstop, { passive: false });
+        // Sirkel (19.4): hold Hjem 550 ms – knappen fylles rosa (CSS .fill, lineær 550 ms); ferdig = plattform-/hold-handling,
+        // haptic medium og klikket etterpå ignoreres. Slipp før = avbryt. touch-action none + pointer capture (i try).
+        const hhStop = () => { clearTimeout(this._hhT); this._hhT = null; if (this._hhB) { this._hhB.classList.remove('fill'); this._hhB = null; } };
+        root.addEventListener('pointerdown', (e) => {
+          const b = this._el(e, '.rb.hh[data-hh]');
+          if (!b || e.button) return;
+          e.stopPropagation();
+          hhStop();
+          try { b.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+          this._hhB = b; b.classList.add('fill');
+          this._hhT = setTimeout(() => { this._hhT = null; const p = this._R && this._R.p; if (p && this._holdRun(p, 'home')) this._held = true; hhStop(); }, HOME_HOLD_MS);
+        });
+        ['pointerup', 'pointercancel'].forEach((t) => root.addEventListener(t, hhStop));
+        const hstop = (e) => { if (this._el(e, '.rb.hh')) e.stopPropagation(); };
+        root.addEventListener('touchstart', hstop, { passive: true });
+        root.addEventListener('touchmove', hstop, { passive: true });
       }
       // Faner: felles MSH.tabReorder – langt trykk + dra = omorganiser (lagres i config.tab_order via ki-store)
       const seg = root.querySelector('.seg');
@@ -1230,6 +1318,28 @@
         .key{position:relative;height:56px;border-radius:20px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .12s}
         .key:active{transform:scale(.93);color:var(--white,#fafafa)}
         .hb{position:absolute;bottom:6px;left:50%;width:14px;height:3px;margin-left:-7px;border-radius:2px;background:var(--gray400,#545454)}
+        /* Fiks 19.4: Sirkel-fjernkontroll – styrekors 260 px, fem runde knapper à 62 px, volumlinje 62 px */
+        .rs{display:flex;flex-direction:column;align-items:center;gap:18px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .sp{position:relative;width:260px;height:260px;flex:none;border-radius:50%;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);overflow:hidden;-webkit-touch-callout:none}
+        .sp::before{content:'';position:absolute;inset:36px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.08);pointer-events:none}
+        .sp.swipe{touch-action:none}
+        .sp .glow{width:28px;height:28px;border-radius:14px;background:rgba(255,255,255,0.35);box-shadow:0 0 18px rgba(255,255,255,0.3);z-index:2}
+        .sa{position:absolute;width:60px;height:40px;display:grid;place-items:center;color:var(--gray600,#7f7f7f)}
+        .sa:active{color:var(--white,#fafafa)}
+        .su{left:100px;top:2px} .sd{left:100px;bottom:2px}
+        .sl,.sr{width:40px;height:60px;top:100px} .sl{left:2px} .sr{right:2px}
+        .sok{position:absolute;left:88px;top:88px;width:84px;height:84px;border-radius:42px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:15px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.06);transition:transform .12s}
+        .sok:active{transform:scale(.93)}
+        .r5{display:flex;justify-content:center;gap:12px;max-width:100%}
+        .rb{position:relative;width:62px;flex:0 1 62px;min-width:0;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray1000,#e1e1e1);-webkit-touch-callout:none;transition:transform .12s}
+        .rb:active{transform:scale(.93)}
+        .rb.pwr{background:${VOL_PINK};color:#2a1720}
+        .rb.pp{background:${PINK};color:#2a1720}
+        .rb.hh{touch-action:none;transition:transform .12s,background .15s,box-shadow .15s}
+        .rb.hh.fill{background:${M.alpha(PINKC, 0.45)};box-shadow:inset 0 0 0 2px ${PINKC};transition:transform .12s,background ${HOME_HOLD_MS}ms linear,box-shadow ${HOME_HOLD_MS}ms linear}
+        .svol{width:100%}
+        .svol .mvr{width:100%}
+        .svol .mvp{height:62px;border-radius:31px}
         ${M.volumeRow.CSS}
       `;
     }

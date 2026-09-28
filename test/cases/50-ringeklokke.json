@@ -1,0 +1,5 @@
+[
+  { "name": "Ringeklokke", "hash": "#ringeklokke", "cards": [ { "type": "custom:msh-ringeklokke-card", "card_id": "pop-ringeklokke" } ] },
+  { "name": "Ringeklokke · uten lås og høyttaler", "hash": "#ringeklokke", "cards": [ { "type": "custom:msh-ringeklokke-card", "lock": "none", "speaker": "none", "package_camera": "none", "show_history": false } ] },
+  { "name": "Ringeklokke · tom", "hash": "#ringeklokke", "cards": [ { "type": "custom:msh-ringeklokke-card", "ring_entity": "none" } ] }
+]

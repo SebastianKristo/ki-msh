@@ -185,6 +185,21 @@
     .xnm i{font-style:normal;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .xnp select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;background:transparent;color:#232323}
     .xpdel{height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;background:rgb(242 128 115 / 0.16);color:var(--red,#f28073)}
+    /* Fiks 19.13: «Redigerer: bruker · enhet ▾» + Kopier fra / Tilbakestill + forhåndsvisning i enhetens bredde */
+    .xprof{display:flex;flex-direction:column;gap:10px;padding:12px;margin:0 0 12px;border-radius:22px;background:#3a3a3a}
+    .xpl1{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:14px;color:#c7c7c7;min-width:0}
+    .xplab{margin-right:2px}
+    .xpsel{position:relative;display:inline-flex;align-items:center;min-width:0;color:#fafafa;cursor:pointer}
+    .xpsel b{font-weight:600;white-space:nowrap}
+    .xpsel b i{font-style:normal;font-weight:500;font-size:11px;color:#2f2f2f;background:${PINK};border-radius:8px;padding:1px 6px;margin-left:4px;vertical-align:2px}
+    .xpsel select,.xpb2 select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none;background:transparent;color:#232323}
+    .xpdot{color:#fafafa}
+    .xpown{width:8px;height:8px;border-radius:4px;background:${PINK};margin-left:4px}
+    .xpbtns{display:flex;gap:8px}
+    .xpb2{position:relative;flex:1;min-width:0;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;background:#545454;color:#fafafa;white-space:nowrap}
+    .xpb2[disabled],.xpb2.off{opacity:.45;pointer-events:none}
+    .xpv{border-radius:16px;background:#232323;overflow:hidden;padding:8px 8px 10px}
+    .xprof .help{font-size:11px;color:#979797;padding:0 4px}
   `;
   let XSHEET = null;
   const Base = customElements.get('msh-editor');
@@ -194,6 +209,21 @@
         super(); this._ropen = {}; this._btns = {};
         this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.np)) M.haptic('selection'); });
         this.shadowRoot.addEventListener('focusout', (e) => { if (this._pend && e.target && e.target.tagName === 'SELECT') { this._pend = false; setTimeout(() => this._render(), 0); } });
+        // Fiks 19.13: bruker/enhet og «Kopier fra …» øverst
+        this.shadowRoot.addEventListener('change', (e) => {
+          const t = e.target, d = t && t.dataset;
+          if (!d || !(d.psel || d.pcopy)) return;
+          e.stopPropagation();
+          M.haptic('selection');
+          if (d.psel) { this._sel = { ...this._psel(), [d.psel]: t.value }; return this._render(); }
+          const src = M.profileRaw(HPROF, t.value), key = this._pkey();
+          if (!src) return;
+          M.profileSet(HPROF, null, key);
+          M.profileSet(HPROF, JSON.parse(JSON.stringify(src)), key);
+          const [u, c] = t.value.split('/');
+          M.toast('Kopiert fra ' + this._uName(u) + ' · ' + M.deviceClassName(c));
+          this._render();
+        });
       }
       _css() {
         if (this._cssOk || !this.shadowRoot) return;
@@ -207,7 +237,11 @@
         this._css();
         this._btns = {};
         this._scHold = null; this._rendering = true;
-        try { super._render(); } finally { this._rendering = false; this._scHold = null; }
+        // Fiks 19.13: feltene i PROF_KEYS viser verdien for valgt bruker × enhet (med arv); resten = kortets config
+        const base = this._config;
+        if (base && this._profOn()) { const P = M.hjemHeaderProfile(this._psel()), o = { ...base }; PROF_KEYS.forEach((k) => { if (P[k] != null) o[k] = P[k]; }); this._config = o; }
+        try { super._render(); } finally { this._rendering = false; this._scHold = null; this._config = base; }
+        this._pvSync();
         if (this.shadowRoot) this.shadowRoot.querySelectorAll('select[data-np]').forEach((el) => { if (el.value !== el.dataset.v) el.value = el.dataset.v; });
         // Personbilde som ikke laster → ikon/initialer (huskes per URL, som i headeren)
         if (this.shadowRoot) this.shadowRoot.querySelectorAll('.xpa img[data-pic]').forEach((img) => {
@@ -225,6 +259,92 @@
           const s = document.createElement('style'); s.id = 'xcss'; s.textContent = XCSS; this.shadowRoot.appendChild(s);
         }
       }
+      /* ---------- Fiks 19.13: header-profil per bruker × enhetsklasse ---------- */
+      _profOn() { return !!(M.store && M.profileSet && M.deviceClass); }
+      // Valgt profil: denne brukeren + denne enheten (forhåndsvalgt). Ikke-admin kan bare redigere egne profiler.
+      _psel() {
+        const h = this._hass, me = (h && h.user && h.user.id) || M.userId() || '*', admin = !!(h && h.user && h.user.is_admin);
+        if (!this._sel) this._sel = { user: me, cls: M.deviceClass() };
+        if (!admin && this._sel.user !== me) this._sel = { ...this._sel, user: me };
+        return this._sel;
+      }
+      _pkey() { const s = this._psel(); return M.profileKey(s.user, s.cls); }
+      // HA-brukere: deg selv; admin ser også de andre (config/auth/list, ellers personer med user_id)
+      _profUsers() {
+        const h = this._hass, L = [];
+        const add = (id, name) => { if (id && !L.some((u) => u.id === id)) L.push({ id, name: name || id }); };
+        if (h && h.user) add(h.user.id, h.user.name || 'Meg');
+        if (h && h.user && h.user.is_admin) {
+          (M._hdrUsers || []).forEach((u) => add(u.id, u.name));
+          Object.keys(h.states).forEach((id) => { if (id.startsWith('person.')) { const a = h.states[id].attributes || {}; add(a.user_id, a.friendly_name); } });
+          if (!M._hdrUsersP && h.callWS) {
+            M._hdrUsersP = Promise.resolve().then(() => h.callWS({ type: 'config/auth/list' })).then((r) => {
+              if (!Array.isArray(r)) return;
+              M._hdrUsers = r.filter((u) => u && u.id && !u.system_generated && u.is_active !== false).map((u) => ({ id: u.id, name: u.name }));
+              if (this.isConnected) this._render();
+            }).catch(() => {});
+          }
+        }
+        return L;
+      }
+      _uName(id) {
+        if (!id || id === '*') return 'Alle brukere';
+        const u = this._profUsers().find((x) => x.id === id);
+        return u ? firstName(u.name) || u.name : id;
+      }
+      _pName(k) { const [u, c] = String(k).split('/'); return this._uName(u) + ' · ' + M.deviceClassName(c); }
+      // Nærmeste nivå med egen profil etter det valgte (eller kortets oppsett)
+      _inhName(sel) {
+        const k = M.profileChain(sel).slice(1).find((x) => M.profileHas(HPROF, x));
+        return k ? this._pName(k) : 'kortets oppsett';
+      }
+      _profBar() {
+        if (!this._profOn()) return '';
+        const h = this._hass, sel = this._psel(), admin = !!(h && h.user && h.user.is_admin), me = h && h.user ? h.user.id : null;
+        const users = this._profUsers(), here = M.deviceClass(), R = M.store.get(HPROF) || {};
+        const has = (k) => M.profileHas(HPROF, k);
+        const uOpts = [...users.map((u) => [u.id, firstName(u.name) || u.name]), ...(admin ? [['*', 'Alle brukere']] : [])]
+          .map(([v, l]) => `<option value="${esc(v)}" ${v === sel.user ? 'selected' : ''}>${Object.keys(R).some((k) => k.startsWith(v + '/') && has(k)) ? '● ' : ''}${esc(l)}</option>`).join('');
+        const cOpts = [...M.DEVICE_CLASSES.map(([k]) => k), '*']
+          .map((k) => `<option value="${k}" ${k === sel.cls ? 'selected' : ''}>${has(M.profileKey(sel.user, k)) ? '● ' : ''}${esc(M.deviceClassName(k) + (k === here ? ' · denne' : ''))}</option>`).join('');
+        const key = M.profileKey(sel.user, sel.cls), own = has(key);
+        const copy = Object.keys(R).filter((k) => k !== key && has(k) && (admin || k.startsWith(me + '/') || k.startsWith('*/')))
+          .map((k) => `<option value="${esc(k)}">${esc(this._pName(k))}</option>`).join('');
+        const W = M.deviceClassWidth(sel.cls === '*' ? here : sel.cls);
+        return `<div class="xprof" data-key="xprof">
+          <div class="xpl1"><span class="xplab">Redigerer:</span>
+            <label class="xpsel"><b>${esc(this._uName(sel.user))}</b><select data-psel="user" aria-label="Bruker">${uOpts}</select></label><b class="xpdot">·</b>
+            <label class="xpsel"><b>${esc(M.deviceClassName(sel.cls))}${sel.cls === here ? '<i>denne</i>' : ''}</b><select data-psel="cls" aria-label="Enhet">${cOpts}</select></label>
+            ${M.icon('mdi:chevron-down', 18, 'color:#afafaf;flex:none')}${own ? '<span class="xpown" title="Egen profil"></span>' : ''}</div>
+          <div class="xpbtns">
+            <label class="xpb2 ${copy ? '' : 'off'}">${M.icon('mdi:content-copy', 16)}Kopier fra …<select data-pcopy="1" aria-label="Kopier fra" ${copy ? '' : 'disabled'}><option value="" selected disabled>Kopier fra …</option>${copy}</select></label>
+            <button class="xpb2" data-a="x-preset" ${own ? '' : 'disabled'}>${M.icon('mdi:backup-restore', 16)}Tilbakestill til arvet</button>
+          </div>
+          <div class="xpv" data-nomorph data-w="${W}"></div>
+          <span class="help">${own ? 'Egen profil for dette valget.' : 'Arver fra ' + esc(this._inhName(sel)) + '.'} Forhåndsvisning i ${W} px bredde.</span>
+        </div>`;
+      }
+      // Forhåndsvisning: headeren i valgt enhetsklasses bredde (iPhone 393 … PC 1280), skalert ned til arket
+      _pvSync() {
+        const box = this.shadowRoot && this.shadowRoot.querySelector('.xpv');
+        if (!box || !this._hass || !this._config || !customElements.get('msh-hjem-header-card')) return;
+        let inner = box.firstElementChild;
+        if (!inner) { inner = document.createElement('div'); inner.className = 'xpvi'; inner.appendChild(document.createElement('msh-hjem-header-card')); box.appendChild(inner); }
+        const card = inner.firstElementChild, sel = this._psel(), W = M.deviceClassWidth(sel.cls === '*' ? M.deviceClass() : sel.cls);
+        const ps = { user: sel.user, cls: sel.cls === '*' ? M.deviceClass() : sel.cls };
+        const { card_id, ...cfg } = this._config;
+        const j = JSON.stringify(cfg) + '|' + ps.user + '/' + ps.cls;
+        card._profSel = ps;
+        card.mshFold = W >= 600;
+        if (card.__pvJ !== j) { card.__pvJ = j; card._hFit = null; card._hN = 0; try { card.setConfig({ ...cfg, type: 'custom:msh-hjem-header-card', __eff: 1 }); } catch (e) { /* */ } }
+        if (card.hass !== this._hass) card.hass = this._hass;
+        else if (card.update) card.update();
+        const fit = () => {
+          const avail = box.clientWidth - 16 || 340, sc = Math.min(1, avail / W);
+          inner.style.cssText = `width:${W}px;transform:scale(${sc.toFixed(4)});transform-origin:0 0;pointer-events:none;margin-bottom:${-Math.round(inner.offsetHeight * (1 - sc))}px`;
+        };
+        fit(); requestAnimationFrame(fit); setTimeout(fit, 250);
+      }
       _findRows(name, list) {
         for (const f of list || this.schema) {
           if (f.type === 'rows' && f.name === name) return f;
@@ -239,6 +359,7 @@
         else if (v && typeof v === 'object' && f.toList) { try { list = f.toList(v, this._hass); } catch (e) { list = []; } }
         else { try { list = (f.defaults && f.defaults(this._hass, c)) || []; } catch (e) { list = []; } }
         if (f.norm) { try { list = f.norm(list, c); } catch (e) { /* */ } }
+        if (f.kind === 'people' && !this._noProf && this._profOn()) list = profPeople(list, M.hjemHeaderProfile(this._psel())); // Fiks 19.13
         return list;
       }
       _val(path) {
@@ -247,6 +368,10 @@
         return get(this._config || {}, path);
       }
       _set(path, v, commit) {
+        if (this._profOn() && PROF_KEYS.includes(path)) { // Fiks 19.13: valgt profil, lagres straks (ikke med i Ferdig/Avbryt)
+          M.profileSet(HPROF, { [path]: v === '' ? undefined : v }, this._pkey(), { commit: commit !== false });
+          return this._render();
+        }
         const m = /^(\w+)\.(\d+)\.(.+)$/.exec(path || '');
         if (m) {
           const f = this._findRows(m[1]);
@@ -260,6 +385,18 @@
       }
       // Rader lagres som liste, eller i feltets eget format (fromList, f.eks. zones-map)
       _rowsSave(f, list, commit) {
+        if (f.kind === 'people' && this._profOn()) {
+          // Fiks 19.13: rekkefølge og skjulte personer gjelder valgt profil; personene og feltene deres er felles
+          M.profileSet(HPROF, { people_order: list.map((r) => r && r.person).filter(Boolean), people_hidden: list.filter((r) => r && r.hidden && r.person).map((r) => r.person) }, this._pkey(), { commit: commit !== false });
+          this._noProf = true;
+          let baseRows;
+          try { baseRows = this._rowsOf(f); } finally { this._noProf = false; }
+          const bi = new Map(baseRows.map((r, i) => [r && r.person, i])), hid = new Map(baseRows.map((r) => [r && r.person, !!(r && r.hidden)]));
+          const pos = (r, i) => (r && bi.has(r.person) ? bi.get(r.person) : 1e4 + i);
+          list = list.map((r, i) => [r || {}, i]).sort((a, b) => pos(a[0], a[1]) - pos(b[0], b[1])).map(([r]) => { const o = { ...r }; if (hid.get(r.person)) o.hidden = true; else delete o.hidden; return o; });
+          const J = (l) => JSON.stringify(l.map((r) => { const o = { ...(r || {}) }; delete o.home_switch; if (o.zone === true) delete o.zone; return o; }));
+          if (J(list) === J(baseRows)) return this._render();
+        }
         if (f.kind === 'people') {
           // Én kanonisk modell: people[]. Eldre overrides.hjemme_/sover_<id> er flyttet inn i radene (norm) og fjernes her.
           const ov = { ...((this._config || {}).overrides || {}) };
@@ -334,6 +471,7 @@
         switch (f.type) {
           case 'rows': return this._rows(f, key);
           case 'titleacts': return this._titleActs();
+          case 'profilebar': return this._profBar();
           case 'modes': {
             let cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
             if (!f.options.some(([v]) => String(v) === cur)) cur = String(f.default || ''); // fjernet oppsett (under/kompakt) → standard
@@ -476,6 +614,12 @@
           case 'x-rhide': list[i].hidden = !list[i].hidden; if (!list[i].hidden) delete list[i].hidden; return this._rowsSave(f, list);
           case 'x-rdel': list.splice(i, 1); if (this._ropen[d.n] === i) this._ropen[d.n] = null; return this._rowsSave(f, list);
           case 'x-radd': { let r = {}; try { r = f.newRow(this._hass, this._config || {}, list) || {}; } catch (x) { /* */ } list.push(r); this._ropen[d.n] = list.length - 1; return this._rowsSave(f, list); }
+          case 'x-preset': { // Fiks 19.13: slett nivået → arves fra neste
+            const sel = this._psel();
+            M.profileSet(HPROF, null, this._pkey());
+            M.toast('Tilbakestilt – arver fra ' + this._inhName(sel));
+            return this._render();
+          }
           case 'x-tok': { const cur = String(this._val(d.name) || ''); const v = d.pre === '1' ? d.v + cur : `${cur} ${d.v}`.trim(); return this._set(d.name, v); }
           case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
           default:
@@ -827,6 +971,59 @@
     if (fold) { S.font = Math.round(S.font * 0.72); S.av = Math.round(S.av * 0.72); S.badge = Math.round(S.badge * 0.72); S.gap = Math.round(S.gap * 0.8); }
     return S;
   };
+  // Fiks 19.12: navnet har forrang, bildene tilpasser seg. W = radens bredde, tw1 = tekstbredde per px skrift,
+  // arr = ▾ + mellomrom, n = antall bilder. Er det ikke plass: ① bildene overlapper (−14 px, 2 px ring) ② bildene
+  // krymper ned til 40 px ③ hilsenen krymper ned til 28 px ④ «+N» i stedet for de siste bildene.
+  // → { fs, av, gap, k } (k = antall bilder som vises; k < n → «+(n − k)»-sirkel etter dem)
+  const HIL_MIN = { av: 40, fs: 28, gap: -14 };
+  // Status-merket følger bildet: 40 % av bildet, maks 24 px (og aldri over hBadge)
+  const hilBadge = (S, av) => Math.max(8, Math.min(S.badge, 24, Math.round(av * 0.4)));
+  const fitHil = (W, tw1, arr, n, S) => {
+    let fs = S.font, av = S.av, gap = S.gap, k = n;
+    const R = () => ({ fs, av, gap, k });
+    if (!n || !(W > 0) || !(tw1 > 0)) return R();
+    const text = (f) => tw1 * f * 1.01 + arr + 2;
+    const pics = (m) => (m ? m * av + (m - 1) * gap + Math.round(hilBadge(S, av) * 0.2) + S.tgap : 0);
+    const fits = (m) => text(fs) + pics(m) <= W;
+    if (fits(k)) return R();
+    if (n > 1) { gap = Math.min(gap, HIL_MIN.gap); if (fits(k)) return R(); }
+    av = Math.max(Math.min(S.av, HIL_MIN.av), Math.min(av, Math.floor((W - text(fs) - S.tgap - (n - 1) * gap - Math.round(hilBadge(S, av) * 0.2)) / n)));
+    if (fits(k)) return R();
+    fs = Math.max(Math.min(S.font, HIL_MIN.fs), Math.min(fs, Math.floor(((W - pics(k) - arr - 2) / (tw1 * 1.01)) * 10) / 10));
+    if (fits(k)) return R();
+    for (k = n - 1; k > 0 && !fits(k + 1); k--);
+    // ⑤ nødløsning (svært langt navn): heller mindre enn 28 px (min. 18) enn at raden går ut av skjermen
+    if (!fits(k + 1)) fs = Math.max(18, Math.floor(((W - pics(k + 1) - arr - 2) / (tw1 * 1.01)) * 10) / 10);
+    // ⑥ får det fortsatt ikke plass: først nå kortes teksten med «…» (cut)
+    return { ...R(), cut: !fits(k + 1) };
+  };
+  M.hjemFitHil = fitHil;
+  // Fiks 19.13: header-profiler per bruker × enhetsklasse (ki-store header_profiles, MSH.profileGet/profileSet i
+  // 00-base). Feltene i PROF_KEYS + personenes rekkefølge/skjulte (people_order / people_hidden) kan ha egen verdi per
+  // profil; resten av configen (personer, soner, steder, hilsen …) er felles. Oppslag: bruker + enhet → bruker →
+  // enhet → standard (*/*) → kortets config.
+  const HPROF = 'header_profiles';
+  const PROF_KEYS = ['mode', 'hFont', 'hAv', 'hBadge', 'hGap', 'hTGap', 'badge', 'size', 'show_name', 'show_place', 'ring_me', 'g_font', 'g_avatar', 'g_badge', 'g_gap', 'pic_size', 'persons_size', 'title_size'];
+  const profPeople = (rows, P) => {
+    let out = rows.map((r) => ({ ...(r || {}) }));
+    if (Array.isArray(P.people_order)) {
+      const o = P.people_order, ix = (r) => { const i = o.indexOf(r.person); return i < 0 ? o.length : i; };
+      out = out.map((r, i) => [r, i]).sort((a, b) => (ix(a[0]) - ix(b[0])) || (a[1] - b[1])).map((x) => x[0]);
+    }
+    if (Array.isArray(P.people_hidden)) { const hs = new Set(P.people_hidden); out.forEach((r) => { if (hs.has(r.person)) r.hidden = true; else delete r.hidden; }); }
+    return out;
+  };
+  const applyProf = (c, P, hass) => {
+    const out = { ...c };
+    PROF_KEYS.forEach((k) => { if (P[k] != null) out[k] = P[k]; });
+    if (P.people_order || P.people_hidden) {
+      const rows = Array.isArray(c.people) ? c.people : peopleDefaults(hass, c);
+      if (rows.length) out.people = profPeople(rows, P);
+    }
+    return out;
+  };
+  M.hjemHeaderProfile = (sel) => (M.store && M.profileGet ? M.profileGet(HPROF, sel) : {});
+  M.HJEM_HEADER_PROF_KEYS = PROF_KEYS;
   // Estimert tekstbredde i em (samme tegnvekt-estimat som Stor hilsen)
   const emWidth = (t) => [...String(t || '')].reduce((a, ch) => a + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0);
   const MODES = [['hilsen', 'Hilsen', 'mdi:human-greeting-variant', 'Stor hilsen og store bilder på én linje'], ['sted', 'Sted', 'location_on', 'Stedsnavn og store bilder på én linje'], ['navn', 'Navn', 'person', 'Navnet ditt som tittel'], ['hjem', 'Hjem', 'home_pin', 'Sted, vær og personer'], ['stor', 'Stor hilsen', 'waving_hand', 'Stor hilsen og bilder side om side'], ['profil', 'Profil', 'account_circle', 'Stort sted, deg øverst og familien under']];
@@ -852,6 +1049,7 @@
         const PROSE_GAP = { type: 'range', name: 'prose_gap', label: 'Avstand til prosa', icon: 'mdi:arrow-expand-vertical', min: -20, max: 60, step: 2, default: D.prose_gap, unit: 'px', presets: M.HJEM_PROSE_GAP_PRESETS, help: 'Mellomrommet mellom headeren og prosaen. Minus trekker prosaen opp mot headeren.' };
         const PL = (Array.isArray(c && c.people) ? c.people : peopleDefaults(hass, c || {})).map((r) => M.hjemPeopleNorm(c || {}, r));
         return [
+          { type: 'profilebar' }, // Fiks 19.13: «Redigerer: bruker · enhet ▾» (msh-hjem-editor)
           { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
           { type: 'section', id: 'title_actions', label: 'Handlinger på tittelen', icon: 'mdi:gesture-tap', meta: (h, cc) => { const A = M.hjemTitleActions(cc); return TACT_L[A.tap]; }, fields: [
             { type: 'titleacts' },
@@ -1017,20 +1215,17 @@
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
       const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
-      const HF = hil ? this._hFit || {} : {};
+      // Fiks 19.12: målt tilpasning (_hFitNow); før første måling et estimat fra radens bredde (tegnvekt-estimat)
+      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS) : {};
       const hGapN = HF.gap != null ? HF.gap : HS.gap;
-      const hSZ = HF.av ? HF.av + 'px' : `clamp(32px, ${(HS.av / 5.6).toFixed(2)}cqw, ${HS.av}px)`;
+      const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = hilBadge(HS, hAvN), hK = HF.k != null ? HF.k : people.length;
+      this._hNum = hil ? people.length : 0;
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
       if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
-      else if (hil) {
-        // Startverdi før første måling: max(18px, min((100cqw − bilder) / r, hFont)); endelig størrelse måles i afterRender
-        const n = people.length, pics = n ? `${n} * ${hSZ} + ${(n - 1) * hGapN + HS.badge * 0.2}px + ${HS.tgap}px` : '0px';
-        const r = Math.max(emWidth(title) + 0.1, 1);
-        fs = HF.fs ? HF.fs + 'px' : `max(18px, min(calc((100cqw - (${pics}) - 28px) / ${r.toFixed(2)}), ${HS.font}px))`; fw = 600; ls = '-0.03em'; ht = 'auto'; pb = '0';
-      }
+      else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 600; ls = '-0.03em'; ht = 'auto'; pb = '0'; } // Fiks 19.12: fitHil
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
@@ -1050,18 +1245,18 @@
         const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
         const av = ini
           ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.dim ? 0.55 : 1};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
-          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? (hil && !dress && hGapN < 0 ? `0 0 0 2px ${C.dash}` : 'none') : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
         let bd = '', bi = '';
         // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
         // Merke = status (M.personStatus): hjemme-bryter → sone → borte. Borte uten away_marker / ukjent → ingen merke.
         if (!p.badge) { /* ingen merke */ }
         else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
         else if (hil) {
-          // Fiks 17.15: merket skaleres bare med hBadge (aldri med bildet), maks 50 % av bildet; ingen ring
+          // Fiks 19.12: merket følger bildestørrelsen (40 % av bildet, maks 24 px / hBadge) og ligger inni bildegruppen
           if (c.badge !== 'none') {
-            const bs = `min(${HS.badge}px, calc(${SZ} * 0.5))`, o = -HS.badge * 0.2, is = Math.round(HS.badge * 0.6);
-            bd = `right:${o}px;top:${o}px;width:${bs};height:${bs};border-radius:50%;background:${p.stCol};z-index:1`;
-            bi = M.icon(p.sleep ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:min(${is}px, calc(${SZ} * 0.3));width:auto;height:auto`);
+            const o = -Math.round(hBs * 0.2), is = Math.round(hBs * 0.6);
+            bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${p.stCol};z-index:1`;
+            bi = M.icon(p.sleep ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
           }
         }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
@@ -1069,17 +1264,20 @@
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : hil ? hGapN : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
-        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 ? `;margin-right:${HS.badge * 0.2}px` : ''}">
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.2)}px` : ''}">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
-      let faces = people, row2 = [];
+      let faces = people, row2 = [], hMore = 0;
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
-      const facesHTML = Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('');
+      if (hil && hK < people.length) { hMore = people.length - hK; faces = people.slice(0, hK); } // Fiks 19.12 ④
+      const more = hMore ? people[hK] : null;
+      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);box-shadow:0 0 0 2px ${C.dash};font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
+      const facesHTML = (Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('')) + moreHTML;
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
-      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}" data-ent="__tilpass">
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}" data-ent="__tilpass">
         <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
@@ -1364,34 +1562,44 @@
         this._hRaf = requestAnimationFrame(() => this._hFitNow());
       } else if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; this._hFit = null; }
     }
-    // px = min(hFont, max(18, fs · (kolonnebredde − pil − 8) / scrollWidth · 0,985)). Får ikke 18 px plass:
-    // bildene krymper (ned til 32 px), deretter overlapper de (mellomrom ned til −12). Først til slutt ellipsis.
+    // Fiks 19.12: mål tekstens bredde (per px skrift) og radens bredde, og regn ut fitHil: navnet vises alltid helt;
+    // bildene overlapper, krymper (40 px), så krymper teksten (28 px), til slutt «+N».
     _hFitNow() {
-      const R = this.shadowRoot, sp = R.querySelector('.hil .ttl .tx'), cl = R.querySelector('.hil .lc');
-      if (!sp || !cl || !sp.isConnected) return;
+      const R = this.shadowRoot, sp = R.querySelector('.hil .ttl .tx'), top = R.querySelector('.hil .top');
+      if (!sp || !top || !sp.isConnected) return;
       const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
-      const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, colW = cl.clientWidth;
-      if (!tw || !colW) return;
-      const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0; // offset*/client* = uten CSS-zoom (bred layout)
-      const room = colW - arr - 8, raw = (fs * room / tw) * 0.985;
-      const next = { ...cur, fs: Math.floor(Math.min(HS.font, Math.max(18, raw)) * 10) / 10 };
-      const faces = [...R.querySelectorAll('.faces .face .av')], n = faces.length;
-      if (raw < 17.9 && n) {
-        // For lite plass selv med 18 px: frigjør bredden fra bildene
-        let deficit = (tw * 18) / fs / 0.985 - room;
-        const avNow = faces[0].offsetWidth, gapNow = cur.gap != null ? cur.gap : HS.gap;
-        const av = Math.max(32, Math.floor(avNow - deficit / n));
-        deficit -= n * (avNow - av);
-        next.av = av;
-        if (deficit > 0 && n > 1) next.gap = Math.max(-12, Math.floor(gapNow - deficit / (n - 1)));
-      }
-      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap;
+      const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
+      if (!tw || !W) return;
+      const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0;
+      const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS);
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || !!next.cut !== !!cur.cut;
       if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
       this._hFit = next;
       this.update();
     }
+    // Fiks 19.13: effektiv config = kortets config + header-profilen for denne brukeren × enhetsklassen
+    // (forhåndsvisningen i editoren setter _profSel = { user, cls }). Mellomlagres per ki-store-revisjon.
+    get config() {
+      const c = this._config || {};
+      if (!M.store || !M.profileGet) return c;
+      const sel = this._profSel || null;
+      const sig = [M.store.rev, sel ? sel.user + '/' + sel.cls : '', M.deviceClass(), M.userId(), !!this._hass].join('|');
+      if (this._pc && this._pc.c === c && this._pc.sig === sig) return this._pc.v;
+      const P = M.profileGet(HPROF, sel);
+      const v = Object.keys(P).length ? applyProf(c, P, this._hass) : c;
+      this._pc = { c, sig, v };
+      return v;
+    }
+    connectedCallback() {
+      super.connectedCallback();
+      if (M.store && !this._hpOff) this._hpOff = M.store.subscribe((d, path) => { if (!path || String(path).startsWith(HPROF)) { this._hFit = null; this._hN = 0; this.update(); } });
+      if (!this._onCls) this._onCls = () => { this._hFit = null; this._hN = 0; this.update(); };
+      window.addEventListener('ki-device-class', this._onCls); // bretting: ny enhetsklasse → ny profil uten reload
+    }
     disconnectedCallback() {
       super.disconnectedCallback();
+      if (this._hpOff) { this._hpOff(); this._hpOff = null; }
+      if (this._onCls) window.removeEventListener('ki-device-class', this._onCls);
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; }
       cancelAnimationFrame(this._hRaf);
@@ -1426,8 +1634,16 @@
         .prof .row2{gap:14px;padding:0}
         /* Fiks 17.13/17.20: Hilsen/Sted – én rad, vertikalt sentrert; ▾ rett etter teksten (4 px); ingen klipping av emoji/descendere */
         .hil .top{align-items:center}
-        .hil .ttl{line-height:1.15;column-gap:4px;max-width:100%}
+        .hil .ttl{line-height:1.15;column-gap:4px;max-width:none;overflow:visible}
         .hil .faces{align-items:center}
+        /* Fiks 19.12: hilsenen har forrang (aldri ellipsis), bildegruppen tilpasser seg */
+        .hil .lc{flex:1 1 auto;min-width:max-content}
+        .hil .ttl .tx{flex:none;max-width:none;overflow:visible;text-overflow:clip}
+        .hil .faces{flex:0 1 auto;min-width:0}
+        .hil.hcut .lc{flex:1 1 0;min-width:0}
+        .hil.hcut .faces{flex:none}
+        .hil.hcut .ttl{overflow:hidden;max-width:100%}
+        .hil.hcut .ttl .tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }

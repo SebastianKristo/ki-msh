@@ -6,12 +6,14 @@
  *   Tilstand «0,Restavfall,Plastavfall» (brukerens sensor.neste_tomming): første del = dager, resten = avfallstypene.
  *   Config: sensor (alias entity; standard sensor.neste_tomming hvis den finnes), rosa (standard på), rosa_dager (0 | 1),
  *   tekst_i_dag / tekst_en / tekst_flere (titlene). Trykk → popup_hash, hold → more-info.
+ * Fiks 19.10: tømmedagen (Hjem v3 trashToday) er lavere: padding 24/20, ingen min-høyde (ca. 120 px), tall 60 px, tittel 19 px
+ *   som brytes inni kolonnen (min-width 0, overflow-wrap anywhere) – teksten går aldri ut over kanten.
  * Fiks 18.2: ingen søppelkasse-ikon (som Hjem v3) – tallet står alene og sentrert i venstre kolonne; `ikon` i config ignoreres.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const PINK = 'linear-gradient(135deg, #f294c8, #f5cfd0)';
-  const TXT = { i_dag: 'Søppeltømming i dag', en: 'Dag til neste søppeltømming', flere: 'Dager til neste søppeltømming' };
+  const PINK = 'linear-gradient(145deg, rgb(242 146 204), rgb(245 205 206))'; // Hjem v3 · trashToday (fiks 19.10)
+  const TXT = { i_dag: 'Søppel tømmes i dag', en: 'Dag til neste søppeltømming', flere: 'Dager til neste søppeltømming' };
   const og = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} og ${a[a.length - 1]}` : a[0] || '');
   // «0,Restavfall,Plastavfall» → { days: 0, types: 'Restavfall og Plastavfall' }; ellers som før (M.hjemTrashDays/Type)
   M.hjemTrashParse = function (st, typeSt) {
@@ -70,13 +72,13 @@
     get styles() {
       return `
         .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
-        /* Fiks 17.14 · tømmedagen: rosa kort (PINK), radius 40, ingen kant, ca. 208 px, stort tall 35 % til venstre */
-        .tr.pink{grid-template-columns:35% 1fr;gap:12px;min-height:208px;padding:28px 24px 28px 16px;border-radius:40px;background:${PINK};color:#000;border:0}
+        /* Fiks 19.10 · tømmedagen (Hjem v3 trashToday): rosa kort, radius 30, padding 24/20, høyden følger innholdet (ca. 120 px) */
+        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:#2a1720;border:0}
         .pink .nw{height:auto}
-        .pink .n{font-size:110px;font-weight:800;color:#000;letter-spacing:-0.05em}
-        .pink .tx{gap:14px}
-        .pink .l1{font-size:30px;font-weight:500;line-height:1.2;color:#000;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-        .pink .l2{font-size:19px;font-weight:500;color:#000}
+        .pink .n{font-size:60px;font-weight:600;color:#2a1720;letter-spacing:-0.04em}
+        .pink .tx{gap:6px;min-width:0}
+        .pink .l1{font-size:19px;font-weight:500;line-height:1.25;color:#2a1720;text-wrap:balance;overflow-wrap:anywhere;white-space:normal;max-width:100%}
+        .pink .l2{font-size:13px;font-weight:500;line-height:1.3;color:#2a1720;overflow-wrap:anywhere;max-width:100%}
         .an.due.pink .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both}
         .tr.press:active{transform:scale(.97)}
         .nw{position:relative;display:grid;place-items:center;height:72px;overflow:visible}

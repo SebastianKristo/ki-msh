@@ -124,7 +124,7 @@ if (SHOTS) await page.locator('msh-soppel-card').last().screenshot({ path: SHOTS
 t = await sop('3,Papir');
 ok('18.2 vanlig dag: ingen ikon', !t.bin && t.icons === 1 && t.n === '3' && t.center, t);
 t = await sop('0,Restavfall,Plastavfall');
-ok('18.2 tømmedag: rosa beholdt, ingen ikon', !t.bin && t.pink && t.n === '0' && t.l1 === 'Søppeltømming i dag' && t.act === 'open', t);
+ok('18.2 tømmedag: rosa beholdt, ingen ikon', !t.bin && t.pink && t.n === '0' && t.l1 === 'Søppel tømmes i dag' && t.act === 'open', t);
 if (SHOTS) await page.locator('msh-soppel-card').last().screenshot({ path: SHOTS + '/f18-soppel-0.png' });
 const hash = await page.evaluate(async () => { __last.shadowRoot.querySelector('.tr').click(); await new Promise((r) => setTimeout(r, 100)); return location.hash; });
 ok('18.2 popup_hash uendret (#soppel)', hash === '#soppel', hash);

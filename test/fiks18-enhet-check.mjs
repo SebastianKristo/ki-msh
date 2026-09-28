@@ -1,4 +1,6 @@
 // Fiks 18.5 / 18.6: haptisk feedback av per enhet + navbarens avstand fra bunnen per enhet.
+// Fiks 19.13: begge ligger nå i ki-store nav_profiles['<bruker>/<enhetsklasse>'] (Pixel 9 Pro = 'annen'), med migrering
+// av eldre localStorage ki-haptic-off / ki-nav-bottom og ki-store haptic_off_devices / nav_bottom_devices.
 //  · MSH.haptic sender verken haptic-event eller vibrate når ki-haptic-off = '1'; HA/Bubble-haptic stoppes (capture)
 //  · «Tilpass Hjem» → Faner: bryteren «Haptisk feedback» + «Denne enheten: …», lagres i localStorage + ki-store
 //  · navbar: standard per enhet (iPhone 0, OnePlus 20, Pixel 16, iPad 12), slider i «Tilpass navbar» live + Standard
@@ -75,21 +77,22 @@ for (const [k, want] of [['iphone', 0], ['oneplus', 20], ['pixel', 16]]) {
     sl.value = '30'; sl.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise((x) => setTimeout(x, 100));
     const live = Math.round(innerHeight - deep('nav.nb').getBoundingClientRect().bottom), lbl = q('.nbbv').textContent;
-    const lsLive = localStorage.getItem('ki-nav-bottom'), stLive = MSH.store.get('nav_bottom_devices.pixel9pro');
+    const NP = () => (MSH.store.get('nav_profiles') || {})['u1/annen'] || null;
+    const lsLive = localStorage.getItem('ki-nav-bottom'), stLive = NP();
     sl.dispatchEvent(new Event('change', { bubbles: true }));
     await new Promise((x) => setTimeout(x, 100));
-    const saved = { ls: localStorage.getItem('ki-nav-bottom'), st: MSH.store.get('nav_bottom_devices.pixel9pro') };
+    const saved = { ls: localStorage.getItem('ki-nav-bottom'), st: NP() && NP().bottom, cls: MSH.deviceClass() };
     const std1 = !!q('[data-a="nbbotstd"]');
     q('[data-a="nbbotstd"]').click();
     await new Promise((x) => setTimeout(x, 150));
-    const after = { ls: localStorage.getItem('ki-nav-bottom'), st: MSH.store.get('nav_bottom_devices.pixel9pro'), b: Math.round(innerHeight - deep('nav.nb').getBoundingClientRect().bottom), std: !!q('[data-a="nbbotstd"]') };
+    const after = { ls: localStorage.getItem('ki-nav-bottom'), st: NP(), b: Math.round(innerHeight - deep('nav.nb').getBoundingClientRect().bottom), std: !!q('[data-a="nbbotstd"]') };
     return { order, hint, std0, bubbled, live, lbl, lsLive, stLive, saved, std1, after };
   });
   ok('18.6 editor: «Avstand fra bunnen» rett under Bredde', r.order);
   ok('18.6 editor: hint «Gjelder bare Pixel 9 Pro · standard 16 px», ingen Standard-knapp', r.hint === 'Gjelder bare Pixel 9 Pro · standard 16 px' && !r.std0, r.hint);
   ok('18.6 editor: pointerdown stoppes (fallgruve 2)', !r.bubbled);
   ok('18.6 editor: slideren flytter navbaren live (30 px), ikke lagret i ki-store før slipp', r.live === 30 && r.lbl === '30 px' && r.stLive == null, r);
-  ok('18.6 editor: slipp lagrer i localStorage + ki-store (browser_id)', r.saved.ls === '30' && r.saved.st === 30 && r.std1, r.saved);
+  ok('19.13 editor: slipp lagrer i ki-store nav_profiles[u1/annen].bottom (ikke localStorage)', r.saved.ls == null && r.saved.st === 30 && r.saved.cls === 'annen' && r.std1, r.saved);
   ok('18.6 editor: «Standard» sletter og bruker 16 px igjen', r.after.ls == null && r.after.st == null && r.after.b === 16 && !r.after.std, r.after);
   ok('18.6 editor: ingen JS-feil', !errs.length, errs);
   // reload: verdi i localStorage overlever
@@ -137,32 +140,75 @@ for (const [k, want] of [['iphone', 0], ['oneplus', 20], ['pixel', 16]]) {
     if (!btn) return { found: false };
     const txt = btn.textContent;
     btn.click(); await wait(200);
-    const st = { ls: localStorage.getItem('ki-haptic-off'), store: MSH.store.get('haptic_off_devices'), flag: window.__kiHapticOff, aria: deep('[data-a="hapticdev"]').getAttribute('aria-checked') };
+    const NP = () => (MSH.store.get('nav_profiles') || {})['u1/annen'] || null;
+    const st = { np: NP(), old: MSH.store.get('haptic_off_devices'), flag: window.__kiHapticOff, aria: deep('[data-a="hapticdev"]').getAttribute('aria-checked') };
     log.ev = log.vib = log.ha = 0;
     MSH.haptic('light'); await wait(60); MSH.haptic('success'); await wait(60); fire();
     const off = { ...log };
     // tilbake på
     deep('[data-a="hapticdev"]').click(); await wait(200);
-    const back = { ls: localStorage.getItem('ki-haptic-off'), store: MSH.store.get('haptic_off_devices'), flag: window.__kiHapticOff };
+    const back = { np: NP(), flag: window.__kiHapticOff };
     log.vib = log.ha = 0; MSH.haptic('light'); await wait(60);
-    // kun ki-store (tømt cache): fortsatt av
-    MSH.setHapticOff(true); localStorage.removeItem('ki-haptic-off');
-    const storeOnly = MSH.hapticOff();
+    // arv: «Alle brukere · Alle enheter» (*/*) av → av her; av/på her overstyrer (false lagres på u1/annen)
+    MSH.profileSet('nav_profiles', { haptic_off: true }, '*/*');
+    const inh = MSH.hapticOff();
     MSH.setHapticOff(false);
-    return { found: true, txt, on, st, off, back, again: { ...log }, storeOnly };
+    const over = { off: MSH.hapticOff(), np: NP() };
+    MSH.profileSet('nav_profiles', null, '*/*'); MSH.profileSet('nav_profiles', null, 'u1/annen');
+    return { found: true, txt, on, st, off, back, again: { ...log }, inh, over };
   });
   ok('18.5 standard på: haptic-event + vibrate', r.on && r.on.vib === 1 && r.on.ha === 2, r.on);
   ok('18.5 Tilpass Hjem → Faner: bryteren «Haptisk feedback» med «Denne enheten: Pixel 9 Pro · Android»', r.found && /Haptisk feedback/.test(r.txt) && /Gjelder bare denne enheten/.test(r.txt) && /Denne enheten: Pixel 9 Pro · Android/.test(r.txt), r.txt);
-  ok('18.5 av: lagret i localStorage + ki-store haptic_off_devices', r.st && r.st.ls === '1' && JSON.stringify(r.st.store) === '["pixel9pro"]' && r.st.flag === true && r.st.aria === 'false', r.st);
+  ok('19.13 av: lagret i ki-store nav_profiles[u1/annen].haptic_off', r.st && r.st.np && r.st.np.haptic_off === true && r.st.old == null && r.st.flag === true && r.st.aria === 'false', r.st);
   ok('18.5 av: ingen vibrate og ingen haptic-event (heller ikke Bubble/HA)', r.off && r.off.vib === 0 && r.off.ha === 0, r.off);
-  ok('18.5 på igjen: fjernet fra begge, vibrerer igjen', r.back && r.back.ls == null && r.back.store == null && r.back.flag === false && r.again.vib === 1, { back: r.back, again: r.again });
-  ok('18.5 kun ki-store (tømt cache) → fortsatt av', r.storeOnly === true);
+  ok('19.13 på igjen: nivået tømt, vibrerer igjen', r.back && r.back.np == null && r.back.flag === false && r.again.vib === 1, { back: r.back, again: r.again });
+  ok('19.13 arv: */* av → av her; på her lagres som haptic_off: false', r.inh === true && r.over.off === false && r.over.np && r.over.np.haptic_off === false, { inh: r.inh, over: r.over });
   ok('18.5 ingen JS-feil', !errs.length, errs);
   await ctx.close();
 }
 {
   const { p, ctx } = await setup(UA.iphone);
   ok('18.5 iPhone: enhetsnavn «iPhone · iOS», haptic på', await p.evaluate(() => MSH.deviceInfo().label === 'iPhone · iOS' && !MSH.hapticOff()));
+  await ctx.close();
+}
+
+/* ---------------- 19.13 migrering fra 18.5/18.6 */
+{
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, userAgent: UA.pixel });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto('file://' + resolve('test/harness.html'));
+  await p.evaluate(() => {
+    localStorage.setItem('browser_mod-browser-id', 'pixel9pro');
+    localStorage.setItem('ki-nav-bottom', '22'); localStorage.setItem('ki-haptic-off', '1');
+    localStorage.setItem('ki:store', JSON.stringify({ haptic_off_devices: ['pixel9pro', 'ipad1'], nav_bottom_devices: { pixel9pro: 22, ipad1: 12 } }));
+  });
+  for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
+  await p.addScriptTag({ path: bundle });
+  const r = await p.evaluate(async () => {
+    const c = document.createElement('msh-navbar-card'); c.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); c.hass = window.mockHass();
+    document.getElementById('dash').appendChild(c);
+    await new Promise((q) => setTimeout(q, 800));
+    return { np: MSH.store.get('nav_profiles'), L: MSH.store.get('haptic_off_devices'), B: MSH.store.get('nav_bottom_devices'), ls: [localStorage.getItem('ki-nav-bottom'), localStorage.getItem('ki-haptic-off')], off: MSH.hapticOff(), bot: MSH.navBottom(), user: MSH.userId() };
+  });
+  ok('19.13 migrering: 18.5/18.6-verdiene flyttet til nav_profiles[u1/annen]', r.np && r.np['u1/annen'] && r.np['u1/annen'].bottom === 22 && r.np['u1/annen'].haptic_off === true && r.off === true && r.bot === 22, r);
+  ok('19.13 migrering: gamle nøkler slettet (andre enheters verdier beholdt)', JSON.stringify(r.L) === '["ipad1"]' && JSON.stringify(r.B) === '{"ipad1":12}' && r.ls[0] == null && r.ls[1] == null, r);
+  ok('19.13 migrering: ingen JS-feil', !errs.length, errs);
+  // enhetsklasser
+  const cls = await p.evaluate(() => MSH.deviceClass());
+  ok('19.13 Pixel 9 Pro → enhetsklasse «annen»', cls === 'annen', cls);
+  await ctx.close();
+}
+for (const [ua, vp, want] of [[UA.iphone, { width: 393, height: 852 }, 'iphone'], [UA.ipad, { width: 820, height: 1180 }, 'ipad'], [UA.oneplus, { width: 412, height: 915 }, 'oneplus'],
+  [UA.pixel.replace('Pixel 9 Pro', 'Pixel 9 Pro Fold'), { width: 412, height: 915 }, 'fold_closed'], [UA.pixel.replace('Pixel 9 Pro', 'Pixel 9 Pro Fold'), { width: 884, height: 1032 }, 'fold_open']]) {
+  const { p, ctx } = await setup(ua, vp);
+  ok(`19.13 enhetsklasse ${want}`, await p.evaluate(() => MSH.deviceClass()) === want);
+  if (want === 'fold_open') {
+    await p.evaluate(() => { window.__cls = 0; window.addEventListener('ki-device-class', () => { window.__cls++; }); });
+    await p.setViewportSize({ width: 412, height: 915 }); await p.waitForTimeout(400);
+    const r = await p.evaluate(() => ({ c: MSH.deviceClass(), ev: window.__cls }));
+    ok('19.13 bretting 884 → 412: fold_closed + ki-device-class uten reload', r.c === 'fold_closed' && r.ev >= 1, r);
+  }
   await ctx.close();
 }
 

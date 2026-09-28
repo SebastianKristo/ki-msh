@@ -269,6 +269,7 @@
           if (r && r.value && typeof r.value === 'object' && !busy()) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
+        try { if (M.migrateNavProfiles) M.migrateNavProfiles(); } catch (e) { /* */ } // Fiks 19.13: 18.5/18.6 → nav_profiles
         if (migrate()) { cache(); emit(''); push(false); }
         // sist sett (maks hver 6. time, så det ikke gir unødige skriv)
         try {
@@ -300,4 +301,10 @@
     },
   };
   window.kiStore = M.store;
+  // Fiks 19.13: nav_profiles (haptic av / avstand fra bunnen per bruker × enhet) endret her eller fra en annen enhet →
+  // haptic-flagget og navbaren oppdateres straks
+  M.store.subscribe((d, path) => {
+    if (path && !String(path).startsWith('nav_profiles')) return;
+    try { if (M.hapticOff) M.hapticOff(); window.dispatchEvent(new CustomEvent('ki-nav-bottom')); } catch (e) { /* */ }
+  });
 })();

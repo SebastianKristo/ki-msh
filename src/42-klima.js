@@ -16,9 +16,12 @@
  * Blokkene (faneinnholdet) bygges i 42-klima-blokker.js (lastes før denne): MSH.KLIMA_TABS, klimaHasTab,
  * klimaBlockList, klimaTabHTML, klimaAct, klimaInput, klimaAfterRender, klimaOnOpen/OnClose, KLIMA_BLOCK_CSS,
  * klimaToast, klimaStatus. Alt kalles defensivt – mangler fila, vises en plassholder.
- * Config: title, remember_tab, toasts, hero_style: ring|hus|batteri|maaler|puls|blokker (17.29), gap/pad_top/pad_bottom (17.28,
+ * Config: title, toasts, hero_style: ring|hus|batteri|maaler|puls|blokker (17.29), gap/pad_top/pad_bottom (17.28,
  *   standard 16/20/40), layout: { show_hero, show_modes, tab_style: both|text|icon, tab_order[],
- *   hidden_tabs[], default_tab, block_order: { fane: [id] }, hidden_blocks: { fane: [id] } }.
+ *   hidden_tabs[], default_tab, remember_tab, block_order: { fane: [id] }, hidden_blocks: { fane: [id] } }.
+ *   19.8: default_tab = «Åpne med» (skjult → første synlige), remember_tab (std av) = åpne med sist valgte fane (per enhet,
+ *   localStorage ki:<card_id>:ui); av = alltid «Åpne med» når popupen åpnes. Eldre rotnøkkel remember_tab leses fortsatt.
+ *   Fanelinjen: fast #3a3a3a-flate (ingen backdrop-filter), radius 30, padding 6, gap 4; tannhjul 52 px i samme flate.
  */
 (function () {
   const M = window.MSH, esc = M.esc, nf = M.nf;
@@ -120,6 +123,8 @@
     if (!Array.isArray(out.tab_order) && Array.isArray(c.tab_order)) out.tab_order = c.tab_order.map(tabId);
     if (!Array.isArray(out.hidden_tabs) && Array.isArray(c.hidden_tabs)) out.hidden_tabs = c.hidden_tabs.map(tabId);
     if (!out.default_tab && c.start_tab) out.default_tab = tabId(c.start_tab);
+    if (out.remember_tab == null && c.remember_tab != null) out.remember_tab = c.remember_tab;
+    out.remember_tab = out.remember_tab === true || out.remember_tab === 'true';
     out.block_order = L.block_order && typeof L.block_order === 'object' ? L.block_order : {};
     out.hidden_blocks = L.hidden_blocks && typeof L.hidden_blocks === 'object' ? L.hidden_blocks : {};
     return out;
@@ -691,8 +696,8 @@
             { type: 'select', name: 'layout.tab_style', label: 'Fanestil', options: [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], default: 'both' },
           ] },
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-            { type: 'select', name: 'layout.default_tab', label: 'Standardfane', options: T.map((t) => [t.id, t.label]), default: 'oversikt' },
-            { type: 'boolean', name: 'remember_tab', label: 'Husk sist valgte fane', default: true },
+            { type: 'select', name: 'layout.default_tab', label: 'Åpne med', options: (() => { const v = visibleTabs(pc, layoutOf(c)); return T.filter((t) => v.includes(t.id)).map((t) => [t.id, t.label]); })(), default: 'oversikt' },
+            { type: 'boolean', name: 'layout.remember_tab', label: 'Husk siste fane', help: 'På: åpner med fanen du sist var på (per enhet). Av: alltid «Åpne med».', default: false },
             { type: 'order', name: 'layout.tab_order', hiddenName: 'layout.hidden_tabs', label: 'Faner (rekkefølge og synlighet)', options: T.map((t) => [t.id, t.label]) },
           ] },
           ...(blocks.length ? [{ type: 'section', id: 'blokker', label: 'Blokker', icon: 'mdi:view-agenda-outline', fields: blocks }] : []),
@@ -790,7 +795,7 @@
     }
     _curTab() {
       const L = this.layout, tabs = visibleTabs(this, L);
-      const sel = this.config.remember_tab === false ? this._tab : this.ui.tab;
+      const sel = L.remember_tab ? this.ui.tab : this._tab;
       const s = sel ? tabId(sel) : null;
       return tabs.includes(s) ? s : tabs.includes(L.default_tab) ? L.default_tab : tabs[0];
     }
@@ -832,7 +837,8 @@
     _selectTab(k) {
       const prev = this._shownTab;
       if (!k || k === prev) return;
-      if (this.config.remember_tab === false) { this._tab = k; this.update(); } else this.setUI({ tab: k });
+      // 19.8: sist valgte fane lagres alltid per enhet (ui.tab), men brukes bare ved åpning når «Husk siste fane» er på
+      this._tab = k; this.setUI({ tab: k });
       if (k === 'oversikt' && prev && this._heroEl && this._heroEl.animateIn) this._heroEl.animateIn();
     }
 
@@ -855,7 +861,11 @@
     onInput(name, el, ev, kind) {
       if (M.klimaInput && safe(() => M.klimaInput(this, name, el, ev, kind), false)) return;
     }
-    onOpen() { if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch(); }
+    onOpen() {
+      // 19.8: «Husk siste fane» av → popupen åpner alltid med «Åpne med»-fanen
+      if (!this.layout.remember_tab) this._tab = null;
+      if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch();
+    }
     onClose() { if (M.klimaOnClose) safe(() => M.klimaOnClose(this)); }
     disconnectedCallback() { super.disconnectedCallback(); this._open = false; clearTimeout(this._watchT); }
     afterRender() {
@@ -888,15 +898,16 @@
         ${M.TAB_ROW_CSS || ''}
         .trow{display:flex;align-items:center;gap:8px;min-width:0}
         /* Fiks 15.2: glassflate bare med Liquid Glass-temaet (MSH.tabSurface), ellers transparent + ring; glass-dra alltid */
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:26px;${TRS}overflow:hidden}
-        .tabs{position:relative;gap:2px;border-radius:22px}
-        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:54px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--gray700,#979797);background:transparent;transition:background .25s,color .25s}
+        /* 19.8: fast flate #3a3a3a + tynn ring, ingen glass/backdrop-filter; glass-linsen (tabReorder) virker oppå */
+        .tbox{flex:1;min-width:0;padding:6px;border-radius:30px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden}
+        .tabs{position:relative;gap:4px;border-radius:24px}
+        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:54px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--gray700,#979797);background:transparent;transition:background .25s,color .25s}
         .tabs>.tab.on{background:${PINK};color:${INK}}
         .tabs.s-text>.tab{height:40px;padding:0 14px}
         .tabs.s-text .tl{font-size:13px}
         .tabs.s-icon>.tab{height:46px;padding:0 12px}
         .tl{font-size:10px;font-weight:500;white-space:nowrap}
-        .gear{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa)}
+        .gear{width:52px;height:52px;border-radius:26px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--white,#fafafa)}
         .gear:active{transform:scale(.92)}
         .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,${SPACING.gap}px);min-width:0}
         ${M.KLIMA_BLOCK_CSS || ''}
@@ -968,7 +979,12 @@
       // Faner: alle 8 i nåværende rekkefølge
       const order = M.mshOrder(T.map((t) => t.id), L.tab_order, []), hidT = new Set(L.hidden_tabs || []);
       const byId = Object.fromEntries(T.map((t) => [t.id, t]));
-      const defTab = L.default_tab && order.includes(L.default_tab) ? L.default_tab : visibleTabs(P, L)[0];
+      // 19.8: «Åpne med» = default_tab når den er synlig, ellers første synlige (stjernen og nedtrekkslisten er den samme verdien)
+      const visT = visibleTabs(P, L), defTab = L.default_tab && visT.includes(L.default_tab) ? L.default_tab : visT[0];
+      const dt = byId[defTab] || { label: defTab || '–', icon: 'mdi:tab' };
+      const openWith = `<div class="r"><span class="rl">Åpne med</span><label class="dsel press">${M.icon(dt.icon, 18)}<span class="ell">${esc(dt.label)}</span>${M.icon('mdi:chevron-down', 18)}
+          <select data-deftab="1" aria-label="Åpne med">${visT.map((k) => `<option value="${esc(k)}"${k === defTab ? ' selected' : ''}>${esc((byId[k] || { label: k }).label)}</option>`).join('')}</select></label></div>`;
+      const remRow = `<button class="r" data-a="remember" data-v="${L.remember_tab ? 0 : 1}" role="switch" aria-checked="${L.remember_tab}"><span class="rl col"><span>Husk siste fane</span><span class="rs">${L.remember_tab ? 'Åpner med fanen du sist var på (denne enheten)' : 'Åpner alltid med «Åpne med»-fanen'}</span></span><span class="sw${L.remember_tab ? ' on' : ''}"><span></span></span></button>`;
       const tabRows = order.map((k, i) => {
         const t = byId[k], hid = hidT.has(k), avail = hasTab(P, k), star = k === defTab;
         return `<div class="r tr${hid ? ' off' : ''}" data-key="t-${esc(k)}">
@@ -1013,9 +1029,13 @@
           ${swRow('Hero-kort', 'Ring, status og timebudsjett øverst', 'show_hero', L.show_hero !== false)}
           ${swRow('Modus-bobler', 'Borte · Alle borte · Hjemkomst · Sommer …', 'show_modes', L.show_modes !== false)}
           <div class="r col2"><span class="rl">Toppkort-stil</span>${heroGrid}</div>
-          <div class="r"><span class="rl">Fanestil</span><div class="seg" data-glass-drag="x">${[['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']].map(([v, l]) => `<button class="${v === style ? 'on' : ''}" data-a="style" data-v="${v}" aria-selected="${v === style}">${esc(l)}</button>`).join('')}</div></div>
         </div>
         <span class="cap">Faner</span>
+        <div class="grp">
+          <div class="r"><span class="rl">Fanestil</span><div class="seg" data-glass-drag="x">${[['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']].map(([v, l]) => `<button class="${v === style ? 'on' : ''}" data-a="style" data-v="${v}" aria-selected="${v === style}">${esc(l)}</button>`).join('')}</div></div>
+          ${openWith}
+          ${remRow}
+        </div>
         <div class="grp">${tabRows}</div>
         <p class="note">Stjerne = standardfane. Minst én fane må vises. Rekkefølgen er den samme som når du drar i fane-raden.</p>
         <span class="cap">Blokker</span>
@@ -1055,6 +1075,15 @@
       preview();
       if (end) { M.haptic('selection'); draw(); }
     };
+    // 19.8: «Åpne med» → layout.default_tab, bytt til fanen med én gang (stjernen i listen følger samme verdi)
+    const goTab = (k) => { card._tab = k; card.setUI({ tab: k }); };
+    ov.root.addEventListener('change', (e) => {
+      const el = e.target;
+      if (!el || !el.dataset || !el.dataset.deftab || !el.value) return;
+      const k = el.value;
+      upd((d) => { lay(d).default_tab = k; }, 'selection');
+      goTab(k);
+    });
     ov.root.addEventListener('input', (e) => spInput(e, false));
     ov.root.addEventListener('change', (e) => spInput(e, true));
     // Sliderne skal ikke dra arket (swipe-to-close) eller Bubble-popupen bak
@@ -1071,7 +1100,8 @@
         case 'sp': return upd((d) => { const f = SPACING_FIELDS.find((x) => x.name === k), v = Number(el.dataset.v); if (!f) return; if (v === f.default) delete d[k]; else d[k] = v; }, 'selection');
         case 'sw': return upd((d) => { const L = lay(d); if (el.dataset.v === '1') delete L[k]; else L[k] = false; }, 'selection');
         case 'style': return upd((d) => { const L = lay(d); if (el.dataset.v === 'both') delete L.tab_style; else L.tab_style = el.dataset.v; }, 'selection');
-        case 'star': return upd((d) => { const L = lay(d); L.default_tab = k; if (Array.isArray(L.hidden_tabs)) L.hidden_tabs = L.hidden_tabs.filter((x) => x !== k); }, 'selection');
+        case 'star': upd((d) => { const L = lay(d); L.default_tab = k; if (Array.isArray(L.hidden_tabs)) L.hidden_tabs = L.hidden_tabs.filter((x) => x !== k); }, 'selection'); return goTab(k);
+        case 'remember': return upd((d) => { const L = lay(d); delete d.remember_tab; if (el.dataset.v === '1') L.remember_tab = true; else delete L.remember_tab; }, 'selection');
         case 'tab': {
           const L0 = layoutOf(st.draft), hid = new Set(L0.hidden_tabs || []), hide = !hid.has(k);
           const P = pc(), visible = all.filter((x) => !hid.has(x) && hasTab(P, x));
@@ -1127,6 +1157,9 @@
     .tag.ber{background:${M.alpha('var(--orange, #f2b573)', 0.18)};color:var(--orange,#f2b573)}
     .tag.bad{background:${M.alpha('var(--blue, #73b9f2)', 0.18)};color:var(--blue,#73b9f2)}
     .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,#282828);flex:none;position:relative}
+    .dsel{position:relative;display:inline-flex;align-items:center;gap:6px;height:36px;max-width:60%;padding:0 10px 0 12px;border-radius:18px;flex:none;margin-left:auto;background:var(--ki-sheet-seg,#282828);color:var(--gray1000,#e1e1e1);font-size:13px;font-weight:500;cursor:pointer;--mdc-icon-size:18px}
+    .dsel>ha-icon:last-of-type{color:var(--gray700,#979797)}
+    .dsel select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;border:none;-webkit-appearance:none;appearance:none}
     .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf));white-space:nowrap;transition:background .2s}
     .seg button.on,.bseg button.on{background:${PINK};color:${INK}}
     :host(.glass) .seg button.on,:host(.glass) .bseg button.on{${M.GLASS_BUBBLE}}

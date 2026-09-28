@@ -4,5 +4,6 @@
   {"name":  "Media · sist brukt", "hash":  "#media", "cards":  [{"type":  "custom:msh-media-hero-card"}, {"type":  "custom:msh-media-card", "default_tab":  "last", "card_id":  "test_media_last"}]},
   {"name":  "Media · musikk først", "hash":  "#media", "cards":  [{"type":  "custom:msh-media-hero-card"}, {"type":  "custom:msh-media-card", "default_tab":  "musikk"}]},
   {"name":  "Media · knapper", "hash":  "#media", "cards":  [{"type":  "custom:msh-media-card", "tab_order":  ["tv", "musikk"], "players":  {"stue_tv":  {"volume":  "buttons", "watch":  ["sensor.stue_temperatur"]}}}]},
+  {"name":  "Media · sirkel", "hash":  "#media", "cards":  [{"type":  "custom:msh-media-hero-card"}, {"type":  "custom:msh-media-card", "default_tab":  "tv", "players":  {"stue_tv":  {"remote_style":  "sirkel"}}}]},
   {"name":  "Media · tom", "hash":  "#media", "cards":  [{"type":  "custom:msh-media-hero-card", "area":  "finnes_ikke"}, {"type":  "custom:msh-media-card", "area":  "finnes_ikke"}]}
 ]

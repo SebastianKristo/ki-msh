@@ -23,8 +23,10 @@
  *   badges:  { id: [{ entity, op: '>'|'<'|'='|'!=', value, text }] }
  *   show_names, menu_names, shrink, width (kompakt|std|full), style (white|glass), layout (auto|mobil|stor),
  *   reserve_space, toasts, admin_tools
- *   mini: { on, cond: 'playing'|'always'|'entity', entity, state, hide_in_media, players: [] } – flytende mini-spiller over
- *     navbaren (Fiks 17.26), eget lag i portalen; skjules i #media, hold på pause = skjult til neste avspilling (sessionStorage)
+ *   mini: { on, cond: 'playing'|'always'|'entity', entity, state, hide_in_media, players: [], tv_vol: 'steps'|'slider' } – flytende
+ *     mini-spiller over navbaren (Fiks 17.26), eget lag i portalen; skjules i #media, hold på play/pause = bare skjult til neste
+ *     avspilling (sessionStorage, ingen pause – 19.7); TV: − / + i volum-pillen (19.15); players velges i MSH.entityMultiPicker (19.6)
+ *   Hold 420 ms på et navbar-ikon og dra = ny rekkefølge i bar (19.9)
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -222,7 +224,13 @@
     .mini.glass .mvp{background:rgba(255,255,255,0.12)}
     .mvf{position:absolute;left:0;top:0;bottom:0;background:${C.pink};border-radius:20px 0 0 20px;pointer-events:none}
     .mvl{position:relative;z-index:1;flex:1;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:14px;font-weight:600;pointer-events:none;white-space:nowrap}
-    .mvp .mst{position:relative;z-index:1;width:36px;height:40px;flex:none;display:grid;place-items:center}
+    .mvp .mst{position:relative;z-index:1;width:36px;height:40px;flex:none;display:grid;place-items:center;touch-action:manipulation}
+    .mvp.tvs{padding:0 3px;gap:4px}
+    .mvp.tvs .mvf{display:none}
+    .mvp.tvs .mvl{justify-content:center;padding:0 4px}
+    .mvp.tvs .mst{width:34px;height:34px;border-radius:17px;background:rgba(0,0,0,0.1)}
+    .mini.glass .mvp.tvs .mst{background:rgba(255,255,255,0.14)}
+    .mvp.tvs .mst:active{transform:scale(.9)}
     .mdots{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);display:flex;gap:0;z-index:2}
     .mdots button{width:13px;height:9px;display:grid;place-items:center}
     .mdots button span{width:5px;height:5px;border-radius:3px;background:currentColor;opacity:.3;transition:opacity .2s}
@@ -249,6 +257,10 @@
     nav.nb.white .ind{display:none}
     nav.nb .it{position:relative;z-index:1;min-width:0;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),color .25s}
     nav.nb .it:active{transform:scale(.84)}
+    nav.nb .it{-webkit-touch-callout:none}
+    nav.nb.reord .it{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+    nav.nb.reord .it.lift{transition:none;z-index:5;background:rgba(255,255,255,0.92);color:#232323!important;box-shadow:0 8px 22px rgba(0,0,0,0.35)}
+    nav.nb.glass.reord .it.lift{background:rgba(255,255,255,0.28);color:#fafafa!important}
     nav.nb.row .it{flex:1 1 0}
     nav.nb.rail .it{flex:none}
     nav.nb.glass .it ha-icon{filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))}
@@ -267,6 +279,7 @@
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+    :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     ${NAV_CSS}
@@ -344,8 +357,10 @@
       window.removeEventListener('msh-tcol', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
+      if (this._mRO) { this._mRO.disconnect(); this._mRO = null; this._mROel = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
       [this._mExp, this._mHold, this._mVT, this._mVC].forEach((t) => clearTimeout(t));
+      clearTimeout(this._mRep); clearInterval(this._mRep);
       this._hidePortal();
       this._dEl = null;
     }
@@ -432,10 +447,6 @@
       if (p === 'stor') return true;
       return M.isFold(w); // fiks 18.7: Fold-oppsettet – ≥ 1000 px, berøring ≥ 600 px (Fold åpen, iPad, PC)
     }
-    _zoom(w) {
-      const vh = window.innerHeight || 900;
-      return w >= 1500 ? Math.max(1, Math.min(1.8, w / 1480, vh / 820)) : Math.max(1, Math.min(1.4, w / 1024, vh / 760));
-    }
     _badge(N, id) {
       const R = N.badges[id];
       if (!Array.isArray(R) || !R.length) return null;
@@ -468,7 +479,7 @@
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
-      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%) scale(${geo.zoom.toFixed(3)})`;
+      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%)`;
       else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
@@ -505,14 +516,16 @@
         tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray000,#232323)', 'mtool', null));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
+      // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye
+      const lift = !geo.rail && this._mShow ? (this._mHm || 64) + 10 : 0;
       let pos;
       if (geo.rail) pos = `left:${Math.round(at.right != null ? at.right + 8 : geo.left + 106)}px;bottom:${Math.round(at.bottom != null ? window.innerHeight - at.bottom : 40)}px;transform:scale(1.15);transform-origin:left bottom`;
-      else if (ic) pos = `left:${Math.round(at.cx || geo.left + geo.width / 2)}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px;transform:translateX(-50%)`;
-      else pos = `right:${Math.round(Math.max(12, window.innerWidth - (at.right || geo.left + geo.width / 2 + 198) - 6))}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14)}px`;
+      else if (ic) pos = `left:${Math.round(at.cx || geo.left + geo.width / 2)}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14 + lift)}px;transform:translateX(-50%)`;
+      else pos = `right:${Math.round(Math.max(12, window.innerWidth - (at.right || geo.left + geo.width / 2 + 198) - 6))}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14 + lift)}px`;
       // bakteppet tar ikke imot trykk de første 300 ms (trykket som åpnet menyen skal ikke lukke den igjen)
       const guard = Date.now() - (this._menuT || 0) < 300;
       return `<div class="mbg" data-act="mclose" data-haptic="off" style="pointer-events:${guard ? 'none' : 'auto'}"></div>
-        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu>
+        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu${lift ? ` style="max-height:calc(100vh - ${120 + lift}px)"` : ''}>
           ${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
         </div></div>`;
     }
@@ -522,7 +535,7 @@
       this._syncGlass();
       this.s('zone.__msh_navbar'); // fast avhengighet: rendres kun når badge-entiteter endres
       const R = this._dash(), rail = this._wide(R.width);
-      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail, zoom: 1 }; // fiks 18.7: ingen zoom
+      const geo = { left: R.left, top: R.top, width: R.width, height: R.height, rail }; // fiks 18.7/19.11: ingen zoom
       if (this._inline) {
         if (this._portal) { this._portal.remove(); this._portal = null; }
         this._reserve(null);
@@ -564,6 +577,7 @@
       this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
+      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
       const html = `<style>${PORTAL_CSS}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
@@ -579,6 +593,7 @@
           if (sh) { sh.style.setProperty('--lx', ((e.clientX - r.left) / r.width) * 100 + '%'); sh.style.opacity = '1'; }
         });
         nav.addEventListener('pointerleave', () => { const sh = nav.querySelector('.sheen'); if (sh) sh.style.opacity = '0'; });
+        this._navReorder(nav); // Fiks 19.9
       }
       const mb = this._portal.shadowRoot.querySelector('[data-menu]');
       if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: glassOn, tap: false }); }
@@ -590,12 +605,99 @@
         M.setNavVars(geo.rail ? 0 : Math.round(r.height));
         if (!geo.rail && !this.ui.compact) this._navH = Math.round(r.height);
         // Mini-spilleren (17.26): --ki-mini-h = høyden den tar over navbaren (0 når skjult), og plass i bunnen av dashbordet
-        const mEl = this._mShow && this._portal && this._portal.shadowRoot.querySelector('[data-mini]'), mH = mEl ? 74 : 0, ds = document.documentElement.style;
+        const mEl = this._mShow && this._portal && this._portal.shadowRoot.querySelector('[data-mini]'), ds = document.documentElement.style;
+        // Fiks 19.9: mini-spillerens høyde måles live (ResizeObserver) – «Mer»-menyen løftes like mye
+        if (mEl && window.ResizeObserver && this._mROel !== mEl) {
+          if (this._mRO) this._mRO.disconnect();
+          this._mRO = new ResizeObserver(() => { const hh = mEl.offsetHeight; if (hh && hh !== this._mHm) { this._mHm = hh; if (this.ui.menu) this._schedule(true); } });
+          this._mRO.observe(mEl); this._mROel = mEl;
+        }
+        if (mEl && mEl.offsetHeight) this._mHm = mEl.offsetHeight;
+        const mH = mEl ? (this._mHm || 64) + 10 : 0;
         if (ds.getPropertyValue('--ki-mini-h') !== mH + 'px') ds.setProperty('--ki-mini-h', mH + 'px');
         if (mEl) { const sw = mEl.querySelector('.msw'), L = this._mLast || [], i = L.indexOf(this._mCur); if (sw && i >= 0 && sw.clientWidth && Math.round(sw.scrollLeft / sw.clientWidth) !== i) sw.scrollLeft = i * sw.clientWidth; }
         if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16), bottom: mH ? mH + 16 : null });
         else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) + mH });
       });
+    }
+
+    /* ---------------- Fiks 19.9: hold og dra for å omorganisere ikonene i navbaren (som faner i Lys, TABORD) */
+    // Hold 420 ms på et ikon → haptic medium, ikonet løftes (scale 1.12, lys flate + skygge) og følger fingeren langs navbaren
+    // (x i bunn-navbar, y i rail). Slipp → ny rekkefølge i config.bar (samme felt som «Tilpass navbar»), haptic success,
+    // klikket etter slipp spises (350 ms). > 8 px bevegelse før holdet er ferdig = vanlig trykk/scroll. «…» flyttes ikke;
+    // skjulte ikoner beholder plassen sin i config. Under draget: glass-dra av (dataset.glassDragOff), _busy (ingen render).
+    _navReorder(nav) {
+      let st = null, swallow = 0;
+      const items = () => Array.from(nav.querySelectorAll('.it')).filter((b) => b.dataset.id && b.dataset.id !== '__more');
+      const axis = () => (nav.classList.contains('rail') ? 'y' : 'x');
+      const ctr = (r, ax) => (ax === 'x' ? r.left + r.width / 2 : r.top + r.height / 2);
+      const clear = () => { clearTimeout(st && st.t); window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); };
+      const begin = () => {
+        const its = items(), i = its.indexOf(st.el);
+        if (i < 0) { clear(); st = null; return; }
+        st.on = true; st.ax = axis(); st.its = its; st.i = i; st.to = i;
+        st.c = its.map((b) => ctr(b.getBoundingClientRect(), st.ax));
+        this._busy = true;
+        nav.dataset.glassDragOff = '1';
+        nav.classList.add('reord');
+        st.el.classList.add('lift');
+        st.el.style.transform = 'scale(1.12)';
+        M.haptic('medium');
+      };
+      const mv = (e) => {
+        if (!st || e.pointerId !== st.id) return;
+        const dx = e.clientX - st.x, dy = e.clientY - st.y;
+        if (!st.on) { if (Math.hypot(dx, dy) > 8) { clear(); st = null; } return; }
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        const d = st.ax === 'x' ? dx : dy, p = st.c[st.i] + d;
+        let to = 0;
+        st.c.forEach((c, j) => { if (j !== st.i && c < p) to++; });
+        if (to !== st.to) { st.to = to; M.haptic('selection'); }
+        st.its.forEach((b, j) => {
+          if (j === st.i) { b.style.transform = `translate${st.ax.toUpperCase()}(${d}px) scale(1.12)`; return; }
+          let k = j;
+          if (st.i < st.to && j > st.i && j <= st.to) k = j - 1;
+          else if (st.i > st.to && j < st.i && j >= st.to) k = j + 1;
+          b.style.transform = k !== j ? `translate${st.ax.toUpperCase()}(${st.c[k] - st.c[j]}px)` : '';
+        });
+      };
+      const up = (e) => {
+        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
+        const s0 = st; st = null; clear();
+        if (!s0.on) return;
+        e.stopPropagation();
+        swallow = Date.now();
+        s0.its.forEach((b) => { b.style.transform = ''; b.classList.remove('lift'); });
+        nav.classList.remove('reord');
+        delete nav.dataset.glassDragOff;
+        this._busy = false;
+        const ids = s0.its.map((b) => b.dataset.id), [mvd] = ids.splice(s0.i, 1);
+        ids.splice(s0.to, 0, mvd);
+        if (e.type !== 'pointercancel' && s0.to !== s0.i) {
+          M.haptic('success');
+          const N = norm(this.config), bar = [...N.bar], pos = bar.map((id, j) => (N.hidden.has(id) ? -1 : j)).filter((j) => j >= 0);
+          pos.forEach((j, k) => { if (ids[k] != null) bar[j] = ids[k]; }); // skjulte beholder plassen sin
+          this._saveBar(bar);
+        } else this._schedule(true);
+      };
+      nav.addEventListener('pointerdown', (e) => {
+        if (e.button || st || this._inline) return;
+        const el = e.composedPath().find((n) => n.classList && n.classList.contains('it'));
+        if (!el || !el.dataset.id || el.dataset.id === '__more') return;
+        st = { el, id: e.pointerId, x: e.clientX, y: e.clientY, on: false };
+        st.t = setTimeout(() => { if (st && st.el === el) begin(); }, 420);
+        window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+      });
+      nav.addEventListener('touchmove', (e) => { if (st && st.on) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
+      nav.addEventListener('contextmenu', (e) => e.preventDefault());
+      nav.addEventListener('click', (e) => { if (Date.now() - swallow < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+    }
+    // Lagre ny rekkefølge i config.bar (ki-store via MSH.saveCardConfig – samme config som «Tilpass navbar»)
+    _saveBar(bar) {
+      const old = this._rawConfig || this.config || {}, next = { ...old, bar };
+      delete next.__eff;
+      this.setConfig(M.store ? { ...next, __eff: 1 } : next); // lokalt først (som MSH.applyLive), ki-store-lagringen følger
+      try { const r = M.saveCardConfig(this.hass, old, next); if (r && r.catch) r.catch((err) => console.error('msh-navbar-card', 'lagring feilet', err)); } catch (err) { console.error('msh-navbar-card', err); }
     }
 
     /* ---------------- mini-spiller (Fiks 17.26): eget lag i portalen (aldri inni en popup), over bunn-navbaren / nederst (rail) */
@@ -666,19 +768,19 @@
         const name = (M.mediaPlayers && (M.mediaPlayers(h, {}).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
         const sub = [a.media_title, a.media_artist || a.media_album_artist].filter(Boolean).join(' · ') || a.app_name || a.source || (playing ? 'Spiller' : s.state === 'paused' ? 'Pauset' : M.fmtState(h, id));
         const pic = mPic(h, a.entity_picture_local || a.entity_picture), bad = this._mBad && this._mBad.has(pic);
-        const tv = a.device_class === 'tv';
+        const T = this._miniTv(id), tv = T.tv, steps = tv && m.tv_vol !== 'slider'; // Fiks 19.15: TV → − / + i pillen
         const art = `<span class="mart" style="background:linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})">${M.icon(tv ? 'mdi:television' : 'mdi:music-note', 24)}${pic && !bad ? `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" draggable="false">` : ''}</span>`;
-        const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !!(feat & 4) || (!feat && a.volume_level != null); // uten volume_set: −/+
+        const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !steps && (!!(feat & 4) || (!feat && a.volume_level != null)); // uten volume_set / TV: −/+
         const muted = !!a.is_volume_muted;
         let mid;
         if (vol) {
           const v = vo && vo.id === id && Date.now() - vo.t < 2500 ? vo.v : Number(a.volume_level) || 0, pct = Math.round(v * 100);
           mid = `<button class="mhit" style="flex:none" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}</button>
-            <div class="mvp" data-vol="${esc(id)}" data-set="${drag ? 1 : 0}">
+            <div class="mvp${steps ? ' tvs' : ''}" data-vol="${esc(id)}" data-set="${drag ? 1 : 0}">
               <span class="mvf" style="width:${pct}%"></span>
-              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="-1" data-haptic="selection" aria-label="Senk volum" style="pointer-events:auto">${M.icon('mdi:minus', 20)}</button>`}
-              <span class="mvl">${M.icon(mVolIcon(a), 18)}<b>${a.volume_level != null ? pct + '%' : '–'}</b></span>
-              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="1" data-haptic="selection" aria-label="Øk volum" style="pointer-events:auto">${M.icon('mdi:plus', 20)}</button>`}
+              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="-1" data-haptic="light" aria-label="Senk volum" style="pointer-events:auto">${M.icon('mdi:minus', 20)}</button>`}
+              <span class="mvl">${M.icon(mVolIcon(a), 18)}${a.volume_level != null ? `<b>${pct}%</b>` : steps ? '' : '<b>–</b>'}</span>
+              ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="1" data-haptic="light" aria-label="Øk volum" style="pointer-events:auto">${M.icon('mdi:plus', 20)}</button>`}
             </div>`;
         } else mid = `<button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>`;
         return `<div class="mrow" data-mid="${esc(id)}" data-key="mr_${esc(id)}">${mid}
@@ -729,6 +831,22 @@
         e.stopPropagation();
         const vp = hit(e, '.mvp[data-set="1"]');
         if (vp && !hit(e, '.mst')) return this._miniVolDrag(vp, e);
+        // Fiks 19.15: hold på − / + gjentar trinnet hvert 250 ms (etter 400 ms); klikket etter holdet spises
+        const st = hit(e, '.mst[data-act="mvstep"]');
+        if (st) {
+          const x0 = e.clientX, y0 = e.clientY, sid = st.dataset.id, dir = Number(st.dataset.d);
+          const stop = () => { clearTimeout(this._mRep); clearInterval(this._mRep); if (this._mSwallow) setTimeout(() => { this._mSwallow = false; }, 400); sr.removeEventListener('pointerup', stop); sr.removeEventListener('pointercancel', stop); sr.removeEventListener('pointermove', mv); };
+          const mv = (ev) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) stop(); };
+          sr.addEventListener('pointerup', stop); sr.addEventListener('pointercancel', stop); sr.addEventListener('pointermove', mv);
+          clearTimeout(this._mRep); clearInterval(this._mRep);
+          this._mRep = setTimeout(() => {
+            this._mSwallow = true;
+            const tick = () => { M.haptic('light'); this._miniStep(sid, dir); };
+            tick();
+            this._mRep = setInterval(tick, 250);
+          }, 400);
+          return;
+        }
         const el = hit(e, '[data-mhold]');
         if (!el) return;
         const x0 = e.clientX, y0 = e.clientY, kind = el.dataset.mhold, id = el.dataset.id;
@@ -766,6 +884,26 @@
       const up = () => { vp.removeEventListener('pointermove', mv); vp.removeEventListener('pointerup', up); vp.removeEventListener('pointercancel', up); if (pend != null) { clearTimeout(this._mVT); call(pend); } };
       vp.addEventListener('pointermove', mv); vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
     }
+    // Fiks 19.15: er spilleren en TV? device_class tv, valgt som TV i Media (M.mediaPlayers / Media-kortets config) eller remote.* på samme enhet
+    _miniTv(id) {
+      const h = this.hass, a = ((h.states[id] || {}).attributes) || {};
+      const mb = M.__mediaBus && M.__mediaBus['#media'];
+      const p = M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || {}, true).all.find((x) => x.id === id) : null;
+      let tv = a.device_class === 'tv' || !!(p && p.kind === 'tv');
+      const e = !tv && M.regEntry ? M.regEntry(h, id) : null;
+      if (e && e.device_id) tv = M.all(h, 'remote', (s, x) => (M.regEntry(h, x) || {}).device_id === e.device_id).length > 0;
+      return { tv, pc: (p && p.pc) || {} };
+    }
+    // Ett volumtrinn (−/+): samme tjeneste som «Volum styres av» i Media (knapp/bryter/skript når valgt, ellers media_player.volume_up/down)
+    _miniStep(id, dir) {
+      const h = this.hass, pc = this._miniTv(id).pc, ent = pc.volume === 'buttons' ? pc[dir > 0 ? 'volume_up' : 'volume_down'] : null;
+      this._miniVolTimer();
+      if (ent) {
+        const d = String(ent).split('.')[0], sv = d === 'button' || d === 'input_button' ? 'press' : 'turn_on';
+        return M.call(h, /^(button|input_button|script|scene|switch|light|input_boolean)$/.test(d) ? d : 'homeassistant', sv, { entity_id: ent });
+      }
+      return M.call(h, 'media_player', dir > 0 ? 'volume_up' : 'volume_down', { entity_id: id });
+    }
     _miniVolTimer() {
       clearTimeout(this._mVC);
       this._mVC = setTimeout(() => { if (this._mVolId) { this._mVolId = null; this._schedule(true); } }, 3000);
@@ -784,10 +922,10 @@
         const snap = {};
         (this._mLast || []).concat(M.all(h, 'media_player')).forEach((x) => { const t = h.states[x]; if (t) snap[x] = { st: t.state, sig: mSig(t) }; });
         mStore.set({ s: snap, t: Date.now() });
-        if (s.state === 'playing') M.call(h, 'media_player', 'media_pause', { entity_id: id });
+        // Fiks 19.7: skjuler BARE mini-spilleren – ingen media_pause/media_play_pause, avspillingen fortsetter uendret
         this._mVolId = null;
         this._schedule(true);
-        return toast('Skjult til neste avspilling');
+        return toast('Mini-spilleren er skjult');
       }
       return undefined;
     }
@@ -795,7 +933,7 @@
       const h = this.hass, id = el.dataset.id, sr = this._portal && this._portal.shadowRoot;
       if (name === 'mplay') return M.call(h, 'media_player', 'media_play_pause', { entity_id: id });
       if (name === 'mvol') { this._mVolId = this._mVolId === id ? null : id; if (this._mVolId) this._miniVolTimer(); return this._schedule(true); }
-      if (name === 'mvstep') { this._miniVolTimer(); return M.call(h, 'media_player', Number(el.dataset.d) > 0 ? 'volume_up' : 'volume_down', { entity_id: id }); }
+      if (name === 'mvstep') return this._miniStep(id, Number(el.dataset.d));
       if (name === 'mdot') { const sw = sr && sr.querySelector('.msw'); if (sw) sw.scrollTo({ left: Number(el.dataset.i) * sw.clientWidth, behavior: 'smooth' }); return undefined; }
       if (name === 'mrow') {
         // Media-popupen med denne spilleren valgt (Media-kortets onOpen velger standardfane først → velg etterpå)
@@ -842,6 +980,7 @@
         }
         this._closeMenu(true);
         this.setUI({ compact: false });
+        if (hashOf(N, id) === '#media' && mStore.get()) mStore.set(null); // Fiks 19.7: Media i navbaren henter den skjulte mini-spilleren tilbake
         // Popupen til knappen er allerede åpen → lukk den (fasit Hjem v2: isOpen ? closePop() : open…).
         // Gjelder bunn, glass (slipp etter dra), rail og «Mer»-menyen – alle går via denne handlingen.
         // Dobbel hendelse ved åpning (f.eks. klikk + syntetisk klikk etter glass-slipp, dobbelttrykk): samme knapp < 400 ms
@@ -1195,10 +1334,12 @@
         </div>`;
       }
       html += tg('Skjul i Media-popupen', 'hide_in_media', m.hide_in_media !== false);
-      const all = M.mediaPlayers ? M.mediaPlayers(h, {}).all.map((p) => [p.id, p.name]) : M.all(h, 'media_player').map((id) => [id, M.name(h, id)]);
-      if (all.length) {
-        const sel = Array.isArray(m.players) && m.players.length ? m.players : null;
-        html += `<span class="cap" style="padding:0 6px">Spillere · ${sel ? sel.length + ' valgt' : 'alle'}</span><div class="sug" style="max-height:none">${all.map(([id, n]) => { const on = !sel || sel.includes(id); return `<button class="chp ${on ? 'on' : ''}" data-a="nbmpl" data-v="${esc(id)}" title="${esc(id)}" style="padding:0 12px">${esc(n)}</button>`; }).join('')}</div>`;
+      // Fiks 19.15: TV i mini-spilleren – − / + i pillen (standard) eller slider som for musikk
+      const tvv = m.tv_vol === 'slider' ? 'slider' : 'steps';
+      html += `<span class="cap" style="padding:0 6px">Volum for TV</span><div class="wseg">${[['steps', '− / +'], ['slider', 'Slider']].map(([k, l]) => `<button class="${tvv === k ? 'on' : ''}" aria-selected="${tvv === k}" data-a="nbmtv" data-v="${k}">${l}</button>`).join('')}</div>`;
+      // Fiks 19.6: spillervalg som nedtrekksliste (MSH.entityMultiPicker) i stedet for en chip-vegg – tom = alle spillere
+      if (M.entityMultiPicker) {
+        html += `<span class="cap" style="padding:0 6px">Spillere</span>${M.entityMultiPicker.html({ key: 'nbm_pl', name: 'mini.players', value: Array.isArray(m.players) ? m.players : [], domains: ['media_player'], group: 'media', icon: 'mdi:speaker-multiple', emptyLabel: 'Alle spillere', emptySub: 'Mini-spilleren viser den som spiller', hint: 'Ingen valgt = alle spillere. Mini-spilleren viser den som spiller.' })}`;
       }
       return html;
     }
@@ -1230,6 +1371,7 @@
         case 'nbstyle': return this._set('style', d.v);
         case 'nbmini': return this._set('mini.' + d.k, d.v === '1');
         case 'nbmcond': return this._set('mini.cond', d.v);
+        case 'nbmtv': return this._set('mini.tv_vol', d.v === 'slider' ? 'slider' : undefined); // Fiks 19.15
         case 'nbment': this._menu = null; this._q = {}; return this._set('mini.entity', d.v);
         case 'nbmpl': {
           const all = M.mediaPlayers ? M.mediaPlayers(this._hass, {}).all.map((p) => p.id) : M.all(this._hass, 'media_player');

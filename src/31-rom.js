@@ -168,6 +168,9 @@
         || (e && e.device_id ? Object.keys(E).find((k) => k !== id && E[k].device_id === e.device_id && k.startsWith('sensor.') && hass.states[k] && hass.states[k].attributes.device_class === 'power') : null);
       if (hit) out.eff[id] = hit;
     });
+    // 19.21: overstyrt effektsensor per enhet (effAuto = det autokonfig fant, for summen)
+    out.effAuto = { ...out.eff };
+    [...out.lists.enheter, ...out.lists.vifter].forEach((id) => { const o = M.roomDevOv(cfg, id); if (o.power === 'none') delete out.eff[id]; else if (o.power) out.eff[id] = o.power; });
     return out;
   };
   // KI Rom-lysscener for et rom (button.*). Kilde: sensor med integrasjon ki_lys + ki_type oversikt og
@@ -221,6 +224,60 @@
       try { const r = new Function('state', 'entity', 'w', 'name', t.slice(3, -3))(ctx.state, ctx.entity, ctx.w, ctx.name); return r == null ? null : String(r); } catch (e) { return '⚠ feil i kode'; }
     }
     return t.replace(/\{(\w+)\}/g, (m, k) => (ctx[k] != null ? ctx[k] : m));
+  };
+  // 19.21: på/av og tekst for en enhet med overstyring (overrides.<id>: power, threshold_w, on_text, off_text).
+  // null = ingen overstyring (flisen bruker standardlogikken). w = watt fra valgt/auto sensor (null = ingen).
+  // På = bryteren er på og (uten effektsensor, eller effekt over terskelen, standard 5 W).
+  const devOv = (hass, cfg, id, w, nm) => {
+    const O = M.roomDevOv(cfg, id);
+    if (!['power', 'threshold_w', 'on_text', 'off_text'].some((k) => O[k] != null && O[k] !== '')) return null;
+    const s = hass && hass.states[id], thr = O.threshold_w != null && O.threshold_w !== '' ? Number(O.threshold_w) : 5;
+    const on = M.isOn(s) && (w == null || w > thr);
+    const ctx = { state: on ? 'på' : 'av', on, w: w != null ? M.nf(w) : 0, name: nm, entity: s };
+    const own = on ? O.on_text : O.off_text;
+    return { on, w, thr, own: own != null && own !== '', text: tpl(own || (on ? (w != null ? 'På · {w} W' : 'På') : 'Av'), ctx) };
+  };
+  // 19.16: TV-regel (som mini-spilleren 19.15): device_class tv, valgt som TV i Media (players.<obj>.type), eller
+  // remote.* på samme HA-enhet. Media-configen: live msh-media-card, ellers ki-store cards.pop-media.
+  M.mediaCardCfg = M.mediaCardCfg || function () {
+    const c = M.liveOf && M.liveOf('msh-media-card');
+    return (c && c.config) || (M.store && (M.store.eff ? M.store.eff('cards.pop-media') : M.store.get('cards.pop-media'))) || {};
+  };
+  M.isTvPlayer = M.isTvPlayer || function (hass, id) {
+    const s = hass && hass.states[id];
+    if (!s) return false;
+    const pc = ((M.mediaCardCfg().players) || {})[obj(id)] || {};
+    if (pc.type === 'tv') return true;
+    if (pc.type === 'musikk') return false;
+    if (s.attributes.device_class === 'tv') return true;
+    const e = M.regEntry(hass, id), dev = e && e.device_id;
+    return !!dev && Object.keys(hass.states).some((x) => x.startsWith('remote.') && (M.regEntry(hass, x) || {}).device_id === dev);
+  };
+  // Ett volumtrinn med samme tjeneste som «Volum styres av» i Media (19.4): knapp-entitetene når players.<obj>.volume
+  // = buttons (button/input_button.press, script/switch/…turn_on), ellers media_player.volume_up/down.
+  M.tvVolStep = M.tvVolStep || function (hass, id, dir) {
+    const pc = ((M.mediaCardCfg().players) || {})[obj(id)] || {}, ent = pc.volume === 'buttons' ? pc[dir > 0 ? 'volume_up' : 'volume_down'] : null;
+    if (ent) {
+      const d = ent.split('.')[0];
+      const svc = d === 'button' || d === 'input_button' ? 'press' : ['script', 'scene', 'switch', 'light', 'input_boolean'].includes(d) ? 'turn_on' : null;
+      return svc ? M.call(hass, d, svc, { entity_id: ent }) : M.call(hass, 'homeassistant', 'turn_on', { entity_id: ent });
+    }
+    return M.call(hass, 'media_player', dir > 0 ? 'volume_up' : 'volume_down', { entity_id: id });
+  };
+  // 19.21: effektsensor per enhet. overrides.<domene>.<objekt-id> (editor-stien) eller overrides['<entity_id>'] (YAML):
+  // { power: 'sensor.x' | 'none', threshold_w, on_text, off_text }. Tomt = automatisk.
+  M.roomDevOv = M.roomDevOv || function (cfg, id) {
+    const ov = (cfg && cfg.overrides) || {}, d = id.split('.')[0];
+    const a = ov[id] && typeof ov[id] === 'object' ? ov[id] : {}, b = ov[d] && typeof ov[d] === 'object' ? ov[d][obj(id)] : null;
+    return { ...a, ...(b && typeof b === 'object' ? b : {}) };
+  };
+  // Korreksjon av romsummen (KI Rom sensor.<rom>_effekt) når enheter har egen effektsensor: Σ (valgt − automatisk).
+  M.roomPowerDelta = M.roomPowerDelta || function (hass, area, cfg) {
+    if (!hass || !area || !cfg || !cfg.overrides || !Object.values(cfg.overrides).some((v) => v && typeof v === 'object')) return 0;
+    const L = M.roomLists(hass, area, cfg), n = (x) => { const s = x && hass.states[x]; const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? 0 : v; };
+    let d = 0;
+    [...L.lists.enheter, ...L.lists.vifter].forEach((id) => { const o = M.roomDevOv(cfg, id); if (o.power) d += (o.power === 'none' ? 0 : n(o.power)) - n(L.effAuto[id]); });
+    return d;
   };
   // Åpne rom-tilpasningen fra andre kort (f.eks. tannhjulet i klima-toppkortet): M.roomCustomize('stue')
   M.roomCustomize = M.roomCustomize || function (area, section) {
@@ -280,8 +337,6 @@
           after: [{ type: 'boolean', name: 'sections_mode', label: 'Én seksjon åpen om gangen', on: 'single', off: 'multi', help: 'Åpner du én seksjon, lukkes de andre. Skjulte seksjoner ignorerer «Åpen ved start».' }] },
         { type: 'order', name: 'klima_order', hiddenName: 'klima_hidden', label: 'Klima-seksjonen', options: [['cards', 'Klimakort'], ['fans', 'Vifter']] },
       ];
-      if (!area) out.push({ type: 'info', label: 'Velg rom over (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter og endre utseende per kort.' });
-      out.push({ type: 'lists', label: 'Entiteter per seksjon', lists: (hh, cc) => { const ar = (cc && cc.area) || area0; if (!ar) return []; const A = M.roomLists(hh, ar, {}).auto; return LISTS.map(([key, label, domains]) => ({ key, label, ids: A[key], domains })); } });
       if (L) {
         // Scener: KI Rom-lysscenene først, så rommets scene.*/script.*. Skjul = exclude, sortering = order.scenes,
         // legg til = include.scenes.
@@ -289,7 +344,7 @@
         const nmSc = (id) => { const m = L.sceneMeta[id]; return (m && m.navn) || cap(M.name(h, id, M.areaName(h, area))); };
         out.push({ type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${L.lists.scener.length} av ${all.length} vises`, fields: [
           { type: 'info', label: 'KI Rom-lysscenene (knapper) først, deretter rommets egne scener og skript. Øye = skjul, piler = rekkefølge.' },
-          ...(all.length ? [{ type: 'order', name: 'order.scenes', hiddenName: 'exclude', label: 'Rekkefølge og synlighet', options: all.map((id) => [id, `${nmSc(id)}${L.sceneMeta[id] ? ' · KI Rom' : id.startsWith('script.') ? ' · skript' : ' · scene'}`]) }] : [{ type: 'info', label: 'Fant ingen scener i rommet' }]),
+          ...(all.length ? [{ type: 'order', flat: true, name: 'order.scenes', hiddenName: 'exclude', label: 'Rekkefølge og synlighet', options: all.map((id) => [id, `${nmSc(id)}${L.sceneMeta[id] ? ' · KI Rom' : id.startsWith('script.') ? ' · skript' : ' · scene'}`]) }] : [{ type: 'info', label: 'Fant ingen scener i rommet' }]),
           { type: 'entities', name: 'include.scenes', label: 'Lagt til', domains: ['button', 'scene', 'script'], addLabel: '+ Legg til scene', area: () => area },
         ] });
       }
@@ -322,6 +377,7 @@
             ...items.map(([id, kind]) => {
               const p = 'looks.' + id, nm0 = cap(M.name(h, id, M.areaName(h, area)));
               return { type: 'section', label: `${nm0} · ${kind}`, icon: M.domainIcon(id, h.states[id]), fields: [
+                ...(kind === 'Enhet' ? devPowerFields(h, area, id, nm0, L) : []),
                 ...(M.universalSchema ? M.universalSchema(p, { kind: 'sensor', placeholders: { sub_text: nm0, main_text: kind === 'Enhet' ? 'På · {w} W / Av' : '{state}', rule1: kind === 'Sensor' && h.states[id] && id.startsWith('binary_sensor.') ? 'Auto: aktiv (on)' : kind === 'Enhet' ? 'Auto: på → grønn (profil: aktiv → profilfarge)' : '' } }) : []),
                 // Hvitevare-profil (16.5): Auto = etter navnet (PROF-tabellen), egne verdier overstyrer
                 ...(kind === 'Enhet' ? [
@@ -342,8 +398,65 @@
         { type: 'number', name: 'run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto', help: 'Uten status-sensor: effekt over dette = kjører' },
       ] });
       out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: true });
-      return out;
+      return tabsOf(out, h, c, area);
     };
+  }
+  // 19.21: effektsensor, terskel og på/av-tekst per enhet → overrides.<domene>.<objekt-id> (= overrides['<entity_id>']
+  // som sti i editoren). Tomt felt = automatisk. Forhåndsvisningen bruker utkastet og dagens verdier.
+  const getP = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  function devPowerFields(h, area, id, nm0, L) {
+    const po = 'overrides.' + id, thrN = po + '.threshold_w';
+    const thrOf = (cc) => { const v = getP(cc, thrN); return v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : 5; };
+    return [
+      { type: 'entity', name: po + '.power', label: 'Effektsensor', domain: 'sensor', prefer_class: 'power', area: () => area,
+        none_label: 'Ingen effektsensor (bare av/på fra bryteren)', auto: () => (L.effAuto && L.effAuto[id]) || null,
+        help: `Automatisk: ${(L.effAuto && L.effAuto[id]) || 'sensor.' + obj(id) + '_effekt (fant ingen)'}. Strømsensorer i rommet vises først.` },
+      { type: 'html', html: (hh, cc, key, ed) => {
+        if (!ed._inline) return ed._field({ type: 'number', name: thrN, label: 'Terskel for «på» (W)', min: 0, max: 5000, placeholder: '5', help: 'Over terskelen = på, under = av/standby' }, key + '_n');
+        const cur = thrOf(cc);
+        return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">Terskel for «på»</span>
+          <button class="ib" data-a="fn" data-k="${key}" data-d="-1" title="Lavere" ${cur <= 0 ? 'disabled style="opacity:.3"' : ''}>${M.icon('mdi:minus', 20)}</button><span class="rv" style="min-width:56px;text-align:center">${M.nf(cur)} W</span><button class="ib" data-a="fn" data-k="${key}" data-d="1" title="Høyere">${M.icon('mdi:plus', 20)}</button></div>
+          <span class="help">Over terskelen = på, under = av/standby (standard 5 W). Med «Ingen effektsensor» brukes bryterens tilstand.</span></div>`;
+      }, click: (d, ed) => {
+        const cur = thrOf(ed._config), dir = Number(d.d), st = (dir > 0 ? cur : cur - 1) < 10 ? 1 : (dir > 0 ? cur : cur - 1) < 100 ? 5 : 50;
+        M.haptic('light');
+        ed._set(thrN, M.clamp(Math.round((cur + dir * st) / st) * st, 0, 5000));
+      } },
+      { type: 'text', name: po + '.on_text', label: 'Tekst når på', placeholder: 'På · {w} W', help: 'Tokens: {w} (watt), {name}, {state} – eller [[[ return … ]]]' },
+      { type: 'text', name: po + '.off_text', label: 'Tekst når av', placeholder: 'Av' },
+      { type: 'html', html: (hh, cc) => {
+        const Lc = M.roomLists(hh, area, cc), e = Lc.eff[id], ps = e && hh.states[e], wv = ps ? parseFloat(ps.state) : NaN;
+        const w = M.roomDevOv(cc, id).power === 'none' || isNaN(wv) ? null : wv;
+        const D = devOv(hh, cc, id, w, nm0), on = D ? D.on : M.isOn(hh.states[id]);
+        const txt = D ? D.text : on ? (w != null ? `På · ${M.nf(w)} W` : 'På') : 'Av';
+        return `<div class="f"><label>Forhåndsvisning nå</label><div style="font-size:14px;font-weight:500">${esc(on ? `${nm0} · ${txt}` : txt)}</div></div>`;
+      } },
+    ];
+  }
+  // 19.20: «Tilpass rom» i fire faner (Oppsett · Entiteter · Klima · Kort). Entiteter har undersegment (Lys · Enheter ·
+  // Sensorer · Andre) med antall = autokonfig + lagt til. Seksjonene i en fane vises flatt (01-editor: type 'tabs').
+  const TAB_OF = { area: 'oppsett', spacing: 'oppsett', sections: 'oppsett', customize_button: 'oppsett', klima: 'klima', klima_order: 'klima', look: 'kort', actions: 'kort', looks: 'kort', appliances: 'kort' };
+  function tabsOf(out, h, c, area) {
+    const of = (t) => out.filter((f) => TAB_OF[f.id || f.name] === t), byId = (id) => out.find((f) => f.id === id);
+    const A = h && area ? M.roomLists(h, area, {}).auto : null;
+    const all = (k) => (A ? [...new Set([...(A[k] || []), ...(((c.include || {})[k]) || [])])] : []);
+    const lists = (keys, label) => ({ type: 'lists', label,
+      meta: (hh, cc) => { const ex = new Set(cc.exclude || []), ids = keys.flatMap(all); return ids.length ? `${ids.filter((x) => !ex.has(x)).length} av ${ids.length} vises` : ''; },
+      lists: (hh, cc) => { const ar = (cc && cc.area) || area; if (!ar) return []; const AA = M.roomLists(hh, ar, {}).auto; return LISTS.filter(([k]) => keys.includes(k)).map(([key, lb, domains]) => ({ key, label: lb, ids: AA[key], domains })); } });
+    const none = { type: 'info', label: 'Velg rom under Oppsett (eller åpne tilpasningen fra popupen) for å skjule/legge til entiteter.' };
+    const lys = byId('lys'), scenes = byId('scenes');
+    const ent = area ? [{ type: 'tabs', id: 'rom-ent', sub: true, tabs: [
+      { key: 'lys', label: 'Lys', count: all('lys').length, focus: ['lys', 'entities'], fields: [lists(['lys'], 'Lys · synlighet'), ...(lys ? [{ ...lys, label: 'Lys · type og funksjon' }] : [])] },
+      { key: 'dev', label: 'Enheter', count: all('enheter').length, fields: [lists(['enheter'], 'Enheter · synlighet'), { type: 'info', label: 'Effektsensor, terskel og tekst per enhet: fanen Kort → Utseende på kort → enheten.' }] },
+      { key: 'sens', label: 'Sensorer', count: all('sensorer').length, fields: [lists(['sensorer'], 'Sensorer · synlighet')] },
+      { key: 'andre', label: 'Andre', count: all('gardiner').length + all('media').length + all('scener').length, focus: ['scenes'], fields: [...(scenes ? [scenes] : []), lists(['scener', 'gardiner', 'media'], 'Scener, rullegardin og media · synlighet')] },
+    ] }] : [none];
+    return [{ type: 'tabs', id: 'rom', tabs: [
+      { key: 'oppsett', label: 'Oppsett', icon: 'mdi:tune-variant', focus: ['spacing', 'sections'], fields: of('oppsett') },
+      { key: 'ent', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entities', 'lys', 'scenes'], fields: ent },
+      { key: 'klima', label: 'Klima', icon: 'mdi:thermostat', focus: ['klima'], fields: [...of('klima'), ...(area ? [lists(['klima', 'vifter'], 'Termostater og vifter · synlighet')] : [])] },
+      { key: 'kort', label: 'Kort', icon: 'mdi:palette', focus: ['look', 'actions', 'looks', 'appliances'], fields: of('kort') },
+    ] }];
   }
 
   /* ---------------------------------------------------------------- kortet */
@@ -511,8 +624,10 @@
 
     /* ------------ enheter (brytere/vifter med effekt) – aktiv enhet har ingen glød */
     _w(id) {
-      const e = this._L.eff[id];
+      const e = this._L.eff[id], po = M.roomDevOv(this.config, id).power;
+      if (po === 'none') return null; // 19.21: «Ingen effektsensor» → bare av/på fra bryteren
       if (e) { const v = this.n(e); if (v != null) return v; }
+      if (po) return null;
       const k = M.kiRom(this.hass, this._area, 'effekt');
       const kil = k && k.attributes.kilder;
       if (kil) {
@@ -531,7 +646,8 @@
       const multi = ids.filter((id) => { const s = this.s(id); return M.isOn(s) && !M.unavailable(s); }).length >= 2;
       let ci = 0;
       const rows = ids.map((id) => {
-        const s = this.s(id), isOn = M.isOn(s), w = this._w(id), unav = M.unavailable(s);
+        const s = this.s(id), w = this._w(id), unav = M.unavailable(s);
+        const DV = devOv(this.hass, this.config, id, w, this._nm(id)), isOn = DV ? DV.on : M.isOn(s);
         if (isOn) on++;
         if (w != null) { W += w; hasW = true; }
         if (!open) return '';
@@ -546,7 +662,7 @@
         const act = !!P && isOn && !unav && (aS && (aS.source === 'status' || aS.source === 'running') ? !!aS.running : w != null && w > thr);
         const icon0 = (s && s.attributes.icon) || (this.hass.entities && this.hass.entities[id] && this.hass.entities[id].icon) || (DEV_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1] || 'power';
         const Wt = w != null ? `${M.nf(w)} W` : '';
-        const status = unav ? 'Utilgjengelig' : act ? (Wt ? `${P.verb} · ${Wt}` : P.verb) : isOn ? (P ? (w > 0 ? `Hviler · ${Wt}` : w != null ? 'På · 0 W' : 'På') : (Wt ? `På · ${Wt}` : 'På')) : 'Av';
+        const status = unav ? 'Utilgjengelig' : DV && DV.own ? DV.text : act ? (Wt ? `${P.verb} · ${Wt}` : P.verb) : isOn ? (P ? (w > 0 ? `Hviler · ${Wt}` : w != null ? 'På · 0 W' : 'På') : (Wt ? `På · ${Wt}` : 'På')) : 'Av';
         const ctx = { state: isOn ? 'på' : 'av', on: isOn, w: w != null ? M.nf(w) : 0, name: nm, entity: s }, lk = M.universalLook(lk0, ctx);
         const ownRule = Object.keys(lk0).some((k) => /^state_rule_1_(value|condition)$/.test(k) && lk0[k] != null && lk0[k] !== '');
         // Animasjon: rist .5 s · spinn 1,6 s lineær · puls 1,4 s. Nivå fra looks.animation / appliance_animation (Rolig = halv fart, Av = ingen)
@@ -567,7 +683,9 @@
           background_color: lk.background_color || lk.bg, circle_color: lk.cell || (mc ? 'rgba(255,255,255,0.18)' : act ? 'rgba(0,0,0,0.12)' : undefined),
           icon_color: lk.icon_color || (P && !act && P.col ? P.col : undefined) });
       }).join('');
-      const sum = this._tekst('effekt', this._listChanged('enheter')) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
+      // 19.21: egen effektsensor på en enhet → summen regnes fra sensorene (KI Rom-teksten kjenner ikke overstyringen)
+      const pOv = ids.some((id) => M.roomDevOv(this.config, id).power);
+      const sum = this._tekst('effekt', this._listChanged('enheter') || pOv) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
       return `<section class="box" data-key="sec-dev">${this._head('dev', 'radio', 'Enheter', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
     }
 
@@ -707,20 +825,40 @@
         const stTxt = pk ? (a.media_title ? (a.media_artist ? `${a.media_artist} – ${a.media_title}` : a.media_title) : 'Spiller')
           : !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : pl ? (title || 'Spiller') : s.state === 'paused' ? (title ? `Pauset · ${title}` : 'Pauset') : off ? 'Av' : 'Klar';
         const vol = this._v('vol', id, Math.round((a.volume_level || 0) * 100));
-        const icon = a.device_class === 'tv' || /tv/i.test(id) ? 'tv' : 'speaker';
-        const pic = pk && a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : M.icon(pk ? 'mdi:music' : icon, 28);
+        // 19.16: TV (M.isTvPlayer: device_class tv / valgt som TV i Media / remote.* på samme enhet) → TV-variant:
+        // enhetsnavn på første linje, kanal/tittel + program, logo i avrundet firkant (contain), TV-kontroller og volum − / +.
+        const tv = M.isTvPlayer(this.hass, id), sf = Number(a.supported_features) || 0;
+        const icon = tv || a.device_class === 'tv' || /tv/i.test(id) ? 'tv' : 'speaker';
+        const pic = pk && a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : M.icon(pk ? (tv ? 'tv' : 'mdi:music') : icon, 28);
         const hp = (x) => (pk ? 'light' : x);
-        return `<div class="mc" data-key="m-${esc(id)}">
-          <div class="mt msh-inner${pk ? ' pk' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(this._nm(id))}</span><span class="ms ell">${esc(stTxt)}</span></span>
-            <span class="art msh-inner-c">${pic}</span>
-            <div class="mctl">
+        const nmTv = tv ? (((M.mediaCardCfg().players || {})[obj(id)] || {}).name || a.friendly_name || this._nm(id)) : this._nm(id);
+        const stTv = tv && pk ? (a.media_title || a.media_channel || a.app_name || 'Spiller') : stTxt, sub2 = tv && pk && a.media_series_title && a.media_series_title !== stTv ? a.media_series_title : '';
+        const hasLvl = a.volume_level != null && !isNaN(Number(a.volume_level));
+        const slider = !tv; // musikk uendret (slider); TV: alltid − / + (prosent bare når volume_level finnes)
+        const volRow = slider
+          ? `<div class="mv"><span class="mvl">Volum</span><div class="vs ${this._dragging('vol', id) ? 'drag' : ''}" data-slide="vol" data-id="${esc(id)}"><span class="cvt"></span><span class="cvf" style="width:${vol}%"></span><span class="knob" style="left:calc(${vol}% - 11px)"></span></div><span class="mvp num">${vol}%</span></div>`
+          : `<div class="mv"><span class="mvl">Volum</span><div class="tvv"><button class="tvb" data-tvvol="-1" data-id="${esc(id)}" title="Volum ned" aria-label="Volum ned">${M.icon('mdi:minus', 20)}</button><span class="tvl">${M.icon(a.is_volume_muted ? 'mdi:volume-off' : 'mdi:volume-low', 18)}${hasLvl ? `<span class="num">${Math.round(Number(a.volume_level) * 100)} %</span>` : ''}</span><button class="tvb" data-tvvol="1" data-id="${esc(id)}" title="Volum opp" aria-label="Volum opp">${M.icon('mdi:plus', 20)}</button></div></div>`;
+        const ch = tv && (sf & 16 || sf & 32); // PREVIOUS_TRACK / NEXT_TRACK → kanal − / +
+        const ctl = tv ? `
+              <button class="mb press" data-act="mpower" data-id="${esc(id)}" data-haptic="${hp('medium')}" title="Av/på">${M.icon('power_settings_new', 22)}</button>
+              ${ch ? `<button class="mb press" data-act="mcmd" data-cmd="media_previous_track" data-id="${esc(id)}" title="Forrige kanal" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:chevron-down', 24)}</button>` : ''}
+              <button class="mb press" data-act="tvseek" data-d="-10" data-id="${esc(id)}" title="10 s tilbake" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:rewind-10', 24)}</button>
+              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
+              <button class="mb press" data-act="tvseek" data-d="30" data-id="${esc(id)}" title="30 s fram" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:fast-forward-30', 24)}</button>
+              ${ch ? `<button class="mb press" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}" title="Neste kanal" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:chevron-up', 24)}</button>` : ''}
+              <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>` : `
               <button class="mb press" data-act="mpower" data-id="${esc(id)}" data-haptic="${hp('medium')}">${M.icon('power_settings_new', 22)}</button>
               <button class="mb press" data-act="mcmd" data-cmd="media_previous_track" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('skip_previous', 24)}</button>
               <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
               <button class="mb press" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('skip_next', 24)}</button>
-              <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>
+              <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>`;
+        const logo = tv && pk && a.entity_picture;
+        return `<div class="mc${tv ? ' tvc' : ''}" data-key="m-${esc(id)}">
+          <div class="mt msh-inner${pk ? ' pk' : ''}${logo ? ' lg' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(nmTv)}</span><span class="ms ell">${esc(stTv)}</span>${sub2 ? `<span class="ms2 ell">${esc(sub2)}</span>` : ''}</span>
+            <span class="art${logo ? ' logo' : ' msh-inner-c'}">${pic}</span>
+            <div class="mctl${tv && ch ? ' m7' : ''}">${ctl}
             </div></div>
-          <div class="mv"><span class="mvl">Volum</span><div class="vs ${this._dragging('vol', id) ? 'drag' : ''}" data-slide="vol" data-id="${esc(id)}"><span class="cvt"></span><span class="cvf" style="width:${vol}%"></span><span class="knob" style="left:calc(${vol}% - 11px)"></span></div><span class="mvp num">${vol}%</span></div>
+          ${volRow}
         </div>`;
       }).join('');
       const sum = this._tekst('media', this._listChanged('media')) || `${playing} spiller - ${ids.length - playing} av`;
@@ -777,8 +915,42 @@
       if (name === 'dtoggle') { const dom = d.id.split('.')[0]; return (['switch', 'fan', 'input_boolean', 'light'].includes(dom) ? M.call(h, dom, 'toggle', { entity_id: d.id }) : M.toggle(h, d.id)).catch(() => {}); }
       if (name === 'fanstep') { if (ev) ev.stopPropagation(); return this._fanStep(d.id, Number(d.d)); }
       if (name === 'mcmd') return M.call(h, 'media_player', d.cmd, { entity_id: d.id });
+      if (name === 'tvseek') return this._tvSeek(d.id, Number(d.d));
       if (name === 'mpower') { const s = h.states[d.id]; const off = !s || ['off', 'standby'].includes(s.state); return M.call(h, 'media_player', off ? 'turn_on' : 'turn_off', { entity_id: d.id }); }
       return super.onAction(name, el, ev);
+    }
+    // 19.16: ⟲10 / 30⟳ for TV: media_seek når spilleren støtter SEEK og har posisjon, ellers fjernkontrollen (remote.* på
+    // samme enhet: Apple TV skip_backward/skip_forward, Android/Google TV MEDIA_REWIND/MEDIA_FAST_FORWARD).
+    _tvSeek(id, sec) {
+      const h = this.hass, s = h.states[id], a = (s && s.attributes) || {};
+      if ((Number(a.supported_features) & 2) && a.media_position != null) {
+        const upd = a.media_position_updated_at ? Date.parse(a.media_position_updated_at) : NaN;
+        const pos = Number(a.media_position) + (s.state === 'playing' && !isNaN(upd) ? (Date.now() - upd) / 1000 : 0);
+        return M.call(h, 'media_player', 'media_seek', { entity_id: id, seek_position: Math.max(0, Math.round(pos + sec)) }).catch(() => {});
+      }
+      const dev = (M.regEntry(h, id) || {}).device_id;
+      const rem = dev ? Object.keys(h.states).find((x) => x.startsWith('remote.') && (M.regEntry(h, x) || {}).device_id === dev) : null;
+      if (!rem) return M.toast('TV-en støtter ikke spoling');
+      const apple = ((M.regEntry(h, rem) || {}).platform || '') === 'apple_tv';
+      return M.call(h, 'remote', 'send_command', { entity_id: rem, command: apple ? (sec < 0 ? 'skip_backward' : 'skip_forward') : (sec < 0 ? 'MEDIA_REWIND' : 'MEDIA_FAST_FORWARD') }).catch(() => {});
+    }
+    // 19.16: volum − / + for TV: ett trinn per trykk (M.tvVolStep = «Volum styres av» i Media), hold gjentar hvert
+    // 250 ms etter 400 ms. Haptic light per trinn. stopPropagation → Bubble Card / rad-hold får ikke trykket.
+    _bindTvVol(el) {
+      let t1 = null, t2 = null;
+      const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
+      const step = () => { M.haptic('light'); M.tvVolStep(this.hass, el.dataset.id, Number(el.dataset.tvvol)).catch(() => {}); };
+      el.style.touchAction = 'manipulation';
+      el.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); this._cancelHold();
+        if (e.button) return;
+        stop(); step();
+        t1 = setTimeout(() => { t2 = setInterval(step, 250); }, 400);
+      });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => el.addEventListener(t, stop));
+      el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('click', (e) => e.stopPropagation());
     }
     _kstep(id, dir) {
       const s = this.hass.states[id];
@@ -861,6 +1033,7 @@
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
       R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      R.querySelectorAll('[data-tvvol]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindTvVol(el); });
       // Vifte −/+ (16.8): egen handling – ikke radens toggle/hold, og ikke Bubble Cards sveip
       R.querySelectorAll('.fbtn').forEach((el) => { if (el.__b) return; el.__b = true; el.addEventListener('pointerdown', (e) => { e.stopPropagation(); this._cancelHold(); }); el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true }); });
       this._mountLights();
@@ -1017,6 +1190,19 @@
         .vs .cvt,.vs .cvf{height:6px;border-radius:3px}
         .mcw .dots{--dot-bg:${G.g400};--dot-on-bg:${G.g700}} /* 17.4: aktiv #979797; inaktiv #545454 (spesifisert #3a3a3a er usynlig på seksjonsflaten #3a3a3a) */
         .mvp{font-size:14px;min-width:36px;text-align:right}
+        /* 19.16: TV – volum − / + (pille 40 px #232323, runde knapper 34 px), logo i avrundet firkant (72, r18, contain) */
+        .tvv{flex:1;min-width:0;height:40px;border-radius:20px;background:var(--gray000, #232323);display:flex;align-items:center;justify-content:space-between;padding:0 3px}
+        .tvb{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:${G.w};touch-action:manipulation;transition:transform .12s}
+        .tvb:active{transform:scale(.9)}
+        .tvl{display:flex;align-items:center;gap:6px;font-size:14px;color:${G.w}}
+        .ms2{font-size:13px;color:${G.g800}}
+        .mt.pk .ms2{color:rgba(42,23,32,0.6)}
+        .mt.pk.lg .mh{padding-right:78px}
+        .mt.pk .art.logo{right:-6px;top:-6px;width:72px;height:72px;border-radius:18px;padding:8px;box-sizing:border-box;overflow:hidden;background:rgba(255,255,255,0.9);box-shadow:none;border:none}
+        .art.logo img{object-fit:contain}
+        .mctl.m7 .mb{width:38px;height:38px}
+        .mt.pk .mctl.m7 .mb{width:40px;height:40px;border-radius:20px}
+        .mctl.m7 .mp{width:56px;height:56px;border-radius:28px}
         /* tilpass */
         .tune{align-self:center;height:36px;padding:0 14px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:${G.g700}}
       `;
