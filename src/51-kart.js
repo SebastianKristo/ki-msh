@@ -1,7 +1,9 @@
-/* msh-kart-card · Kart-popup #kart (fiks 20.22, fasit «Kart.html»). Fullskjerm-kart med personer, biler, soner og kollektiv.
- * Popup: Bubble Card pop-up (Mal A + M.POPUP_LOOK['#kart']): show_header: false, width_desktop 100%, margin_top 0,
- *   bg_opacity 100, ingen avrunding – kartet har egen topp med × (lukker via MSH.closePopup; tilbake og Esc lukker også).
- *   Navbaren er eget kort utenfor popupen og ligger over kartet; mini-spilleren skjules mens #kart er åpen (10-navbar.js).
+/* msh-kart-card · Kart-popup #kart (fiks 20.22, fasit «Kart.html», fiks 23.3). Fullskjerm-kart med personer, biler, soner og kollektiv.
+ * Popup (23.3): Bubble Card pop-up (Mal A + M.POPUP_LOOK['#kart'], håndhevet etter overstyringer via M.POPUP_FORCE['#kart']):
+ *   margin_top 0, bg_opacity 0, bg_blur 0, radius 0, overflow hidden, popupen starter i toppen av dashbord-containeren
+ *   (Bubble legger ellers 56 px + margin_top over). Bubble-headeren (ikon, «Kart», ×) ligger absolutt over kartet, transparent,
+ *   rett under safe-area-inset-top; tannhjulet står ved siden av ×. Kortet fyller popupen (absolute, inset 0, høyde i px fra
+ *   dashbord-containeren). Navbaren er eget kort; ledig flate leses fra --ki-nav-occ-* / 'ki-nav-rect' (10-navbar.js).
  * Kart: HAs ha-map (leafletMap + Leaflet fra elementet) når den finnes, ellers Leaflet 1.9.4 lastet én gang på dokumentnivå
  *   (MSH.leafletLoad) + CARTO-fliser (dark_all/light_all, eller egen tile_url) med attribusjon (fiks 22.4, ingen invert). Kartflaten har
  *   touch-action: none og stopPropagation (pointer/touch/wheel), så pan/zoom aldri lukker popupen (fallgruve 2).
@@ -22,6 +24,27 @@
   const LAYERS = [['persons', 'Personer', 'mdi:account-multiple'], ['cars', 'Biler', 'mdi:car'], ['zones', 'Soner', 'mdi:map-marker-radius'], ['transit', 'Kollektiv', 'mdi:bus']];
   const LEAF_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
   const LEAF_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+  // Fiks 23.3: kjernen av leaflet.css (1.9.4) ligger ALLTID i kortets shadow root (dokumentets <link> når ikke inn hit, og
+  //   CDN-en kan svikte). Uten den mangler .leaflet-container touch-action: none, og nettleseren tar pan/knip-gestene.
+  const LEAF_BASE = `.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+    .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0;background:#1d1d1d;font-family:inherit}
+    .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+    .leaflet-marker-icon,.leaflet-marker-shadow{display:block}
+    .leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
+    .leaflet-container .leaflet-marker-pane img,.leaflet-container .leaflet-tile-pane img,.leaflet-container img.leaflet-image-layer,.leaflet-container .leaflet-tile{max-width:none!important;max-height:none!important;width:auto;padding:0}
+    .leaflet-container.leaflet-touch-zoom{touch-action:pan-x pan-y}
+    .leaflet-container.leaflet-touch-drag,.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom,.leaflet-container{touch-action:none}
+    .leaflet-tile{filter:inherit;visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+    .leaflet-zoom-box{width:0;height:0;box-sizing:border-box;z-index:800}
+    .leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}.leaflet-map-pane canvas{z-index:100}.leaflet-map-pane svg{z-index:200}
+    .leaflet-control{position:relative;z-index:800;pointer-events:auto}
+    .leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+    .leaflet-zoom-animated{transform-origin:0 0}
+    .leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+    .leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+    .leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+    .leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-image-layer,.leaflet-pane>svg path,.leaflet-tile-container{pointer-events:none}
+    .leaflet-marker-icon.leaflet-interactive,.leaflet-image-layer.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto}`;
   // Fiks 22.4: CARTO-fliser (som HAs eget kart) – tile.openstreetmap.org gir 403 fra dashbord. Ingen invert-filter.
   const CARTO_ATT = '© OpenStreetMap contributors © CARTO';
   const TILES = {
@@ -305,7 +328,11 @@
       this._mk = new Map(); // nøkkel → { m, html, pos }
       this._key = (e) => { if (e.key === 'Escape' && this.isOpen && location.hash === HASH && !document.querySelector('.msh-overlay-root, ki-overlay-root')) { M.closePopup(); } };
       this._tr = () => { if (this.isOpen) this.update(); };
-      this._rs = () => this._fitHeight();
+      this._rs = () => { this._fitHeight(); clearTimeout(this._rsT); this._rsT = setTimeout(() => this._fitHeight(), 350); };
+      // 23.3: navbaren melder ledig flate ('ki-nav-rect') → padding til fitBounds/flyTo og ny måling av headeren
+      this._nr = (e) => { if (e && e.detail) this._occ = { ...e.detail }; if (this.isOpen) this._fitHeight(); };
+      // 23.3: Leaflet startes først når popupen er synlig (hashchange + IntersectionObserver), invalidateSize etter animasjonen
+      this._hc = () => { if (location.hash !== HASH) return; setTimeout(() => this._maybeInit(), 60); clearTimeout(this._inv); this._inv = setTimeout(() => { this._fitHeight(); this._maybeInit(); }, 350); };
       // 22.7: «Vis på kart» fra headeren (M.kartFocus → event + M.kartFocusReq) → velg og fly til personen
       this._fc = (e) => { const id = e && e.detail && e.detail.entity_id; if (id) { this._focusId = id; this._focus(); } };
       this.shadowRoot.addEventListener('error', (e) => { const t = e.target; if (t && t.tagName === 'IMG' && t.getAttribute('src') && !BAD.has(t.getAttribute('src'))) { BAD.add(t.getAttribute('src')); this.update(); } }, true);
@@ -316,44 +343,102 @@
       window.addEventListener('msh-kart-transit', this._tr);
       window.addEventListener('resize', this._rs);
       window.addEventListener('msh-kart-focus', this._fc);
+      window.addEventListener('ki-nav-rect', this._nr);
+      window.addEventListener('hashchange', this._hc);
+      if (typeof IntersectionObserver !== 'undefined') {
+        if (!this._io) this._io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) { this._fitHeight(); this._maybeInit(); } });
+        this._io.observe(this);
+      }
     }
     disconnectedCallback() {
       super.disconnectedCallback();
       if (this._ro) this._ro.disconnect();
+      if (this._io) this._io.disconnect();
+      window.removeEventListener('ki-nav-rect', this._nr);
+      window.removeEventListener('hashchange', this._hc);
       window.removeEventListener('keydown', this._key);
       window.removeEventListener('msh-kart-transit', this._tr);
       window.removeEventListener('resize', this._rs);
       window.removeEventListener('msh-kart-focus', this._fc);
     }
-    // Fullskjerm: ingen mellomrom fra popupen (kartet går kant til kant), høyden følger popupen
+    // Fullskjerm: ingen mellomrom fra popupen (kartet går kant til kant), høyden i px fra dashbord-containeren (23.3)
     _applySpacing() { this.style.paddingBottom = '0px'; this.style.marginTop = ''; this._fitHeight(); }
-    _fitHeight() {
-      let n = this, pop = null;
-      for (let i = 0; n && i < 60; i++) { if (n.classList && n.classList.contains('bubble-pop-up')) { pop = n; break; } n = n.parentNode || n.host; }
-      const hgt = pop && pop.clientHeight > 200 ? pop.clientHeight : window.innerHeight;
-      this.style.setProperty('--kart-h', Math.round(hgt) + 'px');
-      if (this._map && this._map.invalidateSize) { try { this._map.invalidateSize(); } catch (e) { /* */ } }
-      this._measureNav();
+    _popEl() {
+      let n = this;
+      for (let i = 0; n && i < 60; i++) { if (n.classList && n.classList.contains('bubble-pop-up')) return n; n = n.parentNode || n.host; }
+      return null;
     }
-    // Fiks 22.1: mål navbaren (bunn, side eller topp – den bytter plass etter bredde) mot kortflaten → --nav-top/right/bottom/left
-    //   (0 = ikke på den siden, ellers overlapp + 8 px). Holdes oppdatert med ResizeObserver på navbar og kort (22.3: sidebar).
+    _fitHeight() {
+      const pop = this._popEl();
+      // Dashbord-containeren (ikke vinduet): toppen = der popupen starter, høyden = resten ned til bunnen
+      const D = M.rectOf && M.dashEl ? M.rectOf(M.dashEl(this)) : null;
+      const top = D ? Math.max(0, Math.round(D.top)) : 0;
+      const hgt = D && D.height > 200 ? D.height : pop && pop.clientHeight > 200 ? pop.clientHeight : window.innerHeight;
+      this.style.setProperty('--kart-h', Math.round(hgt) + 'px');
+      this.toggleAttribute('data-pop', !!pop);
+      if (pop && pop.style.getPropertyValue('--ki-kart-top') !== top + 'px') pop.style.setProperty('--ki-kart-top', top + 'px');
+      this._measureNav();
+      this._measureHead(pop);
+      if (this._map && this._map.invalidateSize) { try { this._map.invalidateSize(); } catch (e) { /* */ } }
+    }
+    // 23.3: Bubble-headeren ligger over kartet → chipsene rett under den, tannhjulet ved siden av ×
+    _measureHead(pop) {
+      const hd = pop && pop.querySelector(':scope > .bubble-header-container');
+      const hr = hd && hd.getBoundingClientRect(), box = this.getBoundingClientRect();
+      const vis = !!hr && hr.height > 0 && getComputedStyle(hd).display !== 'none';
+      this.toggleAttribute('data-bh', vis);
+      if (!vis || !box.height) { ['--kart-hd', '--kart-act-top', '--kart-act-right'].forEach((k) => this.style.removeProperty(k)); return; }
+      this.style.setProperty('--kart-hd', Math.round(hr.bottom - box.top) + 'px');
+      const x = hd.querySelector('.bubble-close-button, .close-pop-up');
+      const xr = x && x.getBoundingClientRect();
+      if (xr && xr.width) {
+        const cog = this.shadowRoot.querySelector('.acts .cog'), ch = cog ? cog.getBoundingClientRect().height || 44 : 44;
+        this.style.setProperty('--kart-act-top', Math.round(xr.top - box.top + (xr.height - ch) / 2) + 'px');
+        this.style.setProperty('--kart-act-right', Math.round(box.right - xr.left + 8) + 'px');
+      }
+    }
+    // Fiks 23.3: navbaren måler seg selv (10-navbar.js → --ki-nav-occ-* på dashbord-containeren + 'ki-nav-rect'). Kortet leser
+    //   MSH.navOcc() / eventet (omregnet fra dashbord-containeren til kortets flate); egen måling (fiks 22.1) brukes bare som
+    //   reserve når navbaren ikke melder noe. Resultatet skrives som --kart-occ-* på kortet og --ki-kart-occ-* på popupen.
     _navEl() {
       const np = document.querySelector('.msh-navbar-portal');
       const n = (np && np.shadowRoot && np.shadowRoot.querySelector('[data-nav]')) || document.querySelector('msh-navbar-card');
       return n && n.getBoundingClientRect && n.getBoundingClientRect().width > 0 ? n : null;
     }
     _measureNav() {
-      const box = this.getBoundingClientRect(), n = this._navEl(), N = { top: 0, right: 0, bottom: 0, left: 0 };
-      if (n && box.width > 0) {
-        const r = n.getBoundingClientRect(), cs = getComputedStyle(n);
-        const vis = cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05;
-        const ox = Math.min(r.right, box.right) - Math.max(r.left, box.left), oy = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
-        if (vis && ox > 0 && oy > 0) {
-          if (r.width >= r.height) { if (r.top + r.height / 2 > box.top + box.height / 2) N.bottom = box.bottom - r.top + 8; else N.top = r.bottom - box.top + 8; }
-          else if (r.left + r.width / 2 < box.left + box.width / 2) N.left = r.right - box.left + 8; else N.right = box.right - r.left + 8;
+      const K = ['top', 'right', 'bottom', 'left'], box = this.getBoundingClientRect();
+      const occ = M.navOcc ? M.navOcc() : this._occ || null;
+      const any = (o) => !!o && K.some((k) => Number(o[k]) > 0);
+      let N = { top: 0, right: 0, bottom: 0, left: 0 };
+      if (occ && (any(occ) || !this._navEl())) {
+        // navbarens tall gjelder dashbord-containeren → omregnet til kortets flate (på PC starter popupen til høyre for railen)
+        const D = M.rectOf && M.dashEl ? M.rectOf(M.dashEl(this)) : null, o = (k) => Math.max(0, Number(occ[k]) || 0);
+        if (D && box.width > 0) {
+          const Dr = D.left + D.width, Db = D.top + D.height;
+          N = { top: o('top') ? D.top + o('top') - box.top : 0, left: o('left') ? D.left + o('left') - box.left : 0, right: o('right') ? box.right - (Dr - o('right')) : 0, bottom: o('bottom') ? box.bottom - (Db - o('bottom')) : 0 };
+        } else N = { top: o('top'), right: o('right'), bottom: o('bottom'), left: o('left') };
+        this._navSrc = 'navbar';
+      } else {
+        const n = this._navEl();
+        if (n && box.width > 0) {
+          const r = n.getBoundingClientRect(), cs = getComputedStyle(n);
+          const vis = cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05;
+          const ox = Math.min(r.right, box.right) - Math.max(r.left, box.left), oy = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+          if (vis && ox > 0 && oy > 0) {
+            if (r.width >= r.height) { if (r.top + r.height / 2 > box.top + box.height / 2) N.bottom = box.bottom - r.top + 8; else N.top = r.bottom - box.top + 8; }
+            else if (r.left + r.width / 2 < box.left + box.width / 2) N.left = r.right - box.left + 8; else N.right = box.right - r.left + 8;
+          }
         }
+        this._navSrc = 'reserve';
       }
-      Object.keys(N).forEach((k) => { N[k] = Math.max(0, Math.round(N[k])); this.style.setProperty('--nav-' + k, N[k] + 'px'); });
+      // --kart-occ-* på kortet (CSS faller tilbake til de arvede --ki-nav-occ-*), --ki-kart-occ-* på popupen (Bubble-headeren)
+      const pop = this._popEl();
+      K.forEach((k) => {
+        N[k] = Math.max(0, Math.round(N[k] || 0));
+        const v = N[k] + 'px';
+        if (this.style.getPropertyValue('--kart-occ-' + k) !== v) this.style.setProperty('--kart-occ-' + k, v);
+        if (pop && pop.style.getPropertyValue('--ki-kart-occ-' + k) !== v) pop.style.setProperty('--ki-kart-occ-' + k, v);
+      });
       this._nav = N;
       return N;
     }
@@ -365,12 +450,14 @@
       const n = this._navEl(); if (n) this._ro.observe(n);
       const mb = this.shadowRoot.querySelector('.map'); if (mb) this._ro.observe(mb);
     }
-    // Leaflet-marginer = ledig flate (navbar + topp + detaljkort), så valgt markør aldri havner bak navbar/detaljkort
+    // Leaflet-marginer = ledig flate (navbar + header/chips + detaljkort), så valgt markør aldri havner bak navbar/detaljkort
     _pad() {
       const N = this._nav || this._measureNav(), det = this.shadowRoot.querySelector('.det');
       const dh = det ? det.getBoundingClientRect().height : 0, row = this.shadowRoot.querySelector('.row');
       const rh = row ? row.getBoundingClientRect().height + 8 : 0;
-      return { paddingTopLeft: [N.left + 16, N.top + 120], paddingBottomRight: [N.right + 16 + 64, N.bottom + Math.max(dh, rh) + 16] };
+      const tp = this.shadowRoot.querySelector('.top'), box = this.getBoundingClientRect();
+      const tb = tp && box.height ? Math.round(tp.getBoundingClientRect().bottom - box.top) : 0;
+      return { paddingTopLeft: [N.left + 16, Math.max(N.top + 120, tb + 16)], paddingBottomRight: [N.right + 16 + 64, N.bottom + Math.max(dh, rh) + 16] };
     }
     _flyTo(pos, z) {
       const map = this._map, L = this._L;
@@ -385,7 +472,7 @@
       this.update();
       this._watch();
       this._focus();
-      clearTimeout(this._inv); this._inv = setTimeout(() => this._fitHeight(), 350); // etter Bubble sin åpne-animasjon (22.2)
+      clearTimeout(this._inv); this._inv = setTimeout(() => { this._fitHeight(); this._maybeInit(); }, 350); // etter Bubble sin åpne-animasjon (22.2/23.3)
       if (this.config.transit !== false) {
         M.kartTransitRefresh(this.hass, this.config, true);
         clearInterval(this._poll);
@@ -430,12 +517,15 @@
       const row = [...D.P, ...D.K].map(pill).join('');
       const err = this._leafErr ? `<div class="err" data-key="err">${M.icon('mdi:map-marker-off', 22)}<span>${esc(this._leafErr)}</span></div>` : '';
       return `<div class="kart" data-key="kart">
-        <div class="map" data-nomorph data-key="map"></div>${err}
+        <div class="map" id="map" data-nomorph data-key="map"></div>${err}
+        <div class="grad" data-key="grad"></div>
+        <div class="acts" data-key="acts">
+          <button class="rb cog" data-act="customize" title="Tilpass kart">${M.icon('mdi:cog', 22)}</button>
+          <button class="rb x" data-act="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 24)}</button>
+        </div>
         <div class="top" data-key="top">
-          <div class="hd"><span class="ic">${M.icon('mdi:map', 24)}</span><div class="tt"><div class="nm">Kart</div><div class="sm" data-key="sum">${esc(sum)}</div></div>
-            <button class="rb" data-act="customize" title="Tilpass kart">${M.icon('mdi:cog', 22)}</button>
-            <button class="rb x" data-act="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 24)}</button></div>
           <div class="chips noscroll" data-key="chips">${chips}</div>
+          <div class="sm" data-key="sum">${esc(sum)}</div>
         </div>
         <div class="side" data-key="side">
           <button class="sb" data-act="zin" title="Zoom inn">${M.icon('mdi:plus', 24)}</button>
@@ -520,14 +610,19 @@
       if (!this._fitAll(false)) this._map.setView(homePos(h) || [59.91, 10.75], 12);
     }
     /* ---------------------------------------------------------- kart-motor */
+    // 23.3: Leaflet startes først når popupen er åpen og kartflaten har størrelse (ellers blir getSize() 0 og gestene døde)
+    _maybeInit() {
+      if (this._init || !this.isOpen || location.hash !== HASH || !this.isConnected) return;
+      const box = this.shadowRoot.querySelector('.map'), r = box && box.getBoundingClientRect();
+      if (!r || r.width < 2 || r.height < 2) return;
+      this._initMap();
+    }
     async _initMap() {
       if (this._init) return;
       this._init = true;
       const box = this.shadowRoot.querySelector('.map');
       if (!box) { this._init = false; return; }
-      const stop = (e) => e.stopPropagation();
-      ['pointerdown', 'touchstart', 'touchmove', 'wheel', 'mousedown'].forEach((t) => box.addEventListener(t, stop, { passive: true }));
-      box.__mshGuard = true;
+      if (!box.__mshGuard) this._guard(box);
       const c = this.config;
       try {
         if (customElements.get('ha-map') && c.engine !== 'leaflet') {
@@ -536,12 +631,18 @@
           hm2.hass = this.hass; hm2.darkMode = styleOf(c) !== 'light'; hm2.themeMode = styleOf(c) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
           box.appendChild(hm2);
           for (let i = 0; i < 100 && !(hm2.leafletMap && hm2.Leaflet); i++) await new Promise((r) => setTimeout(r, 50));
-          if (hm2.leafletMap && hm2.Leaflet) { this._haMap = hm2; this._L = hm2.Leaflet; this._map = hm2.leafletMap; }
+          if (hm2.leafletMap && hm2.Leaflet) {
+            this._haMap = hm2; this._L = hm2.Leaflet; this._map = hm2.leafletMap;
+            // ha-map kan ha slått av dra/knip på touch – slå på alt kartet trenger (23.3)
+            ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom'].forEach((k) => { const hd = this._map[k]; if (hd && hd.enable) try { hd.enable(); } catch (e) { /* */ } });
+            if (this._map.tap && this._map.tap.disable) try { this._map.tap.disable(); } catch (e) { /* */ }
+            hm2.style.touchAction = 'none';
+          }
           else hm2.remove();
         }
         if (!this._map) {
           const L = await M.leafletLoad();
-          box.innerHTML = `<link rel="stylesheet" href="${LEAF_CSS}"><div class="lf"></div>`;
+          box.innerHTML = `<link rel="stylesheet" href="${LEAF_CSS}"><div class="lf"></div>`; // full leaflet.css i tillegg til LEAF_BASE i <style>
           const el = box.querySelector('.lf');
           this._L = L;
           this._map = L.map(el, { zoomControl: false, attributionControl: false, zoomSnap: 0.5, dragging: true, touchZoom: true, scrollWheelZoom: true, doubleClickZoom: true, tap: false });
@@ -622,53 +723,55 @@
       for (const [k, e] of this._mk) if (!seen.has(k)) { try { this._g[e.grp].removeLayer(e.m); } catch (er) { /* */ } this._mk.delete(k); }
     }
     afterRender() {
-      if (this.isOpen && !this._init) this._initMap();
+      if (this.isOpen && !this._init) this._maybeInit();
       else if (this._map) { this._setStyle(); this._sync(); }
       const box = this.shadowRoot.querySelector('.kart');
       if (box && !box.__b) {
         box.__b = true;
-        const stop = (e) => e.stopPropagation();
-        // detaljkort og topp: dra her skal heller ikke lukke popupen
-        ['.bot', '.top', '.side'].forEach((s) => { const el = box.querySelector(s); if (el) ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => el.addEventListener(t, stop, { passive: true })); });
+        // kartflaten, detaljkort, topp og knapper: dra her skal ikke lukke eller scrolle popupen (23.3)
+        ['.map', '.bot', '.top', '.side', '.acts'].forEach((s) => { const el = box.querySelector(s); if (el && !el.__mshGuard) this._guard(el); });
       }
+    }
+    _guard(el) {
+      const stop = (e) => e.stopPropagation();
+      ['pointerdown', 'touchstart', 'touchmove', 'wheel', 'mousedown'].forEach((t) => el.addEventListener(t, stop, { passive: true }));
+      el.__mshGuard = true;
     }
     get styles() {
       return `
         :host{display:block;width:100%;height:var(--kart-h,100vh);position:relative}
+        :host([data-pop]){position:absolute;left:0;right:0;top:0;bottom:0;inset:0;width:auto;height:var(--kart-h,100%)} /* 23.3: fyller popupens flate */
         ha-card{height:100%}
         .kart{position:relative;height:100%;overflow:hidden;background:#1d1d1d;font-family:${M.FONT || 'inherit'}}
         .map,.map .lf{position:absolute;inset:0;touch-action:none}
+        #map,#map .leaflet-container,#map ha-map{touch-action:none!important}
         .map .lf{background:#1d1d1d}
         .msh-mk{background:none;border:0}
-        .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-layer{position:absolute;left:0;top:0}
-        .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0}
-        .leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-drag:none}
-        .leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
-        .leaflet-container img.leaflet-tile{max-width:none!important;max-height:none!important;width:auto;padding:0}
-        .leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}
-        .leaflet-zoom-animated{transform-origin:0 0}
-        .leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
-        .leaflet-interactive{cursor:pointer}
+        ${LEAF_BASE}
         .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--gray700,#979797);font-size:13px;text-align:center;padding:0 40px}
-        .top{position:absolute;left:var(--nav-left,0px);right:var(--nav-right,0px);top:var(--nav-top,0px);z-index:1000;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 22px;background:linear-gradient(180deg,#232323 0%,rgba(35,35,35,.85) 55%,rgba(35,35,35,0) 100%);display:flex;flex-direction:column;gap:12px;pointer-events:none}
-        .top>*{pointer-events:auto}
-        .hd{display:flex;align-items:center;gap:12px;min-width:0}
-        .ic{width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--gray1000,#e1e1e1);color:#232323}
-        .tt{flex:1;min-width:0}
-        .nm{font-size:30px;font-weight:500;line-height:1.1}
-        .sm{font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rb{width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+        /* 23.3: én gradient (mørk øverst, gjennomsiktig fra ca. 160 px). Overleggene slipper trykk gjennom til kartet;
+           bare knapper, chips og kort tar imot (pointer-events: auto). */
+        .grad{position:absolute;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 160px);z-index:999;pointer-events:none;background:linear-gradient(180deg,rgba(35,35,35,.94) 0%,rgba(35,35,35,.7) 45%,rgba(35,35,35,0) 100%)}
+        .acts{position:absolute;z-index:1001;top:var(--kart-act-top,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 8px));right:var(--kart-act-right,calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 16px));display:flex;gap:8px;pointer-events:none}
+        .acts>*{pointer-events:auto}
+        :host([data-bh]) .acts .x{display:none} /* Bubble-headeren har × */
+        .top{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));top:var(--kart-hd,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 64px));z-index:1000;padding:0 16px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+        .top .chips{pointer-events:none}
+        .top .chip{pointer-events:auto}
+        .rb{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
         .rb.sm{width:36px;height:36px;background:var(--gray300,#404040)}
         .rb:active,.sb:active,.chip:active,.pl:active,.db:active{transform:scale(.95)}
+        .sm{font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
         .chips{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;margin:0 -16px;padding:0 16px}
         .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:rgba(58,58,58,.9);color:#e1e1e1;font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
         .chip b{font-weight:600;opacity:.7}
         .chip.on{background:${PINK};color:#2f2f2f}
-        .side{position:absolute;right:calc(var(--nav-right,0px) + 12px);top:50%;transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px}
+        .side{position:absolute;right:calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 12px);top:calc(50% + (var(--kart-occ-top,var(--ki-nav-occ-top,0px)) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px))) / 2);transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+        .side>*{pointer-events:auto}
         .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px rgba(0,0,0,.35)}
-        .bot{position:absolute;left:var(--nav-left,0px);right:var(--nav-right,0px);bottom:calc(var(--nav-bottom,0px) + 10px);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-        .bot>*{pointer-events:auto}
-        .row{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;padding:0 12px}
+        .bot{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));bottom:calc(var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) + 12px);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+        .bot .det,.bot .pl{pointer-events:auto}
+        .row{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;padding:0 12px;pointer-events:none}
         .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:rgba(58,58,58,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.35);max-width:260px}
         .pl.on{box-shadow:0 0 0 2px #fafafa,0 4px 14px rgba(0,0,0,.35)}
         .pa,.da,.wa{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--gray300,#404040);color:#fafafa}
@@ -677,8 +780,8 @@
         .pt{display:flex;flex-direction:column;min-width:0}
         .pt b,.dt b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .pt i,.dt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:rgba(35,35,35,.6);color:var(--gray700,#979797);font-size:10px}
-        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--nav-top,0px) - var(--nav-bottom,0px) - 140px);overflow-y:auto;overscroll-behavior:contain}
+        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:rgba(35,35,35,.6);color:var(--gray700,#979797);font-size:10px;pointer-events:none}
+        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--kart-hd,64px) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) - 140px);overflow-y:auto;overscroll-behavior:contain}
         .dh{display:flex;align-items:center;gap:12px}
         .da{width:44px;height:44px;background:none}
         .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -695,15 +798,88 @@
   }
   M.define('msh-kart-card', Kart, 'MSH Kart', 'Kart-popup (#kart): fullskjerm-kart med personer, biler, soner og kollektiv i sanntid (Entur).');
 
-  // Popup-utseende for #kart (M.popupTemplateA leser M.POPUP_LOOK): fullskjerm, uten Bubble-header og avrunding.
-  const KART_STYLES = `.bubble-pop-up.bubble-pop-up,.bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important;--bubble-pop-up-border-radius:0px}
-.bubble-pop-up.bubble-pop-up .bubble-header-container{display:none!important}
-.bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{padding:0!important;margin-top:0!important;border-radius:0!important;clip-path:none!important;--vertical-stack-card-gap:0px!important;overflow:hidden!important;mask-image:none!important;-webkit-mask-image:none!important}
-`;
+  /* ------------------------------------------------------------ popup-utseende (fiks 23.3)
+   * Hvorfor 50 px-stripen overlevde 22.1: unntaket lå bare i M.popupTemplateA (M.POPUP_LOOK). Alt som ble lagt OPPÅ den
+   * genererte popupen tok det bort igjen: popup_overrides (ki-store/strategi-YAML, særlig «replace» lagret fra Tilpass Hjem →
+   * Popups med standardmalens margin_top 50px/bg 98), custom_popups med #kart og M.buildPopups (manuelle dashbord: eksisterende
+   * popup får bare nytt kort). I tillegg legger Bubble Card alltid 56 px + safe-area + margin_top over popupen
+   * (top: calc(56px + … + var(--custom-height-offset-mobile))), så selv margin_top 0 ga en stripe uten HA-verktøylinjen (PWA/kiosk).
+   * Nå: M.POPUP_FORCE['#kart'] kjøres av strategien ETTER overstyringene (04-strategy.js mergePopups) og av buildPopups,
+   * og stilene under setter popupens topp til dashbord-containerens topp (--ki-kart-top, satt av kortet). */
+  const KS = '/* ki-kart:start (fiks 23.3 · fullskjerm-kart, legges inn på nytt ved hver generering) */', KE = '/* ki-kart:end */';
+  const KART_BLOCK = `${KS}
+.bubble-pop-up.bubble-pop-up:not(.editor){top:var(--ki-kart-top,0px)!important;bottom:0!important;height:auto!important;max-height:none!important;border-radius:0!important;overflow:hidden!important;--bubble-pop-up-border-radius:0px;--bubble-pop-up-content-border-radius:0px;--bubble-pop-up-header-overlap:0px}
+.bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important}
+.bubble-pop-up.bubble-pop-up > .bubble-header-container{position:absolute!important;top:calc(env(safe-area-inset-top,0px) + var(--ki-kart-occ-top,0px))!important;left:var(--ki-kart-occ-left,0px)!important;right:var(--ki-kart-occ-right,0px)!important;margin:0!important;width:auto!important;max-width:none!important;z-index:6!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
+.bubble-pop-up.bubble-pop-up > .bubble-header-container *{pointer-events:none}
+.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button,.bubble-pop-up.bubble-pop-up > .bubble-header-container .close-pop-up,.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button *{pointer-events:auto!important}
+.bubble-pop-up #header-container > div > div,.bubble-pop-up.bubble-pop-up .bubble-header{background:transparent!important;box-shadow:none!important}
+.bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:rgba(58,58,58,.9)!important;border-radius:50%}
+.bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{position:absolute!important;inset:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;border-radius:0!important;clip-path:none!important;-webkit-clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;z-index:1;gap:0!important;--vertical-stack-card-gap:0px!important}
+${KE}`;
+  const KART_ICON = '.icon-container {background-color:var(--gray1000)!important;}\n.icon-container > ha-icon {color:var(--black)!important;opacity:1!important}';
+  // Gammel (20.22/22.1) kart-blokk: skjult header + margin-top-regler → fjernes før den nye legges inn
+  const OLD_RX = /^\.bubble-pop-up\.bubble-pop-up(,\.bubble-pop-up\.bubble-pop-up \.bubble-pop-up-background\{border-radius:0!important;--bubble-pop-up-border-radius:0px\}| \.bubble-header-container\{display:none!important\}| > \.bubble-pop-up-container\{padding:0!important;margin-top:0!important;[^\n]*)\n?/gm;
+  const kartStyles = (prev) => {
+    let s = typeof prev === 'string' ? prev : '';
+    for (let i = s.indexOf(KS); i >= 0; i = s.indexOf(KS)) { const j = s.indexOf(KE, i); s = s.slice(0, i) + (j >= 0 ? s.slice(j + KE.length) : ''); }
+    s = s.replace(OLD_RX, '').trim();
+    if (!/\.icon-container\s*\{\s*background-color/.test(s)) s = (s ? s + '\n' : '') + KART_ICON;
+    return s + '\n' + KART_BLOCK;
+  };
+  const FIXED = { margin_top_mobile: '0px', margin_top_desktop: '0px', bg_opacity: '0', bg_blur: '0' };
   M.POPUP_LOOK = M.POPUP_LOOK || {};
   M.POPUP_LOOK[HASH] = {
     // width_desktop: hele dashbordflaten til høyre for HA-sidebaren/navbar-railen (Bubble sentrerer på content-inline-start)
-    show_header: false, width_desktop: 'calc(100% - var(--bubble-pop-up-content-inline-start, 0px))', margin_top_mobile: '0px', margin_top_desktop: '0px', bg_opacity: '100', bg_blur: '0', close_by_clicking_outside: false,
-    styles: KART_STYLES,
+    width_desktop: 'calc(100% - var(--bubble-pop-up-content-inline-start, 0px))', ...FIXED, close_by_clicking_outside: false,
+    styles: kartStyles(''),
+  };
+  // Håndheves på den ferdige popupen (etter overstyringer/egne popups): bare når popupens kort er msh-kart-card
+  M.POPUP_FORCE = M.POPUP_FORCE || {};
+  M.POPUP_FORCE[HASH] = (cfg) => {
+    if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards) || !cfg.cards.some((c) => c && String(c.type || '').replace(/^custom:/, '') === 'msh-kart-card')) return null;
+    const out = { ...cfg, ...FIXED, styles: kartStyles(cfg.styles) };
+    delete out.show_header; // Bubble-headeren vises (over kartet)
+    if (!out.width_desktop) out.width_desktop = M.POPUP_LOOK[HASH].width_desktop;
+    if (out.close_by_clicking_outside == null) out.close_by_clicking_outside = false;
+    return out;
+  };
+
+  /* ------------------------------------------------------------ konsollsjekkene (23.3) · MSH.kartDiag()
+   * Kjør på telefonen (Safari Web Inspector / Chrome remote) med #kart åpen. Returnerer objektet med de fire sjekkene:
+   *   touchAction === 'none', map.getSize() > 0, dragging + touchZoom på, elementFromPoint(midten) treffer kartet (ikke overlegg). */
+  const deepFind = (root, tag, d = 0) => {
+    if (!root || d > 20 || !root.querySelectorAll) return null;
+    const hit = root.querySelector(tag); if (hit) return hit;
+    for (const e of root.querySelectorAll('*')) if (e.shadowRoot) { const r = deepFind(e.shadowRoot, tag, d + 1); if (r) return r; }
+    return null;
+  };
+  M.kartDiag = function (el) {
+    const card = el || deepFind(document, 'msh-kart-card');
+    if (!card || !card.shadowRoot) return { pass: false, err: 'fant ikke msh-kart-card (åpne #kart først)' };
+    const sr = card.shadowRoot, map = card._map, box = sr.querySelector('#map');
+    const mapEl = (map && map.getContainer && map.getContainer()) || sr.querySelector('.leaflet-container') || box;
+    const touchAction = mapEl ? getComputedStyle(mapEl).touchAction : null;
+    let size = null; try { const z = map && map.getSize && map.getSize(); size = z ? { x: Math.round(z.x), y: Math.round(z.y) } : null; } catch (e) { /* */ }
+    const en = (k) => { try { return !!(map && map[k] && map[k].enabled && map[k].enabled()); } catch (e) { return false; } };
+    const r = box ? box.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
+    const mid = { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    const hit = sr.elementFromPoint ? sr.elementFromPoint(mid.x, mid.y) : null;
+    const desc = (e) => (e ? e.localName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') : null);
+    const inMap = !!hit && !!box && (hit === box || box.contains(hit));
+    const overlay = !!hit && !!hit.closest && !!hit.closest('.grad,.top,.bot,.side,.acts');
+    const css = [...sr.querySelectorAll('style')].some((s) => /\.leaflet-container[^{]*\{[^}]*touch-action:\s*none/.test(s.textContent));
+    const ok = {
+      touchAction: touchAction === 'none',
+      size: !!size && size.x > 0 && size.y > 0,
+      gestures: en('dragging') && en('touchZoom'),
+      hit: inMap && !overlay,
+    };
+    return {
+      touchAction, size, dragging: en('dragging'), touchZoom: en('touchZoom'), mid, hit: desc(hit), hitLeaflet: !!hit && /leaflet-(tile|pane|container)/.test(String(hit.className || '')) || (!!hit && hit.localName === 'ha-map'),
+      leafletCss: css, engine: card._haMap ? 'ha-map' : map ? 'leaflet' : 'ingen', navSrc: card._navSrc || null, nav: card._nav || null,
+      ok, pass: Object.values(ok).every(Boolean),
+    };
   };
 })();

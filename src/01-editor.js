@@ -373,6 +373,21 @@
       return `<msh-entity-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} ${a('value', o.value)} ${a('auto', o.auto)} auto-mode="${o.autoMode ? 1 : 0}" ${a('domains', o.domains)} ${a('device-class', o.deviceClass)} ${a('area', o.area)} mode="${o.mode || 'set'}" ${a('placeholder', o.placeholder)} ${a('auto-label', o.autoLabel)}${o.preferClass ? ' ' + a('prefer-class', o.preferClass) : ''}${o.noneLabel ? ' ' + a('none-label', o.noneLabel) : ''} ${o.attrs || ''}></msh-entity-picker>`;
     },
   };
+  /* Fiks 23.6: felles ikonfaner – aktiv fane viser ikon + navn, de andre bare ikon (flex, ikke grid; animert .25s).
+   * Brukes av type:'tabs' (4+ faner med ikon), Tilpass Hjem og Kalender. Beholderen er en vanlig pille (#3a3a3a, Liquid Glass-drag).
+   *   MSH.iconTabs.css(sel)                → CSS for knappene i beholderen sel (f.eks. '.seg.itabs')
+   *   MSH.iconTabs.btn({ label, icon }, on, attrs, cls) → én fane-knapp (title/aria-label = navnet, aria-selected)
+   *   MSH.iconTabs.fits(tabs)             → true når mønsteret skal brukes (4+ faner, alle med ikon) */
+  M.iconTabs = {
+    css: (sel) => `${sel}>.itab{flex:1 1 0;min-width:44px;height:40px;padding:0;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:0;white-space:nowrap;overflow:hidden;transition:flex .25s ease,padding .25s ease,gap .25s ease,background .25s,color .25s}
+    ${sel}>.itab[aria-selected="true"]{flex:0 0 auto;padding:0 14px 0 12px;gap:6px}
+    ${sel}>.itab ha-icon{--mdc-icon-size:20px;width:20px;height:20px;flex:none}
+    ${sel}>.itab .itl{display:inline-block;max-width:0;opacity:0;overflow:hidden;white-space:nowrap;transition:max-width .25s ease,opacity .2s ease}
+    ${sel}>.itab[aria-selected="true"] .itl{max-width:200px;opacity:1}
+    @media (prefers-reduced-motion: reduce){${sel}>.itab,${sel}>.itab .itl{transition:none}}`,
+    btn: (t, on, attrs = '', cls = '') => `<button class="itab ${cls}" role="tab" aria-selected="${!!on}" title="${esc(t.label)}" aria-label="${esc(t.label)}" ${attrs}>${M.icon(t.icon, 20)}<span class="itl">${esc(t.label)}</span></button>`,
+    fits: (T) => (T || []).length >= 4 && T.every((t) => t && t.icon),
+  };
 
   const ED_CSS = `
     :host{display:block;font-family:${M.FONT};color:#fafafa;--ed-bg:#2f2f2f}
@@ -404,6 +419,7 @@
     .chips.sg.tsub .chip{height:32px;border-radius:16px}
     .chips.sg.tabs .chip.on,.chips.sg.tsub .chip.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .chips.sg .tc{font-size:11px;opacity:.7;font-variant-numeric:tabular-nums}
+    ${M.iconTabs.css('.chips.sg.tabs.itabs')}
     .tpane{display:flex;flex-direction:column;gap:10px}
     .fsec{display:flex;flex-direction:column;gap:6px;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
     .fsh{display:flex;align-items:baseline;gap:8px;padding:6px 6px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f}
@@ -663,7 +679,9 @@
           const tk = f.id || key, tb = this._tab = this._tab || {}; // valgt fane huskes bare mens arket er åpent
           if (this.focusSection && !this._focused && tb[tk] == null) { const hit = T.find((t) => (t.focus || []).includes(this.focusSection)); if (hit) tb[tk] = hit.key; }
           const cur = T.some((t) => t.key === tb[tk]) ? tb[tk] : T[0].key, A = T.find((t) => t.key === cur);
-          const seg = `<div class="chips sg ${f.sub ? 'tsub' : 'tabs'}" role="tablist">${T.map((t) => `<button class="chip ${t.key === cur ? 'on' : ''}" role="tab" aria-selected="${t.key === cur}" data-a="tab" data-k="${esc(tk)}" data-v="${esc(t.key)}">${t.icon ? M.icon(t.icon, 18) : ''}<span>${esc(t.label)}</span>${t.count != null ? `<span class="tc">${esc(t.count)}</span>` : ''}</button>`).join('')}</div>`;
+          const it = !f.sub && M.iconTabs.fits(T); // 23.6: 4+ faner → aktiv ikon + navn, andre bare ikon
+          const seg = it ? `<div class="chips sg tabs itabs" role="tablist">${T.map((t) => M.iconTabs.btn(t, t.key === cur, `data-a="tab" data-k="${esc(tk)}" data-v="${esc(t.key)}"`, `chip ${t.key === cur ? 'on' : ''}`)).join('')}</div>`
+            : `<div class="chips sg ${f.sub ? 'tsub' : 'tabs'}" role="tablist">${T.map((t) => `<button class="chip ${t.key === cur ? 'on' : ''}" role="tab" aria-selected="${t.key === cur}" data-a="tab" data-k="${esc(tk)}" data-v="${esc(t.key)}">${t.icon ? M.icon(t.icon, 18) : ''}<span>${esc(t.label)}</span>${t.count != null ? `<span class="tc">${esc(t.count)}</span>` : ''}</button>`).join('')}</div>`;
           return `${seg}<div class="tpane" data-key="tp-${esc(tk)}-${esc(cur)}">${(A.fields || []).map((x, j) => this._field(x && x.type !== 'tabs' && x.flat == null ? { ...x, flat: true } : x, key + '_' + cur + '_' + j)).join('')}</div>`;
         }
         case 'boolean': {

@@ -1,4 +1,6 @@
-// Fiks 20.22 · Kart (#kart, msh-kart-card) mot EKTE Bubble Card: fullskjerm uten Bubble-header, × / Esc / tilbake lukker,
+// Fiks 20.22/23.3 · Kart (#kart, msh-kart-card) mot EKTE Bubble Card: fullskjerm fra toppen, Bubble-header over kartet, × / Esc / tilbake lukker,
+// 23.3: #kart-unntaket overlever overstyringer (M.POPUP_FORCE), ledig flate fra navbaren (--ki-nav-occ-*), Leaflet-CSS i shadow root,
+// overlegg slipper trykk gjennom, MSH.kartDiag() (de fire konsollsjekkene – her med stub-Leaflet, ekte telefon gjenstår),
 // navbar synlig og mini-spiller skjult, lag + filter-chips, detaljkort, drag lekker ikke, henting bare mens åpen,
 // navbar-knappen «Kart», trykk på personbilde i headeren → #kart (hold = hurtigark), GUI-editoren.
 //   node test/kart-check.mjs      (Leaflet og Entur er stubbet i test/mock/51-kart.js)
@@ -52,37 +54,72 @@ const HELP = () => {
 /* ---------------------------------------------------------------- mal/strategi */
 const p0 = await page({ width: 390, height: 844 });
 const tpl = await p0.evaluate(() => {
-  const M = window.MSH, t = M.popupTemplateA({ name: 'Kart', icon: 'mdi:map', hash: '#kart', card: { type: 'custom:msh-kart-card' } });
-  return { t, fn: M.FUNCTION_POPUPS.some((f) => f[0] === '#kart' && f[3] === 'msh-kart-card'), all: M.allPopups(window.mockHass()).some((x) => x.hash === '#kart') };
+  const M = window.MSH, t = M.popupTemplateA({ name: 'Kart', icon: 'mdi:map', hash: '#kart', card: { type: 'custom:msh-kart-card', card_id: 'pop-kart' } });
+  // 23.3: unntaket skal overleve det som legges oppå den genererte popupen: «replace»-overstyring med standardmalen (50px, bg 98,
+  // STYLES_A), merge-overstyring og gammel 22.1-blokk (skjult header). Andre popups røres ikke.
+  const std = M.popupTemplateA({ name: 'Kart', icon: 'mdi:map', hash: '#x', card: { type: 'custom:msh-kart-card' } }); std.hash = '#kart';
+  const auto = [{ group: 'fn', config: t }, { group: 'fn', config: M.popupTemplateA({ name: 'Ruter', icon: 'mdi:bus', hash: '#ruter', card: { type: 'custom:msh-ruter-card' } }) }];
+  const pick = (r, h) => r.popups.find((x) => x.hash === h);
+  const rRep = M.mergePopups({ auto, storeOverrides: { '#kart': { replace: true, config: std } } });
+  const rMerge = M.mergePopups({ auto, yamlOverrides: { kart: { margin_top_mobile: '50px', bg_opacity: '98', show_header: false } } });
+  const old = { ...t, show_header: false, bg_opacity: '100', styles: '.bubble-pop-up.bubble-pop-up,.bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important;--bubble-pop-up-border-radius:0px}\n.bubble-pop-up.bubble-pop-up .bubble-header-container{display:none!important}\n.bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{padding:0!important;margin-top:0!important;border-radius:0!important}\n.icon-container {background-color:var(--red)!important;}' };
+  const fOld = M.POPUP_FORCE['#kart'](old), fTwice = M.POPUP_FORCE['#kart'](M.POPUP_FORCE['#kart'](t));
+  const other = M.POPUP_FORCE['#kart']({ hash: '#kart', cards: [{ type: 'markdown' }] });
+  return { t, rep: pick(rRep, '#kart'), merge: pick(rMerge, '#kart'), ruter: pick(rRep, '#ruter'), fOld, twice: (fTwice.styles.match(/ki-kart:start/g) || []).length, other,
+    fn: M.FUNCTION_POPUPS.some((f) => f[0] === '#kart' && f[3] === 'msh-kart-card'), all: M.allPopups(window.mockHass()).some((x) => x.hash === '#kart') };
 });
-ok('20.22 Mal A + POPUP_LOOK: show_header false, width_desktop = hele flaten, margin_top 0, bg_opacity 100, ett kort', tpl.t.show_header === false && /^calc\(100% - var\(--bubble-pop-up-content-inline-start/.test(tpl.t.width_desktop) && tpl.t.margin_top_mobile === '0px' && tpl.t.margin_top_desktop === '0px' && tpl.t.bg_opacity === '100' && /border-radius:0/.test(tpl.t.styles) && tpl.t.cards.length === 1 && tpl.t.is_sidebar_hidden, tpl.t);
+const kartLook = (c) => !!c && c.margin_top_mobile === '0px' && c.margin_top_desktop === '0px' && c.bg_opacity === '0' && c.bg_blur === '0' && c.show_header !== false && /ki-kart:start/.test(c.styles || '') && /border-radius:0!important/.test(c.styles) && /overflow:hidden!important/.test(c.styles) && !/display:none!important/.test(c.styles);
+ok('23.3 Mal A + POPUP_LOOK: margin_top 0, bg_opacity 0, bg_blur 0, radius 0, overflow hidden, Bubble-header på, bredde = hele flaten, ett kort', kartLook(tpl.t) && /^calc\(100% - var\(--bubble-pop-up-content-inline-start/.test(tpl.t.width_desktop) && tpl.t.cards.length === 1 && tpl.t.is_sidebar_hidden, tpl.t);
+ok('23.3 unntaket overlever «replace»-overstyring med standardmalen (50px/98) og merge-overstyring (margin 50px, show_header false)', kartLook(tpl.rep) && kartLook(tpl.merge) && tpl.ruter.margin_top_mobile === '50px' && tpl.ruter.bg_opacity === '98', { rep: tpl.rep, merge: tpl.merge });
+ok('23.3 gammel 22.1-blokk (skjult header) byttes ut, ikonfarge beholdes, blokken legges inn bare én gang, andre kort røres ikke', kartLook(tpl.fOld) && /\.icon-container \{background-color:var\(--red\)/.test(tpl.fOld.styles) && tpl.twice === 1 && tpl.other === null, tpl.fOld);
 ok('20.22 #kart i FUNCTION_POPUPS og popup-listen (navbar/Hjem-mål)', tpl.fn && tpl.all, tpl);
-ok('20.22 examples/dashboard.yaml: #kart med msh-kart-card og show_header false', popup.show_header === false && popup.cards.length === 1 && popup.cards[0].type === 'custom:msh-kart-card', popup);
+ok('23.3 examples/dashboard.yaml: #kart = samme utseende som strategien (ett msh-kart-card)', kartLook(popup) && popup.width_desktop === tpl.t.width_desktop && popup.styles.trim() === tpl.t.styles.trim() && popup.cards.length === 1 && popup.cards[0].type === 'custom:msh-kart-card', popup);
+const genPopup = tpl.t;
 await p0.close();
 
 /* ---------------------------------------------------------------- mobil: åpne, lag, detaljer, lukk */
 for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', width: 1400, height: 900, sb: 256 }]) {
   const p = await page({ width: vp.width, height: vp.height });
   await p.evaluate(HELP);
-  await p.evaluate(SETUP, { popup, navbarCfg, sb: vp.sb });
+  await p.evaluate(SETUP, { popup: genPopup, navbarCfg, sb: vp.sb });
   const before = await p.evaluate(() => ({ veh: window.__kartFetch.veh, jp: window.__kartFetch.jp, maps: window.__leaf.maps.length }));
   ok(`20.22 [${vp.n}] ingen henting / kart før #kart åpnes`, before.veh === 0 && before.jp === 0 && before.maps === 0, before);
   await p.evaluate(async () => { location.hash = '#kart'; await window.__w(1600); });
   const O = await p.evaluate(() => {
     const P = window.__pop(), c = window.__card(), sr = c && c.shadowRoot, all = window.__deep();
-    const hdr = all.find((e) => e.classList && e.classList.contains('bubble-header-container'));
-    const pr = P.getBoundingClientRect(), cr = c.getBoundingClientRect(), x = sr.querySelector('[data-act="close"]').getBoundingClientRect();
+    const R = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+    const hdr = P.querySelector(':scope > .bubble-header-container'), bx = hdr && hdr.querySelector('.bubble-close-button, .close-pop-up');
+    const cont = P.querySelector(':scope > .bubble-pop-up-container'), cc = cont && getComputedStyle(cont);
+    const pr = P.getBoundingClientRect(), cr = c.getBoundingClientRect();
     const np = document.querySelector('.msh-navbar-portal'), nav = np && np.shadowRoot.querySelector('[data-nav]'), mini = np && np.shadowRoot.querySelector('.mini');
     const nr = nav && nav.getBoundingClientRect();
     const top = nr ? document.elementFromPoint(nr.left + nr.width / 2, nr.top + nr.height / 2) : null;
+    // dypeste element i punktet (gjennom shadow roots) → er tannhjulet/× faktisk trykkbare over headeren?
+    const deepHit = (x, y) => { let e = document.elementFromPoint(x, y); for (let i = 0; e && e.shadowRoot && i < 12; i++) { const n = e.shadowRoot.elementFromPoint(x, y); if (!n || n === e) break; e = n; } return e; };
+    const cog = sr.querySelector('.acts .cog'), cgr = cog.getBoundingClientRect(), xr = bx && bx.getBoundingClientRect();
+    const hitIn = (r, el) => { const h = deepHit(r.left + r.width / 2, r.top + r.height / 2); let n = h; for (let i = 0; n && i < 20; i++) { if (n === el) return true; n = n.parentNode || n.host; } return false; };
+    const pe = (sel) => { const e = sr.querySelector(sel); return e ? getComputedStyle(e).pointerEvents : null; };
     const pts = { persons: sr.querySelectorAll('.msh-mk').length };
-    return { open: P.classList.contains('is-popup-opened'), hdrH: hdr ? hdr.getBoundingClientRect().height : 0, pop: [pr.left, pr.top, pr.width, pr.height].map(Math.round), card: [cr.left, cr.top, cr.width, cr.height].map(Math.round), radius: getComputedStyle(P).borderTopLeftRadius, crad: (() => { const cc = getComputedStyle(all.find((e) => e.classList && e.classList.contains('bubble-pop-up-container'))); return cc.borderTopLeftRadius + '/' + cc.clipPath; })(),
-      x: [Math.round(x.right), Math.round(x.top), Math.round(x.width)], navOp: nav ? getComputedStyle(nav).opacity : null, navOnTop: !!top && (top === np || np.contains(top)), miniOp: mini ? getComputedStyle(mini).opacity : 'ingen', kartAttr: np && np.hasAttribute('data-kart'),
-      rail: nav && nav.classList.contains('rail'), navR: nr ? Math.round(nr.right) : null, ...pts, maps: window.__leaf.maps.length, tiles: window.__leaf.calls.filter((k) => k[0] === 'tileLayer').map((k) => k[2]), urls: window.__leaf.calls.filter((k) => k[0] === 'tileLayer').map((k) => k[1] + ' ' + k[3]), mapOpt: window.__leaf.maps[0] && window.__leaf.maps[0].o, filt: (() => { const t = document.querySelector('msh-kart-card'); const e = t && t.shadowRoot.querySelector('.msh-tiles'); return e ? getComputedStyle(e).filter : 'none'; })() };
+    return { open: P.classList.contains('is-popup-opened'), hdr: R(hdr), hdrPos: hdr && getComputedStyle(hdr).position, hdrBg: hdr && getComputedStyle(hdr).backgroundColor, popBg: getComputedStyle(P).backgroundColor,
+      pop: [pr.left, pr.top, pr.width, pr.height].map(Math.round), card: [cr.left, cr.top, cr.width, cr.height].map(Math.round), hostPos: getComputedStyle(c).position, kartH: getComputedStyle(c).getPropertyValue('--kart-h'),
+      radius: getComputedStyle(P).borderTopLeftRadius, crad: cc ? cc.borderTopLeftRadius + '/' + cc.clipPath : null, cOv: cc ? cc.overflowY + '/' + cc.overflowX : null,
+      x: R(bx), cog: R(cog), cogHit: hitIn(cgr, cog), xHit: !!xr && hitIn(xr, bx), ownX: getComputedStyle(sr.querySelector('.acts .x')).display, chips: R(sr.querySelector('.chips')),
+      grads: [...sr.querySelectorAll('.grad')].length, grad: R(sr.querySelector('.grad')), topBg: getComputedStyle(sr.querySelector('.top')).backgroundImage,
+      pe: { grad: pe('.grad'), top: pe('.top'), chips: pe('.chips'), chip: pe('.chip'), bot: pe('.bot'), row: pe('.row'), pl: pe('.pl'), side: pe('.side'), sb: pe('.sb'), acts: pe('.acts'), cog: pe('.acts .cog'), att: pe('.att') },
+      navOp: nav ? getComputedStyle(nav).opacity : null, navOnTop: !!top && (top === np || np.contains(top)), miniOp: mini ? getComputedStyle(mini).opacity : 'ingen', kartAttr: np && np.hasAttribute('data-kart'),
+      rail: nav && nav.classList.contains('rail'), navR: nr ? Math.round(nr.right) : null, ...pts, maps: window.__leaf.maps.length, tiles: window.__leaf.calls.filter((k) => k[0] === 'tileLayer').map((k) => k[2]), urls: window.__leaf.calls.filter((k) => k[0] === 'tileLayer').map((k) => k[1] + ' ' + k[3]), mapOpt: window.__leaf.maps[0] && window.__leaf.maps[0].o, filt: (() => { const t = document.querySelector('msh-kart-card'); const e = t && t.shadowRoot.querySelector('.msh-tiles'); return e ? getComputedStyle(e).filter : 'none'; })(),
+      diag: window.MSH.kartDiag(), leafCss: [...sr.querySelectorAll('style')].some((st) => /\.leaflet-container\.leaflet-touch-drag[^{]*\{[^}]*touch-action:none/.test(st.textContent)), invalidated: window.__leaf.maps[0] ? window.__leaf.maps[0].invalidated : 0 };
   });
-  ok(`20.22 [${vp.n}] #kart åpnes (Bubble pop-up) uten Bubble-header`, O.open && O.hdrH === 0, O);
-  ok(`20.22 [${vp.n}] fullskjerm: kortet fyller popupen (bredde og høyde), ingen avrunding`, Math.abs(O.card[2] - O.pop[2]) <= 1 && Math.abs(O.card[3] - O.pop[3]) <= 2 && Math.abs(O.card[1] - O.pop[1]) <= 1 && O.pop[1] <= 57 && O.pop[1] + O.pop[3] >= vp.height - 1 && O.radius === '0px' && O.crad === '0px/none', O);
-  ok(`20.22 [${vp.n}] × øverst til høyre (48 px)`, O.x[2] === 48 && O.x[0] >= O.pop[0] + O.pop[2] - 30 && O.x[1] < 80, O);
+  const transp = (c) => /rgba\(\d+, \d+, \d+, 0\)|transparent/.test(c || '');
+  ok(`23.3 [${vp.n}] #kart åpnes med Bubble-headeren absolutt OVER kartet (transparent, rett under safe-area-toppen)`, O.open && O.hdr && O.hdr[3] > 0 && O.hdrPos === 'absolute' && O.hdr[1] === O.pop[1] && transp(O.hdrBg), O);
+  ok(`23.3 [${vp.n}] popupen starter helt øverst (ingen 50/56 px-stripe), bg 0, radius 0, innholds-containeren overflow hidden`, O.pop[1] === 0 && O.pop[1] + O.pop[3] >= vp.height - 1 && transp(O.popBg) && O.radius === '0px' && O.crad === '0px/none' && O.cOv === 'hidden/hidden', O);
+  ok(`23.3 [${vp.n}] kortet fyller popupen (absolute, inset 0, høyde i px fra dashbord-containeren)`, O.hostPos === 'absolute' && O.kartH === vp.height + 'px' && Math.abs(O.card[0] - O.pop[0]) <= 1 && Math.abs(O.card[1] - O.pop[1]) <= 1 && Math.abs(O.card[2] - O.pop[2]) <= 1 && Math.abs(O.card[3] - O.pop[3]) <= 1, O);
+  ok(`23.3 [${vp.n}] tannhjulet ved siden av Bubble-× (samme høyde), begge trykkbare; kortets egen × skjult`, O.x && O.cog && Math.abs((O.cog[1] + O.cog[3] / 2) - (O.x[1] + O.x[3] / 2)) <= 2 && O.cog[0] + O.cog[2] <= O.x[0] - 4 && O.cog[0] + O.cog[2] >= O.x[0] - 16 && O.x[0] + O.x[2] <= O.pop[0] + O.pop[2] && O.cogHit && O.xHit && O.ownX === 'none', O);
+  ok(`23.3 [${vp.n}] filter-chipsene rett under headeren; én gradient (mørk øverst → gjennomsiktig ~160 px)`, O.chips[1] >= O.hdr[1] + O.hdr[3] - 1 && O.chips[1] <= O.hdr[1] + O.hdr[3] + 12 && O.grads === 1 && O.grad[3] === 160 && O.topBg === 'none', O);
+  ok(`23.3 [${vp.n}] overlegg slipper trykk gjennom (gradient/topp/chips-rad/bunn/rad/side: none), knapper/chips/kort: auto`, ['grad', 'top', 'chips', 'bot', 'row', 'side', 'acts', 'att'].every((k) => O.pe[k] === 'none') && ['chip', 'pl', 'sb', 'cog'].every((k) => O.pe[k] === 'auto'), O.pe);
+  ok(`23.3 [${vp.n}] Leaflet-CSS i shadow root (.leaflet-container touch-action none) + MSH.kartDiag(): de fire sjekkene består (stub-Leaflet)`, O.leafCss && O.diag.pass && O.diag.touchAction === 'none' && O.diag.size.x > 0 && O.diag.size.y > 0 && O.diag.dragging && O.diag.touchZoom && O.diag.hitLeaflet, O.diag);
+  ok(`23.3 [${vp.n}] invalidateSize etter animasjonen (350 ms)`, O.invalidated >= 1, O.invalidated);
+  console.log(`kartDiag [${vp.n}]:`, JSON.stringify(O.diag));
   ok(`20.22 [${vp.n}] navbaren synlig over kartet, mini-spilleren skjult`, O.navOp === '1' && O.navOnTop && O.kartAttr && (O.miniOp === '0' || O.miniOp === 'ingen'), O);
   if (vp.n === 'PC') ok('20.22 [PC] popupen dekker ikke navbar-railen/HA-sidebaren', O.rail && O.pop[0] >= O.navR - 1 && O.pop[0] + O.pop[2] <= vp.width + 1, O);
   ok(`20.22 [${vp.n}] Leaflet-kart laget én gang, mørk flis (msh-dark)`, O.maps === 1 && O.tiles.some((t) => /msh-dark/.test(t || '')), O);
@@ -151,20 +188,20 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
   });
   ok(`20.22 [${vp.n}] trykk på kort → flyr dit + detaljkort over raden (person: batteri, fart, nøyaktighet, oppdatert, Veibeskrivelse)`, D.fly && D.above && /Batteri.*81 %/.test(D.txt) && /Nøyaktighet/.test(D.txt) && /Oppdatert/.test(D.txt) && /Veibeskrivelse/.test(D.txt) && D.hap >= 1, D);
   ok(`20.22 [${vp.n}] bunnraden ligger over navbaren`, D.rowAboveNav, D);
-  // 22.1: navbaren målt → --nav-*; topp/bunn/detaljkort innenfor ledig flate; Leaflet-padding tar med navbar + detaljkort
+  // 23.3 (erstatter 22.1): ledig flate fra navbaren (MSH.navOcc / ki-nav-rect → --kart-occ-*); topp/bunn/detaljkort innenfor; Leaflet-padding tar med navbar + header + detaljkort
   const N1 = await p.evaluate(async () => {
-    const c = window.__card(), sr = c.shadowRoot, cs = getComputedStyle(c), v = (k) => parseFloat(cs.getPropertyValue('--nav-' + k)) || 0;
+    const c = window.__card(), sr = c.shadowRoot, cs = getComputedStyle(c), v = (k) => parseFloat(cs.getPropertyValue('--kart-occ-' + k)) || 0;
     const nav = document.querySelector('.msh-navbar-portal').shadowRoot.querySelector('[data-nav]').getBoundingClientRect();
     const L = window.__leaf.calls, n0 = L.length;
     sr.querySelector('.pl[data-id="person.sebastian"]').click(); await window.__w(250);
     const fly = L.slice(n0).find((k) => k[0] === 'flyToBounds');
     const hit = (r) => r.right > nav.left + 1 && r.left < nav.right - 1 && r.bottom > nav.top + 1 && r.top < nav.bottom - 1;
     const tr = sr.querySelector('.chips').getBoundingClientRect(), det = sr.querySelector('.det'), dr = det && det.getBoundingClientRect(), br = sr.querySelector('.bot').getBoundingClientRect();
-    const out = { nav: { top: v('top'), right: v('right'), bottom: v('bottom'), left: v('left') }, fly, chipsHit: hit(tr), detHit: dr ? hit(dr) : null, botHit: hit(br), dh: dr ? Math.round(dr.height) : 0, detMax: det ? getComputedStyle(det).maxHeight : '', detOv: det ? getComputedStyle(det).overflowY : '' };
+    const out = { nav: { top: v('top'), right: v('right'), bottom: v('bottom'), left: v('left') }, src: c._navSrc, occ: window.MSH.navOcc(), pad: c._pad(), fly, chipsHit: hit(tr), detHit: dr ? hit(dr) : null, botHit: hit(br), dh: dr ? Math.round(dr.height) : 0, detMax: det ? getComputedStyle(det).maxHeight : '', detOv: det ? getComputedStyle(det).overflowY : '' };
     sr.querySelector('.pl[data-id="person.sebastian"]').click(); await window.__w(150);
     return out;
   });
-  ok(`22.1 [${vp.n}] navbar målt (--nav-*), chips/bunnrad/detaljkort ikke bak navbaren`, (vp.n === "PC" ? true : N1.nav.bottom > 0) && !N1.chipsHit && !N1.detHit && !N1.botHit && N1.detOv === 'auto' && N1.detMax !== 'none', N1);
+  ok(`23.3 [${vp.n}] ledig flate fra navbaren (MSH.navOcc → --kart-occ-*), chips/bunnrad/detaljkort ikke bak navbaren`, N1.src === 'navbar' && (vp.n === "PC" ? N1.occ.left > 0 : N1.nav.bottom > 0 && N1.nav.bottom === N1.occ.bottom) && !N1.chipsHit && !N1.detHit && !N1.botHit && N1.detOv === 'auto' && N1.detMax !== 'none', N1);
   const F7 = await p.evaluate(async () => {
     const L = window.__leaf.calls, n0 = L.length;
     window.dispatchEvent(new CustomEvent('msh-kart-focus', { detail: { entity_id: 'person.rune' } })); await window.__w(700);
@@ -173,7 +210,7 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     return { f, sel };
   });
   ok(`22.7 [${vp.n}] msh-kart-focus → velger personen og flyr dit med nav-padding`, F7.f && F7.sel && F7.sel.id === 'person.rune' && Array.isArray(F7.f[2]), F7);
-  ok(`22.1 [${vp.n}] flyTo med padding fra navbar + detaljkort`, N1.fly && N1.fly[2][0] === N1.nav.left + 16 && N1.fly[2][1] === N1.nav.top + 120 && N1.fly[3][1] >= N1.nav.bottom + 16 + Math.min(N1.dh, 60), N1);
+  ok(`23.3 [${vp.n}] flyTo med padding fra navbar + header/chips + detaljkort`, N1.fly && N1.fly[2][0] === N1.nav.left + 16 && N1.fly[2][1] >= N1.nav.top + 120 && N1.fly[3][1] >= N1.nav.bottom + 16 + Math.min(N1.dh, 60), N1);
   ok(`20.22 [${vp.n}] trykk på kartet lukker detaljkortet, samme markør lukker også`, D.closedByMap && D.carToggle, D);
   ok(`20.22 [${vp.n}] detaljer: bil (batteri/rekkevidde/låst), sone (hvem er der), kollektiv (linje, retning, neste stopp, tid, belegg, Åpne Ruter)`, /Batteri.*68 %/.test(D.car || '') && /Rekkevidde/.test(D.car || '') && /Sebastian/.test(D.zone || '') && /Trikk 17/.test(D.veh || '') && /mot Grefsen/.test(D.veh || '') && /Neste stopp.*Bislett/.test(D.veh || '') && /Tid\s*\d\d:\d\d/.test(D.veh || '') && /God plass/.test(D.veh || '') && D.ruterBtn, D);
   // Side-knapper
@@ -188,7 +225,7 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
   const G = await p.evaluate(async () => {
     const P = window.__pop(), sr = window.__card().shadowRoot; let leaked = 0; const spy = () => leaked++;
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => P.addEventListener(t, spy));
-    const els = [sr.querySelector('.map'), sr.querySelector('.map .msh-mk') || sr.querySelector('.map > *'), sr.querySelector('.row'), sr.querySelector('.chips'), sr.querySelector('.side')];
+    const els = [sr.querySelector('.map'), sr.querySelector('.map .msh-mk') || sr.querySelector('.map > *'), sr.querySelector('.map .leaflet-tile-pane'), sr.querySelector('.row'), sr.querySelector('.chips'), sr.querySelector('.side'), sr.querySelector('.acts .cog')];
     const per = [];
     for (const d of els) {
       const l0 = leaked;
@@ -202,14 +239,18 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     }
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => P.removeEventListener(t, spy));
     await window.__w(200);
-    return { leaked, per, hash: location.hash, ta: getComputedStyle(sr.querySelector('.map')).touchAction };
+    const m = window.__leaf.maps[0], i0 = m.invalidated;
+    window.dispatchEvent(new Event('resize')); await window.__w(450);
+    return { leaked, per, hash: location.hash, ta: getComputedStyle(sr.querySelector('.map')).touchAction, scroll: P.querySelector(':scope > .bubble-pop-up-container').scrollTop, resizeInv: m.invalidated - i0 };
   });
+  ok(`23.3 [${vp.n}] invalidateSize ved resize (straks + etter 350 ms), popupens innhold scroller ikke`, G.resizeInv >= 2 && G.scroll === 0, G);
   ok(`20.22 [${vp.n}] pan/zoom lukker ikke popupen (touch-action none + stopPropagation)`, G.leaked === 0 && G.hash === '#kart' && G.ta === 'none', G);
   // Lukk: ×, Esc, tilbake – og henting stopper
   const C = await p.evaluate(async () => {
     const c = window.__card(), sr = c.shadowRoot, out = {};
     out.poll = !!c._poll;
-    sr.querySelector('[data-act="close"]').click(); await window.__w(900);
+    const bx = window.__pop().querySelector(':scope > .bubble-header-container .bubble-close-button, :scope > .bubble-header-container .close-pop-up'); out.bubbleX = !!bx;
+    (bx || sr.querySelector('[data-act="close"]')).click(); await window.__w(900);
     out.x = location.hash === '' && !(window.__pop() && window.__pop().classList.contains('is-popup-opened'));
     out.pollOff = !c._poll;
     const np = document.querySelector('.msh-navbar-portal'); out.kartAttr = np.hasAttribute('data-kart');
@@ -222,7 +263,7 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     out.veh = window.__kartFetch.veh;
     return out;
   });
-  ok(`20.22 [${vp.n}] ×, Esc og tilbake lukker; polling stoppes, mini-spilleren tilbake`, C.poll && C.x && C.pollOff && !C.kartAttr && C.esc && C.back, C);
+  ok(`20.22 [${vp.n}] × (Bubble-headeren), Esc og tilbake lukker; polling stoppes, mini-spilleren tilbake`, C.poll && C.bubbleX && C.x && C.pollOff && !C.kartAttr && C.esc && C.back, C);
   if (vp.n === 'mobil') {
     await p.waitForTimeout(16000);
     const v2 = await p.evaluate(() => window.__kartFetch.veh);

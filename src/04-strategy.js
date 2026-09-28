@@ -124,6 +124,7 @@
       '#ringeklokke': () => plat('unifiprotect') && !!(M.ringFind && M.ringFind(hass)), // fiks 19.17: binary_sensor.*_doorbell (unifiprotect)
       '#energi': () => has('sensor', (s) => ['energy', 'power', 'water'].includes(s.attributes.device_class)), // fiks 21.1: energi-/effekt-/vannmålere (Energi-oppsettet)
       '#kart': () => ['person', 'device_tracker'].some((d) => M.all(hass, d).some((id) => hass.states[id].attributes.latitude != null)), // fiks 20.22: personer/sporere med posisjon
+      '#kalender': () => has('calendar') || rx(/nar_kommer_posten/, ['sensor']) || plat('norwegian_parcel_tracker', 'ki_hyttebesok') || !!(M.kalenderLegacy && M.kalenderLegacy(config)), // fiks 23.8: kalendere/Posten/pakker/hytta, eller den gamle importerte #kalender
     };
     const hide = (config.popups || {});
     const out = [];
@@ -132,7 +133,7 @@
       if (hide[key] === false) return;
       if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
       if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
-      out.push({ hash, name, icon, tag });
+      out.push({ hash, name, icon, tag, ...(hash === '#kalender' && M.kalenderExtra ? { extra: M.kalenderExtra(config) } : {}) }); // 23.8: kildene fra de gamle kortene → src
     });
     M.all(hass, 'person').forEach((pid) => {
       const hash = '#person-' + pid.split('.')[1];
@@ -252,7 +253,10 @@
     const upOf = (hash) => UP[hash.slice(1)] || UP[hash] || null;
     cand.forEach((list, hash) => {
       // høyest kilde vinner; innen samme kilde vinner første. Egen over auto, med mindre brukeren har valgt «Bruk autogenerert».
-      const hasAuto = list.some((x) => x.source === 'auto'), pAuto = hasAuto && !!(upOf(hash) && upOf(hash).prefer === 'auto');
+      // 23.8: en generert popup kan erstatte en egen/importert (MSH.POPUP_SUPERSEDE, f.eks. #kalender) – til brukeren velger «Bruk egen»
+      const SUP = (M.POPUP_SUPERSEDE || {})[hash], upc = upOf(hash) || {};
+      const sup = !!SUP && upc.prefer !== 'custom' && list.some((x) => x.source === 'custom' && (() => { try { return SUP.test(x.config); } catch (e) { return false; } })());
+      const hasAuto = list.some((x) => x.source === 'auto'), pAuto = hasAuto && (upc.prefer === 'auto' || sup);
       const rank = (x) => (x.source === 'custom' && pAuto ? 0.5 : SRC_RANK[x.source]);
       const w = list.slice().sort((a, b) => rank(b) - rank(a) || a.index - b.index)[0];
       winners.set(hash, w);
@@ -263,7 +267,7 @@
       report.collisions.push({ hash, winner: w.source, losers: losers.map((x) => x.source), kind });
       const a = list.find((x) => x.source === 'auto'), c = list.find((x) => x.source === 'custom');
       if (w.source === 'custom' && a) report.replaced.push({ hash, key: hash.slice(1), group: a.meta.group || 'fn', name: (a.config && a.config.name) || hash, icon: (a.config && a.config.icon) || 'mdi:card-outline', index: c.index });
-      if (w.source === 'auto' && pAuto && c) report.inactive.push({ hash, key: hash.slice(1), index: c.index, name: (c.config && c.config.name) || hash, icon: (c.config && c.config.icon) || 'mdi:card-outline' });
+      if (w.source === 'auto' && pAuto && c) report.inactive.push({ hash, key: hash.slice(1), index: c.index, name: (c.config && c.config.name) || hash, icon: (c.config && c.config.icon) || 'mdi:card-outline', by: sup && upc.prefer !== 'auto' ? SUP.name : null });
     });
     const popups = [];
     order.forEach(([hash, source, index]) => {
@@ -288,6 +292,9 @@
       });
       let repaired = false;
       if (gen && w.source === 'auto' && !hidden) { const fx = repairCards(cfg, gen.config); if (fx) { console.warn('[ki-msh] popup', hash, 'hadde tom/ugyldig kortliste – rettet til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } }
+      // Fiks 23.3 · popup-unntak som må overleve overstyringer/egne popups (#kart: margin_top 0, bg 0, fullskjerm – 51-kart.js)
+      const force = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash] : null;
+      if (force && !hidden) { try { const fx = force(cfg); if (fx) cfg = fx; } catch (e) { console.warn('[ki-msh] popup', hash, e); } }
       const up = UP[hash.slice(1)] || UP[hash];
       if (!hidden && up && up.hidden) { hidden = true; hiddenBy = 'user'; }
       const view = cfg || {};

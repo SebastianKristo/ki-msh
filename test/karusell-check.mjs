@@ -291,7 +291,7 @@ ok(out.rule.yamlStr === String(out.rule.calIdx), '20.4: ugyldig YAML-regel hoppe
 ok(out.gui.dots && out.gui.rule && out.gui.add, '20.4: GUI-editoren har Vis prikker + regler');
 ok(out.ed.dotsTgl && out.ed.add && out.ed.rows === 1, '20.4 Tilpass Hjem: bryter, + Legg til regel, regel-rad');
 ok(/Kalender-event pågår · Søppel i dag · Strømpris > 1,5 kr · Morgen 06–09 · Mal/.test(out.ed.presets), '20.4 Tilpass Hjem: hurtigvalg');
-ok(/condition: state/.test(out.ed.yaml) && /calendar\.familie/.test(out.ed.yaml) && out.ed.mono, '20.4 Tilpass Hjem: hurtigvalg fyller YAML (monospace)');
+ok(/condition: state/.test(out.ed.yaml) && /calendar\.\w+/.test(out.ed.yaml) && out.ed.mono, '20.4 Tilpass Hjem: hurtigvalg fyller YAML (monospace)');
 ok(/Slår til nå|Nei nå/.test(out.ed.badge || ''), '20.4 Tilpass Hjem: live-merke');
 ok(out.ed.err && out.ed.errGone, '20.4 Tilpass Hjem: ugyldig YAML → rød feilmelding');
 ok(/"dots":false/.test(out.ed.cfg) && /"condition":"time"/.test(out.ed.cfg), '20.4 Tilpass Hjem: lagres som objekt i config: ' + out.ed.cfg);

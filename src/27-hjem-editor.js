@@ -146,11 +146,14 @@
     input,textarea{-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:8px;padding:0 4px}
     .hd .t{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.02em}
+    .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
+    @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
     .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
     .done{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2f2f2f;font-size:14px;font-weight:600}
     .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a)}
     .seg>button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf;transition:background .2s,color .2s}
     .on-pk{background:${PINK} !important;color:#2f2f2f !important}
+    ${M.iconTabs ? M.iconTabs.css('.seg.itabs') : ''}
     .ct{justify-self:start;touch-action:pan-y;overscroll-behavior-x:contain;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);max-width:100%;overflow-x:auto;scrollbar-width:none;cursor:pointer}
     .ct::-webkit-scrollbar{display:none}
     .ct .tg{position:relative;display:grid;width:max-content;min-width:max-content;grid-auto-columns:1fr}
@@ -584,10 +587,11 @@
       try {
         inner = u.sec === 'faner' ? this._faner() : u.sec === 'pop' ? this._pops() : u.sec === 'tekst' ? this._tekst() : this._kort();
       } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); inner = `<div class="hint">Feil: ${esc(e.message)}</div>`; }
-      const secs = [['kort', 'Kort'], ['faner', 'Faner'], ['pop', 'Popups'], ['tekst', 'Tekst']];
+      const secs = [['kort', 'Kort', 'mdi:view-dashboard'], ['faner', 'Faner', 'mdi:tab'], ['pop', 'Popups', 'mdi:dock-window'], ['tekst', 'Tekst', 'mdi:text']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="cancel">Avbryt</button><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done" ${this._busy ? 'disabled aria-busy' : ''}>${this._busy ? 'Lagrer …' : 'Ferdig'}</button></div>
-        <div class="seg" data-key="secs">${secs.map(([id, l]) => `<button class="${u.sec === id ? 'on-pk' : ''}" data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}">${l}</button>`).join('')}</div>
+        ${M.openTilpassAlt ? `<button class="press" data-a="tall" data-key="tall" style="display:flex;align-items:center;gap:8px;justify-self:start;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:#fafafa;font-size:13px;font-weight:500">${ic('mdi:tune', 16)}Tilpass alt ›</button>` : ''}
+        <div class="seg itabs" role="tablist" data-key="secs">${secs.map(([id, l, ic]) => M.iconTabs.btn({ label: l, icon: ic }, u.sec === id, `data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}"`, u.sec === id ? 'on-pk' : '')).join('')}</div>
         ${inner}
       </div>`;
       if (!this._first) { this.body.innerHTML = html; this._first = true; } else M.morph(this.body, html);
@@ -1398,6 +1402,7 @@
       if (a === 'cancel') return this.close();
       if (a === 'sec') { u.sec = d.v; u.sel = null; u.pick = null; return this.render(); }
       if (a === 'reset') return this._reset();
+      if (a === 'tall') { const go = () => M.openTilpassAlt && M.openTilpassAlt(); if (this.tx && this.tx.active && this.tx.dirty) return this._done().then(() => { if (this.closed) go(); }); this.close(); return go(); } // 23.7: utkast lagres først
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
       if (a === 'showtodo' || a === 'blkeye') return this._actBlock(a, d);
       if (a === 'rkpill' && M.romkortPillPanel) return M.romkortPillPanel.act(this, d); // 20.12 (32-romkort.js)

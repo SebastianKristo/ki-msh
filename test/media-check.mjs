@@ -421,14 +421,17 @@ for (const vw of [390, 360]) {
   const chipsNow = () => p.evaluate(() => ({ seg: [...window.__main.shadowRoot.querySelectorAll('.mseg button')].map((b) => (b.classList.contains('on') ? '*' : '') + b.textContent.trim()),
     ttl: (window.__main.shadowRoot.querySelector('.cs .ttl') || {}).textContent, chips: [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].map((c) => c.textContent.trim()) }));
   const c1 = await chipsNow();
-  ok(c1.seg.join('|') === '*Apper|Innganger' && c1.chips.join('|') === 'Netflix|NRK TV', '21.6 TV: apper ' + JSON.stringify(c1));
-  await p.evaluate(() => window.__main.shadowRoot.querySelector('.mseg button[data-m="inputs"]').click()); await p.waitForTimeout(200);
+  const row = await p.evaluate(() => { const R = window.__main.shadowRoot, cs = R.querySelector('.cs'); return { csh: !!R.querySelector('.csh'), ttl: !!(cs && cs.querySelector('.ttl')), first: cs && cs.firstElementChild && cs.firstElementChild.classList.contains('chips'), txt: /Apper|Innganger|Radio|Kilde/.test((cs && cs.textContent.replace(/Netflix|NRK TV/g, '')) || '') }; });
+  ok(!c1.seg.length && c1.chips.join('|') === 'Netflix|NRK TV' && !row.csh && !row.ttl && row.first && !row.txt, '23.4 TV: ingen tittelrad/Apper|Innganger-bryter, chipsene (apper) rett under fanene ' + JSON.stringify({ c1, row }));
+  // 23.4: chipMode alltid app – også når aktiv kilde er en inngang; innganger velges via fjernkontrollen
+  await p.evaluate(async () => { const h = { ...window.__h, states: { ...window.__h.states } }; const s = h.states['media_player.stue_tv'];
+    h.states['media_player.stue_tv'] = { ...s, attributes: { ...s.attributes, source: 'HDMI 1', app_name: undefined } }; window.__h = h; window.__main.hass = h; await new Promise((q) => setTimeout(q, 300)); });
   const c2 = await chipsNow();
-  ok(c2.seg.join('|') === 'Apper|*Innganger' && c2.chips.join('|') === 'HDMI 1|HDMI 2|Antenne' && c2.ttl === 'Innganger', '21.6 TV: innganger ' + JSON.stringify(c2));
+  ok(!c2.seg.length && c2.chips.join('|') === 'Netflix|NRK TV', '23.4 TV: inngang aktiv → fortsatt apper ' + JSON.stringify(c2));
   await clearCalls(p);
-  await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].find((c) => c.textContent.trim() === 'HDMI 2').click()); await p.waitForTimeout(150);
+  await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].find((c) => c.textContent.trim() === 'NRK TV').click()); await p.waitForTimeout(150);
   const k1 = await calls(p);
-  ok(k1.some((c) => c[1] === 'select_source' && /"source":"HDMI 2 \(ARC\)"/.test(c[2]) && /stue_tv/.test(c[2])), '21.6 TV: select_source ' + JSON.stringify(k1));
+  ok(k1.some((c) => c[1] === 'select_source' && /"source":"NRK TV"/.test(c[2]) && /stue_tv/.test(c[2])), '21.6 TV: select_source ' + JSON.stringify(k1));
   // Aktiv inngang i TV-infoen
   await p.evaluate(async () => { const h = { ...window.__h, states: { ...window.__h.states } }; const s = h.states['media_player.stue_tv'];
     h.states['media_player.stue_tv'] = { ...s, attributes: { ...s.attributes, source: 'HDMI 2 (ARC)', app_name: undefined, media_title: undefined } }; window.__h = h; window.__hero.hass = h; window.__main.hass = h; await new Promise((q) => setTimeout(q, 300)); });
@@ -499,6 +502,8 @@ for (const vw of [390, 360]) {
   // Kortet bruker lagrede lister: radio-favoritt → play_media, forsterker-input → select_source
   await p.evaluate(async (cfg) => { window.__main.setConfig({ ...cfg, default_tab: 'musikk', area: 'kjokken', now_playing: { style: 'detailed' } }); window.__main.onOpen(); await new Promise((q) => setTimeout(q, 300)); }, ed.final);
   const mc = await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].map((c) => c.textContent.trim()));
+  const mrow = await p.evaluate(() => { const R = window.__main.shadowRoot; return { csh: !!R.querySelector('.csh'), seg: !!R.querySelector('.mseg'), ttl: !!R.querySelector('.cs .ttl') }; });
+  ok(!mrow.csh && !mrow.seg && !mrow.ttl, '23.4 Musikk: ingen tittelrad («Radio»/«Kilde») over chip-raden ' + JSON.stringify(mrow));
   await clearCalls(p);
   await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].find((c) => c.textContent.trim() === 'NRK mP3').click()); await p.waitForTimeout(150);
   const k2 = await calls(p);

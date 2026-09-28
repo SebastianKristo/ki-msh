@@ -80,6 +80,11 @@
           { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
         ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
+        // 23.7: «Tilpass alt» (54-onboarding.js) – samler alle Tilpass-arkene med hurtigvalg
+        { type: 'section', id: 'tilpass_alt', label: 'Tilpass alt', icon: 'mdi:tune', fields: [
+          { type: 'button', label: 'Tilpass alt', icon: 'mdi:tune', run: () => M.openTilpassAlt && M.openTilpassAlt() },
+          { type: 'button', label: 'Kjør oppsettet på nytt', icon: 'mdi:restart', run: () => M.openOnboarding && M.openOnboarding({ step: 1 }) },
+        ] },
         { type: 'section', id: 'kiosk', label: 'Kiosk', icon: 'mdi:fullscreen', fields: [
           { type: 'info', label: 'Kiosk-modus (kiosk-mode): grupper, enheter og YAML – samme ark som «Mer» → Kiosk-modus.' },
           { type: 'button', label: 'Kiosk-innstillinger', icon: 'mdi:fullscreen', run: (h) => M.kioskSheet && M.kioskSheet({ hass: h }) },
@@ -97,6 +102,7 @@
       Object.values(this._kids).forEach((k) => { k.hass = h; });
       if (M.ringTick) M.ringTick(h); // 19.18: ringeklokke (50-ringeklokke.js)
       if (M.kioskTick) M.kioskTick(h); // 22.9: kiosk per nettleser (Browser Mod-ID, 53-kiosk.js)
+      if (M.onboardMaybe) M.onboardMaybe(h); // 23.7: onboarding første gang (54-onboarding.js – bare i ekte HA med strategien)
       if (this._ring) this._ring.hass = h;
       if (first) { this._schedule(true); this._checkOpen(); }
       else if (this._lastAreas !== h.areas) this._schedule(true);

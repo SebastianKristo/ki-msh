@@ -619,7 +619,6 @@
         } else {
           fields.push(
             srcField(p),
-            { type: 'text', name: b + '.chip_title', label: 'Tittel over snarveier', placeholder: 'Radio / Kilde' },
             { type: 'text', name: b + '.hide_sources', label: 'Skjul kilder (kommaseparert)', placeholder: 'f.eks. Bluetooth, USB' },
           );
         }
@@ -1204,17 +1203,14 @@
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
-      // Chips (Fiks 21.6): TV = Apper | Innganger (players.<obj>.apps / inputs), Musikk = snarveier (players.<obj>.presets) – config eller autokonfig
+      // Chips (Fiks 21.6/23.4): TV = alltid apper (players.<obj>.apps; innganger via fjernkontrollen), Musikk = snarveier
+      // (players.<obj>.presets) – config eller autokonfig. 23.4: ingen tittelrad/Apper|Innganger-bryter over chip-raden.
       const hay = [a.media_title, a.media_artist, a.media_channel, a.media_album_name, a.source].filter(Boolean).join(' | ').toLowerCase();
-      let chips = [], title, seg = '', mode = null;
-      const pl = platOf(h, p), RC = REMOTE[pl];
+      let chips = [], mode = null;
       if (I.tv) {
-        const apps = listOf(h, p, 'apps'), inputs = listOf(h, p, 'inputs');
-        mode = (this._tvm || {})[p.id] || (a.source && a.source !== a.app_name && inputs.some((x) => x.source === a.source) ? 'inputs' : 'apps');
-        if (mode === 'inputs') chips = inputs.map((x, i) => ({ k: 'in', v: i, name: x.name || x.source || '–', icon: x.icon || appStyle(x.source).icon || 'mdi:video-input-hdmi', col: null, act: !I.off && !!x.source && x.source === a.source }));
-        else chips = apps.map((x, i) => { const st = appStyle(x.source || x.name); return { k: 'app', v: i, name: x.name || x.source || '–', icon: x.icon || st.icon || 'apps', col: x.color || st.col, act: !I.off && !!(x.source || x.name) && [a.source, a.app_name].includes(x.source || x.name) }; });
-        title = mode === 'inputs' ? 'Innganger' : `Apper · ${RC.hw}`;
-        seg = `<div class="mseg" role="tablist">${[['apps', 'Apper'], ['inputs', 'Innganger']].map(([m, l]) => `<button class="${m === mode ? 'on' : ''}" role="tab" aria-selected="${m === mode}" data-act="tvm" data-m="${m}" data-haptic="selection" data-key="tvm:${m}">${l}</button>`).join('')}</div>`;
+        const apps = listOf(h, p, 'apps');
+        mode = 'apps'; // 23.4: chipMode er alltid app
+        chips = apps.map((x, i) => { const st = appStyle(x.source || x.name); return { k: 'app', v: i, name: x.name || x.source || '–', icon: x.icon || st.icon || 'apps', col: x.color || st.col, act: !I.off && !!(x.source || x.name) && [a.source, a.app_name].includes(x.source || x.name) }; });
       } else {
         const pr = listOf(h, p, 'presets');
         pr.forEach((x) => { if (x.type !== 'favorite' && x.type !== 'source' && x.target) this.s(x.target); });
@@ -1225,8 +1221,6 @@
           const act = !I.off && (x.type === 'source' ? x.target === a.source : x.type === 'favorite' && x.target && x.target === a.media_content_id ? true : nm.length > 2 && hay.includes(nm.toLowerCase()));
           return { k: 'pr', v: i, name: nm, icon: ic, col: null, act };
         });
-        const nSrc = pr.filter((x) => x.type === 'source').length;
-        title = p.pc.chip_title || (chips.length && !nSrc ? 'Radio' : 'Kilde');
       }
       const chipHtml = chips.map((c) => {
         const bg = c.act ? (c.col || PINK) : 'var(--gray200,#3a3a3a)';
@@ -1234,9 +1228,8 @@
         const ic = c.act ? (c.col ? '#fff' : 'var(--gray200,#3a3a3a)') : (c.col || 'var(--white,#fafafa)');
         return `<button class="chip press ${I.tv ? 'tv' : ''}" data-act="chip" data-k="${c.k}" data-v="${esc(c.v)}" data-n="${esc(c.name)}" data-key="${esc(c.k + ':' + c.v + ':' + c.name)}" style="background:${bg};color:${fg}">${M.icon(c.icon, 24, 'color:' + ic)}<span class="cn ell">${esc(c.name)}</span></button>`;
       }).join('');
-      const none = I.tv ? (mode === 'inputs' ? 'innganger' : 'apper') : 'kilder eller snarveier';
-      const chipsSec = `<div class="cs"><div class="csh"><span class="ttl">${esc(title)}</span>${seg}</div>
-        ${chips.length ? `<div class="chips noscroll" data-key="chips:${mode || 'mus'}">${chipHtml}</div>` : `<div class="nochips">Ingen ${none} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}</div>`;
+      const none = I.tv ? 'apper' : 'kilder eller snarveier';
+      const chipsSec = `<div class="cs">${chips.length ? `<div class="chips noscroll" data-key="chips:${mode || 'mus'}">${chipHtml}</div>` : `<div class="nochips">Ingen ${none} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}</div>`;
       // Transport (musikk)
       const sf = Number(a.supported_features) || 0, has = (f) => !sf || (sf & f) === f;
       const rep = a.repeat && a.repeat !== 'off', shuf = !!a.shuffle;
@@ -1331,7 +1324,6 @@
           }
           return;
         }
-        case 'tvm': { (this._tvm = this._tvm || {})[id] = el.dataset.m; return this.update(); }
         case 'play': return mp('media_play_pause');
         case 'prev': return mp('media_previous_track');
         case 'next': return mp('media_next_track');
@@ -1602,10 +1594,6 @@
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}
-        .csh{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px}
-        .mseg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--gray300,#404040);flex:none}
-        .mseg button{height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf);background:transparent;white-space:nowrap;transition:background .2s,color .2s}
-        .mseg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
         .ttl{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:0 4px}
         .chips{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
         .chip{flex:none;width:88px;height:88px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 6px;transition:background .2s,transform .12s}

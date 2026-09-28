@@ -69,8 +69,9 @@
     ['#gjoremal', 'Gjøremål', 'mdi:format-list-checks', 'msh-gjoremal-card'],
     ['#dorlas', 'Dørlås', 'mdi:lock', 'msh-las-card'], // fiks 16.7 – bare når lock.* finnes (M.popupNeeds)
     ['#ringeklokke', 'Ringeklokke', 'mdi:doorbell-video', 'msh-ringeklokke-card'], // fiks 19.17 – bare med UniFi Protect-ringeklokke (M.popupNeeds)
-    ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22 – fullskjerm-kart (M.POPUP_LOOK['#kart'], uten Bubble-header)
+    ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22/23.3 – fullskjerm-kart (M.POPUP_LOOK/M.POPUP_FORCE['#kart'], Bubble-header over kartet)
     ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
+    ['#kalender', 'Kalender', 'mdi:calendar-month', 'msh-kalender-card'], // fiks 23.8 – kalendere, hytta, Sonarr/Radarr/Plex, bursdager, Posten (55-kalender.js); erstatter den importerte #kalender
   ];
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
@@ -177,6 +178,8 @@
         const merged = mergeCards(cur.cards, mainTag);
         if (extra) Object.assign(merged, extra(merged));
         cur.cards = [merged];
+        const fx = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash](cur) : null; // 23.3: #kart-unntaket også på eksisterende popup
+        if (fx) { Object.keys(cur).forEach((k) => { if (!(k in fx)) delete cur[k]; }); Object.assign(cur, fx); }
         res.updated.push(hash);
       } else {
         const card = { type: 'custom:' + mainTag, card_id: M.uid(), ...(extra ? extra({}) : {}) };

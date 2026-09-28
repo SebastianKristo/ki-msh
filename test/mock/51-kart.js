@@ -1,4 +1,4 @@
-// Testdata for Kart (#kart, msh-kart-card, fiks 20.22): posisjoner for personer/soner, en Tesla (device_tracker gps),
+// Testdata for Kart (#kart, msh-kart-card, fiks 20.22/23.3): posisjoner for personer/soner, en Tesla (device_tracker gps),
 // en Leaflet-stub (window.L – CDN/OSM er ikke nåbar i sandkassen) og Entur-svar (bare kartets egne spørringer:
 // kartLinjer/kartLinje/kartStopp + vehicles-API-et; Ruter-kortets spørringer går videre som før).
 window.mockExtend(({ add, S }) => {
@@ -22,16 +22,26 @@ if (!window.L) (function () {
     version: 'stub',
     DomEvent: { stopPropagation() {} },
     map(el, o) {
-      el.classList.add('leaflet-container');
+      o = o || {};
+      // som ekte Leaflet: klassene som leaflet.css bruker for touch-action (23.3), kart-pane med flis-pane + markør-pane
+      el.classList.add('leaflet-container', 'leaflet-touch', 'leaflet-grab');
+      if (o.dragging !== false) el.classList.add('leaflet-touch-drag');
+      if (o.touchZoom !== false) el.classList.add('leaflet-touch-zoom');
+      const mp = document.createElement('div'); mp.className = 'leaflet-pane leaflet-map-pane';
+      mp.innerHTML = '<div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer"><div class="leaflet-tile-container"><div class="leaflet-tile leaflet-tile-loaded" style="width:256px;height:256px"></div></div></div></div>';
+      el.appendChild(mp);
       const pane = document.createElement('div'); pane.className = 'leaflet-marker-pane'; pane.style.cssText = 'position:absolute;inset:0;pointer-events:none';
       el.appendChild(pane);
+      const hd = (on) => ({ _on: on, enabled() { return this._on; }, enable() { this._on = true; return this; }, disable() { this._on = false; return this; } });
       const m = Ev({ el, pane, o, center: [0, 0], zoom: 10, layers: new Set(), _loaded: true,
+        dragging: hd(o.dragging !== false), touchZoom: hd(o.touchZoom !== false), doubleClickZoom: hd(o.doubleClickZoom !== false), scrollWheelZoom: hd(o.scrollWheelZoom !== false),
+        getContainer() { return el; }, getSize() { const r = el.getBoundingClientRect(); return { x: el.clientWidth || r.width, y: el.clientHeight || r.height }; }, invalidated: 0,
         setView(c, z) { this.center = c; if (z != null) this.zoom = z; log.calls.push(['setView', c, z]); return this; },
         flyTo(c, z) { this.center = c; if (z != null) this.zoom = z; log.calls.push(['flyTo', c, z]); return this; },
         fitBounds(b, o) { log.calls.push(['fitBounds', b.pts.length, o && o.paddingTopLeft, o && o.paddingBottomRight]); return this; },
         flyToBounds(b, o) { log.calls.push(['flyToBounds', b.pts.length, o && o.paddingTopLeft, o && o.paddingBottomRight]); return this; },
         zoomIn() { this.zoom++; log.calls.push(['zoomIn']); return this; }, zoomOut() { this.zoom--; log.calls.push(['zoomOut']); return this; },
-        getZoom() { return this.zoom; }, getCenter() { return this.center; }, invalidateSize() { return this; },
+        getZoom() { return this.zoom; }, getCenter() { return this.center; }, invalidateSize() { this.invalidated++; return this; },
         addLayer(l) { this.layers.add(l); l._add(this); return this; }, removeLayer(l) { this.layers.delete(l); if (l._rmAll) l._rmAll(); else l._rm(); return this; }, hasLayer(l) { return this.layers.has(l); }, remove() {} });
       el.addEventListener('click', (e) => { if (!(e.target.closest && e.target.closest('.msh-mk'))) m.fire('click', { originalEvent: e }); });
       log.maps.push(m);

@@ -702,7 +702,53 @@ views:
             cards:
               - type: custom:msh-energi-card
                 card_id: pop-energi
-          # Kart (fiks 20.22): fullskjerm, uten Bubble-header (kartet har egen topp med ×), navbaren ligger over
+          # Kalender (fiks 23.8): kalendere, hytta, Sonarr/Radarr/Plex, bursdager, Posten og pakker – erstatter den importerte #kalender
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Kalender
+            icon: mdi:calendar-month
+            state: null
+            hash: '#kalender'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-kalender-card
+                card_id: pop-kalender
+          # Kart (fiks 20.22/23.3): fullskjerm fra toppen av dashbordet, Bubble-headeren (ikon, «Kart», ×) ligger transparent over kartet.
+          # Strategien legger inn det samme via M.POPUP_FORCE['#kart'] etter overstyringer (margin_top 0, bg_opacity 0, bg_blur 0).
           - type: custom:bubble-card
             card_type: pop-up
             name: Kart
@@ -710,15 +756,24 @@ views:
             state: null
             hash: '#kart'
             is_sidebar_hidden: true
-            show_header: false
             width_desktop: calc(100% - var(--bubble-pop-up-content-inline-start, 0px))
             styles: |-
-              .bubble-pop-up.bubble-pop-up,.bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important;--bubble-pop-up-border-radius:0px}
-              .bubble-pop-up.bubble-pop-up .bubble-header-container{display:none!important}
-              .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{padding:0!important;margin-top:0!important;border-radius:0!important;clip-path:none!important;--vertical-stack-card-gap:0px!important;overflow:hidden!important;mask-image:none!important;-webkit-mask-image:none!important}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              /* ki-kart:start (fiks 23.3 · fullskjerm-kart, legges inn på nytt ved hver generering) */
+              .bubble-pop-up.bubble-pop-up:not(.editor){top:var(--ki-kart-top,0px)!important;bottom:0!important;height:auto!important;max-height:none!important;border-radius:0!important;overflow:hidden!important;--bubble-pop-up-border-radius:0px;--bubble-pop-up-content-border-radius:0px;--bubble-pop-up-header-overlap:0px}
+              .bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important}
+              .bubble-pop-up.bubble-pop-up > .bubble-header-container{position:absolute!important;top:calc(env(safe-area-inset-top,0px) + var(--ki-kart-occ-top,0px))!important;left:var(--ki-kart-occ-left,0px)!important;right:var(--ki-kart-occ-right,0px)!important;margin:0!important;width:auto!important;max-width:none!important;z-index:6!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
+              .bubble-pop-up.bubble-pop-up > .bubble-header-container *{pointer-events:none}
+              .bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button,.bubble-pop-up.bubble-pop-up > .bubble-header-container .close-pop-up,.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button *{pointer-events:auto!important}
+              .bubble-pop-up #header-container > div > div,.bubble-pop-up.bubble-pop-up .bubble-header{background:transparent!important;box-shadow:none!important}
+              .bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+              .bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:rgba(58,58,58,.9)!important;border-radius:50%}
+              .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{position:absolute!important;inset:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;border-radius:0!important;clip-path:none!important;-webkit-clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;z-index:1;gap:0!important;--vertical-stack-card-gap:0px!important}
+              /* ki-kart:end */
             bg_blur: '0'
             shadow_opacity: '20'
-            bg_opacity: '100'
+            bg_opacity: '0'
             margin_top_mobile: 0px
             margin_top_desktop: 0px
             close_by_clicking_outside: false

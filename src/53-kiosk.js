@@ -49,6 +49,7 @@
   };
   M.kioskYaml = () => { const c = M.kioskConfig(); return c ? M.yaml.dump({ kiosk_mode: c }) : '# kiosk_mode: ingen aktive grupper'; };
   const count = () => ROWS.filter(([k]) => rowOf(k).on).length + Object.values(devs()).filter((d) => d && d.on).length;
+  M.kioskCount = count; // Fiks 23.5: «påvirker N valg» også i «Tilpass navbar»
   const summary = (r, k) => {
     const h = hideOf(r), what = h.includes('kiosk') ? 'Skjuler alt' : 'Skjuler ' + h.map((x) => HL[x].toLowerCase()).join(', ');
     const pre = k === 'mobile' ? `Under ${Number(r.width) || 1000} px · ` : k === 'users' ? `${(r.users || []).length ? r.users.join(', ') : 'Ingen brukere valgt'} · ` : '';

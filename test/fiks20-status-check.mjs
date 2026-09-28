@@ -88,7 +88,8 @@ const tk = await page.evaluate(async () => {
   E.u.sec = 'tekst'; E.u.proseSel = null; E.render(); await w(200);
   const pv = () => E.root.querySelector('[data-key="prev"]');
   const first = E.root.querySelector('.ed').children;
-  const out = { first: [...first].findIndex((x) => x === pv()), label: pv() && pv().querySelector('.xpzl').textContent, pos: pv() && getComputedStyle(pv()).position, mh: pv() && getComputedStyle(pv().querySelector('.xpzb')).maxHeight };
+  const kids = [...first], tabsI = kids.findIndex((x) => x.matches && (x.matches('.seg,[role=tablist]') || x.querySelector('[data-a="sec"]')));
+  const out = { afterTabs: tabsI + 1, first: kids.findIndex((x) => x === pv()), label: pv() && pv().querySelector('.xpzl').textContent, pos: pv() && getComputedStyle(pv()).position, mh: pv() && getComputedStyle(pv().querySelector('.xpzb')).maxHeight };
   // åpne setning 0 → markert
   E._act('psel', { i: '0' }); await w(200);
   out.mark = !!pv().querySelector('.pzm');
@@ -114,7 +115,8 @@ const tk = await page.evaluate(async () => {
 });
 if (SHOTS) await page.screenshot({ path: SHOTS + '/f20-tekst.png' });
 await page.evaluate(() => TE.ov.close());
-ok('20.9 forhåndsvisningen står først i Tekst-fanen', tk.first === 2, tk.first);
+// 23.7 la «Tilpass alt ›» øverst i arket – forhåndsvisningen skal stå rett etter fanevelgeren (første innhold i Tekst-fanen)
+ok('20.9 forhåndsvisningen står først i Tekst-fanen', tk.first === tk.afterTabs, tk);
 ok('20.9 «FORHÅNDSVISNING · LIVE» + sticky + maks 34vh', /FORHÅNDSVISNING · LIVE/.test(tk.label) && tk.pos === 'sticky' && tk.mh !== 'none', tk);
 ok('20.9 delen som redigeres er markert', tk.mark, tk.mark);
 ok('20.9 per tastetrykk (input)', tk.live, tk.live);

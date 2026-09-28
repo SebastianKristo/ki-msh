@@ -1107,6 +1107,24 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
+| `players.plex_stue.type` | Type (auto \| tv \| musikk \| skjul) | Plex (Stue) · TV |
+| `players.plex_stue.name` | Navn | Plex (Stue) · TV |
+| `players.plex_stue.icon` | Ikon · icon | Plex (Stue) · TV |
+| `players.plex_stue.platform` | Plattform (apple \| google) | Plex (Stue) · TV |
+| `players.plex_stue.remote_style` | Fjernkontroll (kompakt \| sirkel) | Plex (Stue) · TV |
+| `players.plex_stue.remote` | Fjernkontroll (remote) · entity | Plex (Stue) · TV |
+| `players.plex_stue.back_hold_action` | Hold Tilbake · action | Plex (Stue) · TV |
+| `players.plex_stue.home_hold_action` | Hold Hjem · action | Plex (Stue) · TV |
+| `players.plex_stue.menu_hold_action` | Hold Meny · action | Plex (Stue) · TV |
+| `players.plex_stue.volume` | Volum styres av (media \| buttons) | Plex (Stue) · TV |
+| `players.plex_stue.volume_up` | Volum opp · entity | Plex (Stue) · TV |
+| `players.plex_stue.volume_down` | Volum ned · entity | Plex (Stue) · TV |
+| `players.plex_stue.volume_mute` | Demp · entity | Plex (Stue) · TV |
+| `players.plex_stue.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Plex (Stue) · TV |
+| `players.plex_stue.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Plex (Stue) · TV |
+| `players.plex_stue.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Plex (Stue) · TV |
+| `watch_time.plex_stue.i_dag` | Seertid i dag (Album-kortet) · entity | Plex (Stue) · TV |
+| `watch_time.plex_stue.maned` | Seertid denne måneden (Album-kortet) · entity | Plex (Stue) · TV |
 | `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
@@ -1177,6 +1195,24 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
+| `players.plex_stue.type` | Type (auto \| tv \| musikk \| skjul) | Plex (Stue) · TV |
+| `players.plex_stue.name` | Navn | Plex (Stue) · TV |
+| `players.plex_stue.icon` | Ikon · icon | Plex (Stue) · TV |
+| `players.plex_stue.platform` | Plattform (apple \| google) | Plex (Stue) · TV |
+| `players.plex_stue.remote_style` | Fjernkontroll (kompakt \| sirkel) | Plex (Stue) · TV |
+| `players.plex_stue.remote` | Fjernkontroll (remote) · entity | Plex (Stue) · TV |
+| `players.plex_stue.back_hold_action` | Hold Tilbake · action | Plex (Stue) · TV |
+| `players.plex_stue.home_hold_action` | Hold Hjem · action | Plex (Stue) · TV |
+| `players.plex_stue.menu_hold_action` | Hold Meny · action | Plex (Stue) · TV |
+| `players.plex_stue.volume` | Volum styres av (media \| buttons) | Plex (Stue) · TV |
+| `players.plex_stue.volume_up` | Volum opp · entity | Plex (Stue) · TV |
+| `players.plex_stue.volume_down` | Volum ned · entity | Plex (Stue) · TV |
+| `players.plex_stue.volume_mute` | Demp · entity | Plex (Stue) · TV |
+| `players.plex_stue.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Plex (Stue) · TV |
+| `players.plex_stue.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Plex (Stue) · TV |
+| `players.plex_stue.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Plex (Stue) · TV |
+| `watch_time.plex_stue.i_dag` | Seertid i dag (Album-kortet) · entity | Plex (Stue) · TV |
+| `watch_time.plex_stue.maned` | Seertid denne måneden (Album-kortet) · entity | Plex (Stue) · TV |
 | `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
@@ -1549,6 +1585,14 @@ Kart-popup (#kart): fullskjerm-kart med personer, biler, soner og kollektiv i sa
 ## `msh-energi-card`
 
 Energi-popup (#energi): hus med strømflyt, snarveier, strøm, strømpriser, toppforbrukere og vann fra HAs Energi-oppsett.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-kalender-card`
+
+Kalender-popup (#kalender): kalendere, hyttebesøk, Sonarr/Radarr/Plex, bursdager, Posten og pakker.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|

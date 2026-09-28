@@ -747,6 +747,20 @@
   /* ------------------------------------------------------------ hurtigark: felles ramme */
   const SHEET_CSS = `
     .sh{overflow:visible;width:calc(100% - 40px);max-width:300px;padding:62px 14px 14px;border-radius:30px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 30px 60px rgba(0,0,0,0.5)}
+    /* Fiks 23.1: arket ligger i ki-overlay-root (document.body, ingen transform/overflow/contain over seg) og selve arket
+       klipper ikke (contain: none, overflow: visible) → avataren (96, top −48, ring) vises alltid helt. Plassering innenfor
+       ledig flate: --ki-nav-occ-* (navbaren, 23.3) + dashbordets topp (--ki-hy) og vertens venstre-forskyvning (--ki-hx,
+       rail). Toppen ≥ occ-top + 48 + 12, bunnen ≥ occ-bottom + 12. Sentrert i det som er igjen (margin auto, høyde =
+       innholdet); lav skjerm → max-height, og innholdet under navnet (.scr) scroller – ikke arket, så avataren ikke klippes. */
+    :host{--ki-q-t:calc(var(--ki-hy,0px) + max(var(--ki-nav-occ-top,0px), env(safe-area-inset-top,0px)) + 60px);--ki-q-b:calc(max(var(--ki-nav-occ-bottom,0px), env(safe-area-inset-bottom,0px)) + 12px);
+      --ki-q-l:max(0px, var(--ki-nav-occ-left,0px) - var(--ki-hx,0px));--ki-q-r:var(--ki-nav-occ-right,0px)}
+    .sh{display:flex;flex-direction:column;contain:none;overflow:visible;top:var(--ki-q-t);bottom:var(--ki-q-b);left:var(--ki-q-l);right:var(--ki-q-r);margin:auto;width:300px;max-width:calc(100% - var(--ki-q-l) - var(--ki-q-r) - 40px);
+      height:-webkit-fit-content;height:fit-content;max-height:calc(100% - var(--ki-q-t) - var(--ki-q-b));transform:scale(.96)}
+    :host(.on) .sh{transform:none}
+    .body{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+    .scr{display:flex;flex-direction:column;gap:10px;flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+    .body:has(> .scr){overflow:visible}
+    .scr>*,.body>*{flex-shrink:0} .body>.scr{flex-shrink:1}
     .body{display:flex;flex-direction:column;gap:10px}
     .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
     .orb.pic{background-size:cover;background-position:center;font-size:36px;font-weight:600;color:#232323}
@@ -782,6 +796,11 @@
   M.hjemSheet = function (card, { render, onAct, drag }) {
     const ov = M.overlay({ html: render(), css: SHEET_CSS, center: true, sheet: false, maxWidth: 300 });
     const sheet = { ov, update() { if (ov.host.isConnected) M.morph(ov.body, render()); } };
+    // Fiks 23.1: vertens forskyvning mot dashbordflaten (topp: HA-toolbar; venstre: rail-utsparing i M.overlay) – arket
+    // trekker den fra --ki-nav-occ-* (målt mot dashbord-containeren). Følger resize, orientering og ny navbar-måling.
+    const fit = () => { if (!ov.host.isConnected) return; const D = M.dashRect(), hr = ov.host.getBoundingClientRect(); ov.host.style.setProperty('--ki-hy', Math.max(0, Math.round(D.top)) + 'px'); ov.host.style.setProperty('--ki-hx', Math.max(0, Math.round(hr.left - D.left)) + 'px'); };
+    fit(); requestAnimationFrame(fit);
+    ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.addEventListener(t, fit));
     ov.root.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el) return;
@@ -793,7 +812,7 @@
     card._sheets = card._sheets || new Set();
     card._sheets.add(sheet);
     const close0 = ov.close;
-    ov.close = () => { card._sheets.delete(sheet); close0(); };
+    ov.close = () => { card._sheets.delete(sheet); ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); close0(); };
     return sheet;
   };
   // Glass-segment: dra indikatoren, slipp → velg nærmeste. pick(i)
@@ -1645,10 +1664,12 @@
         const cc = card.config || {}, HS = M.hjemStatusStyle(cc, 'home'), SS = M.hjemStatusStyle(cc, 'sleep'), AS = M.hjemStatusStyle(cc, 'away');
         return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${slp ? SS.color : zi === 0 ? HS.color : p.status.kind === 'zone' && !pend.zone ? p.status.color : AS.color}">${faceInner(p, 96, card._picBad)}</div>
           <div class="nm"><b>${esc(p.name)}</b><span data-st>${esc(place)} · ${slp ? 'Sover' : 'Våken'}</span></div>
+          <div class="scr" data-key="scr">
           ${segH('zone', zi, [[HS.icon, 'Hjemme', 0, HS.color], [AS.icon, 'Borte', 1, AS.color]], Z)}
           ${segH('sleep', si, [['light_mode', 'Våken', 0, C.orange], [SS.icon, 'Sover', 1, SS.color]], S)}
           <button class="done" data-a="close">Ferdig</button>
-          <button class="more" data-a="details">Mobil, soner og søvn${M.icon('chevron_right', 18)}</button>`;
+          <button class="more" data-a="details">Mobil, soner og søvn${M.icon('chevron_right', 18)}</button>
+          </div>`;
       };
       let sheet = null;
       const setSeg = (key, i) => {

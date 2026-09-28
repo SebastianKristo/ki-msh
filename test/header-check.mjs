@@ -293,6 +293,10 @@ for (const w of [360, 393, 412, 430]) {
     await wait(100);
     const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
     out.sheet = !!(c._sheets && c._sheets.size);
+    // Fiks 23.1: hurtigarket fra hold – avataren helt synlig (arket klipper ikke), i ki-overlay-root
+    { await wait(400); const sh0 = c._sheets && [...c._sheets][0]; const sr = sh0 && sh0.ov.root, S = sr && sr.querySelector('.sh'), O = sr && sr.querySelector('.orb');
+      if (S && O) { const cs = getComputedStyle(S), o = O.getBoundingClientRect(), hit = sr.elementFromPoint(o.left + o.width / 2, o.top + 2);
+        out.q231 = { ov: cs.overflow, ct: cs.contain, top: Math.round(o.top), dy: Math.round(S.getBoundingClientRect().top - o.top), hit: !!hit && (hit === O || O.contains(hit)), root: sh0.ov.host.getRootNode().host.localName }; } }
     out.holdPop = log.slice(); log.length = 0;
     document.querySelectorAll('body > *:not(#dash)').forEach((e) => { if (!/SCRIPT|STYLE/.test(e.tagName)) e.remove(); });
     // dobbelttrykk = more, trykk = kart
@@ -315,6 +319,7 @@ for (const w of [360, 393, 412, 430]) {
   const [m0, m1, m2, m3] = r.mig;
   ok(m0.tap === 'popup' && m0.double === 'none' && m0.hold === 'quick' && m1.tap === 'quick' && m2.tap === 'popup' && m3.tap === 'popup' && m3.hold === 'more', `22.7 migrering: ${JSON.stringify(r.mig)}`);
   ok(r.tap.length === 1 && r.tap[0] === 'pop:#person-' + r.pid.split('.')[1], `22.7 trykk: ${JSON.stringify(r.tap)}`);
+  ok(r.q231 && r.q231.ov === 'visible' && r.q231.ct === 'none' && r.q231.dy === 48 && r.q231.top >= 6 && r.q231.hit && r.q231.root === 'ki-overlay-root', `23.1 avataren helt synlig i hurtigarket: ${JSON.stringify(r.q231)}`);
   ok(r.sheet && !r.holdPop.length, `22.7 hold → hurtigark: ${r.sheet} ${JSON.stringify(r.holdPop)}`);
   ok(r.waiting === 0 && r.kart.join() === 'pop:#kart' && r.focus.join() === r.pid, `22.7 kart + 260 ms: ${JSON.stringify(r)}`);
   ok(!r.dbl.pop.length && r.dbl.mi.join() === r.pid, `22.7 dobbelttrykk: ${JSON.stringify(r.dbl)}`);
