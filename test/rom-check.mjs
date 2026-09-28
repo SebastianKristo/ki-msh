@@ -46,6 +46,8 @@ const out = await p.evaluate(async () => {
   k.shadowRoot.querySelector('.gear').click(); await wait(300);
   const portal = window.MSH.portals().pop();
   const ed = portal.shadowRoot.querySelector('msh-editor');
+  res.tabs = [...ed.shadowRoot.querySelectorAll('.chips.sg.tabs .chip')].map((x) => x.textContent.trim()); // 19.20: faner – klimafeltene ligger under Klima
+  const kt = ed.shadowRoot.querySelector('.chips.sg.tabs .chip[data-v="klima"]'); if (kt) { kt.click(); await wait(200); }
   const secs = [...ed.shadowRoot.querySelectorAll('details.sec > summary')].map((s) => s.textContent.trim().replace(/\s+/g, ' '));
   res.firstAccordion = secs[0];
   res.ranges = ed.shadowRoot.querySelectorAll('input[type=range]').length;
@@ -64,7 +66,8 @@ const out = await p.evaluate(async () => {
   tempEl().shadowRoot.querySelector('.pk').click(); await wait(80);
   tempEl().shadowRoot.querySelector('.pls .pr').click(); await wait(250);
   res.autoTemp = k.shadowRoot.querySelector('.big').textContent;
-  // slider live
+  // slider live (Mellomrom ligger under Oppsett)
+  const ot = ed.shadowRoot.querySelector('.chips.sg.tabs .chip[data-v="oppsett"]'); if (ot) { ot.click(); await wait(200); }
   const rg = ed.shadowRoot.querySelectorAll('input[type=range]')[1];
   rg.value = '44'; rg.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
   res.sliderLiveTop = dist();

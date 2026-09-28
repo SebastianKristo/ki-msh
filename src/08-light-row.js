@@ -2,8 +2,9 @@
  * Bruker mysmart-light-control (norsk kopi, src/vendor/mysmart-light-control-no.js) i «msh»-modus, så alle lys får
  * nøyaktig samme rad: navn 15/500 #e1e1e1 til venstre, verdi 13 #979797 til høyre («45 %» / «Av» / «På»), 8 px ned til
  * sporet, spor 40 px (slider_height 32–56) radius 14, håndtak 4 × 28 inni sporet, alltid 32 px chevron-kolonne til høyre.
- * Farger: av = spor #545454 uten fyll, håndtak #979797 helt til venstre. På = lampens farge bare når den støttes
- * (farge → rgb_color, bare temperatur → Kelvin-farge, ellers rgb(225 225 225 / .55)). Aldri romfarge/adaptiv/localStorage.
+ * Farger: av = spor #545454 uten fyll, håndtak #979797 helt til venstre. På = lampens farge (19.2, M.lampColor): farge-
+ * modus → rgb_color, color_temp → Kelvin-tone, ellers temagul; overrides.<id>.color / lights.<id>.color går foran. Fyll =
+ * fargen under en 22→50 %-maske (mørke farger 30→60 %), overgang 300 ms. Aldri romfarge/adaptiv/localStorage.
  * Av/på-lys: samme spor, trykk veksler. Dra = lysstyrke (touch-action pan-y + stopPropagation), én haptic ved slipp.
  *   M.lightType(state)                          → 'color' | 'ct' | 'dim' | 'onoff' (fra supported_color_modes)
  *   M.lightRowCfg(id, { name, type, user, height }) → config til mysmart-light-control
@@ -36,8 +37,44 @@
     if (!c.size && th >= 56) return Math.max(32, Math.min(56, 40 + (th - 56)));
     return 40;
   };
+  // 19.2 · Lampens egen farge når den er på (Lys v4 → LC(k)/KEL()): farge-modus → rgb_color, color_temp → Kelvin-tone
+  // (≤2400 oransje · ≤3000 gul · ≤4200 krem · ellers kald hvit), ellers temagul. override (config) går foran, preview
+  // (rgb-streng mens man drar i farge/temperatur) går foran lampen. → { css, lum } (lum 0–1, relativ luminans)
+  const KEL = [[2400, [242, 181, 115]], [3000, [242, 210, 111]], [4200, [242, 228, 185]], [Infinity, [222, 232, 245]]];
+  const YEL = [242, 210, 111];
+  const lumOf = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const rgbOf = (v) => {
+    if (Array.isArray(v)) return v.length >= 3 ? v.slice(0, 3).map(Number) : null;
+    const s = String(v || '');
+    let m = /#([0-9a-f]{6}|[0-9a-f]{3})\b/i.exec(s);
+    if (m) { let h = m[1]; if (h.length === 3) h = h.split('').map((x) => x + x).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+    m = /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(s);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  };
+  const hsRgb = (hs) => {
+    if (!Array.isArray(hs) || hs.length < 2) return null;
+    const h = ((Number(hs[0]) % 360) + 360) % 360 / 60, s = Math.max(0, Math.min(100, Number(hs[1]) || 0)) / 100, x = s * (1 - Math.abs((h % 2) - 1));
+    const [r, g, b] = h < 1 ? [s, x, 0] : h < 2 ? [x, s, 0] : h < 3 ? [0, s, x] : h < 4 ? [0, x, s] : h < 5 ? [x, 0, s] : [s, 0, x];
+    return [r, g, b].map((v) => Math.round(255 * (v + 1 - s)));
+  };
+  M.lampColor = function (s, override, preview) {
+    const out = (rgb, css) => ({ css: css || `rgb(${rgb.join(' ')})`, lum: rgb ? lumOf(rgb) : 0.5 });
+    if (override) { const css = M.color(override); return out(rgbOf(css), css); }
+    const pr = preview && rgbOf(preview);
+    if (pr) return out(pr);
+    const a = (s && s.attributes) || {}, mode = a.color_mode;
+    if (COLOR.includes(mode)) { const c = rgbOf(a.rgb_color) || hsRgb(a.hs_color); if (c) return out(c); }
+    if (mode === 'color_temp') {
+      const k = Number(a.color_temp_kelvin) || (Number(a.color_temp) ? 1e6 / Number(a.color_temp) : 0);
+      if (k > 0) return out(KEL.find(([t]) => k <= t)[1]);
+    }
+    return out(YEL, `var(--yellow, rgb(${YEL.join(' ')}))`);
+  };
+  // Fyll (maske over lampefargen): 22 % → 50 %, mørke/mettede farger (lum < 0,35) løftes til 30 % → 60 %
+  M.lampMask = (lum) => (lum < 0.35 ? 'linear-gradient(90deg, rgb(0 0 0 / .3), rgb(0 0 0 / .6))' : 'linear-gradient(90deg, rgb(0 0 0 / .22), rgb(0 0 0 / .5))');
+
   const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
-  M.lightRowCfg = function (id, { name, type, user, height } = {}) {
+  M.lightRowCfg = function (id, { name, type, user, height, color } = {}) {
     const u = user || {};
     const T = type || 'dim';
     const out = {
@@ -51,9 +88,11 @@
       color_control: 'both',
     };
     if (name) out.name = name;
+    if (color) out.msh_color = color;
     Object.keys(u).forEach((k) => {
       let v = u[k];
       if (v == null || v === '') return;
+      if (k === 'color') { if (!out.msh_color) out.msh_color = String(v); return; }
       if (k === 'brightness_min' || k === 'brightness_max') { v = Number(v); if (!isNaN(v)) out[k] = v; return; }
       if (k === 'color_control' && ['spectrum', 'presets', 'both'].includes(v)) { out[k] = v; return; }
       if (k === 'live_update' || k === 'hide_temperature_slider' || k === 'hide_color_controls' || k === 'hide_color_presets') {
@@ -70,13 +109,16 @@
     return out;
   };
 
+  // Egen farge i kortets config: overrides: { 'light.x': { color } } (går foran lampens farge)
+  const ov = (card, id) => { const o = card && card.config && card.config.overrides; const v = o && o[id]; return v && typeof v === 'object' && v.color ? String(v.color) : null; };
   // Reserverad (lys uten mysmart-light-control / finnes ikke): samme mål som den ekte raden
   const fallback = (card, id, name) => {
     const h = card.hass, s = h && h.states[id], on = s && s.state === 'on';
     const p = on && s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : null;
+    const lc = on ? M.lampColor(s, ov(card, id)) : null;
     const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') : 'Av';
     return `<div class="lrf"><div class="lrf-hd"><span class="lrf-n">${esc(name || (s ? M.name(h, id) : id))}</span><span class="lrf-v">${esc(val)}</span></div>
-      <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%"></span></div></div>`;
+      <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%${on ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div>`;
   };
 
   // Utelamper kan være switch/input_boolean/group/script: raden kaller light.turn_on/off → send via homeassistant.*
@@ -117,7 +159,9 @@
       wrap.__fb = null;
       let rec = map.get(id);
       if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
-      const cfg = cfgOf(id, wrap), json = JSON.stringify(cfg);
+      const cfg = cfgOf(id, wrap), oc = ov(card, id);
+      if (oc && !cfg.msh_color) cfg.msh_color = oc;
+      const json = JSON.stringify(cfg);
       if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
       const hh = hassFor(id, h);
       if (rec.el.hass !== hh) rec.el.hass = hh;
@@ -135,6 +179,6 @@
     .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--gray1000,#e1e1e1)}
     .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--gray700,#979797)}
     .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--gray400,#545454);overflow:hidden}
-    .lrf-f{position:absolute;left:0;top:0;bottom:0;background:rgb(225 225 225 / .55)}
+    .lrf-f{position:absolute;left:0;top:0;bottom:0;background-color:transparent;transition:background-color .3s ease}
   `;
 })();

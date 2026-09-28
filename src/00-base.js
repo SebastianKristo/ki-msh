@@ -26,6 +26,14 @@
     st.textContent = ':root{--bubble-pop-up-gap:8px}';
     (document.head || document.documentElement).appendChild(st);
   }
+  // Fiks 19.14: ingen grå tap-highlight (Android/iOS) på noe i dashbordet – egenskapen arves, så den settes også på
+  // dokumentroten (dekker HA-/Bubble-elementer rundt kortene, som ellers får nettleserens grå standardflate ved trykk).
+  if (!document.getElementById('msh-tap-css')) {
+    const st = document.createElement('style');
+    st.id = 'msh-tap-css';
+    st.textContent = 'html{-webkit-tap-highlight-color:transparent}';
+    (document.head || document.documentElement).appendChild(st);
+  }
   MSH.FONT = "'Space Grotesk', var(--ha-font-family-body, system-ui), sans-serif";
 
   /* ------------------------------------------------------------ farger */
@@ -197,26 +205,131 @@
     } catch (e) { return null; }
   };
 
-  // Fiks 18.5 · haptisk feedback av per enhet: localStorage ki-haptic-off = '1' (+ ki-store haptic_off_devices: [browser_id])
-  MSH.hapticOff = function () {
-    let off = false;
-    try { off = localStorage.getItem('ki-haptic-off') === '1' || localStorage.getItem('haptic') === 'off'; } catch (e) { /* */ }
-    if (!off && MSH.store) {
-      const id = MSH.bmId(), L = id ? MSH.store.get('haptic_off_devices') : null;
-      if (Array.isArray(L) && L.includes(id)) { off = true; try { localStorage.setItem('ki-haptic-off', '1'); } catch (e) { /* */ } }
+  /* ------------------------------------------------------------ enhetsklasse + profiler (Fiks 19.13) */
+  // Enhetsklasser: [id, navn, forhåndsvisningsbredde]. Oppdages automatisk (UA / userAgentData.model), kan overstyres
+  // med localStorage ki-device-class. Pixel Fold: lukket/åpen etter containerbredden (< 600 px = lukket), live.
+  MSH.DEVICE_CLASSES = [['iphone', 'iPhone', 393], ['ipad', 'iPad', 820], ['oneplus', 'OnePlus', 412], ['fold_closed', 'Pixel Fold (lukket)', 412], ['fold_open', 'Pixel Fold (åpen)', 840], ['pc', 'PC', 1280], ['annen', 'Annen', 412]];
+  MSH.deviceClassName = (k) => { const d = MSH.DEVICE_CLASSES.find((x) => x[0] === k); return d ? d[1] : k === '*' ? 'Alle enheter' : String(k || ''); };
+  MSH.deviceClassWidth = (k) => { const d = MSH.DEVICE_CLASSES.find((x) => x[0] === k); return d ? d[2] : 412; };
+  MSH.deviceClassAuto = function (w) {
+    const ua = navigator.userAgent || '', d = MSH.deviceInfo(), s = d.model + ' ' + ua;
+    if (d.os === 'iOS') return 'iphone';
+    if (d.os === 'iPadOS') return 'ipad';
+    if (/OnePlus|\bCPH2\d{3}\b|\bPJ[A-Z]\d{3}\b|\bPJ[A-Z0-9]{4}\b/i.test(s)) return 'oneplus';
+    if (/Pixel\s*(\d+\s*)?(Pro\s*)?Fold/i.test(s)) { const W = w != null ? w : MSH.dashRect ? MSH.dashRect().width : window.innerWidth; return W < 600 ? 'fold_closed' : 'fold_open'; }
+    if (d.os === 'Android') return 'annen';
+    if (/Windows|macOS|Linux/.test(d.os) && !(navigator.maxTouchPoints > 0)) return 'pc';
+    return 'annen';
+  };
+  let devCls = null;
+  MSH.deviceClassOverride = function (v) {
+    if (v !== undefined) {
+      try { if (v && MSH.DEVICE_CLASSES.some((x) => x[0] === v)) localStorage.setItem('ki-device-class', v); else localStorage.removeItem('ki-device-class'); } catch (e) { /* */ }
+      devCls = null; MSH.deviceClass();
+      window.dispatchEvent(new CustomEvent('ki-device-class')); window.dispatchEvent(new CustomEvent('ki-nav-bottom'));
     }
+    let o = null; try { o = localStorage.getItem('ki-device-class'); } catch (e) { /* */ }
+    return o && MSH.DEVICE_CLASSES.some((x) => x[0] === o) ? o : null;
+  };
+  MSH.deviceClass = function () { if (!devCls) devCls = MSH.deviceClassOverride() || MSH.deviceClassAuto(); return devCls; };
+  // Bretting/rotasjon: ny klasse → ki-device-class (+ ki-nav-bottom) uten reload
+  if (!window.__kiDevClsWatch) {
+    window.__kiDevClsWatch = true;
+    const re = () => {
+      const n = MSH.deviceClassOverride() || MSH.deviceClassAuto();
+      if (n === devCls) return;
+      const had = devCls != null;
+      devCls = n;
+      if (had) { window.dispatchEvent(new CustomEvent('ki-device-class')); window.dispatchEvent(new CustomEvent('ki-nav-bottom')); }
+    };
+    try { if (window.ResizeObserver) new ResizeObserver(re).observe(document.documentElement); } catch (e) { /* */ }
+    window.addEventListener('resize', re);
+    window.addEventListener('ki-device-info', re);
+  }
+  // Denne HA-brukeren (hass.user.id, mellomlagret i localStorage ki-user-id for første visning)
+  let uid = null;
+  MSH.userId = function () {
+    const u = MSH.lastHass && MSH.lastHass.user && MSH.lastHass.user.id;
+    if (u && u !== uid) { uid = u; try { localStorage.setItem('ki-user-id', u); } catch (e) { /* */ } }
+    if (!uid) { try { uid = localStorage.getItem('ki-user-id') || null; } catch (e) { /* */ } }
+    return uid;
+  };
+  // Profiler per bruker × enhetsklasse i ki-store: <root> = { '<bruker>/<klasse>', '<bruker>/*', '*/<klasse>', '*/*' }.
+  // Oppslag: ① bruker + enhet ② bruker ③ enhet ④ standard – felt for felt (det mest spesifikke vinner, null = arvet).
+  // Brukes av header_profiles (Tilpass header), nav_profiles (haptic_off, bottom – 18.5/18.6) og doorbell_mode (19.18).
+  MSH.profileKey = (user, cls) => (user || '*') + '/' + (cls || '*');
+  MSH.profileSel = (sel) => ({ user: (sel && sel.user) || MSH.userId() || '*', cls: (sel && sel.cls) || MSH.deviceClass() });
+  MSH.profileChain = function (sel) {
+    const s = MSH.profileSel(sel), out = [];
+    [[s.user, s.cls], [s.user, '*'], ['*', s.cls], ['*', '*']].forEach(([u, c]) => { const k = MSH.profileKey(u, c); if (!out.includes(k)) out.push(k); });
+    return out;
+  };
+  MSH.profileRaw = function (root, key) { const R = MSH.store && MSH.store.get(root); const v = R && typeof R === 'object' ? R[key] : null; return v && typeof v === 'object' ? v : null; };
+  MSH.profileHas = (root, key) => { const v = MSH.profileRaw(root, key); return !!v && Object.keys(v).length > 0; };
+  // Sammenslått profil for sel (standard: denne brukeren + denne enheten). skip = nivå som hoppes over (arv uten nivået)
+  MSH.profileGet = function (root, sel, skip) {
+    const out = {};
+    MSH.profileChain(sel).reverse().forEach((k) => {
+      if (k === skip) return;
+      const v = MSH.profileRaw(root, k);
+      if (v) Object.keys(v).forEach((f) => { if (v[f] === null || v[f] === undefined) return; out[f] = v[f]; });
+    });
+    return out;
+  };
+  // Skriv felt til ett nivå (key = '<bruker>/<klasse>', standard denne brukeren + enheten). patch null = slett nivået
+  // («Tilbakestill til arvet»); felt = undefined fjernes. Lagres straks (per enhet, ikke med i Ferdig/Avbryt).
+  MSH.profileSet = function (root, patch, key, opts) {
+    if (!MSH.store) return Promise.resolve({ ok: false });
+    key = key || MSH.profileKey(MSH.userId(), MSH.deviceClass());
+    let v;
+    if (patch == null) v = undefined;
+    else {
+      v = { ...(MSH.profileRaw(root, key) || {}) };
+      Object.keys(patch).forEach((f) => { if (patch[f] === undefined) delete v[f]; else v[f] = patch[f]; });
+      if (!Object.keys(v).length) v = undefined;
+    }
+    const all = { ...(MSH.store.get(root) || {}) };
+    if (v === undefined) delete all[key]; else all[key] = v;
+    const commit = !opts || opts.commit !== false;
+    return MSH.store.set(root, Object.keys(all).length ? all : undefined, { now: commit, immediate: commit });
+  };
+
+  // Fiks 18.5/18.6 → 19.13: haptic av og navbarens avstand fra bunnen ligger i nav_profiles (bruker × enhetsklasse).
+  // Eldre lagring (localStorage ki-haptic-off / haptic / ki-nav-bottom og ki-store haptic_off_devices /
+  // nav_bottom_devices.<browser_id>) flyttes inn i nav_profiles['<bruker>/<klasse>'] én gang og slettes.
+  const NAVP = 'nav_profiles';
+  let navMig = false, navLive = null;
+  const migrateNav = function () {
+    if (navMig || !MSH.store || !MSH.store.loaded || !MSH.userId()) return;
+    navMig = true;
+    const id = MSH.bmId(), patch = {}, key = MSH.profileKey(MSH.userId(), MSH.deviceClass()), cur = MSH.profileRaw(NAVP, key) || {};
+    let ls = {};
+    try { ls = { off: localStorage.getItem('ki-haptic-off') === '1' || localStorage.getItem('haptic') === 'off', bot: localStorage.getItem('ki-nav-bottom') }; } catch (e) { /* */ }
+    const L = MSH.store.get('haptic_off_devices'), nb = MSH.store.get('nav_bottom_devices');
+    if ((ls.off || (id && Array.isArray(L) && L.includes(id))) && cur.haptic_off == null) patch.haptic_off = true;
+    let b = ls.bot != null && ls.bot !== '' && !isNaN(Number(ls.bot)) ? Number(ls.bot) : null;
+    if (b == null && id && nb && nb[id] != null && !isNaN(Number(nb[id]))) b = Number(nb[id]);
+    if (b != null && cur.bottom == null) patch.bottom = Math.max(0, Math.min(48, Math.round(b)));
+    try { ['ki-haptic-off', 'haptic', 'ki-nav-bottom'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
+    const oldL = id && Array.isArray(L) && L.includes(id), oldB = id && nb && nb[id] != null;
+    if (!Object.keys(patch).length && !oldL && !oldB) return;
+    if (Object.keys(patch).length) MSH.profileSet(NAVP, patch, key);
+    if (oldL) { const r = L.filter((x) => x !== id); MSH.store.set('haptic_off_devices', r.length ? r : undefined, { now: true, immediate: true }); }
+    if (oldB) { const r = { ...nb }; delete r[id]; MSH.store.set('nav_bottom_devices', Object.keys(r).length ? r : undefined, { now: true, immediate: true }); }
+  };
+  MSH.migrateNavProfiles = migrateNav;
+  // Denne enhetens nav-profil (sammenslått)
+  MSH.navProfile = () => { migrateNav(); return MSH.profileGet(NAVP); };
+  MSH.hapticOff = function () {
+    const off = !!MSH.navProfile().haptic_off;
     window.__kiHapticOff = off;
     return off;
   };
   // Lagres straks (ikke med i Tilpass-arkets Ferdig/Avbryt)
   MSH.setHapticOff = function (off) {
-    try { if (off) localStorage.setItem('ki-haptic-off', '1'); else { localStorage.removeItem('ki-haptic-off'); localStorage.removeItem('haptic'); } } catch (e) { /* */ }
-    const id = MSH.bmId();
-    if (id && MSH.store) {
-      const L = (MSH.store.get('haptic_off_devices') || []).filter((x) => x !== id);
-      if (off) L.push(id);
-      MSH.store.set('haptic_off_devices', L.length ? L : undefined, { now: true, immediate: true });
-    }
+    const key = MSH.profileKey(MSH.userId(), MSH.deviceClass());
+    const inh = !!MSH.profileGet(NAVP, null, key).haptic_off; // arvet verdi uten dette nivået
+    MSH.profileSet(NAVP, { haptic_off: off ? (inh ? undefined : true) : (inh ? false : undefined) }, key);
     return MSH.hapticOff();
   };
   // Bubble Cards / HAs egne haptic-eventer: stoppes tidlig (capture på window) når haptic er av på denne enheten
@@ -226,7 +339,7 @@
   }
   MSH.hapticOff();
 
-  // Fiks 18.6 · navbarens avstand fra bunnen per enhet: localStorage ki-nav-bottom (+ ki-store nav_bottom_devices.<browser_id>)
+  // Fiks 18.6 · navbarens avstand fra bunnen: standard per enhet, egen verdi i nav_profiles.bottom
   MSH.navBottomDefault = function () {
     const ua = navigator.userAgent || '', d = MSH.deviceInfo(), s = d.model + ' ' + ua;
     if (d.os === 'iOS') return 0;
@@ -235,23 +348,18 @@
     if (d.os === 'Android') return 16; // Pixel 9 Pro / Pixel 9 Pro Fold lukket / annen Android
     return 8;
   };
-  // Egen verdi på denne enheten (px) eller null
+  // Egen verdi på denne enheten (px) eller null. Under dra: live-verdien (ikke lagret ennå)
   MSH.navBottomOwn = function () {
-    let v = null;
-    try { const s = localStorage.getItem('ki-nav-bottom'); if (s != null && s !== '' && !isNaN(Number(s))) v = Number(s); } catch (e) { /* */ }
-    if (v == null && MSH.store) {
-      const id = MSH.bmId(), sv = id ? MSH.store.get('nav_bottom_devices.' + id) : null;
-      if (sv != null && !isNaN(Number(sv))) { v = Number(sv); try { localStorage.setItem('ki-nav-bottom', String(v)); } catch (e) { /* */ } }
-    }
+    let v = navLive ? navLive.v : MSH.navProfile().bottom;
+    v = v == null || v === '' || isNaN(Number(v)) ? null : Number(v);
     return v == null ? null : Math.max(0, Math.min(48, Math.round(v)));
   };
   MSH.navBottom = () => { const v = MSH.navBottomOwn(); return v == null ? MSH.navBottomDefault() : v; };
   // v = px eller null (Standard). save=false: bare live (under dra); save=true: lagres straks
   MSH.setNavBottom = function (v, save) {
     const n = v == null || v === '' ? null : Math.max(0, Math.min(48, Math.round(Number(v))));
-    try { if (n == null) localStorage.removeItem('ki-nav-bottom'); else localStorage.setItem('ki-nav-bottom', String(n)); } catch (e) { /* */ }
-    const id = MSH.bmId();
-    if (save !== false && id && MSH.store) MSH.store.set('nav_bottom_devices.' + id, n == null ? undefined : n, { now: true, immediate: true });
+    if (save === false) navLive = { v: n };
+    else { navLive = null; MSH.profileSet(NAVP, { bottom: n == null ? undefined : n }); }
     window.dispatchEvent(new CustomEvent('ki-nav-bottom'));
     return n;
   };
@@ -524,16 +632,9 @@
     }
     return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth };
   };
-  // Fiks 17.20: bred layout (designets isWide) = dashbordflaten ≥ 1000 px, eller ≥ 680 px på berøringsenheter
-  // (Pixel/Galaxy Fold åpen, Android-nettbrett, iPad – ikke bare iPad-UA). w = containerens bredde, ikke vinduets.
-  MSH.isWide = function (w) {
-    const W = w != null ? w : MSH.dashRect().width;
-    const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
-    return W >= 1000 || (touch && W >= 680);
-  };
   // Fiks 18.4/18.7: Fold-oppsettet (designets isFold) = telefon-innholdet i én kolonne i full bredde + vertikal navbar
   // til venstre. Containerbredde ≥ 1000 px, eller berøringsenhet med bredde ≥ 600 px (Fold åpen, iPad, PC). Erstatter
-  // den brede griden (isWide brukes ikke lenger til layout). w = containerens bredde, ikke vinduets.
+  // den brede griden (isWide er fjernet, fiks 19.11). w = containerens bredde, ikke vinduets.
   MSH.isFold = function (w) {
     const W = w != null ? w : MSH.dashRect().width;
     const touch = (navigator.maxTouchPoints || 0) > 0 || /iPad/.test(navigator.userAgent);
@@ -1326,9 +1427,12 @@
 
   /* ------------------------------------------------------------ grunnstil */
   MSH.BASE_CSS = `
-    :host{display:block;width:100%;box-sizing:border-box;font-family:${MSH.FONT};color:var(--white,#fafafa);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+    :host{display:block;width:100%;box-sizing:border-box;font-family:${MSH.FONT};color:var(--white,#fafafa);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;--ha-ripple-color:transparent;--ha-ripple-pressed-opacity:0;--ha-ripple-hover-opacity:0;--mdc-ripple-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
     ha-card{background:none;box-shadow:none;border:none;border-radius:0;padding:0;overflow:visible;color:inherit;font-family:inherit}
+    /* Fiks 19.14: trykk-feedback er bare skalering – ingen grå tap-highlight, ripple eller :active-bakgrunn på kort/fliser */
+    ha-card:active,ha-card:focus,ha-card:focus-visible{background:none}
+    a,[role=button],[data-act],[data-ent],[tabindex],.press{-webkit-tap-highlight-color:transparent}
     button,input,select,textarea{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input,textarea{cursor:text;outline:none}
     input::placeholder{color:var(--gray500,#696969)}
@@ -1903,7 +2007,9 @@
     while (p && !desc) { desc = Object.getOwnPropertyDescriptor(p, 'schema'); p = Object.getPrototypeOf(p); }
     if (!desc || !desc.get) return;
     const orig = desc.get;
-    const add = (arr, self) => ((arr || []).some((f) => f && f.type === 'section' && (f.id === 'spacing' || f.label === 'Mellomrom')) ? arr : [...(arr || []), MSH.spacingSchema(self.spacingDefaults)]);
+    // 19.20: Mellomrom kan ligge i en fane (type 'tabs', f.eks. «Tilpass rom» → Oppsett)
+    const has = (arr) => (arr || []).some((f) => f && ((f.type === 'section' && (f.id === 'spacing' || f.label === 'Mellomrom')) || (f.type === 'tabs' && (f.tabs || []).some((t) => t && has(t.fields)))));
+    const add = (arr, self) => (has(arr) ? arr : [...(arr || []), MSH.spacingSchema(self.spacingDefaults)]);
     Object.defineProperty(cls, 'schema', { configurable: true, get() { const b = orig.call(this); return typeof b === 'function' ? (h, c) => add(b(h, c), this) : add(b, this); } });
   };
   // Fiks 16.13: HAs hui-card (_loadElement) setter element.hass/.layout/.preview/.editMode UTEN try/catch. Har kortet bare

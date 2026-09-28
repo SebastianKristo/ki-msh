@@ -80,7 +80,7 @@
     return {
       id: area, name: look.name || A.name || area, icon: look.icon || A.icon || OA.ikon || 'mdi:texture-box', col: M.romCol(hass, area, look),
       temp, hum, tempId, humId, thermo: ts ? thermo : null, set, step: ts ? Number(ts.attributes.target_temp_step) || 0.5 : 0.5, heating,
-      lights, lightsOn, media, mediaOn, doors, doorOpen, wattId, watt: card.n(wattId), floor: A.floor_id || null, floorName: F ? F.name : null, level: F ? F.level : null,
+      lights, lightsOn, media, mediaOn, doors, doorOpen, wattId, watt: card.n(wattId) != null ? card.n(wattId) + (M.roomPowerDelta ? M.roomPowerDelta(hass, area, RS) : 0) : null, floor: A.floor_id || null, floorName: F ? F.name : null, level: F ? F.level : null,
       outdoor, hash: cfg.hash || '#' + area, ent: (ts && thermo) || tempId || lights[0] || null,
       iconMode: pickMode(cfg.icon_color_mode, RS.icon_color_mode, cfg.icon_color_default),
       iconTap: pickTap(cfg.icon_tap, RS.icon_tap, cfg.icon_tap_default),

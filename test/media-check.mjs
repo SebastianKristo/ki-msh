@@ -1,5 +1,5 @@
-// Fiks 17.21–17.25 · Media-popupen (#media): volum-raden (Pille/Trinn/Knapper + bryter), musikk- og TV-kortet
-// (fast høyde 248, tittel ≤ 2 linjer, chips, fremdrift/DIREKTE) og editoren (TV | Musikk + rekkefølge/vis-skjul).
+// Fiks 17.21–17.25 + 19.4/19.5 · Media-popupen (#media): volum-raden (Pille/Trinn/Knapper + bryter), musikk- og TV-kortet
+// (fast høyde 256 (19.5), tittel ≤ 2 linjer, chips, fremdrift/DIREKTE) og editoren (TV | Musikk + rekkefølge/vis-skjul).
 // Kjøres mot test/harness.html med mock-hass. Skjermbilder: MEDIA_SHOTS=<mappe> (valgfritt).
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -15,8 +15,8 @@ const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-
 const fails = [];
 const ok = (c, msg) => { if (!c) fails.push(msg); };
 
-const page = async (mainCfg, heroCfg) => {
-  const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: false });
+const page = async (mainCfg, heroCfg, vw) => {
+  const p = await b.newPage({ viewport: { width: vw || 390, height: 844 }, hasTouch: false });
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/net::ERR|fonts/.test(m.text())) errs.push(m.text()); });
   await p.goto('file://' + resolve('test/harness.html'));
@@ -58,9 +58,9 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
   const C = await cards(p);
   const jem = C.find((c) => c.id === 'media_player.spotify_jem'), radio = C.find((c) => c.id === 'media_player.kjokken_radio');
   ok(C.length >= 2, 'musikk: for få kort ' + C.length);
-  ok(C.every((c) => c.h === 248), 'musikk: høyde ≠ 248: ' + C.map((c) => c.h));
+  ok(C.every((c) => c.h === 256), 'musikk: høyde ≠ 256: ' + C.map((c) => c.h));
   ok(C.every((c) => !c.mq), 'musikk: gamle nivå-streker/marquee finnes');
-  ok(jem && jem.clamp === '2' && jem.tiH <= 50, 'musikk: tittel ikke klemt til 2 linjer ' + (jem && jem.tiH));
+  ok(jem && jem.clamp === '2' && jem.tiH <= 52, 'musikk: tittel ikke klemt til 2 linjer ' + (jem && jem.tiH));
   ok(jem && jem.chips.includes('40 %') && jem.chips.some((x) => /^\+ Kjøkken radio/.test(x)) && jem.chips.includes('Spotify · 320 kbps'), 'musikk: chips ' + (jem && jem.chips));
   ok(jem && jem.pg && /1:2\d/.test(jem.txt) && /3:52/.test(jem.txt), 'musikk: fremdrift/tider ' + (jem && jem.txt));
   ok(radio && radio.live && /Neste: NRK P3/.test(radio.txt) && !radio.pg, 'radio: DIREKTE + neste snarvei ' + (radio && radio.txt));
@@ -116,11 +116,11 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
   await p.waitForTimeout(500);
   const C = await cards(p);
   const st = C.find((c) => c.id === 'media_player.stue_tv'), pr = C.find((c) => c.id === 'media_player.prosjektor');
-  ok(C.every((c) => c.h === 248), 'tv: høyde ≠ 248: ' + C.map((c) => c.h));
+  ok(C.every((c) => c.h === 256), 'tv: høyde ≠ 256: ' + C.map((c) => c.h));
   ok(st && st.pg && /25:1\d/.test(st.txt) && /19 min igjen/.test(st.txt) && /44:00/.test(st.txt), 'tv: film-fremdrift ' + (st && st.txt));
   ok(st && st.chips.some((x) => /2 t 14 min i dag/.test(x)), 'tv: skjermtid ' + (st && st.chips));
   ok(pr && pr.live && /Neste: Sportsrevyen 19:45/.test(pr.txt) && /Slutter 19:45/.test(pr.txt) && pr.chips.includes('24 %') && pr.chips.includes('HDMI 1'), 'tv: direkte ' + (pr && pr.txt + ' ' + pr.chips));
-  ok(C.every((c) => !c.mq && c.overflow <= 1), 'tv: nivå-streker/overflyt');
+  ok(C.every((c) => !c.mq && c.overflow <= 1), 'tv: nivå-streker/overflyt ' + C.map((c) => c.id + ':' + c.overflow));
   await shot(p, 'tv');
   // Stue TV valgt? velg via bussen
   await p.evaluate(() => { window.__main.select('tv', 'media_player.stue_tv'); });
@@ -199,6 +199,142 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
   ok(!errs.length, 'editor: feil ' + errs.join(' | '));
   await p.close();
 }
+/* 4 · Fiks 19.5: TV-kortet «spilles nå» – plakat, kicker, tittel, serie, chips, kontrollrad; musikk-kortet samme høyde */
+for (const vw of [390, 360]) {
+  const { p, errs } = await page({ default_tab: 'tv' }, {}, vw);
+  await p.evaluate(() => {
+    const h = window.__h, s = h.states['media_player.stue_tv'];
+    const cover = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 118"><rect width="84" height="118" fill="#8a3b2b"/></svg>');
+    h.states['media_player.stue_tv'] = { ...s, attributes: { ...s.attributes, app_name: 'Plex', source: 'HDMI 2', media_title: 'Episode 7', media_series_title: 'The Bear', media_season: 2, media_episode: 7, media_content_type: 'tvshow', entity_picture: cover, media_duration: 1800, media_position: 420, media_position_updated_at: new Date().toISOString(), video_resolution: '2160p', supported_features: 1 + 2 + 32 + 16384 } };
+    const nh = { ...h, states: { ...h.states } }; window.__h = nh; window.__main.hass = nh; window.__hero.hass = nh;
+    window.__main.select('tv', 'media_player.stue_tv');
+  });
+  await p.waitForTimeout(500);
+  const g = (id) => p.evaluate((id) => {
+    const c = [...window.__hero.shadowRoot.querySelectorAll('.pc')].find((x) => x.dataset.key === id); if (!c) return null;
+    const r = c.getBoundingClientRect(), R = (q) => { const e = c.querySelector(q); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left - r.left, y: b.top - r.top, w: Math.round(b.width), h: Math.round(b.height), b: Math.round(b.bottom - r.top), r: Math.round(r.right - b.right) }; };
+    return { h: Math.round(r.height), art: R('.art'), img: !!c.querySelector('.art img'), bdg: (c.querySelector('.bdg') || {}).textContent || '', dl: c.querySelector('.dl') ? c.querySelector('.dl').innerText.replace(/\s+/g, ' ').trim() : '', dlFirst: c.querySelector('.tt') && c.querySelector('.tt').firstElementChild.classList.contains('dl'),
+      ti: c.querySelector('.ti').textContent, tiFs: getComputedStyle(c.querySelector('.ti')).fontSize, ar: (c.querySelector('.ar') || {}).textContent || '', pr: getComputedStyle(c.querySelector('.tt')).paddingRight,
+      pw: R('.pw'), top: !!c.querySelector('.top'), chs: R('.chs'), chips: [...c.querySelectorAll('.ch')].map((x) => x.textContent.trim()), ctl: R('.ctl'), btns: [...c.querySelectorAll('.ctl button')].map((b) => b.dataset.act + (b.dataset.d || '')), pp: R('.cb.pp'),
+      tm: (c.querySelector('.tm .nx') || {}).textContent || '', overflow: c.scrollHeight - c.clientHeight };
+  }, id);
+  const st = await g('media_player.stue_tv');
+  ok(st && st.h === 256, `19.5@${vw}: TV-kort høyde ${st && st.h}`);
+  ok(st && st.art && st.art.w === 84 && st.art.h === 118 && st.img, `19.5@${vw}: plakat 84×118 ` + JSON.stringify(st && st.art));
+  ok(st && st.bdg === '4K', `19.5@${vw}: oppløsningsmerke ` + (st && st.bdg));
+  ok(st && st.dlFirst && /^Stue TV · SERIE · S2 · E7/.test(st.dl), `19.5@${vw}: enhetslinje ` + (st && st.dl));
+  ok(st && st.ti === 'Episode 7' && st.tiFs === '22px' && st.ar === 'The Bear', `19.5@${vw}: tittel/serie ` + JSON.stringify(st && [st.ti, st.tiFs, st.ar]));
+  ok(st && !st.top && st.pw && Math.round(st.pw.y) === 16 && st.pw.r === 16 && st.pr === '40px', `19.5@${vw}: av/på øverst til høyre ` + JSON.stringify(st && [st.pw, st.pr, st.top]));
+  ok(st && st.chs && st.chs.h <= 22 && st.chips.includes('HDMI 2') && !st.chips.some((x) => /slutter|undertekst/i.test(x)), `19.5@${vw}: chips én linje ` + JSON.stringify(st && [st.chs, st.chips]));
+  ok(st && /23 min igjen · slutter \d\d:\d\d/.test(st.tm), `19.5@${vw}: tidslinje ` + (st && st.tm));
+  ok(st && st.btns.join(',') === 'seek-10,pp,seek30,next' && st.pp && st.pp.w === 48, `19.5@${vw}: kontrollrad ` + JSON.stringify(st && [st.btns, st.pp]));
+  ok(st && st.ctl && st.ctl.b <= 256 - 12 && st.overflow <= 1, `19.5@${vw}: kontrollrad kuttes ` + JSON.stringify(st && [st.ctl, st.overflow]));
+  // Kontrollraden kaller riktige tjenester
+  await clearCalls(p);
+  await p.evaluate(() => { const c = [...window.__hero.shadowRoot.querySelectorAll('.pc')].find((x) => x.dataset.key === 'media_player.stue_tv'); c.querySelector('[data-act="seek"][data-d="30"]').click(); c.querySelector('[data-act="pp"]').click(); c.querySelector('[data-act="next"]').click(); });
+  const cc = await calls(p);
+  ok(cc.some((c) => c[1] === 'media_seek' && /"seek_position":45\d/.test(c[2])) && cc.some((c) => c[1] === 'media_play_pause') && cc.some((c) => c[1] === 'media_next_track'), `19.5@${vw}: tjenester ` + JSON.stringify(cc));
+  // Direkte (prosjektor): LIVE-merke, «NRK TV · DIREKTE», Dolby-chip, ingen seek/neste (ikke støttet)
+  const pr = await g('media_player.prosjektor');
+  ok(pr && pr.bdg === 'LIVE' && /· NRK TV · DIREKTE/.test(pr.dl) && pr.chips.includes('Dolby 5.1') && pr.btns.join(',') === 'pp', `19.5@${vw}: direkte ` + JSON.stringify(pr && [pr.bdg, pr.dl, pr.chips, pr.btns]));
+  // Film: «FILM · 2024», aldri «Serie»
+  await p.evaluate(() => {
+    const h = window.__h, s = h.states['media_player.stue_tv'], st = { ...h.states };
+    st['media_player.stue_tv'] = { ...s, attributes: { ...s.attributes, media_title: 'Dune: Part Two', media_series_title: undefined, media_season: undefined, media_episode: 3, media_content_type: 'movie', media_year: 2024, video_resolution: undefined } };
+    const nh = { ...h, states: st }; window.__h = nh; window.__main.hass = nh; window.__hero.hass = nh;
+  });
+  await p.waitForTimeout(300);
+  const fm = await g('media_player.stue_tv');
+  ok(fm && /· FILM · 2024/.test(fm.dl) && !/SERIE/.test(fm.dl) && fm.bdg === '', `19.5@${vw}: film ` + JSON.stringify(fm && [fm.dl, fm.bdg]));
+  await shot(p, 'tv-195-' + vw);
+  // Av: ingen kontrollrad
+  await p.evaluate(() => { const h = window.__h, st = { ...h.states }; st['media_player.stue_tv'] = { ...h.states['media_player.stue_tv'], state: 'off' }; const nh = { ...h, states: st }; window.__h = nh; window.__main.hass = nh; window.__hero.hass = nh; });
+  await p.waitForTimeout(300);
+  const off = await g('media_player.stue_tv');
+  ok(off && !off.ctl && off.ti === 'Av' && off.h === 256, `19.5@${vw}: av-tilstand ` + JSON.stringify(off && [off.ctl, off.ti]));
+  // Musikk: samme høyde, omslag 118, enhetslinje først
+  await tab(p, 'musikk');
+  await p.waitForTimeout(300);
+  const mu = await g('media_player.kjokken_radio');
+  ok(mu && mu.h === 256 && mu.art && mu.art.w === 118 && mu.art.h === 118 && mu.dlFirst && /^Kjøkken radio · NRK JAZZ/.test(mu.dl) && mu.tiFs === '22px' && mu.pw && mu.pw.r === 16, `19.5@${vw}: musikk-kort ` + JSON.stringify(mu && [mu.h, mu.art, mu.dl, mu.tiFs, mu.pw]));
+  await shot(p, 'musikk-195-' + vw);
+  ok(!errs.length, `19.5@${vw}: feil ` + errs.join(' | '));
+  await p.close();
+}
+
+/* 5 · Fiks 19.4: fjernkontroll Kompakt / Sirkel per TV */
+{
+  const { p, errs } = await page({ default_tab: 'tv', players: { stue_tv: { remote_style: 'sirkel' } } });
+  await p.evaluate(() => { window.__main.onOpen(); window.__main.select('tv', 'media_player.stue_tv'); });
+  await p.waitForTimeout(400);
+  const R = await p.evaluate(() => {
+    const S = window.__main.shadowRoot, sz = (q) => { const e = S.querySelector(q); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; };
+    return { sp: sz('.sp'), ok: sz('.sok'), rb: [...S.querySelectorAll('.r5 .rb')].map((b) => (b.dataset.c || b.dataset.act) + ':' + Math.round(b.getBoundingClientRect().width)), dp: !!S.querySelector('.dp'), svol: S.querySelectorAll('.svol .mvk button').length, svolH: sz('.svol .mvp'),
+      volOutside: [...S.querySelectorAll('.mvr')].filter((r) => !r.closest('.svol')).length, hint: /Sveip på sirkelen/.test(S.textContent) };
+  });
+  ok(R.sp && R.sp[0] === 260 && R.sp[1] === 260 && R.ok && R.ok[0] === 84 && !R.dp, '19.4: sirkel 260 / OK 84 ' + JSON.stringify(R));
+  ok(R.rb.map((x) => x.split(':')[0]).join(',') === 'rpower,back,home,mic,play' && R.rb.every((x) => +x.split(':')[1] >= 58 && +x.split(':')[1] <= 62), '19.4: fem runde knapper (62 px, krymper på smal skjerm) ' + R.rb);
+  ok(R.svol === 3 && R.svolH && R.svolH[1] === 62 && R.volOutside === 0 && !R.hint, '19.4: volumlinje ' + JSON.stringify(R));
+  await shot(p, 'tv-sirkel');
+  if (SHOTS) await p.locator('msh-media-card').first().screenshot({ path: `${SHOTS}/tv-sirkel-kort.png` });
+  const pt = (q) => p.evaluate((q) => { const e = window.__main.shadowRoot.querySelector(q); e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; }, q);
+  const cmds = async () => (await calls(p)).filter((c) => c[0] === 'remote').map((c) => JSON.parse(c[2]));
+  // Trykk på pil + mikrofon
+  await clearCalls(p);
+  let q = await pt('.sa.su'); await p.mouse.click(q.x, q.y); await p.waitForTimeout(100);
+  q = await pt('.rb[data-c="mic"]'); await p.mouse.click(q.x, q.y); await p.waitForTimeout(100);
+  let C1 = await cmds();
+  ok(C1.map((c) => c.command).join(',') === 'up,voice' && C1.every((c) => c.entity_id === 'remote.stue_tv'), '19.4: pil/mikrofon ' + JSON.stringify(C1));
+  // Sveip mot høyre (80 px) → 2 × right, ingen OK
+  await clearCalls(p);
+  q = await pt('.sp');
+  await p.mouse.move(q.x - 40, q.y); await p.mouse.down();
+  for (let i = 1; i <= 8; i++) { await p.mouse.move(q.x - 40 + i * 10, q.y); await p.waitForTimeout(20); }
+  const glow = await p.evaluate(() => getComputedStyle(window.__main).getPropertyValue('--msh-glow-o').trim());
+  await p.mouse.up(); await p.waitForTimeout(100);
+  C1 = await cmds();
+  ok(C1.map((c) => c.command).join(',') === 'right,right' && glow === '1', '19.4: sveip ' + JSON.stringify(C1) + ' glød=' + glow);
+  // Hold Hjem 700 ms → plattform-handling (Apple TV: home hold_secs 1), fyll under holdet, klikket etterpå ignoreres
+  await clearCalls(p);
+  q = await pt('.rb.hh');
+  await p.mouse.move(q.x, q.y); await p.mouse.down(); await p.waitForTimeout(200);
+  const fill = await p.evaluate(() => window.__main.shadowRoot.querySelector('.rb.hh').classList.contains('fill'));
+  await p.waitForTimeout(500); await p.mouse.up(); await p.waitForTimeout(100);
+  C1 = await cmds();
+  ok(fill && C1.length === 1 && C1[0].command === 'home' && C1[0].hold_secs === 1, '19.4: hold Hjem ' + JSON.stringify(C1) + ' fill=' + fill);
+  // Kort trykk på Hjem = vanlig home
+  await clearCalls(p);
+  await p.mouse.move(q.x, q.y); await p.mouse.down(); await p.waitForTimeout(80); await p.mouse.up(); await p.waitForTimeout(100);
+  C1 = await cmds();
+  ok(C1.length === 1 && C1[0].command === 'home' && !C1[0].hold_secs, '19.4: kort trykk Hjem ' + JSON.stringify(C1));
+  // Volumlinjen: + → volume_set, av/på → turn_off
+  await clearCalls(p);
+  q = await pt('.svol [data-vact="up"]'); await p.mouse.click(q.x, q.y); await p.waitForTimeout(100);
+  q = await pt('.rb.pwr'); await p.mouse.click(q.x, q.y); await p.waitForTimeout(100);
+  const vc = await calls(p);
+  ok(vc.some((c) => c[1] === 'volume_set') && vc.some((c) => c[1] === 'turn_off'), '19.4: volum/av-på ' + JSON.stringify(vc));
+  // Editor: Fjernkontroll Kompakt · Sirkel i TV-seksjonen → players.stue_tv.remote_style
+  const ed = await p.evaluate(async () => {
+    const ed = window.__main.constructor.getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-media-card' });
+    document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 100));
+    const out = []; ed.addEventListener('config-changed', (e) => out.push(e.detail.config));
+    const R = ed.shadowRoot; R.querySelector('[data-a="fn"][data-t="tv"]').click(); await new Promise((q) => setTimeout(q, 50));
+    const bs = [...R.querySelectorAll('[data-name="players.stue_tv.remote_style"]')];
+    const labels = bs.map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''));
+    bs.find((b) => b.dataset.v === 'sirkel').click(); await new Promise((q) => setTimeout(q, 50));
+    const last = out[out.length - 1];
+    ed.remove();
+    return { labels, v: last && last.players && last.players.stue_tv && last.players.stue_tv.remote_style };
+  });
+  ok(ed.labels.join('|') === 'Kompakt*|Sirkel' && ed.v === 'sirkel', '19.4: editor ' + JSON.stringify(ed));
+  // Tilbake til Kompakt live (config uten remote_style)
+  await p.evaluate(() => { window.__main.setConfig({ type: 'custom:msh-media-card', default_tab: 'tv' }); });
+  await p.waitForTimeout(300);
+  const k = await p.evaluate(() => ({ dp: !!window.__main.shadowRoot.querySelector('.dp'), sp: !!window.__main.shadowRoot.querySelector('.sp'), keys: window.__main.shadowRoot.querySelectorAll('.keys .key').length, vol: !!window.__main.shadowRoot.querySelector('.mvr') }));
+  ok(k.dp && !k.sp && k.keys === 4 && k.vol, '19.4: kompakt ' + JSON.stringify(k));
+  ok(!errs.length, '19.4: feil ' + errs.join(' | '));
+  await p.close();
+}
 await b.close();
-console.log(fails.length ? 'FEIL:\n- ' + fails.join('\n- ') : 'OK – media 17.21–17.25');
+console.log(fails.length ? 'FEIL:\n- ' + fails.join('\n- ') : 'OK – media 17.21–17.25 + 19.4/19.5');
 process.exit(fails.length ? 1 : 0);

@@ -1,6 +1,7 @@
 // Fiks 17.26 / 17.27: mini-spilleren over navbaren + farge på verktøyene i «Mer»-menyen.
 //  · mobil: mini-spilleren flyter 10 px over navbaren, samme bredde og midtpunkt, rund pille 64 px, ingen cast
-//  · skjules i #media, hold på pause → media_pause + skjult til neste avspilling (sessionStorage), tilbake ved playing
+//  · skjules i #media, hold på play/pause → bare skjult til neste avspilling (19.7: ingen pause), tilbake ved playing
+//  · 19.6 spillervalg i nedtrekksliste · 19.9 Mer-menyen over mini-spilleren + hold/dra omorganiserer ikonene · 19.15 TV: − / + i pillen
 //  · volum: trykk → pille, dra → volume_set; hold → volume_mute
 //  · flere spillere → prikker + sveip; av i config → ingen mini
 //  · bred (rail) med HA-sidebar: mini-spilleren ligger innenfor dashbordflaten (aldri over sidebaren), over høyre fliskolonne (18.4/18.8)
@@ -99,11 +100,13 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   await p.waitForTimeout(400);
   m = await mini(p);
   ok('tilbake når popupen lukkes', m && !m.off);
-  // hold pause → skjult til neste avspilling
+  // hold play/pause → bare skjult til neste avspilling (Fiks 19.7: ingen pause)
+  await p.evaluate(() => { window.__calls.length = 0; });
   await hold(p, '.mpp', 800);
   m = await mini(p);
   const ss = await p.evaluate(() => sessionStorage.getItem('ki:mini:hidden'));
-  ok('hold pause → media_pause + skjult + sessionStorage', (await calls(p)).includes('media_pause') && m && m.off && !!ss);
+  const hc = await calls(p);
+  ok('19.7 hold play/pause → skjult + sessionStorage, INGEN media_pause/play_pause', !hc.length && m && m.off && !!ss, hc);
   await p.evaluate(() => setSt('media_player.kjokken_radio', 'paused')); await p.waitForTimeout(300);
   ok('forblir skjult når spilleren pauses', (await mini(p)).off);
   await p.evaluate(() => setSt('media_player.kjokken_radio', 'playing')); await p.waitForTimeout(300);
@@ -128,8 +131,69 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   const tools = col.filter((x) => x[0].startsWith('__')), list = col.filter((x) => !x[0].startsWith('__'));
   ok('17.27 standard: verktøy = samme farge som punktene over', tools.length && list.length && tools.every((t) => t[1] === list[0][1] && t[2] === list[0][2] && t[3] === '1'), col);
   ok('ingen sidefeil (mobil)', !errs.length, errs);
+  // 19.9: menyen løftes over mini-spilleren (dekker den ikke)
+  const ov = await p.evaluate(() => { const mb = deep('.mbox'), mi = deep('[data-mini]'); return mb && mi ? { mb: rect(mb), mi: rect(mi), off: mi.classList.contains('off') } : null; });
+  ok('19.9 Mer-menyen står over mini-spilleren uten å dekke den', ov && !ov.off && ov.mb.b <= ov.mi.t - 4, ov);
   if (SHOT) await p.screenshot({ path: SHOT + '/mini-meny.png' });
   await p.close();
+}
+/* ---------------- 19.9: hold og dra for å omorganisere navbar-ikonene */
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, { hidden: ['basseng'] });
+  const order = () => p.evaluate(() => deepAll('nav.nb .it').map((b) => b.dataset.id));
+  const o0 = await order();
+  const pts = await p.evaluate(() => deepAll('nav.nb .it').map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }));
+  await p.evaluate(() => { window.__hash0 = location.hash; });
+  const c = await p.context().newCDPSession(p);
+  await c.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pts[0].x, y: pts[0].y }] }); await p.waitForTimeout(600);
+  const lift = await p.evaluate(() => { const b = deep('nav.nb .it.lift'); return b ? getComputedStyle(b).transform : null; });
+  for (let i = 1; i <= 8; i++) { await c.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pts[0].x + (pts[2].x - pts[0].x + 6) * i / 8, y: pts[0].y }] }); await p.waitForTimeout(40); }
+  await c.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(700);
+  const o1 = await order();
+  const bar = await p.evaluate(() => deep('msh-navbar-card').config.bar);
+  ok('19.9 hold + dra → løftet ikon (scale 1.12)', !!lift && /matrix\(1\.12/.test(lift), lift);
+  ok('19.9 ny rekkefølge i navbaren', o1[0] === o0[1] && o1[1] === o0[2] && o1[2] === o0[0], { o0, o1 });
+  ok('19.9 lagret i config.bar, skjult ikon beholder plassen', Array.isArray(bar) && bar[3] === 'basseng' && bar.indexOf(o0[0]) === 2, bar);
+  ok('19.9 draget åpnet ingen popup', await p.evaluate(() => location.hash === window.__hash0));
+  // vanlig trykk virker som før
+  await tap(p, `nav.nb [data-id="${o1[0]}"]`);
+  ok('19.9 vanlig trykk åpner fortsatt popupen', await p.evaluate((id) => location.hash === '#' + id, o1[0]));
+  // flytt > 8 px før holdet → avbrutt
+  await p.evaluate(() => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); }); await p.waitForTimeout(300);
+  await c.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pts[1].x, y: pts[1].y }] }); await p.waitForTimeout(100);
+  await c.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pts[1].x + 30, y: pts[1].y }] }); await p.waitForTimeout(500);
+  const noLift = await p.evaluate(() => !deep('nav.nb .it.lift'));
+  await c.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(400);
+  ok('19.9 bevegelse > 8 px før holdet → ingen omorganisering', noLift && JSON.stringify(await order()) === JSON.stringify(o1));
+  ok('ingen sidefeil (omorganiser)', !errs.length, errs);
+  await p.close();
+}
+/* ---------------- 19.15: TV i mini-spilleren → − / % / + i pillen */
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, {});
+  await p.evaluate(() => { setSt('media_player.kjokken_radio', 'off'); setSt('media_player.prosjektor', 'playing'); }); await p.waitForTimeout(400);
+  await tap(p, '.mvb');
+  const tv = await p.evaluate(() => { const v = deep('.mvp'); if (!v) return null; const st = [...v.querySelectorAll('.mst')].map((b) => rect(b)); return { tvs: v.classList.contains('tvs'), n: st.length, w: st.map((r) => r.w), txt: v.innerText.trim(), h: rect(v).h, x: !!deep('.mvb [icon="mdi:close"]') }; });
+  ok('19.15 TV: pille med − · % · + (34 px), knappen blir ✕', tv && tv.tvs && tv.n === 2 && tv.w.every((w) => w === 34) && /24\s*%/.test(tv.txt) && tv.h === 40 && tv.x, tv);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await tap(p, '.mvp .mst[data-d="1"]');
+  ok('19.15 trykk + → media_player.volume_up', JSON.stringify(await calls(p)) === '["volume_up"]', await calls(p));
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await hold(p, '.mvp .mst[data-d="-1"]', 1200);
+  const dn = await calls(p);
+  ok('19.15 hold − → gjentar (hvert 250 ms etter 400 ms)', dn.length >= 3 && dn.every((x) => x === 'volume_down'), dn);
+  await p.waitForTimeout(3300);
+  ok('19.15 pillen lukkes 3 s etter siste trykk', await p.evaluate(() => !deep('.mvp')));
+  await p.evaluate(() => setSt('media_player.prosjektor', 'playing', { volume_level: undefined })); await p.waitForTimeout(300);
+  await tap(p, '.mvb');
+  ok('19.15 uten volume_level: bare ikonet (ingen %)', await p.evaluate(() => { const v = deep('.mvp .mvl'); return v && !/%|–/.test(v.innerText); }));
+  ok('ingen sidefeil (TV)', !errs.length, errs);
+  await p.close();
+  const e2 = await setup({ width: 390, height: 844 }, { mini: { tv_vol: 'slider' } });
+  await e2.p.evaluate(() => { setSt('media_player.kjokken_radio', 'off'); setSt('media_player.prosjektor', 'playing'); }); await e2.p.waitForTimeout(400);
+  await tap(e2.p, '.mvb');
+  ok('19.15 «Volum for TV: Slider» → vanlig slider', await e2.p.evaluate(() => { const v = deep('.mvp'); return v && !v.classList.contains('tvs') && v.dataset.set === '1'; }));
+  await e2.p.close();
 }
 /* ---------------- glass + meny */
 {
@@ -188,12 +252,34 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
     const ent = q('[data-search="nbmq"]').length > 0;
     q('[data-a="nbmini"][data-k="hide_in_media"]')[0].click(); await new Promise((q2) => setTimeout(q2, 50));
     const c2 = last && last.mini;
+    // 19.6: Spillere = én lukket rad (msh-entity-multi) → åpen: søk, Vanlige/Valgt/Alle, gruppert liste, «Alle»
+    const mm = q('msh-entity-multi')[0], ms = mm && mm.shadowRoot;
+    const closed = mm ? { rows: ms.querySelectorAll('.mh').length, h: ms.querySelector('.mh').getBoundingClientRect().height, txt: ms.querySelector('.mh').innerText, list: !!ms.querySelector('.ls'), chips: q('[data-a="nbmpl"]').length } : null;
+    if (mm) { ms.querySelector('.mh').click(); await new Promise((q2) => setTimeout(q2, 50)); }
+    const open = mm ? { sq: !!ms.querySelector('.sq'), seg: [...ms.querySelectorAll('.sg button')].map((b) => b.textContent), gh: [...ms.querySelectorAll('.gh')].map((b) => b.textContent), rows: ms.querySelectorAll('.rw').length, mh: getComputedStyle(ms.querySelector('.ls')).maxHeight, ov: getComputedStyle(ms.querySelector('.ls')).overflowY, osb: getComputedStyle(ms.querySelector('.ls')).overscrollBehaviorY } : null;
+    let pl = null;
+    if (mm) {
+      ms.querySelector('.rw[data-v="media_player.kjokken_radio"]').click(); await new Promise((q2) => setTimeout(q2, 50));
+      pl = last && last.mini && last.mini.players;
+      const i = ms.querySelector('.sq'); i.value = 'prosj'; i.dispatchEvent(new Event('input', { bubbles: true, composed: true })); await new Promise((q2) => setTimeout(q2, 50));
+      open.search = [...ms.querySelectorAll('.rw')].map((b) => b.dataset.v);
+      ms.querySelector('.ft button').click(); await new Promise((q2) => setTimeout(q2, 50));
+      open.cleared = last && last.mini ? last.mini.players : 'x';
+      open.headAfter = ms.querySelector('.mh').innerText;
+    }
+    q('[data-a="nbmtv"][data-v="slider"]')[0].click(); await new Promise((q2) => setTimeout(q2, 50));
+    const tvv = last && last.mini && last.mini.tv_vol;
     q('[data-a="nbmini"][data-k="on"]')[0].click(); await new Promise((q2) => setTimeout(q2, 50));
-    return { has, c1, ent, c2, c3: last && last.mini, after: q('[data-a="nbmcond"]').length };
+    return { has, c1, ent, c2, c3: last && last.mini, after: q('[data-a="nbmcond"]').length, closed, open, pl, tvv };
   });
   ok('editor: Mini-spiller-seksjon', r.has);
   ok('editor: Vis når → Betingelse lagres + entitetsvelger', r.c1 && r.c1.cond === 'entity' && r.ent, r.c1);
   ok('editor: Skjul i Media-popupen av', r.c2 && r.c2.hide_in_media === false, r.c2);
+  ok('19.6 Spillere er én lukket rad (48 px, ingen chip-vegg)', r.closed && r.closed.rows === 1 && Math.round(r.closed.h) === 48 && !r.closed.list && !r.closed.chips && /Alle spillere/.test(r.closed.txt), r.closed);
+  ok('19.6 åpen: søk, Vanlige · Valgt · Alle, grupper med antall, liste 300 px som ruller inni', r.open && r.open.sq && r.open.seg.length === 3 && /^Vanlige/.test(r.open.seg[0]) && /^Valgt · \d/.test(r.open.seg[1]) && /^Alle · \d/.test(r.open.seg[2]) && r.open.gh.some((g) => /^TV · \d/.test(g)) && r.open.mh === '300px' && r.open.ov === 'auto' && r.open.osb === 'contain', r.open);
+  ok('19.6 avkrysning lagrer mini.players', Array.isArray(r.pl) && r.pl.length === 1 && r.pl[0] === 'media_player.kjokken_radio', r.pl);
+  ok('19.6 søk filtrerer, «Alle» tømmer valget', r.open && r.open.search.length >= 1 && r.open.search.every((x) => /prosj/.test(x)) && r.open.cleared === undefined && /Alle spillere/.test(r.open.headAfter), r.open);
+  ok('19.15 editor: Volum for TV → Slider lagres', r.tvv === 'slider', r.tvv);
   ok('editor: Vis over navbaren av → resten skjules', r.c3 && r.c3.on === false && r.after === 0, r);
   ok('ingen sidefeil (editor)', !errs.length, errs);
   await p.close();

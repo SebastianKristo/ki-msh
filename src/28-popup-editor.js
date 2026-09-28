@@ -431,6 +431,7 @@
     return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops"><style>${CSS}</style>
       ${bar}${warns}
       <div class="pl">${rows}</div>${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
+      ${(g === 'alle' || g === 'fn') && M.doorbellModeHTML && M.ringFind && M.ringFind(ed.hass) ? M.doorbellModeHTML('ppring') : ''}
       <span class="hint">Trykk en popup for å redigere navn, ikon og farge – eller hele YAML-en. Egne popups kan ha alle Bubble Card-valg og vilkårlige kort${nCustom > 1 ? '; dra i ⠿ for rekkefølge' : ''}. Endringer tas i bruk straks.</span>
     </div>`;
   }
@@ -844,6 +845,7 @@
     },
     act(ed, a, d) {
       const u = ed.u;
+      if (a === 'ppring') { if (M.setDoorbellMode) M.setDoorbellMode(d.v); ed.render(); return true; } // 19.18: «Når det ringer» (per bruker × enhet)
       if (a === 'ppstrom') { u.pv = 'strom'; u.pd = null; u.ppMenu = false; ed.render(); return true; }
       if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
       switch (a) {

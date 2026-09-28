@@ -1,5 +1,5 @@
 /* msh-hjem-faner-card · Hjem: fanerad + romkort. Kilde: Hjem v2.dc.html (floorTabs/glassTabs, karusell, liste, aktuelt,
- * batterier, snarvei-fliser, sveip-slides, rom-merker, custEditVals/editVals/lookEd, layoutVals/isWide/curZoom).
+ * batterier, snarvei-fliser, sveip-slides, rom-merker, custEditVals/editVals/lookEd; layout: Fold-oppsettet via MSH.isFold, fiks 18.7/19.11).
  * Faner = Hjem + etasjer fra hass.floors (+ «Andre rom» + egne faner) + Aktuelt (+ Batterier når noe er lavt).
  * Rom = alle HA-områder (M.areas), nye rom dukker opp automatisk. Romkortene rendres med M.romkortHTML fra 32-romkort.js
  * (slås opp ved render-tid – filen lastes etter denne).
@@ -32,17 +32,27 @@
    *   tom = standard fra DEF_TAP. Bakoverkompatibelt: overrides.<type> (entitet) og tap.<type> (card_hash/icon) leses
    *   når tile_cfg mangler. Fiks 16.7-aliaser (Dørlås): tap_action (begge trykk), hold_action, icon_hold_action. */
   const NAV = (h) => ({ action: 'navigate', navigation_path: h });
+  const CAM_NAV = NAV('/dashboard-kamera'); // fiks 19.3: standard trykk på Kamera-flisen
+  // Fiks 19.3 · «migrering» uten lagring: en Kamera-flis uten egen trykk-handling (tap_card, 16.7-aliaset tap_action eller
+  // gammel tap.cam.card_hash) får Navigate /dashboard-kamera, og begge editorene viser den som valgt. Config skrives ikke
+  // om (en lagret tile_cfg i ki-store ville ellers skygget for YAML-ens tile_cfg); en handling brukeren velger, lagres som før.
+  const camTapShown = (c, id) => {
+    const t = ((c && c.tile_cfg) || {})[id] || {}, legacy = id === 'cam' && ((c && c.tap) || {}).cam;
+    return t.tap_card || t.tap_action || (legacy && legacy.card_hash) ? null : { ...CAM_NAV };
+  };
   // Standardhandlinger (Hjem v3 · DEF_TAP): ic = trykk på ikonet, card = trykk på kortet, hold_ic / hold_card = hold.
   // Mangler en nøkkel: ikon → typens veksling (ellers som kortet), kort → typens popup (ellers more-info),
   // hold på kortet → more-info, hold på ikonet → ingen.
   const DEF_TAP = {
     lock: { ic: { action: 'toggle' }, card: { action: 'toggle' }, hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } },
     alarm: { ic: { action: 'toggle' }, card: NAV('#sikkerhet') },
+    cam: { card: CAM_NAV }, // fiks 19.3: trykk → kamera-dashbordet (ikonet følger kortet), hold → more-info
     jul: { ic: { action: 'none' }, card: { action: 'none' } },
   };
   const TAP_KEYS = { ic: 'tap_icon', card: 'tap_card', hold_ic: 'hold_icon', hold_card: 'hold_card' };
   const TAP_FIELDS = [['ic', 'Trykk på ikonet'], ['card', 'Trykk på kortet'], ['hold_ic', 'Hold på ikonet'], ['hold_card', 'Hold på kortet']];
-  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'more', 'service', 'none'];
+  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'path', 'more', 'service', 'none'];
+  const TAP_LABELS = { path: 'Navigate' }; // fiks 19.3: dashbord-sti (f.eks. /dashboard-kamera)
   // Entitetsdomene per flis-type (søkbar velger i «Tilpass Hjem» → Kort og GUI-editoren). Apparater: status-sensor.
   const TILE_DOM = { lock: 'lock', alarm: 'alarm_control_panel', cam: 'camera', todo: 'todo', garage: 'cover', ruter: 'sensor', tv: 'media_player', vacr: 'vacuum', dish: ['sensor', 'binary_sensor', 'switch'], wash: ['sensor', 'binary_sensor', 'switch'], dry: ['sensor', 'binary_sensor', 'switch'] };
   const tapLabel = (a, w) => {
@@ -50,7 +60,7 @@
     if (a.action === 'toggle') return 'Veksle';
     if (a.action === 'more-info') return 'More-info';
     if (a.action === 'none') return 'Ingen';
-    if (a.action === 'navigate') return a.navigation_path;
+    if (a.action === 'navigate') return a.navigation_path[0] === '#' ? a.navigation_path : 'Navigate · ' + a.navigation_path;
     return M.tap ? M.tap.label(a) : a.action;
   };
   // Ny id for en ekstra flis av samme type: lock_2, lock_3 …
@@ -145,12 +155,13 @@
 
   /* ------------------------------------------------------------ adaptiv layout */
   // Mål dashbordflaten (ikke vinduet). Mobil = én kolonne (maks 420 px), Fold (MSH.isFold) = samme kolonne i full bredde.
-  M.hjemLayout = M.hjemLayout || function (mode, vw) {
+  // Fiks 19.11: alltid denne definisjonen (ingen «||» – en eldre kopi av bunten skal ikke kunne beholde den brede griden).
+  M.hjemLayout = function (mode, vw) {
     const w = vw || M.dashRect().width;
     // Fiks 18.7: den brede griden (2/3 kolonner + zoom) er erstattet av Fold-oppsettet: telefon-innholdet i full bredde,
     // ingen max-width og ingen zoom. «Stor» = Fold.
     const fold = mode === 'stor' ? true : mode === 'mobil' ? false : M.isFold(w);
-    return { wide: false, fold, pc: false, cols: 1, zoom: 1, vw: w };
+    return { fold, vw: w };
   };
 
   /* ------------------------------------------------------------ swipe (karusell / flis-stabler) */
@@ -306,7 +317,7 @@
   const kindIcon = (k, c) => { const kd = kindOf(c, k); return kd ? tileCfg(c, k).icon || KINDS[kd][0] : ((c.links || {})[k] || {}).icon || 'mdi:star'; };
   // Standardplass for en flis: tile_cfg.<id>.side/pos (ny flis) → standard for typen
   const defSlot = (c, tk, k) => { const x = tileCfg(c, k); if (/^[LR]$/.test(x.side || '') && /^(top|bottom)$/.test(x.pos || '')) return x.side + '-' + x.pos; return (TILE_DEF[tk] || {})[kindOf(c, k) || k]; };
-  M.hjemTiles = { KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
+  M.hjemTiles = { KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TAP_LABELS, CAM_NAV, camTapShown, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
   // Hjem med kuratert liste (t.hc): bare kort i tabs.hjem.cards vises; plass = lagret plass eller standard (apparater o.l.: høyre, over rom).
   const tileSlot = (c, t, k) => {
     if (t.hc) {
@@ -434,7 +445,9 @@
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
     static get cardName() { return 'Hjem · faner og romkort'; }
-    static get defaults() { return { toasts: true, zoom: true }; }
+    static get defaults() { return { toasts: true }; }
+    // fiks 19.3: ny flis-oppsett har Kamera-trykket valgt som Navigate /dashboard-kamera
+    static getStubConfig() { return { ...super.getStubConfig(), tile_cfg: { cam: { tap_card: { ...CAM_NAV } } } }; }
     static get schema() {
       return (hass, c) => {
         if (!hass) return [];
@@ -516,7 +529,7 @@
                 { type: 'text', name: P + '.sub_format', label: 'Undertekst · format', placeholder: RUTER_FMT, help: 'Tokens: {route} {due_in} {delay} {next} {avvik}' },
               ] : [{ type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] }]),
               ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
-              ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
+              ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, labels: TAP_LABELS, ...(kd === 'cam' && w === 'card' ? { auto: (h, cc) => camTapShown(cc, k) } : {}), stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
           }
           out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
             const hc = get(cc, 'tabs.hjem.cards'), extra = kd && k !== kd;
@@ -602,7 +615,7 @@
     connectedCallback() {
       super.connectedCallback();
       if (!this._ro && window.ResizeObserver) {
-        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.wide !== L.wide || o.fold !== L.fold || o.zoom !== L.zoom || o.pc !== L.pc) this.update(); });
+        this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.fold !== L.fold) this.update(); });
         this._ro.observe(this);
       }
     }
@@ -620,8 +633,7 @@
       const ha = !!document.querySelector('home-assistant');
       const vw = ha ? M.dashRect().width : ((this.parentElement && this.parentElement.getBoundingClientRect().width) || M.dashRect().width);
       const L = M.hjemLayout(c.layout_mode || 'auto', vw);
-      if (c.zoom === false || this.mshEmbedded) L.zoom = 1; // i msh-hjem-card zoomer containeren hele griden
-      if (this.mshEmbedded && this.mshEmbedded.wide != null) { L.wide = this.mshEmbedded.wide; L.pc = !!this.mshEmbedded.pc; L.fold = !!this.mshEmbedded.fold; }
+      if (this.mshEmbedded) L.fold = !!this.mshEmbedded.fold; // i msh-hjem-card bestemmer containeren (Fold / mobil)
       return L;
     }
 
@@ -693,7 +705,7 @@
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
       return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
         <span class="ind" style="${ind}"></span>
-        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" role="tab" aria-selected="${i === idx}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</button>`).join('')}
+        ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" role="tab" aria-selected="${i === idx}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}${t.kind === 'hjem' && i !== idx && M.ringDot && M.ringDot() ? '<span class="rdot" style="display:inline-block;width:7px;height:7px;border-radius:4px;margin-left:6px;vertical-align:middle;background:var(--pink,#f285c9)"></span>' : ''}</button>`).join('')}
       </div></div>`;
     }
 
@@ -1200,7 +1212,7 @@
       if (!M.romkortHTML || !M.romData) return '<div class="empty">Romkort-modulen mangler</div>';
       const L = (this._L = this._calcLayout());
       this._ticking = false;
-      const wrap = (inner) => `<div class="hf ${L.wide ? 'wide' : ''} ${L.fold ? 'fold' : ''}" style="${L.zoom !== 1 ? `zoom:${L.zoom}` : ''}">${inner}</div>`;
+      const wrap = (inner) => `<div class="hf ${L.fold ? 'fold' : ''}">${inner}</div>`;
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
       const B = this._batteries(), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
@@ -1222,12 +1234,17 @@
         const empty = !rooms.length && !/class="(tile|slot|rk|u u-)/.test(cols);
         view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen apparater, åpne dører, lave batterier eller avvik.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
       }
-      return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${view}</section>`);
+      const ring = cur.kind === 'hjem' ? '<div class="ring-slot" style="display:contents" data-ring-slot data-key="ring-slot" data-nomorph></div>' : ''; // 19.18: ringe-kortet (monteres av msh-hjem-card)
+      return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${ring}${view}</section>`);
     }
     onAction(name, el, ev) {
       const d = el.dataset;
       if (name === 'tab') return this._pickTab(Number(d.i));
-      if (name === 'tile') return this._runTile(d.k, d.w);
+      if (name === 'tile') {
+        // fiks 19.3: sveip i flis-stabelen (Kamera/Ruter) er ikke trykk – pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
+        if (ev && ev.detail !== 0 && this._pdXY && ev.clientX != null && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
+        return this._runTile(d.k, d.w);
+      }
       if (name === 'appl') { const A = this._appl(d.k, (this._E || {})[d.k]); if (A) this._applAct(A); return; }
       if (name === 'slide' && d.s === 'cal') {
         // swipe mellom sidene er ikke trykk: pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
@@ -1338,7 +1355,7 @@
       return `${M.romkortCSS || ''}
         ${M.APPLIANCE_CSS || ''}
         .hf{display:block;width:100%}
-        .hf:not(.wide){max-width:420px;margin:0 auto}
+        .hf:not(.fold){max-width:420px;margin:0 auto}
         .hf.fold{max-width:none;margin:0}
         .sec{display:flex;flex-direction:column;gap:12px}
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}

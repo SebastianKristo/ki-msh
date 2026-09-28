@@ -1,6 +1,8 @@
 // Fiks 17.13/17.15/17.20: «Hilsen»/«Sted» i headeren (én rad, store bilder, merker), justerbare størrelser,
 // tittelen krymper før den kortes. Fiks 18.4/18.7: Fold-oppsettet (≥ 1000 px, berøring ≥ 600 px: Fold, iPad, PC) =
 // telefon-innholdet i én kolonne i full bredde, padding-left = rail + 2 × avstand, header skalert 0,72, ingen zoom.
+// Fiks 19.12: navnet har forrang – bildene overlapper (−14), krymper (40), så teksten (28), til slutt «+N»; aldri ellipsis.
+// Fiks 19.13: header-profiler per bruker × enhetsklasse (ki-store header_profiles) – «Redigerer: bruker · enhet ▾».
 import { createRequire } from 'node:module';
 import { readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -32,7 +34,9 @@ const measure = `(() => {
   const arrow = tx.nextElementSibling ? Math.round(tx.nextElementSibling.getBoundingClientRect().left - tx.getBoundingClientRect().right) : null;
   const hr = H.getBoundingClientRect(), last = f.length ? f[f.length - 1] : null, lastBd = [...R.querySelectorAll('.faces .bd')].pop();
   const g = all.find((e) => e.classList && e.classList.contains('g'));
-  return { hil: !!R.querySelector('.hd.hil'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
+  const f0 = R.querySelector('.faces .face'), more = R.querySelector('.faces .face.more');
+  return { txR: Math.round(tx.getBoundingClientRect().right), f0L: f0 ? Math.round(f0.getBoundingClientRect().left) : null, more: more ? more.textContent.trim() : null, hR: Math.round(hr.right),
+    hil: !!R.querySelector('.hd.hil'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
     av, bd, gaps: over, arrowGap: arrow, overflow: top.scrollWidth > top.clientWidth + 1 || (lastBd ? lastBd.getBoundingClientRect().right > hr.right + 0.5 : false),
     layout: g ? g.className : null, gW: g ? Math.round(g.getBoundingClientRect().width) : null, dashW: Math.round(document.getElementById('dash').getBoundingClientRect().width),
     padL: g ? parseFloat(getComputedStyle(g).paddingLeft) : null, zoom: g ? getComputedStyle(g).zoom : null, grid: g ? getComputedStyle(g).display : null,
@@ -65,10 +69,10 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
   if (fold) ok(m.fs <= 42.01 && m.av.every((x) => x <= 45) && m.bd.every((x) => x <= 17) && !m.cut, `${name}: header ikke skalert 0,72 (${m.fs}px, ${m.av}, ${m.bd}, kuttet ${m.cut})`);
   else ok(m.fs > 42.01 || m.av.some((x) => x > 45) || w < 420, `${name}: telefon-header er skalert`);
   ok(m.hil, `${name}: standard er ikke Hilsen`);
-  // Ellipsis bare som siste utvei: 18 px, bildene 32 px og full overlapp (−12)
-  ok(!m.cut || (m.fs <= 18.01 && m.av.every((x) => x <= 32) && m.gaps.every((g) => g <= -12)), `${name}: tittelen er kuttet før bildene er krympet (${m.text} ${m.fs}px, ${m.av}, ${m.gaps})`);
+  // Fiks 19.12: navnet vises alltid helt (ingen ellipsis, ikke dekket av bildene), minst 28 px
+  ok(!m.cut && m.text === '👋 Sebastian!' && (m.f0L == null || m.txR <= m.f0L), `${name}: navnet er kuttet/dekket (${m.text} ${m.fs}px, tekst → ${m.txR}, bilder fra ${m.f0L})`);
   ok(!m.overflow, `${name}: horisontal overflow i header-raden`);
-  ok(m.fs >= 18 - 0.01, `${name}: tittel under 18 px`);
+  ok(m.fs >= 28 - 0.01, `${name}: tittel under 28 px (${m.fs})`);
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr-${name}.png` });
   ok(!p.__errs.length, `${name}: ${p.__errs.join(' | ')}`);
   // Live bretting: 884 → 412 → 884 uten reload
@@ -81,6 +85,31 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
     const m3 = await p.evaluate(measure); res.foldIgjen = m3.layout;
     ok(/fold/.test(m3.layout) && Math.abs(m3.padL - 120) < 0.5 && m3.fs <= 42.01, 'bretting: ble ikke Fold igjen');
   }
+  await p.close();
+}
+
+// 19.12: telefon 360 / 393 / 412 (Pixel 9 Pro / Fold lukket) / 430 – «👋 Sebastian!» helt; bildene tilpasser seg
+for (const w of [360, 393, 412, 430]) {
+  const p = await page(w, 900, true);
+  await hjem(p);
+  const m = await p.evaluate(measure); res['w' + w] = { fs: m.fs, av: m.av, gaps: m.gaps, bd: m.bd, more: m.more, txR: m.txR, f0L: m.f0L };
+  ok(m.text === '👋 Sebastian!' && !m.cut && m.txR <= m.f0L, `19.12 ${w}: navnet dekkes (${m.txR} / ${m.f0L})`);
+  ok(m.fs >= 28 - 0.01, `19.12 ${w}: tekst under 28 px (${m.fs})`);
+  ok(m.av.every((x) => x >= 40), `19.12 ${w}: bilder under 40 px (${m.av})`);
+  ok(m.av.length < 2 || m.gaps.every((g) => g <= -13), `19.12 ${w}: bildene overlapper ikke før de krymper (${m.gaps})`);
+  ok(m.bd.every((x, i) => x <= 24 && x <= Math.round(m.av[i] * 0.4) + 1), `19.12 ${w}: merke ikke 40 % av bildet (${m.bd} / ${m.av})`);
+  ok(!m.overflow, `19.12 ${w}: overflow`);
+  if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr1912-${w}.png` });
+  ok(!p.__errs.length, `19.12 ${w}: ${p.__errs.join(' | ')}`);
+  await p.close();
+}
+// 19.12 ④: mange personer på smal skjerm → «+N» i stedet for de siste bildene
+{
+  const p = await page(360, 900, true);
+  await hjem(p);
+  const m = await p.evaluate(measure);
+  ok(m.more == null || /^\+\d$/.test(m.more), `19.12 +N: ${m.more}`);
+  res.plusN = m.more;
   await p.close();
 }
 
@@ -106,9 +135,10 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
   // størrelser: stort merke klemmes til 50 %, overlapp
   await hjem(p, { hBadge: 32, hAv: 40, hGap: -12, hFont: 30, hTGap: 0 });
   const z = await p.evaluate(measure); res.sizes = z;
-  ok(z.bd.every((x, i) => x <= z.av[i] / 2 + 0.5), `merke > 50 %: ${z.bd} / ${z.av}`);
+  ok(z.bd.every((x, i) => x <= z.av[i] * 0.4 + 0.5), `merke > 40 %: ${z.bd} / ${z.av}`);
   ok(z.fs <= 30.01, `hFont ignoreres: ${z.fs}`);
   ok(z.gaps.every((g) => g < 0), `hGap negativ gir ikke overlapp: ${z.gaps}`);
+  ok(z.fs <= 30.01 && !z.cut, `hFont 30: ${z.fs}`);
   // live endring via setConfig på headeren (som editoren gjør)
   const live = await p.evaluate(async () => {
     const all = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { all.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document);
@@ -152,6 +182,93 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
   res.gui = { modes: g.modes, h: g.names.filter((n) => /^h[A-Z]/.test(n)) };
   ok(g.modes.join(',') === 'Hilsen,Sted*,Navn,Hjem,Stor hilsen,Profil', `GUI Oppsett: ${g.modes}`);
   ok(['hFont', 'hAv', 'hBadge', 'hGap', 'hTGap'].every((k) => g.names.includes(k)), `GUI slidere mangler: ${g.names.filter((n) => /^h[A-Z]/.test(n))}`);
+  await p.close();
+}
+// 19.13: header-profil per bruker × enhetsklasse
+{
+  const FOLD = 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro Fold Build/AP4A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0 Mobile Safari/537.36';
+  const ctx = await b.newContext({ viewport: { width: 884, height: 1032 }, hasTouch: true, userAgent: FOLD });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto('file://' + resolve('test/harness.html'));
+  for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
+  await p.addScriptTag({ path: bundle });
+  await hjem(p);
+  const hdrFs = () => p.evaluate(() => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); const H = o.find((e) => e.localName === 'msh-hjem-header-card' && e.getBoundingClientRect().width > 0 && !(e.parentElement && e.parentElement.classList.contains('xpvi'))); return parseFloat(getComputedStyle(H.shadowRoot.querySelector('.ttl .tx')).fontSize); });
+  const fs0 = await hdrFs();
+  const r = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
+    const H = all().find((e) => e.localName === 'msh-hjem-header-card');
+    H.customize(); await wait(600);
+    const E = all().find((e) => e.localName === 'msh-hjem-editor'), R = E.shadowRoot;
+    const bar = () => R.querySelector('.xprof .xpl1 .xpsel b').parentElement.parentElement.querySelectorAll('.xpsel > b');
+    const out = { cls: MSH.deviceClass(), line: [...bar()].map((x) => x.textContent).join(' · '), lab: R.querySelector('.xplab').textContent, pv: R.querySelector('.xpvi') && R.querySelector('.xpvi').style.width };
+    const sl = () => R.querySelector('input[type=range][data-name="hFont"]');
+    const s = sl(); s.value = '30'; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(300);
+    out.store = JSON.parse(JSON.stringify(MSH.store.get('header_profiles') || {}));
+    out.dot = !!R.querySelector('.xpown');
+    const cs = R.querySelector('select[data-psel="cls"]'); cs.value = 'fold_closed'; cs.dispatchEvent(new Event('change', { bubbles: true })); await wait(300);
+    out.closed = { v: sl().value, pv: R.querySelector('.xpvi').style.width, help: R.querySelector('.xprof .help').textContent, opts: [...R.querySelector('select[data-psel="cls"]').options].map((o) => o.textContent) };
+    const us = R.querySelector('select[data-psel="user"]'); out.users = [...us.options].map((o) => o.textContent);
+    // GUI-editoren har samme velger
+    const G = customElements.get('msh-hjem-header-card').getConfigElement(); G.hass = H.hass; G.setConfig({ type: 'custom:msh-hjem-header-card' }); document.body.appendChild(G); await wait(300);
+    out.gui = !!G.shadowRoot.querySelector('.xprof select[data-psel="cls"]');
+    G.remove();
+    window.__E = E;
+    return out;
+  });
+  res.prof = r;
+  ok(r.cls === 'fold_open' && r.lab === 'Redigerer:' && /^Sebastian · Pixel Fold \(åpen\)denne$/.test(r.line), `19.13 linjen: ${r.lab} ${r.line}`);
+  ok(r.pv === '840px', `19.13 forhåndsvisning Fold åpen: ${r.pv}`);
+  ok(r.store['u1/fold_open'] && r.store['u1/fold_open'].hFont === 30 && Object.keys(r.store).length === 1 && r.dot, `19.13 lagret: ${JSON.stringify(r.store)}`);
+  const fs1 = await hdrFs();
+  ok(Math.abs(fs1 - 30 * 0.72) < 0.6 && fs0 > fs1, `19.13 headeren følger profilen live: ${fs0} → ${fs1}`);
+  ok(r.closed.v === '58' && r.closed.pv === '412px' && /Arver fra kortets oppsett/.test(r.closed.help) && r.closed.opts.includes('● Pixel Fold (åpen) · denne'), `19.13 Fold lukket arver: ${JSON.stringify(r.closed)}`);
+  ok(r.users.join(',') === '● Sebastian,Alle brukere', `19.13 brukere (admin): ${r.users}`);
+  ok(r.gui, '19.13 GUI-editoren mangler bruker-/enhetsvelgeren');
+  // bretting uten reload: 884 → 412 (fold_closed: standard) → 884 (fold_open: 30 px · 0,72)
+  await p.setViewportSize({ width: 412, height: 915 }); await p.waitForTimeout(600);
+  const fsC = await hdrFs(), clsC = await p.evaluate(() => MSH.deviceClass());
+  await p.setViewportSize({ width: 884, height: 1032 }); await p.waitForTimeout(600);
+  const fsO = await hdrFs();
+  res.bretting = [clsC, fsC, fsO];
+  ok(clsC === 'fold_closed' && fsC >= 28 && Math.abs(fsC - fs1) > 2 && Math.abs(fsO - fs1) < 0.6, `19.13 bretting bytter profil: ${res.bretting}`);
+  // iPhone (samme bruker) påvirkes ikke
+  const fsI = await p.evaluate(async () => { MSH.deviceClassOverride('iphone'); await new Promise((q) => setTimeout(q, 300)); const v = MSH.hjemHeaderProfile().hFont; MSH.deviceClassOverride(null); return v; });
+  ok(fsI == null, `19.13 iPhone arver ikke Fold åpen: ${fsI}`);
+  // Tilbakestill til arvet
+  const rs = await p.evaluate(async () => {
+    const E = window.__E, R = E.shadowRoot, wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const cs = R.querySelector('select[data-psel="cls"]'); cs.value = 'fold_open'; cs.dispatchEvent(new Event('change', { bubbles: true })); await wait(200);
+    const btn = R.querySelector('[data-a="x-preset"]'), dis0 = btn.disabled;
+    btn.click(); await wait(300);
+    return { dis0, store: MSH.store.get('header_profiles') || null, v: R.querySelector('input[type=range][data-name="hFont"]').value, dis1: R.querySelector('[data-a="x-preset"]').disabled };
+  });
+  const fsR = await hdrFs();
+  ok(!rs.dis0 && rs.store == null && rs.v === '58' && rs.dis1 && Math.abs(fsR - fs0) < 0.6, `19.13 Tilbakestill til arvet: ${JSON.stringify(rs)} ${fsR}`);
+  ok(!errs.length, `19.13: ${errs.join(' | ')}`);
+  await ctx.close();
+}
+// 19.13: en annen bruker (ikke admin) ser bare sin egen profil
+{
+  const p = await page(412, 915, true);
+  await p.evaluate(() => localStorage.setItem('ki:store', JSON.stringify({ header_profiles: { 'u1/annen': { hFont: 30 }, 'u1/*': { hFont: 31 } } })));
+  const r = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const h = window.mockHass(); h.user = { id: 'u2', name: 'Kari Nordmann', is_admin: false };
+    const d = document.getElementById('dash'); d.innerHTML = '';
+    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr' }); c.hass = h; d.appendChild(c);
+    await wait(500);
+    const fs = parseFloat(getComputedStyle(c.shadowRoot.querySelector('.ttl .tx')).fontSize);
+    c.customize(); await wait(500);
+    const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
+    const E = all().find((e) => e.localName === 'msh-hjem-editor'), R = E.shadowRoot;
+    return { fs, users: [...R.querySelector('select[data-psel="user"]').options].map((o) => o.textContent), copy: [...R.querySelectorAll('select[data-pcopy] option')].length, sel: E._pkey() };
+  });
+  res.u2 = r;
+  ok(r.fs > 31 && r.users.join(',') === 'Kari' && r.copy === 1 && /^u2\//.test(r.sel), `19.13 annen bruker: ${JSON.stringify(r)}`);
   await p.close();
 }
 await b.close();

@@ -25,6 +25,8 @@
  *             «Tilpass lys» → Utelys: «Finner du ikke lampen?» søker i hass.states (MSH.entitySearch: navn, entity_id,
  *             område, æøå-normalisert, maks 8 treff, debounce 150 ms) med «Legg til» / «Lagt til».
  * Lys: felles lys-rad (08-light-row.js, samme som Rom → Lys) per lys, gjenbrukt per entity i data-nomorph-plassholdere.
+ *   19.2: fyll og «Lys på»-sirkelen i lampens egen farge (MSH.lampColor: rgb_color / Kelvin-tone / temagul);
+ *   overrides.<entity>.color eller lights.<objekt-id>.color går foran.
  * Utelys-fanen: Utelys-kortet først (status, av/på, tidslinje for neste 24 t fra «nå» med natt fra sun.sun og periode med
  * lys på, Tennes/Slukkes-fliser), så lampene, Styring og Sola.
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
@@ -486,7 +488,7 @@
       return `<section class="sum"><span class="col grow"><span class="big num">${ids.length}</span><span class="t12 dim">${hasW ? `lys på · ca. ${M.nf(w, 0)} W` : `lys på · av ${total}`}</span></span>
           <button class="offall press" data-act="alloff" data-haptic="success" ${ids.length ? '' : 'disabled style="opacity:.5"'}>${M.icon('dark_mode', 20)}Slå av alle</button></section>
         <section class="col" style="gap:8px">
-          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id); return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--gray600,#7f7f7f)')}</button>`; }).join('')}
+          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--gray600,#7f7f7f)')}</button>`; }).join('')}
           ${ids.length ? '' : '<div class="none">Alle lys er av</div>'}
         </section>`;
     }
@@ -639,7 +641,7 @@
         .big{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1}
         .offall{height:48px;padding:0 20px;border-radius:24px;background:#fafafa;color:#282828;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
         .onr{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:var(--gray200,#3a3a3a);text-align:left;width:100%}
-        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:#282828}
+        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:#282828;transition:background-color .3s ease}
         .none{padding:30px;text-align:center;font-size:13px;color:var(--gray500,#696969)}
         .empty.in{background:transparent;padding:10px 0 0}
       `;
