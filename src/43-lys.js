@@ -52,6 +52,16 @@
     OUT_KEYS.forEach((k) => { if (c[k] != null && c[k] !== '') o[k] = c[k]; if (n[k] != null && n[k] !== '') o[k] = n[k]; });
     return o;
   };
+  // 22.10 · Utelys «Døgnring»: entiteter [overrides-nøkkel, etikett, domene, auto-suffiks] (auto: ^dom.(…_)?suffiks$)
+  const UT_ENTS = [
+    ['automatikk', 'Automatikk', 'switch', null], ['kveld_bryter', 'Kveld', 'switch', null], ['morgen_bryter', 'Morgen', 'switch', null],
+    ['neste_paa', 'Neste tenning', 'sensor', 'ki_utelys_neste_paa'], ['neste_av', 'Neste slukking', 'sensor', 'ki_utelys_neste_av'], ['utelys_status', 'Status', 'sensor', 'ki_utelys_status'],
+    ['terskel_paa', 'Tenn under (lx)', 'number', 'ki_utelys_terskel_paa'], ['terskel_av', 'Slukk over (lx)', 'number', 'ki_utelys_terskel_av'], ['minst_morke', 'Minste mørketid (min)', 'number', 'ki_utelys_minst_morke'],
+    ['sun_dawn', 'Grålysning', 'sensor', 'sun_next_dawn'], ['sun_rising', 'Soloppgang', 'sensor', 'sun_next_rising'], ['sun_noon', 'Midt på dagen', 'sensor', 'sun_next_noon'],
+    ['sun_setting', 'Solnedgang', 'sensor', 'sun_next_setting'], ['sun_dusk', 'Skumring', 'sensor', 'sun_next_dusk'], ['sun_elevation', 'Solhøyde', 'sensor', 'sun_solar_elevation'], ['sun_stiger', 'Sola stiger', 'binary_sensor', 'sun_solar_rising'],
+  ];
+  const UT_DOMS = { switch: ['switch', 'input_boolean'], sensor: ['sensor'], number: ['number', 'input_number'], binary_sensor: ['binary_sensor'] };
+  const UT_SECS = [['auto', 'Automatikk'], ['lamps', 'Lamper'], ['sun', 'Sola'], ['settings', 'Innstillinger']];
   const PRESETS = [['max', 'Maks', 'light_mode', 100], ['kveld', 'Kveld', 'weekend', 45], ['dim', 'Dempet', 'brightness_4', 20], ['natt', 'Natt', 'bedtime', 5], ['av', 'Alt av', 'dark_mode', 0]];
   const hay = (hass, id) => M.slug(id + ' ' + ((hass.states[id] && hass.states[id].attributes.friendly_name) || ''));
   const mins = (t) => { const m = /^(\d{1,2}):(\d\d)/.exec(String(t || '')); return m ? +m[1] * 60 + +m[2] : null; };
@@ -135,14 +145,20 @@
     const outAreas = areas.filter(isOutArea).map((a) => a.id);
     out.autoLux = M.all(hass, 'sensor', (s, id) => s.attributes.device_class === 'illuminance' && (outAreas.includes(M.areaOf(hass, id)) || OUT_RX.test(hay(hass, id))))[0] || null;
     out.lux = M.pick(cfg, 'lux', out.autoLux);
-    out.autoAuto = M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /(auto|automatikk)/.test(hay(hass, id)))[0] || null;
+    // 22.10: KI Utelys (switch.ki_utelys_*) går foran eldre input_boolean-hjelpere
+    const kiU = (dom, suf) => M.all(hass, dom, (s, id) => new RegExp(`^${dom}\\.(.*_)?${suf}(_\\d+)?$`).test(id))[0] || null;
+    out.autoAuto = kiU('switch', 'ki_utelys_auto') || M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /(auto|automatikk)/.test(hay(hass, id)))[0] || null;
     out.auto = M.pick(cfg, 'automatikk', out.autoAuto);
     out.autoModus = M.all(hass, 'input_select', (s, id) => /utelys/.test(hay(hass, id)))[0] || null;
     out.modus = M.pick(cfg, 'modus', out.autoModus);
-    out.autoKveld = M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /kveld/.test(hay(hass, id)))[0] || null;
+    out.autoKveld = kiU('switch', 'ki_utelys_kveld') || M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /kveld/.test(hay(hass, id)))[0] || null;
     out.kveld = M.pick(cfg, 'kveld_bryter', out.autoKveld);
-    out.autoMorgen = M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /morgen/.test(hay(hass, id)))[0] || null;
+    out.autoMorgen = kiU('switch', 'ki_utelys_morgen') || M.all(hass, 'input_boolean', (s, id) => /utelys/.test(hay(hass, id)) && /morgen/.test(hay(hass, id)))[0] || null;
     out.morgen = M.pick(cfg, 'morgen_bryter', out.autoMorgen);
+    // Øvrige KI Utelys- og sol-entiteter (UT_ENTS): U.<nøkkel> = overrides.<nøkkel> || auto, UA = auto
+    out.U = { automatikk: out.auto, kveld_bryter: out.kveld, morgen_bryter: out.morgen };
+    out.UA = { automatikk: out.autoAuto, kveld_bryter: out.autoKveld, morgen_bryter: out.autoMorgen };
+    UT_ENTS.forEach(([k, , dom, suf]) => { if (!suf) return; out.UA[k] = kiU(dom, suf); out.U[k] = M.pick(cfg, k, out.UA[k]); });
     out.total = M.kiRomId(hass, null, 'lys');
     return out;
   };
@@ -250,7 +266,17 @@
             { type: 'entities', name: 'include.lys', label: 'Lagt til', domains: ['light'], addLabel: '+ Legg til lys' },
           ] },
           { type: 'section', id: 'utelys', label: 'Utelys', icon: 'mdi:outdoor-lamp', meta: () => `${a.lamps.length} lamper`, fields: [
-            { type: 'section', label: 'Tider og terskler', icon: 'mdi:clock-outline', fields: [
+            { type: 'section', label: 'Visning', icon: 'mdi:clock-time-four-outline', fields: [
+              { type: 'select', name: O('ring_start'), label: 'Døgnringen', options: [[0, '00 øverst'], [12, '12 øverst']], default: 0 },
+              { type: 'order', name: O('sections'), hiddenName: O('hidden_sections'), label: 'Seksjoner under toppkortet (rekkefølge og synlighet)', options: UT_SECS },
+            ] },
+            { type: 'section', label: 'Entiteter', icon: 'mdi:link-variant', meta: () => 'KI Utelys + sol', fields: [
+              { type: 'info', label: 'Autokonfig fra KI Utelys (switch/sensor/number.ki_utelys_*) og Sun (sensor.sun_next_*). Tomt = auto.' },
+              ...UT_ENTS.map(([k, l, dom]) => ({ type: 'entity', name: 'overrides.' + k, label: l, domain: UT_DOMS[dom], auto: () => a.UA[k] })),
+              { type: 'entity', name: 'overrides.lux', label: 'Lysnivåsensor (ute)', domain: 'sensor', device_class: 'illuminance', auto: () => a.autoLux },
+              { type: 'entity', name: 'overrides.modus', label: 'Modusvelger (eldre)', domain: ['input_select', 'select'], auto: () => a.autoModus },
+            ] },
+            { type: 'section', label: 'Reserve uten KI Utelys', icon: 'mdi:clock-outline', meta: () => 'tider og terskler', fields: [
               { type: 'select', name: O('mode'), label: 'Styring', options: [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']], default: outCfg(c).mode },
               { type: 'text', name: O('on'), label: 'Tennes (HH:MM)', help: 'Tomt = solnedgang + forskyvning', auto: () => fmtSun(h, c, 'on') },
               { type: 'text', name: O('off'), label: 'Slukkes (HH:MM)', help: 'Tomt = soloppgang', auto: () => fmtSun(h, c, 'off') },
@@ -261,13 +287,6 @@
               { type: 'number', name: O('lux_off'), label: 'Slukk over (lx)', step: 5, placeholder: '120' },
               { type: 'boolean', name: O('kveld'), label: 'Kveld · tenn i skumringen', default: outCfg(c).kveld !== false },
               { type: 'boolean', name: O('morgen'), label: 'Morgen · tenn før det lysner', default: outCfg(c).morgen !== false },
-            ] },
-            { type: 'section', label: 'Entiteter', icon: 'mdi:link-variant', fields: [
-              { type: 'entity', name: 'overrides.lux', label: 'Lysnivåsensor (ute)', domain: 'sensor', device_class: 'illuminance', auto: () => a.autoLux },
-              { type: 'entity', name: 'overrides.automatikk', label: 'Automatikk-bryter', domain: 'input_boolean', auto: () => a.autoAuto },
-              { type: 'entity', name: 'overrides.modus', label: 'Modusvelger (Auto/Tidsplan/Manuelt)', domain: ['input_select', 'select'], auto: () => a.autoModus },
-              { type: 'entity', name: 'overrides.kveld_bryter', label: 'Kveld-bryter', domain: 'input_boolean', auto: () => a.autoKveld },
-              { type: 'entity', name: 'overrides.morgen_bryter', label: 'Morgen-bryter', domain: 'input_boolean', auto: () => a.autoMorgen },
             ] },
             ...(a.legacyLamps ? [
               { type: 'info', label: `Utelampene er satt som liste (lamps: ${a.lamps.length}). Gjør om for å velge lamper med entitetsvelgeren.` },
@@ -373,60 +392,131 @@
       }
       return p;
     }
-    _outCard(A) {
-      const L = A.lamps, o = outCfg(this.config), mode = this._mode(A);
-      const onN = L.filter((l) => { const s = this.s(l.id); return s && s.state === 'on'; }).length, lit = onN > 0;
-      const p = this._plan(A, lit, mode), man = mode === 'manuell';
-      const pos = (t) => Math.max(0, Math.min(100, ((t - p.now) / p.D) * 100));
-      const seg = (a, b) => { const l = pos(a), r = pos(b); return r - l > 0.2 ? `left:${l.toFixed(2)}%;width:${(r - l).toFixed(2)}%` : null; };
-      const dur = (ms) => { const m = Math.max(0, Math.round(ms / 6e4)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} t ${m % 60} min`; };
-      const hhmm = (t) => { if (t == null) return '–'; const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; };
-      const sub = man ? 'Styres manuelt' : lit ? (p.off != null ? `Slukkes om ${dur(p.off - p.now)}` : 'Lyser nå') : (p.on != null ? `Tennes om ${dur(p.on - p.now)}` : 'Mangler tider');
-      // Timeetiketter 00/06/12/18 (skjules nær kantene)
-      const labels = [0, 6, 12, 18].map((hh) => { const d = new Date(p.now); d.setHours(hh, 0, 0, 0); let t = d.getTime(); while (t <= p.now) t += p.D; return [hh, pos(t)]; }).filter(([, x]) => x > 6 && x < 94);
-      const off = Number(o.offset || 0);
-      const onSub = mins(o.on) != null ? 'Fast tid' : p.set == null ? 'Mangler sol-entitet' : off ? `Solnedgang ${off > 0 ? '+' : '−'}${Math.abs(off)} min` : 'Ved solnedgang';
-      const offSub = p.latest ? `Senest ${o.latest}` : mins(o.off) != null ? 'Fast tid' : p.rise == null ? 'Mangler sol-entitet' : 'Ved soloppgang';
-      const tile = (k) => {
-        const next = !man && p.first === k, t = k === 'on' ? p.on : p.off;
-        return `<div class="evt${next ? ' nx' : ''}" data-key="ev-${k}"><span class="evl">${M.icon(k === 'on' ? 'mdi:lightbulb-on-outline' : 'mdi:lightbulb-off-outline', 16)}${k === 'on' ? 'Tennes' : 'Slukkes'}</span>
-          <span class="evv num">${man ? '–' : hhmm(t)}</span><span class="evs">${esc(man ? 'Automatikk av' : cap(k === 'on' ? onSub : offSub))}</span></div>`;
+    // 22.10 · Utelys «Døgnring»: alle tider/tilstander for fanen. KI Utelys-sensorene (neste_paa/neste_av) går foran;
+    // uten dem brukes planen fra sun.sun + outdoor-reserven (_plan). Sol: sensor.sun_next_* → sun.sun-attributter.
+    _ut(A) {
+      const U = A.U || {}, L = A.lamps, now = Date.now(), D = 864e5;
+      const onN = L.filter((l) => M.isOn(this.s(l.id))).length, lit = onN > 0;
+      const as = this.s(U.automatikk), autoOn = as ? M.isOn(as) : this._mode(A) !== 'manuell';
+      const iso = (v) => { const t = v ? Date.parse(v) : NaN; return isNaN(t) ? null : t; };
+      const ts = (id) => { const s = this.s(id); return s && !M.unavailable(s) ? iso(s.state) : null; };
+      const p = this._plan(A, lit, 'auto');
+      const on = ts(U.neste_paa) != null ? ts(U.neste_paa) : p.on, off = ts(U.neste_av) != null ? ts(U.neste_av) : p.off;
+      const sun = this.s(A.sun), sa = (sun && sun.attributes) || {};
+      const sunT = (k, attr) => (ts(U[k]) != null ? ts(U[k]) : iso(sa[attr]));
+      const S = { dawn: sunT('sun_dawn', 'next_dawn'), rising: sunT('sun_rising', 'next_rising'), noon: sunT('sun_noon', 'next_noon'), setting: sunT('sun_setting', 'next_setting'), dusk: sunT('sun_dusk', 'next_dusk') };
+      const ev = this.n(U.sun_elevation), elev = ev != null ? ev : sa.elevation != null ? Number(sa.elevation) : null;
+      const rs = this.s(U.sun_stiger), rising = rs ? M.isOn(rs) : sa.rising != null ? !!sa.rising : S.noon != null && S.setting != null ? S.noon < S.setting : null;
+      const sunUp = elev != null ? elev > 0 : sun ? sun.state === 'above_horizon' : null;
+      // Neste hendelse: den første av tennes/slukkes som ligger fram i tid
+      const fut = (t) => (t != null && t > now - 6e4 ? t : null);
+      const next = fut(on) != null && (fut(off) == null || on < off) ? 'on' : fut(off) != null ? 'off' : null;
+      return { U, L, now, D, onN, lit, autoOn, on, off, S, elev, rising, sunUp, next, as };
+    }
+    // HH:MM og «i dag / i morgen / ukedag» (nb-NO)
+    _hm(t) { if (t == null) return '–'; const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; }
+    _day(t) {
+      if (t == null) return '';
+      const d = new Date(t), a = new Date(); a.setHours(0, 0, 0, 0);
+      const n = Math.round((new Date(d).setHours(0, 0, 0, 0) - a.getTime()) / 864e5);
+      return n === 0 ? 'i dag' : n === 1 ? 'i morgen' : n === -1 ? 'i går' : d.toLocaleDateString('nb-NO', { weekday: 'long' });
+    }
+    // 24-timers ringen (SVG 188 px). 00 øverst (outdoor.ring_start 12 → 12 øverst), med klokka.
+    _ring(u) {
+      const oc = (this.config.outdoor && typeof this.config.outdoor === 'object') ? this.config.outdoor : {};
+      const rot = Number(oc.ring_start) === 12 ? 180 : 0, W = 188, c = W / 2, R = 80, SW = 14;
+      const tod = (t) => { const d = new Date(t); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
+      const ang = (t) => ((tod(t) / 1440) * 360 + rot) * Math.PI / 180;
+      const pt = (a, r) => [c + r * Math.sin(a), c - r * Math.cos(a)];
+      const arc = (t1, t2, r) => {
+        if (t1 == null || t2 == null) return null;
+        const a1 = ang(t1), a2 = ang(t2); let sw = a2 - a1; while (sw < 0) sw += 2 * Math.PI; while (sw >= 2 * Math.PI) sw -= 2 * Math.PI;
+        if (sw < 0.01) return null;
+        const [x1, y1] = pt(a1, r), [x2, y2] = pt(a2, r);
+        return `M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${sw > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
       };
-      const pillBg = man ? 'var(--gray600,#7f7f7f)' : Y;
-      return `<section class="uc${lit ? ' lit' : ''}" data-key="uc">
-        <div class="uct">
-          <div class="grow col" style="gap:2px">
-            <div class="row" style="gap:8px"><span class="t13" style="color:var(--gray800,#afafaf)">Utelys</span><span class="chip${lit ? ' on' : ''}">${L.length ? `${onN} av ${L.length}` : 'ingen lamper'}</span></div>
-            <span class="us">${lit ? 'På' : L.length ? 'Av' : '–'}</span>
-            <span class="t13" style="color:var(--gray900,#c7c7c7)">${esc(sub)}</span>
-          </div>
-          <button class="ob${lit ? ' on' : ''}" data-act="outall" data-haptic="success" aria-label="${lit ? 'Slå av utelys' : 'Slå på utelys'}" ${L.length ? '' : 'disabled'}>${M.icon(lit ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline', 30)}</button>
+      const night = arc(u.S.setting, u.S.rising, R), lamp = arc(u.on, u.off, R);
+      const hours = [0, 6, 12, 18].map((hh) => { const a = ((hh * 60) / 1440 * 360 + rot) * Math.PI / 180, [x, y] = pt(a, R - 21); return `<text x="${x.toFixed(1)}" y="${(y + 3.5).toFixed(1)}" class="rh">${M.pad(hh)}</text>`; }).join('');
+      const mark = (t, up) => { if (t == null) return ''; const [x, y] = pt(ang(t), R); return `<g class="rm" data-key="rm-${up ? 'u' : 'd'}"><circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="9"/><text x="${x.toFixed(2)}" y="${(y + 4).toFixed(2)}">${up ? '↑' : '↓'}</text></g>`; };
+      const [nx, ny] = pt(ang(u.now), R);
+      return `<svg class="ring" viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" aria-hidden="true">
+        <circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--gray400,#545454)" stroke-width="${SW}"/>
+        ${night ? `<path class="rn" d="${night}" fill="none" stroke="#262626" stroke-width="${SW}"/>` : ''}
+        ${lamp ? `<path class="rl${u.autoOn ? '' : ' off'}" d="${lamp}" fill="none" stroke="${u.autoOn ? Y : 'var(--gray600,#7f7f7f)'}" stroke-width="${SW - 6}" stroke-linecap="round"/>` : ''}
+        ${hours}${mark(u.S.rising, true)}${mark(u.S.setting, false)}
+        <circle class="rnow" cx="${nx.toFixed(2)}" cy="${ny.toFixed(2)}" r="6" fill="${u.sunUp ? Y : '#fafafa'}" stroke="#282828" stroke-width="2.5"/>
+      </svg>`;
+    }
+    _outCard(A, u) {
+      const L = u.L, dur = (ms) => { const m = Math.max(0, Math.round(ms / 6e4)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} t ${m % 60} min`; };
+      const status = !L.length ? 'Ingen lamper' : u.next === 'on' ? `Tennes om ${dur(u.on - u.now)}` : u.next === 'off' ? `Slukkes om ${dur(u.off - u.now)}` : u.lit ? 'Lyser nå' : 'Mangler tider';
+      const tile = (k) => {
+        const t = k === 'on' ? u.on : u.off, nx = u.next === k;
+        return `<div class="evt${nx ? ' nx' : ''}" data-key="ev-${k}"><span class="evl">${M.icon(k === 'on' ? 'mdi:lightbulb-on-outline' : 'mdi:lightbulb-off-outline', 16)}${k === 'on' ? 'Tennes' : 'Slukkes'}</span>
+          <span class="evv num">${this._hm(t)}</span><span class="evs">${esc(t == null ? 'Mangler tid' : this._day(t))}</span></div>`;
+      };
+      return `<section class="uc${u.lit ? ' lit' : ''}" data-key="uc">
+        <div class="uct"><span class="t13" style="color:var(--gray800,#afafaf)">Utelys</span><span class="chip${u.lit ? ' on' : ''}">${L.length ? `${u.onN} av ${L.length}` : 'ingen lamper'}</span><span class="grow"></span><span class="t12 ust ell">${esc(status)}</span></div>
+        <div class="ucb">
+          <div class="rw">${this._ring(u)}
+            <button class="rc${u.lit ? ' on' : ''}" data-act="outall" data-haptic="success" aria-label="${u.lit ? 'Slå av utelys' : 'Slå på utelys'}" ${L.length ? '' : 'disabled'}>
+              ${M.icon(u.lit ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline', 24)}<span class="rcv">${u.lit ? 'På' : 'Av'}</span><span class="rcs">${esc(u.lit ? (u.off != null ? `slukkes ${this._hm(u.off)}` : '') : (u.on != null ? `tennes ${this._hm(u.on)}` : ''))}</span></button></div>
+          <div class="ev">${tile('on')}${tile('off')}</div>
         </div>
-        <div class="tlw">
-          <div class="tl">${p.nights.map(([a, b]) => { const s = seg(a, b); return s ? `<span class="nt" style="${s}"></span>` : ''; }).join('')}${p.pills.map(([a, b]) => { const s = seg(a, b); return s ? `<span class="pl" style="${s};background:${pillBg}"></span>` : ''; }).join('')}</div>
-          <div class="tlh"><span class="tln">nå</span>${labels.map(([hh, x]) => `<span style="left:${x.toFixed(2)}%">${M.pad(hh)}</span>`).join('')}</div>
-        </div>
-        <div class="ev">${(p.first === 'off' ? ['off', 'on'] : ['on', 'off']).map(tile).join('')}</div>
+      </section>`;
+    }
+    _utAuto(A, u) {
+      const st = this.s(u.U.utelys_status), sv = st && !M.unavailable(st) && String(st.state).trim() && st.state !== 'unknown' ? String(st.state) : null;
+      const txt = sv || (!u.autoOn ? 'Av – utelyset styres manuelt' : u.lit ? 'Utelyset er på' : u.next === 'on' ? 'Venter på mørket' : 'Styrer utelyset');
+      const c = this.cfg;
+      const sw = (on) => `<span class="sw" style="background:${on ? G : '#4a4a4d'}"><span style="left:${on ? 26 : 4}px;background:${on ? '#2a2a2c' : '#d8d6d1'}"></span></span>`;
+      const fl = (k, ic, l, sub, ent) => { const on = ent ? M.isOn(this.s(ent)) : c[k] !== false; return `<button class="af${on ? ' on' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="af-${k}" data-haptic="success" aria-pressed="${on}"><span class="afi">${M.icon(ic, 20)}</span><span class="col" style="gap:2px;min-width:0;text-align:left"><span class="t14">${l}</span><span class="t12 ell" style="color:var(--gray700,#979797)">${esc(sub)}</span></span></button>`; };
+      return `<section class="st" data-key="ut-auto">
+        <button class="ar" data-act="utauto" data-key="ut-ar" data-haptic="success">${M.icon('mdi:robot-outline', 22, 'color:var(--gray900,#c7c7c7);width:26px')}<span class="grow col" style="gap:2px;text-align:left;min-width:0"><span class="t15">Automatikk</span><span class="t12" style="color:var(--gray700,#979797)">${esc(txt)}</span></span>${sw(u.autoOn)}</button>
+        <div class="afs${u.autoOn ? '' : ' dim0'}">${fl('kveld', 'mdi:weather-sunset-down', 'Kveld', 'Tenn i skumringen', A.kveld)}${fl('morgen', 'mdi:weather-sunset-up', 'Morgen', 'Før det lysner', A.morgen)}</div>
+      </section>`;
+    }
+    // Lamper: 2 kolonner, 64 px piller. Trykk = av/på, dra sidelengs = dimming, hold = more-info (data-ent)
+    _utLamps(A) {
+      const L = A.lamps;
+      if (!L.length) return M.emptyState('Fant ingen utelamper', 'utelys');
+      return `<section class="lps" data-key="ut-lamps">${L.map((l) => {
+        const s = this.s(l.id), on = M.isOn(s), dim = String(l.id).startsWith('light.') && s && dimmable(s, this.config, l.id);
+        const pct = on ? (dim ? pctOf(s) : 100) : 0, ov = (this.config.overrides || {})[l.id];
+        const lc = on && M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, l.id).color) : { css: Y, lum: 0.7 };
+        const ic = l.icon || (s && s.attributes.icon) || (on ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline');
+        const val = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : on ? (dim ? `${pct} %` : 'På') : 'Av';
+        return `<div class="lp${on ? ' on' : ''}" data-lp="${esc(l.id)}" data-ent="${esc(l.id)}" data-dim="${dim ? 1 : 0}" data-pct="${pct}" data-key="lp-${esc(l.id)}" role="button" aria-label="${esc(l.name)}">
+          <span class="lpf" style="width:${pct}%;${on ? `background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span>
+          <span class="lpi" style="${on ? `background:${lc.css};color:#282828` : ''}">${M.icon(ic, 20)}</span>
+          <span class="col lpt"><span class="t14 ell">${esc(l.name)}</span><span class="t12 lpv">${esc(val)}</span></span></div>`;
+      }).join('')}</section>`;
+    }
+    _utSun(u) {
+      const E = [['dawn', 'Grålysning', 'mdi:weather-sunset'], ['rising', 'Soloppgang', 'mdi:weather-sunset-up'], ['noon', 'Midt på dagen', 'mdi:white-balance-sunny'], ['setting', 'Solnedgang', 'mdi:weather-sunset-down'], ['dusk', 'Skumring', 'mdi:weather-night']];
+      const fut = E.filter(([k]) => u.S[k] != null && u.S[k] > u.now).sort((a, b) => u.S[a[0]] - u.S[b[0]])[0];
+      const el = u.elev != null ? `Solhøyde ${u.elev < 0 ? '−' : ''}${M.nf(Math.abs(u.elev), 1)}°` : 'Solhøyde –';
+      const dir = u.rising == null ? '' : u.rising ? ' · stiger' : ' · synker';
+      return `<section class="sol" data-key="ut-sun">
+        <div class="row" style="gap:10px;padding:0 4px"><span class="grow t15">Sola</span><span class="t12" style="color:var(--gray700,#979797)">${esc(el + dir)}</span>${u.rising == null ? '' : M.icon(u.rising ? 'mdi:arrow-top-right' : 'mdi:arrow-bottom-right', 16, `color:${u.rising ? Y : 'var(--gray700,#979797)'}`)}</div>
+        <div class="sr noscroll">${E.map(([k, l, ic]) => `<div class="stl${fut && fut[0] === k ? ' nx' : ''}" data-key="sun-${k}">${M.icon(ic, 18)}<span class="t12 stn">${l}</span><span class="evv num" style="font-size:20px">${this._hm(u.S[k])}</span><span class="t11" style="color:var(--gray700,#979797)">${esc(this._day(u.S[k]))}</span></div>`).join('')}</div>
+      </section>`;
+    }
+    _utSettings(u) {
+      const open = !!(this.ui.fold || {}).utset, U = u.U;
+      const v = (id) => { const n = this.n(id); return n == null ? '–' : M.nf(n, 0); };
+      const meta = `${v(U.terskel_paa)} / ${v(U.terskel_av)} lx · ${v(U.minst_morke)} min`;
+      const row = (id, l, unit) => (id ? M.stepperHTML(this.hass, id, { label: l, step: 5, unit, key: 'stp-' + id }) : `<div class="msh-stp-row"><span class="msh-stp-l"><span class="msh-stp-ln">${esc(l)}</span><span class="msh-stp-ls">Velg entitet i Tilpass</span></span><span class="t13" style="color:var(--gray700,#979797)">–</span></div>`);
+      return `<section class="fd" data-key="fold-utset">
+        <button class="fh" data-act="fold" data-k="utset">${M.icon('mdi:tune-variant', 22)}<span class="grow t15">Innstillinger</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--gray700,#979797);transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
+        ${open ? `<div class="fb ufb">${row(U.terskel_paa, 'Tenn under', 'lx')}${row(U.terskel_av, 'Slukk over', 'lx')}${row(U.minst_morke, 'Minste mørketid', 'min')}</div>` : ''}
       </section>`;
     }
     _out(A) {
-      const c = this.cfg, T = this._times(A), L = A.lamps;
-      const mode = this._mode(A);
-      let out = this._outCard(A);
-      out += L.length ? `<section class="lbox" data-key="lb-out">${L.map((l) => this._light(l.id, l.name)).join('')}</section>` : M.emptyState('Fant ingen utelamper', 'utelys');
-      // Styring
-      const lx = A.lux ? M.name(this.hass, A.lux) : 'lysnivåsensoren';
-      const info = mode === 'auto' ? `Tennes når ${lx} er under ${c.lux_on} lx, og slukkes over ${c.lux_off} lx.` : mode === 'tid' ? `Tennes ${fmt(T.on)} (skumring ${Number(c.offset) >= 0 ? '+' : '−'}${Math.abs(Number(c.offset || 0))} min) og slukkes ${fmt(T.off)}${c.latest ? `, senest ${c.latest}` : ''}.` : 'Automatikken er av. Utelyset styres bare fra knappene over.';
-      const autos = mode === 'manuell' ? [] : [['kveld', 'wb_twilight', 'Kveld', 'Tenn i skumringen', A.kveld], ['morgen', 'wb_sunny', 'Morgen', `Tenn før det lysner, fra ${c.morning || '–'}`, A.morgen]];
-      out += `<section class="st">
-        <div class="row" style="gap:10px"><span class="grow t15">Styring</span><div class="seg">${[['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']].map(([k, l]) => `<button data-act="mode" data-key="${k}" data-v="${k}" aria-selected="${mode === k}" data-haptic="selection" style="background:${mode === k ? PINK : 'transparent'};color:${mode === k ? INK : 'var(--gray800,#afafaf)'}">${l}</button>`).join('')}</div></div>
-        <span class="t12" style="color:var(--gray700,#979797);line-height:1.45;text-wrap:pretty">${esc(info)}</span>
-        ${autos.length ? `<div class="col">${autos.map(([k, ic, l, sub, ent], i) => { const on = ent ? M.isOn(this.s(ent)) : !!c[k]; return `<button class="ar${i ? ' bt' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="${k}" data-haptic="success">${M.icon(ic, 22, 'color:var(--gray900,#c7c7c7);width:26px')}<span class="grow col" style="gap:2px;text-align:left"><span class="t14">${l}</span><span class="t12" style="color:var(--gray700,#979797)">${esc(sub)}</span></span><span class="sw" style="background:${on ? G : '#4a4a4d'}"><span style="left:${on ? 26 : 4}px;background:${on ? '#2a2a2c' : '#d8d6d1'}"></span></span></button>`; }).join('')}</div>` : ''}
-      </section>`;
-      // Sola
-      const dl = T.set != null && T.rise != null ? (T.set - T.rise + 1440) % 1440 : null;
-      out += this._fold('sol', 'light_mode', 'Sola', T.rise != null ? `↑ ${fmt(T.rise)} ↓ ${fmt(T.set)}` : 'ingen sol-entitet', A.sun ? [['Soloppgang', fmt(T.rise)], ['Solnedgang', fmt(T.set)], ['Borgerlig skumring', fmt(T.dusk)], ['Dagslengde', dl != null ? `${Math.floor(dl / 60)} t ${dl % 60} min` : '–']] : null);
-      return out;
+      const u = this._ut(A), oc = (this.config.outdoor && typeof this.config.outdoor === 'object') ? this.config.outdoor : {};
+      const keys = M.mshOrder(UT_SECS.map((x) => x[0]), oc.sections, oc.hidden_sections);
+      const part = { auto: () => this._utAuto(A, u), lamps: () => this._utLamps(A), sun: () => this._utSun(u), settings: () => this._utSettings(u) };
+      return `<div class="ut">${this._outCard(A, u)}${keys.map((k) => part[k]()).join('')}</div>`;
     }
     _mode(A) {
       const ms = this.s(A.modus);
@@ -518,6 +608,17 @@
           if (A.auto) M.call(h, 'input_boolean', v === 'manuell' ? 'turn_off' : 'turn_on', { entity_id: A.auto });
           return this._patchOutdoor({ mode: v });
         }
+        case 'utauto': {
+          // Automatikk: KI Utelys-bryteren (switch.ki_utelys_auto), ellers eldre modus (outdoor.mode)
+          const id = (A.U || {}).automatikk;
+          if (id) return M.toggle(h, id);
+          return this._patchOutdoor({ mode: this._mode(A) === 'manuell' ? 'auto' : 'manuell' });
+        }
+        case 'lamp': {
+          const id = d.lp, s = this.s(id);
+          if (!s) return;
+          return M.call(h, id.startsWith('light.') ? 'light' : 'homeassistant', M.isOn(s) ? 'turn_off' : 'turn_on', { entity_id: id });
+        }
         case 'auto': if (d.id) return M.toggle(h, d.id); return this._patchOutdoor({ [d.k]: !this.cfg[d.k] });
         case 'scene': {
           // Engangshandling: lysnivå (egne) eller trykk på KI Rom-knappene / scene.* / script.* – ingen varig markering
@@ -565,9 +666,72 @@
         onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
       });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
+      const sr = this.shadowRoot.querySelector('.sr');
+      if (sr && !sr.__b) { sr.__b = true; const st = (e) => e.stopPropagation(); sr.addEventListener('touchstart', st, { passive: true }); sr.addEventListener('touchmove', st, { passive: true }); }
       const sc = this.shadowRoot.querySelector('.sc');
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
       this._mountLights();
+      this._bindLamps();
+      if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this);
+    }
+    // 22.10: døgnringen oppdateres hvert minutt, bare mens popupen er åpen (onOpen/onClose fra MSH.Card)
+    onOpen() {
+      clearInterval(this._utT);
+      this._utT = setInterval(() => { if (this._curTab() === 'out') this._schedule(true); }, 60000);
+    }
+    onClose() { clearInterval(this._utT); this._utT = null; }
+    // Utelampe-pillene: trykk = av/på, dra sidelengs = dimming (pan-y + stopPropagation, fallgruve 2), hold = more-info
+    _bindLamps() {
+      const R = this.shadowRoot;
+      if (!R || R.__utLp) return;
+      R.__utLp = true;
+      let g = null;
+      const stop = (e) => { if (e.target.closest && e.target.closest('.lp')) e.stopPropagation(); };
+      R.addEventListener('touchstart', stop, { passive: true });
+      R.addEventListener('touchmove', stop, { passive: true });
+      R.addEventListener('pointerdown', (e) => {
+        const el = e.target.closest && e.target.closest('.lp');
+        if (!el || e.button) return;
+        e.stopPropagation();
+        const r = el.getBoundingClientRect();
+        g = { el, x: e.clientX, y: e.clientY, t: Date.now(), w: r.width, p0: Number(el.dataset.pct) || 0, drag: false, pct: null, id: e.pointerId };
+      });
+      R.addEventListener('pointermove', (e) => {
+        if (!g) return;
+        const dx = e.clientX - g.x, dy = e.clientY - g.y;
+        if (!g.drag) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; }
+          if (Math.abs(dx) < 8 || g.el.dataset.dim !== '1') return;
+          g.drag = true;
+          try { g.el.setPointerCapture(g.id); } catch (x) { /* */ }
+          g.el.classList.add('drag');
+        }
+        e.stopPropagation();
+        const p = Math.max(0, Math.min(100, Math.round(g.p0 + (dx / g.w) * 100)));
+        if (p !== g.pct) {
+          if (g.pct != null && Math.round(p / 10) !== Math.round(g.pct / 10)) M.haptic('selection');
+          g.pct = p;
+          const f = g.el.querySelector('.lpf'), v = g.el.querySelector('.lpv');
+          if (f) { f.style.width = p + '%'; if (!f.style.backgroundColor) f.style.backgroundColor = Y; }
+          if (v) v.textContent = p ? `${p} %` : 'Av';
+        }
+      });
+      const end = (e) => {
+        if (!g) return;
+        const G0 = g; g = null;
+        G0.el.classList.remove('drag');
+        const id = G0.el.dataset.lp;
+        if (G0.drag) {
+          if (e.type !== 'pointerup' || G0.pct == null) return this._schedule(true);
+          M.haptic('selection');
+          this._swallow = true; setTimeout(() => { this._swallow = false; }, 400);
+          return G0.pct ? M.call(this.hass, 'light', 'turn_on', { entity_id: id, brightness_pct: G0.pct }) : M.call(this.hass, 'light', 'turn_off', { entity_id: id });
+        }
+        // Trykk (ikke hold – hold åpner more-info etter 520 ms i MSH.Card)
+        if (e.type === 'pointerup' && Date.now() - G0.t < 500) { M.haptic('success'); this.onAction('lamp', G0.el, e); }
+      };
+      R.addEventListener('pointerup', end);
+      R.addEventListener('pointercancel', end);
     }
 
     get styles() {
@@ -616,6 +780,48 @@
         .evt.nx .evl{color:${Y}}
         .evv{font-size:24px;font-weight:400;letter-spacing:-0.01em;line-height:1.15}
         .evs{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* 22.10 · Utelys «Døgnring» */
+        .ut{display:flex;flex-direction:column;gap:8px}
+        .uc{border-radius:30px;padding:16px}
+        .uc.lit{box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.35)}}
+        .uct{align-items:center;gap:8px;min-width:0}
+        .ust{color:var(--gray800,#afafaf);max-width:50%;text-align:right}
+        .ucb{display:flex;align-items:center;gap:10px;min-width:0}
+        .rw{position:relative;width:188px;height:188px;flex:none}
+        .ring{display:block}
+        .ring .rh{font-size:10px;fill:var(--gray600,#7f7f7f);text-anchor:middle;font-variant-numeric:tabular-nums}
+        .ring .rm circle{fill:#3a3a3a;stroke:rgba(255,255,255,0.18);stroke-width:1}
+        .ring .rm text{font-size:11px;fill:${Y};text-anchor:middle;font-weight:700}
+        .rc{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--gray800,#afafaf);transition:transform .15s,background .3s}
+        .rc.on{color:${Y};background:${M.alpha(Y, 0.08)}}
+        .rc:active{transform:scale(.94)}
+        .rc:disabled{opacity:.5}
+        .rcv{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1.05;color:var(--white,#fafafa)}
+        .rcs{font-size:11px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;white-space:nowrap}
+        .ucb .ev{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+        .ucb .evv{font-size:22px}
+        .afs{display:grid;grid-template-columns:1fr 1fr;gap:8px;transition:opacity .2s}
+        .afs.dim0{opacity:.45}
+        .af{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:20px;background:var(--gray300,#404040);min-width:0;transition:transform .15s}
+        .af:active{transform:scale(.96)}
+        .afi{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7)}
+        .af.on .afi{background:${Y};color:#282828}
+        .lps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .lp{position:relative;display:flex;align-items:center;gap:10px;height:64px;padding:0 12px 0 8px;border-radius:32px;background:var(--gray200,#3a3a3a);overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;min-width:0}
+        .lpf{position:absolute;left:0;top:0;bottom:0;transition:width .3s ease,background-color .3s ease;pointer-events:none}
+        .lp.drag .lpf{transition:none}
+        .lpi{position:relative;width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7);transition:background .3s}
+        .lpt{position:relative;min-width:0;gap:1px}
+        .lpv{color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
+        .sol{display:flex;flex-direction:column;gap:10px;padding:16px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .sr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x pan-y}
+        .sr::-webkit-scrollbar{display:none}
+        .stl{flex:none;min-width:96px;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:18px;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
+        .stl.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)};color:${Y}}
+        .stn{white-space:nowrap}
+        .ufb{padding:0 6px 10px}
+        .ufb .msh-stp-row{padding-left:12px}
+        ${M.STEPPER_CSS || ''}
         /* Styring / Sola */
         .st{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
         .seg{display:flex;gap:2px;padding:3px;border-radius:19px;background:#282828;user-select:none;-webkit-user-select:none}
@@ -763,10 +969,18 @@
       const d = st.draft, o = outCfg(d), h = hass(), sun = A.sun && h.states[A.sun], at = (sun && sun.attributes) || {};
       const sOn = hm(at.next_setting), sOff = hm(at.next_rising);
       // Entitet-feltene: felles søkevelger (msh-entity-picker, MSH.entitySearch) filtrert på riktig domene
-      const ents = [['overrides.lux', 'Lysnivåsensor', A.autoLux, 'sensor', 'illuminance'], ['overrides.automatikk', 'Automatikk-bryter', A.autoAuto, 'input_boolean'], ['overrides.modus', 'Modusvelger', A.autoModus, 'input_select,select'], ['overrides.kveld_bryter', 'Kveld-bryter', A.autoKveld, 'input_boolean'], ['overrides.morgen_bryter', 'Morgen-bryter', A.autoMorgen, 'input_boolean']];
+      // 22.10: alle KI Utelys- og sol-entitetene (samme nøkler som GUI-editoren: overrides.<nøkkel>)
+      const ents = [...UT_ENTS.map(([k, l, dom]) => ['overrides.' + k, l, A.UA[k], UT_DOMS[dom].join(',')]), ['overrides.lux', 'Lysnivåsensor', A.autoLux, 'sensor', 'illuminance'], ['overrides.modus', 'Modusvelger (eldre)', A.autoModus, 'input_select,select']];
+      const oc = (d.outdoor && typeof d.outdoor === 'object') ? d.outdoor : {}, hidS = new Set(oc.hidden_sections || []);
+      const secs = M.mshOrder(UT_SECS.map((x) => x[0]), oc.sections, []), secName = Object.fromEntries(UT_SECS);
       const pick = (o) => M.entityPicker.html(o);
       const lamps = sheetLamps(d, A, h);
-      return `<span class="cap">Tider og terskler</span><div class="grp">
+      return `<span class="cap">Visning</span><div class="grp">
+          ${seg('Døgnringen', 'outdoor.ring_start', [[0, '00 øverst'], [12, '12 øverst']], Number(oc.ring_start) === 12 ? 12 : 0)}
+          ${secs.map((k, i) => `<div class="r${hidS.has(k) ? ' off' : ''}"><span class="rl">${esc(secName[k])}</span>${i ? `<button class="eye" data-a="usup" data-k="${k}" aria-label="Flytt opp ${esc(secName[k])}">${M.icon('mdi:arrow-up', 20)}</button>` : ''}<button class="eye" data-a="usec" data-k="${k}" aria-label="${hidS.has(k) ? 'Vis' : 'Skjul'} ${esc(secName[k])}">${M.icon(hidS.has(k) ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`).join('')}
+        </div>
+        <p class="note">Toppkortet med døgnringen vises alltid først. Pil = flytt opp, øye = skjul.</p>
+        <span class="cap">Reserve uten KI Utelys</span><div class="grp">
           ${seg('Styring', 'outdoor.mode', [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']], o.mode)}
           ${stp('Tennes', 'outdoor.on', 'time', sOn != null ? fmt(sOn + Number(o.offset || 0)) : '')}
           ${stp('Slukkes', 'outdoor.off', 'time', sOff != null ? fmt(sOff) : '')}
@@ -787,7 +1001,7 @@
             <div class="lpf"><div class="lpr"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="name" value="${esc(l.name || '')}" placeholder="${esc(l.id ? M.name(h, l.id) : 'Navn')}" aria-label="Navn"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="icon" value="${esc(l.icon || '')}" placeholder="mdi:lightbulb" aria-label="Ikon"></div>
               ${pick({ key: 'pk-lp-' + i + '-' + l.id, value: l.id || '', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: `data-lamp="${i}" data-lf="entity"` })}
               ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--red,#f28073)">Finnes ikke</span>' : ''}</div>
-            <button class="del" data-a="ldel" data-i="${i}" aria-label="Slett ${esc(l.name || l.id)}">${M.icon('mdi:trash-can-outline', 18)}</button></div>`).join('') || '<div class="r"><span class="rl rs">Ingen utelamper</span></div>'}
+            ${i ? `<button class="eye" data-a="lup" data-i="${i}" aria-label="Flytt opp ${esc(l.name || l.id)}">${M.icon('mdi:arrow-up', 18)}</button>` : ''}<button class="del" data-a="ldel" data-i="${i}" aria-label="Slett ${esc(l.name || l.id)}">${M.icon('mdi:trash-can-outline', 18)}</button></div>`).join('') || '<div class="r"><span class="rl rs">Ingen utelamper</span></div>'}
           ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf">${pick({ key: 'pk-lp-new', mode: 'add', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: 'data-new="1"' })}</div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
         </div>
         ${findCard(A)}
@@ -841,7 +1055,7 @@
         case 'page': return go(el.dataset.p);
         case 'seg': {
           let v = el.dataset.v;
-          if (k === 'gap' || k === 'columns') v = Number(v);
+          if (k === 'gap' || k === 'columns' || k === 'outdoor.ring_start') v = Number(v);
           return upd((d) => {
             if (k === 'size') { d.size = v; delete d.slider_height; delete d.tile_height; } else setPath(d, k, v);
           }, 'selection');
@@ -856,6 +1070,18 @@
         case 'scene': return upd((d) => { d.hidden_scenes = toggleIn(d.hidden_scenes, k, !(d.hidden_scenes || []).includes(k)); if (!d.hidden_scenes.length) delete d.hidden_scenes; }, 'selection');
         case 'room': return upd((d) => { d.hidden_rooms = toggleIn(d.hidden_rooms, k, !(d.hidden_rooms || []).includes(k)); if (!d.hidden_rooms.length) delete d.hidden_rooms; }, 'selection');
         case 'light': return upd((d) => { d.exclude = toggleIn(d.exclude, k, !(d.exclude || []).includes(k)); if (!d.exclude.length) delete d.exclude; }, 'selection');
+        case 'usec': return upd((d) => { const o = { ...(d.outdoor || {}) }; o.hidden_sections = toggleIn(o.hidden_sections, k, !(o.hidden_sections || []).includes(k)); if (!o.hidden_sections.length) delete o.hidden_sections; d.outdoor = o; }, 'selection');
+        case 'usup': return upd((d) => { const o = { ...(d.outdoor || {}) }, a = M.mshOrder(UT_SECS.map((x) => x[0]), o.sections, []), i = a.indexOf(k); if (i > 0) { a.splice(i, 1); a.splice(i - 1, 0, k); } o.sections = a; d.outdoor = o; }, 'selection');
+        case 'lup': {
+          const A = M.lysAuto(hass(), st.draft), i = Number(el.dataset.i);
+          return upd((d) => {
+            if (Array.isArray(d.lamps) && d.lamps.length) { const L = d.lamps.slice(); if (i > 0) L.splice(i - 1, 0, L.splice(i, 1)[0]); d.lamps = L; return; }
+            const ids = A.lampsAll.slice(), vis = A.lamps.map((l) => l.id), id = vis[i], prev = vis[i - 1];
+            if (!id || !prev) return;
+            ids.splice(ids.indexOf(id), 1); ids.splice(ids.indexOf(prev), 0, id);
+            d.order = { ...(d.order || {}), utelys: ids };
+          }, 'selection');
+        }
         case 'ldel': { const A = M.lysAuto(hass(), st.draft); return upd((d) => lampOp(d, A, 'del', Number(el.dataset.i)), 'medium'); }
         case 'add': st.adding = true; M.haptic('light'); draw(); { const i = R.querySelector('msh-entity-picker[data-new]'); if (i && i.open) i.open(); } return;
         case 'addx': st.adding = false; M.haptic('light'); return draw();

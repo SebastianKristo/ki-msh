@@ -3,14 +3,14 @@
  *   bg_opacity 100, ingen avrunding – kartet har egen topp med × (lukker via MSH.closePopup; tilbake og Esc lukker også).
  *   Navbaren er eget kort utenfor popupen og ligger over kartet; mini-spilleren skjules mens #kart er åpen (10-navbar.js).
  * Kart: HAs ha-map (leafletMap + Leaflet fra elementet) når den finnes, ellers Leaflet 1.9.4 lastet én gang på dokumentnivå
- *   (MSH.leafletLoad) + OSM-fliser med attribusjon. Mørk stil = filter på flis-laget (ha-map: darkMode). Kartflaten har
+ *   (MSH.leafletLoad) + CARTO-fliser (dark_all/light_all, eller egen tile_url) med attribusjon (fiks 22.4, ingen invert). Kartflaten har
  *   touch-action: none og stopPropagation (pointer/touch/wheel), så pan/zoom aldri lukker popupen (fallgruve 2).
  *   Markører er divIcon med bare inline-stil (fungerer både i vår shadow root og inni ha-map).
  * Lag: soner (zone.*, farge/ikon fra «Tilpass header → Status og soner» via MSH.hjemZoneStyle), personer (person.* med
  *   posisjon, ring i statusfargen fra MSH.personStatus – i bevegelse = oransje puls), biler (device_tracker med GPS valgt
  *   i editoren / autokonfig), kollektiv (Entur sanntid: vehicles(lineRef) for linjene fra #ruter, hvert 15. s bare mens
  *   #kart er åpen – fallgruve 8; linjeoppslag og rutelinjer via MSH.enturGQL fra 47-ruter.js).
- * Config: { persons: [], cars: [], zones: 'all' | [], transit: true, lines: [], start: 'fit'|'home'|'me', style: 'dark'|'standard'|'satellite' }
+ * Config: { persons: [], cars: [], zones: 'all' | [], transit: true, lines: [], start: 'fit'|'home'|'me', style: 'dark'|'light'|'satellite', tile_url? }
  */
 (function () {
   const M = window.MSH;
@@ -22,12 +22,15 @@
   const LAYERS = [['persons', 'Personer', 'mdi:account-multiple'], ['cars', 'Biler', 'mdi:car'], ['zones', 'Soner', 'mdi:map-marker-radius'], ['transit', 'Kollektiv', 'mdi:bus']];
   const LEAF_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
   const LEAF_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
-  const DARK = 'invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.35)';
+  // Fiks 22.4: CARTO-fliser (som HAs eget kart) – tile.openstreetmap.org gir 403 fra dashbord. Ingen invert-filter.
+  const CARTO_ATT = '© OpenStreetMap contributors © CARTO';
   const TILES = {
-    dark: ['https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap-bidragsytere'],
-    standard: ['https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap-bidragsytere'],
+    dark: ['https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', CARTO_ATT],
+    light: ['https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', CARTO_ATT],
     satellite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Bilder © Esri'],
   };
+  const styleOf = (c) => (c.tile_url ? 'custom' : c.style === 'standard' ? 'light' : TILES[c.style] ? c.style : 'dark'); // «standard» (fiks 20) = light
+  const tileDef = (c) => { const st = styleOf(c); return st === 'custom' ? [String(c.tile_url), c.tile_attribution || '© OpenStreetMap contributors'] : TILES[st]; };
   // Transportmiddel → linjefarge (samme som Ruter-kortet) når Entur ikke gir presentation.colour
   const MODE_COL = { metro: 'oklch(0.66 0.16 45)', tram: 'oklch(0.62 0.13 245)', bus: 'oklch(0.6 0.17 25)', coach: 'oklch(0.6 0.17 25)', rail: 'oklch(0.55 0.12 260)', water: 'oklch(0.6 0.1 220)', ferry: 'oklch(0.6 0.1 220)' };
   const MODE_L = { metro: 'T-bane', tram: 'Trikk', bus: 'Buss', coach: 'Buss', rail: 'Tog', water: 'Båt', ferry: 'Båt' };
@@ -143,7 +146,7 @@
     const ac = typeof AbortController !== 'undefined' ? new AbortController() : null, to = ac && setTimeout(() => ac.abort(), 12000);
     try {
       const r = await fetch(VEH, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ET-Client-Name': clientName(h) }, body: JSON.stringify({ query }), signal: ac ? ac.signal : undefined });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) { console.warn('[ki-map] vehicles: HTTP ' + r.status); throw new Error('HTTP ' + r.status); }
       const j = await r.json();
       if (!j || (j.errors && !j.data)) throw new Error((j && j.errors && j.errors[0] && j.errors[0].message) || 'Entur-feil');
       return j.data;
@@ -177,7 +180,8 @@
     const W = M.kartTransitWanted(h, c), key = JSON.stringify(W);
     if (TR.key === key && Date.now() - TR.linesT < 600000 && TR.lines.length) return TR.lines;
     const found = new Map();
-    const direct = W.codes.filter((x) => /:Line:/.test(x));
+    const refs = (c && c.line_refs && typeof c.line_refs === 'object') ? c.line_refs : {}; // lagret fra editoren: { '31': 'RUT:Line:31' }
+    const direct = [...new Set([...W.codes.filter((x) => /:Line:/.test(x)), ...W.codes.map((x) => refs[x]).filter((x) => /:Line:/.test(x || ''))])];
     await Promise.all(W.stops.slice(0, 6).map((id) => jp(h, Q_LINES, { id }).then((d) => {
       ((d.stopPlace && d.stopPlace.estimatedCalls) || []).forEach((ec) => { const l = ec.serviceJourney && ec.serviceJourney.line; if (l && l.id && !found.has(l.id)) found.set(l.id, l); });
     }).catch(() => {})));
@@ -199,17 +203,19 @@
   }
   async function loadVehicles(h) {
     if (!TR.lines.length) { TR.veh = []; return; }
-    const q = (f) => '{' + TR.lines.map((l, i) => `v${i}:vehicles(lineRef:${JSON.stringify(l.id)}){${f}}`).join(' ') + '}';
+    const cs = (id) => { const x = String(id).split(':')[0]; return /^[A-Z]{3}$/.test(x) ? `codespaceId:${JSON.stringify(x)},` : ''; }; // RUT:Line:31 → codespaceId "RUT"
+    const q = (f) => '{' + TR.lines.map((l, i) => `v${i}:vehicles(${cs(l.id)}lineRef:${JSON.stringify(l.id)}){${f}}`).join(' ') + '}';
     let d;
     try { d = await vehGQL(h, q(vf)); } catch (e) { if (vf === VF_MIN) throw e; vf = VF_MIN; d = await vehGQL(h, q(vf)); } // eldre skjema: færre felt
     const out = [];
     TR.lines.forEach((l, i) => ((d && d['v' + i]) || []).forEach((v) => {
       const la = v.location && num(v.location.latitude), lo = v.location && num(v.location.longitude);
       if (la == null || lo == null) return;
-      if (v.lastUpdated && Date.now() - new Date(v.lastUpdated).getTime() > 600000) return; // eldre enn 10 min
+      if (v.lastUpdated && Date.now() - new Date(v.lastUpdated).getTime() > 120000) return; // fiks 22.5: skjul eldre enn 2 min
       out.push({ id: 'v:' + (v.vehicleId || l.id + i + out.length), kind: 'v', line: l, code: (v.line && v.line.publicCode) || l.code, mode: String(v.mode || l.mode || 'bus').toLowerCase(), pos: [la, lo], dest: v.destinationName || '', bearing: num(v.bearing), delay: num(v.delay), occ: v.occupancyStatus || null, stop: v.monitoredCall && v.monitoredCall.stopPointRef, upd: v.lastUpdated });
     }));
     TR.veh = out;
+    console.info('[ki-map] vehicles: ' + out.length);
   }
   M.kartTransitRefresh = async function (h, c, full) {
     if (TR.busy) return TR;
@@ -218,7 +224,7 @@
       if (full || !TR.lines.length) { await resolveLines(h, c); loadRoutes(h).then(() => M.kartTransitNotify(), () => {}); }
       await loadVehicles(h);
       TR.err = null;
-    } catch (e) { TR.err = (e && e.message) || String(e); } finally { TR.busy = false; TR.t = Date.now(); }
+    } catch (e) { TR.err = (e && e.message) || String(e); console.warn('[ki-map] vehicles: 0 (' + TR.err + ')'); } finally { TR.busy = false; TR.t = Date.now(); }
     M.kartTransitNotify();
     return TR;
   };
@@ -251,7 +257,7 @@
   const lineCol = (v) => (v.line && v.line.col) || MODE_COL[v.mode] || MODE_COL.bus;
   const vehIcon = (v, sel) => {
     const round = v.mode !== 'bus' && v.mode !== 'coach';
-    return `<div style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''}">${esc(v.code || '?')}</div>`;
+    return `<div style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''};position:relative">${v.bearing != null ? `<span data-bearing="${Math.round(v.bearing)}" style="position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(${Math.round(v.bearing)}deg);pointer-events:none"><span style="position:absolute;left:-5px;top:-24px;border:5px solid transparent;border-bottom:7px solid ${lineCol(v)}"></span></span>` : ''}${esc(v.code || '?')}</div>`;
   };
 
   /* ============================================================ kortet */
@@ -280,11 +286,15 @@
           ] },
           { type: 'section', id: 'kollektiv', label: 'Kollektiv', icon: 'mdi:bus-clock', fields: [
             { type: 'boolean', name: 'transit', label: 'Vis busser og trikker i sanntid (Entur)', default: true },
-            { type: 'html', html: lineChips, click: (d, ed) => { const s = new Set(Array.isArray(ed._config.lines) ? ed._config.lines.map(String) : []); if (s.has(d.v)) s.delete(d.v); else s.add(d.v); M.haptic('selection'); ed._set('lines', s.size ? [...s] : undefined); } },
+            { type: 'html', html: lineChips, click: (d, ed) => { const s = new Set(Array.isArray(ed._config.lines) ? ed._config.lines.map(String) : []); if (s.has(d.v)) s.delete(d.v); else s.add(d.v); M.haptic('selection'); ed._set('lines', s.size ? [...s] : undefined);
+              // fiks 22.5: slå opp lineRef (line.id) via Journey Planner og lagre sammen med linjenummeret – aldri bygget av tekst
+              if (s.size && ed.hass) resolveLines(ed.hass, { lines: [] }).then((all) => { const refs = {}; [...s].forEach((x) => { const l = /:Line:/.test(x) ? null : all.find((y) => y.code === x); if (l) refs[x] = l.id; }); if (ed._config && Object.keys(refs).length) ed._set('line_refs', refs); }).catch(() => {});
+              else if (!s.size) ed._set('line_refs', undefined); } },
           ] },
           { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:map-outline', fields: [
             { type: 'select', name: 'start', label: 'Startvisning', options: [['fit', 'Vis alle'], ['home', 'Hjem'], ['me', 'Meg']], default: 'fit' },
-            { type: 'select', name: 'style', label: 'Kartstil', options: [['dark', 'Mørk'], ['standard', 'Standard'], ['satellite', 'Satellitt']], default: 'dark' },
+            { type: 'select', name: 'style', label: 'Kartstil', options: [['dark', 'Mørk'], ['light', 'Lys'], ['satellite', 'Satellitt']], default: 'dark' },
+            { type: 'text', name: 'tile_url', label: 'Egen flis-URL (valgfritt, overstyrer stilen)', placeholder: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' },
           ] },
         ];
       };
@@ -296,6 +306,8 @@
       this._key = (e) => { if (e.key === 'Escape' && this.isOpen && location.hash === HASH && !document.querySelector('.msh-overlay-root, ki-overlay-root')) { M.closePopup(); } };
       this._tr = () => { if (this.isOpen) this.update(); };
       this._rs = () => this._fitHeight();
+      // 22.7: «Vis på kart» fra headeren (M.kartFocus → event + M.kartFocusReq) → velg og fly til personen
+      this._fc = (e) => { const id = e && e.detail && e.detail.entity_id; if (id) { this._focusId = id; this._focus(); } };
       this.shadowRoot.addEventListener('error', (e) => { const t = e.target; if (t && t.tagName === 'IMG' && t.getAttribute('src') && !BAD.has(t.getAttribute('src'))) { BAD.add(t.getAttribute('src')); this.update(); } }, true);
     }
     connectedCallback() {
@@ -303,12 +315,15 @@
       window.addEventListener('keydown', this._key);
       window.addEventListener('msh-kart-transit', this._tr);
       window.addEventListener('resize', this._rs);
+      window.addEventListener('msh-kart-focus', this._fc);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
+      if (this._ro) this._ro.disconnect();
       window.removeEventListener('keydown', this._key);
       window.removeEventListener('msh-kart-transit', this._tr);
       window.removeEventListener('resize', this._rs);
+      window.removeEventListener('msh-kart-focus', this._fc);
     }
     // Fullskjerm: ingen mellomrom fra popupen (kartet går kant til kant), høyden følger popupen
     _applySpacing() { this.style.paddingBottom = '0px'; this.style.marginTop = ''; this._fitHeight(); }
@@ -318,18 +333,74 @@
       const hgt = pop && pop.clientHeight > 200 ? pop.clientHeight : window.innerHeight;
       this.style.setProperty('--kart-h', Math.round(hgt) + 'px');
       if (this._map && this._map.invalidateSize) { try { this._map.invalidateSize(); } catch (e) { /* */ } }
+      this._measureNav();
+    }
+    // Fiks 22.1: mål navbaren (bunn, side eller topp – den bytter plass etter bredde) mot kortflaten → --nav-top/right/bottom/left
+    //   (0 = ikke på den siden, ellers overlapp + 8 px). Holdes oppdatert med ResizeObserver på navbar og kort (22.3: sidebar).
+    _navEl() {
+      const np = document.querySelector('.msh-navbar-portal');
+      const n = (np && np.shadowRoot && np.shadowRoot.querySelector('[data-nav]')) || document.querySelector('msh-navbar-card');
+      return n && n.getBoundingClientRect && n.getBoundingClientRect().width > 0 ? n : null;
+    }
+    _measureNav() {
+      const box = this.getBoundingClientRect(), n = this._navEl(), N = { top: 0, right: 0, bottom: 0, left: 0 };
+      if (n && box.width > 0) {
+        const r = n.getBoundingClientRect(), cs = getComputedStyle(n);
+        const vis = cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05;
+        const ox = Math.min(r.right, box.right) - Math.max(r.left, box.left), oy = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+        if (vis && ox > 0 && oy > 0) {
+          if (r.width >= r.height) { if (r.top + r.height / 2 > box.top + box.height / 2) N.bottom = box.bottom - r.top + 8; else N.top = r.bottom - box.top + 8; }
+          else if (r.left + r.width / 2 < box.left + box.width / 2) N.left = r.right - box.left + 8; else N.right = box.right - r.left + 8;
+        }
+      }
+      Object.keys(N).forEach((k) => { N[k] = Math.max(0, Math.round(N[k])); this.style.setProperty('--nav-' + k, N[k] + 'px'); });
+      this._nav = N;
+      return N;
+    }
+    _watch() {
+      if (typeof ResizeObserver === 'undefined') return;
+      if (!this._ro) this._ro = new ResizeObserver(() => { if (this.isOpen) this._fitHeight(); });
+      this._ro.disconnect();
+      this._ro.observe(this);
+      const n = this._navEl(); if (n) this._ro.observe(n);
+      const mb = this.shadowRoot.querySelector('.map'); if (mb) this._ro.observe(mb);
+    }
+    // Leaflet-marginer = ledig flate (navbar + topp + detaljkort), så valgt markør aldri havner bak navbar/detaljkort
+    _pad() {
+      const N = this._nav || this._measureNav(), det = this.shadowRoot.querySelector('.det');
+      const dh = det ? det.getBoundingClientRect().height : 0, row = this.shadowRoot.querySelector('.row');
+      const rh = row ? row.getBoundingClientRect().height + 8 : 0;
+      return { paddingTopLeft: [N.left + 16, N.top + 120], paddingBottomRight: [N.right + 16 + 64, N.bottom + Math.max(dh, rh) + 16] };
+    }
+    _flyTo(pos, z) {
+      const map = this._map, L = this._L;
+      if (!map) return;
+      const P = this._pad();
+      if (L && L.latLngBounds && map.flyToBounds) { map.flyToBounds(L.latLngBounds([pos, pos]), { ...P, maxZoom: z, duration: 0.8 }); return; }
+      map.flyTo(pos, z, { duration: 0.8 });
     }
     get layers() { const L = this.ui.layers || {}; return { persons: L.persons !== false, cars: L.cars !== false, zones: L.zones !== false, transit: L.transit !== false }; }
     onOpen() {
       this._fitHeight();
       this.update();
+      this._watch();
+      this._focus();
+      clearTimeout(this._inv); this._inv = setTimeout(() => this._fitHeight(), 350); // etter Bubble sin åpne-animasjon (22.2)
       if (this.config.transit !== false) {
         M.kartTransitRefresh(this.hass, this.config, true);
         clearInterval(this._poll);
         this._poll = setInterval(() => { if (this.isOpen && location.hash === HASH && this.layers.transit) M.kartTransitRefresh(this.hass, this.config); }, 15000);
       }
     }
-    onClose() { clearInterval(this._poll); this._poll = 0; if (this.ui.sel) this._ui = { ...this._ui, sel: null }; }
+    _focus() {
+      const R = M.kartFocusReq;
+      if (!this._focusId && R && R.entity_id && Date.now() - (R.t || 0) < 5000) this._focusId = R.entity_id;
+      if (!this._focusId || !this._map || !this._D) return; // kartet lages ved åpning; kalles igjen fra _initMap
+      const id = this._focusId, x = [...this._D.P, ...this._D.K].find((y) => y.id === id);
+      this._focusId = null; M.kartFocusReq = null;
+      if (x && x.pos) { this.setUI({ sel: { k: x.kind, id } }); clearTimeout(this._fcT); this._fcT = setTimeout(() => this._flyTo(x.pos, 15), 380); }
+    }
+    onClose() { clearInterval(this._poll); this._poll = 0; clearTimeout(this._inv); if (this.ui.sel) this._ui = { ...this._ui, sel: null }; }
     _data() {
       const h = this.hass, c = this.config;
       const P = M.kartPersons(h, c), K = M.kartCars(h, c), Z = M.kartZones(h, c), V = c.transit !== false ? TR.veh : [];
@@ -345,7 +416,7 @@
       const hp = homePos(h), near = hp ? D.V.filter((v) => dist(v.pos, hp) < 5000).length : D.V.length;
       const sum = [`${home} hjemme`, `${away} borte`, ...(c.transit !== false ? [`${near} kollektiv i nærheten`] : [])].join(' · ');
       const counts = { persons: D.P.filter((p) => p.pos).length, cars: D.K.filter((k) => k.pos).length, zones: D.Z.length, transit: D.V.length };
-      const chips = LAYERS.filter(([k]) => k !== 'transit' || c.transit !== false).map(([k, l, ic]) => `<button class="chip ${Ly[k] ? 'on' : ''}" data-act="layer" data-v="${k}" aria-pressed="${Ly[k]}" data-key="ly-${k}">${M.icon(ic, 16)}${esc(l)}<b>${counts[k]}</b></button>`).join('');
+      const chips = LAYERS.filter(([k]) => k !== 'transit' || c.transit !== false).map(([k, l, ic]) => `<button class="chip ${Ly[k] ? 'on' : ''}" data-act="layer" data-v="${k}" aria-pressed="${Ly[k]}" data-key="ly-${k}">${M.icon(ic, 16)}${esc(l)}${k === 'transit' && !counts[k] && TR.t && Ly.transit ? '<b>Ingen kjøretøy i sanntid nå</b>' : `<b>${counts[k]}</b>`}</button>`).join('');
       const sel = this.ui.sel, cur = this._find(D, sel);
       const pill = (x) => {
         const on = cur && cur.id === x.id;
@@ -372,10 +443,10 @@
           <button class="sb" data-act="fit" title="Vis alle">${M.icon('mdi:fit-to-screen-outline', 22)}</button>
           <button class="sb" data-act="home" title="Hjem">${M.icon('mdi:home', 22)}</button>
         </div>
-        <div class="bot" data-key="bot" style="bottom:calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 10px)">
+        <div class="bot" data-key="bot">
           ${cur ? this._detail(cur) : ''}
           ${row ? `<div class="row noscroll" data-key="row">${row}</div>` : ''}
-          <div class="att" data-key="att">${esc((TILES[c.style] || TILES.dark)[1])}</div>
+          <div class="att" data-key="att">${esc(tileDef(c)[1])}</div>
         </div>
       </div>`;
     }
@@ -413,7 +484,7 @@
       if (name === 'zin') return this._map && this._map.zoomIn();
       if (name === 'zout') return this._map && this._map.zoomOut();
       if (name === 'fit') return this._fitAll(true);
-      if (name === 'home') { const hp = homePos(this.hass); if (hp && this._map) this._map.flyTo(hp, 15, { duration: 0.8 }); return; }
+      if (name === 'home') { const hp = homePos(this.hass); if (hp && this._map) this._flyTo(hp, 15); return; }
       if (name === 'route') return this._route(d.id);
       if (name === 'ruter') { this._select(null); return M.openPopup('#ruter'); }
       return super.onAction(name, el, ev);
@@ -422,7 +493,7 @@
       const same = sel && this.ui.sel && this.ui.sel.k === sel.k && this.ui.sel.id === sel.id;
       const nxt = same ? null : sel;
       this.setUI({ sel: nxt });
-      if (nxt && fly && this._map && this._D) { const x = this._find(this._D, nxt); if (x && x.pos) this._map.flyTo(x.pos, Math.max(this._map.getZoom ? this._map.getZoom() : 14, x.kind === 'z' ? 14 : 15), { duration: 0.8 }); }
+      if (nxt && fly && this._map && this._D) { const x = this._find(this._D, nxt); if (x && x.pos) requestAnimationFrame(() => this._flyTo(x.pos, Math.max(this._map.getZoom ? this._map.getZoom() : 14, x.kind === 'z' ? 14 : 15))); } // rAF: detaljkortet er tegnet og målt
     }
     _route(id) {
       const x = this._D && [...this._D.P, ...this._D.K].find((y) => y.id === id);
@@ -437,8 +508,8 @@
       const pts = [...D.P, ...D.K].map((x) => x.pos).filter(Boolean);
       const hp = homePos(this.hass); if (hp) pts.push(hp);
       if (!pts.length) return false;
-      if (pts.length === 1) { map[anim ? 'flyTo' : 'setView'](pts[0], 14, anim ? { duration: 0.8 } : undefined); return true; }
-      const b = L.latLngBounds(pts), opt = { paddingTopLeft: [40, 170], paddingBottomRight: [80, 220], maxZoom: 15 };
+      if (pts.length === 1) { if (anim) this._flyTo(pts[0], 14); else map.setView(pts[0], 14); return true; }
+      const b = L.latLngBounds(pts), opt = { ...this._pad(), maxZoom: 15 };
       if (anim && map.flyToBounds) map.flyToBounds(b, { ...opt, duration: 0.8 }); else map.fitBounds(b, opt);
       return true;
     }
@@ -462,7 +533,7 @@
         if (customElements.get('ha-map') && c.engine !== 'leaflet') {
           const hm2 = document.createElement('ha-map');
           hm2.style.cssText = 'display:block;width:100%;height:100%';
-          hm2.hass = this.hass; hm2.darkMode = c.style !== 'standard'; hm2.themeMode = c.style === 'standard' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
+          hm2.hass = this.hass; hm2.darkMode = styleOf(c) !== 'light'; hm2.themeMode = styleOf(c) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
           box.appendChild(hm2);
           for (let i = 0; i < 100 && !(hm2.leafletMap && hm2.Leaflet); i++) await new Promise((r) => setTimeout(r, 50));
           if (hm2.leafletMap && hm2.Leaflet) { this._haMap = hm2; this._L = hm2.Leaflet; this._map = hm2.leafletMap; }
@@ -473,7 +544,7 @@
           box.innerHTML = `<link rel="stylesheet" href="${LEAF_CSS}"><div class="lf"></div>`;
           const el = box.querySelector('.lf');
           this._L = L;
-          this._map = L.map(el, { zoomControl: false, attributionControl: false, zoomSnap: 0.5 });
+          this._map = L.map(el, { zoomControl: false, attributionControl: false, zoomSnap: 0.5, dragging: true, touchZoom: true, scrollWheelZoom: true, doubleClickZoom: true, tap: false });
           this._map.setView(homePos(this.hass) || [59.91, 10.75], 13);
         }
       } catch (e) {
@@ -489,19 +560,19 @@
       this._sync();
       this._startView();
       this.update();
+      this._focus();
     }
     _setStyle() {
-      const L = this._L, map = this._map, st = this.config.style || 'dark';
-      if (!L || !map || this._styleNow === st) return;
-      this._styleNow = st;
+      const L = this._L, map = this._map, st = styleOf(this.config), T = tileDef(this.config), key = st + '|' + T[0];
+      if (!L || !map || this._styleNow === key) return;
+      this._styleNow = key;
       if (this._tiles) { map.removeLayer(this._tiles); this._tiles = null; }
-      if (this._haMap) {
-        this._haMap.darkMode = st !== 'standard'; this._haMap.themeMode = st === 'standard' ? 'light' : 'dark';
-        if (st === 'satellite') this._tiles = L.tileLayer(TILES.satellite[0], { maxZoom: 19, attribution: TILES.satellite[1] }).addTo(map);
+      if (this._haMap) { // ha-map har CARTO selv; bare satellitt / egen URL legges oppå
+        this._haMap.darkMode = st !== 'light'; this._haMap.themeMode = st === 'light' ? 'light' : 'dark';
+        if (st === 'satellite' || st === 'custom') this._tiles = L.tileLayer(T[0], { maxZoom: 20, subdomains: 'abcd', attribution: T[1] }).addTo(map);
         return;
       }
-      const T = TILES[st] || TILES.dark;
-      this._tiles = L.tileLayer(T[0], { maxZoom: 19, subdomains: 'abc', attribution: T[1], className: st === 'dark' ? 'msh-dark' : '' }).addTo(map);
+      this._tiles = L.tileLayer(T[0], { maxZoom: 20, subdomains: 'abcd', attribution: T[1], className: 'msh-tiles msh-' + st }).addTo(map);
     }
     // Lag: legg til / flytt / fjern markører etter data og filter (diff på nøkkel, setIcon bare når HTML endres)
     _sync() {
@@ -568,7 +639,6 @@
         .kart{position:relative;height:100%;overflow:hidden;background:#1d1d1d;font-family:${M.FONT || 'inherit'}}
         .map,.map .lf{position:absolute;inset:0;touch-action:none}
         .map .lf{background:#1d1d1d}
-        .msh-dark{filter:${DARK}}
         .msh-mk{background:none;border:0}
         .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-layer{position:absolute;left:0;top:0}
         .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0}
@@ -580,7 +650,7 @@
         .leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
         .leaflet-interactive{cursor:pointer}
         .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--gray700,#979797);font-size:13px;text-align:center;padding:0 40px}
-        .top{position:absolute;left:0;right:0;top:0;z-index:1000;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 22px;background:linear-gradient(180deg,#232323 0%,rgba(35,35,35,.85) 55%,rgba(35,35,35,0) 100%);display:flex;flex-direction:column;gap:12px;pointer-events:none}
+        .top{position:absolute;left:var(--nav-left,0px);right:var(--nav-right,0px);top:var(--nav-top,0px);z-index:1000;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 22px;background:linear-gradient(180deg,#232323 0%,rgba(35,35,35,.85) 55%,rgba(35,35,35,0) 100%);display:flex;flex-direction:column;gap:12px;pointer-events:none}
         .top>*{pointer-events:auto}
         .hd{display:flex;align-items:center;gap:12px;min-width:0}
         .ic{width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--gray1000,#e1e1e1);color:#232323}
@@ -594,9 +664,9 @@
         .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:rgba(58,58,58,.9);color:#e1e1e1;font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
         .chip b{font-weight:600;opacity:.7}
         .chip.on{background:${PINK};color:#2f2f2f}
-        .side{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px}
+        .side{position:absolute;right:calc(var(--nav-right,0px) + 12px);top:50%;transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px}
         .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px rgba(0,0,0,.35)}
-        .bot{position:absolute;left:0;right:0;z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+        .bot{position:absolute;left:var(--nav-left,0px);right:var(--nav-right,0px);bottom:calc(var(--nav-bottom,0px) + 10px);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
         .bot>*{pointer-events:auto}
         .row{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;padding:0 12px}
         .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:rgba(58,58,58,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.35);max-width:260px}
@@ -608,7 +678,7 @@
         .pt b,.dt b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .pt i,.dt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:rgba(35,35,35,.6);color:var(--gray700,#979797);font-size:10px}
-        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px}
+        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--nav-top,0px) - var(--nav-bottom,0px) - 140px);overflow-y:auto;overscroll-behavior:contain}
         .dh{display:flex;align-items:center;gap:12px}
         .da{width:44px;height:44px;background:none}
         .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}

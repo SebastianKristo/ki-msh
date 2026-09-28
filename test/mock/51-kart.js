@@ -28,8 +28,8 @@ if (!window.L) (function () {
       const m = Ev({ el, pane, o, center: [0, 0], zoom: 10, layers: new Set(), _loaded: true,
         setView(c, z) { this.center = c; if (z != null) this.zoom = z; log.calls.push(['setView', c, z]); return this; },
         flyTo(c, z) { this.center = c; if (z != null) this.zoom = z; log.calls.push(['flyTo', c, z]); return this; },
-        fitBounds(b) { log.calls.push(['fitBounds', b.pts.length]); return this; },
-        flyToBounds(b) { log.calls.push(['flyToBounds', b.pts.length]); return this; },
+        fitBounds(b, o) { log.calls.push(['fitBounds', b.pts.length, o && o.paddingTopLeft, o && o.paddingBottomRight]); return this; },
+        flyToBounds(b, o) { log.calls.push(['flyToBounds', b.pts.length, o && o.paddingTopLeft, o && o.paddingBottomRight]); return this; },
         zoomIn() { this.zoom++; log.calls.push(['zoomIn']); return this; }, zoomOut() { this.zoom--; log.calls.push(['zoomOut']); return this; },
         getZoom() { return this.zoom; }, getCenter() { return this.center; }, invalidateSize() { return this; },
         addLayer(l) { this.layers.add(l); l._add(this); return this; }, removeLayer(l) { this.layers.delete(l); if (l._rmAll) l._rmAll(); else l._rm(); return this; }, hasLayer(l) { return this.layers.has(l); }, remove() {} });
@@ -37,7 +37,7 @@ if (!window.L) (function () {
       log.maps.push(m);
       return m;
     },
-    tileLayer(url, o) { log.calls.push(['tileLayer', url, o && o.className]); return layer('tile', { url, options: o || {} }); },
+    tileLayer(url, o) { log.calls.push(['tileLayer', url, o && o.className, o && o.attribution]); return layer('tile', { url, options: o || {} }); },
     layerGroup() {
       const g = layer('group', { items: new Set(),
         addLayer(l) { this.items.add(l); if (this._map) l._add(this._map); return this; },
@@ -83,6 +83,7 @@ if (!window.L) (function () {
         v0: [{ vehicleId: 'tram-1', lastUpdated: now, bearing: 90, delay: 120, occupancyStatus: 'manySeatsAvailable', destinationName: 'Grefsen st.', mode: 'TRAM', line: { lineRef: 'RUT:Line:17', publicCode: '17' }, location: { latitude: 59.9255 + (t % 1) * 0.001, longitude: 10.7325 }, monitoredCall: { stopPointRef: 'NSR:Quay:11969' } },
           { vehicleId: 'tram-2', lastUpdated: now, bearing: 270, delay: 0, occupancyStatus: 'fewSeatsAvailable', destinationName: 'Rikshospitalet', mode: 'TRAM', line: { lineRef: 'RUT:Line:17', publicCode: '17' }, location: { latitude: 59.918, longitude: 10.745 }, monitoredCall: { stopPointRef: 'NSR:Quay:11970' } }],
         v1: [{ vehicleId: 'bus-1', lastUpdated: now, bearing: 0, delay: -30, occupancyStatus: 'standingRoomOnly', destinationName: 'Voksen skog', mode: 'BUS', line: { lineRef: 'RUT:Line:45', publicCode: '45' }, location: { latitude: 59.9295, longitude: 10.7102 }, monitoredCall: { stopPointRef: 'NSR:Quay:7333' } },
+          { vehicleId: 'bus-gammel', lastUpdated: new Date(Date.now() - 180000).toISOString(), bearing: 0, destinationName: 'Gammel', mode: 'BUS', line: { lineRef: 'RUT:Line:45', publicCode: '45' }, location: { latitude: 59.92, longitude: 10.72 } }, // 22.5: > 2 min → skjules
           { vehicleId: 'bus-2', lastUpdated: now, bearing: 180, delay: 300, occupancyStatus: null, destinationName: 'Majorstuen', mode: 'BUS', line: { lineRef: 'RUT:Line:45', publicCode: '45' }, location: { latitude: 59.9101, longitude: 10.7401 }, monitoredCall: null }],
       } });
     }

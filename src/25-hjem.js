@@ -80,6 +80,10 @@
           { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
         ] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
+        { type: 'section', id: 'kiosk', label: 'Kiosk', icon: 'mdi:fullscreen', fields: [
+          { type: 'info', label: 'Kiosk-modus (kiosk-mode): grupper, enheter og YAML – samme ark som «Mer» → Kiosk-modus.' },
+          { type: 'button', label: 'Kiosk-innstillinger', icon: 'mdi:fullscreen', run: (h) => M.kioskSheet && M.kioskSheet({ hass: h }) },
+        ] },
         { type: 'section', id: 'popups', label: 'Popups', icon: 'mdi:layers-outline', fields: [
           { type: 'info', label: 'Lager én Bubble Card-popup per rom (mal B) og per funksjon/person (mal A), med ett kort hver. Finnes hashen fra før, oppdateres bare cards – dine styles står urørt.' },
           { type: 'button', label: 'Opprett / oppdater popups', icon: 'mdi:auto-fix', run: (h) => M.buildPopups(h) },
@@ -92,6 +96,7 @@
       this._hass = h;
       Object.values(this._kids).forEach((k) => { k.hass = h; });
       if (M.ringTick) M.ringTick(h); // 19.18: ringeklokke (50-ringeklokke.js)
+      if (M.kioskTick) M.kioskTick(h); // 22.9: kiosk per nettleser (Browser Mod-ID, 53-kiosk.js)
       if (this._ring) this._ring.hass = h;
       if (first) { this._schedule(true); this._checkOpen(); }
       else if (this._lastAreas !== h.areas) this._schedule(true);

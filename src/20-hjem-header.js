@@ -93,7 +93,30 @@
     Object.keys(TACT_DEF).forEach((k) => { out[k] = TACT_L[t[k]] ? t[k] : TACT_DEF[k]; });
     return out;
   };
-  M.hjemKioskEntity = (c) => (c && c.kiosk_entity) || (c && c.overrides && c.overrides.kiosk) || KIOSK_DEF;
+  /* ------------------------------------------------------------ handlinger på personbildene (Fiks 22.7) */
+  // person_actions: { tap, double, hold } – hver er én av PACTS. Erstatter person_tap (20.22): gammel person_tap
+  // migreres (popup/quick → trykk; kart var standarden → nå person-popup). Gjelder alle personbilder i headeren.
+  const PACTS = [['popup', 'Person-popup', 'mdi:account-box'], ['quick', 'Hurtigark', 'mdi:card-account-details'], ['kart', 'Vis på kart', 'mdi:map-marker-account'], ['more', 'More-info', 'mdi:information-outline'], ['none', 'Ingen', 'mdi:cancel']];
+  const PACT_L = Object.fromEntries(PACTS.map(([k, l]) => [k, l]));
+  const PGESTS = [['tap', 'Trykk', 'mdi:gesture-tap'], ['double', 'Dobbelttrykk', 'mdi:gesture-double-tap'], ['hold', 'Hold', 'mdi:gesture-tap-hold']];
+  const PACT_DEF = { tap: 'popup', double: 'none', hold: 'quick' };
+  M.HJEM_PERSON_ACTIONS = PACTS;
+  // Effektive handlinger (ukjente/manglende → standard, gammel person_tap migreres). Ren funksjon.
+  M.hjemPersonActions = function (c) {
+    const t = (c && c.person_actions) || {}, out = {};
+    const old = c && !c.person_actions && (c.person_tap === 'popup' || c.person_tap === 'quick') ? { tap: c.person_tap } : {};
+    Object.keys(PACT_DEF).forEach((k) => { out[k] = PACT_L[t[k]] ? t[k] : old[k] || PACT_DEF[k]; });
+    return out;
+  };
+  // Kontrakt mot msh-kart-card (51-kart.js), «Vis på kart»: M.kartFocus(personId) legger ønsket i
+  // M.kartFocusReq = { entity_id, t } (Date.now()) og sender window-event 'msh-kart-focus' { detail: { entity_id } },
+  // og åpner så #kart. Kartet bør sentrere på personen ved eventet, og ved oppstart lese M.kartFocusReq hvis t er
+  // ferskere enn ~5 s (popupen kan bygge kartet etter eventet). Kartet kan nullstille M.kartFocusReq når det er brukt.
+  M.kartFocus = M.kartFocus || function (entityId) {
+    M.kartFocusReq = { entity_id: entityId, t: Date.now() };
+    window.dispatchEvent(new CustomEvent('msh-kart-focus', { detail: { entity_id: entityId } }));
+  };
+  M.hjemKioskEntity = (c) => ((M.store && M.store.get('kiosk.entity')) || null) || (c && c.kiosk_entity) || (c && c.overrides && c.overrides.kiosk) || KIOSK_DEF;
 
   /* ------------------------------------------------------------ vær */
   const COND = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Styrtregn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
@@ -226,7 +249,7 @@
     class HjemEditor extends Base {
       constructor() {
         super(); this._ropen = {}; this._btns = {};
-        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.np)) M.haptic('selection'); });
+        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.pact || e.target.dataset.np)) M.haptic('selection'); });
         this.shadowRoot.addEventListener('focusout', (e) => { if (this._pend && e.target && e.target.tagName === 'SELECT') { this._pend = false; setTimeout(() => this._render(), 0); } });
         // Fiks 20.9: live forhåndsvisning (prosa) per tastetrykk – bare forhåndsvisningen tegnes, lagring skjer på change
         this.shadowRoot.addEventListener('input', (e) => {
@@ -288,6 +311,8 @@
         if (this.shadowRoot) {
           const A = M.hjemTitleActions(this._config || {});
           this.shadowRoot.querySelectorAll('[data-tact]').forEach((el) => { const v = A[el.dataset.tact]; if (el.value !== v) el.value = v; });
+          const PA = M.hjemPersonActions(this._config || {});
+          this.shadowRoot.querySelectorAll('[data-pact]').forEach((el) => { const v = PA[el.dataset.pact]; if (el.value !== v) el.value = v; });
         }
         if (this._cssFallback && this.shadowRoot && !this.shadowRoot.getElementById('xcss')) {
           const s = document.createElement('style'); s.id = 'xcss'; s.textContent = XCSS; this.shadowRoot.appendChild(s);
@@ -495,15 +520,17 @@
       }
       // Handlinger på tittelen: tre rader med en pille som er en usynlig native <select> (OS-velgeren).
       // HA GUI-editoren: ha-selector select per gest.
-      _titleActs() {
-        const A = M.hjemTitleActions(this._config || {});
+      // Fiks 22.7: pers = «Handlinger på personbilder» (person_actions, data-pact), samme UI.
+      _titleActs(pers) {
+        const A = pers ? M.hjemPersonActions(this._config || {}) : M.hjemTitleActions(this._config || {});
+        const [ACTS, GESTS, L, DEF, key, dk, rk] = pers ? [PACTS, PGESTS, PACT_L, PACT_DEF, 'person_actions', 'data-pact', 'pa'] : [TACTS, TGESTS, TACT_L, TACT_DEF, 'title_actions', 'data-tact', 'ta'];
         if (!this._inline && customElements.get('ha-selector')) {
-          const sel = JSON.stringify({ select: { mode: 'dropdown', options: TACTS.map(([v, l]) => ({ value: v, label: l })) } });
-          return `<div class="xtsel">${TGESTS.map(([g, l]) => `<div class="f"><ha-selector data-name="title_actions.${g}" data-tact="${g}" data-nomorph data-selector="${esc(sel)}" data-label="${esc(l)}" data-helper="Standard: ${esc(TACT_L[TACT_DEF[g]])}"></ha-selector></div>`).join('')}</div>`;
+          const sel = JSON.stringify({ select: { mode: 'dropdown', options: ACTS.map(([v, l]) => ({ value: v, label: l })) } });
+          return `<div class="xtsel">${GESTS.map(([g, l]) => `<div class="f"><ha-selector data-name="${key}.${g}" ${dk}="${g}" data-nomorph data-selector="${esc(sel)}" data-label="${esc(l)}" data-helper="Standard: ${esc(L[DEF[g]])}"></ha-selector></div>`).join('')}</div>`;
         }
-        return `<div class="xta">${TGESTS.map(([g, l, ic]) => {
+        return `<div class="xta">${GESTS.map(([g, l, ic]) => {
           const v = A[g];
-          return `<div class="xtr" data-key="ta-${g}"><span class="ti">${M.icon(ic, 20)}</span><b>${esc(l)}</b><label class="xpill ${v === 'none' ? 'none' : ''}"><span>${esc(TACT_L[v])}</span>${M.icon('mdi:unfold-more-horizontal', 16, 'color:#afafaf;flex:none')}<select data-name="title_actions.${g}" data-tact="${g}" aria-label="${esc(l)}">${TACTS.map(([k, kl]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(kl)}</option>`).join('')}</select></label></div>`;
+          return `<div class="xtr" data-key="${rk}-${g}"><span class="ti">${M.icon(ic, 20)}</span><b>${esc(l)}</b><label class="xpill ${v === 'none' ? 'none' : ''}"><span>${esc(L[v])}</span>${M.icon('mdi:unfold-more-horizontal', 16, 'color:#afafaf;flex:none')}<select data-name="${key}.${g}" ${dk}="${g}" aria-label="${esc(l)}">${ACTS.map(([k, kl]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(kl)}</option>`).join('')}</select></label></div>`;
         }).join('')}</div>`;
       }
       _field(f, key) {
@@ -524,6 +551,7 @@
           case 'rows': return this._rows(f, key);
           case 'xstat': return this._statRow(f, key);
           case 'titleacts': return this._titleActs();
+          case 'personacts': return this._titleActs(true);
           case 'profilebar': return this._profBar();
           case 'modes': {
             let cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
@@ -1154,12 +1182,12 @@
   };
   const faceTxt = (p, bad) => p.display === 'initials' && !(p.pic && !(bad && bad.has(p.pic)));
 
-  // 20.22: #kart finnes (strategien laget den / manuell popup) – ellers faller trykk tilbake til hurtigarket
+  // 20.22/22.7: #kart finnes (strategien laget den / manuell popup) – ellers faller trykk tilbake til hurtigarket
   const kartOk = (h) => !!customElements.get('msh-kart-card') && (!M.allPopups || M.allPopups(h).some((p) => p.hash === '#kart'));
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'kart', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
+      return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
@@ -1176,6 +1204,12 @@
             { type: 'titleacts' },
             { type: 'entity', name: 'kiosk_entity', label: 'Kiosk-modus-entitet', domain: 'input_boolean', auto: (h, cc) => ((cc.overrides || {}).kiosk) || KIOSK_DEF },
             { type: 'info', label: 'Standard: trykk åpner «Bytt sted», hold slår kiosk-modus av/på, dobbelttrykk åpner innstillinger.' },
+            { type: 'button', label: 'Kiosk-innstillinger', icon: 'mdi:fullscreen', run: () => M.kioskSheet && M.kioskSheet() }, // Fiks 22.9 (bryter-entiteten i arket vinner over kiosk_entity)
+          ] },
+          // Fiks 22.7: rett under «Handlinger på tittelen»
+          { type: 'section', id: 'person_actions', label: 'Handlinger på personbilder', icon: 'mdi:account-circle', meta: (h, cc) => PACT_L[M.hjemPersonActions(cc).tap], fields: [
+            { type: 'personacts' },
+            { type: 'info', label: 'Standard: trykk åpner person-popupen (#person-<id>), hold åpner hurtigarket, dobbelttrykk gjør ingenting.' },
           ] },
           { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => modeOf(cc) === 'stor', open: true, fields: [
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
@@ -1250,7 +1284,6 @@
             { type: 'boolean', name: 'ring_me', label: 'Ring rundt meg · markerer bildet ditt', default: false },
             { type: 'boolean', name: 'weather_tap', label: 'Trykk på været åpner Vær · gjelder «Hjem» og «Profil»', default: true },
             { type: 'hash', name: 'weather_hash', label: 'Vær-popup', placeholder: D.weather_hash },
-            { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['kart', 'Åpne kartet (#kart)'], ['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap, help: 'Kart: hold på personen åpner hurtigarket.' },
           ] },
           { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', fields: [
             // Fiks 16.3: «Du er her» = dette stedet (this_server); de andre stedene åpnes med HA-appens egen URL-handling
@@ -1387,14 +1420,14 @@
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : hil ? hGapN : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
-        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.2)}px` : ''}">
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-haptic="off" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.2)}px` : ''}">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [], hMore = 0;
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
       if (hil && hK < people.length) { hMore = people.length - hK; faces = people.slice(0, hK); } // Fiks 19.12 ④
       const more = hMore ? people[hK] : null;
-      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);box-shadow:0 0 0 2px ${C.dash};font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
+      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);box-shadow:0 0 0 2px ${C.dash};font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
       const facesHTML = (Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('')) + moreHTML;
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
@@ -1420,7 +1453,7 @@
       this.shadowRoot.addEventListener('pointerup', stop);
       this.shadowRoot.addEventListener('pointercancel', stop);
       this.shadowRoot.addEventListener('pointermove', (e) => { if (this._tHold && (Math.abs(e.clientX - this._tx) > 8 || Math.abs(e.clientY - this._ty) > 8)) stop(); });
-      this.shadowRoot.addEventListener('contextmenu', (e) => { if (this._el(e, '.ttl')) e.preventDefault(); });
+      this.shadowRoot.addEventListener('contextmenu', (e) => { if (this._el(e, '.ttl') || this._el(e, '[data-act="person"]')) e.preventDefault(); });
       this.shadowRoot.addEventListener('selectstart', (e) => { if (this._el(e, '.ttl')) e.preventDefault(); });
     }
     // Tittelen har egne gester (title_actions); resten av headeren bruker basekortets hold (→ «Tilpass header»).
@@ -1479,16 +1512,34 @@
         return this._titleTap();
       }
       if (name === 'person') {
-        const id = el.dataset.id;
-        if (this.config.person_tap === 'popup') return M.openPopup('#person-' + objId(id));
-        if (this.config.person_tap === 'kart' && kartOk(this.hass)) return M.openPopup('#kart'); // 20.22: trykk = kartet, hold = hurtigark
-        return this._quick(id);
+        return this._personTap(el.dataset.id);
       }
       return super.onAction(name, el, ev);
     }
     // Langt trykk ellers i headeren (ikke tittelen – den har egne gester) → «Tilpass header».
-    onHold(id) {
-      if (/^person\./.test(id || '') && this.config.person_tap === 'kart' && kartOk(this.hass)) { this._quick(id); return true; } // 20.22
+    // Fiks 22.7: trykk på personbilde. Dobbelttrykk = Ingen → kjøres med én gang, ellers venter trykket 260 ms på
+    // et nytt trykk på samme person. Haptic light ved første trykk.
+    _personTap(id) {
+      const A = M.hjemPersonActions(this.config);
+      if (this._pTap && this._pTap.id === id) { clearTimeout(this._pTap.t); this._pTap = null; this._personRun(A.double, id); return; }
+      if (this._pTap) { clearTimeout(this._pTap.t); const o = this._pTap.id; this._pTap = null; this._personRun(A.tap, o); }
+      if (A.tap !== 'none' || A.double !== 'none') M.haptic('light');
+      if (A.double === 'none') { this._personRun(A.tap, id); return; }
+      this._pTap = { id, t: setTimeout(() => { this._pTap = null; this._personRun(A.tap, id); }, 260) };
+    }
+    _personRun(act, id) {
+      if (!id) return;
+      switch (act) {
+        case 'popup': { const hs = '#person-' + objId(id); if (M.allPopups && !M.allPopups(this.hass).some((p) => p.hash === hs)) return this._quick(id); return M.openPopup(hs); } // mangler popupen → hurtigarket
+        case 'quick': return this._quick(id);
+        case 'kart': if (!kartOk(this.hass)) return this._quick(id); M.kartFocus(id); return M.openPopup('#kart');
+        case 'more': return M.moreInfo(this, id);
+        default:
+      }
+    }
+    onHold(id, el) {
+      // Fiks 22.7: hold på personbilde (basekortets hold, haptic medium, stopper klikket) → person_actions.hold
+      if (el && el.dataset && el.dataset.act === 'person') { if (this._pTap) { clearTimeout(this._pTap.t); this._pTap = null; } this._personRun(M.hjemPersonActions(this.config).hold, el.dataset.id); return true; }
       if (id !== '__tilpass') return undefined;
       window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } }));
       return true;

@@ -518,7 +518,9 @@
       if (G.err) console.warn('[ki-msh] dashboard_globals har ugyldig YAML – maler tas ikke med:', G.err.msg, G.err.line ? 'linje ' + G.err.line : '');
       logGlobals();
       M.__kiGlobalKeys = Object.keys(G.globals);
-      return { ...G.globals, title: (config && config.title) || 'Hjem', views: [view] };
+      // Fiks 22.9: kiosk_mode på rotnivå fra ki-store (53-kiosk.js) – kiosk-mode leser det når dashbordet lastes
+      const KM = M.kioskConfig ? M.kioskConfig() : null;
+      return { ...G.globals, ...(KM ? { kiosk_mode: KM } : {}), title: (config && config.title) || 'Hjem', views: [view] };
     }
     static async getConfigElement() { return document.createElement('ki-dashboard-strategy-editor'); }
     static noEditor = false;

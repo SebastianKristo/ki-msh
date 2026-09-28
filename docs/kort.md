@@ -100,7 +100,6 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `ring_me` | Ring rundt meg · markerer bildet ditt · boolean | Bilder |
 | `weather_tap` | Trykk på været åpner Vær · gjelder «Hjem» og «Profil» · boolean | Bilder |
 | `weather_hash` | Vær-popup · hash | Bilder |
-| `person_tap` | Trykk på person (kart \| quick \| popup) | Bilder |
 | `this_server.name` | Navn på dette stedet | Steder |
 | `this_server.icon` | Ikon for dette stedet · icon | Steder |
 | `this_server.color` | Farge for dette stedet · color | Steder |
@@ -983,22 +982,37 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.soverom_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `include.lys` | Lagt til · entities | Rom og lys |
-| `outdoor.mode` | Styring (auto \| tid \| manuell) | Utelys › Tider og terskler |
-| `outdoor.on` | Tennes (HH:MM) | Utelys › Tider og terskler |
-| `outdoor.off` | Slukkes (HH:MM) | Utelys › Tider og terskler |
-| `outdoor.latest` | Slukk senest (HH:MM) | Utelys › Tider og terskler |
-| `outdoor.morning` | Morgen fra (HH:MM) | Utelys › Tider og terskler |
-| `outdoor.offset` | Forskyvning skumring (min) · number | Utelys › Tider og terskler |
-| `outdoor.lux_on` | Tenn under (lx) · number | Utelys › Tider og terskler |
-| `outdoor.lux_off` | Slukk over (lx) · number | Utelys › Tider og terskler |
-| `outdoor.kveld` | Kveld · tenn i skumringen · boolean | Utelys › Tider og terskler |
-| `outdoor.morgen` | Morgen · tenn før det lysner · boolean | Utelys › Tider og terskler |
+| `outdoor.ring_start` | Døgnringen (0 \| 12) | Utelys › Visning |
+| `outdoor.sections · outdoor.hidden_sections` | rekkefølge/synlighet: auto, lamps, sun, settings | Utelys › Visning |
+| `overrides.automatikk` | Automatikk · entity | Utelys › Entiteter |
+| `overrides.kveld_bryter` | Kveld · entity | Utelys › Entiteter |
+| `overrides.morgen_bryter` | Morgen · entity | Utelys › Entiteter |
+| `overrides.neste_paa` | Neste tenning · entity | Utelys › Entiteter |
+| `overrides.neste_av` | Neste slukking · entity | Utelys › Entiteter |
+| `overrides.utelys_status` | Status · entity | Utelys › Entiteter |
+| `overrides.terskel_paa` | Tenn under (lx) · entity | Utelys › Entiteter |
+| `overrides.terskel_av` | Slukk over (lx) · entity | Utelys › Entiteter |
+| `overrides.minst_morke` | Minste mørketid (min) · entity | Utelys › Entiteter |
+| `overrides.sun_dawn` | Grålysning · entity | Utelys › Entiteter |
+| `overrides.sun_rising` | Soloppgang · entity | Utelys › Entiteter |
+| `overrides.sun_noon` | Midt på dagen · entity | Utelys › Entiteter |
+| `overrides.sun_setting` | Solnedgang · entity | Utelys › Entiteter |
+| `overrides.sun_dusk` | Skumring · entity | Utelys › Entiteter |
+| `overrides.sun_elevation` | Solhøyde · entity | Utelys › Entiteter |
+| `overrides.sun_stiger` | Sola stiger · entity | Utelys › Entiteter |
 | `overrides.lux` | Lysnivåsensor (ute) · entity | Utelys › Entiteter |
-| `overrides.automatikk` | Automatikk-bryter · entity | Utelys › Entiteter |
-| `overrides.modus` | Modusvelger (Auto/Tidsplan/Manuelt) · entity | Utelys › Entiteter |
-| `overrides.kveld_bryter` | Kveld-bryter · entity | Utelys › Entiteter |
-| `overrides.morgen_bryter` | Morgen-bryter · entity | Utelys › Entiteter |
-| `order.utelys · exclude` | rekkefølge/synlighet: light.basseng_lys, light.utelys_inngang, light.veranda_flomlys, light.verandalampe | Utelys |
+| `overrides.modus` | Modusvelger (eldre) · entity | Utelys › Entiteter |
+| `outdoor.mode` | Styring (auto \| tid \| manuell) | Utelys › Reserve uten KI Utelys |
+| `outdoor.on` | Tennes (HH:MM) | Utelys › Reserve uten KI Utelys |
+| `outdoor.off` | Slukkes (HH:MM) | Utelys › Reserve uten KI Utelys |
+| `outdoor.latest` | Slukk senest (HH:MM) | Utelys › Reserve uten KI Utelys |
+| `outdoor.morning` | Morgen fra (HH:MM) | Utelys › Reserve uten KI Utelys |
+| `outdoor.offset` | Forskyvning skumring (min) · number | Utelys › Reserve uten KI Utelys |
+| `outdoor.lux_on` | Tenn under (lx) · number | Utelys › Reserve uten KI Utelys |
+| `outdoor.lux_off` | Slukk over (lx) · number | Utelys › Reserve uten KI Utelys |
+| `outdoor.kveld` | Kveld · tenn i skumringen · boolean | Utelys › Reserve uten KI Utelys |
+| `outdoor.morgen` | Morgen · tenn før det lysner · boolean | Utelys › Reserve uten KI Utelys |
+| `order.utelys · exclude` | rekkefølge/synlighet: light.basseng_lys, light.utelys_garasje, light.utelys_inngang, light.veranda_flomlys, light.verandalampe | Utelys |
 | `include.utelys` | Lagt til · entities | Utelys |
 | `lights.basseng_lys.name` | Navn | Utelys › Basseng lys |
 | `lights.basseng_lys.icon` | Ikon · icon | Utelys › Basseng lys |
@@ -1010,6 +1024,16 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.basseng_lys.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Basseng lys › Slider (avansert) |
 | `lights.basseng_lys.color_presets` | Fargeforhåndsvalg | Utelys › Basseng lys › Slider (avansert) |
+| `lights.utelys_garasje.name` | Navn | Utelys › Utelys garasje |
+| `lights.utelys_garasje.icon` | Ikon · icon | Utelys › Utelys garasje |
+| `light_types.utelys_garasje` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Utelys garasje |
+| `lights.utelys_garasje.brightness_min` | Minste lysstyrke (%) · number | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.brightness_max` | Største lysstyrke (%) · number | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.color_control` | Fargekontroll (utvidet) ( \| spectrum \| presets \| both) | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.hide_temperature_slider` | Skjul temperaturslider · boolean | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.hide_color_controls` | Skjul fargespekter · boolean | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Utelys › Utelys garasje › Slider (avansert) |
+| `lights.utelys_garasje.color_presets` | Fargeforhåndsvalg | Utelys › Utelys garasje › Slider (avansert) |
 | `lights.utelys_inngang.name` | Navn | Utelys › Utelys inngang |
 | `lights.utelys_inngang.icon` | Ikon · icon | Utelys › Utelys inngang |
 | `light_types.utelys_inngang` | Lystype ( \| dim \| ct \| color \| onoff) | Utelys › Utelys inngang |
@@ -1519,7 +1543,8 @@ Kart-popup (#kart): fullskjerm-kart med personer, biler, soner og kollektiv i sa
 | `cars` | Biler (device_tracker med GPS) · tomt = automatisk · entities | Personer og biler |
 | `transit` | Vis busser og trikker i sanntid (Entur) · boolean | Kollektiv |
 | `start` | Startvisning (fit \| home \| me) | Visning |
-| `style` | Kartstil (dark \| standard \| satellite) | Visning |
+| `style` | Kartstil (dark \| light \| satellite) | Visning |
+| `tile_url` | Egen flis-URL (valgfritt, overstyrer stilen) | Visning |
 
 ## `msh-energi-card`
 
