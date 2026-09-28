@@ -187,7 +187,7 @@
       const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
       const mainLeg = P.mode === 'spot' ? `${srcL && P.source !== 'custom' ? srcL + ' ' : ''}spot${se && P.area ? ' ' + P.area : ''}` : P.mode === 'total' ? 'Totalpris m/ nettleie' : 'Norgespris';
       const uS = `<small> ${P.unit}</small>`;
-      return `<div class="sp">
+      return `<div class="sp" data-ent="__energi">
         <div class="hdr">
           <span class="ttl ell">Strømpriser</span>
           ${M.powerTabHTML(P.cfg.tab, isToday, hasM)}
@@ -215,6 +215,8 @@
         </div>
       </div>`;
     }
+    // 21.1: hold på kortet (også på pris-verdiene) åpner Energi-popupen
+    onHold() { M.openPopup('#energi'); return true; }
     onAction(name, el, ev) {
       if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null }); // haptic light kommer fra _onClick
       return super.onAction(name, el, ev);

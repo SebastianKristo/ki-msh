@@ -1,0 +1,5 @@
+[
+  { "name": "Energi", "hash": "#energi", "cards": [ { "type": "custom:msh-energi-card", "card_id": "pop-energi" } ] },
+  { "name": "Energi · uke, søyler, uten kostnad", "hash": "#energi", "cards": [ { "type": "custom:msh-energi-card", "period": "uke", "day_chart": "soyler", "show_cost": false, "top_n": 0, "house_style": "sjo", "order": ["tiles", "power", "house", "price", "top", "water"], "hidden": { "water": true } } ] },
+  { "name": "Energi · gammel config uten strømpris-kort", "hash": "#energi", "cards": [ { "type": "custom:msh-energi-card", "tiles": [ { "id": "meter", "name": "Strømmåler", "icon": "mdi:flash" }, { "id": "car", "name": "Bil", "icon": "mdi:car-electric", "entity": "sensor.finnes_ikke" } ] } ] }
+]

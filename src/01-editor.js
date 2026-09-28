@@ -432,7 +432,17 @@
     .ib{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:#afafaf;flex:none}
     .ib:hover{background:#404040}
     .dd{position:relative}
-    .menu{position:absolute;left:0;right:0;top:44px;z-index:5;max-height:260px;overflow:auto;border-radius:14px;background:#232323;box-shadow:0 12px 30px rgba(0,0,0,.5);padding:4px}
+    /* Fiks 21.7: søkeresultatene er vanlig innhold i kortet (ikke absolutt dropdown inni .sec{overflow:hidden}, som ble
+       kuttet av kortets bunn og fikk egen scrollbar). Entitetssøk viser maks 6 treff uten egen scroll – kortet vokser.
+       Bare lange lister (områder) får max-height + scroll (.menu.sc), og de ligger alltid sist i feltet. */
+    .menu{position:static;margin-top:6px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:#232323;padding:4px 4px 6px}
+    .menu.sc{max-height:260px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+    .menu .more{font-size:11px;color:#7f7f7f;padding:4px 10px 2px}
+    .menu button.addq{flex-direction:row;align-items:center;gap:8px;color:#fafafa}
+    .dd .menu{scroll-margin-bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
+    .dd .inp{scroll-margin:calc(var(--ki-grab-h, 0px) + 56px) 0 calc(96px + env(safe-area-inset-bottom, 0px))}
+    /* Fiks 21.7: ingen rad kan krympe (flex-kolonner i arket) – alt vokser, bare arket scroller */
+    .wrap>*,.in>*,.tpane>*,.fsec>*,.f>*{flex-shrink:0}
     .menu button{display:flex;width:100%;text-align:left;flex-direction:column;padding:8px 10px;border-radius:10px}
     .menu button:hover{background:#3a3a3a}
     .menu b{font-weight:500;font-size:13px} .menu i{font-style:normal;font-size:11px;color:#7f7f7f}
@@ -794,14 +804,34 @@
       const ql = (q || '').toLowerCase();
       return Object.keys(h.states).filter((id) => (!doms || doms.includes(id.split('.')[0])) && (!f.device_class || h.states[id].attributes.device_class === f.device_class || [].concat(f.device_class).includes(h.states[id].attributes.device_class)) && (!f.platform || (h.entities && h.entities[id] && h.entities[id].platform === f.platform)))
         .filter((id) => !ql || (id + ' ' + (h.states[id].attributes.friendly_name || '')).toLowerCase().includes(ql))
+        .filter((id) => !(f.skip || []).includes(id)) // allerede i listen (f.skip) → ikke treff
         .sort().slice(0, 40).map((id) => ({ id, name: h.states[id].attributes.friendly_name || id }));
     }
+    // Fiks 21.7: resultatene ligger i flyten under søkefeltet (maks 6 entitetstreff, ingen egen scroll). Rekkefølge (Rom v4):
+    // søkefelt → «Legg til «entity_id»» (når teksten er en entity_id) → treff. Områder (lang liste): .menu.sc med scroll.
     _search(f, key, act, name, placeholder) {
       const q = this._q[key] || '';
       const open = this._menu === key;
-      const items = open ? this._matches(f, q) : [];
+      const area = f.type === 'area', MAX = 6;
+      const all = open ? this._matches(f, q) : [];
+      const items = area ? all : all.slice(0, MAX);
+      const qv = q.trim(), addq = open && !area && act !== 'setent' && /^[a-z_]+\.[a-z0-9_]+$/.test(qv) && !items.some((x) => x.id === qv)
+        ? `<button class="addq" data-a="${act}" data-name="${esc(name)}" data-v="${esc(qv)}" data-sk="${key}" data-key="addq">${M.icon('mdi:plus', 18)}<b>Legg til «${esc(qv)}»</b></button>` : '';
+      const more = !area && all.length > items.length ? `<div class="more">${all.length >= 40 ? 'Flere' : all.length - items.length + ' flere'} treff – skriv for å snevre inn</div>` : '';
       return `<div class="dd"><input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-search="${key}" data-act="${act}" data-name="${esc(name)}" value="${esc(q)}" placeholder="${esc(placeholder || 'Søk eller skriv entity_id …')}" autocomplete="off">
-        ${open ? `<div class="menu">${items.map((x) => `<button data-a="${act}" data-name="${esc(name)}" data-v="${esc(x.id)}" data-key="${esc(x.id)}"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></button>`).join('') || '<div class="small" style="padding:8px">Ingen treff – trykk Enter for å bruke teksten</div>'}</div>` : ''}</div>`;
+        ${open ? `<div class="menu${area ? ' sc' : ''}" data-key="menu">${addq}${items.map((x) => `<button data-a="${act}" data-name="${esc(name)}" data-v="${esc(x.id)}" data-sk="${key}" data-key="${esc(x.id)}"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></button>`).join('') || (addq ? '' : '<div class="small" style="padding:8px">Ingen treff – trykk Enter for å bruke teksten</div>')}${more}</div>` : ''}</div>`;
+    }
+    // Fiks 21.7: etter «Legg til» – søkefeltet er tomt, beholder fokus (listen åpnes igjen) og scrolles inn i arket
+    // (scroll-margin over sticky tittel/bunnlinje), så den nye raden og feltet er synlige.
+    _afterAdd(sk) {
+      if (!sk) return;
+      requestAnimationFrame(() => {
+        const i = this.shadowRoot && this.shadowRoot.querySelector(`input[data-search="${sk}"]`);
+        if (!i) return;
+        try { i.focus({ preventScroll: true }); } catch (x) { /* */ }
+        const mn = i.parentNode && i.parentNode.querySelector('.menu'); // fokus åpner treffene igjen – vis dem også hvis det er plass
+        try { if (mn) mn.scrollIntoView({ block: 'nearest' }); i.scrollIntoView({ block: 'nearest' }); } catch (x) { /* */ }
+      });
     }
     _entity(f, name, val, auto, key) {
       const lab = f.label ? `<label>${esc(f.label)}</label>` : '';
@@ -854,7 +884,7 @@
           return `<div class="f"><div class="line"><label style="flex:1">${esc(L.label)} · ${all.filter((i) => !ex.has(i)).length}/${all.length}</label>
             <button class="chip" data-a="showall" data-k="${esc(L.key)}" data-ids="${esc(all.join(','))}">Vis alle</button><button class="chip" data-a="hideall" data-ids="${esc(all.join(','))}">Skjul alle</button></div>
             ${all.map((id) => this._entRow(id, `${inc.includes(id) ? `<button class="ib" data-a="uninc" data-k="${esc(L.key)}" data-v="${esc(id)}" title="Fjern">${M.icon('mdi:close', 18)}</button>` : ''}<button class="ib" data-a="eye" data-v="${esc(id)}" title="${ex.has(id) ? 'Vis' : 'Skjul'}">${M.icon(ex.has(id) ? 'mdi:eye-off' : 'mdi:eye', 18)}</button>`, ex.has(id))).join('') || '<span class="small">Autokonfig fant ingen</span>'}
-            ${this._search({ domains: L.domains, type: 'entity' }, key + '_' + j, 'include', L.key, 'Legg til … (søk eller skriv entity_id)')}</div>`;
+            ${this._search({ domains: L.domains, type: 'entity', skip: all }, key + '_' + j, 'include', L.key, 'Legg til … (søk eller skriv entity_id)')}</div>`;
         }).join('');
       if (f.flat) return this._flat(f.label, f.meta, inner || '<span class="small">Autokonfig fant ingen</span>', 'entities');
       return `<details class="sec" data-sec="${key}" data-focus="entities" ${this._open[key] || this.focusSection === 'entities' ? 'open' : ''}><summary>${M.icon('mdi:eye-outline', 20)}${esc(f.label || 'Entiteter')}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">
@@ -899,9 +929,9 @@
         case 'sel': return this._set(d.name, d.json === '1' ? JSON.parse(d.v) : d.num === '1' ? Number(d.v) : d.v);
         case 'clear': this._menu = null; return this._set(d.name, undefined);
         case 'setent': this._menu = null; this._q = {}; return this._set(d.name, d.v);
-        case 'addlist': { this._menu = null; this._q = {}; const l = [...(get(c, d.name) || [])]; if (!l.includes(d.v)) l.push(d.v); return this._set(d.name, l); }
+        case 'addlist': { this._menu = null; this._q = {}; const l = [...(get(c, d.name) || [])]; if (!l.includes(d.v)) l.push(d.v); this._set(d.name, l); return this._afterAdd(d.sk); }
         case 'rmlist': { const l = [...(get(c, d.name) || [])]; l.splice(Number(d.i), 1); return this._set(d.name, l); }
-        case 'include': { this._menu = null; this._q = {}; const l = [...((c.include || {})[d.name] || [])]; if (!l.includes(d.v)) l.push(d.v); const ex = (c.exclude || []).filter((x) => x !== d.v); this._config = { ...c, exclude: ex }; return this._set('include.' + d.name, l); }
+        case 'include': { this._menu = null; this._q = {}; const l = [...((c.include || {})[d.name] || [])]; if (!l.includes(d.v)) l.push(d.v); const ex = (c.exclude || []).filter((x) => x !== d.v); this._config = { ...c, exclude: ex }; this._set('include.' + d.name, l); return this._afterAdd(d.sk); }
         case 'uninc': { const l = ((c.include || {})[d.k] || []).filter((x) => x !== d.v); return this._set('include.' + d.k, l); }
         case 'eye': { const ex = new Set(c.exclude || []); ex.has(d.v) ? ex.delete(d.v) : ex.add(d.v); return this._set('exclude', [...ex]); }
         case 'showall': { const ids = new Set(d.ids.split(',')); return this._set('exclude', (c.exclude || []).filter((x) => !ids.has(x))); }
@@ -927,8 +957,8 @@
           const act = t.dataset.act, name = t.dataset.name;
           this._q = {}; this._menu = null;
           if (act === 'setent') return this._set(name, v);
-          if (act === 'addlist') { const l = [...(get(this._config, name) || [])]; if (!l.includes(v)) l.push(v); return this._set(name, l); }
-          if (act === 'include') { const l = [...((this._config.include || {})[name] || [])]; if (!l.includes(v)) l.push(v); return this._set('include.' + name, l); }
+          if (act === 'addlist') { const l = [...(get(this._config, name) || [])]; if (!l.includes(v)) l.push(v); this._set(name, l); return this._afterAdd(t.dataset.search); }
+          if (act === 'include') { const l = [...((this._config.include || {})[name] || [])]; if (!l.includes(v)) l.push(v); this._set('include.' + name, l); return this._afterAdd(t.dataset.search); }
         }
         return;
       }

@@ -79,6 +79,24 @@
     vacr: ['cleaning', 'docked', 'paused', 'returning', 'idle', 'error'],
   };
   const ST_SEEN = {}; // entitet → Set av tilstander sett i denne økten («sett i historikken»)
+  /* Fiks 21.2 · lås/garasje/alarm: ÉN variant per tilstand – bakgrunn, ikon, tittel og undertekst kommer alltid fra samme
+   * variant (aldri undertekst fra «solid» på nøytral bakgrunn). busy = nøytral + ikonet pulserer svakt (opasitet 1 → 0,5). */
+  const TV_N = { bg: 'var(--gray100, #2f2f2f)', fg: 'var(--white, #fafafa)', icon: null, circle: null, sub: 'var(--gray600, #7f7f7f)', flat: false };
+  const TILE_VAR = {
+    solid: { bg: 'var(--green, #66d19e)', fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(0,0,0,0.1)', sub: 'rgba(31,42,36,0.75)', flat: true },
+    neutral: TV_N,
+    busy: { ...TV_N, blink: true },
+    error: { ...TV_N, icon: 'var(--red, #f28073)' },
+    alert: { bg: 'var(--red, #f28073)', fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(0,0,0,0.1)', sub: 'rgba(42,23,23,0.75)', flat: true }, // alarm utløst
+    pink: { bg: C.accent, fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(42,23,32,0.1)', sub: 'rgba(42,23,32,0.7)', flat: true }, // alarm armert
+  };
+  const tileVariant = (kind, v) => {
+    v = String(v || '');
+    if (!v || v === 'unavailable' || v === 'unknown' || v === 'jammed') return 'error';
+    if (/^(locking|unlocking|opening|closing|arming|pending)$/.test(v)) return 'busy';
+    if (kind === 'alarm') return v === 'triggered' ? 'alert' : /^armed/.test(v) ? 'pink' : 'neutral';
+    return v === 'unlocked' || v === 'open' ? 'solid' : 'neutral';
+  };
   const stStates = (hass, kd, ent, cfg) => {
     const base = STATE_TXT[kd];
     if (!base) return [];
@@ -880,13 +898,13 @@
           const id = E.lock, st = s(id); if (!id) return null;
           const pend = this._lkPend && this._lkPend.id === id && this._lkPend.from === (st && st.state) && this._lkPend.t > Date.now() ? this._lkPend.to : null;
           const v = pend || (st ? st.state : ''), L = v === 'locked', jam = v === 'jammed', nm = tileCfg(c, tid || 'lock').name || 'Dørlås';
-          return T({ ent: id, st, lock: v, icon: L || !st ? 'key' : 'lock_open', title: !st || M.unavailable(st) ? '–' : jam ? 'Feil' : L ? 'Låst' : v === 'locking' ? 'Låser …' : v === 'unlocking' ? 'Låser opp …' : v === 'open' ? 'Åpen' : 'Ulåst', sub: 'Dørlås', cardHash: '#sikkerhet',
+          return T({ ent: id, st, lock: v, variant: tileVariant('lock', !st || M.unavailable(st) ? 'unavailable' : v), icon: L || !st ? 'key' : 'lock_open', title: !st || M.unavailable(st) ? '–' : jam ? 'Feil' : L ? 'Låst' : v === 'locking' ? 'Låser …' : v === 'unlocking' ? 'Låser opp …' : v === 'open' ? 'Åpen' : 'Ulåst', sub: 'Dørlås', cardHash: '#sikkerhet',
             ic: () => this._lockTap(id, nm) });
         }
         case 'alarm': {
           const id = E.alarm, st = s(id); if (!id) return null;
           const v = st ? st.state : '', armed = /^armed/.test(v), trig = v === 'triggered', busy = /arming|pending/.test(v);
-          return T({ ent: id, title: trig ? 'Utløst' : armed ? 'Armert' : busy ? 'Armerer' : st ? 'Av' : '–', sub: 'Alarm', tone: trig ? C.red : armed ? 'pink' : busy ? C.orange : null, solid: trig, cardHash: '#sikkerhet',
+          return T({ ent: id, title: trig ? 'Utløst' : armed ? 'Armert' : busy ? 'Armerer' : st ? 'Av' : '–', sub: 'Alarm', variant: tileVariant('alarm', !st || M.unavailable(st) ? 'unavailable' : v), cardHash: '#sikkerhet',
             ic: () => { if (v === 'disarmed' && st && !st.attributes.code_arm_required) { M.call(hass, 'alarm_control_panel', 'alarm_arm_away', { entity_id: id }); this._toast('Alarm armert'); } else M.openPopup('#sikkerhet'); } });
         }
         case 'cam': {
@@ -913,8 +931,8 @@
         }
         case 'garage': {
           const id = E.garage, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', open = v === 'open', mv = v === 'opening' || v === 'closing';
-          return T({ ent: id, title: !st ? '–' : open ? 'Åpen' : v === 'opening' ? 'Åpner' : v === 'closing' ? 'Lukker' : 'Lukket', sub: 'Garasjeport', tone: open || mv ? C.orange : null,
+          const v = st ? st.state : '', open = v === 'open';
+          return T({ ent: id, title: !st ? '–' : open ? 'Åpen' : v === 'opening' ? 'Åpner' : v === 'closing' ? 'Lukker' : 'Lukket', sub: 'Garasjeport', variant: tileVariant('garage', !st || M.unavailable(st) ? 'unavailable' : v),
             ic: () => { M.call(hass, 'cover', 'toggle', { entity_id: id }); this._toast(open || v === 'opening' ? 'Garasjeporten lukkes' : 'Garasjeporten åpnes'); } });
         }
         case 'tv': {
@@ -1062,20 +1080,19 @@
       else if (t.camStyle === 'tint' && t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.16), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.35)}` });
       else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(35,35,35,0.75)' });
       else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
-      // Dørlås (fiks 16.7): universal_sensor-farger – #2f2f2f, hvit-tonet ikon-sirkel, #e1e1e1-tekst. Tilstandsregler:
-      // unlocked/open → var(--orange) + var(--gray000)-tekst, jammed → var(--red), locked → standard.
-      let rules = {}, st = null;
-      if (t.lock != null) {
-        st = t.st || null;
-        const hit = /^(unlocked|open|unlocking|opening|jammed)$/.test(t.lock);
-        Object.assign(o, { background_color: null, text_color: 'var(--gray1000, #e1e1e1)', icon_color: null, circle_color: hit ? 'rgba(35,35,35,0.12)' : 'rgba(250,251,252,0.1)', style: hit ? 'box-shadow:none;--ht-sub:rgba(35,35,35,0.72)' : '' });
-        rules = { state_rule_1_value: 'jammed', state_rule_1_background_color: 'var(--red)', state_rule_1_text_color: 'var(--gray000)',
-          state_rule_2_value: 'unlocked|open|unlocking|opening', state_rule_2_background_color: 'var(--orange)', state_rule_2_text_color: 'var(--gray000)' };
+      // Fiks 21.2: lås/garasje/alarm – hele flisen fra én variant (TILE_VAR), ingen universal-tilstandsregler som kan
+      // treffe en annen tilstand enn den flisen viser (f.eks. «Låser opp …» mens HA fortsatt sier locked).
+      const st = null;
+      let blink = false;
+      if (t.variant && TILE_VAR[t.variant]) {
+        const V = TILE_VAR[t.variant];
+        blink = !!V.blink;
+        Object.assign(o, { background_color: V.bg, text_color: V.fg, icon_color: V.icon, circle_color: V.circle, style: `${V.flat ? 'box-shadow:none;' : ''}--ht-sub:${V.sub}` });
       }
       // Innebygde fliser (lås, alarm, kamera …) har to soner med egne hold-handlinger (_bindTileHold) – ingen data-ent.
       const zones = !!t.type;
       const ring = zones && this._tapFor(t.kind, 'hold_ic', t).action !== 'none' ? '<svg class="hr" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26.5" pathLength="100"></circle></svg>' : '';
-      return M.universal({ ...o, ...rules, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : '') + (t.pulse ? ' hpulse' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '', sub_html: t.subHtml || null,
+      return M.universal({ ...o, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : '') + (t.pulse ? ' hpulse' : '') + (blink ? ' hblink' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '', sub_html: t.subHtml || null,
         act: 'tile', id: null, ent: zones ? false : t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card', 'data-hz': zones ? '1' : null },
         icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
     }
@@ -1576,7 +1593,7 @@
         .u.ht[data-act]:active{transform:scale(.97)}
         .u.ht .u-i{width:56px;height:56px;border-radius:28px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
         .u.ht .u-l{align-self:end !important;font-size:15px;font-weight:500;line-height:1.25}
-        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f)}
+        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f);transition:none}
         .u.ht:not(:has(.u-n)){grid-template-rows:1fr !important}
         /* Fiks 16.7: to soner (ikon/kort) med hold – ingen tekstmarkering eller kontekstmeny, ring på ikonet under holdet */
         .u.ht.hz{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -1585,6 +1602,10 @@
         .u.ht.hpulse .u-i::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 2px currentColor;opacity:0;pointer-events:none;animation:htpulse 1.6s ease-out infinite}
         @keyframes htpulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.28);opacity:0}}
         @media (prefers-reduced-motion: reduce){.u.ht.hpulse .u-i::after{animation:none;opacity:0}}
+        /* Fiks 21.2: overgang (låser/åpner/armerer) – ikonet pulserer svakt; undertekst uten color-transition */
+        .u.ht.hblink .u-i>ha-icon,.u.ht.hblink .u-i>svg:not(.hr){animation:htblink 1.2s ease-in-out infinite alternate}
+        @keyframes htblink{from{opacity:1}to{opacity:.5}}
+        @media (prefers-reduced-motion: reduce){.u.ht.hblink .u-i>*{animation:none}}
         .u.ht .hr{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none;opacity:0;transition:opacity .15s}
         .u.ht .hr circle{fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100}
         .u.ht .u-i.holding .hr{opacity:1}

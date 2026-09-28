@@ -12,7 +12,7 @@ window.mockExtend(({ add, S, E, D }) => {
   Object.assign(S['media_player.stue_tv'].attributes, { source_list: ['Netflix', 'NRK TV', 'YouTube', 'TV 2 Play', 'Plex'], source: 'Netflix', app_name: 'Netflix', media_title: 'Wednesday', media_series_title: 'Sesong 2 · episode 3' });
   Object.assign(E['media_player.stue_tv'], { platform: 'apple_tv', device_id: 'dev_atv' });
   add('remote.stue_tv', 'on', { friendly_name: 'Stue TV' }, { platform: 'apple_tv', device: 'dev_atv' });
-  add('media_player.soverom_tv', 'off', { friendly_name: 'Soverom TV', source_list: ['YouTube', 'NRK TV', 'Telia Play'], supported_features: 152461 }, { platform: 'androidtv_remote', device: 'dev_gtv' });
+  add('media_player.soverom_tv', 'off', { friendly_name: 'Soverom TV', source_list: ['YouTube', 'NRK TV', 'Telia Play', 'HDMI 1', 'HDMI 2', 'HDMI 3', 'Live TV'], source: 'HDMI 2', supported_features: 152461 }, { platform: 'androidtv_remote', device: 'dev_gtv' });
   add('remote.soverom_tv', 'off', { friendly_name: 'Soverom TV' }, { platform: 'androidtv_remote', device: 'dev_gtv' });
   add('media_player.kjokken_radio', 'playing', { friendly_name: 'Kjøkken radio', media_title: 'Almost Blue', media_artist: 'Chet Baker', media_channel: 'NRK Jazz', volume_level: 0.28, entity_picture: cover, repeat: 'off', shuffle: false, supported_features: 152461 + 262144 + 32768 }, { platform: 'squeezebox', device: 'dev_sq' });
   S['media_player.kjokken_radio'].last_changed = ago(5);
@@ -23,3 +23,24 @@ window.mockExtend(({ add, S, E, D }) => {
   add('media_player.spotify_jem', 'playing', { friendly_name: 'Spotify Jem', device_class: 'speaker', source: 'Spotify', media_title: "Choosin' Texas (Live from the Ryman Auditorium, Nashville)", media_artist: 'Ella Langley', media_album_name: 'Hungover', media_duration: 232, media_position: 84, media_position_updated_at: new Date().toISOString(), group_members: ['media_player.spotify_jem', 'media_player.kjokken_radio'], bitrate: 320, volume_level: 0.4, entity_picture: cover, supported_features: 152461 + 2 }, { platform: 'spotify' });
   add('media_player.prosjektor', 'playing', { friendly_name: 'Prosjektor', device_class: 'tv', app_name: 'NRK TV', source: 'HDMI 1', media_title: 'Dagsrevyen', media_channel: 'NRK1', media_content_type: 'channel', next_title: 'Sportsrevyen', next_start: '19:45', end_time: '19:45', volume_level: 0.24, audio_format: 'Dolby 5.1', supported_features: 152461 }, { platform: 'webostv' });
 });
+
+// Fiks 21.6: Media-nettleseren (media_player/browse_media) – Favoritter på Squeezebox-radioen (kun test).
+(function () {
+  const orig = window.mockHass;
+  window.mockHass = function () {
+    const h = orig();
+    const ws = h.callWS;
+    h.callWS = (m) => {
+      if (m && m.type === 'media_player/browse_media') {
+        window.__calls.push(['ws', m.type, m]);
+        if (m.entity_id !== 'media_player.kjokken_radio') return Promise.reject(new Error('not supported'));
+        if (!m.media_content_type) return Promise.resolve({ title: 'Squeezebox', can_expand: true, children: [
+          { title: 'Favorites', media_content_id: '', media_content_type: 'Favorites', can_expand: true, can_play: false },
+          { title: 'Artists', media_content_id: '', media_content_type: 'Artists', can_expand: true, can_play: false }] });
+        return Promise.resolve({ title: 'Favorites', children: ['Montebello', 'NRK P1', 'NRK Jazz', 'NRK mP3'].map((t, i) => ({ title: t, media_content_id: 'item_id:fav' + i, media_content_type: 'favorite', can_play: true, can_expand: false })) });
+      }
+      return ws(m);
+    };
+    return h;
+  };
+})();

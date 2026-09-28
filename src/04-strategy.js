@@ -122,6 +122,7 @@
       '#gjoremal': () => has('todo'),
       '#dorlas': () => has('lock'), // fiks 16.7
       '#ringeklokke': () => plat('unifiprotect') && !!(M.ringFind && M.ringFind(hass)), // fiks 19.17: binary_sensor.*_doorbell (unifiprotect)
+      '#energi': () => has('sensor', (s) => ['energy', 'power', 'water'].includes(s.attributes.device_class)), // fiks 21.1: energi-/effekt-/vannmålere (Energi-oppsettet)
       '#kart': () => ['person', 'device_tracker'].some((d) => M.all(hass, d).some((id) => hass.states[id].attributes.latitude != null)), // fiks 20.22: personer/sporere med posisjon
     };
     const hide = (config.popups || {});

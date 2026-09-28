@@ -70,6 +70,7 @@
     ['#dorlas', 'Dørlås', 'mdi:lock', 'msh-las-card'], // fiks 16.7 – bare når lock.* finnes (M.popupNeeds)
     ['#ringeklokke', 'Ringeklokke', 'mdi:doorbell-video', 'msh-ringeklokke-card'], // fiks 19.17 – bare med UniFi Protect-ringeklokke (M.popupNeeds)
     ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22 – fullskjerm-kart (M.POPUP_LOOK['#kart'], uten Bubble-header)
+    ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
   ];
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
