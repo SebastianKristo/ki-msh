@@ -657,6 +657,35 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-ringeklokke-card
+          # Kart (fiks 20.22): fullskjerm, uten Bubble-header (kartet har egen topp med ×), navbaren ligger over
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Kart
+            icon: mdi:map
+            state: null
+            hash: '#kart'
+            is_sidebar_hidden: true
+            show_header: false
+            width_desktop: calc(100% - var(--bubble-pop-up-content-inline-start, 0px))
+            styles: |-
+              .bubble-pop-up.bubble-pop-up,.bubble-pop-up.bubble-pop-up .bubble-pop-up-background{border-radius:0!important;--bubble-pop-up-border-radius:0px}
+              .bubble-pop-up.bubble-pop-up .bubble-header-container{display:none!important}
+              .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{padding:0!important;margin-top:0!important;border-radius:0!important;clip-path:none!important;--vertical-stack-card-gap:0px!important;overflow:hidden!important;mask-image:none!important;-webkit-mask-image:none!important}
+            bg_blur: '0'
+            shadow_opacity: '20'
+            bg_opacity: '100'
+            margin_top_mobile: 0px
+            margin_top_desktop: 0px
+            close_by_clicking_outside: false
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-kart-card
           # Person: én per person, hash = #person-<object_id> (bytt til dine personer)
           - type: custom:bubble-card
             card_type: pop-up

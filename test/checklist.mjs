@@ -59,6 +59,9 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const header = all.find((e) => e.classList && e.classList.contains('bubble-header-container'));
       const closeBtn = all.find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
       res.header = !!header && header.getBoundingClientRect().height > 0 && (header.textContent || '').includes(pop.name) && !!closeBtn;
+      // Fiks 20.22 · unntak: fullskjerm-popup uten Bubble-header (show_header: false, #kart) – kortets egen × i stedet
+      const ownX = () => { const k = all.find((e) => /^msh-.*-card$/.test(e.localName) && e.localName !== 'msh-navbar-card'); return k && k.shadowRoot && k.shadowRoot.querySelector('[data-act="close"]'); };
+      if (pop.show_header === false) res.header = (!header || header.getBoundingClientRect().height === 0) && !!ownX() ? 'skjult · egen ×' : false;
       // 3. kort + bredde
       const cards = all.filter((e) => /^msh-.*-card$/.test(e.localName) && e.localName !== 'msh-navbar-card' && !/^msh-/.test(((e.getRootNode() || {}).host || {}).localName || ''));
       const cont = all.find((e) => e.classList && e.classList.contains('bubble-pop-up-container'));
@@ -74,7 +77,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const bn = all.find((e) => e.classList && e.classList.contains('bubble-name') && e.getBoundingClientRect().height > 0);
       const ic = all.find((e) => e.classList && e.classList.contains('icon-container') && e.getBoundingClientRect().height > 0);
       const isRoom = /^#(stue|kjokken)/.test(pop.hash);
-      res.mal = isRoom ? (ic && getComputedStyle(ic).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 'B' : 'B?') : (bn && getComputedStyle(bn).fontSize === '30px' ? 'A' : 'A? ' + (bn && getComputedStyle(bn).fontSize));
+      res.mal = pop.show_header === false ? 'A fullskjerm' : isRoom ? (ic && getComputedStyle(ic).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 'B' : 'B?') : (bn && getComputedStyle(bn).fontSize === '30px' ? 'A' : 'A? ' + (bn && getComputedStyle(bn).fontSize));
       // 5. ikoner som ikoner
       const txt = cards.map((c) => c.shadowRoot.textContent.replace(/<style[\s\S]*?<\/style>/g, '')).join(' ').replace(/\{[^}]*\}/g, '');
       const icons = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('ha-icon')]);
@@ -139,7 +142,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       res.editor = eds.every((x) => x === 'ok') ? 'ok' : eds.join(',');
       // 11. lukk-knapp og tilbake
       location.hash = pop.hash; await wait(500);
-      const cb = deepAll().find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
+      const cb = pop.show_header === false ? ownX() : deepAll().find((e) => e.classList && (e.classList.contains('bubble-close-button') || e.classList.contains('close-pop-up')));
       if (cb) cb.click();
       await wait(900);
       const P2 = popEl();

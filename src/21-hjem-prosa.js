@@ -172,9 +172,12 @@
       if (!m) return null;
       const [, a, f] = m;
       if (h.states['person.' + a] && (f === 'hjemme' || f === 'sover')) {
-        const P = M.hjemPersonInfo ? M.hjemPersonInfo(h, 'person.' + a, c, rd) : null;
+        // Fiks 20.5: samme status som headeren (header-configen: personoppsett + «Status og soner»)
+        const hc = M.hjemHeaderCfg ? M.hjemHeaderCfg() : null, pc = hc && Object.keys(hc).length ? hc : c;
+        const P = M.hjemPersonInfo ? M.hjemPersonInfo(h, 'person.' + a, pc, rd) : null;
         if (!P) return null;
-        return f === 'hjemme' ? [P.home ? 'hjemme' : 'borte', P.home ? 1 : 0, P.home ? C.green : null, P.id] : [P.sleep ? 'sover' : 'våken', P.sleep ? 1 : 0, null, P.sleepId];
+        const hs = M.hjemStatusStyle ? M.hjemStatusStyle(pc, 'home') : { color: C.green }, ss = M.hjemStatusStyle ? M.hjemStatusStyle(pc, 'sleep') : { color: null };
+        return f === 'hjemme' ? [P.home ? 'hjemme' : 'borte', P.home ? 1 : 0, P.home ? hs.color : null, P.id] : [P.sleep ? 'sover' : 'våken', P.sleep ? 1 : 0, P.sleep && ss.own ? ss.color : null, P.sleepId];
       }
       if (h.areas && h.areas[a]) {
         const R = M.roomAuto ? M.roomAuto(h, a) : { temp: M.byClass(h, 'sensor', 'temperature', a)[0], hum: M.byClass(h, 'sensor', 'humidity', a)[0], thermo: null, lights: M.all(h, 'light', (s, id) => M.areaOf(h, id) === a) };
@@ -511,18 +514,22 @@
   // Hele prosaen som én flytende tekst (MySmartHome): ord og piller skilles med vanlige mellomrom og brytes naturlig –
   // ingen &nbsp;-binding eller text-wrap: pretty/balance (Fiks 15.3). Eneste unntak: tegnsetting rett etter en pille
   // limes til pillen (nowrap-bit .pzg), så «.» aldri havner alene på neste linje.
-  function prosaHTML(vis, pill) {
+  // mark(v) (valgfri, Fiks 20.9): klasse for setningen → hele setningen pakkes i <span class="…"> (markering i editorene)
+  function prosaHTML(vis, pill, mark) {
     const A = [];
-    const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => A.push(esc(w)));
     vis.forEach((v) => {
+      const B = [];
+      const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).forEach((w) => B.push(esc(w)));
       words(v.pre);
       let post = String(v.post || '').trim();
       if (v.hasChip) {
         const m = /^[.,!?:;…»)\]]+/.exec(post), pu = m ? m[0] : '';
         if (pu) post = post.slice(pu.length);
-        A.push(pu ? `<span class="pzg">${pill(v)}${esc(pu)}</span>` : pill(v));
+        B.push(pu ? `<span class="pzg">${pill(v)}${esc(pu)}</span>` : pill(v));
       }
       words(post);
+      const mk = mark && B.length ? mark(v) : '';
+      if (mk) A.push(`<span class="${mk}">${B.join(' ')}</span>`); else A.push(...B);
     });
     return A.join(' ');
   }
@@ -539,6 +546,9 @@
     .pz .chip .em{font-size:.9em;line-height:1;flex:none}
     .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
     .pz .pzg{white-space:nowrap}
+    /* Fiks 20.9: delen som redigeres (forhåndsvisningen i editorene); skjult av betingelsen → gjennomstreket og svak */
+    .pz .pzm{background:rgb(242 133 201 / 0.14);box-shadow:0 .1em 0 rgb(242 133 201 / 0.55);border-radius:.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .2s}
+    .pz .pzm.off{text-decoration:line-through;text-decoration-color:rgb(250 250 250 / 0.6);opacity:.5}
     .pz .chip svg.ma{width:1em;height:1em;flex:none}
     .pz .chip .an{display:inline-flex;line-height:0}
     .pz .an-hopp{animation:pz-hopp 1.6s ease-in-out infinite}
@@ -558,10 +568,47 @@
   const AUTO_FS = 'clamp(22px, 7.4cqi, var(--msh-prosa-max, 34px))';
   M.PROSA_AUTO_FS = AUTO_FS;
   const textStyle = (c) => { const T = textSizeOf(c); return `font-size:${T.fs != null ? T.fs + 'em' : AUTO_FS};line-height:${T.lh}`; };
-  const previewHTML = (h, c) => {
-    const R = compute(h, c);
-    return `<style>${M.PROSA_CSS}${M.APPLIANCE_CSS || ''}.xpz{padding:14px 16px;border-radius:24px;background:#232323;font-size:var(--ha-font-size-m, 14px);container-type:inline-size}</style><div class="xpz"><div class="pz" style="${textStyle(c)};padding:0">${R.vis.length ? prosaHTML(R.vis, (v) => `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+  /* Fiks 20.9: live forhåndsvisning i editorene (Tilpass Hjem → Tekst og GUI-editoren) – samme compute/prosaHTML/chipHTML
+   * som kortet. o.sel = setningen som redigeres (markeres; skjult av betingelsen/øyet → vises gjennomstreket og svakt).
+   * o.act = data-a på boblene (trykk åpner delen i listen i stedet for å kjøre handlingen), data-i = setningens indeks. */
+  M.prosaPreviewInner = function (h, c, o) {
+    o = o || {};
+    if (!h) return '';
+    const cc = { ...Prosa.defaults, ...(c || {}) };
+    let R = compute(h, cc), off = null;
+    const sel = o.sel != null && o.sel !== '' && !isNaN(Number(o.sel)) ? Number(o.sel) : null;
+    if (sel != null && R.rows[sel] && !R.vis.some((v) => !v.sec && v.i === sel)) {
+      off = sel;
+      R = compute(h, { ...cc, prose: R.rows.map((p, i) => (i === sel ? { ...p, cop: 'alltid', hidden: undefined } : p)) });
+    }
+    if (!R.vis.length) return '<span style="color:#7f7f7f">Ingen setninger vises nå</span>';
+    const act = o.act ? ` data-a="${esc(o.act)}"` : '';
+    return prosaHTML(R.vis, (v) => (v.sec
+      ? `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`
+      : `<span class="chip"${act} data-i="${v.i}" style="background:${v.bg};cursor:pointer">${chipHTML(v)}</span>`),
+    (v) => (!v.sec && v.i === sel ? (v.i === off ? 'pzm off' : 'pzm') : ''));
   };
+  // Sticky boks øverst i arket: «FORHÅNDSVISNING · LIVE» + prosaen (maks 34vh, egen scroll). o.style = ekstra stil på .pz.
+  M.PROSA_PREV_CSS = `
+    .xpz{position:sticky;top:calc(var(--ki-grab-h, 0px) - 12px);z-index:5;padding:10px 16px 14px;margin:0 0 12px;border-radius:24px;background:#232323;box-shadow:0 12px 14px -2px var(--ki-sheet-bg, #282828);font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size}
+    .xpzl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;color:#979797;margin:0 0 6px;font-family:${M.FONT}}
+    .xpzd{width:7px;height:7px;border-radius:50%;background:${C.green};box-shadow:0 0 6px ${C.green};flex:none}
+    .xpzb{max-height:34vh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}
+    .xpzb::-webkit-scrollbar{display:none}
+    .xpzb .pz{padding:0}
+  `;
+  M.prosaPreviewHTML = function (h, c, o) {
+    o = o || {};
+    return `<div class="xpz" data-key="${esc(o.key || 'prev')}" data-pzprev="1"><style>${M.PROSA_CSS}${M.APPLIANCE_CSS || ''}${M.PROSA_PREV_CSS}</style><div class="xpzl"><span class="xpzd"></span>FORHÅNDSVISNING · LIVE</div><div class="xpzb"><div class="pz" style="${o.style || textStyle(c || {})}">${M.prosaPreviewInner(h, c, o)}</div></div></div>`;
+  };
+  // Scroll forhåndsvisningen (egen scroll) så den markerte delen er synlig.
+  M.prosaPreviewScroll = function (root) {
+    const b = root && root.querySelector('[data-pzprev] .xpzb'), m = b && b.querySelector('.pzm');
+    if (!b || !m) return;
+    const br = b.getBoundingClientRect(), mr = m.getBoundingClientRect();
+    if (mr.top < br.top || mr.bottom > br.bottom) b.scrollTop += mr.top - br.top - Math.max(0, (br.height - Math.min(mr.height, br.height)) / 2);
+  };
+  const previewHTML = (h, c, o) => M.prosaPreviewHTML(h, c, o);
 
   // Utfør handling for en setning (runAct i designet).
   function runAct(card, p, id) {
@@ -717,7 +764,8 @@
         const toks = [...Object.keys(TOK).map((k) => [`+ {${k}}`, `{${k}}`]), ...areas.map((a) => [`+ {${a.id}.temp}`, `{${a.id}.temp}`]), ...persons.map((p) => { const o = p.split('.')[1]; return [`+ {${o}.hjemme}`, `{${o}.hjemme}`]; })];
         const cond = (r) => r.cop && r.cop !== 'alltid';
         return [
-          { type: 'html', render: (h, c) => previewHTML(h, c) },
+          // Fiks 20.9: sticky live forhåndsvisning (msh-hjem-editor oppdaterer den per tastetrykk og markerer åpen setning)
+          { type: 'html', live: 'prose', render: (h, c, ed) => previewHTML(h, c, { sel: ed && ed._ropen ? ed._ropen.prose : null, act: 'x-pzsel' }) },
           ...Prosa.sizeFields,
           ...SEC_SCHEMA,
           { type: 'rows', name: 'prose', label: 'Setninger', hide: true, addLabel: 'Ny setning',

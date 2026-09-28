@@ -305,7 +305,7 @@
           { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [60, 'Litt 60'], [150, 'Standard 150'], [300, 'Maks 300']] },
         ] },
         { type: 'section', id: 'look', label: 'Utseende', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
-          { type: 'color', name: 'look.col', label: 'Romfarge', help: 'Brukes i toppkortets graf, romkortet og ikon-sirkelen i popup-headeren' },
+          { type: 'color', name: 'look.col', label: 'Romfarge', help: 'Brukes i romkortet og ikon-sirkelen i popup-headeren' },
           { type: 'select', name: 'icon_color_mode', label: 'Ikonfarge på romkortet (Hjem)', options: M.ICON_MODES || [], default: hjemDef('icon_color_mode', 'lights'), help: 'Ikke valgt = standard fra «Tilpass Hjem» → Kort' },
           { type: 'icon', name: 'look.icon', label: 'Rom-ikon', auto: (hh, cc) => { const ar = cc.area || area0; return ar && hh && hh.areas && hh.areas[ar] ? hh.areas[ar].icon : null; } },
         ] },
@@ -321,7 +321,7 @@
           // 16.8: «varmer»-terskel per termostat (effekt over denne = rosa kort), og vifter under klimakortene
           ...(L ? L.lists.klima.map((id) => ({ type: 'number', name: 'klima_heat_w.' + obj(id), label: `${cap(M.name(h, id, M.areaName(h, area)))} · varmer over (W)`, min: 0, max: 5000, placeholder: '100', help: 'Rosa «varmer»-kort når hvac_action er heating eller effekten er over dette' })) : []),
           { type: 'entities', name: 'include.vifter', label: 'Ekstra vifter', domains: ['fan', 'switch', 'input_boolean'], addLabel: '+ Legg til vifte', area: (hh, cc) => cc.area || area0, help: 'Auto: fan.* i rommet + brytere med «vifte»/«fan» i navnet. Skjul under «Entiteter per seksjon» → Vifter' },
-          { type: 'color', name: 'graph_t', label: 'Toppkort · graf temperatur', help: 'Tomt = romfargen' },
+          { type: 'color', name: 'graph_t', label: 'Toppkort · graf temperatur', auto: () => 'var(--red, #f28073)', help: 'Tomt = rød (standard)' },
           { type: 'color', name: 'graph_h', label: 'Toppkort · graf fukt', auto: () => 'var(--blue, #73b9f2)' },
           { type: 'select', name: 'graph_fill', label: 'Toppkort · fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
           { type: 'select', name: 'graph_width', label: 'Toppkort · linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
@@ -671,17 +671,20 @@
         const anim = act && kindA && lvl !== 'off' ? `animation:${kindA} ${lvl === 'calm' ? ANIM[kindA].replace(/^[\d.]+/, (x) => String(Number(x) * 2)) : ANIM[kindA]} infinite` : '';
         const icon = lk.icon || (P && P.icon) || icon0;
         const mc = multi && isOn && !unav && !P && !ownRule && !(lk.background_color || lk.bg) ? MULTI[ci++ % MULTI.length] : null;
+        // 20.15: av (eller hvitevare som hviler under terskelen) → mørk pille #2f2f2f, ikon-sirkel #3a3a3a, lyst ikon #e1e1e1
+        const off = !unav && !ownRule && !(lk.background_color || lk.bg) && !(P ? act : isOn);
         return M.universal({
           // Tilstandsregel 1 (som sensorene): på → grønn; hvitevare aktiv → profilfargen. Hvitevare på men hviler = vanlig rad.
           state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
           act: unav ? null : lk.mode && lk.mode !== 'sensor' ? undefined : 'dtoggle', id, haptic: 'success',
-          cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}`,
+          cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}`,
           icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '',
-          background_color: lk.background_color || lk.bg, circle_color: lk.cell || (mc ? 'rgba(255,255,255,0.18)' : act ? 'rgba(0,0,0,0.12)' : undefined),
-          icon_color: lk.icon_color || (P && !act && P.col ? P.col : undefined) });
+          background_color: lk.background_color || lk.bg || (off ? 'var(--gray100, #2f2f2f)' : undefined), text_color: lk.text_color || (off ? 'var(--white, #fafafa)' : undefined),
+          circle_color: lk.cell || (mc ? 'rgba(255,255,255,0.18)' : act ? 'rgba(0,0,0,0.12)' : off ? 'var(--gray200, #3a3a3a)' : undefined),
+          icon_color: lk.icon_color || (off ? 'var(--gray1000, #e1e1e1)' : P && !act && P.col ? P.col : undefined) });
       }).join('');
       // 19.21: egen effektsensor på en enhet → summen regnes fra sensorene (KI Rom-teksten kjenner ikke overstyringen)
       const pOv = ids.some((id) => M.roomDevOv(this.config, id).power);
@@ -829,7 +832,8 @@
         // enhetsnavn på første linje, kanal/tittel + program, logo i avrundet firkant (contain), TV-kontroller og volum − / +.
         const tv = M.isTvPlayer(this.hass, id), sf = Number(a.supported_features) || 0;
         const icon = tv || a.device_class === 'tv' || /tv/i.test(id) ? 'tv' : 'speaker';
-        const pic = pk && a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : M.icon(pk ? (tv ? 'tv' : 'mdi:music') : icon, 28);
+        // 20.17: albumbilde 54 px inni kortet (object-fit cover); uten bilde mørk sirkel med album-ikon 24 px (TV: tv-ikon)
+        const pic = pk && a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : M.icon(tv ? 'tv' : 'album', 24);
         const hp = (x) => (pk ? 'light' : x);
         const nmTv = tv ? (((M.mediaCardCfg().players || {})[obj(id)] || {}).name || a.friendly_name || this._nm(id)) : this._nm(id);
         const stTv = tv && pk ? (a.media_title || a.media_channel || a.app_name || 'Spiller') : stTxt, sub2 = tv && pk && a.media_series_title && a.media_series_title !== stTv ? a.media_series_title : '';
@@ -843,19 +847,19 @@
               <button class="mb press" data-act="mpower" data-id="${esc(id)}" data-haptic="${hp('medium')}" title="Av/på">${M.icon('power_settings_new', 22)}</button>
               ${ch ? `<button class="mb press" data-act="mcmd" data-cmd="media_previous_track" data-id="${esc(id)}" title="Forrige kanal" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:chevron-down', 24)}</button>` : ''}
               <button class="mb press" data-act="tvseek" data-d="-10" data-id="${esc(id)}" title="10 s tilbake" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:rewind-10', 24)}</button>
-              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
+              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 28)}</button>
               <button class="mb press" data-act="tvseek" data-d="30" data-id="${esc(id)}" title="30 s fram" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:fast-forward-30', 24)}</button>
               ${ch ? `<button class="mb press" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}" title="Neste kanal" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:chevron-up', 24)}</button>` : ''}
               <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>` : `
               <button class="mb press" data-act="mpower" data-id="${esc(id)}" data-haptic="${hp('medium')}">${M.icon('power_settings_new', 22)}</button>
               <button class="mb press" data-act="mcmd" data-cmd="media_previous_track" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('skip_previous', 24)}</button>
-              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 32)}</button>
+              <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 28)}</button>
               <button class="mb press" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('skip_next', 24)}</button>
               <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>`;
         const logo = tv && pk && a.entity_picture;
         return `<div class="mc${tv ? ' tvc' : ''}" data-key="m-${esc(id)}">
           <div class="mt msh-inner${pk ? ' pk' : ''}${logo ? ' lg' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(nmTv)}</span><span class="ms ell">${esc(stTv)}</span>${sub2 ? `<span class="ms2 ell">${esc(sub2)}</span>` : ''}</span>
-            <span class="art${logo ? ' logo' : ' msh-inner-c'}">${pic}</span>
+            <span class="art${logo ? ' logo' : ''}${pk && a.entity_picture && !logo ? ' img' : ''}">${pic}</span>
             <div class="mctl${tv && ch ? ' m7' : ''}">${ctl}
             </div></div>
           ${volRow}
@@ -1117,6 +1121,10 @@
         .u-small.d-on .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:15px;font-weight:400;opacity:.65}
         .u-small.d-on .u-n{grid-area:l;align-self:end;padding-top:0;font-size:17px;font-weight:500;opacity:1}
         .d-unav .u-l,.d-unav .u-i{opacity:1}
+        /* 20.15: av – pille #2f2f2f, tekst #fafafa, undertekst #979797, ikon-sirkel #3a3a3a med svak lys kant, 250 ms */
+        .u.d-off{transition:background .25s,transform .2s}
+        .d-off .u-i{border:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+        .d-off .u-n{color:var(--gray700, #979797);opacity:1}
         .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--gray1000, #e1e1e1);flex:none;transition:transform .15s,background .25s}
         .fbtn:active{transform:scale(.92)}
         .fbtn[disabled]{opacity:.35}
@@ -1203,6 +1211,25 @@
         .mctl.m7 .mb{width:38px;height:38px}
         .mt.pk .mctl.m7 .mb{width:40px;height:40px;border-radius:20px}
         .mctl.m7 .mp{width:56px;height:56px;border-radius:28px}
+        /* 20.17 (retter 17.4): kompakt spiller-kort ~140 px, albumbildet (54) helt inni kortet 8 px fra hjørnet – aldri ned i
+           kontrollraden; teksten har padding-right 62 så den ikke går under bildet. Av = #2a2a2a. */
+        .mt,.mt.pk{position:relative;overflow:hidden;border-radius:26px;padding:18px 16px 14px 20px;min-height:0;transition:background .3s}
+        .mt.msh-inner{background:#2a2a2a}
+        .mh,.mt.pk .mh,.mt.pk.lg .mh{gap:4px;padding-right:62px}
+        .mn,.mt.pk .mn{font-size:13px;color:${G.g800}}
+        .mt.pk .mn{color:rgba(42,23,32,0.7)}
+        .ms,.mt.pk .ms{font-size:16px;font-weight:500;line-height:1.3}
+        .art,.mt.pk .art,.mt.pk .art.logo{position:absolute;right:8px;top:8px;width:54px;height:54px;border-radius:27px;overflow:hidden;display:grid;place-items:center;border:none;box-shadow:none;background:var(--gray000, #232323);color:${G.g800};--mdc-icon-size:24px}
+        .mt.pk .art{background:rgba(42,23,32,0.85);color:#fafafa}
+        .mt.pk .art.img{background:rgba(42,23,32,0.12)}
+        .mt.pk .art.logo{border-radius:14px;padding:6px;box-sizing:border-box;background:rgba(255,255,255,0.9)}
+        .mctl,.mt.pk .mctl{margin-top:18px;justify-content:space-between}
+        .mctl:not(.m7) .mb{width:42px;height:42px;border-radius:21px;background:var(--gray200, #3a3a3a);color:${G.w}}
+        .mt.pk .mctl:not(.m7) .mb{background:rgba(42,23,32,0.08);color:#2a1720}
+        .mctl:not(.m7) .mb.mo,.mt.pk .mctl:not(.m7) .mb.mo{background:none}
+        .mctl .mp,.mt.pk .mctl .mp,.mctl.m7 .mp{width:56px;height:56px;border-radius:28px}
+        .car.pkc{padding-top:0}
+        .car.pkc .mc{padding-right:0}
         /* tilpass */
         .tune{align-self:center;height:36px;padding:0 14px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:${G.g700}}
       `;

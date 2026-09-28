@@ -9,6 +9,11 @@
  * Fiks 19.10: tømmedagen (Hjem v3 trashToday) er lavere: padding 24/20, ingen min-høyde (ca. 120 px), tall 60 px, tittel 19 px
  *   som brytes inni kolonnen (min-width 0, overflow-wrap anywhere) – teksten går aldri ut over kanten.
  * Fiks 18.2: ingen søppelkasse-ikon (som Hjem v3) – tallet står alene og sentrert i venstre kolonne; `ikon` i config ignoreres.
+ * Fiks 20.2 (Hjem v3 · ce.trash.acts / TRASH_ACTS / openTrashPop): Trykk og Hold (550 ms) har hver sin handling i HA-format:
+ *   tap_action / hold_action = { action: 'popup'|'navigate'|'more-info'|'call-service'|'url'|'none', hash, navigation_path,
+ *   entity, service, url_path }. Standard: Trykk = popup #soppel, Hold = more-info (sensoren). Eldre popup_hash leses som
+ *   tap_action { action: 'popup', hash }. HAs ui_action-format (perform-action/perform_action, navigate '#x') godtas også.
+ *   Editoren (begge – samme schema): nedtrekksliste (ikon + navn, 44 px, #282828) + felt for handlingen + undertekst.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -27,14 +32,79 @@
   };
   // Standard: sensor.neste_tomming når den finnes (brukerens sensor), ellers autokonfig
   const autoSensor = (h) => (h && h.states && h.states['sensor.neste_tomming'] ? 'sensor.neste_tomming' : M.hjemTrashAuto ? M.hjemTrashAuto(h) : null);
+  // Fiks 20.2 · handlinger for trykk og hold (Hjem v3 TRASH_ACTS): [id, navn, ikon, undertekst]
+  const ACTS = [
+    ['none', 'Ingen', 'mdi:cancel', 'Ingenting skjer.'],
+    ['popup', 'Åpne popup', 'mdi:card-outline', 'Åpner Bubble Card-popupen med denne hashen (location.hash).'],
+    ['navigate', 'Naviger til visning', 'mdi:compass-outline', 'Går til en annen visning i Home Assistant, f.eks. /dashboard-hjem/avfall.'],
+    ['more-info', 'More-info', 'mdi:information-outline', 'Viser detaljene for entiteten. Tomt = sensoren for dager til tømming.'],
+    ['call-service', 'Kjør tjeneste / script', 'mdi:play-circle-outline', 'Kaller tjenesten (domene.tjeneste). script.* kjøres som script.turn_on.'],
+    ['url', 'Åpne URL', 'mdi:open-in-new', 'Åpner adressen i en ny fane.'],
+  ];
+  const ACT_DEF = { tap_action: 'popup', hold_action: 'more-info' };
+  // Effektiv handling: tap_action/hold_action (også HA ui_action-format), ellers popup_hash (migrering) / standard
+  M.hjemTrashAct = function (c, kind) {
+    c = c || {};
+    let a = c[kind];
+    if (typeof a === 'string') a = { action: a };
+    if (!a || typeof a !== 'object') a = kind === 'tap_action' && c.popup_hash ? { action: 'popup', hash: c.popup_hash } : {};
+    let act = String(a.action || ACT_DEF[kind]);
+    if (act === 'perform-action') act = 'call-service';
+    const r = { ...a, action: ACTS.some((x) => x[0] === act) ? act : ACT_DEF[kind] };
+    if (r.action === 'navigate' && String(r.navigation_path || '')[0] === '#') { r.action = 'popup'; r.hash = r.hash || r.navigation_path; }
+    if (r.action === 'popup' && !r.hash) r.hash = kind === 'tap_action' && c.popup_hash ? c.popup_hash : '#soppel';
+    if (r.action === 'call-service' && !r.service) r.service = r.perform_action || '';
+    return r;
+  };
+  // Utfør handlingen (el = kortet, sensor = standard-entiteten for more-info)
+  M.hjemTrashRun = function (el, a, sensor, hass) {
+    const h = hass || M.lastHass;
+    switch (a.action) {
+      case 'popup': return M.openPopup(a.hash || '#soppel');
+      case 'navigate': { const p = String(a.navigation_path || '').trim(); if (!p) return; if (p[0] === '#') return M.openPopup(p); history.pushState(null, '', p); window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } })); return; }
+      case 'more-info': return M.moreInfo(el, a.entity || sensor);
+      case 'call-service': {
+        const sv = String(a.service || '').trim(), i = sv.indexOf('.');
+        if (i < 1 || !h) return;
+        const dom = sv.slice(0, i), svc = sv.slice(i + 1), data = { ...(a.data || a.service_data || {}), ...(a.target || {}) };
+        const isSvc = h.services && h.services[dom] && h.services[dom][svc];
+        if (dom === 'script' && !isSvc) return M.call(h, 'script', 'turn_on', { ...data, entity_id: sv }).catch(() => {});
+        return M.call(h, dom, svc, data).catch(() => {});
+      }
+      case 'url': { const u = String(a.url_path || '').trim(); if (u) { try { window.open(u, '_blank', 'noopener'); } catch (e) { /* */ } } return; }
+      default:
+    }
+  };
+  // Editor-felt (msh-hjem-editor 'html' → render(hass, cfg)): nedtrekksliste + felt under + undertekst
+  const actField = (kind, label) => ({
+    type: 'html',
+    render(h, c) {
+      const a = M.hjemTrashAct(c, kind), A = ACTS.find((x) => x[0] === a.action) || ACTS[0], k = kind;
+      const inp = (f, v, ph, extra) => `<input class="inp" style="height:44px;border-radius:14px;background:#282828;padding:0 14px" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${k}.${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${extra || ''}>`;
+      let sub = '';
+      if (a.action === 'popup') sub = M.popupPicker ? M.popupPicker.html({ key: 'tr-ph-' + k, name: k + '.hash', value: a.hash || '', placeholder: '#soppel', label: 'Popup' }) : inp('hash', a.hash, '#soppel');
+      else if (a.action === 'navigate') sub = inp('navigation_path', a.navigation_path, '/dashboard-hjem/avfall');
+      else if (a.action === 'more-info') sub = M.entityPicker ? M.entityPicker.html({ key: 'tr-me-' + k, name: k + '.entity', value: a.entity || '', placeholder: 'Sensoren for dager til tømming' }) : inp('entity', a.entity, 'sensor.neste_tomming');
+      else if (a.action === 'call-service') {
+        const sv = h && h.services ? Object.keys(h.services).flatMap((d) => Object.keys(h.services[d]).map((x) => d + '.' + x)).concat(Object.keys((h && h.states) || {}).filter((x) => x.startsWith('script.'))).sort() : [];
+        sub = inp('service', a.service, 'script.hent_soppel', `list="tr-sv-${k}"`) + `<datalist id="tr-sv-${k}">${sv.slice(0, 400).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>`;
+      } else if (a.action === 'url') sub = inp('url_path', a.url_path, 'https://…', 'type="url" inputmode="url"');
+      return `<div class="f" data-key="tract-${k}"><label>${esc(label)}</label>
+        <label class="tract" style="position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:14px;background:#282828;color:#fafafa;font-size:14px;font-weight:500;cursor:pointer">${M.icon(A[2], 20, 'color:#afafaf;flex:none')}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(A[1])}</span>${M.icon('mdi:unfold-more-horizontal', 18, 'color:#979797;flex:none')}
+          <select data-name="${k}.action" aria-label="${esc(label)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none">${ACTS.map(([v, l]) => `<option value="${v}" ${v === a.action ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        ${sub}<span class="help">${esc(A[3])}</span></div>`;
+    },
+    html(h, c) { return this.render(h, c); }, // felles msh-editor ('html' → f.html)
+  });
   class Soppel extends M.Card {
     static get cardName() { return 'Hjem · søppel'; }
-    static get defaults() { return { popup_hash: '#soppel', rosa: true, rosa_dager: 0 }; }
+    static get defaults() { return { rosa: true, rosa_dager: 0 }; }
     static getConfigElement() { return M.hjemEditorEl ? M.hjemEditorEl(this) : super.getConfigElement(); }
     static get schema() {
       return [
-        { type: 'info', label: 'Søppelkort · trykk åpner Bubble Card-popup' },
-        { type: 'hash', name: 'popup_hash', label: 'Popup-hash', placeholder: '#soppel' },
+        { type: 'info', label: 'Søppelkort · velg hva trykk og hold gjør' },
+        actField('tap_action', 'Trykk'),
+        actField('hold_action', 'Hold'),
         { type: 'entity', name: 'sensor', label: 'Entitet · dager til tømming', domain: 'sensor', auto: autoSensor, help: 'Tall (dager), «0,Restavfall,Plastavfall», dato eller attributt days/daysTo' },
         { type: 'entity', name: 'type_sensor', label: 'Sensor · type avfall (valgfri)', domains: ['sensor', 'input_text', 'input_select'] },
         { type: 'boolean', name: 'rosa', label: 'Rosa på tømmedagen', default: true },
@@ -66,12 +136,31 @@
         </section>`;
     }
     onAction(name, el, ev) {
-      if (name === 'open') return M.openPopup(this.config.popup_hash || '#soppel');
+      if (name === 'open') return M.hjemTrashRun(this, M.hjemTrashAct(this.config, 'tap_action'), this._sensor(), this.hass);
       return super.onAction(name, el, ev);
+    }
+    // Fiks 20.2: hold 550 ms → hold_action (haptic medium når holdet slår til; klikket etter holdet spises av _onClick)
+    _onDown(e) {
+      if (e.button) return;
+      const el = this._el(e, '.tr', true);
+      if (!el || this._el(e, '.pick', true)) return;
+      this._hx = e.clientX; this._hy = e.clientY;
+      this._cancelHold();
+      this._hold = setTimeout(() => {
+        this._hold = null;
+        this._swallow = true;
+        setTimeout(() => { this._swallow = false; }, 600);
+        M.haptic('medium');
+        M.hjemTrashRun(this, M.hjemTrashAct(this.config, 'hold_action'), this._sensor(), this.hass);
+      }, 550);
+    }
+    connectedCallback() {
+      super.connectedCallback();
+      if (!this._ctx) { this._ctx = true; this.shadowRoot.addEventListener('contextmenu', (e) => { if (this._el(e, '.tr', true)) e.preventDefault(); }); }
     }
     get styles() {
       return `
-        .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
+        .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
         /* Fiks 19.10 · tømmedagen (Hjem v3 trashToday): rosa kort, radius 30, padding 24/20, høyden følger innholdet (ca. 120 px) */
         .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:#2a1720;border:0}
         .pink .nw{height:auto}
@@ -94,5 +183,5 @@
       `;
     }
   }
-  M.define('msh-soppel-card', Soppel, 'MSH Hjem · søppel', 'Dager til neste søppeltømming. Trykk åpner søppel-popupen (#soppel).');
+  M.define('msh-soppel-card', Soppel, 'MSH Hjem · søppel', 'Dager til neste søppeltømming. Trykk og hold kan velges (popup, visning, more-info, tjeneste, URL).');
 })();

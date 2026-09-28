@@ -79,7 +79,8 @@
 
   class RomKlima extends M.Card {
     static get cardName() { return 'Rom · klima-toppkort'; }
-    static get defaults() { return { graph_h: 'var(--blue, #73b9f2)', graph_fill: 0.2, graph_width: 2 }; }
+    // 20.14: standard temperatur-graf er rød (Rom v4 graphLook t: C.red) for alle rom – ikke romfargen
+    static get defaults() { return { graph_t: 'var(--red, #f28073)', graph_h: 'var(--blue, #73b9f2)', graph_fill: 0.2, graph_width: 2 }; }
     static get schema() {
       return [
         { type: 'area', name: 'area', label: 'Rom (område)', help: 'Tomt = hentes fra popupens hash (#stue → stue)' },
@@ -92,7 +93,7 @@
         ] },
         { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
         { type: 'section', label: 'Graf', icon: 'mdi:chart-line', fields: [
-          { type: 'color', name: 'graph_t', label: 'Linje · temperatur (romfarge)' },
+          { type: 'color', name: 'graph_t', label: 'Linje · temperatur', auto: () => 'var(--red, #f28073)', help: 'Tomt = rød (standard)' },
           { type: 'color', name: 'graph_h', label: 'Linje · fukt' },
           { type: 'select', name: 'graph_fill', label: 'Fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
           { type: 'select', name: 'graph_width', label: 'Linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
@@ -161,7 +162,7 @@
       if (hNow != null && ser0.h.length) ser0.h[24] = hNow;
       const isT = (ui.tab || 't') === 't' || !ser0.h.length && ser0.t.length;
       const ser = isT ? ser0.t : ser0.h;
-      const gc = M.color(isT ? (c.graph_t || (c.look && c.look.col)) : c.graph_h, isT ? C.orange : C.blue);
+      const gc = M.color(isT ? c.graph_t : c.graph_h, isT ? C.red : C.blue); // 20.14: tomt = rød
       const sel = ui.sel != null ? ui.sel : 24;
       let pts = '0,60 300,60', lo = 0, hi = 1, mn = null, mx = null;
       if (ser.length) {

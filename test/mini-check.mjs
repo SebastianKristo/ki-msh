@@ -7,6 +7,7 @@
 //  · bred (rail) med HA-sidebar: mini-spilleren ligger innenfor dashbordflaten (aldri over sidebaren), over høyre fliskolonne (18.4/18.8)
 //  · «Mer»-menyen: verktøyene under streken har samme farge som punktene over (standard og glass)
 //  · «Tilpass navbar» → Mini-spiller: av/på, Vis når, Skjul i Media-popupen
+//  · 20.16 «Skjul når en popup er åpen» · 20.20 dra fra play/pause → ⏮/⏭ · 20.6 «Avstand fra bunnen» i «Plassering og oppførsel»
 // Kjør: node test/mini-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -120,6 +121,10 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   ok('scroll-snap + touch-action pan-x', /pan-x/.test(sw.ta) && /x/.test(sw.snap), sw);
   await tap(p, '.mdots button:nth-child(2)'); await p.waitForTimeout(500);
   ok('prikk → spiller 2', await p.evaluate(() => { const s = deep('.msw'); return Math.round(s.scrollLeft / s.clientWidth) === 1 && deep('.mdots button.on') === deepAll('.mdots button')[1]; }));
+  // 20.19: retur fra bakgrunn → første spiller som spiller (posisjonen lagres ikke)
+  await p.evaluate(() => { const vs = (v) => Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v }); vs('hidden'); document.dispatchEvent(new Event('visibilitychange')); vs('visible'); document.dispatchEvent(new Event('visibilitychange')); delete document.visibilityState; }); await p.waitForTimeout(400);
+  ok('20.19 retur fra bakgrunn → spiller 1', await p.evaluate(() => { const s = deep('.msw'); return Math.round(s.scrollLeft / s.clientWidth) === 0 && deep('.mdots button.on') === deepAll('.mdots button')[0]; }));
+  await tap(p, '.mdots button:nth-child(2)'); await p.waitForTimeout(500);
   // scroll → krymper med navbaren
   await p.evaluate(() => { document.getElementById('dash').style.height = '3000px'; window.scrollTo(0, 400); }); await p.waitForTimeout(700);
   m = await mini(p);
@@ -234,6 +239,120 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   ok('bred: ingen translateX/sentrering', /^(none|matrix\(1, 0, 0, 1, 0, [-\d.]+\))$/.test(tr), tr);
   if (SHOT) await p.screenshot({ path: SHOT + '/mini-bred.png' });
   ok('ingen sidefeil (bred)', !errs.length, errs);
+  await p.close();
+}
+/* ---------------- Fiks 20.16: skjul når en popup er åpen · 20.20: dra fra play/pause → forrige/neste */
+{
+  const { p, errs } = await setup({ width: 360, height: 780 }, {});
+  // Bubble-popuper i dashbordet (config.hash som Bubble Card)
+  await p.evaluate(() => ['#stue', '#lys', '#media'].forEach((h) => { const bc = document.createElement('bubble-card'); bc.config = { type: 'custom:bubble-card', card_type: 'pop-up', hash: h }; document.getElementById('dash').appendChild(bc); }));
+  const go = async (h) => { await p.evaluate((x) => { if (x) location.hash = x; else { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('location-changed')); } }, h); await p.waitForTimeout(400); };
+  await go('#stue');
+  ok('20.16 av (standard): mini-spilleren vises i #stue som før', !(await mini(p)).off);
+  await go('');
+  // bryteren i Tilpass navbar (per bruker × enhet, nav_profiles)
+  const tg = await p.evaluate(async () => {
+    const ed = document.createElement('msh-navbar-editor'); ed.cardClass = customElements.get('msh-navbar-card');
+    ed.hass = H; ed.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 200));
+    const mk = () => [...ed.shadowRoot.querySelectorAll('[data-a="nbmini"],[data-a="nbmhpop"]')].map((b) => b.dataset.a === 'nbmhpop' ? 'POP' : b.dataset.k);
+    const order = mk();
+    ed.shadowRoot.querySelector('[data-a="nbmhpop"]').click(); await new Promise((q) => setTimeout(q, 300));
+    const on = ed.shadowRoot.querySelector('[data-a="nbmhpop"] .trk').classList.contains('on');
+    ed.remove();
+    return { order, on, prof: MSH.navProfile().mini_hide_popups };
+  });
+  ok('20.16 bryteren ligger rett under «Skjul i Media-popupen», lagres i nav_profiles', tg.order.indexOf('POP') === tg.order.indexOf('hide_in_media') + 1 && tg.on && tg.prof === true, tg);
+  let m = await mini(p);
+  ok('20.16 på: synlig uten popup', m && !m.off);
+  for (const h of ['#stue', '#lys', '#media']) {
+    await go(h);
+    const st = await p.evaluate(() => { const e = deep('[data-mini]'); const cs = getComputedStyle(e); return { off: e.classList.contains('off'), pe: cs.pointerEvents }; });
+    ok(`20.16 på: skjult i ${h} (opacity 0, pointer-events none)`, st.off && st.pe === 'none', st);
+    await go('');
+    ok(`20.16 tilbake når ${h} lukkes`, !(await mini(p)).off);
+  }
+  ok('20.16 ingen media-kall (avspillingen påvirkes ikke)', !(await calls(p)).length, await calls(p));
+  await p.evaluate(() => MSH.profileSet('nav_profiles', { mini_hide_popups: undefined }));
+  await p.waitForTimeout(300);
+  // 20.20 – spilleren støtter forrige/neste
+  await p.evaluate(() => { window.__calls.length = 0; window.__toast = []; const o = window.CUR['media_player.kjokken_radio']; setRaw('media_player.kjokken_radio', { ...o, attributes: { ...o.attributes, supported_features: (o.attributes.supported_features | 16 | 32) } }); window.__ts = []; const t0 = MSH.toast; MSH.toast = (x, o2) => { window.__ts.push(x); return t0(x, o2); }; });
+  await p.waitForTimeout(300);
+  const cdp = await p.context().newCDPSession(p);
+  const pp = await p.evaluate(() => rect(deep('.mpp')));
+  const mr = await p.evaluate(() => rect(deep('[data-mini]')));
+  const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const drag = async (toX, rel = true) => {
+    const x0 = pp.l + pp.w / 2, y0 = pp.t + pp.h / 2;
+    await T('touchStart', x0, y0); await p.waitForTimeout(60);
+    const n = 10; for (let i = 1; i <= n; i++) { await T('touchMove', x0 + (toX - x0) * i / n, y0); await p.waitForTimeout(30); }
+    await p.waitForTimeout(450);
+    const st = await p.evaluate(() => ({ b: deepAll('.mskb').map((b) => ({ k: b.dataset.sk, r: rect(b), on: b.classList.contains('on'), dis: b.classList.contains('dis') })), sl: deep('.msw').scrollLeft }));
+    if (rel) { await T('touchEnd'); await p.waitForTimeout(400); }
+    return st;
+  };
+  const cx = mr.l + mr.w / 2;
+  let st = await drag(cx - 62);
+  const prev = st.b.find((b) => b.k === 'prev'), next = st.b.find((b) => b.k === 'next');
+  ok('20.20 dra fra play/pause → ⏮ og ⏭ midt på kortet (± 62 px), 46 px, samme høyde som knappen', prev && next && Math.abs(prev.r.l + prev.r.w / 2 - (cx - 62)) < 9 && Math.abs(next.r.l + next.r.w / 2 - (cx + 62)) < 3 && Math.abs(next.r.w - 46) < 1 && Math.abs(next.r.t + 23 - (pp.t + pp.h / 2)) < 2, { st, cx, pp });
+  ok('20.20 begge synlige på 360 px', prev && next && prev.r.l >= 0 && next.r.r <= 360 && next.r.r < pp.l + 4, st.b.map((b) => b.r));
+  ok('20.20 fingeren over ⏮ → markert (rosa, scale 1.14)', prev && prev.on && !next.on, st.b);
+  let c = await p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => x[1]));
+  ok('20.20 slipp på ⏮ → media_previous_track (ingen play/pause)', JSON.stringify(c) === '["media_previous_track"]', c);
+  ok('20.20 toast «Forrige spor»', await p.evaluate(() => window.__ts.includes('Forrige spor')), await p.evaluate(() => window.__ts));
+  ok('20.20 knappene trekkes inn igjen', await p.evaluate(() => !deep('.msk')));
+  ok('20.20 sveip mellom spillere trigges ikke', st.sl === 0, st.sl);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  st = await drag(cx + 62);
+  c = await p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => x[1]));
+  ok('20.20 slipp på ⏭ → media_next_track', JSON.stringify(c) === '["media_next_track"]' && st.b.find((b) => b.k === 'next').on, c);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await drag(cx);
+  c = await p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => x[1]));
+  ok('20.20 slipp i midten → ingenting', !c.length, c);
+  // uten PREVIOUS_TRACK: ⏮ grå og gjør ingenting
+  await p.evaluate(() => { const o = window.CUR['media_player.kjokken_radio']; setRaw('media_player.kjokken_radio', { ...o, attributes: { ...o.attributes, supported_features: (o.attributes.supported_features & ~16) } }); window.__calls.length = 0; });
+  await p.waitForTimeout(300);
+  st = await drag(cx - 62);
+  c = await p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => x[1]));
+  ok('20.20 uten PREVIOUS_TRACK: ⏮ grå, slipp gjør ingenting', st.b.find((b) => b.k === 'prev').dis && !st.b.find((b) => b.k === 'prev').on && !c.length, { b: st.b, c });
+  // trykk = spill/pause, hold = skjul (uendret)
+  await tap(p, '.mpp');
+  c = await p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => x[1]));
+  ok('20.20 trykk = spill/pause som før', JSON.stringify(c) === '["media_play_pause"]', c);
+  await hold(p, '.mpp', 800);
+  ok('20.20 hold 550 ms = skjul som før', (await mini(p)).off && !!(await p.evaluate(() => sessionStorage.getItem('ki:mini:hidden'))));
+  if (SHOT) await p.screenshot({ path: SHOT + '/mini-skip.png' });
+  ok('ingen sidefeil (20.16/20.20)', !errs.length, errs);
+  await p.close();
+}
+/* ---------------- Fiks 20.6: «Avstand fra bunnen» inni «Plassering og oppførsel» */
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, {});
+  const r = await p.evaluate(async () => {
+    const ed = document.createElement('msh-navbar-editor'); ed.cardClass = customElements.get('msh-navbar-card');
+    ed.hass = H; ed.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 200));
+    const R = ed.shadowRoot, sec = [...R.querySelectorAll('details.sec')].find((d) => /Plassering og oppførsel/.test(d.querySelector('summary').textContent));
+    if (!sec) return null;
+    sec.open = true; await new Promise((q) => setTimeout(q, 50));
+    const inSec = (sel) => !!sec.querySelector(sel);
+    const lbl = [...sec.querySelectorAll('.gt')].find((g) => g.textContent === 'Avstand fra bunnen');
+    const gts = [...sec.querySelectorAll('.gt')].map((g) => g.textContent);
+    const all = [...R.querySelectorAll('.gt, details.sec > summary')].map((g) => g.textContent.trim());
+    const cs = lbl && getComputedStyle(lbl);
+    // Rekkefølge i kortet: brytere → Bredde → Avstand; Stil rett etter kortet
+    const kids = [...sec.querySelectorAll('[data-a="bool"], [data-a="nbtog"], .wseg, .nbbot')].map((e) => e.dataset.a || e.className);
+    const iS = all.findIndex((t) => /Plassering og oppførsel/.test(t)), next = all.slice(iS + 1).find((t) => !gts.includes(t));
+    // slideren virker som før (live + lagres ved slipp)
+    const sl = sec.querySelector('[data-nbbot]'); sl.value = '30'; sl.dispatchEvent(new Event('input', { bubbles: true, composed: true })); sl.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    await new Promise((q) => setTimeout(q, 300));
+    return { sl: inSec('[data-nbbot]') && inSec('.nbbot .hint'), outside: [...R.querySelectorAll('[data-nbbot]')].filter((e) => !sec.contains(e)).length, fs: cs && cs.fontSize, col: cs && cs.color, bt: cs && cs.borderTopWidth + ' ' + cs.borderTopColor, gts, kids, next, bottom: MSH.navProfile().bottom, std: !!sec.querySelector('[data-a="nbbotstd"]') };
+  });
+  ok('20.6 «Avstand fra bunnen» ligger inni «Plassering og oppførsel» (ikke egen seksjon)', r && r.sl && r.outside === 0, r);
+  ok('20.6 etikett 12 px #979797, skilt med tynn linje', r && r.fs === '12px' && r.col === 'rgb(151, 151, 151)' && /^1px rgba\(255, 255, 255, 0\.06\)/.test(r.bt), r && { fs: r.fs, col: r.col, bt: r.bt });
+  ok('20.6 rekkefølge: brytere → Bredde → Avstand fra bunnen', r && r.kids[r.kids.length - 1] === 'nbbot' && r.kids[r.kids.length - 2] === 'wseg' && r.kids.indexOf('bool') < r.kids.indexOf('wseg') && r.gts.join('|') === 'Visning|Bredde|Avstand fra bunnen', r && { kids: r.kids, gts: r.gts });
+  ok('20.6 «Stil» kommer rett etter kortet', r && r.next === 'Stil', r && r.next);
+  ok('20.6 slideren virker som før (nav_profiles.bottom + Standard-knapp)', r && r.bottom === 30 && r.std, r && { b: r.bottom, std: r.std });
+  ok('ingen sidefeil (20.6)', !errs.length, errs);
   await p.close();
 }
 /* ---------------- editor */

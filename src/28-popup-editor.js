@@ -845,7 +845,7 @@
     },
     act(ed, a, d) {
       const u = ed.u;
-      if (a === 'ppring') { if (M.setDoorbellMode) M.setDoorbellMode(d.v); ed.render(); return true; } // 19.18: «Når det ringer» (per bruker × enhet)
+      if (a === 'ppring') { if (M.setDoorbell) M.setDoorbell(d.f || 'mode', d.v); ed.render(); return true; } // 19.18/20.1: «Når det ringer» + tid/utløser (per bruker × enhet)
       if (a === 'ppstrom') { u.pv = 'strom'; u.pd = null; u.ppMenu = false; ed.render(); return true; }
       if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
       switch (a) {

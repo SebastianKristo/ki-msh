@@ -51,7 +51,7 @@ async function page(mockEntur) {
       if (/trip\(/.test(body.query)) {
         const L = LEGS[`${v.from.split(':').pop()}>${v.to.split(':').pop()}`];
         const pats = L ? L[2].map((d) => ({ legs: [{ mode: 'foot', line: null, expectedStartTime: iso(d - 1), expectedEndTime: iso(d) },
-          { mode: L[1], realtime: true, aimedStartTime: iso(d), expectedStartTime: iso(d), expectedEndTime: iso(d + L[3]), fromPlace: { name: 'a', quay: { publicCode: 'C' } }, toPlace: { name: 'Mål' }, line: { publicCode: L[0], transportMode: L[1] } }] })) : [];
+          { mode: L[1], realtime: true, aimedStartTime: iso(d), expectedStartTime: iso(d), expectedEndTime: iso(d + L[3]), fromPlace: { name: 'a', quay: { publicCode: 'C' } }, toPlace: { name: 'Mål' }, line: { publicCode: L[0], transportMode: L[1] }, fromEstimatedCall: { occupancyStatus: 'fewSeatsAvailable' } }] })) : [];
         return J({ data: { trip: { tripPatterns: pats } } });
       }
       return { ok: false, status: 404, json: async () => ({}) };
@@ -117,6 +117,30 @@ const all = `(() => { const o = []; const w = (r) => r.querySelectorAll('*').for
     const st3 = q('.stop[data-k="sensor.entur_bislett"]');
     out.more = { lk: txt(st3.querySelector('.lk')), rows: st3.querySelectorAll('.dep').length, vm: txt(st3.querySelector('.vm')), aria: st3.getAttribute('aria-expanded') };
     out.upd = txt(q('.upd'));
+    // 20.11 · én Tilpass-inngang, reise-kortet kan åpnes
+    out.cust = [...sr.querySelectorAll('[data-act="customize"]')].map((e) => e.className);
+    out.hdrBtn = !!q('.hdr button'); out.oppsett = /Tilpass oppsett/.test(txt(sr.querySelector('.wrap')));
+    const a0 = sr.querySelectorAll('.alt')[0];
+    out.a0 = { role: a0.getAttribute('role'), aria: a0.getAttribute('aria-expanded'), chev: !!a0.querySelector('ha-icon[icon="mdi:chevron-down"]') };
+    window.__hap = []; window.addEventListener('haptic', (e) => window.__hap.push(e.detail));
+    a0.click(); await wait(200);
+    const b0 = sr.querySelectorAll('.alt')[0], pl = b0.querySelector('.plan');
+    out.plan = pl ? { aria: b0.getAttribute('aria-expanded'), steps: [...pl.querySelectorAll('.ps')].map((e) => e.className.replace('ps ', '') + ':' + txt(e)), grid: getComputedStyle(pl.querySelector('.ps')).gridTemplateColumns,
+      rot: b0.querySelector('ha-icon[icon="mdi:chevron-down"]').style.transform, ft: txt(pl.querySelector('.pnx')), pv: !!pl.querySelector('[data-act="tripHero"]'),
+      dash: getComputedStyle(pl.querySelector('.ps.walk .pl')).borderLeftStyle, legRail: pl.querySelector('.ps.leg .pl').style.background } : null;
+    out.hap = window.__hap.slice();
+    pl && pl.click(); await wait(150);
+    out.planStay = sr.querySelectorAll('.alt')[0].getAttribute('aria-expanded');
+    sr.querySelectorAll('.alt')[1].click(); await wait(200);
+    out.nOpen = sr.querySelectorAll('.alt[aria-expanded="true"] .plan').length;
+    const hn0 = txt(q('.hname'));
+    sr.querySelectorAll('.alt')[1].querySelector('[data-act="tripHero"]').click(); await wait(250);
+    out.heroAlt = { before: hn0, after: txt(q('.hname')), lab: txt(q('.hlab')), stillOpen: sr.querySelectorAll('.alt[aria-expanded="true"]').length };
+    // toppkortet av → «Tilpass» over Avganger
+    const cfg0 = k.config;
+    k.setConfig({ ...cfg0, hero: false }); await wait(200);
+    out.noHero = { btn: txt(q('.hdr .ed')), icon: q('.hdr .ed ha-icon') && q('.hdr .ed ha-icon').getAttribute('icon') };
+    k.setConfig(cfg0); await wait(200);
     // retning Hjem
     const hjem = [...sr.querySelectorAll('.seg .sg')].find((e) => txt(e) === 'Hjem') || [...sr.querySelectorAll('.seg .sg')][1];
     hjem.click(); await wait(1200);
@@ -126,7 +150,8 @@ const all = `(() => { const o = []; const w = (r) => r.querySelectorAll('*').for
   }, all);
   if (SHOTS) {
     await p.evaluate((ALL) => { const k = eval(ALL).find((e) => e.localName === 'msh-ruter-card' && e.getBoundingClientRect().height > 0); k.shadowRoot.querySelector('.stop').scrollIntoView(); }, all);
-    await p.waitForTimeout(300); await p.screenshot({ path: `${SHOTS}/ruter19-stopp.png` });
+    await p.waitForTimeout(300); await p.screenshot({ path: `${SHOTS}/ruter19-stopp.png` });  await p.evaluate(async (ALL) => { const k = eval(ALL).find((e) => e.localName === 'msh-ruter-card' && e.getBoundingClientRect().height > 0); const a = k.shadowRoot.querySelector('.alt'); a.click(); await new Promise((q) => setTimeout(q, 300)); k.shadowRoot.querySelector('.alt').scrollIntoView(); }, all);
+    await p.waitForTimeout(300); await p.screenshot({ path: `${SHOTS}/ruter20-reise.png` });
   }
   console.log(JSON.stringify(r, null, 1));
   ok(r.order.join(',') === 'hero,dis,trip,hdr,stop,stop,stop,upd', 'rekkefølge ' + r.order);
@@ -144,11 +169,28 @@ const all = `(() => { const o = []; const w = (r) => r.querySelectorAll('*').for
   ok(/Vis \d+ flere/.test(r.open.vm), 'Vis flere');
   ok(/neste time/i.test(r.more.lk) && r.more.rows > 3 && r.more.vm === 'Vis færre', 'Vis flere → neste time ' + JSON.stringify(r.more));
   ok(/Sanntid fra Entur · oppdatert \d\d:\d\d:\d\d/.test(r.upd), 'oppdatert-linje ' + r.upd);
+  // 20.11
+  ok(r.cust.length === 1 && /hset/.test(r.cust[0]) && !r.hdrBtn && !r.oppsett, '20.11 bare tannhjulet som Tilpass-inngang ' + JSON.stringify([r.cust, r.hdrBtn, r.oppsett]));
+  ok(r.a0.role === 'button' && r.a0.aria === 'false' && r.a0.chev, '20.11 reise-kort role=button + chevron ' + JSON.stringify(r.a0));
+  const S = (r.plan && r.plan.steps) || [];
+  ok(r.plan && r.plan.aria === 'true' && /rotate\(180deg\)/.test(r.plan.rot) && /^44px 22px /.test(r.plan.grid), '20.11 åpnet: aria/chevron/rutenett ' + JSON.stringify(r.plan && [r.plan.aria, r.plan.rot, r.plan.grid]));
+  ok(S.map((x) => x.split(':')[0]).join(',') === 'walk,leg,swap,leg,end', '20.11 steg gå → buss → bytte → trikk → fremme ' + JSON.stringify(S));
+  ok(/^walk:\d\d:\d\d Gå til Amagerveien\s*.*(Gå nå|Gå om \d+ min|Rekker ikke)/.test(S[0] || ''), '20.11 gå-steg ' + S[0]);
+  ok(/^leg:\d\d:\d\d 45\s*Amagerveien\s*Plf\. C · mot Mål · 9 min · Noe folk/.test(S[1] || ''), '20.11 påstigning buss 45 ' + S[1]);
+  ok(/^swap:\d\d:\d\d Bytte på Majorstuen\s*(Kort bytte · )?\d+ min til neste · Plf\. C/.test(S[2] || ''), '20.11 bytte ' + S[2]);
+  ok(/^leg:\d\d:\d\d 11\s*Majorstuen\s*Plf\. C · mot Mål · 7 min/.test(S[3] || ''), '20.11 trikk ' + S[3]);
+  ok(/^end:\d\d:\d\d Holbergs plass\s*Fremme · \d+ min totalt/.test(S[4] || ''), '20.11 fremme ' + S[4]);
+  ok(r.plan && r.plan.dash === 'dashed' && /oklch|rgb/.test(r.plan.legRail || ''), '20.11 stiplet gå-skinne + heltrukket linjefarge ' + JSON.stringify(r.plan && [r.plan.dash, r.plan.legRail]));
+  ok(r.plan && /^Neste mulighet: 45 kl \d\d:\d\d · deretter \d\d:\d\d$/.test(r.plan.ft) && r.plan.pv, '20.11 Neste mulighet + Vis i toppkortet ' + (r.plan && r.plan.ft));
+  ok(r.hap.includes('light'), '20.11 haptic light ' + r.hap);
+  ok(r.planStay === 'true' && r.nOpen === 2, '20.11 flere kan være åpne ' + r.nOpen);
+  ok(r.heroAlt.after === 'Holmen' && r.heroAlt.before !== r.heroAlt.after && /Valgt avgang/.test(r.heroAlt.lab) && r.heroAlt.stillOpen === 2, '20.11 Vis i toppkortet ' + JSON.stringify(r.heroAlt));
+  ok(r.noHero.btn === 'Tilpass' && r.noHero.icon === 'mdi:cog', '20.11 toppkort av → Tilpass over Avganger ' + JSON.stringify(r.noHero));
   ok(r.home.length === 4 && r.home[0][1], 'Hjem-alternativer ' + r.home.length);
   // Lukk popupen → ingen flere hentinger; tilstanden nullstilles
   const n0 = await p.evaluate(async () => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await new Promise((q) => setTimeout(q, 600)); return window.__fetches.length; });
   const tick = await p.evaluate(() => { const k = window.__k; return { tick: k._tick, open: k.isOpen, ui: k.ui }; });
-  ok(!tick.tick && !tick.open && !tick.ui.dir && !Object.keys(tick.ui.open || {}).length, 'lukket: timer stoppet + tilstand nullstilt ' + JSON.stringify(tick));
+  ok(!tick.tick && !tick.open && !tick.ui.dir && !Object.keys(tick.ui.open || {}).length && !Object.keys(tick.ui.trips || {}).length && !tick.ui.heroAlt, 'lukket: timer stoppet + tilstand nullstilt ' + JSON.stringify(tick));
   await p.evaluate(async () => {
     // spol klokken fram (setInterval ville kjørt): ingen nye kall når popupen er lukket
     await new Promise((q) => setTimeout(q, 1000));

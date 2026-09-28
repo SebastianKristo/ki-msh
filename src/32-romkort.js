@@ -176,17 +176,20 @@
     return `<button class="${cls}" ${act} style="${st}">${inner}</button>`;
   };
   // Termostat-stepper (MySmartHome): vertikal pille nede til høyre under ikon-sirkelen – ⌃ / mål / ⌄.
-  const kv = (r) => `<div class="rk-kv" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 20)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 20)}</button></div>`;
+  const kv = (r, sz) => `<div class="rk-kv rk-p${sz || 'L'}" data-key="rk-kv-${esc(r.id)}"><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="1" data-haptic="selection" title="Opp" aria-label="Øk måltemperatur">${M.icon('expand_less', 20)}</button><span class="rk-kt num">${setTxt(r.set)}°</span><button class="rk-kb" data-act="rk-set" data-id="${esc(r.thermo)}" data-d="-1" data-haptic="selection" title="Ned" aria-label="Senk måltemperatur">${M.icon('expand_more', 20)}</button></div>`;
   const openAttrs = (r, key) => `data-act="rk-open" data-hash="${esc(r.hash)}" ${r.ent ? `data-ent="${esc(r.ent)}"` : ''} data-key="${esc(key || 'rk-' + r.id)}"`;
 
   // r: M.romData(...). o: { variant, klima, alert, key, graph:{t:[],h:[]}, ui:{gTab,gSel}, cfg, motes }
   M.romkortHTML = function (r, o) {
     o = o || {};
     const v = o.variant || 'karusell', alert = o.alert || '', kl = !!o.klima && r.thermo && r.set != null;
+    if (kl) M.rkPillApply();
+    const ph = kl ? M.rkPillCfg(o.cfg) : null; // 20.12: YAML (room_card.klima_pill_height) – profilen vinner (CSS-var på :root)
+    const pst = ph ? ` style="${['M', 'L'].filter((k) => ph[k] != null).map((k) => `--rk-pill-cfg-${k}:${ph[k]}px`).join(';')}"` : '';
     if (v === 'karusell') {
-      return `<div class="rk rk-car ${kl ? 'kl' : ''}" ${openAttrs(r, o.key)}>
+      return `<div class="rk rk-car ${kl ? 'kl' : ''}"${pst} ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num">${degI(r.temp)}°</span><span class="rk-h">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num">${degI(r.temp)}°</span><span class="rk-h">${degI(r.hum)}%</span></div>${kl ? kv(r, 'L') : ''}</div>`;
     }
     if (v === 'S') {
       return `<div class="rk rk-s" ${openAttrs(r, o.key)}>${lightBtn(r, 'rk-ic rk-ics', alert)}
@@ -194,9 +197,9 @@
     }
     if (v === 'M' || v === 'L') {
       const h = v === 'L' ? 246 : kl ? 210 : 140;
-      return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px" ${openAttrs(r, o.key)}>
+      return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px${pst ? ';' + pst.slice(8, -1) : ''}" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${degI(r.hum)}%</span></div>${kl ? kv(r) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${degI(r.hum)}%</span></div>${kl ? kv(r, v) : ''}</div>`;
     }
     // graf (Romkort.dc.html)
     const cfg = o.cfg || {}, ui = o.ui || {}, g = o.graph || { t: [], h: [] };
@@ -263,6 +266,12 @@
        på 64 px → top 76 = 12 px luft), høyden følger kortet. Gradient #484848→#3f3f3f, lys kant, høylys-linje øverst og
        lett skygge. Pilene øverst/nederst, målet i midten. Trykk: #4a4a4a ~120 ms (16.1). */
     .rk-kv{position:absolute;right:10px;top:76px;bottom:10px;width:52px;border-radius:26px;background:linear-gradient(180deg,#484848 0%,#3f3f3f 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16),inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(0,0,0,0.28);color:#fafafa;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    /* 20.12: høyden velges per størrelse (M 96–124, L 96–160 – L gjelder også karusellen). Pillen står alltid nederst,
+       bare toppen flyttes: top = max(76px, 100% − 10px − høyde). Uten valg (Fyll) = som før (top 76). Verdien kommer fra
+       --ki-rk-pill-M/L på :root (per bruker × enhet, M.rkPillApply) → ellers --rk-pill-cfg-M/L (YAML) → fyll. */
+    .rk-kv{transition:top .2s ease}
+    .rk-pM{top:max(76px,calc(100% - 10px - max(96px,var(--ki-rk-pill-M,var(--rk-pill-cfg-M,9999px)))))}
+    .rk-pL{top:max(76px,calc(100% - 10px - max(96px,var(--ki-rk-pill-L,var(--rk-pill-cfg-L,9999px)))))}
     .rk-kv .rk-kb{width:52px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:#fafafa;--mdc-icon-size:20px;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
     .rk-kv .rk-kb:active{transform:scale(.86);background:#4a4a4a;transition:transform .15s,background 0s}
     .rk-kv .rk-kt{font-size:14px;font-weight:500;flex:none;color:#fafafa;font-variant-numeric:tabular-nums}
@@ -335,6 +344,97 @@
     return false;
   };
 
+  /* ------------------------------------------------------------ 20.12 · klima-knappens høyde */
+  // room_card.klima_pill_height: { M: null|px, L: null|px } (null = fyll). Per bruker × enhetsklasse i ki-store
+  // room_card_profiles (MSH.profileGet/profileSet, som 19.13) – vinner over kortets YAML (room_card.klima_pill_height).
+  const PROOT = 'room_card_profiles';
+  const PILL = { M: { min: 96, max: 124, h: 210, l: 'Medium' }, L: { min: 96, max: 160, h: 246, l: 'Stor · karusell' } };
+  const pillNorm = (k, v) => (v == null || v === '' || isNaN(Number(v)) ? null : Math.max(PILL[k].min, Math.min(PILL[k].max, Math.round(Number(v)))));
+  M.rkPillCfg = function (cfg) {
+    const o = cfg && get(cfg, 'room_card.klima_pill_height');
+    if (!o || typeof o !== 'object') return null;
+    const r = { M: pillNorm('M', o.M), L: pillNorm('L', o.L) };
+    return r.M == null && r.L == null ? null : r;
+  };
+  // Effektiv profil (felt for felt: bruker+enhet → bruker → enhet → standard; per størrelse)
+  M.rkPillProfile = function (sel) {
+    const out = { M: null, L: null };
+    if (!M.store || !M.profileChain) return out;
+    M.profileChain(sel).forEach((k) => {
+      const v = (M.profileRaw(PROOT, k) || {}).klima_pill_height;
+      if (v && typeof v === 'object') ['M', 'L'].forEach((z) => { if (out[z] == null && v[z] != null) out[z] = pillNorm(z, v[z]); });
+    });
+    return out;
+  };
+  M.rkPillSet = function (k, v) {
+    if (!M.profileSet || !M.store) return;
+    const key = M.profileKey(M.userId(), M.deviceClass()), cur = { ...((M.profileRaw(PROOT, key) || {}).klima_pill_height || {}) };
+    const n = pillNorm(k, v);
+    if (n == null || n >= PILL[k].max) delete cur[k]; else cur[k] = n; // Fyll (maks) = null
+    M.profileSet(PROOT, { klima_pill_height: Object.keys(cur).length ? cur : undefined }, key);
+    M.rkPillApply(true);
+  };
+  // Setter --ki-rk-pill-M/L på :root (arves inn i alle shadow roots) – ingen ny rendering av kortene nødvendig.
+  let pillLast = null, pillSub = false;
+  M.rkPillApply = function (force) {
+    if (!pillSub && M.store && M.store.subscribe) { pillSub = true; M.store.subscribe((d, p) => { if (!p || String(p).startsWith(PROOT)) M.rkPillApply(true); }); }
+    const P = M.rkPillProfile(), sig = P.M + '/' + P.L;
+    if (!force && sig === pillLast) return;
+    pillLast = sig;
+    const st = document.documentElement.style;
+    ['M', 'L'].forEach((k) => { if (P[k] == null) st.removeProperty('--ki-rk-pill-' + k); else st.setProperty('--ki-rk-pill-' + k, P[k] + 'px'); });
+  };
+  // Tilpass Hjem → Kort → «Klima-knapp på romkort» (27-hjem-editor kaller html/act/input). Lagres straks (per enhet).
+  const pillPrev = (k, v) => {
+    const P = PILL[k], f = 0.4, H = Math.round(P.h * f), top = v == null ? 30 : Math.max(30, Math.round(H - 4 - v * f));
+    return `<span class="rkpp" data-rkpp="${k}" style="position:relative;flex:none;width:64px;height:${H}px;border-radius:14px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)">
+      <span style="position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:11px;background:var(--gray300,#404040)"></span>
+      <span style="position:absolute;left:6px;bottom:6px;width:20px;height:9px;border-radius:3px;background:var(--gray400,#545454)"></span>
+      <span class="rkpp-p" style="position:absolute;right:4px;bottom:4px;width:21px;top:${top}px;border-radius:11px;background:linear-gradient(180deg,#484848,#3f3f3f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16);transition:top .2s"></span></span>`;
+  };
+  const pillLab = (k, v) => (v == null ? 'Fyll' : v + ' px');
+  M.romkortPillPanel = {
+    html(ed) {
+      const P = M.rkPillProfile(), open = !!(ed.u && ed.u.acc && ed.u.acc.rkpill);
+      const meta = `M ${pillLab('M', P.M)} · L ${pillLab('L', P.L)}`;
+      const row = (k) => {
+        const D = PILL[k], v = P[k], mid = Math.round((D.min + D.max) / 4) * 2;
+        const q = [['lav', 'Lav', D.min], ['mid', 'Middels', mid], ['fyll', 'Fyll', null]];
+        return `<div style="display:flex;gap:12px;align-items:center" data-key="rkpill-${k}">${pillPrev(k, v)}
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+            <span style="display:flex;justify-content:space-between;align-items:baseline"><span class="lb">${esc(D.l)}</span><span class="num" style="font-size:13px;font-weight:500" data-rkpl="${k}">${pillLab(k, v)}</span></span>
+            <input type="range" class="rkpill-r" min="${D.min}" max="${D.max}" step="2" value="${v == null ? D.max : v}" data-in="rkpill" data-k="${k}" aria-label="Høyde på klima-knappen · ${esc(D.l)}" style="width:100%;touch-action:pan-y">
+            <div class="ss" style="align-self:flex-start">${q.map(([id, l, x]) => `<button class="${(x == null ? v == null : v === x) ? 'on-pk' : ''}" data-a="rkpill" data-k="${k}" data-v="${id}" data-h="selection">${l}</button>`).join('')}</div>
+          </div></div>`;
+      };
+      const body = open ? `<div class="box" data-key="acb-rkpill"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Høyde på ˄ ° ˅-knappen</span><span class="sub">Knappen står alltid nederst – bare toppen flyttes. Fyll = hele høyden (standard). Gjelder denne brukeren på denne enheten.</span></span>${row('M')}${row('L')}</div>` : '';
+      // Fallgruve 2: slideren skal ikke dra arket/popupen (touch-action pan-y + stopPropagation)
+      if (open && M.guardDrag) setTimeout(() => { const r = ed.root; if (r && r.querySelectorAll) r.querySelectorAll('.rkpill-r').forEach((el) => M.guardDrag(el, 'x')); }, 0);
+      return ed._acc('rkpill', 'Klima-knapp på romkort', 'mdi:thermostat', meta) + body;
+    },
+    act(ed, d) {
+      const D = PILL[d.k];
+      if (!D) return;
+      const v = d.v === 'lav' ? D.min : d.v === 'mid' ? Math.round((D.min + D.max) / 4) * 2 : null;
+      M.rkPillSet(d.k, v);
+      if (ed.render) ed.render();
+    },
+    // true = håndtert. Under dra: bare forhåndsvisning + tall; ved slipp: lagre.
+    input(ed, el, kind) {
+      if (!el || el.dataset.in !== 'rkpill') return false;
+      const k = el.dataset.k, D = PILL[k];
+      if (!D) return true;
+      const n = Number(el.value), v = n >= D.max ? null : n, root = ed.root || el.getRootNode();
+      const lab = root.querySelector(`[data-rkpl="${k}"]`), pv = root.querySelector(`[data-rkpp="${k}"] .rkpp-p`);
+      if (lab) lab.textContent = pillLab(k, v);
+      if (pv) pv.style.top = (v == null ? 30 : Math.max(30, Math.round(D.h * 0.4 - 4 - v * 0.4))) + 'px';
+      if (kind === 'input') return true;
+      M.haptic('selection');
+      M.rkPillSet(k, v);
+      return true;
+    },
+  };
+
   /* ------------------------------------------------------------ kort */
   const VARIANTS = [['graf', 'Graf (Romkort)'], ['karusell', 'Karusell 220'], ['L', 'Stor'], ['M', 'Medium'], ['S', 'Liten']];
   class Romkort extends M.Card {
@@ -353,6 +453,8 @@
             { type: 'text', name: 'name', label: 'Navn', auto: (h, cc) => (cc.area ? M.areaName(h, cc.area) : '') },
             { type: 'hash', name: 'hash', label: 'Popup (hash)', auto: (h, cc) => (cc.area ? '#' + cc.area : '#<område>') },
             { type: 'boolean', name: 'klima', label: 'Klima-knapp (+/−) på kortet', help: 'Karusell/stor/medium, krever termostat', default: true },
+            { type: 'number', name: 'room_card.klima_pill_height.M', label: 'Klima-knapp · høyde Medium (px)', min: 96, max: 124, step: 2, placeholder: 'Fyll', help: 'Tomt = fyll (standard). «Tilpass Hjem» → Kort per bruker og enhet vinner.' },
+            { type: 'number', name: 'room_card.klima_pill_height.L', label: 'Klima-knapp · høyde Stor/karusell (px)', min: 96, max: 160, step: 2, placeholder: 'Fyll', help: 'Tomt = fyll (standard)' },
           ] },
           { type: 'section', id: 'look', label: 'Ikon og farge', icon: 'mdi:palette', fields: [
             { type: 'icon', name: 'icon', label: 'Ikon', auto: () => (r ? r.icon : '') },

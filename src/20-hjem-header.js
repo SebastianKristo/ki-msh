@@ -209,6 +209,19 @@
         super(); this._ropen = {}; this._btns = {};
         this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.np)) M.haptic('selection'); });
         this.shadowRoot.addEventListener('focusout', (e) => { if (this._pend && e.target && e.target.tagName === 'SELECT') { this._pend = false; setTimeout(() => this._render(), 0); } });
+        // Fiks 20.9: live forhåndsvisning (prosa) per tastetrykk – bare forhåndsvisningen tegnes, lagring skjer på change
+        this.shadowRoot.addEventListener('input', (e) => {
+          const t = e.target, L = this._liveF, n = t && t.dataset && t.dataset.name;
+          if (!L || !n || !(t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+          const m = new RegExp('^' + L.live + '\\.(\\d+)\\.(.+)$').exec(n);
+          if (!m) return;
+          const f = this._findRows(L.live);
+          if (!f) return;
+          const list = this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {})));
+          if (!list[+m[1]]) return;
+          setIn(list[+m[1]], m[2], t.value === '' ? undefined : t.value);
+          this._pzLive({ ...(this._config || {}), [L.live]: list });
+        });
         // Fiks 19.13: bruker/enhet og «Kopier fra …» øverst
         this.shadowRoot.addEventListener('change', (e) => {
           const t = e.target, d = t && t.dataset;
@@ -239,8 +252,10 @@
         this._scHold = null; this._rendering = true;
         // Fiks 19.13: feltene i PROF_KEYS viser verdien for valgt bruker × enhet (med arv); resten = kortets config
         const base = this._config;
-        if (base && this._profOn()) { const P = M.hjemHeaderProfile(this._psel()), o = { ...base }; PROF_KEYS.forEach((k) => { if (P[k] != null) o[k] = P[k]; }); this._config = o; }
+        if (base && this._profOn()) { const P = M.hjemHeaderProfile(this._psel()), o = { ...base }; PROF_KEYS.forEach((k) => { if (P[k] != null) o[k] = k === 'status' ? mergeStatus(base.status, P.status) : P[k]; }); this._config = o; }
+        this._liveF = null;
         try { super._render(); } finally { this._rendering = false; this._scHold = null; this._config = base; }
+        if (this._liveF && M.prosaPreviewScroll) M.prosaPreviewScroll(this.shadowRoot); // Fiks 20.9
         this._pvSync();
         if (this.shadowRoot) this.shadowRoot.querySelectorAll('select[data-np]').forEach((el) => { if (el.value !== el.dataset.v) el.value = el.dataset.v; });
         // Personbilde som ikke laster → ikon/initialer (huskes per URL, som i headeren)
@@ -258,6 +273,17 @@
         if (this._cssFallback && this.shadowRoot && !this.shadowRoot.getElementById('xcss')) {
           const s = document.createElement('style'); s.id = 'xcss'; s.textContent = XCSS; this.shadowRoot.appendChild(s);
         }
+      }
+      // Fiks 20.9: tegn bare den levende forhåndsvisningen på nytt (utkast-config c) og scroll til delen som redigeres
+      _pzLive(c) {
+        const L = this._liveF, R = this.shadowRoot, old = R && R.querySelector('[data-pzprev]');
+        if (!L || !old) return;
+        let html = '';
+        try { html = L.render(this._hass, c, this) || ''; } catch (e) { return; }
+        const tmp = document.createElement('div'); tmp.innerHTML = html;
+        const nb = tmp.querySelector('[data-pzprev] .pz'), ob = old.querySelector('.pz');
+        if (nb && ob) { ob.innerHTML = nb.innerHTML; ob.setAttribute('style', nb.getAttribute('style') || ''); }
+        if (M.prosaPreviewScroll) M.prosaPreviewScroll(R);
       }
       /* ---------- Fiks 19.13: header-profil per bruker × enhetsklasse ---------- */
       _profOn() { return !!(M.store && M.profileSet && M.deviceClass); }
@@ -368,6 +394,13 @@
         return get(this._config || {}, path);
       }
       _set(path, v, commit) {
+        if (this._profOn() && /^status\./.test(path || '')) { // Fiks 20.5: Status og soner → valgt profil (hele status-objektet)
+          const P = M.hjemHeaderProfile(this._psel()), st = mergeStatus((this._config || {}).status, P.status) || {};
+          const [, k, fld] = String(path).split('.');
+          if (k && fld) { st[k] = { ...(st[k] || {}) }; if (v === '' || v == null) delete st[k][fld]; else st[k][fld] = v; }
+          M.profileSet(HPROF, { status: mergeStatus(st) }, this._pkey(), { commit: commit !== false });
+          return this._render();
+        }
         if (this._profOn() && PROF_KEYS.includes(path)) { // Fiks 19.13: valgt profil, lagres straks (ikke med i Ferdig/Avbryt)
           M.profileSet(HPROF, { [path]: v === '' ? undefined : v }, this._pkey(), { commit: commit !== false });
           return this._render();
@@ -470,6 +503,7 @@
         const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
         switch (f.type) {
           case 'rows': return this._rows(f, key);
+          case 'xstat': return this._statRow(f, key);
           case 'titleacts': return this._titleActs();
           case 'profilebar': return this._profBar();
           case 'modes': {
@@ -489,12 +523,33 @@
             const cur = get(c, f.name) != null ? String(get(c, f.name)) : String(f.default || '');
             return `<div class="f">${lab}<div class="xsw">${f.options.map(([v, css, l]) => `<button class="${String(v) === cur ? 'on' : ''}" title="${esc(l)}" style="background:${css}" data-a="sel" data-name="${esc(f.name)}" data-v="${esc(v)}"></button>`).join('')}</div>${help}</div>`;
           }
-          case 'html': { try { return f.render(h, c) || ''; } catch (e) { return ''; } }
+          case 'html': { if (f.live) this._liveF = f; try { return f.render(h, c, this) || ''; } catch (e) { return ''; } }
           case 'button':
             this._btns[key] = f;
             return `<button class="xbtn" data-a="x-btn" data-k="${esc(key)}">${f.icon ? M.icon(f.icon, 18) : ''}${esc(f.label)}</button>`;
           default: return super._field(f, key);
         }
+      }
+      /* Fiks 20.5: «Status og soner» – Hjemme / Sover / Borte som sone-radene (ikon-sirkel i valgt farge + navn),
+       * åpen: ikonvelger (rutenett + «Alle ikoner») og fargevelger (tema- og HA-farger). Kan ikke slettes/flyttes. */
+      _statRow(f, key) {
+        const c = this._config || {}, k = f.k, S = M.hjemStatusStyle(c, k), open = this._ropen.__status === k;
+        const T = { home: ['Hjemme', 'Personen er i zone.home'], sleep: ['Sover', 'Når sove-sensoren er på'], away: ['Borte · annen sone', 'Ikke hjemme og ikke i en av sonene over'] }[k];
+        const AUTO = { home: HOME_ST, sleep: SLEEP_ST, away: { icon: AWAY_ICON, color: AWAY_COL } }[k];
+        const head = `<div class="xr ${open ? 'on' : ''}" data-key="xst-${k}"><span class="xchip" style="background:${S.color};transition:background .3s">${M.icon(S.icon, 18, 'color:#fafafa')}</span>
+          <button class="xrh" data-a="x-sopen" data-k="${k}"><b>${esc(T[0])}</b><i>${esc(T[1] + (S.own ? '' : ' · standard'))}</i></button>
+          <button class="xsq" data-a="x-sopen" data-k="${k}">${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 18)}</button></div>`;
+        if (!open) return `<div class="f" style="background:transparent;padding:2px 0"><div class="xrows">${head}</div></div>`;
+        // Borte: eldre zone_away vises som verdi til den lagres som status.away
+        const saved = this._config, za = k === 'away' ? ((saved && (saved.zone_away || saved.zAway)) || {}) : {};
+        const cur = statusCfg(saved, k);
+        this._config = { ...saved, status: { ...((saved && saved.status) || {}), [k]: { icon: cur.icon || za.icon, color: cur.color || za.color } } };
+        let body = '';
+        try {
+          body = this._field({ type: 'icon', name: `status.${k}.icon`, label: 'Ikon', auto: () => M.iconName ? M.iconName(AUTO.icon) : AUTO.icon }, `${key}_i`)
+            + this._field({ type: 'color', name: `status.${k}.color`, label: 'Farge', auto: () => AUTO.color }, `${key}_c`);
+        } finally { this._config = saved; }
+        return `<div class="f" style="background:transparent;padding:2px 0"><div class="xrows">${head}<div class="xrb" data-key="xst-${k}-b">${body}</div></div></div>`;
       }
       _rows(f, key) {
         if (f.kind === 'people') return this._peopleRows(f, key);
@@ -568,7 +623,7 @@
             const status = !r.person ? 'person.*' : !p ? 'Finnes ikke' : p.sleep ? 'Sover' : p.status.kind === 'unknown' ? '–' : p.place;
             const isOpen = open === i, hid = !!r.hidden;
             const av = p ? `<span class="xpa" style="background:${p.bg};font-size:${faceTxt(p, this._picBad) ? 16 : 0}px">${faceInner(p, 40, this._picBad)}</span>` : `<span class="xpa">${M.icon('mdi:account', 22, 'color:#979797')}</span>`;
-            const bd = p && p.badge ? `<span class="xpbd" style="background:${p.sleep ? C.purple : p.stCol}">${M.icon(p.glyph, 11, 'color:#fafafa')}</span>` : '';
+            const bd = p && p.badge ? `<span class="xpbd" style="background:${p.stCol}">${M.icon(p.glyph, 11, 'color:#fafafa')}</span>` : '';
             const sq = (d, on) => `<button class="xsq" data-a="x-rmv" data-n="${esc(f.name)}" data-i="${i}" data-d="${d}" ${on ? '' : 'disabled'}>${M.icon(d < 0 ? 'mdi:chevron-up' : 'mdi:chevron-down', 20)}</button>`;
             const head = `<div class="xph" style="${hid ? 'opacity:.55' : ''}">
                 <button class="xpo" data-a="x-ropen" data-n="${esc(f.name)}" data-i="${i}"><span class="xpw">${av}${bd}</span><span class="xpt"><b>${esc(name)}</b><i class="xps">${esc(status)}${hid ? ' · skjult' : ''}</i></span></button>
@@ -608,6 +663,8 @@
         const list = f ? this._rowsOf(f).map((x) => JSON.parse(JSON.stringify(x || {}))) : [];
         const i = Number(d.i);
         switch (d.a) {
+          case 'x-pzsel': this._ropen.prose = i; this._render(); { const el = this.shadowRoot.querySelector('[data-key="prose-' + i + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } return;
+          case 'x-sopen': this._ropen.__status = this._ropen.__status === d.k ? null : d.k; return this._render();
           case 'x-ropen': this._ropen[d.n] = this._ropen[d.n] === i ? null : i; return this._render();
           case 'x-rmv': { const j = i + Number(d.d); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; if (this._ropen[d.n] === i) this._ropen[d.n] = j; M.haptic('selection'); return this._rowsSave(f, list); }
           case 'x-pzone': if (list[i].zone === false) delete list[i].zone; else list[i].zone = false; return this._rowsSave(f, list);
@@ -778,7 +835,26 @@
   const ZCOLS = ZPAL;
   const ZICONS = ['location_city', 'stethoscope', 'apartment', 'agriculture', 'sailing', 'work', 'school', 'cottage', 'fitness_center', 'flight', 'home', 'shopping_cart', 'restaurant', 'local_hospital', 'directions_car', 'logout'];
   const HOME_ST = { icon: 'mdi:home', color: C.green };
-  const AWAY_ICON = 'mdi:map-marker-off', AWAY_COL = 'var(--gray500, #696969)';
+  // Fiks 20.5: standard for «Borte · annen sone» (Status og soner). Sover: bedtime lilla.
+  const AWAY_ICON = 'mdi:airplane', AWAY_COL = C.purple;
+  const SLEEP_ST = { icon: 'bedtime', color: C.purple };
+  /* Fiks 20.5: «Status og soner» – status: { home: { icon, color }, sleep: { icon, color }, away: { icon, color } }
+   * (del av header-profilen, 19.13). Borte leser også eldre zone_away / zAway. */
+  const statusCfg = (c, k) => { const s = c && c.status && typeof c.status === 'object' ? c.status[k] : null; return s && typeof s === 'object' ? s : {}; };
+  M.hjemStatusStyle = function (c, k) {
+    const z = statusCfg(c, k);
+    if (k === 'home') return { icon: z.icon || HOME_ST.icon, color: M.color(z.color, null) || HOME_ST.color, own: !!(z.icon || z.color) };
+    if (k === 'sleep') return { icon: z.icon || SLEEP_ST.icon, color: M.color(z.color, null) || SLEEP_ST.color, own: !!(z.icon || z.color) };
+    const a = { ...((c && (c.zone_away || c.zAway)) || {}), ...Object.fromEntries(Object.entries(z).filter(([, v]) => v)) };
+    return { icon: a.icon || AWAY_ICON, color: M.color(a.color, null) || AWAY_COL, own: !!(a.icon || a.color) };
+  };
+  // Status-objektet slås sammen per tilstand (kortets config ← profil), så én tilstand i profilen ikke fjerner de andre.
+  const mergeStatus = (a, b) => {
+    const out = {};
+    [a, b].forEach((s) => { if (s && typeof s === 'object') Object.keys(s).forEach((k) => { out[k] = { ...(out[k] || {}), ...(s[k] || {}) }; }); });
+    Object.keys(out).forEach((k) => { Object.keys(out[k]).forEach((f) => { if (out[k][f] == null || out[k][f] === '') delete out[k][f]; }); if (!Object.keys(out[k]).length) delete out[k]; });
+    return Object.keys(out).length ? out : undefined;
+  };
   M.hjemZonePal = function (zid) {
     let h = 0;
     for (const ch of String(zid || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
@@ -793,7 +869,7 @@
   };
   // Ikon og farge for en sone. zone.home er låst til Hjemme-stilen (grønt hus).
   M.hjemZoneStyle = function (hass, c, zid, rd) {
-    if (zid === 'zone.home') return { ...HOME_ST };
+    if (zid === 'zone.home') { const H = M.hjemStatusStyle(c, 'home'); return { icon: H.icon, color: H.color }; }
     const st = zid ? (rd ? rd(zid) : hass && hass.states[zid]) : null;
     const z = zoneCfg(c, zid);
     return { icon: z.icon || (st && st.attributes.icon) || 'mdi:map-marker', color: M.color(z.color, null) || M.hjemZonePal(zid) };
@@ -852,10 +928,10 @@
   // Søvn-entiteten til en person: valgt (people[].sleep / eldre overrides.sover_<id>) eller søsken-entitet (*_sover, *_sleep …).
   M.hjemSleepAuto = (hass, id) => (hass ? sibling(hass, id, SLEEP_RE, ['input_boolean', 'binary_sensor', 'switch']) : null);
   // «Borte · annen sone» (Soner-seksjonen): zone_away: { icon, color } (designets zAway leses også).
-  const awayCfg = (c) => (c && (c.zone_away || c.zAway)) || {};
+  // Fiks 20.5: status.away (Status og soner) vinner over eldre zone_away.
   M.hjemAwayStyle = function (c) {
-    const z = awayCfg(c), own = !!(z.icon || z.color);
-    return { icon: z.icon || AWAY_ICON, color: M.color(z.color, null) || AWAY_COL, badge: c && c.away_marker != null ? c.away_marker === true : own };
+    const A = M.hjemStatusStyle(c, 'away');
+    return { icon: A.icon, color: A.color, badge: c && c.away_marker != null ? c.away_marker === true : A.own };
   };
   /* Status for én person (ren funksjon – testbar). p = 'person.x' eller en people-rad. rd = state-leser (valgfri).
    * 1) Hjemme-bryter på → Hjemme (vinner over GPS/sone).
@@ -864,9 +940,24 @@
    * 3) not_home, eller bryter av + GPS «home» (uten use_gps_when_off) → Borte: dempet, «Borte · annen sone»-utseendet
    *    (zone_away; merke bare med away_marker eller eget ikon/farge).
    * 4) Mangler person og bryter → ingen merke, aldri gjettet status.
-   * → { kind: home|zone|away|unknown, src: switch|gps|none, icon, color, place, zone, badge, dim, switchId } */
+   * → { kind: home|zone|away|unknown, src: switch|gps|none, icon, color, place, zone, badge, dim, switchId }
+   * Fiks 20.5: + sleep (søvn-bryteren på), label («Sover» / «Hjemme» / sonen / «Borte») og når personen sover
+   * er icon/color Sover-stilen (Status og soner). cfg utelatt → header-kortets effektive config (M.hjemHeaderCfg),
+   * så andre kort (f.eks. kartet) kan kalle MSH.personStatus(hass, 'person.x') og få samme ikon/farge som headeren. */
   M.personStatus = function (hass, p, cfg, rd) {
-    cfg = cfg || {};
+    cfg = cfg || (M.hjemHeaderCfg && M.hjemHeaderCfg()) || {};
+    rd = rd || ((x) => (hass && hass.states[x]) || null);
+    const st = personStatus0(hass, p, cfg, rd);
+    const pid = typeof p === 'string' ? p : p && p.person;
+    const PO = pid ? M.hjemPersonOpts(cfg, pid) : {};
+    const sid = pid ? PO.sleep || M.hjemSleepAuto(hass, pid) : null;
+    const sl = sid ? rd(sid) : null;
+    const sleep = !!sl && !M.unavailable(sl) && (sl.state === 'on') !== !!PO.sleep_invert;
+    if (!sleep) return { ...st, sleep: false, sleepId: sid, label: st.place };
+    const S = M.hjemStatusStyle(cfg, 'sleep');
+    return { ...st, sleep: true, sleepId: sid, icon: S.icon, color: S.color, label: 'Sover' };
+  };
+  const personStatus0 = function (hass, p, cfg, rd) {
     rd = rd || ((x) => (hass && hass.states[x]) || null);
     const pid = typeof p === 'string' ? p : p && p.person;
     const base = pid ? M.hjemPeopleRow(cfg, pid) || { person: pid } : {};
@@ -876,7 +967,8 @@
     const sw = swId ? rd(swId) : null;
     const swOk = !!sw && !M.unavailable(sw);
     const A = M.hjemAwayStyle(cfg);
-    const home = { kind: 'home', icon: HOME_ST.icon, color: HOME_ST.color, place: 'Hjemme', zone: 'zone.home', badge: true, dim: false, switchId: swId };
+    const H = M.hjemStatusStyle(cfg, 'home');
+    const home = { kind: 'home', icon: H.icon, color: H.color, place: 'Hjemme', zone: 'zone.home', badge: true, dim: false, switchId: swId };
     const away = { kind: 'away', icon: A.icon, color: A.color, place: 'Borte', zone: null, badge: A.badge, dim: true, switchId: swId };
     if (swOk && sw.state === 'on') return { ...home, src: 'switch' };
     const pOk = !!s && !M.unavailable(s);
@@ -938,13 +1030,14 @@
     const st = M.personStatus(hass, id, c, rd);
     // Hurtigarket (fiks 16.14): Hjemme/Borte skriver bare til valgt hjemme-bryter (people[].home). Uten bryter → bare visning.
     const presId = st.switchId || null;
-    const sl = sleepId ? rd(sleepId) : null;
     const home = st.kind === 'home';
     // Søvn: på = sover, eller omvendt med «På = våken» (people[].sleep_invert – noen Homey-brytere er omvendt)
     const sleepInv = PO.sleep_invert;
-    const sleep = !!sl && !M.unavailable(sl) && (sl.state === 'on') !== sleepInv;
-    const stCol = sleep ? C.purple : st.color || 'transparent';
-    const glyph = sleep ? 'bedtime' : st.icon || 'mdi:account';
+    const sleep = !!st.sleep;
+    // Fiks 20.5: ikon/farge fra «Status og soner» (personStatus gir Sover-stilen når personen sover)
+    const stCol = st.color || 'transparent';
+    const glyph = st.icon || 'mdi:account';
+    const sleepOwn = sleep && M.hjemStatusStyle(c, 'sleep').own;
     const all = M.all(hass, 'person');
     const me = !!(hass.user && a.user_id && a.user_id === hass.user.id);
     // Visning per person: people[] / persons_cfg.<object_id> (editorene) over persons: [{ entity, display, picture }] (YAML).
@@ -952,7 +1045,7 @@
     const display = DISPLAYS.includes(pc.display) ? pc.display : 'picture';
     const raw = pc.picture || a.entity_picture || null;
     const pic = display === 'picture' && raw ? M.hjemPicUrl(hass, raw) : null;
-    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: st.place, stCol, glyph, badge: sleep || st.badge, dim: !sleep && st.dim, status: st, me, sleepId, presId, sleepInv };
+    return { id, o, s, name: a.friendly_name || o, first: firstName(a.friendly_name || o), display, pic, icon: a.icon || 'mdi:account', initial: (a.friendly_name || o).trim().charAt(0).toUpperCase(), bg: PCOLS[Math.max(0, all.indexOf(id)) % PCOLS.length], home, sleep, place: st.place, stCol, glyph, badge: sleep || st.badge, dim: !sleep && st.dim, status: st, me, sleepId, presId, sleepInv, sleepOwn };
   };
 
   /* ------------------------------------------------------------ header-kortet */
@@ -1003,7 +1096,7 @@
   // profil; resten av configen (personer, soner, steder, hilsen …) er felles. Oppslag: bruker + enhet → bruker →
   // enhet → standard (*/*) → kortets config.
   const HPROF = 'header_profiles';
-  const PROF_KEYS = ['mode', 'hFont', 'hAv', 'hBadge', 'hGap', 'hTGap', 'badge', 'size', 'show_name', 'show_place', 'ring_me', 'g_font', 'g_avatar', 'g_badge', 'g_gap', 'pic_size', 'persons_size', 'title_size'];
+  const PROF_KEYS = ['mode', 'hFont', 'hAv', 'hBadge', 'hGap', 'hTGap', 'badge', 'size', 'show_name', 'show_place', 'ring_me', 'g_font', 'g_avatar', 'g_badge', 'g_gap', 'pic_size', 'persons_size', 'title_size', 'status'];
   const profPeople = (rows, P) => {
     let out = rows.map((r) => ({ ...(r || {}) }));
     if (Array.isArray(P.people_order)) {
@@ -1015,7 +1108,7 @@
   };
   const applyProf = (c, P, hass) => {
     const out = { ...c };
-    PROF_KEYS.forEach((k) => { if (P[k] != null) out[k] = P[k]; });
+    PROF_KEYS.forEach((k) => { if (P[k] != null) out[k] = k === 'status' ? mergeStatus(c.status, P.status) : P[k]; });
     if (P.people_order || P.people_hidden) {
       const rows = Array.isArray(c.people) ? c.people : peopleDefaults(hass, c);
       if (rows.length) out.people = profPeople(rows, P);
@@ -1023,6 +1116,13 @@
     return out;
   };
   M.hjemHeaderProfile = (sel) => (M.store && M.profileGet ? M.profileGet(HPROF, sel) : {});
+  // Fiks 20.5: effektiv header-config for andre kort (kartet o.l.): siste header-kort på siden, ellers bare profilen.
+  let lastHdr = null;
+  M.hjemHeaderCfg = () => {
+    if (lastHdr && lastHdr.isConnected) return lastHdr.config || {};
+    const P = M.hjemHeaderProfile();
+    return P && P.status ? { status: P.status } : {};
+  };
   M.HJEM_HEADER_PROF_KEYS = PROF_KEYS;
   // Estimert tekstbredde i em (samme tegnvekt-estimat som Stor hilsen)
   const emWidth = (t) => [...String(t || '')].reduce((a, ch) => a + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0);
@@ -1035,10 +1135,12 @@
   };
   const faceTxt = (p, bad) => p.display === 'initials' && !(p.pic && !(bad && bad.has(p.pic)));
 
+  // 20.22: #kart finnes (strategien laget den / manuell popup) – ellers faller trykk tilbake til hurtigarket
+  const kartOk = (h) => !!customElements.get('msh-kart-card') && (!M.allPopups || M.allPopups(h).some((p) => p.hash === '#kart'));
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
-      return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'quick', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
+      return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', person_tap: 'kart', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
     }
     static getConfigElement() { return M.hjemEditorEl(this); }
     static get schema() {
@@ -1095,7 +1197,10 @@
                 { type: 'text', name: 'picture', label: 'Bilde', auto: (r, h) => (r.person && h && h.states[r.person] && h.states[r.person].attributes.entity_picture) || '/local/bilde.jpg', help: 'Tom = bildet fra personen i HA (entity_picture). Mangler bilde → ikon.', rowWhen: (r) => (r.display || 'picture') === 'picture' },
               ] },
           ] },
-          { type: 'section', id: 'zones', label: 'Soner', icon: 'mdi:map-marker-radius', fields: [
+          { type: 'section', id: 'zones', label: 'Status og soner', icon: 'mdi:map-marker-radius', fields: [
+            { type: 'info', label: 'Ikon og farge på personbildene for hver status. Hjemme, Sover og Borte kan ikke slettes.' },
+            { type: 'xstat', k: 'home' },
+            { type: 'xstat', k: 'sleep' },
             { type: 'rows', name: 'zones', label: 'Soner med eget ikon og farge', defaults: (h) => autoZones(h), addLabel: 'Legg til sone',
               // Lagres som map: zones: { 'zone.skole': { icon, color } } (eldre liste leses også)
               toList: (v) => Object.keys(v).map((k) => ({ zone: k.includes('.') ? k : 'zone.' + k, ...(v[k] || {}) })),
@@ -1110,10 +1215,7 @@
                 { type: 'select', name: 'icon', label: 'Hurtigvalg', options: ZICONS.map((ic) => [M.iconName(ic), ic.replace(/_/g, ' ')]) },
                 { type: 'color', name: 'color', label: 'Farge', auto: (r) => M.hjemZonePal(r.zone), help: 'Tom = fast farge fra paletten for sonen' },
               ] },
-            { type: 'info', label: 'Hjemme (zone.home) har alltid grønt hus. Personer med «Bruk HA-sone når borte» på (Personer) vises med sonens ikon og farge.' },
-            { type: 'info', label: 'Borte · annen sone – brukes når personen ikke er i en av sonene over, eller «Bruk HA-sone når borte» er av.' },
-            { type: 'icon', name: 'zone_away.icon', label: 'Borte · ikon', auto: () => AWAY_ICON },
-            { type: 'color', name: 'zone_away.color', label: 'Borte · farge', auto: () => AWAY_COL, help: 'Tom = grå' },
+            { type: 'xstat', k: 'away' },
             { type: 'boolean', name: 'away_marker', label: 'Borte · vis merke', default: M.hjemAwayStyle(c || {}).badge, help: 'Av: borte-personer vises dempet uten merke. Standard på når Borte har eget ikon eller farge.' },
           ] },
           { type: 'section', label: 'Hilsen', icon: 'mdi:hand-wave', fields: [
@@ -1129,7 +1231,7 @@
             { type: 'boolean', name: 'ring_me', label: 'Ring rundt meg · markerer bildet ditt', default: false },
             { type: 'boolean', name: 'weather_tap', label: 'Trykk på været åpner Vær · gjelder «Hjem» og «Profil»', default: true },
             { type: 'hash', name: 'weather_hash', label: 'Vær-popup', placeholder: D.weather_hash },
-            { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap },
+            { type: 'select', name: 'person_tap', label: 'Trykk på person', options: [['kart', 'Åpne kartet (#kart)'], ['quick', 'Hurtigark'], ['popup', 'Åpne #person-<id>']], default: D.person_tap, help: 'Kart: hold på personen åpner hurtigarket.' },
           ] },
           { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', fields: [
             // Fiks 16.3: «Du er her» = dette stedet (this_server); de andre stedene åpnes med HA-appens egen URL-handling
@@ -1256,7 +1358,7 @@
           if (c.badge !== 'none') {
             const o = -Math.round(hBs * 0.2), is = Math.round(hBs * 0.6);
             bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${p.stCol};z-index:1`;
-            bi = M.icon(p.sleep ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
+            bi = M.icon(p.sleep && !p.sleepOwn ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
           }
         }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
@@ -1358,12 +1460,14 @@
       if (name === 'person') {
         const id = el.dataset.id;
         if (this.config.person_tap === 'popup') return M.openPopup('#person-' + objId(id));
+        if (this.config.person_tap === 'kart' && kartOk(this.hass)) return M.openPopup('#kart'); // 20.22: trykk = kartet, hold = hurtigark
         return this._quick(id);
       }
       return super.onAction(name, el, ev);
     }
     // Langt trykk ellers i headeren (ikke tittelen – den har egne gester) → «Tilpass header».
     onHold(id) {
+      if (/^person\./.test(id || '') && this.config.person_tap === 'kart' && kartOk(this.hass)) { this._quick(id); return true; } // 20.22
       if (id !== '__tilpass') return undefined;
       window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } }));
       return true;
@@ -1463,10 +1567,12 @@
         const si = pend.sleep ? pend.sleep.i : p.sleep ? 1 : 0;
         const place = pend.zone ? (zi === 0 ? 'Hjemme' : 'Borte') : p.place;
         const slp = pend.sleep ? si === 1 : p.sleep;
-        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${slp ? C.purple : zi === 0 ? C.green : p.status.kind === 'zone' && !pend.zone ? p.stCol : 'var(--gray500,#696969)'}">${faceInner(p, 96, card._picBad)}</div>
+        // Fiks 20.5: ring og valgene bruker ikon/farge fra «Status og soner»
+        const cc = card.config || {}, HS = M.hjemStatusStyle(cc, 'home'), SS = M.hjemStatusStyle(cc, 'sleep'), AS = M.hjemStatusStyle(cc, 'away');
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--gray000,#232323),0 0 0 6px ${slp ? SS.color : zi === 0 ? HS.color : p.status.kind === 'zone' && !pend.zone ? p.status.color : AS.color}">${faceInner(p, 96, card._picBad)}</div>
           <div class="nm"><b>${esc(p.name)}</b><span data-st>${esc(place)} · ${slp ? 'Sover' : 'Våken'}</span></div>
-          ${segH('zone', zi, [['home', 'Hjemme', 0, C.green], ['logout', 'Borte', 1, C.blue]], Z)}
-          ${segH('sleep', si, [['light_mode', 'Våken', 0, C.orange], ['bedtime', 'Sover', 1, C.purple]], S)}
+          ${segH('zone', zi, [[HS.icon, 'Hjemme', 0, HS.color], [AS.icon, 'Borte', 1, AS.color]], Z)}
+          ${segH('sleep', si, [['light_mode', 'Våken', 0, C.orange], [SS.icon, 'Sover', 1, SS.color]], S)}
           <button class="done" data-a="close">Ferdig</button>
           <button class="more" data-a="details">Mobil, soner og søvn${M.icon('chevron_right', 18)}</button>`;
       };
@@ -1588,6 +1694,7 @@
       const P = M.profileGet(HPROF, sel);
       const v = Object.keys(P).length ? applyProf(c, P, this._hass) : c;
       this._pc = { c, sig, v };
+      if (!sel) lastHdr = this; // Fiks 20.5: M.hjemHeaderCfg() (personStatus uten cfg)
       return v;
     }
     connectedCallback() {

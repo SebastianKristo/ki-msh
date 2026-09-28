@@ -24,6 +24,9 @@
   const TSW = [['ingen', 'Grå'], ['gronn', 'Grønn'], ['gul', 'Gul'], ['oransje', 'Oransje'], ['rod', 'Rød'], ['bla', 'Blå'], ['rosa', 'Rosa']];
   const WX = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Kraftig regn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
   const pad2 = (n) => String(n).padStart(2, '0');
+  // Fiks 20.13 (Hjem v3 · noRooms / layDefault aktuelt → []): Aktuelt-fanen (id aktuelt eller view 'aktuelt') viser aldri romkort
+  const isAkt = (t) => !!t && (t.id === 'aktuelt' || t.kind === 'aktuelt' || t.view === 'aktuelt');
+  M.hjemIsAkt = isAkt;
   /* Fiks 16.11 · snarvei-fliser med egen entitet, navn, ikon, undertekst og fire handlinger.
    * Config per flis: tile_cfg.<id> = { kind, entity, name, icon, sub, tap_icon, tap_card, hold_icon, hold_card, side, pos }
    *   id = typen for første flis (lock, alarm, cam …), ekstra fliser av samme type: <type>_<n> (lock_2) med kind.
@@ -62,6 +65,64 @@
     if (a.action === 'none') return 'Ingen';
     if (a.action === 'navigate') return a.navigation_path[0] === '#' ? a.navigation_path : 'Navigate · ' + a.navigation_path;
     return M.tap ? M.tap.label(a) : a.action;
+  };
+  /* Fiks 20.7 · Tekst per tilstand (Hjem v3 · STATE_TXT / stTxt / t.ed.stx). Config: tile_cfg.<id>.state_text =
+   *   { <tilstand>: { title, sub } } – tomt felt = standardteksten. Tokens: {state} {default} {name} {attr:<navn>} {since}
+   *   og [[[ js ]]] (entity, hass, states, state, def). Farge og ikon følger fortsatt tilstanden. Kamera: on = aktiv.
+   *   Tilstander: domene-standard + attributes.options + tilstander sett i denne økten + de som har overstyring. */
+  const STATE_TXT = {
+    alarm: ['disarmed', 'armed_home', 'armed_away', 'armed_night', 'armed_vacation', 'armed_custom_bypass', 'arming', 'pending', 'triggered'],
+    lock: ['locked', 'unlocked', 'locking', 'unlocking', 'open', 'opening', 'jammed'],
+    garage: ['closed', 'open', 'opening', 'closing'],
+    cam: ['on', 'off'],
+    tv: ['on', 'off', 'playing', 'paused', 'idle', 'standby'],
+    vacr: ['cleaning', 'docked', 'paused', 'returning', 'idle', 'error'],
+  };
+  const ST_SEEN = {}; // entitet → Set av tilstander sett i denne økten («sett i historikken»)
+  const stStates = (hass, kd, ent, cfg) => {
+    const base = STATE_TXT[kd];
+    if (!base) return [];
+    const st = ent && hass && hass.states[ent], opts = st && Array.isArray(st.attributes.options) ? st.attributes.options.map(String) : [];
+    const seen = kd === 'cam' ? [] : [...(ST_SEEN[ent] || [])];
+    return [...new Set([...base, ...opts, ...seen, ...Object.keys((cfg && cfg.state_text) || {}), 'unavailable', 'unknown'])];
+  };
+  // Standardtekst for en tilstand (plassholder i editorene) – samme regler som _kindModel
+  const stDefault = (kd, v, nm) => {
+    const un = v === 'unavailable' || v === 'unknown';
+    switch (kd) {
+      case 'lock': return { title: un ? '–' : v === 'jammed' ? 'Feil' : v === 'locked' ? 'Låst' : v === 'locking' ? 'Låser …' : v === 'unlocking' ? 'Låser opp …' : v === 'open' ? 'Åpen' : 'Ulåst', sub: 'Dørlås' };
+      case 'alarm': return { title: v === 'triggered' ? 'Utløst' : /^armed/.test(v) ? 'Armert' : /arming|pending/.test(v) ? 'Armerer' : 'Av', sub: 'Alarm' };
+      case 'garage': return { title: v === 'open' ? 'Åpen' : v === 'opening' ? 'Åpner' : v === 'closing' ? 'Lukker' : 'Lukket', sub: 'Garasjeport' };
+      case 'cam': return { title: 'Kamera', sub: v === 'on' ? 'Bevegelse nå' : 'Ingen bevegelse' };
+      case 'tv': return { title: nm || 'TV', sub: un ? '–' : ['off', 'standby'].includes(v) ? 'Av' : 'På' };
+      case 'vacr': return { title: nm || 'Støvsuger', sub: { cleaning: 'Rengjør', paused: 'Pauset', returning: 'Kjører hjem', error: 'Feil', idle: 'Klar', docked: 'I laderen' }[v] || '–' };
+      default: return { title: '', sub: '' };
+    }
+  };
+  const sinceTxt = (iso) => {
+    const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+    if (!iso || isNaN(s)) return '';
+    if (s < 60) return 'i under 1 min';
+    if (s < 3600) return `i ${Math.round(s / 60)} min`;
+    if (s < 86400) return `i ${Math.round(s / 3600)} t`;
+    return `i ${Math.round(s / 86400)} d`;
+  };
+  // Fyll tokens i en tekst. x = { hass, ent, state, def, name }
+  const stTxt = (tpl, x) => {
+    let t = String(tpl == null ? '' : tpl);
+    if (!t.trim()) return null;
+    const h = x.hass || M.lastHass, so = x.ent && h ? h.states[x.ent] : null;
+    t = t.replace(/\[\[\[([\s\S]*?)\]\]\]/g, (m0, code) => {
+      try { const r = new Function('entity', 'hass', 'states', 'state', 'def', code)(so, h, h ? h.states : {}, x.state, x.def); return r == null ? '' : String(r); } catch (e) { return '⚠ feil i kode'; }
+    });
+    return t.replace(/\{(state|default|name|since|attr:([^}]+))\}/g, (m0, k, a) => {
+      if (k === 'state') return x.state != null ? x.state : '';
+      if (k === 'default') return x.def != null ? x.def : '';
+      if (k === 'name') return (so && so.attributes.friendly_name) || x.name || x.ent || '';
+      if (k === 'since') return so ? sinceTxt(so.last_changed) : '';
+      const v = so ? so.attributes[a.trim()] : null;
+      return v == null ? '' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v);
+    });
   };
   // Ny id for en ekstra flis av samme type: lock_2, lock_3 …
   M.hjemNewTileId = (c, kd) => { let n = 2; while (tileCfg(c, kd + '_' + n).kind || (c.links || {})[kd + '_' + n]) n++; return kd + '_' + n; };
@@ -317,7 +378,23 @@
   const kindIcon = (k, c) => { const kd = kindOf(c, k); return kd ? tileCfg(c, k).icon || KINDS[kd][0] : ((c.links || {})[k] || {}).icon || 'mdi:star'; };
   // Standardplass for en flis: tile_cfg.<id>.side/pos (ny flis) → standard for typen
   const defSlot = (c, tk, k) => { const x = tileCfg(c, k); if (/^[LR]$/.test(x.side || '') && /^(top|bottom)$/.test(x.pos || '')) return x.side + '-' + x.pos; return (TILE_DEF[tk] || {})[kindOf(c, k) || k]; };
-  M.hjemTiles = { KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TAP_LABELS, CAM_NAV, camTapShown, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
+  /* ------------------------------------------------------------ Fiks 20.4: «Vis først når …» per karusell */
+  // carousel.<fane>.<L|R> = { dots: false (prikkene av), first: [{ slide: 'rooms'|'cal'|'vaer'|'strom'|'trash', condition: <HA-condition> }] }.
+  // Første regel (ovenfra) som slår til bestemmer kortet karusellen står på; ingen treff → første kort. Evaluering: MSH.condEval.
+  const carPresets = (hass, c) => {
+    const E = tileEnts(hass, c || {}), cals = listOf(get(c || {}, 'calendar.entities')).filter((x) => typeof x === 'string'), cal = cals[0] || M.all(hass, 'calendar')[0] || 'calendar.familie';
+    return [
+      ['cal', 'Kalender-event pågår', { condition: 'state', entity_id: cal, state: 'on' }],
+      ['trash', 'Søppel i dag', { condition: 'numeric_state', entity_id: E.trash || 'sensor.soppel', below: 1 }],
+      ['price', 'Strømpris > 1,5 kr', { condition: 'numeric_state', entity_id: E.price || 'sensor.strompris', above: 1.5 }],
+      ['morning', 'Morgen 06–09', { condition: 'time', after: '06:00:00', before: '09:00:00' }],
+      ['tpl', 'Mal', { condition: 'template', value_template: `{{ state_attr('${cal}','message') == 'Fotball' }}` }],
+    ];
+  };
+  // Kortene en regel kan peke på: Rommene + sveip-kortene som er lagt til på karusellen
+  const carSlides = (c, tab, side) => { const sl = get(c, `slides.${tab}.${side}`) || {}; return [['rooms', 'Rommene'], ...Object.keys(SLIDES).filter((k) => sl[k]).map((k) => [k, SLIDES[k][1]])]; };
+  M.hjemCar = { presets: carPresets, slides: carSlides };
+  M.hjemTiles = { STATE_TXT, stStates, stDefault, stTxt, KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TAP_LABELS, CAM_NAV, camTapShown, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
   // Hjem med kuratert liste (t.hc): bare kort i tabs.hjem.cards vises; plass = lagret plass eller standard (apparater o.l.: høyre, over rom).
   const tileSlot = (c, t, k) => {
     if (t.hc) {
@@ -482,15 +559,32 @@
           const base = baseRooms(hass, c, t), f = [];
           const openEd = { type: 'button', label: 'Åpne «Tilpass Hjem» → Kort', icon: 'mdi:pencil', run: () => { if (M.openHomeEditor) M.openHomeEditor({ focus: 'tab-' + t.id }); } };
           if (t.kind === 'hjem') f.push({ type: 'info', label: t.hc ? `Kuratert: ${t.hc.cards.length} kort (tabs.hjem.cards). Legg til, fjern og se forslag i «Tilpass Hjem» → Kort.` : 'Autofyll: alle rom og standard snarveier vises.' }, { type: 'boolean', name: 'tabs.hjem.auto_fill', label: 'Autofyll Hjem med alle rom', default: !t.hc }, openEd);
-          if (t.kind === 'aktuelt') f.push({ type: 'info', label: 'Aktuelt er dynamisk: kort vises bare når noe er aktuelt. Velg typer (tabs.aktuelt.types) i «Tilpass Hjem» → Kort.' }, openEd);
+          if (isAkt(t)) f.push({ type: 'info', label: 'Aktuelt viser ikke rom, bare kort som er aktive nå. Velg typer (tabs.aktuelt.types) i «Tilpass Hjem» → Kort.' }, openEd);
           if (t.kind === 'floor' || t.kind === 'andre') f.push({ type: 'boolean', name: `tabs.${t.id}.auto_fill`, label: 'Autofyll fra HA-områder/etasjen', default: true });
-          f.push({ type: 'order', name: `layout.${t.id}.order`, hiddenName: `layout.${t.id}.hidden`, label: t.kind === 'aktuelt' ? 'Rom (vises når lys er på eller media spiller)' : 'Rom på fanen', options: base.map((a) => [a.id, a.name + (t.kind === 'floor' && a.floor !== t.floor && a.floorName ? ' · ' + a.floorName : '')]) });
+          if (!isAkt(t)) f.push({ type: 'order', name: `layout.${t.id}.order`, hiddenName: `layout.${t.id}.hidden`, label: 'Rom på fanen', options: base.map((a) => [a.id, a.name + (t.kind === 'floor' && a.floor !== t.floor && a.floorName ? ' · ' + a.floorName : '')]) });
           if (['floor', 'custom', 'andre'].includes(t.kind)) {
             const add = get(c, `layout.${t.id}.add`) || {}, keys = Object.keys(add).sort(), nx = 'a' + pad2(keys.reduce((m, k) => Math.max(m, parseInt(k.slice(1), 10) || 0), 0) + 1);
             [...keys, nx].forEach((k, i) => f.push({ type: 'area', name: `layout.${t.id}.add.${k}`, label: i === keys.length ? 'Hent rom fra en annen etasje' : 'Hentet rom', help: i === keys.length ? 'Velg et område – det legges til fanen' : '' }));
           }
           base.forEach((a) => f.push({ type: 'select', name: `layout.${t.id}.side.${a.id}`, label: `Kolonne · ${a.name}`, options: [['L', 'Venstre'], ['R', 'Høyre']], help: get(c, `layout.${t.id}.side.${a.id}`) ? '' : 'Auto' }));
           if (t.view === 'karusell') Object.keys(SLIDES).forEach((s) => ['L', 'R'].forEach((sd) => f.push({ type: 'boolean', name: `slides.${t.id}.${sd}.${s}`, label: `Sveip-kort · ${sd === 'L' ? 'venstre' : 'høyre'} karusell · ${SLIDES[s][1]}` })));
+          // Fiks 20.4: «Vis prikker» + «Vis først når …» per karusell (HAs egen condition-editor via ha-selector)
+          if (t.view === 'karusell') ['L', 'R'].forEach((sd) => {
+            const P = `carousel.${t.id}.${sd}`, sn = sd === 'L' ? 'venstre' : 'høyre', L = listOf(get(c, P + '.first'));
+            f.push({ type: 'boolean', name: P + '.dots', label: `Vis prikker · ${sn} karusell`, default: true });
+            L.forEach((r, i) => {
+              const nm = `${P}.first.${i}`;
+              f.push({ type: 'select', name: nm + '.slide', label: `Vis først når … ${i + 1} · ${sn} karusell · kort`, options: carSlides(c, t.id, sd), default: 'rooms' });
+              f.push({ type: 'html', html: (hh, cc, key, ed) => {
+                const cur = get(cc, nm + '.condition'), ok = M.condParse(cur), res = ok.value ? M.condEval(hh, ok.value, { onChange: ed ? ed.__crCb || (ed.__crCb = () => ed._render && ed._render()) : null }) : null;
+                const badge = `<div class="small" style="padding:0 6px;color:${res === true ? '#8fd9a8' : '#979797'}">${res === true ? 'Slår til nå' : ok.error ? 'Ugyldig: ' + M.esc(ok.error) : 'Nei nå'}</div>`;
+                if (ed && !ed._inline && customElements.get('ha-selector')) return `<div class="f"><ha-selector data-name="${M.esc(nm + '.condition')}" data-nomorph data-selector="${M.esc(JSON.stringify({ condition: {} }))}" data-label="Betingelse (HA-condition)"></ha-selector></div>${badge}`;
+                return `<div class="small" style="padding:0 6px">Betingelsen redigeres i «Tilpass Hjem» → Kort → Swipe-kort.</div>${badge}`;
+              } });
+              f.push({ type: 'button', label: `Fjern regel ${i + 1}`, icon: 'mdi:delete-outline', run: (hh, cc, ed) => { const l2 = listOf(get(cc, P + '.first')).filter((_, j) => j !== i); ed._set(P + '.first', l2.length ? l2 : undefined); } });
+            });
+            f.push({ type: 'button', label: `Vis først når … · ${sn} karusell · legg til regel`, icon: 'mdi:plus', run: (hh, cc, ed) => ed._set(P + '.first', [...listOf(get(cc, P + '.first')), { slide: 'rooms', condition: [] }]) });
+          });
           avail.filter((k) => !(t.kind === 'aktuelt' && DYN.includes(k))).forEach((k) => {
             const on = tileSlot(c, t, k) !== 'off';
             f.push({ type: 'select', name: `tiles.${t.id}.${k}.slot`, label: `Snarvei · ${kindLabel(k, c)}`, options: SLOTS, default: (TILE_DEF[t.kind] || {})[k] || 'off' });
@@ -510,6 +604,18 @@
         // Snarveier: entitet, navn, ikon, undertekst og fire handlinger per flis (fiks 16.11 – samme som «Tilpass Hjem» → Kort).
         // Fiks 17.10: gruppert i fire soner (Hjem-fanen) som i «Tilpass Hjem» → Kort. Config er uendret (tiles.hjem.<id>.slot, swipe.hjem.<sone>).
         const HT0 = T.find((t) => t.kind === 'hjem'), ZONES = [['L-top', 'Venstre · over rommene'], ['R-top', 'Høyre · over rommene'], ['L-bottom', 'Venstre · under rommene'], ['R-bottom', 'Høyre · under rommene']];
+        // Fiks 20.7 · GUI-editoren: Tekst per tilstand – én rad (tittel + undertekst) per tilstand, plassholder = standard
+        const stFields = (h, cc, k, kd, P) => {
+          if (!STATE_TXT[kd]) return [];
+          const ent = (() => { const e = tileEnts(h, { ...cc, overrides: k === kd ? cc.overrides : {} })[kd]; return tileCfg(cc, k).entity || (e && typeof e === 'object' ? e.status : e); })();
+          const so = ent && h.states[ent], nm = tileCfg(cc, k).name, now = kd === 'cam' ? null : so ? so.state : null;
+          return [{ type: 'section', id: 'stx-' + k, label: 'Tekst per tilstand', icon: 'mdi:format-text', meta: `${ent || '–'}${now ? ' · nå: ' + now : ''}`, fields: [
+            { type: 'info', label: 'Tomt felt = standard. Tokens: {state} {default} {name} {attr:changed_by} {since} og [[[ return … ]]].' },
+            ...stStates(h, kd, ent, tileCfg(cc, k)).flatMap((v) => { const D = stDefault(kd, v, nm || (so && so.attributes.friendly_name)); return [
+              { type: 'text', name: `${P}.state_text.${v}.title`, label: `${v}${v === now ? ' · nå' : ''} · tittel`, placeholder: D.title },
+              { type: 'text', name: `${P}.state_text.${v}.sub`, label: `${v} · undertekst`, placeholder: D.sub }]; }),
+          ] }];
+        };
         const tileF = (k) => {
           const kd = kindOf(c, k), L = kindLabel(k, c), P = `tile_cfg.${k}`, dom = TILE_DOM[kd], out = [];
           if (HT0) out.push({ type: 'select', name: `tiles.hjem.${k}.slot`, label: 'Plassering', options: ZONES.map(([v, l]) => [v, l]), default: HT0 ? tileSlot(c, HT0, k) : 'R-bottom' });
@@ -529,6 +635,7 @@
                 { type: 'text', name: P + '.sub_format', label: 'Undertekst · format', placeholder: RUTER_FMT, help: 'Tokens: {route} {due_in} {delay} {next} {avvik}' },
               ] : [{ type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] }]),
               ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
+              ...stFields(hass, c, k, kd, P),
               ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, labels: TAP_LABELS, ...(kd === 'cam' && w === 'card' ? { auto: (h, cc) => camTapShown(cc, k) } : {}), stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
           }
           out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
@@ -614,6 +721,17 @@
     roomCfg(area) { return roomCfgOf(this.config, area); }
     connectedCallback() {
       super.connectedCallback();
+      // Fiks 20.19: retur fra bakgrunn (bfcache / appen skjult) eller tilbake til dashbordet → karusellene starter på første kort
+      if (!this._onVis) {
+        this._onVis = (e) => {
+          if (document.visibilityState === 'hidden') { this._hidAt = Date.now(); return; }
+          if ((e.type === 'pageshow' && e.persisted) || (e.type === 'visibilitychange' && this._hidAt)) { this._hidAt = 0; this._carReset(); }
+        };
+        document.addEventListener('visibilitychange', this._onVis);
+        window.addEventListener('pageshow', this._onVis);
+      }
+      if (this._offAt && Date.now() - this._offAt > 1000) this._carReset();
+      this._offAt = 0;
       if (!this._ro && window.ResizeObserver) {
         this._ro = new ResizeObserver(() => { const L = this._calcLayout(), o = this._L; if (!o || o.fold !== L.fold) this.update(); });
         this._ro.observe(this);
@@ -624,6 +742,9 @@
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this._mT) { clearInterval(this._mT); this._mT = null; }
+      if (this._crT) { clearInterval(this._crT); this._crT = null; }
+      if (this._onVis) { document.removeEventListener('visibilitychange', this._onVis); window.removeEventListener('pageshow', this._onVis); this._onVis = null; }
+      this._offAt = Date.now();
       if (this._tabRO) { this._tabRO.disconnect(); this._tabRO = null; }
       if (this._tcRO) { this._tcRO.disconnect(); this._tcRO = null; this._tcEl = null; }
     }
@@ -673,7 +794,7 @@
       const t = (this._TV || [])[i];
       if (!t) return;
       if (this.config.card_id) { try { localStorage.setItem('msh-hjem-tab-' + this.config.card_id, t.id); } catch (e) { /* */ } }
-      this.setUI({ tab: t.id });
+      this.setUI(t.id !== this.ui.tab ? { tab: t.id, sw: {} } : { tab: t.id }); // 20.19: ny fane → karusellene på første kort
     }
     async _reorderTabs(from, to) {
       const TV = this._TV || [], all = allTabs(this.hass, this.config).map((t) => t.id), vis = TV.map((t) => t.id);
@@ -703,7 +824,9 @@
       const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
       const P = (this._tabPos || {})[(TV[idx] || {}).id];
       const ind = P ? `left:${P[0]}px;width:${P[1]}px` : 'left:0;width:0;opacity:0';
-      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip>
+      // Fiks 20.18: data-ip = linsen (.ind) er målt og plassert. Uten den bærer aktiv fane selv den rosa pillen (CSS),
+      // så den er rosa fra første frame – også når kortet ikke er lagt ut ennå (bredde 0, fonter som lastes).
+      return `<div class="tabs ${w === 'full' ? 'full' : ''}"><div class="tg msh-tr" data-tabs="1" data-gd-skip${this._tabPos ? ' data-ip' : ''}>
         <span class="ind" style="${ind}"></span>
         ${TV.map((t, i) => `<button class="tab ${i === idx ? 'on' : ''}" role="tab" aria-selected="${i === idx}" data-act="tab" data-i="${i}" data-id="${esc(t.id)}" data-haptic="selection" data-key="tab-${esc(t.id)}" style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}${t.kind === 'hjem' && i !== idx && M.ringDot && M.ringDot() ? '<span class="rdot" style="display:inline-block;width:7px;height:7px;border-radius:4px;margin-left:6px;vertical-align:middle;background:var(--pink,#f285c9)"></span>' : ''}</button>`).join('')}
       </div></div>`;
@@ -731,6 +854,21 @@
       const nm = cfg.name;
       if (nm && ['tv', 'vacr', 'cam', 'ruter', 'dish', 'wash', 'dry', 'jul'].includes(kd)) m.title = nm;
       if ((cfg.sub || nm) && !(nm && !cfg.sub && m.title === nm) && !(m.camOn && cfg.sub)) { m.sub = cfg.sub || nm; m.subHtml = null; }
+      // Fiks 20.7 · tekst per tilstand: tilstanden flisen viser (lås: også «Låser …» mens den venter; kamera: aktiv = on)
+      if (STATE_TXT[kd] && m.ent) {
+        const so = this.hass.states[m.ent];
+        m.stEnt = m.ent;
+        m.stState = kd === 'cam' ? (m.camOn ? 'on' : 'off') : kd === 'lock' && m.lock ? m.lock : so ? so.state : 'unavailable';
+        if (kd !== 'cam' && so) (ST_SEEN[m.ent] = ST_SEEN[m.ent] || new Set()).add(so.state);
+        const o = (cfg.state_text || {})[m.stState];
+        if (o && typeof o === 'object') {
+          const x = { hass: this.hass, ent: m.ent, state: m.stState, name: nm };
+          const ti = stTxt(o.title, { ...x, def: m.title }), su = stTxt(o.sub, { ...x, def: m.sub });
+          if (ti != null) m.title = ti;
+          if (su != null) { m.sub = su; m.subHtml = null; }
+          if (/\{since\}/.test(`${o.title || ''}${o.sub || ''}`)) this._minTick = true;
+        }
+      }
       return m;
     }
     _kindModel(kind, E, tid) {
@@ -1087,6 +1225,7 @@
 
     /* ---------- rom */
     _rooms(t) {
+      if (isAkt(t)) return []; // 20.13: Aktuelt viser aldri romkort (uansett lagret layout)
       const c = this.config, hid = get(c, `layout.${t.id}.hidden`) || [];
       const list = baseRooms(this.hass, c, t).filter((a) => !hid.includes(a.id)).map((a) => M.romData(this, a.id, this.roomCfg(a.id))).filter(Boolean);
       if (t.kind !== 'aktuelt') return list;
@@ -1118,8 +1257,39 @@
       const sl = get(this.config, `slides.${t.id}.${side}`) || {}, slides = Object.keys(SLIDES).filter((k) => sl[k]);
       const items = [...rooms.map((r) => this._roomHTML(r, 'karusell')), ...slides.map((k) => this._slideHTML(k, E))];
       if (!items.length) return '';
-      const key = `${t.id}-car-${side}`, n = items.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
-      return `<div class="carw" data-key="car-${esc(key)}"><div class="car" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${items.map((h) => `<div class="slot">${h}</div>`).join('')}</div></div>${this._dots(n, i)}</div>`;
+      const key = `${t.id}-car-${side}`, n = items.length;
+      // Fiks 20.4/20.19: uten manuell sveip står karusellen på regelens kort (ellers første). Endres regelens resultat, rulles den dit –
+      // men en manuell sveip de siste 60 s overstyres aldri. Indeksen lagres bare i minnet (ikke localStorage).
+      const T = this._carFirst(t, side, rooms, slides), CT = (this._carT = this._carT || {}), prev = CT[key];
+      CT[key] = T;
+      const sw = this._ui.sw || {};
+      if (sw[key] != null && prev != null && prev !== T && Date.now() - ((this._swT || {})[key] || 0) > 60000) { const o = { ...sw }; delete o[key]; this._ui.sw = o; }
+      const i = M.clamp(get(this.ui, 'sw.' + key) ?? T, 0, n - 1), dots = get(this.config, `carousel.${t.id}.${side}.dots`) !== false;
+      return `<div class="carw" data-key="car-${esc(key)}"><div class="car" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${items.map((h) => `<div class="slot">${h}</div>`).join('')}</div></div>${dots ? this._dots(n, i) : ''}</div>`;
+    }
+    // Fiks 20.4: indeksen den første regelen som slår til gir (Rommene = 0, sveip-kort etter rommene); ingen treff → 0
+    _carFirst(t, side, rooms, slides) {
+      const L = listOf(get(this.config, `carousel.${t.id}.${side}.first`));
+      if (!L.length) return 0;
+      const cb = this._carCb || (this._carCb = () => { if (this.isConnected) this._schedule(true); });
+      for (const r of L) {
+        if (!r || typeof r !== 'object') continue;
+        const k = r.slide || 'rooms', j = slides.indexOf(k), idx = k === 'rooms' ? (rooms.length ? 0 : -1) : j < 0 ? -1 : rooms.length + j;
+        if (idx < 0) continue;
+        const p = M.condParse(r.condition);
+        if (p.error || !p.value) continue; // ugyldig YAML / tom betingelse → hoppes over
+        if (M.condEval(this.hass, p.value, { dep: (id) => this.s(id), onChange: cb }) === true) return idx;
+      }
+      return 0;
+    }
+    // Fiks 20.19: tilbake til første kort (eller regelens) – uten animasjon, så første frame viser riktig kort
+    _carReset() {
+      this._ui = { ...this._ui, sw: {} };
+      this._swT = {}; this._carT = {};
+      this.classList.add('nt');
+      clearTimeout(this._ntT);
+      this._ntT = setTimeout(() => this.classList.remove('nt'), 150);
+      this._schedule(true);
     }
     // Aktuelt: dynamiske snarvei-fliser (bare når noe er aktuelt) etter tabs.aktuelt.types.
     _aktItems(E, B) {
@@ -1169,6 +1339,13 @@
       if (!tabs.aktuelt) tabs.aktuelt = { auto_fill: false, types: M.aktTypes(c) };
       setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }); }, 0);
     }
+    // 20.13 · migrering: rom lagret i layout.aktuelt.order tømmes én gang (rendering ignorerer dem uansett)
+    _aktMigOnce() {
+      const c = this.config, o = get(c, 'layout.aktuelt.order');
+      if (this._akMig || !Array.isArray(o) || !o.length || !this.isConnected || !c.card_id || !M.store || !M.store.loaded || window.__kiSaving || (M.draftOf && M.draftOf(this))) return;
+      this._akMig = true;
+      setTimeout(() => { const L = { ...(get(this.config, 'layout') || {}) }; if (!get(L, 'aktuelt.order')) return; const a = { ...L.aktuelt }; delete a.order; L.aktuelt = a; this._saveCfg({ layout: L }); }, 0);
+    }
     _applCards(E) {
       const cards = ['dish', 'wash', 'dry'].map((k) => this._appl(k, E[k])).filter((A) => A && A.mode !== 'idle');
       const now = Date.now();
@@ -1217,22 +1394,23 @@
       const B = this._batteries(), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
       this._autoFillOnce();
+      this._aktMigOnce();
       this._cur = cur;
       let view = '';
       if (cur.view === 'batterier') view = this._batView(B);
       else {
         const rooms = this._rooms(cur), car = cur.view === 'karusell', S = this._sides(cur, rooms, car);
-        const akt = cur.kind === 'aktuelt' ? this._aktItems(E, B) : [];
+        const akt = isAkt(cur) ? this._aktItems(E, B) : [];
         const col = (side) => {
           const dyn = akt.filter((x, i) => (i % 2 ? 'R' : 'L') === side).map((x) => this._tileHTML(x, 'ak-' + x.kind)).join('');
           const top = dyn + this._tilesAt(cur, side, 'top', E), bot = this._tilesAt(cur, side, 'bottom', E);
           const mid = car ? this._carousel(cur, side, S[side], E) : S[side].map((r) => this._roomHTML(r, this._size(r))).join('');
           return `<div class="col">${top}${mid}${bot}</div>`;
         };
-        const appl = cur.kind === 'aktuelt' && M.aktTypes(c).includes('appliances') ? this._applCards(E) : '';
+        const appl = isAkt(cur) && M.aktTypes(c).includes('appliances') ? this._applCards(E) : '';
         const cols = col('L') + col('R');
         const empty = !rooms.length && !/class="(tile|slot|rk|u u-)/.test(cols);
-        view = appl + (empty ? (cur.kind === 'aktuelt' ? (appl ? '' : '<div class="none">Ingenting skjer akkurat nå – ingen apparater, åpne dører, lave batterier eller avvik.</div>') : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
+        view = appl + (empty ? (isAkt(cur) ? (appl ? '' : `<div class="akt0" data-key="akt0">${M.icon('mdi:check-circle-outline', 28, 'color:#696969')}<span>Ingenting som trenger deg nå</span></div>`) : M.emptyState('Ingen rom på denne fanen', 'tab-' + cur.id)) : `<div class="cols">${cols}</div>`);
       }
       const ring = cur.kind === 'hjem' ? '<div class="ring-slot" style="display:contents" data-ring-slot data-key="ring-slot" data-nomorph></div>' : ''; // 19.18: ringe-kortet (monteres av msh-hjem-card)
       return wrap(`<section class="sec">${this._tabsHTML(TV, cur)}${ring}${view}</section>`);
@@ -1265,7 +1443,11 @@
     }
     afterRender() {
       const root = this.shadowRoot;
-      root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } }, true)));
+      root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => { (this._swT = this._swT || {})[vp.dataset.sw] = Date.now(); this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } }, true); }));
+      // 20.4: tidsstyrte regler (time/sun/for) sjekkes hvert 30. s; state og template gir ny tegning selv
+      const rules = /"first":\[\{/.test(JSON.stringify(this.config.carousel || {}));
+      if (rules && !this._crT) this._crT = setInterval(() => { if (this.isConnected && !this._busy) this._schedule(true); }, 30000);
+      else if (!rules && this._crT) { clearInterval(this._crT); this._crT = null; }
       this._bindTileHold();
       this._bindTabs();
       this._placeTabs();
@@ -1316,8 +1498,15 @@
       if (!row) return;
       const T = row.__tabReorder, busy = T && T.st && T.st.phase !== 'hold';
       const on = row.querySelector('.tab.on'), ind = row.querySelector('.ind');
-      if (on && ind && !busy) {
+      // Fiks 20.18: mål på nytt når raden/aktiv fane endrer størrelse (kortet lagt ut, fonter lastet) – ikke først ved
+      // neste hass-oppdatering (det var de ~3 s med «grå» aktiv fane: .ind hadde bredde 0 / opacity 0 til neste render)
+      if (window.ResizeObserver) {
+        if (!this._tabRO) this._tabRO = new ResizeObserver(() => { if (this.isConnected) this._placeTabs(); });
+        [row, on].forEach((el) => { if (el && !el.__tabRO) { el.__tabRO = true; this._tabRO.observe(el); } });
+      }
+      if (on && ind && !busy && on.offsetWidth > 0) {
         const L = on.offsetLeft, W = on.offsetWidth;
+        if (!row.hasAttribute('data-ip')) row.setAttribute('data-ip', '');
         (this._tabPos = this._tabPos || {})[on.dataset.id] = [L, W];
         const first = ind.style.opacity === '0';
         if (first) ind.style.transition = 'none';
@@ -1366,6 +1555,7 @@
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
         .tab.on{color:var(--gray100,#2f2f2f)}
+        .tg:not([data-ip])>.tab.on{background:${C.accent}}
         .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
         .tg.drag .tab{color:var(--gray800,#afafaf)}
         .tg.drag .tab.near{color:#fff}
@@ -1401,6 +1591,7 @@
         .u.ht .u-i.holding .hr circle{stroke-dashoffset:0;transition:stroke-dashoffset .5s linear}
         .u.ht:not(:has(.u-n)) .u-l{align-self:center !important}
         .track{display:flex;width:100%;transition:transform .45s cubic-bezier(.34,1.2,.64,1);will-change:transform}
+        :host(.nt) .track{transition:none}
         .slot{flex:none;width:100%;min-width:0}
         /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
         /* prikkrader: felles .msh-dots i BASE_CSS (18.3: 10/12 px, gap 8 px) */
@@ -1438,6 +1629,7 @@
         .bb{width:56px;height:8px;border-radius:4px;background:var(--gray200,#3a3a3a);overflow:hidden;flex:none}
         .bb span{display:block;height:100%;border-radius:4px}
         .bp{font-size:14px;font-weight:600;min-width:44px;text-align:right}
+        .akt0{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:#979797;font-size:14px;line-height:1.4;text-align:center}
         .none{padding:22px 16px;border-radius:24px;background:var(--gray100,#2f2f2f);color:var(--gray700,#979797);font-size:13px;text-align:center}
       `;
     }
