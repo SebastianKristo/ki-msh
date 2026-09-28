@@ -234,6 +234,14 @@
   };
   const mSig = (s) => { const a = (s && s.attributes) || {}; return (a.media_content_id || '') + '|' + (a.media_title || ''); };
   const mVolIcon = (a) => (a.is_volume_muted || a.volume_level === 0 ? 'mdi:volume-off' : a.volume_level == null || a.volume_level >= 0.67 ? 'mdi:volume-high' : a.volume_level >= 0.34 ? 'mdi:volume-medium' : 'mdi:volume-low');
+  // Fiks 22.8: spoleposisjon (media_position + tid siden media_position_updated_at mens den spiller) og tidsformat
+  const mPos = (s) => {
+    const a = (s && s.attributes) || {}, dur = Number(a.media_duration), p0 = Number(a.media_position);
+    if (a.media_position == null || !isFinite(p0)) return { dur: dur > 0 ? dur : 0, pos: null };
+    const u = Date.parse(a.media_position_updated_at || ''), dt = s.state === 'playing' && isFinite(u) ? Math.max(0, (Date.now() - u) / 1000) : 0;
+    return { dur: dur > 0 ? dur : 0, pos: dur > 0 ? Math.min(dur, p0 + dt) : p0 + dt };
+  };
+  const mFmt = (t) => { t = Math.max(0, Math.round(t)); const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = String(t % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; };
   const mPic = (h, u) => { if (!u) return ''; u = String(u); if (u[0] === '/' && u[1] !== '/' && h && typeof h.hassUrl === 'function') { try { return h.hassUrl(u) || u; } catch (e) { return u; } } return u; };
   // Fiks 20.16 · «Skjul når en popup er åpen»: nav_profiles.mini_hide_popups (bruker × enhet, 19.13) vinner over mini.hide_in_popups
   const mHidePopOn = (m) => { const v = M.navProfile ? M.navProfile().mini_hide_popups : null; return v != null ? !!v : !!(m && m.hide_in_popups); };
@@ -263,7 +271,18 @@
   };
   const mStateOk = (x, s) => !!s && String(x || 'on').split(/[,|]/).map((v) => v.trim().toLowerCase()).filter(Boolean).includes(String(s.state).toLowerCase());
   const MINI_CSS = `
-    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1)}
+    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
+    /* Fiks 22.8: utvidet (sveip opp på play/pause) – 172 px, bunnen står fast; omslag/tekst + ⌄ · spole-slider · ⏮ −10 ⏯ +10 ⏭ */
+    .mini.exp{height:172px;border-radius:32px}
+    .mrow.mx{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:10px 12px 12px}
+    .mxt{display:flex;align-items:center;gap:8px;height:48px;flex:none;min-width:0}
+    .mseek{position:relative;height:40px;flex:none;border-radius:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,0.08);touch-action:none;-webkit-touch-callout:none}
+    .mini.glass .mseek{background:rgba(255,255,255,0.12)}
+    .mseek.dis{opacity:.5}
+    .mseek .mskf{position:absolute;left:0;top:0;bottom:0;background:${C.pink};border-radius:20px 0 0 20px;pointer-events:none}
+    .mseek span{position:relative;z-index:1;pointer-events:none}
+    .mxb{display:flex;align-items:center;justify-content:space-between;height:46px;flex:none;padding:0 2px}
+    .mxb .mvb:disabled{opacity:.35}
     .mini.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
     .mini.glass{background:${'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))'},rgba(40,40,44,0.5);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 18px 40px rgba(0,0,0,0.45)}
     .mini.off{opacity:0;pointer-events:none;--mo:24px}
@@ -359,6 +378,10 @@
     .mbox{min-width:176px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;padding:8px;border-radius:18px;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);box-shadow:0 18px 40px rgba(0,0,0,0.45);display:flex;flex-direction:column;touch-action:none;animation:mshMenu .22s ease-out}
     .mbox::-webkit-scrollbar{display:none}
     .mbox.ic{min-width:0;padding:6px;border-radius:26px}
+    .mi{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .18s ease}
+    .mbox.reord .mi{transition:transform .18s ease}.mbox.reord .mi.lift{transition:none;z-index:5;background:rgba(255,255,255,0.92);color:#232323!important;box-shadow:0 8px 22px rgba(0,0,0,0.35)}
+    .mbox.glass.reord .mi.lift{background:rgba(255,255,255,0.28);color:#fafafa!important}
+    .mbox{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
     .mi{position:relative;height:50px;padding:0 14px 0 12px;border-radius:12px;display:flex;align-items:center;gap:14px;font-size:14px;font-weight:500;white-space:nowrap;flex:none}
     .mbox.ic .mi{width:50px;padding:0;border-radius:25px;justify-content:center}
     .mi:hover{background:rgba(0,0,0,0.05)}
@@ -423,6 +446,7 @@
     disconnectedCallback() {
       super.disconnectedCallback();
       M.setNavVars(0);
+      if (this._mTick) { clearInterval(this._mTick); this._mTick = null; } // 22.8
       window.removeEventListener('hashchange', this._onHashNav);
       window.removeEventListener('location-changed', this._onHashNav);
       window.removeEventListener('popstate', this._onHashNav);
@@ -589,6 +613,7 @@
         tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray000,#232323)', 'mtool', null));
         tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray000,#232323)', 'mtool', null));
         tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray000,#232323)', 'mtool', null));
+        tools.push(item('__kiosk', 'mdi:fullscreen', 'Kiosk-modus', 'var(--gray000,#232323)', 'mtool', null)); // Fiks 22.9
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
       // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye
@@ -672,7 +697,8 @@
         this._navReorder(nav); // Fiks 19.9
       }
       const mb = this._portal.shadowRoot.querySelector('[data-menu]');
-      if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: glassOn, tap: false }); }
+      // Fiks 22.6: glass-draget i menyen er av mens et ikon holdes/flyttes (dataset.glassDragOff) – trykket går alltid til knappen
+      if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: () => glassOn() && mb.dataset.glassDragOff !== '1', tap: false }); this._menuReorder(mb); }
       // plass til innholdet (designet: padding-bottom 120 på mobil, padding-left 108–120 på bred)
       requestAnimationFrame(() => {
         if (!nav || !nav.isConnected) return;
@@ -768,9 +794,85 @@
       nav.addEventListener('contextmenu', (e) => e.preventDefault());
       nav.addEventListener('click', (e) => { if (Date.now() - swallow < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
     }
-    // Lagre ny rekkefølge i config.bar (ki-store via MSH.saveCardConfig – samme config som «Tilpass navbar»)
-    _saveBar(bar) {
-      const old = this._rawConfig || this.config || {}, next = { ...old, bar };
+    /* ---------------- Fiks 22.6: «Mer»-menyen – hold 380 ms og dra for å flytte et ikon (som i navbaren, 19.9) */
+    // Bare punktene over streken (data-act="go"); verktøyene under står fast. Aksen bestemmes av ikonenes plassering
+    // (loddrett i vanlig meny/rail, vannrett når de ligger på rad). Haptic medium ved start, light ved slipp; rekkefølgen
+    // lagres i config.more (skjulte beholder plassen sin). > 8 px før holdet = ingen drag; klikket etter et drag spises (350 ms).
+    _menuReorder(mb) {
+      let st = null, swallow = 0;
+      const items = () => Array.from(mb.querySelectorAll('.mi[data-act="go"]')).filter((b) => b.dataset.id);
+      const ctr = (r, ax) => (ax === 'x' ? r.left + r.width / 2 : r.top + r.height / 2);
+      const clear = () => { clearTimeout(st && st.t); window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); };
+      const begin = () => {
+        const its = items(), i = its.indexOf(st.el);
+        if (i < 0 || !mb.isConnected) { clear(); delete mb.dataset.glassDragOff; st = null; return; }
+        const rs = its.map((b) => b.getBoundingClientRect()), a = rs[0], z = rs[rs.length - 1];
+        st.on = true; st.ax = rs.length > 1 && Math.abs(z.left - a.left) > Math.abs(z.top - a.top) ? 'x' : 'y'; st.its = its; st.i = i; st.to = i;
+        st.c = rs.map((r) => ctr(r, st.ax));
+        this._busy = true;
+        mb.classList.add('reord');
+        st.el.classList.add('lift');
+        st.el.style.transform = 'scale(1.08)';
+        M.haptic('medium');
+      };
+      const mv = (e) => {
+        if (!st || e.pointerId !== st.id) return;
+        e.stopPropagation();
+        const dx = e.clientX - st.x, dy = e.clientY - st.y;
+        if (!st.on) { if (Math.hypot(dx, dy) > 8) { clear(); delete mb.dataset.glassDragOff; st = null; } return; }
+        if (e.cancelable) e.preventDefault();
+        const d = st.ax === 'x' ? dx : dy, p = st.c[st.i] + d;
+        let to = 0;
+        st.c.forEach((c, j) => { if (j !== st.i && c < p) to++; });
+        if (to !== st.to) { st.to = to; M.haptic('selection'); }
+        const T = st.ax.toUpperCase();
+        st.its.forEach((b, j) => {
+          if (j === st.i) { b.style.transform = `translate${T}(${d}px) scale(1.08)`; return; }
+          let k = j;
+          if (st.i < st.to && j > st.i && j <= st.to) k = j - 1;
+          else if (st.i > st.to && j < st.i && j >= st.to) k = j + 1;
+          b.style.transform = k !== j ? `translate${T}(${st.c[k] - st.c[j]}px)` : '';
+        });
+      };
+      const up = (e) => {
+        if (!st || (e.pointerId != null && e.pointerId !== st.id)) return;
+        const s0 = st; st = null; clear();
+        delete mb.dataset.glassDragOff;
+        if (!s0.on) return;
+        e.stopPropagation();
+        swallow = this._mrSwallow = Date.now();
+        s0.its.forEach((b) => { b.style.transform = ''; b.classList.remove('lift'); });
+        mb.classList.remove('reord');
+        this._busy = false;
+        const ids = s0.its.map((b) => b.dataset.id), [mvd] = ids.splice(s0.i, 1);
+        ids.splice(s0.to, 0, mvd);
+        if (e.type === 'pointercancel') return this._schedule(true);
+        M.haptic('light');
+        if (s0.to === s0.i) return this._schedule(true);
+        const N = norm(this.config), more = [...N.more], pos = more.map((id, j) => (N.hidden.has(id) ? -1 : j)).filter((j) => j >= 0);
+        pos.forEach((j, k) => { if (ids[k] != null) more[j] = ids[k]; }); // skjulte beholder plassen sin (bakerst)
+        this._saveBar(more, 'more');
+      };
+      mb.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        if (e.button || st || this._inline) return;
+        const el = e.composedPath().find((n) => n.classList && n.classList.contains('mi'));
+        if (!el || el.dataset.act !== 'go' || !el.dataset.id) return;
+        st = { el, id: e.pointerId, x: e.clientX, y: e.clientY, on: false };
+        mb.dataset.glassDragOff = '1'; // glass-draget tar verken trykket eller holdet
+        st.t = setTimeout(() => { if (st && st.el === el) begin(); }, 380);
+        window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+      });
+      ['touchstart', 'touchmove'].forEach((t) => mb.addEventListener(t, (e) => { e.stopPropagation(); if (t === 'touchmove' && st && st.on && e.cancelable) e.preventDefault(); }, { passive: t === 'touchstart' }));
+      mb.addEventListener('contextmenu', (e) => e.preventDefault());
+      // klikket etter slipp spises – også når fingeren slippes utenfor menyen (bakteppet ville ellers lukket den)
+      const root = mb.getRootNode();
+      if (root && !root.__mshMr) { root.__mshMr = true; root.addEventListener('click', (e) => { if (Date.now() - (this._mrSwallow || 0) < 350) { e.stopPropagation(); e.preventDefault(); } }, true); }
+      mb.addEventListener('click', (e) => { if (Date.now() - swallow < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+    }
+    // Lagre ny rekkefølge i config.bar (ki-store via MSH.saveCardConfig – samme config som «Tilpass navbar»); key 'more' = Mer-menyen (22.6)
+    _saveBar(bar, key = 'bar') {
+      const old = this._rawConfig || this.config || {}, next = { ...old, [key]: bar };
       delete next.__eff;
       this.setConfig(M.store ? { ...next, __eff: 1 } : next); // lokalt først (som MSH.applyLive), ki-store-lagringen følger
       try { const r = M.saveCardConfig(this.hass, old, next); if (r && r.catch) r.catch((err) => console.error('msh-navbar-card', 'lagring feilet', err)); } catch (err) { console.error('msh-navbar-card', err); }
@@ -834,6 +936,11 @@
       }
       if (this._mFresh !== false || !show) { if (show) { this._mCur = L[0]; this._mFresh = false; } else this._mFresh = true; }
       if (!L.includes(this._mCur)) this._mCur = L[0];
+      // Fiks 22.8: utvidet kort lukkes når mini-spilleren skjules eller en annen spiller velges; teller hvert sekund bare mens utvidet + playing
+      if (this._mExp && (!show || this._mExp !== this._mCur || !L.includes(this._mExp))) this._mExp = null;
+      const xs = this._mExp && h.states[this._mExp], tick = !!(xs && xs.state === 'playing');
+      if (tick && !this._mTick) this._mTick = setInterval(() => { if (!this._busy) this._schedule(true); }, 1000);
+      else if (!tick && this._mTick) { clearInterval(this._mTick); this._mTick = null; }
       const ci = Math.max(0, L.indexOf(this._mCur));
       const W = Math.round(Math.min(geo.width - 28, 392));
       let pos;
@@ -869,13 +976,66 @@
               ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="1" data-haptic="light" aria-label="Øk volum" style="pointer-events:auto">${M.icon('mdi:plus', 20)}</button>`}
             </div>`;
         } else mid = `<button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>`;
+        if (this._mExp === id) return this._miniExpRow(id, s, a, art, name, sub, playing, tv);
         return `<div class="mrow" data-mid="${esc(id)}" data-key="mr_${esc(id)}">${mid}
           <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" aria-label="${vol ? 'Lukk volum' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--red,#f28073)' : '')}</button>
           <button class="mpp" data-act="mplay" data-id="${esc(id)}" data-mhold="hide" aria-label="${playing ? 'Pause' : 'Spill'}">${M.icon(playing ? 'mdi:pause' : 'mdi:play', 26)}</button>
         </div>`;
       }).join('');
-      const dots = L.length > 1 ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
-      return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+      const dots = L.length > 1 && !this._mExp ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
+      return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+    }
+    // Fiks 22.8 · utvidet mini-spiller (172 px): omslag/tekst (trykk → #media) + ⌄ · spole-slider (nåtid / −gjenstår) ·
+    // ⏮ · −10 s · play/pause · +10 s · ⏭. Uten varighet/posisjon eller SEEK → slider deaktivert med «–» og uten ±10 s;
+    // direkte-TV uten varighet → ingen slider.
+    _miniExpRow(id, s, a, art, name, sub, playing, tv) {
+      const f = Number(a.supported_features) || 0, P = mPos(s), sv = this._mSeekV;
+      const seekOk = !!(f & 2) && P.dur > 0 && P.pos != null;
+      let pos = P.pos;
+      if (sv && sv.id === id && (sv.drag || Date.now() - sv.t < 2500)) pos = sv.v;
+      const pct = seekOk ? Math.max(0, Math.min(100, (pos / P.dur) * 100)) : 0;
+      const seek = tv && !P.dur ? '' : `<div class="mseek${seekOk ? '' : ' dis'}" data-seek="${esc(id)}" data-dur="${P.dur}" data-set="${seekOk ? 1 : 0}" role="slider" aria-label="Spol" aria-valuemin="0" aria-valuemax="${Math.round(P.dur)}" aria-valuenow="${seekOk ? Math.round(pos) : 0}">
+          <span class="mskf" style="width:${pct.toFixed(2)}%"></span><span class="msn">${seekOk ? mFmt(pos) : '–'}</span><span class="msr">${seekOk ? '−' + mFmt(P.dur - pos) : '–'}</span></div>`;
+      const k = (act, d, icon, label, dis) => `<button class="mvb" data-act="${act}" data-id="${esc(id)}" data-d="${d}" data-haptic="light" aria-label="${label}"${dis ? ' disabled' : ''}>${M.icon(icon, 24)}</button>`;
+      return `<div class="mrow mx" data-mid="${esc(id)}" data-key="mx_${esc(id)}">
+        <div class="mxt"><button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>
+          <button class="mvb" data-act="mexp" data-id="${esc(id)}" data-haptic="light" aria-label="Lukk">${M.icon('mdi:chevron-down', 26)}</button></div>
+        ${seek}
+        <div class="mxb">${k('mxtrk', -1, 'mdi:skip-previous', 'Forrige', !(f & 16))}${seekOk ? k('mx10', -10, 'mdi:rewind-10', 'Spol 10 s tilbake') : ''}
+          <button class="mpp" data-act="mplay" data-id="${esc(id)}" data-mhold="hide" aria-label="${playing ? 'Pause' : 'Spill'}">${M.icon(playing ? 'mdi:pause' : 'mdi:play', 26)}</button>
+          ${seekOk ? k('mx10', 10, 'mdi:fast-forward-10', 'Spol 10 s fram') : ''}${k('mxtrk', 1, 'mdi:skip-next', 'Neste', !(f & 32))}</div>
+      </div>`;
+    }
+    // Spole-slider (22.8): trykk og dra setter posisjonen lokalt (haptic selection per 10 s), slipp → media_seek + toast
+    _miniSeekDrag(el, e) {
+      const id = el.dataset.seek, dur = Number(el.dataset.dur) || 0, fill = el.querySelector('.mskf'), ln = el.querySelector('.msn'), lr = el.querySelector('.msr');
+      if (!dur) return;
+      let b10 = null;
+      const at = (ev) => {
+        const r = el.getBoundingClientRect(), v = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * dur;
+        this._mSeekV = { id, v, t: Date.now(), drag: true };
+        if (fill) fill.style.width = (v / dur) * 100 + '%';
+        if (ln) ln.textContent = mFmt(v);
+        if (lr) lr.textContent = '−' + mFmt(dur - v);
+        const bb = Math.floor(v / 10);
+        if (bb !== b10) { if (b10 != null) M.haptic('selection'); b10 = bb; }
+      };
+      try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      M.haptic('selection');
+      at(e);
+      const mv = (ev) => { ev.stopPropagation(); at(ev); };
+      const up = (ev) => {
+        ev.stopPropagation();
+        el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+        const v = this._mSeekV;
+        if (!v || v.id !== id) return;
+        v.drag = false; v.t = Date.now();
+        if (ev.type !== 'pointerup') { this._mSeekV = null; return this._schedule(true); }
+        M.call(this.hass, 'media_player', 'media_seek', { entity_id: id, seek_position: Math.round(v.v) });
+        if (this.config.toasts !== false) M.toast('Spoler til ' + mFmt(v.v));
+        return undefined;
+      };
+      el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     }
     // Høyre fliskolonne (fiks 18.8): målt verdi (siste måling beholdes på andre faner), ellers utregningen fra 18.4:
     // bredde (innholdsbredde − 8) / 2 (min. 260), høyrekant = innholdets padding-right (18).
@@ -910,11 +1070,15 @@
         if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
         const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
         if (row && row.dataset.mid) this._mCur = row.dataset.mid;
+        if (this._mExp && this._mCur !== this._mExp) { this._mExp = null; this._schedule(true); } // 22.8: bytt spiller lukker
         sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
       }, true);
       sr.addEventListener('pointerdown', (e) => {
         if (e.button || !inMini(e)) return;
         e.stopPropagation();
+        const sk = hit(e, '.mseek[data-set="1"]');
+        if (sk) return this._miniSeekDrag(sk, e); // Fiks 22.8
+        if (hit(e, '.mseek')) return undefined;
         const vp = hit(e, '.mvp[data-set="1"]');
         if (vp && !hit(e, '.mst')) return this._miniVolDrag(vp, e);
         // Fiks 19.15: hold på − / + gjentar trinnet hvert 250 ms (etter 400 ms); klikket etter holdet spises
@@ -955,7 +1119,7 @@
     // Laget ligger utenfor morph (__mshKeep), så hass-oppdateringer under draget ikke fjerner det.
     _miniSkipDrag(pp, e) {
       const id = pp.dataset.id, x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, mini = pp.closest('[data-mini]');
-      let sk = null, sel = null;
+      let sk = null, sel = null, vert = false, vdone = false;
       try { pp.setPointerCapture(pid); } catch (x) { /* */ }
       const open = () => {
         const s = this.hass && this.hass.states[id], f = Number(((s && s.attributes) || {}).supported_features) || 0, tv = this._miniTv(id).tv;
@@ -988,8 +1152,26 @@
       const mv = (ev) => {
         ev.stopPropagation();
         if (!sk) {
-          if (Math.hypot(ev.clientX - x0, ev.clientY - y0) <= 14) return;
-          clearTimeout(this._mHold);
+          // Fiks 22.8: retningen bestemmes ved første 14 px – loddrett = utvid/lukk (sveip opp/ned ≥ 20 px), aldri ⏮/⏭, og omvendt
+          const dx = ev.clientX - x0, dy = ev.clientY - y0;
+          if (!vert) {
+            if (Math.hypot(dx, dy) <= 14) return;
+            clearTimeout(this._mHold);
+            if (Math.abs(dy) > Math.abs(dx)) vert = true;
+          }
+          if (vert) {
+            if (vdone || Math.abs(dy) < 20) return;
+            const exp = this._mExp === id;
+            if (dy < 0 ? exp : !exp) return;
+            vdone = true;
+            this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 500);
+            M.haptic('medium');
+            this._mExp = dy < 0 ? id : null;
+            if (dy < 0) this._mCur = id;
+            this._mVolId = null;
+            this._schedule(true);
+            return;
+          }
           M.haptic('light');
           open();
         }
@@ -1004,6 +1186,7 @@
       const up = (ev) => {
         ev.stopPropagation();
         end();
+        if (vert) { this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400); return; } // 22.8: sveip gir ikke spill/pause
         if (!sk) return; // vanlig trykk → klikket gir spill/pause
         this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400); // klikket etter slipp spises
         if (ev.type === 'pointerup' && sel) {
@@ -1095,6 +1278,16 @@
       if (name === 'mplay') return M.call(h, 'media_player', 'media_play_pause', { entity_id: id });
       if (name === 'mvol') { this._mVolId = this._mVolId === id ? null : id; if (this._mVolId) this._miniVolTimer(); return this._schedule(true); }
       if (name === 'mvstep') return this._miniStep(id, Number(el.dataset.d));
+      if (name === 'mexp') { this._mExp = null; return this._schedule(true); } // 22.8: ⌄ lukker
+      if (name === 'mxtrk') return M.call(h, 'media_player', Number(el.dataset.d) < 0 ? 'media_previous_track' : 'media_next_track', { entity_id: id });
+      if (name === 'mx10') {
+        const P = mPos(h.states[id]), sv = this._mSeekV, cur = sv && sv.id === id && Date.now() - sv.t < 2500 ? sv.v : P.pos;
+        if (cur == null || !P.dur) return undefined;
+        const v = Math.max(0, Math.min(P.dur, cur + Number(el.dataset.d)));
+        this._mSeekV = { id, v, t: Date.now() };
+        this._schedule(true);
+        return M.call(h, 'media_player', 'media_seek', { entity_id: id, seek_position: Math.round(v) });
+      }
       if (name === 'mdot') { const sw = sr && sr.querySelector('.msw'); if (sw) sw.scrollTo({ left: Number(el.dataset.i) * sw.clientWidth, behavior: 'smooth' }); return undefined; }
       if (name === 'mrow') {
         // Media-popupen med denne spilleren valgt (Media-kortets onOpen velger standardfane først → velg etterpå)
@@ -1154,11 +1347,12 @@
         else if (M.tap) M.tap.run(this, tapOf(N, id)); // dashbord-sti / URL
         return;
       }
-      if (name[0] === 'm' && /^m(play|vol|vstep|dot|row)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
+      if (name[0] === 'm' && /^m(play|vol|vstep|dot|row|exp|x10|xtrk)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
         if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
+        if (el.dataset.id === '__kiosk') { this.setUI({ menu: false }); return M.kioskSheet && M.kioskSheet(this); }
         if (el.dataset.id === '__hdr') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
         if (el.dataset.id === '__home') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'home' } })); }
         return;

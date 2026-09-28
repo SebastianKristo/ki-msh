@@ -403,6 +403,129 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   ok('ingen sidefeil (editor)', !errs.length, errs);
   await p.close();
 }
+/* ---------------- Fiks 22.6: «Mer»-menyen – trykk åpner, hold 380 ms + dra flytter ikonet (lagres i more) */
+for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390, height: 844 }, 'glass'], [{ width: 1280, height: 800 }, 'white']]) {
+  const tag = `22.6 ${vp.width}/${style}`;
+  const { p, errs } = await setup(vp, { style, bar: ['media', 'klima'], more: ['gjoremal', 'basseng', 'vanning', 'ruter'], hidden: ['basseng'] });
+  await p.waitForTimeout(1500); // mock-sjekken i test/mock/10-navbar.js er ferdig
+  const c = await p.context().newCDPSession(p);
+  const T = (type, x, y) => c.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const openMenu = async () => { if (!(await p.evaluate(() => !!deep('.mbox')))) { await tap(p, 'nav.nb [data-id="__more"]'); await p.waitForTimeout(400); } };
+  const items = () => p.evaluate(() => deepAll('.mbox .mi[data-act="go"]').map((b) => { const r = b.getBoundingClientRect(); return { id: b.dataset.id, x: r.left + r.width / 2, y: r.top + r.height / 2 }; }));
+  await openMenu();
+  const i0 = await items();
+  await T('touchStart', i0[0].x, i0[0].y); await p.waitForTimeout(550);
+  const lift = await p.evaluate(() => { const b = deep('.mbox .mi.lift'); return b ? getComputedStyle(b).transform : null; });
+  for (let i = 1; i <= 8; i++) { await T('touchMove', i0[0].x, i0[0].y + (i0[2].y - i0[0].y + 6) * i / 8); await p.waitForTimeout(40); }
+  await T('touchEnd'); await p.waitForTimeout(700);
+  const more = await p.evaluate(() => deep('msh-navbar-card').config.more);
+  ok(`${tag}: hold → løftet (scale 1.08)`, !!lift && /matrix\(1\.08/.test(lift), lift);
+  ok(`${tag}: slipp → ny rekkefølge lagret i more, skjult beholder plassen`, Array.isArray(more) && more[0] === i0[1].id && more[1] === 'basseng' && more[2] === i0[2].id && more[3] === i0[0].id, { more, i0: i0.map((x) => x.id) });
+  ok(`${tag}: draget åpnet ingen popup, menyen er åpen`, await p.evaluate(() => !location.hash && !!deep('.mbox')));
+  ok(`${tag}: menyen viser ny rekkefølge`, JSON.stringify((await items()).slice(0, 3).map((x) => x.id)) === JSON.stringify([i0[1].id, i0[2].id, i0[0].id]));
+  // verktøyene under streken står fast
+  const tl = await p.evaluate(() => { const r = deep('.mbox .mi[data-id="__edit"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await T('touchStart', tl.x, tl.y); await p.waitForTimeout(550);
+  const tLift = await p.evaluate(() => !!deep('.mbox .mi.lift'));
+  await T('touchMove', tl.x, tl.y - 60); await p.waitForTimeout(60); await T('touchEnd'); await p.waitForTimeout(400);
+  ok(`${tag}: verktøy (Tilpass navbar) kan ikke flyttes`, !tLift);
+  // trykk (med litt skjelv) åpner funksjonen hver gang
+  const hits = [];
+  for (const jit of [0, 4, 7]) {
+    await p.evaluate(() => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); document.querySelectorAll('msh-navbar-editor,.msh-sheet').forEach((e) => e.remove()); }); await p.waitForTimeout(300);
+    await openMenu();
+    const it = (await items())[1];
+    await T('touchStart', it.x, it.y); await p.waitForTimeout(80);
+    if (jit) { await T('touchMove', it.x, it.y + jit); await p.waitForTimeout(30); }
+    await T('touchEnd'); await p.waitForTimeout(450);
+    hits.push(await p.evaluate((id) => location.hash === '#' + id && !deep('.mbox'), it.id));
+  }
+  ok(`${tag}: trykk åpner funksjonen og lukker menyen (0/4/7 px skjelv)`, hits.every(Boolean), hits);
+  ok(`${tag}: ingen sidefeil`, !errs.length, errs);
+  await p.close();
+}
+// 22.6: samme rekkefølge i «Tilpass navbar» → Mer
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, {});
+  const r = await p.evaluate(async () => {
+    const ed = document.createElement('msh-navbar-editor'); ed.cardClass = customElements.get('msh-navbar-card');
+    ed.hass = H; ed.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar', bar: ['media'], more: ['ruter', 'gjoremal', 'vanning'] }); document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 200));
+    const txt = [...ed.shadowRoot.children].map((e) => e.innerText || '').join('\n'); ed.remove(); return { txt };
+  });
+  const b0 = r.txt.indexOf('Bak de tre prikkene'), i1 = r.txt.indexOf('Ruter', b0), i2 = r.txt.indexOf('Gjøremål', b0), i3 = Math.max(r.txt.indexOf('Sprinkler', b0), r.txt.indexOf('Vanning', b0));
+  ok('22.6 Tilpass navbar → Mer viser samme rekkefølge som config.more', i1 > 0 && i1 < i2 && i2 < i3, { i1, i2, i3 });
+  ok('ingen sidefeil (22.6 editor)', !errs.length, errs);
+  await p.close();
+}
+/* ---------------- Fiks 22.8: sveip opp på play/pause → utvidet mini-spiller med spoling */
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, {});
+  await p.waitForTimeout(1200);
+  const setAt = (attrs, st = 'playing') => p.evaluate(({ attrs, st }) => { const o = window.CUR['media_player.kjokken_radio']; setRaw('media_player.kjokken_radio', { ...o, state: st, attributes: { ...o.attributes, media_position_updated_at: new Date().toISOString(), ...attrs } }); }, { attrs, st });
+  await setAt({ supported_features: 1 | 2 | 4 | 16 | 32 | 16384, media_duration: 200, media_position: 50 });
+  await p.evaluate(() => { window.__calls.length = 0; window.__ts = []; const t0 = MSH.toast; MSH.toast = (x, o2) => { window.__ts.push(x); return t0(x, o2); }; });
+  await p.waitForTimeout(300);
+  const cdp = await p.context().newCDPSession(p);
+  const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const ctr = (sel) => p.evaluate((s) => { const r = deep(s).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
+  const swipe = async (dy, dx = 0) => {
+    const c0 = await ctr('.mpp'); await T('touchStart', c0.x, c0.y); await p.waitForTimeout(60);
+    let sk = false;
+    for (let i = 1; i <= 8; i++) { await T('touchMove', c0.x + dx * i / 8, c0.y + dy * i / 8); await p.waitForTimeout(30); if (await p.evaluate(() => !!deep('.msk'))) sk = true; }
+    await T('touchEnd'); await p.waitForTimeout(450);
+    return sk;
+  };
+  const m0 = await mini(p);
+  const mc = () => p.evaluate(() => window.__calls.filter((x) => x[0] === 'media_player').map((x) => [x[1], x[2] && x[2].seek_position]));
+  const sk1 = await swipe(-40, 6);
+  let m1 = await mini(p);
+  ok('22.8 sveip opp → 172 px, bunnen står fast', m1 && m1.m.h === 172 && Math.abs(m1.m.b - m0.m.b) < 1, { m0: m0.m, m1: m1 && m1.m });
+  ok('22.8 loddrett sveip starter ikke ⏮/⏭ og gir ikke spill/pause', !sk1 && !(await mc()).length, await mc());
+  const lay = await p.evaluate(() => ({ seek: rect(deep('.mseek')), btn: deepAll('.mxb button').map((b) => b.dataset.act + (b.dataset.d || '')), close: !!deep('[data-act="mexp"]'), dots: !!deep('.mdots'), txt: deep('.mseek').innerText.replace(/\s+/g, ' ') }));
+  ok('22.8 slider 40 px med nåtid og −gjenstår, knapperad ⏮ −10 ⏯ +10 ⏭, ⌄', lay.seek && lay.seek.h === 40 && /^0:5\d −2:[23]\d$/.test(lay.txt) && JSON.stringify(lay.btn) === JSON.stringify(['mxtrk-1', 'mx10-10', 'mplay', 'mx1010', 'mxtrk1']) && lay.close, lay);
+  await p.waitForTimeout(2100);
+  if (SHOT) await p.screenshot({ path: SHOT + '/mini-utvidet.png' });
+  const t2 = await p.evaluate(() => deep('.mseek .msn').textContent);
+  ok('22.8 teller lokalt mens den spiller', /^0:5[2-4]$/.test(t2), t2);
+  await tap(p, '[data-act="mx10"][data-d="10"]');
+  let cl = await mc();
+  ok('22.8 +10 s → media_seek posisjon + 10', cl.length === 1 && cl[0][0] === 'media_seek' && cl[0][1] >= 61 && cl[0][1] <= 65, cl);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  const sr = await p.evaluate(() => rect(deep('.mseek')));
+  await T('touchStart', sr.l + sr.w * 0.25, sr.t + 20); await p.waitForTimeout(40);
+  for (let i = 1; i <= 6; i++) { await T('touchMove', sr.l + sr.w * (0.25 + 0.25 * i / 6), sr.t + 20 + i); await p.waitForTimeout(30); }
+  const during = await p.evaluate(() => deep('.mseek .msn').textContent);
+  await T('touchEnd'); await p.waitForTimeout(400);
+  cl = await mc();
+  ok('22.8 dra på slideren → media_seek ved slipp + toast «Spoler til 1:40»', cl.length === 1 && cl[0][0] === 'media_seek' && Math.abs(cl[0][1] - 100) <= 1 && (await p.evaluate(() => window.__ts)).includes('Spoler til 1:40') && during === '1:40', { cl, during, ts: await p.evaluate(() => window.__ts) });
+  ok('22.8 kortet er fortsatt utvidet etter spoling', (await mini(p)).m.h === 172);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await tap(p, '[data-act="mxtrk"][data-d="-1"]'); await tap(p, '[data-act="mxtrk"][data-d="1"]');
+  ok('22.8 ⏮ / ⏭ → media_previous_track / media_next_track', JSON.stringify((await mc()).map((x) => x[0])) === '["media_previous_track","media_next_track"]', await mc());
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await tap(p, '.mpp');
+  ok('22.8 trykk på play/pause i utvidet kort → media_play_pause', JSON.stringify((await mc()).map((x) => x[0])) === '["media_play_pause"]', await mc());
+  await tap(p, '[data-act="mexp"]'); await p.waitForTimeout(300);
+  ok('22.8 ⌄ lukker (64 px)', (await mini(p)).m.h === 64);
+  await swipe(-40); ok('22.8 sveip opp igjen → utvidet', (await mini(p)).m.h === 172);
+  await swipe(40); await p.waitForTimeout(300); ok('22.8 sveip ned → lukket', (await mini(p)).m.h === 64);
+  await p.evaluate(() => { window.__calls.length = 0; });
+  await tap(p, '.mpp');
+  ok('22.8 trykk (lukket) spiller/pauser som før', JSON.stringify((await mc()).map((x) => x[0])) === '["media_play_pause"]', await mc());
+  const sk2 = await swipe(4, -80);
+  ok('22.8 sidelengs drag gir ⏮/⏭ som før (ikke utvidet)', sk2 && (await mini(p)).m.h === 64);
+  // uten SEEK → slider deaktivert «–», ingen ±10
+  await setAt({ supported_features: 1 | 4 | 16 | 32 });
+  await swipe(-40);
+  const ns = await p.evaluate(() => ({ dis: deep('.mseek') && deep('.mseek').classList.contains('dis'), txt: deep('.mseek') && deep('.mseek').innerText.replace(/\s+/g, ''), pm: deepAll('[data-act="mx10"]').length }));
+  ok('22.8 uten SEEK: slider deaktivert med «–», ±10 s skjult', ns.dis && ns.txt === '––' && ns.pm === 0, ns);
+  // hold skjuler som før (og lukker)
+  await hold(p, '.mpp', 900);
+  const hm = await mini(p);
+  ok('22.8 hold på play/pause skjuler mini-spilleren (og lukker det utvidede kortet)', hm.off && hm.m.h === 64, hm);
+  ok('ingen sidefeil (22.8)', !errs.length, errs);
+  await p.close();
+}
 await b.close();
 console.log(res.join('\n'));
 process.exit(res.some((x) => x.startsWith('✘')) ? 1 : 0);

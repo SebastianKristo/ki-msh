@@ -271,6 +271,57 @@ for (const w of [360, 393, 412, 430]) {
   ok(r.fs > 31 && r.users.join(',') === 'Kari' && r.copy === 1 && /^u2\//.test(r.sel), `19.13 annen bruker: ${JSON.stringify(r)}`);
   await p.close();
 }
+// 22.7: handlinger på personbilder (trykk = person-popup, hold = hurtigark, dobbelttrykk venter 260 ms, migrering, editor)
+{
+  const p = await page(412, 915, true);
+  const r = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const h = window.mockHass(); const d = document.getElementById('dash');
+    const log = []; const oo = MSH.openPopup; MSH.openPopup = (x) => log.push('pop:' + x);
+    MSH.allPopups = () => [{ hash: '#kart' }, ...Object.keys(h.states).filter((e) => e.startsWith('person.')).map((e) => ({ hash: '#person-' + e.split('.')[1] }))];
+    const mk = (cfg) => { d.innerHTML = ''; const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr', ...cfg }); c.hass = h; d.appendChild(c); return c; };
+    const out = {};
+    out.mig = [MSH.hjemPersonActions({}), MSH.hjemPersonActions({ person_tap: 'quick' }), MSH.hjemPersonActions({ person_tap: 'kart' }), MSH.hjemPersonActions({ person_tap: 'quick', person_actions: { hold: 'more' } })];
+    let c = mk({}); await wait(500);
+    const f = () => c.shadowRoot.querySelector('.faces .face[data-act="person"]');
+    const pid = f().dataset.id; out.pid = pid;
+    f().click(); out.tap = log.slice(); log.length = 0;
+    // hold
+    const r0 = f().getBoundingClientRect();
+    f().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: r0.x + 5, clientY: r0.y + 5 }));
+    await wait(650); f().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true })); f().click();
+    await wait(100);
+    const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
+    out.sheet = !!(c._sheets && c._sheets.size);
+    out.holdPop = log.slice(); log.length = 0;
+    document.querySelectorAll('body > *:not(#dash)').forEach((e) => { if (!/SCRIPT|STYLE/.test(e.tagName)) e.remove(); });
+    // dobbelttrykk = more, trykk = kart
+    const mi = []; window.addEventListener('hass-more-info', (e) => mi.push(e.detail.entityId));
+    const fe = []; window.addEventListener('msh-kart-focus', (e) => fe.push(e.detail.entity_id));
+    customElements.get('msh-kart-card') || customElements.define('msh-kart-card', class extends HTMLElement {});
+    c = mk({ person_actions: { tap: 'kart', double: 'more', hold: 'none' } }); await wait(500);
+    f().click(); out.waiting = log.length; await wait(320); out.kart = log.slice(); out.focus = fe.slice(); log.length = 0;
+    f().click(); await wait(80); f().click(); await wait(350); out.dbl = { pop: log.slice(), mi: mi.slice() };
+    // editor: seksjonen finnes og lagrer person_actions
+    c.customize(); await wait(600);
+    const E = all().find((e) => e.localName === 'msh-hjem-editor');
+    const sel = E && E.shadowRoot.querySelector('select[data-pact="hold"]');
+    out.ed = { has: !!sel, rows: E ? E.shadowRoot.querySelectorAll('[data-pact]').length : 0 };
+    if (sel) { sel.value = 'popup'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(300); out.ed.cfg = (E._config || {}).person_actions; }
+    MSH.openPopup = oo;
+    return out;
+  });
+  res.p227 = r;
+  const [m0, m1, m2, m3] = r.mig;
+  ok(m0.tap === 'popup' && m0.double === 'none' && m0.hold === 'quick' && m1.tap === 'quick' && m2.tap === 'popup' && m3.tap === 'popup' && m3.hold === 'more', `22.7 migrering: ${JSON.stringify(r.mig)}`);
+  ok(r.tap.length === 1 && r.tap[0] === 'pop:#person-' + r.pid.split('.')[1], `22.7 trykk: ${JSON.stringify(r.tap)}`);
+  ok(r.sheet && !r.holdPop.length, `22.7 hold → hurtigark: ${r.sheet} ${JSON.stringify(r.holdPop)}`);
+  ok(r.waiting === 0 && r.kart.join() === 'pop:#kart' && r.focus.join() === r.pid, `22.7 kart + 260 ms: ${JSON.stringify(r)}`);
+  ok(!r.dbl.pop.length && r.dbl.mi.join() === r.pid, `22.7 dobbelttrykk: ${JSON.stringify(r.dbl)}`);
+  ok(r.ed.has && r.ed.rows === 3 && r.ed.cfg && r.ed.cfg.hold === 'popup', `22.7 editor: ${JSON.stringify(r.ed)}`);
+  ok(!p.__errs.length, `22.7: ${p.__errs.join(' | ')}`);
+  await p.close();
+}
 await b.close();
 console.log(JSON.stringify(res, null, 1));
 if (fails.length) { console.error('FEIL:\n' + fails.join('\n')); process.exit(1); }
