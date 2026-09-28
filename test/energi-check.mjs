@@ -91,6 +91,9 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     out.secs = qa('.wrap > *').map((e) => e.className.split(' ')[0]);
     out.house = !!q('.house') && Math.round(q('.house').getBoundingClientRect().height);
     out.gear = (() => { const g = q('.prow .gear'), row = q('.prow'); return !!g && row.lastElementChild === g && Math.round(g.getBoundingClientRect().width) === 44; })();
+    // 23.2: periodelinjen først, 44×44 ‹ › ⚙, 8 px mellom, 14 px ned til første seksjon, rett under Bubble-headeren
+    out.p23 = (() => { const row = q('.prow'), bs = [...row.querySelectorAll('.nb,.gear')].map((b) => b.getBoundingClientRect()), rr = row.getBoundingClientRect(), nx = row.nextElementSibling.getBoundingClientRect(), hr = hdr.getBoundingClientRect(), sg = row.querySelector('.seg').getBoundingClientRect();
+      return { first: q('.wrap').firstElementChild === row, btn: bs.map((b) => Math.round(b.width) + 'x' + Math.round(b.height)).join(','), gaps: [Math.round(bs[0].left - sg.right), Math.round(bs[1].left - bs[0].right), Math.round(bs[2].left - bs[1].right)].join(','), down: Math.round(nx.top - rr.bottom), belowHdr: rr.top >= hr.bottom - 1 && rr.top - hr.bottom < 40, drag: row.querySelector('.seg').dataset.glassDrag }; })();
     out.nextDis = q('[data-act="step"][data-d="1"]').disabled;
     out.tiles = qa('.tile').map((t) => t.querySelector('.tt b').textContent + ' | ' + t.querySelector('.tt i').textContent);
     out.kwh = q('.card.pc .big b') && q('.card.pc .big b').textContent;
@@ -145,7 +148,8 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
   });
   const t = vp.n;
   ok(`21.1 [${t}] åpnes via hash, Bubble-header, full bredde, ingen henting før åpning`, r.open && r.header && Math.abs(r.width[0] - r.width[1]) <= 1 && r.before === 0, r);
-  ok(`21.1 [${t}] seksjoner i rekkefølge: hus, periode, snarveier, strøm, strømpriser, topp, vann`, JSON.stringify(r.secs) === JSON.stringify(['house', 'prow', 'tiles', 'sec', 'sec', 'sec', 'sec']) && r.house >= 340, r.secs);
+  ok(`21.1/23.2 [${t}] rekkefølge: periode, hus, snarveier, strøm, strømpriser, topp, vann`, JSON.stringify(r.secs) === JSON.stringify(['prow', 'house', 'tiles', 'sec', 'sec', 'sec', 'sec']) && r.house >= 340, r.secs);
+  ok(`23.2 [${t}] periodelinjen øverst under Bubble-headeren, ‹ › ⚙ 44×44, 8 px mellom, 14 px til første seksjon, Liquid Glass-drag`, r.p23.first && r.p23.btn === '44x44,44x44,44x44' && r.p23.gaps === '8,8,8' && r.p23.down === 14 && r.p23.belowHdr && r.p23.drag === 'x', r.p23);
   ok(`21.1 [${t}] tannhjul 44 px ytterst i periode-raden, › deaktivert i inneværende periode`, r.gear && r.nextDis, r);
   ok(`21.9 [${t}] snarveier: Strømmåler (bare kW) · Strømpris (pris + nivå) · Bil · Elbillader · Varmtvann`, r.tiles.length === 5 && /^Strømmåler \| [\d,]+ kW · Nå$/.test(r.tiles[0]) && /^Strømpris \| [\d,]+ kr\/kWh · (Lav|Normal|Høy|Svært høy)$/.test(r.tiles[1]) && /^Bil \| 68 % · Tilkoblet/.test(r.tiles[2]) && /^Elbillader \| 7,2 kW · Lader/.test(r.tiles[3]) && /^Varmtvann/.test(r.tiles[4]), r.tiles);
   ok(`21.1/21.3 [${t}] Strøm: importert kWh + kostnad fra stat_cost, 96 × 15 min med nå-markør`, /^[\d,]+$/.test(r.kwh || '') && r.cost.length >= 1 && /kr$/.test(r.cost[0]) && r.powerLine === '96' && r.nowMark, r);
@@ -177,7 +181,11 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     c.shadowRoot.querySelector('.prow .gear').click(); await w(700);
     const ed = window.__deep().find((e) => e.localName === 'msh-editor' && e._inline);
     const E = ed.shadowRoot, q = (s) => E.querySelector(s), qa = (s) => [...E.querySelectorAll(s)];
-    out.tabs = qa('.chips.tabs .chip').map((b) => b.textContent.trim());
+    out.tabs = qa('.chips.tabs .chip').map((b) => b.getAttribute('aria-label'));
+    // 23.6: aktiv fane = ikon + navn, de andre bare ikon; flex (ikke grid); ikonene; title/aria-label; 360 px: ingen overlapp
+    const tabInfo = () => { const bs = qa('.chips.tabs .chip'), row = q('.chips.tabs').getBoundingClientRect(); return bs.map((b) => { const r = b.getBoundingClientRect(), l = b.querySelector('.itl'), lr = l.getBoundingClientRect(), cs = getComputedStyle(b);
+      return { on: b.getAttribute('aria-selected') === 'true', w: r.width, l: r.left, rt: r.right, lblVis: lr.width > 1 && getComputedStyle(l).opacity === '1', cut: l.scrollWidth > l.clientWidth + 1, h: Math.round(r.height), ic: b.querySelector('ha-icon').getAttribute('icon'), title: b.title, flex: cs.flexGrow + ' ' + cs.flexShrink, inRow: r.left >= row.left - 1 && r.right <= row.right + 1 }; }); };
+    out.t23 = { disp: getComputedStyle(q('.chips.tabs')).display, tr: getComputedStyle(q('.chips.tabs .chip')).transitionProperty, i0: tabInfo() };
     // Kilder: merker fra Energi
     out.kilder = qa('.tpane .f .line').map((l) => l.textContent.trim().replace(/\s+/g, ' ')).slice(0, 8);
     out.openBtn = qa('button').some((b) => /Åpne Energi-oppsett i Home Assistant/.test(b.textContent));
@@ -188,7 +196,8 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     out.fra = !!fra; fra.click(); await w(200);
     out.fraOk = !(ed._config.sources || {}).ev;
     // Seksjoner: øye skjuler vann, dra Toppforbrukere øverst
-    qa('.chips.tabs .chip')[1].click(); await w(200);
+    qa('.chips.tabs .chip')[1].click(); await w(60);
+    out.t23.mid = tabInfo()[1].w; await w(400); out.t23.i1 = tabInfo();
     out.secRows = qa('[data-elist="sec"][data-edk]').map((e) => e.dataset.edk).join(',');
     E.querySelector('[data-edk="water"] [data-a="fn"]').click(); await w(150);
     const hd = E.querySelector('[data-edk="top"] [data-edrag]'), tgt = E.querySelector('[data-edk="house"]');
@@ -229,6 +238,9 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     return out;
   });
   ok('21.5 fem faner: Kilder · Seksjoner · Snarveier · Hus · Visning', JSON.stringify(r.tabs) === JSON.stringify(['Kilder', 'Seksjoner', 'Snarveier', 'Hus', 'Visning']), r.tabs);
+  const T23 = (I, k) => I.every((x, i) => (i === k) === x.on && (i === k) === x.lblVis && !(x.on && x.cut) && x.h === 40 && x.inRow && x.w >= 44) && I.every((x, i) => !i || x.l >= I[i - 1].rt - 0.5) && I[k].flex === '0 0' && I.filter((x, i) => i !== k).every((x) => x.flex === '1 1');
+  ok('23.6 faner (390 px): aktiv ikon+navn, andre bare ikon, flex, 40 px, ingen overlapp/kutt, ikoner og title', r.t23.disp === 'flex' && T23(r.t23.i0, 0) && T23(r.t23.i1, 1) && r.t23.i0.map((x) => x.ic).join(',') === 'mdi:meter-electric,mdi:view-agenda,mdi:view-grid,mdi:home,mdi:tune' && r.t23.i0.map((x) => x.title).join(',') === 'Kilder,Seksjoner,Snarveier,Hus,Visning', r.t23);
+  ok('23.6 fanebytte animeres (flex/padding .25s)', /flex/.test(r.t23.tr) && /padding/.test(r.t23.tr) && r.t23.mid > 44 && r.t23.mid < r.t23.i1[1].w - 2, { tr: r.t23.tr, mid: r.t23.mid, end: r.t23.i1[1].w });
   ok('21.3/21.5 Kilder: Nett import/eksport, Strømpris, Elbillader, Vann fra «Energi», Sol/Batteri «Mangler», Live effekt «Auto», knapp til /config/energy', /Nett import ?Energi/.test(r.kilder[0]) && /Nett eksport ?Energi/.test(r.kilder[1]) && /Strømpris ?Energi/.test(r.kilder[2]) && /Elbillader ?Energi/.test(r.kilder[3]) && /Sol ?Mangler/.test(r.kilder[4]) && /Batteri ?Mangler/.test(r.kilder[5]) && /Vann ?Energi/.test(r.kilder[6]) && /Live effekt ?Auto/.test(r.kilder[7]) && r.openBtn, r.kilder);
   ok('21.5 overstyring → «Overstyrt», «Fra Energi-oppsettet» fjerner den', r.overstyrt && r.fra && r.fraOk, r);
   ok('21.5 Seksjoner: 6 rader, øye skjuler, dra-håndtak flytter (uten lekkasje)', r.secRows === 'house,tiles,power,price,top,water' && r.drag.order.startsWith('top,house') && r.drag.leaked === 0 && r.drag.hidden && r.drag.hidden.water === true, r);
@@ -280,6 +292,48 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
   ok('21.1 navbar: Energi-knapp åpner #energi', r.navBtn && r.navHash === '#energi', r);
   ok('21.1 hold på strømpris-kortet på Hjem → #energi', r.holdHash === '#energi', r);
   ok('21.1 prosa: effekt-boblen åpner #energi (egen «Ved trykk» vinner)', r.prosa && r.prosa.navigation_path === '#energi' && r.prosaUser && r.prosaUser.action === 'none', r);
+  await p.close();
+}
+
+/* ---------------------------------------------------------------- 23.6 · fanene på smal telefon (360 px): Energi-arket, Rom (GUI), Tilpass Hjem */
+{
+  const p = await page({ width: 360, height: 760 });
+  await p.evaluate(HELP);
+  await p.evaluate(SETUP, { popup, navbarCfg, sb: 0 });
+  const r = await p.evaluate(async () => {
+    const w = window.__w, out = {};
+    const info = (bs) => { const I = bs.map((b) => { const r = b.getBoundingClientRect(), l = b.querySelector('.itl'); return { on: b.getAttribute('aria-selected') === 'true', l: r.left, rt: r.right, w: r.width, lbl: l && l.getBoundingClientRect().width > 1, cut: !l || l.scrollWidth > l.clientWidth + 1, label: b.getAttribute('aria-label') }; });
+      const row = bs[0].parentElement.getBoundingClientRect();
+      return { ok: I.every((x, i) => x.on === x.lbl && !(x.on && x.cut) && x.w >= 43.5 && x.l >= row.left - 0.5 && x.rt <= row.right + 0.5 && (!i || x.l >= I[i - 1].rt - 0.5)) && I.filter((x) => x.on).length === 1 && row.right <= innerWidth, act: I.find((x) => x.on).label, ws: I.map((x) => Math.round(x.w)).join(',') }; };
+    // Energi-arket: hver fane aktiv etter tur
+    location.hash = '#energi'; await w(1300);
+    window.__card().shadowRoot.querySelector('.prow .gear').click(); await w(700);
+    const ed = window.__deep().find((e) => e.localName === 'msh-editor' && e._inline), E = ed.shadowRoot;
+    out.energi = [];
+    for (let i = 0; i < 5; i++) { E.querySelectorAll('.chips.tabs .chip')[i].click(); await w(450); out.energi.push(info([...E.querySelectorAll('.chips.tabs .chip')])); }
+    out.hap = window.__hap.length;
+    ed.dispatchEvent(new CustomEvent('msh-cancel', { bubbles: true, composed: true })); await w(300);
+    // Rom (GUI-editor, samme type:'tabs')
+    const Rom = customElements.get('msh-rom-card'), area = Object.keys((window.__h.areas || {}))[0];
+    if (Rom && Rom.getConfigElement) {
+      const G = Rom.getConfigElement(); G.style.cssText = 'display:block;width:328px;margin:0 16px'; G.hass = window.__h; G.setConfig({ type: 'custom:msh-rom-card', area }); document.body.appendChild(G); await w(400);
+      out.rom = [];
+      for (let i = 0; i < 4; i++) { const bs = G.shadowRoot.querySelectorAll('.chips.sg.tabs .chip'); if (!bs[i]) break; bs[i].click(); await w(450); out.rom.push(info([...G.shadowRoot.querySelectorAll('.chips.sg.tabs .chip')])); }
+      G.remove();
+    }
+    // Tilpass Hjem: Kort · Faner · Popups · Tekst
+    location.hash = ''; await w(400);
+    window.MSH.openHomeEditor(); await w(900);
+    const ER = () => { const e = window.__deep().find((x) => x.dataset && x.dataset.key === 'ed'); return e && e.getRootNode(); };
+    out.hjem = [];
+    for (const v of ['kort', 'faner', 'pop', 'tekst']) { const R = ER(); R.querySelector(`[data-a="sec"][data-v="${v}"]`).click(); await w(500); out.hjem.push(info([...ER().querySelectorAll('.seg.itabs > button')])); }
+    return out;
+  });
+  const all = (L, n) => L && L.length === n && L.every((x) => x.ok);
+  ok('23.6 360 px · Tilpass energi: alle fem faner uten overlapp, aktiv viser navnet (hver fane)', all(r.energi, 5) && r.energi.map((x) => x.act).join(',') === 'Kilder,Seksjoner,Snarveier,Hus,Visning', r.energi);
+  ok('23.6 360 px · Tilpass rom (4 faner): samme mønster, ingen kutt', all(r.rom, 4), r.rom);
+  ok('23.6 360 px · Tilpass Hjem (Kort · Faner · Popups · Tekst): samme mønster, ingen kutt', all(r.hjem, 4) && r.hjem.map((x) => x.act).join(',') === 'Kort,Faner,Popups,Tekst', r.hjem);
+  if (shot) await p.screenshot({ path: `${shot}f23-faner-360.png` });
   await p.close();
 }
 

@@ -1,0 +1,5 @@
+[
+  { "name": "Kalender", "hash": "#kalender", "cards": [ { "type": "custom:msh-kalender-card", "card_id": "pop-kalender" } ] },
+  { "name": "Kalender · måned, navn på fanene, Hytta først", "hash": "#kalender", "cards": [ { "type": "custom:msh-kalender-card", "defaultView": "maned", "tab_labels": "name", "startTab": "hytta", "tab_order": ["hytta", "kalender", "framover", "bursdager", "posten"], "section_hidden": { "framover": ["plex"] }, "spacing": { "gap": 4, "top": 6, "bottom": 60 } } ] },
+  { "name": "Kalender · uten kilder", "hash": "#kalender", "startTab": "posten", "cards": [ { "type": "custom:msh-kalender-card", "startTab": "posten", "src": { "post": "none", "parcel": "none", "hytta": "none", "bday": "none", "sonarr": "none", "radarr": "none", "plex": "none" }, "calendars": [ { "entity": "calendar.finnes_ikke" } ] } ] }
+]

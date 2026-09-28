@@ -406,7 +406,7 @@
       </div>`;
     // Egen popup som er slått av fordi brukeren valgte den genererte
     const inaRow = (x) => `<div class="pr ppr hid" data-key="ppina-${esc(x.hash)}">
-        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · av – autogenerert brukes</i></span></button>
+        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · ${x.by ? 'Erstattet av ' + esc(x.by) : 'av – autogenerert brukes'}</i></span></button>
         <button class="ppb" data-a="ppprefer" data-v="${esc(x.hash)}" data-p="custom" data-h="selection">Bruk egen</button>
       </div>`;
     // Egen popup med ugyldig YAML (hoppes over i dashbordet) – kan åpnes og rettes
@@ -886,7 +886,7 @@
         case 'ppopenraw': { const i = Number(d.v); if (!(i >= 0 && i < customList().length)) return true; u.pd = draftRaw(ed, i); u.pv = 'item'; u.ppMenu = false; ed.render(); return true; }
         case 'ppprefer': {
           const key = String(d.v || '').replace(/^#/, ''); if (!key) return true;
-          ed._popSet(key, { prefer: d.p === 'auto' ? 'auto' : undefined });
+          ed._popSet(key, { prefer: d.p === 'auto' ? 'auto' : 'custom' }); // 'custom': også når en generert popup ville erstattet den (23.8)
           M.toast(d.p === 'auto' ? 'Autogenerert popup brukes' : 'Egen popup brukes'); M.haptic('success');
           if (u.pv === 'item') back(ed); return true;
         }

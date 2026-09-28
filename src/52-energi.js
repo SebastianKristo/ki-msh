@@ -1,7 +1,7 @@
 /* msh-energi-card · Energi-popup #energi (fiks 21.1, 21.3, 21.5, 21.9, 21.10 – promptets «ki-energy-card»).
  * Fasit «Energi.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ingen toppkort.
  * Seksjoner (config.order, standard): house · tiles · power · price · top · water. Periode-raden (I dag · Uke · Måned · År,
- *   ‹ ›, tannhjul 44 px ytterst til høyre – Bubble Cards × ligger øverst til høyre) står foran første seksjon som ikke er huset.
+ *   ‹ ›, tannhjul 44 px ytterst til høyre – Bubble Cards × ligger øverst til høyre) står fast øverst (23.2), ikke en del av order; 14 px til første seksjon.
  * Husscenen: M.energiHus.html(...) fra src/52-energi-hus.js (egen fil, laget separat); mangler den → enkel plassholder.
  * Data (21.3): HAs Energi-oppsett. energy/get_prefs (+ energy/info → cost_sensors) gir statistikk-IDene; tall fra
  *   recorder/statistics_during_period (types ['change'], period hour | day | month, units kWh/L). Hjem = import + sol +
@@ -495,11 +495,11 @@
     return [
       ...(loading ? [{ type: 'info', label: 'Leser Energi-oppsettet i Home Assistant …' }] : !R.prefs ? [{ type: 'info', label: 'Energi er ikke satt opp i Home Assistant (Innstillinger → Dashbord → Energi). Kildene kan overstyres her.' }] : []),
       { type: 'tabs', id: 'energi', tabs: [
-        { key: 'kilder', label: 'Kilder', icon: 'mdi:transmission-tower', fields: kilder },
-        { key: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda-outline', focus: ['sections'], fields: seksjoner },
-        { key: 'snarveier', label: 'Snarveier', icon: 'mdi:view-grid-outline', focus: ['tiles'], fields: snarveier },
-        { key: 'hus', label: 'Hus', icon: 'mdi:home-lightning-bolt', focus: ['house'], fields: hus },
-        { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing'], fields: visning },
+        { key: 'kilder', label: 'Kilder', icon: 'mdi:meter-electric', fields: kilder },
+        { key: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda', focus: ['sections'], fields: seksjoner },
+        { key: 'snarveier', label: 'Snarveier', icon: 'mdi:view-grid', focus: ['tiles'], fields: snarveier },
+        { key: 'hus', label: 'Hus', icon: 'mdi:home', focus: ['house'], fields: hus },
+        { key: 'visning', label: 'Visning', icon: 'mdi:tune', focus: ['spacing'], fields: visning },
       ] },
       { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); EXP.delete(id); ed._config = { type: cc.type || 'custom:msh-energi-card', card_id: id }; ed._set('card_id', id); } },
     ];
@@ -553,14 +553,12 @@
       const hid = c.hidden || {};
       const order = orderOf(c).filter((k) => !hid[k] && (k !== 'water' || R.water.length));
       const parts = [];
-      let per = false;
+      // 23.2: periodelinjen er ikke en seksjon – den står fast øverst (rett under Bubble-headeren), seksjonene følger i config-rekkefølge
       order.forEach((k) => {
-        if (k !== 'house' && !per) { per = true; parts.push(this._periodRow()); }
         try { parts.push(this['_s_' + k](R, D)); } catch (e) { parts.push(this._failHTML(e)); }
       });
-      if (!per) parts.push(this._periodRow());
       const setup = R.loaded && !R.prefs ? `<button class="setup press" data-act="setup">${M.icon('mdi:lightning-bolt-outline', 20)}<span class="grow">Sett opp Energi i Home Assistant</span>${M.icon('mdi:open-in-new', 18)}</button>` : '';
-      return `<div class="wrap">${setup}${parts.join('')}</div>`;
+      return `<div class="wrap">${this._periodRow()}${setup}${parts.join('')}</div>`;
     }
     _periodRow() {
       const per = this.per, off = this.off;
@@ -772,14 +770,14 @@
         .hl span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray800,#afafaf)}
         .hl i{width:8px;height:8px;border-radius:50%}
         .phs{position:absolute;bottom:14px;font-size:12px;color:var(--gray700,#979797)}
-        .prow{display:flex;align-items:center;gap:6px;min-width:0}
+        .prow{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:calc(14px - var(--msh-gap,8px))}
         .seg{display:flex;gap:2px;padding:4px;border-radius:22px;flex:1;min-width:0;position:relative;touch-action:pan-y;background:var(--gray200,#3a3a3a)}
         .seg .sg{flex:1 1 0;min-width:0;height:36px;padding:0 4px;border-radius:18px;font-size:13px;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s}
         .seg .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
         .seg .sg:disabled{opacity:.4;cursor:default}
         .seg.sm{flex:none}
         .seg.sm .sg{height:30px;padding:0 12px;flex:none}
-        .nb{width:36px;height:44px;border-radius:18px;display:grid;place-items:center;color:var(--white,#fafafa);flex:none}
+        .nb{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--white,#fafafa);flex:none}
         .nb:disabled{opacity:.3;cursor:default}
         .gear{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);flex:none}
         .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}

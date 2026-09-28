@@ -75,6 +75,36 @@
     if (st.getPropertyValue('--ki-nav-h') !== v) st.setProperty('--ki-nav-h', v);
     if (!h && st.getPropertyValue('--ki-nav-bottom') !== '0px') st.setProperty('--ki-nav-bottom', '0px');
   };
+  // Fiks 23.3 · Ledig flate: navbaren måler seg selv og skriver --ki-nav-occ-top/right/bottom/left (px; 0 der navbaren
+  // ikke er, ellers størrelse + avstand til kanten + 8 px) på dashbord-containeren (+ :root som reserve), og sender
+  // window-event 'ki-nav-rect' med {top,right,bottom,left}. CSS-variabler arves gjennom shadow DOM → kart, person-ark osv.
+  // leser dem uten å måle selv. MSH.navOcc() = siste måling. (--ki-nav-bottom/--ki-nav-h beholder sin gamle betydning.)
+  const OCC0 = { top: 0, right: 0, bottom: 0, left: 0 };
+  let occLast = { ...OCC0 }, occEl = null;
+  M.navOcc = () => ({ ...occLast });
+  M.setNavOcc = (occ, el) => {
+    const o = { ...OCC0, ...(occ || {}) };
+    ['top', 'right', 'bottom', 'left'].forEach((k) => { o[k] = Math.max(0, Math.round(Number(o[k]) || 0)); });
+    const targets = [document.documentElement];
+    if (el && el.style && el !== document.documentElement) targets.push(el);
+    if (occEl && occEl !== el && occEl.style) ['top', 'right', 'bottom', 'left'].forEach((k) => occEl.style.removeProperty('--ki-nav-occ-' + k));
+    occEl = el || null;
+    targets.forEach((t) => ['top', 'right', 'bottom', 'left'].forEach((k) => { const v = o[k] + 'px'; if (t.style.getPropertyValue('--ki-nav-occ-' + k) !== v) t.style.setProperty('--ki-nav-occ-' + k, v); }));
+    const same = ['top', 'right', 'bottom', 'left'].every((k) => occLast[k] === o[k]);
+    occLast = o;
+    if (!same) window.dispatchEvent(new CustomEvent('ki-nav-rect', { detail: { ...o } }));
+    return o;
+  };
+  // Opptatt flate fra navbarens (og evt. mini-spillerens) rektangel r mot dashbordrektangelet D
+  M.navOccFrom = (r, D) => {
+    if (!r || !r.width || !r.height || !D) return { ...OCC0 };
+    const Db = D.top + D.height, Dr = D.left + D.width, o = { ...OCC0 };
+    const dl = r.left - D.left, dr = Dr - r.right, dt = r.top - D.top, db = Db - r.bottom;
+    if (r.height > r.width) { if (dl <= dr) o.left = r.right - D.left + 8; else o.right = Dr - r.left + 8; }
+    else if (db <= dt) o.bottom = Db - r.top + 8;
+    else o.top = r.bottom - D.top + 8;
+    return o;
+  };
   // Liquid glass-dra (Fiks 3 · 7b / 17.19, fasit glass-drag.js) koblet direkte på containeren – virker i shadow DOM og i HA:
   //  · composedPath (ikke closest på document) avgjør hva som er truffet
   //  · glass-sjekk fra config: opt.enabled() (navbaren: config.style === 'glass', editorene: glassarket), aldri localStorage
@@ -408,6 +438,7 @@
     static get schema() {
       return [
         { type: 'navbar' },
+        { type: 'nbkiosk' }, // Fiks 23.5: «Kiosk-modus» mellom «Ny knapp» og «Plassering og oppførsel» (samme data som kiosk-arket, 22.9)
         // Fiks 20.6: kortet «Plassering og oppførsel» = brytere → Visning → Bredde → Avstand fra bunnen (nbplace); «Stil» rett etter
         { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
           { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): ≥ 1000 px, eller berøring ≥ 600 px (Fold åpen, iPad) = vertikal rail til venstre.' },
@@ -438,6 +469,7 @@
       window.addEventListener('location-changed', this._onHashNav);
       window.addEventListener('popstate', this._onHashNav);
       window.addEventListener('resize', this._onResize);
+      window.addEventListener('orientationchange', this._onResize); // Fiks 23.3: ny måling av ledig flate
       window.addEventListener('ki-nav-bottom', this._onResize); // Fiks 18.6: slideren i Tilpass navbar (live)
       window.addEventListener('ki-device-info', this._onResize);
       window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
@@ -451,6 +483,7 @@
       window.removeEventListener('location-changed', this._onHashNav);
       window.removeEventListener('popstate', this._onHashNav);
       window.removeEventListener('resize', this._onResize);
+      window.removeEventListener('orientationchange', this._onResize);
       window.removeEventListener('ki-nav-bottom', this._onResize);
       window.removeEventListener('ki-device-info', this._onResize);
       window.removeEventListener('msh-tcol', this._onResize);
@@ -467,6 +500,8 @@
     // Fjern portalen og gi dashbordet tilbake paddingen (kort frakoblet / annet dashbord / annen HA-side).
     _hidePortal() {
       M.setNavVars(0);
+      M.setNavOcc(null, this._dEl); // Fiks 23.3
+      if (this._occRO) { this._occRO.disconnect(); this._occRO = null; this._occROel = null; }
       document.documentElement.style.setProperty('--ki-mini-h', '0px');
       this._mShow = false;
       if (this._portal) { this._portal.remove(); this._portal = null; }
@@ -610,6 +645,7 @@
       const tools = [];
       if (c.admin_tools !== false) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
+        if (M.openTilpassAlt) tools.push(item('__all', 'tune', 'Tilpass alt', 'var(--gray000,#232323)', 'mtool', M.tilpassAltDot && M.tilpassAltDot())); // 23.7: øverst, prikk = nye rom/funksjoner usjekket
         tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray000,#232323)', 'mtool', null));
         tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray000,#232323)', 'mtool', null));
         tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray000,#232323)', 'mtool', null));
@@ -625,7 +661,7 @@
       // bakteppet tar ikke imot trykk de første 300 ms (trykket som åpnet menyen skal ikke lukke den igjen)
       const guard = Date.now() - (this._menuT || 0) < 300;
       return `<div class="mbg" data-act="mclose" data-haptic="off" style="pointer-events:${guard ? 'none' : 'auto'}"></div>
-        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu${lift ? ` style="max-height:calc(100vh - ${120 + lift}px)"` : ''}>
+        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu${lift ? ` style="max-height:calc(100vh - ${120 + lift}px)"` : geo.rail ? ` style="max-height:${Math.max(160, Math.floor(((at.bottom != null ? at.bottom : window.innerHeight - 40) - 12) / 1.15))}px"` : ''}>
           ${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
         </div></div>`;
     }
@@ -718,9 +754,27 @@
         const mH = mEl ? (this._mHm || 64) + 10 : 0;
         if (ds.getPropertyValue('--ki-mini-h') !== mH + 'px') ds.setProperty('--ki-mini-h', mH + 'px');
         if (mEl) { const sw = mEl.querySelector('.msw'), L = this._mLast || [], i = L.indexOf(this._mCur); if (sw && i >= 0 && sw.clientWidth && Math.round(sw.scrollLeft / sw.clientWidth) !== i) sw.scrollLeft = i * sw.clientWidth; }
+        this._measureOcc(); // Fiks 23.3
         if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16), bottom: mH ? mH + 16 : null });
         else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) + mH });
       });
+    }
+
+    // Fiks 23.3: navbaren måler seg selv (ResizeObserver på <nav> + resize/orientering via _schedule) → MSH.setNavOcc
+    _measureOcc() {
+      const sr = this._portal && this._portal.shadowRoot, nav = sr && sr.querySelector('[data-nav]');
+      if (!nav || !nav.isConnected) { M.setNavOcc(null, this._dEl); return; }
+      if (window.ResizeObserver && this._occROel !== nav) {
+        if (this._occRO) this._occRO.disconnect();
+        this._occRO = new ResizeObserver(() => this._measureOcc());
+        this._occRO.observe(nav); this._occROel = nav;
+      }
+      const D = M.rectOf(this._dEl), n = nav.getBoundingClientRect();
+      let r = { left: n.left, top: n.top, right: n.right, bottom: n.bottom, width: n.width, height: n.height };
+      const hid = this._portal && (this._portal.hasAttribute('data-kart') || this._portal.hasAttribute('data-ring')); // mini-spilleren er skjult i #kart/#ringeklokke
+      const mEl = this._mShow && !hid && sr.querySelector('[data-mini]');
+      if (mEl && n.width >= n.height) { const m = mEl.getBoundingClientRect(); if (m.height && m.top < r.top) { r.top = m.top; r.height = r.bottom - r.top; } }
+      M.setNavOcc(M.navOccFrom(r, D), this._dEl);
     }
 
     /* ---------------- Fiks 19.9: hold og dra for å omorganisere ikonene i navbaren (som faner i Lys, TABORD) */
@@ -1351,6 +1405,7 @@
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
+        if (el.dataset.id === '__all') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } })); } // 23.7
         if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
         if (el.dataset.id === '__kiosk') { this.setUI({ menu: false }); return M.kioskSheet && M.kioskSheet(this); }
         if (el.dataset.id === '__hdr') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
@@ -1555,12 +1610,48 @@
     _field(f, key) {
       if (f.type === 'navbar') return this._navbar(f.part);
       if (f.type === 'nbplace') return this._nbPlace(); // Fiks 20.6
+      if (f.type === 'nbkiosk') return this._nbKiosk(); // Fiks 23.5
       return super._field(f, key);
     }
     _render() {
       super._render();
       if (!this.shadowRoot) return;
       this.shadowRoot.querySelectorAll('.seg,.wseg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+    }
+    // Fiks 23.5: kiosk-statusen følger hass (bryter-entiteten) og ki-store (kiosk.*) mens editoren er åpen
+    set hass(h) {
+      const ks = (x) => { const e = M.kioskEntity ? M.kioskEntity() : '', st = x && x.states && x.states[e]; return e + ':' + (st ? st.state : ''); };
+      const first = !this._hass, ch = !first && ks(this._hass) !== ks(h);
+      this._hass = h;
+      if (first || ch) this._render();
+    }
+    get hass() { return this._hass; }
+    connectedCallback() {
+      super.connectedCallback();
+      if (!this._kUnsub && M.store && M.store.subscribe) this._kUnsub = M.store.subscribe((d, p) => { if (!p || /^kiosk(\.|$)/.test(p)) this._render(); });
+    }
+    disconnectedCallback() { if (super.disconnectedCallback) super.disconnectedCallback(); if (this._kUnsub) { this._kUnsub(); this._kUnsub = null; } }
+    // Fiks 23.5 · «Kiosk-modus»: ny vei inn til 22.9 (MSH.kioskSheet/kioskEntity/kioskCount, 53-kiosk.js) – ingen ny config.
+    // Rad 1: status + bryter (input_boolean.toggle som toppkortet i kiosk-arket). Rad 2: åpner kiosk-arket oppå dette arket.
+    _nbKiosk() {
+      if (!M.kioskEntity) return '';
+      const h = this._hass || {}, ent = M.kioskEntity(), s = h.states && h.states[ent], on = !!(s && s.state === 'on');
+      const n = M.kioskCount ? M.kioskCount() : 0;
+      return `<style>.nbk{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:24px;background:#3a3a3a}
+        .nbk .kr{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px;border-radius:18px;text-align:left;color:inherit;width:100%;box-sizing:border-box}
+        .nbk .kic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:#404040;color:#afafaf}
+        .nbk .kic.on{background:${PINK};color:#2f2f2f}
+        .nbk .kt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .nbk .kt b{font-size:15px;font-weight:500} .nbk .kt i{font-style:normal;font-size:12px;color:#979797;overflow-wrap:anywhere}
+        .nbk .ksep{height:1px;margin:0 10px;background:rgba(255,255,255,0.06)}
+        :host([glass]) .nbk{${M.glassSurface('row')}}</style>
+        <div class="nbx"><span class="gt">Kiosk-modus</span></div>
+        <div class="nbk" data-key="nbkiosk">
+          <div class="kr"><span class="kic ${on ? 'on' : ''}">${M.icon('mdi:fit-to-screen-outline', 22)}</span><span class="kt"><b>Kiosk-modus er ${on ? 'på' : 'av'}</b><i>${esc(ent)}${s ? '' : ' · finnes ikke'} · påvirker ${n} valg</i></span>
+            <button class="trk ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Kiosk-modus" data-a="nbkiosk"><span class="knb"></span></button></div>
+          <div class="ksep"></div>
+          <button class="kr" data-a="nbkset"><span class="kic">${M.icon('mdi:tune-variant', 22)}</span><span class="kt"><b>Kiosk-innstillinger</b><i>Hvem og hva</i></span>${M.icon('mdi:chevron-right', 22, 'color:#7f7f7f')}</button>
+        </div>`;
     }
     _patch(obj) {
       const keys = Object.keys(obj);
@@ -1728,6 +1819,17 @@
         case 'nbmv': { const L = lists()[d.k], i = Number(d.i), j = i + Number(d.d); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; return this._set(d.k, L); }
         case 'nbhide': { const hs = new Set(N.hidden); hs.has(d.id) ? hs.delete(d.id) : hs.add(d.id); if (d.id === 'kart' && !hs.has('kart')) return this._patch({ hidden: hs.size ? [...hs] : undefined, more: N.more }); return this._set('hidden', hs.size ? [...hs] : undefined); }
         case 'nbswap': { const L = lists(), o = d.k === 'bar' ? 'more' : 'bar'; L[d.k] = L[d.k].filter((x) => x !== d.id); L[o].push(d.id); return this._patch({ [d.k]: L[d.k], [o]: L[o] }); }
+        case 'nbkiosk': { // Fiks 23.5: samme som toppkortet i kiosk-arket
+          const h = this._hass, ent = M.kioskEntity && M.kioskEntity();
+          if (!h || !ent || !h.states[ent]) return M.toast && M.toast('Fant ikke ' + (ent || 'bryter-entiteten'));
+          return M.call(h, ent.split('.')[0] === 'input_boolean' ? 'input_boolean' : 'homeassistant', 'toggle', { entity_id: ent });
+        }
+        case 'nbkset': { // kiosk-arket legges oppå dette arket (egen overlay i ki-overlay-root); lukkes → tilbake hit
+          const ov = M.kioskSheet && M.kioskSheet({ hass: this._hass });
+          if (!ov) return M.toast && M.toast('Kiosk-innstillinger er ikke tilgjengelig');
+          ov.onClosed = () => this._render();
+          return;
+        }
         case 'nbadd': { const id = 'egen_' + Date.now().toString(36); const B = { ...(c.buttons || {}), [id]: { custom: true, icon: 'mdi:star', label: 'Ny knapp' } }; this._nbSel = id; return this._patch({ more: [...N.more, id], buttons: B }); }
         case 'nbdel': { const B = { ...(c.buttons || {}) }; delete B[d.id]; const bd = { ...(c.badges || {}) }; delete bd[d.id]; this._nbSel = null;
           return this._patch({ bar: N.bar.filter((x) => x !== d.id), more: N.more.filter((x) => x !== d.id), hidden: [...N.hidden].filter((x) => x !== d.id).length ? [...N.hidden].filter((x) => x !== d.id) : undefined, badges: Object.keys(bd).length ? bd : undefined, buttons: Object.keys(B).length ? B : undefined }); }

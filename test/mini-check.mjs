@@ -432,7 +432,7 @@ for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390
   // trykk (med litt skjelv) åpner funksjonen hver gang
   const hits = [];
   for (const jit of [0, 4, 7]) {
-    await p.evaluate(() => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); document.querySelectorAll('msh-navbar-editor,.msh-sheet').forEach((e) => e.remove()); }); await p.waitForTimeout(300);
+    await p.evaluate(() => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); document.querySelectorAll('msh-navbar-editor,.msh-sheet').forEach((e) => e.remove()); if (window.MSH.portals().length) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); }); await p.waitForTimeout(300); // 23.7: draget over verktøyene kan lande på «Tilpass alt»
     await openMenu();
     const it = (await items())[1];
     await T('touchStart', it.x, it.y); await p.waitForTimeout(80);
@@ -524,6 +524,82 @@ for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390
   const hm = await mini(p);
   ok('22.8 hold på play/pause skjuler mini-spilleren (og lukker det utvidede kortet)', hm.off && hm.m.h === 64, hm);
   ok('ingen sidefeil (22.8)', !errs.length, errs);
+  await p.close();
+}
+/* ---------------- Fiks 23.3: navbaren måler seg selv → --ki-nav-occ-* på dashbord-containeren (+ :root), 'ki-nav-rect', MSH.navOcc() */
+for (const [name, vp, sb, side] of [['telefon', { width: 390, height: 844 }, 0, 'bottom'], ['liggende', { width: 844, height: 390 }, 0, 'left'], ['pc+sidebar', { width: 1440, height: 900 }, 256, 'left']]) {
+  const { p, errs } = await setup(vp, { mini: { on: false } }, sb);
+  const o = await p.evaluate(() => {
+    const d = document.getElementById('dash'), cs = getComputedStyle(d), rs = document.documentElement.style;
+    const v = (k) => parseFloat(cs.getPropertyValue('--ki-nav-occ-' + k)), n = deep('nav.nb').getBoundingClientRect(), D = d.getBoundingClientRect();
+    return { occ: MSH.navOcc(), css: { top: v('top'), right: v('right'), bottom: v('bottom'), left: v('left') }, onDash: !!d.style.getPropertyValue('--ki-nav-occ-left'), root: rs.getPropertyValue('--ki-nav-occ-bottom'),
+      expB: Math.round(innerHeight - n.top + 8), expL: Math.round(n.right - D.left + 8) };
+  });
+  const exp = side === 'bottom' ? { top: 0, right: 0, bottom: o.expB, left: 0 } : { top: 0, right: 0, bottom: 0, left: o.expL };
+  ok(`23.3 ${name}: MSH.navOcc() = ${side} (størrelse + kantavstand + 8)`, JSON.stringify(o.occ) === JSON.stringify(exp), { occ: o.occ, exp });
+  ok(`23.3 ${name}: --ki-nav-occ-* på dashbord-containeren og :root`, o.onDash && o.root !== '' && JSON.stringify(o.css) === JSON.stringify(exp), o);
+  // resize → ny måling + event
+  await p.evaluate(() => { window.__rect = null; window.addEventListener('ki-nav-rect', (e) => { window.__rect = e.detail; }); });
+  await p.setViewportSize(side === 'bottom' ? { width: 844, height: 390 } : { width: 400, height: 800 });
+  await p.waitForTimeout(900);
+  const r2 = await p.evaluate(() => ({ ev: window.__rect, occ: MSH.navOcc() }));
+  ok(`23.3 ${name}: resize/orientering → 'ki-nav-rect' med ny måling`, r2.ev && JSON.stringify(r2.ev) === JSON.stringify(r2.occ) && JSON.stringify(r2.occ) !== JSON.stringify(exp), r2);
+  ok(`ingen sidefeil (23.3 ${name})`, !errs.length, errs);
+  await p.close();
+}
+/* ---------------- Fiks 23.5: «Tilpass navbar» → Kiosk-modus (bryter + Kiosk-innstillinger oppå arket), også i GUI-editoren */
+{
+  const { p, errs } = await setup({ width: 390, height: 844 }, { mini: { on: false } });
+  const r = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms)), M = window.MSH, calls = [], out = {};
+    const H = { ...window.H, states: { ...window.CUR, 'input_boolean.kiosk_mode': { entity_id: 'input_boolean.kiosk_mode', state: 'off', attributes: { friendly_name: 'Kiosk' } } } };
+    H.callService = (d, s, data) => { calls.push([d, s, data && data.entity_id]); return Promise.resolve(); };
+    H.callWS = (m) => Promise.resolve([]);
+    if (M.store && M.store.load) await M.store.load(H);
+    const nb = deep('msh-navbar-card'); nb.hass = H;
+    const txt = (root) => root.textContent.replace(/\s+/g, ' ');
+    // 1) «Tilpass navbar»-arket (kortets egen editor i ki-overlay-root)
+    const n0 = M.portals().length;
+    nb.customize(); await wait(700);
+    const eds = deepAll('msh-navbar-editor'), E = eds[eds.length - 1], R = E.shadowRoot;
+    // rekkefølge i DOM: «Ny knapp»-overskriften → kiosk-kortet → seksjonen «Plassering og oppførsel»
+    const ord = (root) => { const els = [...root.querySelectorAll('.gt, [data-key="nbkiosk"], summary')]; const iN = els.findIndex((e) => e.textContent.trim() === 'Ny knapp'), iK = els.findIndex((e) => e.dataset.key === 'nbkiosk'), iP = els.findIndex((e) => e.localName === 'summary' && /Plassering og oppførsel/.test(e.textContent)); return { iN, iK, iP }; };
+    out.order = ord(R);
+    out.status0 = R.querySelector('[data-key="nbkiosk"]').textContent.replace(/\s+/g, ' ').trim();
+    const hp = []; const onH = (e) => hp.push(e.detail); window.addEventListener('haptic', onH);
+    R.querySelector('[data-a="nbkiosk"]').click(); await wait(80);
+    out.calls = calls.slice(); out.hapTog = hp.length;
+    // bryteren slått på i HA → status følger (og kiosk-arket viser det samme)
+    const H2 = { ...H, states: { ...H.states, 'input_boolean.kiosk_mode': { ...H.states['input_boolean.kiosk_mode'], state: 'on' } } };
+    E.hass = H2; M.kioskHass = H2; await wait(100);
+    out.status1 = R.querySelector('[data-key="nbkiosk"]').textContent.replace(/\s+/g, ' ').trim();
+    const n1 = M.portals().length;
+    hp.length = 0;
+    R.querySelector('[data-a="nbkset"]').click(); await wait(500);
+    const P = M.portals(), top = P[P.length - 1];
+    out.stack = { before: n1, after: P.length, n0 };
+    out.kTop = top.shadowRoot.querySelector('.top') ? top.shadowRoot.querySelector('.top').textContent.replace(/\s+/g, ' ').trim() : null;
+    out.hapSet = hp.length;
+    out.onTop = (() => { const r = top.shadowRoot.querySelector('.sh').getBoundingClientRect(); const el = M.overlayRoot().getRootNode().elementFromPoint(r.left + r.width / 2, r.top + 40); return el === top; })();
+    top.shadowRoot.querySelector('[data-a="close"]').click(); await wait(450);
+    out.back = { n: M.portals().length, edConnected: E.isConnected, status: R.querySelector('[data-key="nbkiosk"]') ? 'ok' : null };
+    window.removeEventListener('haptic', onH);
+    M.portals().forEach((x) => x.remove());
+    // 2) GUI-editoren (getConfigElement) har samme seksjon
+    const G = customElements.get('msh-navbar-card').getConfigElement(); G.hass = H2; G.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); document.body.appendChild(G); await wait(300);
+    const GT = txt(G.shadowRoot);
+    out.gui = { has: GT.includes('Kiosk-modus er på') && GT.includes('input_boolean.kiosk_mode') && !!G.shadowRoot.querySelector('[data-a="nbkset"]'), order: (() => { const o = ord(G.shadowRoot); return o.iN >= 0 && o.iN < o.iK && o.iK < o.iP; })() };
+    G.remove();
+    return out;
+  });
+  ok('23.5 seksjonen ligger mellom «Ny knapp» og «Plassering og oppførsel»', r.order.iN >= 0 && r.order.iN < r.order.iK && r.order.iK < r.order.iP, r.order);
+  ok('23.5 status: «Kiosk-modus er av · input_boolean.kiosk_mode · påvirker N valg»', /Kiosk-modus er av/.test(r.status0) && /input_boolean\.kiosk_mode · påvirker \d+ valg/.test(r.status0) && /Kiosk-innstillinger/.test(r.status0) && /Hvem og hva/.test(r.status0), r.status0);
+  ok('23.5 bryteren = input_boolean.toggle, én haptic', JSON.stringify(r.calls) === JSON.stringify([['input_boolean', 'toggle', 'input_boolean.kiosk_mode']]) && r.hapTog === 1, { calls: r.calls, hap: r.hapTog });
+  ok('23.5 status følger bryter-entiteten (på)', /Kiosk-modus er på/.test(r.status1), r.status1);
+  ok('23.5 «Kiosk-innstillinger» åpner kiosk-arket oppå navbar-arket (samme status)', r.stack.after === r.stack.before + 1 && /Kiosk-modus er på/.test(r.kTop || '') && r.onTop && r.hapSet === 1, { ...r.stack, kTop: r.kTop, onTop: r.onTop, hap: r.hapSet });
+  ok('23.5 kiosk-arket lukkes → tilbake i navbar-arket', r.back.n === r.stack.before && r.back.edConnected && r.back.status === 'ok', r.back);
+  ok('23.5 GUI-editoren har samme seksjon', r.gui.has && r.gui.order, r.gui);
+  ok('ingen sidefeil (23.5)', !errs.length, errs);
   await p.close();
 }
 await b.close();
