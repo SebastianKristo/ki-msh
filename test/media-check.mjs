@@ -412,6 +412,104 @@ for (const vw of [390, 360]) {
   ok(!errs.length, '20.21: feil ' + errs.join(' | '));
   await p.close();
 }
+/* 21.6 · Apper | Innganger på TV-kortet, lister + chip-felt i editoren (apps/inputs/presets), favoritter via browse_media */
+{
+  const tvAttr = { friendly_name: 'Stue TV', device_class: 'tv', source_list: ['Netflix', 'NRK TV', 'HDMI 1', 'HDMI 2 (ARC)', 'Antenna'], source: 'Netflix', app_name: 'Netflix', supported_features: 152461 };
+  const { p, errs } = await page({ default_tab: 'tv', area: 'stue' }, {}, 390, { 'media_player.stue_tv': ['on', tvAttr] });
+  await p.evaluate(() => window.__main.onOpen && window.__main.onOpen());
+  await p.waitForTimeout(300);
+  const chipsNow = () => p.evaluate(() => ({ seg: [...window.__main.shadowRoot.querySelectorAll('.mseg button')].map((b) => (b.classList.contains('on') ? '*' : '') + b.textContent.trim()),
+    ttl: (window.__main.shadowRoot.querySelector('.cs .ttl') || {}).textContent, chips: [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].map((c) => c.textContent.trim()) }));
+  const c1 = await chipsNow();
+  ok(c1.seg.join('|') === '*Apper|Innganger' && c1.chips.join('|') === 'Netflix|NRK TV', '21.6 TV: apper ' + JSON.stringify(c1));
+  await p.evaluate(() => window.__main.shadowRoot.querySelector('.mseg button[data-m="inputs"]').click()); await p.waitForTimeout(200);
+  const c2 = await chipsNow();
+  ok(c2.seg.join('|') === 'Apper|*Innganger' && c2.chips.join('|') === 'HDMI 1|HDMI 2|Antenne' && c2.ttl === 'Innganger', '21.6 TV: innganger ' + JSON.stringify(c2));
+  await clearCalls(p);
+  await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].find((c) => c.textContent.trim() === 'HDMI 2').click()); await p.waitForTimeout(150);
+  const k1 = await calls(p);
+  ok(k1.some((c) => c[1] === 'select_source' && /"source":"HDMI 2 \(ARC\)"/.test(c[2]) && /stue_tv/.test(c[2])), '21.6 TV: select_source ' + JSON.stringify(k1));
+  // Aktiv inngang i TV-infoen
+  await p.evaluate(async () => { const h = { ...window.__h, states: { ...window.__h.states } }; const s = h.states['media_player.stue_tv'];
+    h.states['media_player.stue_tv'] = { ...s, attributes: { ...s.attributes, source: 'HDMI 2 (ARC)', app_name: undefined, media_title: undefined } }; window.__h = h; window.__hero.hass = h; window.__main.hass = h; await new Promise((q) => setTimeout(q, 300)); });
+  const lab = await p.evaluate(() => (window.__hero.shadowRoot.querySelector('.pc[data-key="media_player.stue_tv"]') || {}).textContent);
+  ok(/Stue TV\s*·\s*HDMI 2/.test(lab || ''), '21.6 TV-info: aktiv inngang ' + lab);
+  // GUI-editoren: lister + chip-felt
+  const ed = await p.evaluate(async () => {
+    const w = (ms) => new Promise((q) => setTimeout(q, ms || 60));
+    const ed = window.__main.constructor.getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-media-card' });
+    document.body.appendChild(ed); await w(100);
+    const out = []; ed.addEventListener('config-changed', (e) => { out.push(e.detail.config); ed.setConfig(e.detail.config); });
+    const R = ed.shadowRoot, last = () => out[out.length - 1] || {}, pl = (o) => ((last().players || {})[o] || {});
+    const q = (sel) => R.querySelector(sel), qa = (sel) => [...R.querySelectorAll(sel)];
+    q('[data-a="fn"][data-t="tv"]').click(); await w();
+    const res = {};
+    const blk = (o, k) => q(`[data-key="b21-${o}-${k}"]`);
+    const names = (o, k) => [...blk(o, k).querySelectorAll('input[data-f="name"]')].map((i) => i.value);
+    const chips = (o, k) => [...blk(o, k).querySelectorAll('[data-op="chip"]')].map((c) => (c.getAttribute('aria-pressed') === 'true' ? '✓' : '+') + c.textContent.trim());
+    res.apps0 = names('stue_tv', 'apps'); res.appChips = chips('stue_tv', 'apps');
+    res.in0 = names('stue_tv', 'inputs'); res.inChips = chips('stue_tv', 'inputs');
+    blk('stue_tv', 'apps').querySelector('[data-op="chip"][data-v="NRK TV"]').click(); await w();
+    res.apps1 = (pl('stue_tv').apps || []).map((a) => a.name);
+    blk('stue_tv', 'apps').querySelector('[data-op="add"]').click(); await w();
+    res.apps2 = (pl('stue_tv').apps || []).map((a) => a.name);
+    const ni = [...blk('stue_tv', 'apps').querySelectorAll('input[data-f="name"]')].pop(); ni.value = 'Plex'; ni.dispatchEvent(new Event('change', { bubbles: true, composed: true })); await w();
+    const si = blk('stue_tv', 'apps').querySelector('input[data-f="source"]'); if (si) { si.value = 'Plex'; si.dispatchEvent(new Event('change', { bubbles: true, composed: true })); await w(); }
+    res.apps3 = (pl('stue_tv').apps || []).map((a) => a.name + '/' + (a.source || ''));
+    blk('stue_tv', 'apps').querySelector('[data-op="up"][data-i="1"]').click(); await w();
+    res.apps4 = (pl('stue_tv').apps || []).map((a) => a.name);
+    blk('stue_tv', 'apps').querySelector('[data-op="reset"]').click(); await w();
+    res.appsReset = pl('stue_tv').apps === undefined && names('stue_tv', 'apps').join('|') === 'Netflix|NRK TV';
+    blk('stue_tv', 'inputs').querySelector('[data-op="chip"][data-v="HDMI 1"]').click(); await w();
+    res.in1 = (pl('stue_tv').inputs || []).map((a) => a.name + '/' + a.source);
+    blk('stue_tv', 'inputs').querySelector('[data-op="add"]').click(); await w();
+    res.in2 = (pl('stue_tv').inputs || []).length;
+    blk('stue_tv', 'inputs').querySelector('[data-op="del"][data-i="0"]').click(); await w();
+    res.in3 = (pl('stue_tv').inputs || []).map((a) => a.name);
+    // Musikk: radio (favoritter) + forsterker (source_list)
+    q('[data-a="fn"][data-t="musikk"]').click(); await w(300);
+    res.radioTitle = (blk('kjokken_radio', 'presets') || { textContent: '' }).textContent.includes('Radiostasjoner og snarveier');
+    res.radio0 = names('kjokken_radio', 'presets');
+    res.favChips = chips('kjokken_radio', 'presets');
+    blk('kjokken_radio', 'presets').querySelector('[data-op="chip"][data-ty="favorite"][data-n="Montebello"]').click(); await w();
+    res.radio1 = (pl('kjokken_radio').presets || []).map((x) => x.type + ':' + x.name + ':' + x.target);
+    blk('kjokken_radio', 'presets').querySelector('[data-op="add"][data-ty="favorite"]').click(); await w();
+    res.radio2 = (pl('kjokken_radio').presets || []).slice(-1).map((x) => x.type + ':' + x.name);
+    const fp = blk('kjokken_radio', 'presets').querySelector('[data-op="fav"][data-n="NRK mP3"]'); if (fp) { fp.click(); await w(); }
+    res.radio3 = (pl('kjokken_radio').presets || []).slice(-1).map((x) => x.type + ':' + x.name + ':' + x.target + ':' + x.content_type);
+    blk('kjokken_radio', 'presets').querySelector('[data-op="chip"][data-ty="favorite"][data-n="Montebello"]').click(); await w();
+    res.radio4 = (pl('kjokken_radio').presets || []).some((x) => x.name === 'Montebello');
+    res.ampTitle = (blk('rn602_stue', 'presets') || { textContent: '' }).textContent.includes('Forsterker-innganger og snarveier');
+    res.amp0 = names('rn602_stue', 'presets'); res.ampChips = chips('rn602_stue', 'presets');
+    blk('rn602_stue', 'presets').querySelector('[data-op="chip"][data-ty="source"][data-v="Phono"]').click(); await w();
+    res.amp1 = (pl('rn602_stue').presets || []).map((x) => x.name);
+    blk('rn602_stue', 'presets').querySelector('[data-op="add"][data-ty="source"]').click(); await w();
+    res.amp2 = (pl('rn602_stue').presets || []).slice(-1).map((x) => x.type);
+    res.final = last();
+    ed.remove();
+    return res;
+  });
+  ok(ed.apps0.join('|') === 'Netflix|NRK TV' && ed.appChips.join('|') === '✓Netflix|✓NRK TV', '21.6 editor: apper auto ' + JSON.stringify([ed.apps0, ed.appChips]));
+  ok(ed.in0.join('|') === 'HDMI 1|HDMI 2|Antenne' && ed.inChips.length === 5 && ed.inChips[0] === '✓HDMI 1', '21.6 editor: innganger auto ' + JSON.stringify([ed.in0, ed.inChips]));
+  ok(ed.apps1.join('|') === 'Netflix' && ed.apps2.join('|') === 'Netflix|Ny app' && ed.apps3.join('|') === 'Netflix/Netflix|Plex/Plex' && ed.apps4.join('|') === 'Plex|Netflix' && ed.appsReset, '21.6 editor: apper rediger ' + JSON.stringify([ed.apps1, ed.apps2, ed.apps3, ed.apps4, ed.appsReset]));
+  ok(ed.in1.join('|') === 'HDMI 2/HDMI 2 (ARC)|Antenne/Antenna' && ed.in2 === 3 && ed.in3.join('|') === 'Antenne|Ny inngang', '21.6 editor: innganger rediger ' + JSON.stringify([ed.in1, ed.in2, ed.in3]));
+  ok(ed.radioTitle && ed.radio0.length === 4 && ed.favChips.join('|') === '+Montebello|+NRK P1|+NRK Jazz|+NRK mP3', '21.6 editor: radio ' + JSON.stringify([ed.radio0, ed.favChips]));
+  ok(ed.radio1.length === 5 && ed.radio1[4] === 'favorite:Montebello:item_id:fav0' && ed.radio2[0] === 'favorite:Ny stasjon' && ed.radio3[0] === 'favorite:NRK mP3:item_id:fav3:favorite' && !ed.radio4, '21.6 editor: favoritter ' + JSON.stringify([ed.radio1, ed.radio2, ed.radio3, ed.radio4]));
+  ok(ed.ampTitle && ed.amp0.join('|') === 'Spotify|AirPlay|Net Radio|TV|Phono' && ed.ampChips.every((c) => c[0] === '✓') && ed.amp1.join('|') === 'Spotify|AirPlay|Net Radio|TV' && ed.amp2[0] === 'source', '21.6 editor: forsterker ' + JSON.stringify([ed.amp0, ed.ampChips, ed.amp1, ed.amp2]));
+  // Kortet bruker lagrede lister: radio-favoritt → play_media, forsterker-input → select_source
+  await p.evaluate(async (cfg) => { window.__main.setConfig({ ...cfg, default_tab: 'musikk', area: 'kjokken', now_playing: { style: 'detailed' } }); window.__main.onOpen(); await new Promise((q) => setTimeout(q, 300)); }, ed.final);
+  const mc = await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].map((c) => c.textContent.trim()));
+  await clearCalls(p);
+  await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].find((c) => c.textContent.trim() === 'NRK mP3').click()); await p.waitForTimeout(150);
+  const k2 = await calls(p);
+  ok(mc.includes('NRK mP3') && !mc.includes('Montebello') && k2.some((c) => c[1] === 'play_media' && /item_id:fav3/.test(c[2]) && /kjokken_radio/.test(c[2])), '21.6 radio: play_media ' + JSON.stringify([mc, k2]));
+  await p.evaluate(async (cfg) => { window.__main.setConfig({ ...cfg, default_tab: 'musikk', area: 'stue', now_playing: { style: 'detailed' } }); window.__main.onOpen(); await new Promise((q) => setTimeout(q, 300)); }, ed.final);
+  const ac = await p.evaluate(() => [...window.__main.shadowRoot.querySelectorAll('.cs .chip')].map((c) => c.textContent.trim()));
+  ok(ac.join('|') === 'Spotify|AirPlay|Net Radio|TV|Ny input', '21.6 forsterker: chips ' + JSON.stringify(ac));
+  if (SHOTS) await shot(p, '21-6');
+  ok(!errs.length, '21.6: feil ' + errs.join(' | '));
+  await p.close();
+}
 await b.close();
 console.log(fails.length ? 'FEIL:\n- ' + fails.join('\n- ') : 'OK – media 17.21–17.25 + 19.4/19.5');
 process.exit(fails.length ? 1 : 0);

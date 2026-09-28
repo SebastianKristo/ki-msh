@@ -50,6 +50,25 @@
     if (!n) return '';
     return 'homeassistant://navigate/lovelace?server=' + (r.encode === false ? n : encodeURIComponent(n));
   };
+  // Fiks 21.4 · standard steder (Hjem v3 SERVERS), rekkefølge Oslo, Toten, Strømstad. Skrives til config ÉN gang
+  // (servers + servers_init) ved første lasting – etter det er config sannheten (slettede kommer ikke tilbake).
+  // Tomme url_path/fallback_url → raden vises, trykk gir melding (ingen gjettede URL-er).
+  const DEFAULT_SERVERS = [
+    { name: 'Oslo', icon: 'mdi:city', color: 'var(--green, #66d19e)', url_path: '', fallback_url: '' },
+    { name: 'Toten', icon: 'mdi:barn', color: 'var(--yellow, #f2d26f)', url_path: '', fallback_url: '' },
+    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue, #73b9f2)', url_path: '', fallback_url: '' },
+  ];
+  M.HJEM_DEFAULT_SERVERS = DEFAULT_SERVERS;
+  M.hjemDefaultServers = () => DEFAULT_SERVERS.map((x) => ({ ...x }));
+  // Stedslisten fra config: mangler/tom og aldri initialisert → standardlisten
+  M.hjemServers = function (c) {
+    c = c || {};
+    const l = Array.isArray(c.servers) ? c.servers : [];
+    return !l.length && !c.servers_init ? M.hjemDefaultServers() : l;
+  };
+  // Navn-sammenligning uten store/små bokstaver og uten aksenter (Strømstad = stromstad)
+  M.hjemPlaceKey = (v) => String(v || '').trim().toLowerCase().replace(/ø/g, 'o').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  M.hjemServerHasUrl = (r) => { r = M.hjemServerNorm(r) || {}; return !!(String(r.url_path || '').trim() || String(r.fallback_url || '').trim()); };
   // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
   M.hjemIsApp = function () {
     try {
@@ -1238,17 +1257,17 @@
             { type: 'text', name: 'this_server.name', label: 'Navn på dette stedet', auto: (h, cc) => (cc && cc.place_name) || (h && h.config && h.config.location_name) || 'Hjem', help: 'Vises øverst i «Bytt sted» som «Du er her», og som tittel i «Sted»-oppsettet. Står samme navn i listen under, skjules det der.' },
             { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
             { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
-            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-servere', defaults: () => [], addLabel: 'Legg til sted',
+            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
               help: 'Trykk bytter server i Home Assistant-appen (homeassistant://navigate/lovelace?server=<navn>, samme navn som i appens serverliste). I nettleser brukes «Adresse i nettleser» hvis den er satt, ellers vises en melding.',
-              norm: (list) => list.map((r) => M.hjemServerNorm(r)),
-              title: (r) => r.name || 'Nytt sted', sub: (r) => M.hjemServerUrl(r) || '',
+              norm: (list, cc) => (list.length ? list : M.hjemServers(cc)).map((r) => M.hjemServerNorm(r)),
+              title: (r) => r.name || 'Nytt sted', sub: (r) => (M.hjemServerHasUrl(r) ? M.hjemServerUrl(r) : 'Mangler adresse'),
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
               fields: [
                 { type: 'text', name: 'name', label: 'Navn (som i appens serverliste)' },
                 { type: 'icon', name: 'icon', label: 'Ikon' },
                 { type: 'color', name: 'color', label: 'Farge' },
-                { type: 'text', name: 'url_path', label: 'Lenke (url_path)', auto: (r) => M.hjemServerUrl({ ...r, url_path: '' }) || 'homeassistant://navigate/lovelace?server=…', help: 'Tom = homeassistant://navigate/lovelace?server=<navn>. Lim inn din egen lenke hvis appen vil ha noe annet.' },
+                { type: 'text', name: 'url_path', label: 'Lenke (url_path)', auto: (r) => M.hjemServerUrl({ ...r, url_path: '' }) || 'homeassistant://navigate/lovelace?server=…', help: 'Lenken HA-appen åpner, f.eks. homeassistant://navigate/lovelace?server=<navn>. Er både denne og «Adresse i nettleser» tomme, gir trykk en melding om å legge inn adresse.' },
                 { type: 'boolean', name: 'encode', label: 'URL-kod navnet (Strømstad → Str%C3%B8mstad)', default: true, help: 'Av: navnet brukes slik det er skrevet. Prøv av hvis appen ikke finner serveren.', rowWhen: (r) => !r.url_path },
                 { type: 'text', name: 'fallback_url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
               ] },
@@ -1277,14 +1296,16 @@
     _server() {
       const c = this.config, h = this.hass;
       const ts = c.this_server && typeof c.this_server === 'object' ? c.this_server : {};
-      const list = (Array.isArray(c.servers) ? c.servers : []).map((x) => M.hjemServerNorm(x)).filter((x) => x && x.name);
+      const list = M.hjemServers(c).map((x) => M.hjemServerNorm(x)).filter((x) => x && x.name);
       const org = (u) => { try { return new URL(u).origin; } catch (e) { return null; } };
       const hu = h && h.auth && h.auth.data && h.auth.data.hassUrl;
       const mine = [location.origin, org(hu)].filter(Boolean);
-      const same = (x, y) => String(x || '').trim().toLowerCase() === String(y || '').trim().toLowerCase();
+      const same = (x, y) => M.hjemPlaceKey(x) === M.hjemPlaceKey(y);
       let name = String(ts.name || c.place_name || '').trim();
       let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
       if (cur < 0) cur = list.findIndex((x) => x.fallback_url && mine.includes(org(x.fallback_url)));
+      // Fiks 21.4: ingen this_server → stedet som matcher hass.config.location_name (uten case/aksenter); ingen treff → ingen markering
+      if (cur < 0 && !name && h && h.config && h.config.location_name) cur = list.findIndex((x) => same(x.name, h.config.location_name));
       if (!name) name = cur >= 0 ? list[cur].name : (h && h.config && h.config.location_name) || 'Hjem';
       const cs = cur >= 0 ? list[cur] : {};
       let host = location.hostname || '';
@@ -1520,6 +1541,8 @@
     // Bytt server: i HA-appen via HAs url-handling (hass-action → tap_action: url, som brukerens eget oppsett),
     // i nettleser: fallback_url hvis satt, ellers melding. Aldri location.href til en http-adresse.
     _goServer(v) {
+      // Fiks 21.4: stedet mangler adresse (url_path og fallback_url tomme) → melding, ingen gjettet URL
+      if (!M.hjemServerHasUrl(v)) { M.hjemToast(this, 'Legg inn adresse i Tilpass header → Steder'); return 'missing'; }
       const url = M.hjemServerUrl(v), fb = String((M.hjemServerNorm(v) || {}).fallback_url || '').trim();
       const deep = /^homeassistant:\/\//i.test(url);
       if (!url || (deep && !M.hjemIsApp())) {
@@ -1628,8 +1651,23 @@
       this._modeMig = true;
       try { Promise.resolve(M.store.set(key + '.mode', 'hilsen')).catch(() => {}); } catch (e) { /* */ }
     }
+    // Fiks 21.4: standardstedene skrives til config (ki-store) én gang; servers_init hindrer at slettede kommer tilbake.
+    _seedServers() {
+      const raw = this._rawConfig || {};
+      if (this._srvSeed || raw.servers_init) return;
+      if (!this.hass || !M.store || !M.store.loaded || M.draftOf(this)) return;
+      const key = this._yamlConfig ? M.storeKey(this._yamlConfig, this) : null;
+      if (!key) return;
+      this._srvSeed = true;
+      const has = Array.isArray(raw.servers) && raw.servers.length;
+      try {
+        if (!has) Promise.resolve(M.store.set(key + '.servers', M.hjemDefaultServers())).catch(() => {});
+        Promise.resolve(M.store.set(key + '.servers_init', true)).catch(() => {});
+      } catch (e) { /* */ }
+    }
     afterRender() {
       this._migrateMode();
+      this._seedServers();
       // Fiks 16.2: msh-hjem-card setter avstanden til prosaen (prose_gap) – si fra når headerens config er tegnet
       const host = this.getRootNode && this.getRootNode().host;
       if (host && typeof host._proseGap === 'function') host._proseGap();

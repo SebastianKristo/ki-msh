@@ -657,6 +657,51 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-ringeklokke-card
+          # Energi (fiks 21.1): strøm og vann fra HAs Energi-oppsett – navbar (Energi), hold på strømpris-kortet, effekt-boblen
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Energi
+            icon: mdi:lightning-bolt
+            state: null
+            hash: '#energi'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-energi-card
+                card_id: pop-energi
           # Kart (fiks 20.22): fullskjerm, uten Bubble-header (kartet har egen topp med ×), navbaren ligger over
           - type: custom:bubble-card
             card_type: pop-up

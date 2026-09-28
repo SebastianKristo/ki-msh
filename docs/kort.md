@@ -1060,7 +1060,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
+| `players.stue_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
 | `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
@@ -1078,7 +1078,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
@@ -1096,7 +1096,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.prosjektor.volume_up` | Volum opp · entity | Prosjektor · TV |
 | `players.prosjektor.volume_down` | Volum ned · entity | Prosjektor · TV |
 | `players.prosjektor.volume_mute` | Demp · entity | Prosjektor · TV |
-| `players.prosjektor.hide_sources` | Skjul apper (kommaseparert) | Prosjektor · TV |
+| `players.prosjektor.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Prosjektor · TV |
 | `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
 | `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
@@ -1130,7 +1130,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
 | `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
+| `players.stue_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
 | `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
@@ -1148,7 +1148,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
+| `players.soverom_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
 | `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
@@ -1166,7 +1166,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.prosjektor.volume_up` | Volum opp · entity | Prosjektor · TV |
 | `players.prosjektor.volume_down` | Volum ned · entity | Prosjektor · TV |
 | `players.prosjektor.volume_mute` | Demp · entity | Prosjektor · TV |
-| `players.prosjektor.hide_sources` | Skjul apper (kommaseparert) | Prosjektor · TV |
+| `players.prosjektor.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Prosjektor · TV |
 | `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
 | `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
@@ -1520,3 +1520,11 @@ Kart-popup (#kart): fullskjerm-kart med personer, biler, soner og kollektiv i sa
 | `transit` | Vis busser og trikker i sanntid (Entur) · boolean | Kollektiv |
 | `start` | Startvisning (fit \| home \| me) | Visning |
 | `style` | Kartstil (dark \| standard \| satellite) | Visning |
+
+## `msh-energi-card`
+
+Energi-popup (#energi): hus med strømflyt, snarveier, strøm, strømpriser, toppforbrukere og vann fra HAs Energi-oppsett.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+

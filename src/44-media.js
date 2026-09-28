@@ -25,7 +25,7 @@
   // Merkevarefarger/ikoner for kjente apper/kilder (stil, ikke data).
   const APPS = [[/netflix/i, '#e50914', 'movie'], [/youtube/i, '#ff0000', 'smart_display'], [/nrk/i, '#00b9f2', 'live_tv'], [/tv ?2/i, '#2b6ef2', 'tv'], [/telia/i, '#990ae3', 'smart_display'], [/plex/i, '#e5a00d', 'play_circle'],
     [/spotify/i, '#1db954', 'graphic_eq'], [/disney/i, '#113ccf', 'movie'], [/hbo|^max$/i, '#5822b4', 'movie'], [/viaplay/i, '#e3001b', 'movie'], [/prime|amazon/i, '#00a8e1', 'movie'], [/apple ?tv|tv\+/i, null, 'mdi:apple'],
-    [/airplay/i, null, 'airplay'], [/hdmi/i, null, 'mdi:video-input-hdmi'], [/radio|tunein/i, null, 'radio'], [/phono|vinyl|turntable/i, null, 'album'], [/bluetooth/i, null, 'mdi:bluetooth'], [/^tv$|optical|arc|tv audio/i, null, 'tv'], [/aux|line/i, null, 'mdi:audio-input-rca']];
+    [/airplay/i, null, 'airplay'], [/hdmi/i, null, 'mdi:video-input-hdmi'], [/radio|tunein/i, null, 'radio'], [/phono|vinyl|turntable/i, null, 'album'], [/bluetooth/i, null, 'mdi:bluetooth'], [/^cd\b|\bcd$/i, null, 'mdi:disc'], [/optical|optisk|coax/i, null, 'mdi:waveform'], [/usb/i, null, 'mdi:usb'], [/antenn|tuner|dvb/i, null, 'mdi:antenna'], [/^tv$|arc|tv audio/i, null, 'tv'], [/aux|line/i, null, 'mdi:audio-input-rca']];
   const appStyle = (name) => { for (const [re, col, icon] of APPS) if (re.test(String(name || ''))) return { col, icon }; return { col: null, icon: null }; };
   const TABS = [['tv', 'TV'], ['musikk', 'Musikk']];
   const obj = (id) => String(id).split('.').slice(1).join('.');
@@ -151,6 +151,53 @@
     return ['homeassistant', 'turn_on'];
   };
   const autoShortcuts = (hass, p) => sameDevice(hass, p.id, ['button', 'input_button', 'script', 'scene']);
+
+  /* ------------------------------------------------------------ Fiks 21.6: apper, innganger og snarveier per spiller
+   * players.<obj>.apps    = [{ name, icon, color, source, app_id }]           (TV · Apper; tom config = autokonfig fra source_list)
+   * players.<obj>.inputs  = [{ name, source, icon }]                           (TV · Innganger; auto = HDMI 1/2/3 · ARC/Antenne ∩ source_list)
+   * players.<obj>.presets = [{ name, icon, type, target, content_type }]       (Musikk; type favorite | script | button | source)
+   * Ingen hardkodede lister: chip-feltene i editoren kommer fra source_list / media_player/browse_media (Favoritter). */
+  const INPUT_RE = /hdmi|antenn|antenna|^tv$|live ?tv|tuner|dvb|terrestrial|kabel-?tv|satellit|composite|component|^av\b|scart|^usb|optical|optisk|\b(e)?arc\b|displayport|^dp\b|^pc$|vga/i;
+  const srcList = (hass, id) => {
+    const a = ((hass && hass.states[id]) || {}).attributes || {};
+    return [...new Set([].concat(Array.isArray(a.source_list) ? a.source_list : [], Array.isArray(a.app_list) ? a.app_list : []).map(String))];
+  };
+  const hideOf = (p) => String(p.pc.hide_sources || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const DEF_INPUTS = [['HDMI 1', /hdmi[ _-]?1\b/i], ['HDMI 2', /hdmi[ _-]?2\b/i], ['HDMI 3 · ARC', /hdmi[ _-]?3\b|\b(e)?arc\b/i], ['Antenne', /antenn|antenna|^tv$|live ?tv|tuner|dvb|terrestrial/i]];
+  const appFrom = (n) => { const st = appStyle(n); return { name: n, icon: st.icon || 'apps', color: st.col || '', source: n }; };
+  const inputFrom = (n, name) => ({ name: name || n, source: n, icon: name === 'Antenne' ? 'mdi:antenna' : appStyle(n).icon || 'mdi:video-input-hdmi' });
+  const autoApps = (hass, p) => { const hide = hideOf(p); return srcList(hass, p.id).filter((n) => !INPUT_RE.test(n) && !hide.includes(n.toLowerCase())).map(appFrom); };
+  const autoInputs = (hass, p) => {
+    const L = srcList(hass, p.id), used = new Set();
+    return DEF_INPUTS.map(([nm, re]) => { const s = L.find((x) => re.test(x) && !used.has(x)); if (!s) return null; used.add(s); return inputFrom(s, nm); }).filter(Boolean);
+  };
+  const scType = (id) => (/^(input_)?button\./.test(id) ? 'button' : 'script');
+  const autoPresets = (hass, p) => {
+    const sc = Array.isArray(p.pc.shortcuts) && p.pc.shortcuts.length ? p.pc.shortcuts : autoShortcuts(hass, p), hide = hideOf(p);
+    return [...sc.map((id) => ({ name: M.name(hass, id, p.name), type: scType(id), target: id })),
+      ...srcList(hass, p.id).filter((n) => !hide.includes(n.toLowerCase())).map((n) => ({ name: n, icon: appStyle(n).icon || 'mdi:import', type: 'source', target: n }))];
+  };
+  const LISTS = { apps: autoApps, inputs: autoInputs, presets: autoPresets };
+  // Liste for spilleren: config (også tom liste = brukeren har fjernet alt) ellers autokonfig
+  const listOf = (hass, p, kind) => (Array.isArray(p.pc[kind]) ? p.pc[kind].filter((x) => x && typeof x === 'object') : LISTS[kind](hass, p));
+  // Media-nettleseren: Favoritter (Squeezebox/LMS, Music Assistant …) per spiller, mellomlagret 60 s. cb kalles når svaret kommer.
+  const FAV = {};
+  const favorites = (hass, id, cb) => {
+    const f = FAV[id];
+    if (f && (f.busy || Date.now() - f.t < 60000)) { if (f.busy && cb) f.cbs.add(cb); return f.list; }
+    if (!hass || !hass.callWS) return null;
+    const o = FAV[id] = { t: Date.now(), list: f ? f.list : null, busy: true, cbs: new Set(cb ? [cb] : []) };
+    const ws = (x) => hass.callWS({ type: 'media_player/browse_media', entity_id: id, ...(x || {}) });
+    const done = (list) => { o.list = list; o.busy = false; o.t = Date.now(); o.cbs.forEach((c) => { try { c(); } catch (e) { /* */ } }); o.cbs.clear(); };
+    ws().then(async (root) => {
+      const ch = (root && root.children) || [];
+      const fav = ch.find((c) => /favou?rit/i.test(c.title || '') || /favou?rit/i.test(c.media_content_type || '') || /favou?rit/i.test(c.media_content_id || ''));
+      const r = fav ? await ws({ media_content_id: fav.media_content_id, media_content_type: fav.media_content_type }) : null;
+      done(((r && r.children) || []).filter((c) => c && c.can_play !== false && c.media_content_id).map((c) => ({ title: c.title || c.media_content_id, id: c.media_content_id, type: c.media_content_type || 'music' })));
+    }).catch(() => done([]));
+    return o.list;
+  };
+  M.mediaFavorites = favorites;
 
   /* ------------------------------------------------------------ volum-rad (Fiks 17.21 / 17.23) – felles hjelper
    * MSH.volumeRow – brukes av msh-media-card (TV og Musikk) og kan brukes av Rom → Media (17.4):
@@ -360,7 +407,10 @@
     const off = !s || ['off', 'standby', 'unavailable', 'unknown'].includes(s.state);
     const run = !!s && s.state === 'playing';
     const tv = p.kind === 'tv';
-    const app = tv ? (a.app_name || a.source || '') : (a.media_channel || a.source || a.app_name || '');
+    // Fiks 21.6: aktiv inngang (attributes.source) vises i TV-infoen – med navnet fra Innganger-listen
+    const inO = tv && a.source && a.source !== a.app_name ? listOf(hass, p, 'inputs').find((x) => x.source === a.source) : null;
+    const inp = inO ? inO.name || a.source : tv && a.source && a.source !== a.app_name && INPUT_RE.test(a.source) ? a.source : '';
+    const app = tv ? (a.app_name || inp || a.source || '') : (a.media_channel || a.source || a.app_name || '');
     const st = appStyle(app);
     let title, artist;
     if (off) { title = s && s.state === 'unavailable' ? 'Utilgjengelig' : 'Av'; artist = p.name; }
@@ -373,8 +423,8 @@
     const pic = pic0 ? (pic0[0] === '/' && hass.hassUrl ? hass.hassUrl(pic0) : pic0) : '';
     const icon = p.pc.icon || a.icon || (tv ? 'tv' : a.device_class === 'receiver' ? 'speaker' : /radio/i.test(p.id + p.name) ? 'radio' : 'speaker');
     return {
-      s, a, off, run, tv, app, title, artist, pic, icon,
-      label: app ? `${p.name} · ${app}` : p.name,
+      s, a, off, run, tv, app, inp, title, artist, pic, icon,
+      label: [p.name, app, inp && inp !== app ? inp : ''].filter(Boolean).join(' · '),
       col: tv ? st.col : null,
       artIcon: tv ? (st.icon || 'apps') : (appStyle(a.source).icon || 'music_note'),
     };
@@ -409,6 +459,128 @@
     },
   });
 
+  /* Fiks 21.6 · editor-blokk per spiller (Media v4 · Oppsett cfgSrc/cfgMus): lister med navn/ikon/farge/kilde/app-ID,
+   * rekkefølge, slett, «Legg til …», «Tilbakestill» (= autokonfig) + chip-felt fra HA (✓ = med, + = ikke med).
+   * Samme felt i kortets egen editor og GUI-editoren (schema) → lagres i players.<obj>.apps | inputs | presets. */
+  const APPCOL = ['#e5a00d', '#00b9f2', '#990ae3', '#2b6ef2', '#ff0000', '#e50914', '#1db954', '#fafafa', '#404040'];
+  const PTYPES = [['favorite', 'Favoritt'], ['script', 'Script'], ['button', 'Button'], ['source', 'Input']];
+  let ED_ROW = null; // åpen rad i editoren (UI-tilstand): '<obj>:<kind>:<i>'
+  const edPlayer = (ed, obj) => (ed._hass ? M.mediaPlayers(ed._hass, ed._config || {}, true).all.find((x) => x.obj === obj) : null);
+  const edPut = (ed, p, kind, list) => ed._set(`players.${p.obj}.${kind}`, list);
+  const isAmp = (h, p) => { const a = ((h.states[p.id] || {}).attributes) || {}; return srcList(h, p.id).length > 0 && (a.device_class === 'receiver' || !(Number(a.supported_features) & 131072)); };
+  const srcField = (p) => ({
+    type: 'html',
+    click: (d, ed) => {
+      const P = edPlayer(ed, d.po), h = ed._hass;
+      if (!P) return;
+      const kind = d.kind, L = listOf(h, P, kind).map((x) => ({ ...x })), i = Number(d.i);
+      M.haptic(d.op === 'chip' || d.op === 'type' || d.op === 'col' ? 'selection' : 'light');
+      switch (d.op) {
+        case 'open': ED_ROW = ED_ROW === `${P.obj}:${kind}:${i}` ? null : `${P.obj}:${kind}:${i}`; return ed._render();
+        case 'up': case 'down': { const j = i + (d.op === 'up' ? -1 : 1); if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; ED_ROW = null; return edPut(ed, P, kind, L); }
+        case 'del': L.splice(i, 1); ED_ROW = null; return edPut(ed, P, kind, L);
+        case 'reset': ED_ROW = null; if (kind === 'presets' && P.pc.shortcuts) ed._set(`players.${P.obj}.shortcuts`, undefined); return ed._set(`players.${P.obj}.${kind}`, undefined);
+        case 'add': {
+          const n = { apps: { name: 'Ny app', icon: 'apps', color: '#404040', source: '', app_id: '' }, inputs: { name: 'Ny inngang', source: '', icon: 'mdi:video-input-hdmi' } }[kind]
+            || (d.ty === 'favorite' ? { name: 'Ny stasjon', icon: 'radio', type: 'favorite', target: '' } : d.ty === 'source' ? { name: 'Ny input', icon: 'mdi:import', type: 'source', target: '' } : { name: 'Ny snarvei', icon: 'mdi:gesture-tap-button', type: 'script', target: '' });
+          L.push(n); ED_ROW = `${P.obj}:${kind}:${L.length - 1}`; return edPut(ed, P, kind, L);
+        }
+        case 'type': if (!L[i]) return; L[i].type = d.ty; if (d.ty !== 'favorite') delete L[i].content_type; return edPut(ed, P, kind, L);
+        case 'col': if (!L[i]) return; L[i].color = d.c; return edPut(ed, P, kind, L);
+        case 'fav': { // velg favoritt fra Media-nettleseren for en rad
+          if (!L[i]) return; const nameDef = !L[i].name || /^Ny /.test(L[i].name);
+          Object.assign(L[i], { type: 'favorite', target: d.v, content_type: d.ct || 'music' }); if (nameDef) L[i].name = d.n;
+          return edPut(ed, P, kind, L);
+        }
+        case 'chip': { // chip-felt: legg til / fjern
+          const t = d.ty, v = d.v, key = (x) => (kind === 'presets' ? x.type === t && x.target === v : x.source === v);
+          const k = L.findIndex(key);
+          if (k >= 0) { L.splice(k, 1); ED_ROW = null; return edPut(ed, P, kind, L); }
+          if (kind === 'apps') L.push(appFrom(v));
+          else if (kind === 'inputs') L.push(inputFrom(v));
+          else if (t === 'favorite') L.push({ name: d.n || v, icon: 'radio', type: 'favorite', target: v, content_type: d.ct || 'music' });
+          else L.push({ name: v, icon: appStyle(v).icon || 'mdi:import', type: 'source', target: v });
+          return edPut(ed, P, kind, L);
+        }
+        default:
+      }
+    },
+    html: (h, c, key, ed) => {
+      if (!h) return '';
+      const P = M.mediaPlayers(h, c, true).all.find((x) => x.obj === p.obj) || p, tv = P.kind === 'tv';
+      // Tekstfelt (navn/kilde/app-ID/ikon/mål): egen change-lytter (editoren håndterer bare data-name)
+      if (ed && ed.shadowRoot && !ed.__mm21) {
+        ed.__mm21 = true;
+        ed.shadowRoot.addEventListener('change', (e) => {
+          const t = e.target, dd = t && t.dataset;
+          if (!dd || !dd.mm) return;
+          e.stopPropagation();
+          const Q = edPlayer(ed, dd.po);
+          if (!Q) return;
+          const L = listOf(ed._hass, Q, dd.mm).map((x) => ({ ...x })), i = Number(dd.i);
+          if (!L[i]) return;
+          const v = String(t.value || '').trim();
+          if (v) L[i][dd.f] = v; else delete L[i][dd.f];
+          edPut(ed, Q, dd.mm, L);
+        });
+      }
+      const btn = (op, kind, i, extra, inner, title, cls) => `<button class="${cls || 'ib'}" data-a="fn" data-k="${key}" data-po="${esc(P.obj)}" data-kind="${kind}" data-op="${op}" data-i="${i}" ${extra || ''} ${title ? `title="${esc(title)}" aria-label="${esc(title)}"` : ''}>${inner}</button>`;
+      const inp = (kind, i, f, v, ph, st) => `<input class="inp" data-mm="${kind}" data-po="${esc(P.obj)}" data-i="${i}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" autocapitalize="off" autocorrect="off" spellcheck="false" style="height:34px;font-size:13px;min-width:0;background:#282828;${st || ''}">`;
+      const lab = (t, x) => `<label style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="hl" style="font-size:11px;color:#979797">${esc(t)}</span>${x}</label>`;
+      const favs = !tv ? favorites(h, P.id, () => ed && ed._render && ed._render()) : null;
+      const row = (kind, x, i, n) => {
+        const open = ED_ROW === `${P.obj}:${kind}:${i}`;
+        const ic = x.icon || (kind === 'apps' ? 'apps' : kind === 'inputs' ? 'mdi:video-input-hdmi' : x.type === 'source' ? 'mdi:import' : 'radio');
+        const col = kind === 'apps' && x.color ? x.color : '#404040';
+        const chip = btn('open', kind, i, `style="width:36px;height:36px;border-radius:12px;background:${esc(col)};color:${col === '#fafafa' ? '#282828' : '#fff'};${open ? 'box-shadow:0 0 0 2px #fafafa' : ''}"`, M.icon(ic, 18), open ? 'Lukk' : 'Rediger', 'ib');
+        const nm = kind === 'presets' && !x.name && x.target && x.type !== 'source' && x.type !== 'favorite' ? M.name(h, x.target, P.name) : x.name;
+        const head = `<div class="line">${chip}${inp(kind, i, 'name', nm, 'Navn', 'flex:1;font-weight:500')}
+          ${btn('up', kind, i, i ? '' : 'disabled style="opacity:.3"', M.icon('mdi:chevron-up', 20), 'Flytt opp')}
+          ${btn('down', kind, i, i < n - 1 ? '' : 'disabled style="opacity:.3"', M.icon('mdi:chevron-down', 20), 'Flytt ned')}
+          ${btn('del', kind, i, 'style="background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)"', M.icon('mdi:delete-outline', 18), 'Fjern')}</div>`;
+        let body = '';
+        if (kind === 'presets') {
+          const ty = x.type || 'script';
+          const seg = `<div class="chips sg tsub" style="flex:none">${PTYPES.map(([v, l]) => btn('type', kind, i, `data-ty="${v}"`, esc(l), '', 'chip' + (v === ty ? ' on' : ''))).join('')}</div>`;
+          const ph = ty === 'source' ? 'Navn på input, f.eks. Spotify' : ty === 'favorite' ? 'media_content_id fra Media-nettleseren' : `${ty}.…`;
+          const svc = ty === 'source' ? `media_player.select_source → ${P.id}` : ty === 'favorite' ? `media_player.play_media → ${P.id}` : x.target ? `${svcFor(x.target).join('.')} → ${x.target}` : 'script.turn_on / button.press';
+          body = `${seg}${inp(kind, i, 'target', x.target, ph)}<span class="hl" style="font-size:11px;color:#979797">${esc(svc)}</span>`;
+          if (ty === 'favorite' && open && favs && favs.length) body += `<div class="chips">${favs.map((f) => btn('fav', kind, i, `data-v="${esc(f.id)}" data-ct="${esc(f.type)}" data-n="${esc(f.title)}"`, esc(f.title), '', 'chip' + (f.id === x.target ? ' on' : ''))).join('')}</div>`;
+          if (open) body += lab('Ikon', inp(kind, i, 'icon', x.icon, 'mdi:radio'));
+        } else if (open) {
+          const F = kind === 'apps' ? [['Kilde', 'source', 'Navn på kilde i HA'], ['App-ID', 'app_id', 'no.nrk.nrktvapp'], ['Ikon', 'icon', 'mdi:netflix']] : [['Kilde i HA', 'source', 'f.eks. HDMI 1'], ['Ikon', 'icon', 'mdi:video-input-hdmi']];
+          body = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px">${F.map(([l, f, ph]) => lab(l, inp(kind, i, f, x[f], ph))).join('')}</div>`;
+          if (kind === 'apps') body += `<div class="chips">${APPCOL.map((cc) => btn('col', kind, i, `data-c="${cc}" style="width:26px;height:26px;border-radius:13px;background:${cc};${x.color === cc ? 'box-shadow:0 0 0 2px #3a3a3a,0 0 0 4px #fafafa' : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2)'}"`, '', 'Farge ' + cc, 'ib')).join('')}</div>`;
+        } else if (x.source) body = `<span class="hl" style="font-size:11px;color:#979797">${esc('select_source · ' + x.source)}</span>`;
+        return `<div class="f" data-key="r21-${esc(P.obj)}-${kind}-${i}" style="background:#2f2f2f;gap:8px;padding:8px">${head}${body}</div>`;
+      };
+      const chipsF = (kind, t, label, items, sel) => `<div style="display:flex;flex-direction:column;gap:6px;padding-top:4px"><span class="hl" style="font-size:11px;color:#979797">${esc(label)}</span>
+        ${items === null ? '<span class="small">Henter fra Home Assistant …</span>' : items.length ? `<div class="chips">${items.map((it) => { const on = sel(it); return btn('chip', kind, -1, `data-ty="${t}" data-v="${esc(it.v)}" data-n="${esc(it.n || it.v)}" ${it.ct ? `data-ct="${esc(it.ct)}"` : ''} aria-pressed="${on}"`, `${M.icon(on ? 'mdi:check' : 'mdi:plus', 16)}${esc(it.n || it.v)}`, '', 'chip' + (on ? ' on' : '')); }).join('')}</div>` : '<span class="small">Fant ingen i Home Assistant</span>'}</div>`;
+      const block = (kind, title, count, addBtns, chipsHtml) => {
+        const L = listOf(h, P, kind), auto = !Array.isArray(P.pc[kind]);
+        return `<div class="sec" data-key="b21-${esc(P.obj)}-${kind}" style="display:flex;flex-direction:column;gap:8px;padding:12px;background:#404040">
+          <div class="line"><span style="flex:1;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#afafaf">${esc(title)}</span><span class="small">${L.length}${auto ? ' · auto' : ''}</span></div>
+          ${L.map((x, i) => row(kind, x, i, L.length)).join('') || `<span class="small">Ingen ${esc(count)}</span>`}
+          <div class="line" style="flex-wrap:wrap">${addBtns}${btn('reset', kind, -1, 'style="height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:#afafaf;background:#2f2f2f;flex:none"', 'Tilbakestill', 'Tilbake til autokonfig', 'chip')}</div>
+          ${chipsHtml}</div>`;
+      };
+      const addB = (kind, label, t) => btn('add', kind, -1, `${t ? `data-ty="${t}"` : ''} style="flex:1 1 auto;height:44px;border-radius:22px;background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);justify-content:center;font-size:13px"`, `${M.icon('mdi:plus', 18)}${esc(label)}`, '', 'chip');
+      const S = srcList(h, P.id);
+      if (tv) {
+        const A = listOf(h, P, 'apps'), I = listOf(h, P, 'inputs');
+        const appItems = S.filter((n) => !INPUT_RE.test(n)).map((v) => ({ v })), inItems = [...S.filter((n) => INPUT_RE.test(n)), ...S.filter((n) => !INPUT_RE.test(n))].map((v) => ({ v }));
+        return block('apps', 'Apper', 'apper', addB('apps', 'Legg til app'), chipsF('apps', 'app', 'Apper fra Home Assistant', appItems, (it) => A.some((x) => x.source === it.v)))
+          + block('inputs', 'Innganger', 'innganger', addB('inputs', 'Legg til inngang'), chipsF('inputs', 'in', 'Innganger fra Home Assistant (source_list)', inItems, (it) => I.some((x) => x.source === it.v)));
+      }
+      const R = listOf(h, P, 'presets'), amp = isAmp(h, P);
+      const favC = !amp || favs === null || (favs && favs.length) ? chipsF('presets', 'favorite', 'Stasjoner fra Home Assistant (Favoritter)', favs === undefined ? [] : favs && favs.map((f) => ({ v: f.id, n: f.title, ct: f.type })), (it) => R.some((x) => x.type === 'favorite' && x.target === it.v)) : '';
+      const srcC = S.length ? chipsF('presets', 'source', amp ? 'Forsterker-innganger fra Home Assistant (source_list)' : 'Kilder fra Home Assistant (source_list)', S.map((v) => ({ v })), (it) => R.some((x) => x.type === 'source' && x.target === it.v)) : '';
+      return block('presets', amp ? 'Forsterker-innganger og snarveier' : 'Radiostasjoner og snarveier', 'snarveier',
+        (amp ? addB('presets', 'Forsterker-input', 'source') : addB('presets', 'Radiostasjon', 'favorite')) + addB('presets', 'Snarvei', 'script'),
+        amp ? srcC + favC : favC + srcC);
+    },
+  });
+
   const baseSchema = (h, c, common) => {
     c = c || {};
     const P = h ? M.mediaPlayers(h, c, true).all : [], tab = ED_TAB;
@@ -439,14 +611,14 @@
             { type: 'entity', name: b + '.volume_up', label: 'Volum opp', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_up' },
             { type: 'entity', name: b + '.volume_down', label: 'Volum ned', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_down' },
             { type: 'entity', name: b + '.volume_mute', label: 'Demp', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_mute' },
-            { type: 'text', name: b + '.hide_sources', label: 'Skjul apper (kommaseparert)', placeholder: 'f.eks. HDMI 1, Innstillinger' },
+            srcField(p),
+            { type: 'text', name: b + '.hide_sources', label: 'Skjul apper i autokonfig (kommaseparert)', placeholder: 'f.eks. Innstillinger' },
             { type: 'entity', name: b + '.volume_sensor', label: 'Volum-sensor (faktisk nivå)', domains: ['sensor'], auto: () => volSensor(h, p), help: 'Brukes i stedet for estimert nivå ved knapp-volum' },
             { type: 'entities', name: b + '.watch', label: 'Skjermtid i dag (sensor, første brukes i kortet)', domain: 'sensor' },
           );
         } else {
-          const auto = autoShortcuts(h, p);
           fields.push(
-            { type: 'entities', name: b + '.shortcuts', label: 'Snarveier (button/script/scene)', domains: ['button', 'input_button', 'script', 'scene'], help: `Tom = knapper på samme enhet (${auto.length} funnet)` },
+            srcField(p),
             { type: 'text', name: b + '.chip_title', label: 'Tittel over snarveier', placeholder: 'Radio / Kilde' },
             { type: 'text', name: b + '.hide_sources', label: 'Skjul kilder (kommaseparert)', placeholder: 'f.eks. Bluetooth, USB' },
           );
@@ -786,9 +958,9 @@
           bot = `${bar(PINK)}<div class="tm"><span class="t0">${fmtT(P.pos)}</span><span class="nx ell">${esc(pl)}</span><span class="t1">${fmtT(P.dur)}</span></div>`;
         } else if (!tv && (a.media_title || a.media_channel) && ['playing', 'paused', 'buffering'].includes(s.state)) {
           // Radio / direkte: neste snarvei i listen
-          const sc2 = Array.isArray(p.pc.shortcuts) && p.pc.shortcuts.length ? p.pc.shortcuts : autoShortcuts(h, p);
+          const sc2 = listOf(h, p, 'presets').filter((x) => x.type !== 'source');
           const hay = [a.media_title, a.media_artist, a.media_channel, a.media_album_name, a.source].filter(Boolean).join(' | ').toLowerCase();
-          const nm = sc2.map((id) => M.name(h, id, p.name)), cur = nm.findIndex((n) => n.length > 2 && hay.includes(n.toLowerCase()));
+          const nm = sc2.map((x) => x.name || (x.type === 'favorite' ? x.target : M.name(h, x.target, p.name)) || ''), cur = nm.findIndex((n) => n.length > 2 && hay.includes(n.toLowerCase()));
           const nx = cur >= 0 && nm.length > 1 ? nm[(cur + 1) % nm.length] : '';
           bot = `<div class="lrow">${liveTag}${nx ? `<span class="nx ell">Neste: ${esc(nx)}</span>` : ''}</div>`;
         }
@@ -1032,35 +1204,39 @@
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
-      // Chips: apper (TV) / snarveier + kilder (musikk)
-      const hide = String(p.pc.hide_sources || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
-      const src = (Array.isArray(a.source_list) ? a.source_list : []).filter((x) => !hide.includes(String(x).toLowerCase()));
+      // Chips (Fiks 21.6): TV = Apper | Innganger (players.<obj>.apps / inputs), Musikk = snarveier (players.<obj>.presets) – config eller autokonfig
       const hay = [a.media_title, a.media_artist, a.media_channel, a.media_album_name, a.source].filter(Boolean).join(' | ').toLowerCase();
-      let chips = [], title;
+      let chips = [], title, seg = '', mode = null;
       const pl = platOf(h, p), RC = REMOTE[pl];
       if (I.tv) {
-        chips = src.map((n) => { const st = appStyle(n); return { k: 'src', v: n, name: n, icon: st.icon || 'apps', col: st.col, act: !I.off && (n === a.source || n === a.app_name) }; });
-        title = `Apper · ${RC.hw}`;
+        const apps = listOf(h, p, 'apps'), inputs = listOf(h, p, 'inputs');
+        mode = (this._tvm || {})[p.id] || (a.source && a.source !== a.app_name && inputs.some((x) => x.source === a.source) ? 'inputs' : 'apps');
+        if (mode === 'inputs') chips = inputs.map((x, i) => ({ k: 'in', v: i, name: x.name || x.source || '–', icon: x.icon || appStyle(x.source).icon || 'mdi:video-input-hdmi', col: null, act: !I.off && !!x.source && x.source === a.source }));
+        else chips = apps.map((x, i) => { const st = appStyle(x.source || x.name); return { k: 'app', v: i, name: x.name || x.source || '–', icon: x.icon || st.icon || 'apps', col: x.color || st.col, act: !I.off && !!(x.source || x.name) && [a.source, a.app_name].includes(x.source || x.name) }; });
+        title = mode === 'inputs' ? 'Innganger' : `Apper · ${RC.hw}`;
+        seg = `<div class="mseg" role="tablist">${[['apps', 'Apper'], ['inputs', 'Innganger']].map(([m, l]) => `<button class="${m === mode ? 'on' : ''}" role="tab" aria-selected="${m === mode}" data-act="tvm" data-m="${m}" data-haptic="selection" data-key="tvm:${m}">${l}</button>`).join('')}</div>`;
       } else {
-        const sc = Array.isArray(p.pc.shortcuts) && p.pc.shortcuts.length ? p.pc.shortcuts : autoShortcuts(h, p);
-        sc.forEach((id) => this.s(id));
-        const scC = sc.map((id) => {
-          const nm = M.name(h, id, p.name), st = this.hass.states[id], reg = M.regEntry(h, id);
-          const ic = (st && st.attributes.icon) || (reg && reg.icon) || appStyle(nm).icon || 'radio';
-          return { k: 'sc', v: id, name: nm, icon: ic, col: null, act: !I.off && nm.length > 2 && hay.includes(nm.toLowerCase()) };
+        const pr = listOf(h, p, 'presets');
+        pr.forEach((x) => { if (x.type !== 'favorite' && x.type !== 'source' && x.target) this.s(x.target); });
+        chips = pr.map((x, i) => {
+          const nm = x.name || (x.type === 'source' || x.type === 'favorite' ? x.target : M.name(h, x.target, p.name)) || '–';
+          const st = x.type !== 'source' && x.type !== 'favorite' && x.target ? h.states[x.target] : null, reg = st && M.regEntry(h, x.target);
+          const ic = x.icon || (st && st.attributes.icon) || (reg && reg.icon) || appStyle(nm).icon || (x.type === 'source' ? 'mdi:import' : 'radio');
+          const act = !I.off && (x.type === 'source' ? x.target === a.source : x.type === 'favorite' && x.target && x.target === a.media_content_id ? true : nm.length > 2 && hay.includes(nm.toLowerCase()));
+          return { k: 'pr', v: i, name: nm, icon: ic, col: null, act };
         });
-        const srcC = src.map((n) => ({ k: 'src', v: n, name: n, icon: appStyle(n).icon || 'mdi:import', col: null, act: !I.off && n === a.source }));
-        chips = scC.concat(srcC);
-        title = p.pc.chip_title || (scC.length && !srcC.length ? 'Radio' : 'Kilde');
+        const nSrc = pr.filter((x) => x.type === 'source').length;
+        title = p.pc.chip_title || (chips.length && !nSrc ? 'Radio' : 'Kilde');
       }
       const chipHtml = chips.map((c) => {
         const bg = c.act ? (c.col || PINK) : 'var(--gray200,#3a3a3a)';
         const fg = c.act ? (c.col ? '#fff' : 'var(--gray200,#3a3a3a)') : 'var(--white,#fafafa)';
         const ic = c.act ? (c.col ? '#fff' : 'var(--gray200,#3a3a3a)') : (c.col || 'var(--white,#fafafa)');
-        return `<button class="chip press ${I.tv ? 'tv' : ''}" data-act="chip" data-k="${c.k}" data-v="${esc(c.v)}" data-n="${esc(c.name)}" data-key="${esc(c.k + ':' + c.v)}" style="background:${bg};color:${fg}">${M.icon(c.icon, 24, 'color:' + ic)}<span class="cn ell">${esc(c.name)}</span></button>`;
+        return `<button class="chip press ${I.tv ? 'tv' : ''}" data-act="chip" data-k="${c.k}" data-v="${esc(c.v)}" data-n="${esc(c.name)}" data-key="${esc(c.k + ':' + c.v + ':' + c.name)}" style="background:${bg};color:${fg}">${M.icon(c.icon, 24, 'color:' + ic)}<span class="cn ell">${esc(c.name)}</span></button>`;
       }).join('');
-      const chipsSec = `<div class="cs"><span class="ttl">${esc(title)}</span>
-        ${chips.length ? `<div class="chips noscroll">${chipHtml}</div>` : `<div class="nochips">Ingen ${I.tv ? 'apper' : 'kilder eller snarveier'} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}</div>`;
+      const none = I.tv ? (mode === 'inputs' ? 'innganger' : 'apper') : 'kilder eller snarveier';
+      const chipsSec = `<div class="cs"><div class="csh"><span class="ttl">${esc(title)}</span>${seg}</div>
+        ${chips.length ? `<div class="chips noscroll" data-key="chips:${mode || 'mus'}">${chipHtml}</div>` : `<div class="nochips">Ingen ${none} funnet <button class="pick press" data-act="customize" data-section="p_${esc(p.obj)}">${M.icon('add', 18)}Legg til</button></div>`}</div>`;
       // Transport (musikk)
       const sf = Number(a.supported_features) || 0, has = (f) => !sf || (sf & f) === f;
       const rep = a.repeat && a.repeat !== 'off', shuf = !!a.shuffle;
@@ -1133,18 +1309,29 @@
       const mp = (svc, data) => M.call(h, 'media_player', svc, { entity_id: id, ...(data || {}) });
       switch (name) {
         case 'chip': {
-          const d = el.dataset;
-          if (d.k === 'src') {
-            mp('select_source', { source: d.v });
-            if (p.kind === 'tv') dbg(`${REMOTE[platOf(h, p)].hw} · Åpner ${d.n}`);
-            else dbg(`media_player.select_source → ${id} · source: ${d.v}`);
-          } else {
-            const [dm, sv] = svcFor(d.v);
-            M.call(h, dm, sv, { entity_id: d.v });
-            dbg(`${dm}.${sv} → ${d.v}`);
+          const d = el.dataset, i = Number(d.v);
+          if (d.k === 'app') {
+            // App: select_source med kilden; uten kilde → app-ID (remote.turn_on activity, ellers play_media app)
+            const x = listOf(h, p, 'apps')[i];
+            if (!x) return;
+            const rem = remoteOf(h, p);
+            if (x.source) mp('select_source', { source: x.source });
+            else if (x.app_id && rem) M.call(h, 'remote', 'turn_on', { entity_id: rem, activity: x.app_id });
+            else if (x.app_id) mp('play_media', { media_content_type: 'app', media_content_id: x.app_id });
+            dbg(`${REMOTE[platOf(h, p)].hw} · Åpner ${x.name || x.source || x.app_id}`);
+          } else if (d.k === 'in') {
+            const x = listOf(h, p, 'inputs')[i];
+            if (x && x.source) { mp('select_source', { source: x.source }); dbg(`media_player.select_source → ${id} · source: ${x.source}`); }
+          } else if (d.k === 'pr') {
+            const x = listOf(h, p, 'presets')[i];
+            if (!x || !x.target) return;
+            if (x.type === 'source') { mp('select_source', { source: x.target }); dbg(`media_player.select_source → ${id} · source: ${x.target}`); }
+            else if (x.type === 'favorite') { mp('play_media', { media_content_id: x.target, media_content_type: x.content_type || 'music' }); dbg(`media_player.play_media → ${id} · ${x.target}`); }
+            else { const [dm, sv] = svcFor(x.target); M.call(h, dm, sv, { entity_id: x.target }); dbg(`${dm}.${sv} → ${x.target}`); }
           }
           return;
         }
+        case 'tvm': { (this._tvm = this._tvm || {})[id] = el.dataset.m; return this.update(); }
         case 'play': return mp('media_play_pause');
         case 'prev': return mp('media_previous_track');
         case 'next': return mp('media_next_track');
@@ -1415,6 +1602,10 @@
         .gear{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;color:var(--gray800,#afafaf)}
         .gear:active{transform:scale(.92)}
         .cs{display:flex;flex-direction:column;gap:8px;min-width:0}
+        .csh{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px}
+        .mseg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--gray300,#404040);flex:none}
+        .mseg button{height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf);background:transparent;white-space:nowrap;transition:background .2s,color .2s}
+        .mseg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
         .ttl{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:0 4px}
         .chips{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain}
         .chip{flex:none;width:88px;height:88px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 6px;transition:background .2s,transform .12s}

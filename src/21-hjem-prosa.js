@@ -57,6 +57,7 @@
     if (l === 'lock') return { action: 'lock-sheet' };
     if (l) return { action: 'navigate', navigation_path: /^(#|\/|https?:)/.test(l) ? l : '#' + l };
     if (p.act === 'more') return { action: 'more-info' };
+    if (p.src === 'watt' && !p.act) return { action: 'navigate', navigation_path: '#energi' }; // 21.1: effekt-boblen åpner Energi
     return null;
   }
   M.prosaTapOf = tapOf;

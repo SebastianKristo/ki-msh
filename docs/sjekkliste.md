@@ -18,6 +18,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-28), med moc
 | ✔ | mobil | Gjøremål #gjoremal | ja | ok 354 | ja | ja | ja / ja | ja | ingen drag | ok (bunn x=14) | ok 3 | ja | ok | 1 · mal A |
 | ✔ | mobil | Dørlås #dorlas | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | mobil | Ringeklokke #ringeklokke | ja | ok 354 | ja | ja | ja / ja | ja | ok 2 | ok (bunn x=14) | ok 16 | ja | ok | 1 · mal A |
+| ✔ | mobil | Energi #energi | ja | ok 354 | ja | ja | ja / ja | ja | ok 5 | ok (bunn x=14) | ok 14 | ja | ok | 1 · mal A |
 | ✔ | mobil | Kart #kart | ja | ok 390 | skjult · egen × | ja | ja / ja | ja | ok 4 | ok (bunn x=14) | ok 18 | ja | ok | 1 · mal A fullskjerm |
 | ✔ | mobil | Sebastian #person-sebastian | ja | ok 354 | ja | ja | ja / ja | ingen knapp | ingen drag | ok (bunn x=14) | ok 8 | ja | ok | 1 · mal A |
 | ✔ | PC | Stue #stue | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 18 | ja | ok | 1 · mal B |
@@ -34,5 +35,6 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-28), med moc
 | ✔ | PC | Gjøremål #gjoremal | ja | ok 504 | ja | ja | ja / ja | ja | ingen drag | ok (rail x=276) | ok 3 | ja | ok | 1 · mal A |
 | ✔ | PC | Dørlås #dorlas | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | PC | Ringeklokke #ringeklokke | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 16 | ja | ok | 1 · mal A |
+| ✔ | PC | Energi #energi | ja | ok 504 | ja | ja | ja / ja | ja | ok 5 | ok (rail x=276) | ok 14 | ja | ok | 1 · mal A |
 | ✔ | PC | Kart #kart | ja | ok 1024 | skjult · egen × | ja | ja / ja | ja | ok 4 | ok (rail x=276) | ok 18 | ja | ok | 1 · mal A fullskjerm |
 | ✔ | PC | Sebastian #person-sebastian | ja | ok 504 | ja | ja | ja / ja | ingen knapp | ingen drag | ok (rail x=276) | ok 8 | ja | ok | 1 · mal A |
