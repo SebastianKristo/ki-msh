@@ -6,8 +6,14 @@
  * unifiprotect → samme enhet: kameraer (høy/middels/lav oppløsning, pakkekamera), media_player (høyttaler),
  * number *_ring_volume, sensor *_last_doorbell_ring, binary_sensor-deteksjoner og event.*; lås = lock.* i samme område.
  * «(ingen)» = 'none' skjuler funksjonen. Config: { ring_entity, camera, package_camera, lock, speaker, hold_ms, mute_min,
- *   auto_close_min, auto_open, snapshot, haptic, package_first, show_replies, show_history, detections: [], replies:
- *   [{ icon, text, media? }], doorbell: { mode } (standard for enheter uten eget valg), tts }.
+ *   snapshot, haptic, package_first, show_replies, show_history, detections: [], replies: [{ icon, text, media? }],
+ *   doorbell: { mode, trigger, cooldown_s, card_duration_min, auto_close_min } (standard for enheter uten eget valg), tts }.
+ * Fiks 20.1: varselet følger aldri sensorens tilstand (binary_sensor er bare på ~1 s) – det starter på overgangen
+ *   (trigger 'on' = off→on, 'event' = ny last_changed/event_type på event.*) og varer valgt tid (MSH.doorbellCfg, per
+ *   bruker × enhet i doorbell_profiles, ellers config.doorbell). mode: card · popup · both (popup + kortet på Hjem når
+ *   den lukkes) · off. cooldown_s: ny ringing innenfor tiden gir ikke nytt varsel, men nullstiller tid/tidslinje.
+ *   card_duration_min (0 = til avvist), auto_close_min (0 = aldri). Starttid lagres i sessionStorage (ki:ring-alert).
+ *   Eldre auto_open: false → mode 'off' (når ikke valgt på nytt etter 20.1); eldre auto_close_min på rotnivå leses som fallback.
  * Ringing (MSH.ringTick, kalles fra Hjem-kortet og dette kortet ved hver hass-oppdatering): off→on / ny event →
  *   MSH.ringNow(): haptic heavy (bryteren «Vibrer»), og etter «Når det ringer» (MSH.doorbellMode, per bruker × enhet i
  *   ki-store doorbell_profiles via MSH.profileGet/profileSet, fiks 19.13): card = kort øverst i Hjem-fanen
@@ -35,8 +41,17 @@
   ];
   const DET_KEYS = DET.map((d) => d[0]), RED_KEYS = new Set(['glass', 'smoke']);
   const REPLIES = [{ icon: 'mdi:run-fast', text: 'Kommer!' }, { icon: 'mdi:package-down', text: 'Legg pakken ved døren' }, { icon: 'mdi:timer-sand', text: 'Vent litt' }, { icon: 'mdi:home-export-outline', text: 'Ikke hjemme' }];
-  const DEF = { hold_ms: 1000, mute_min: 5, auto_close_min: 2, auto_open: true, snapshot: true, haptic: true, package_first: true, show_replies: true, show_history: true };
-  const MODES = [['card', 'Kort på Hjem', 'Et kort øverst på Hjem'], ['popup', 'Popup', 'Åpner ringeklokke-popupen'], ['off', 'Av', 'Ingen varsel på dashbordet']];
+  const DEF = { hold_ms: 1000, mute_min: 5, snapshot: true, haptic: true, package_first: true, show_replies: true, show_history: true };
+  const MODES = [['card', 'Kort', 'Et kort øverst på Hjem'], ['popup', 'Popup', 'Åpner ringeklokke-popupen (skjuler navbar og mini-spiller)'], ['both', 'Begge', 'Åpner popupen – kortet ligger på Hjem når den lukkes'], ['off', 'Av', 'Ingen automatikk – lenken fra varselet virker fortsatt']];
+  // Fiks 20.1: «Visning»-feltene for ringingen (samme i Tilpass ringeklokke, Tilpass Hjem → Popups og GUI-editoren)
+  const DB_DEF = { mode: 'card', trigger: 'on', cooldown_s: 30, card_duration_min: 2, auto_close_min: 2 };
+  const DB_OPTS = {
+    mode: MODES,
+    trigger: [['on', 'Sensor går på', 'Overgang av → på på ringe-utløseren (binary_sensor.*_doorbell)'], ['event', 'Ny hendelse', 'Ny hendelse på event.*-entiteten (last_changed / event_type)']],
+    cooldown_s: [[0, 'Ikke'], [10, '10 s'], [30, '30 s'], [60, '1 min']],
+    card_duration_min: [[0.5, '30 s'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [0, 'Til avvist']],
+    auto_close_min: [[0.5, '30 s'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [0, 'Aldri']],
+  };
   const AUTO_RX = /auto.?(re)?lock|autol[aå]s|auto.?l[aå]s|relock/i;
   const hm = (t) => { const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; };
   const reps = (c) => (Array.isArray(c && c.replies) ? c.replies.filter((r) => r && typeof r === 'object') : REPLIES);
@@ -116,29 +131,53 @@
 
   /* ------------------------------------------------------------ «Når det ringer» (per bruker × enhet) */
   const MODE_ROOT = 'doorbell_profiles', MODE_LS = 'ki:doorbell-mode';
-  M.doorbellMode = function (c) {
-    let v = null;
-    try { if (M.profileGet && M.store) v = M.profileGet(MODE_ROOT).mode || null; } catch (e) { v = null; }
-    if (!v) try { v = localStorage.getItem(MODE_LS); } catch (e) { /* */ }
-    if (!v) { const cc = c || cfgNow(); v = cc.doorbell && cc.doorbell.mode; }
-    return MODES.some((m) => m[0] === v) ? v : 'card';
+  const dbOk = (k, v) => v != null && v !== '' && DB_OPTS[k].some((o) => String(o[0]) === String(v));
+  const dbNum = (k, v) => (typeof DB_DEF[k] === 'number' ? Number(v) : String(v));
+  // Effektive valg: profil (bruker × enhet) → localStorage (eldre, bare mode) → config.doorbell → eldre rotfelt → standard
+  M.doorbellCfg = function (c) {
+    c = c || cfgNow();
+    const cd = c.doorbell && typeof c.doorbell === 'object' ? c.doorbell : {};
+    let P = {};
+    try { if (M.profileGet && M.store) P = M.profileGet(MODE_ROOT) || {}; } catch (e) { P = {}; }
+    let ls = null;
+    try { ls = localStorage.getItem(MODE_LS); } catch (e) { /* */ }
+    // Migrering (20.1): auto_open: false → 'off', med mindre modus er valgt på nytt etter 20.1 (profilen har v)
+    const legacyOff = c.auto_open === false && !P.v && !cd.mode;
+    const out = {};
+    Object.keys(DB_DEF).forEach((k) => {
+      const cands = k === 'mode' ? (legacyOff ? ['off'] : [P.mode, ls, cd.mode]) : [P[k], cd[k], k === 'auto_close_min' ? c.auto_close_min : undefined];
+      const v = cands.find((x) => dbOk(k, x));
+      out[k] = v === undefined ? DB_DEF[k] : dbNum(k, v);
+    });
+    return out;
   };
-  M.setDoorbellMode = function (v) {
-    if (!MODES.some((m) => m[0] === v)) return;
-    try { localStorage.setItem(MODE_LS, v); } catch (e) { /* */ }
-    if (M.profileSet && M.store) M.profileSet(MODE_ROOT, { mode: v });
-    else if (M.store && M.store.deviceId) M.store.set('devices.' + M.store.deviceId + '.doorbell_mode', v, { now: true, immediate: true });
+  M.doorbellMode = (c) => M.doorbellCfg(c).mode;
+  M.setDoorbell = function (k, v) {
+    if (!(k in DB_DEF) || !dbOk(k, v)) return;
+    v = dbNum(k, v);
+    if (k === 'mode') try { localStorage.setItem(MODE_LS, v); } catch (e) { /* */ }
+    if (M.profileSet && M.store) M.profileSet(MODE_ROOT, { [k]: v, v: 20 });
+    else if (M.store && M.store.deviceId) M.store.set('devices.' + M.store.deviceId + '.doorbell_' + k, v, { now: true, immediate: true });
     M.haptic('selection');
+    if (R.t && !R.dismissed && M.ringActive()) { setUntil(M.doorbellCfg(), R.t); ssSave(); }
     emit();
   };
-  // Segment + undertekst (Tilpass ringeklokke → Visning, Tilpass Hjem → Popups, GUI-editoren). act = data-a-verdien.
+  M.setDoorbellMode = (v) => M.setDoorbell('mode', v);
+  // Segmenter + undertekst (Tilpass ringeklokke → Visning, Tilpass Hjem → Popups, GUI-editoren). act = data-a-verdien,
+  // data-f = feltet, data-v = verdien → MSH.setDoorbell(f, v).
   M.doorbellModeHTML = function (act, attr) {
-    const cur = M.doorbellMode(), sub = (MODES.find((m) => m[0] === cur) || MODES[0])[2];
-    const who = M.deviceClassName && M.deviceClass ? M.deviceClassName(M.deviceClass()) : 'denne enheten';
-    return `<div class="msh-dbm" data-key="dbm" style="display:flex;flex-direction:column;gap:6px">
-      <div style="font-size:13px;color:var(--gray700,#979797);padding:0 4px">Når det ringer · ${esc(who)}</div>
-      <div role="tablist" style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray100,#2f2f2f)">${MODES.map(([k, l]) => `<button role="tab" aria-selected="${k === cur}" data-a="${act}" ${attr || ''} data-v="${k}" style="flex:1;height:38px;border:0;border-radius:19px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;background:${k === cur ? PINK : 'transparent'};color:${k === cur ? '#2f2f2f' : 'var(--gray800,#afafaf)'}">${esc(l)}</button>`).join('')}</div>
-      <div style="font-size:12px;color:var(--gray600,#7f7f7f);padding:0 4px">${esc(sub)} · gjelder deg på denne enheten</div></div>`;
+    const D = M.doorbellCfg(), who = M.deviceClassName && M.deviceClass ? M.deviceClassName(M.deviceClass()) : 'denne enheten';
+    const cap = (t) => `<div style="font-size:13px;color:var(--gray700,#979797);padding:0 4px">${t}</div>`;
+    const sub = (t, key) => `<div data-key="${key}" style="font-size:12px;color:var(--gray600,#7f7f7f);padding:0 4px">${esc(t)}</div>`;
+    const seg = (k) => `<div role="tablist" data-f="${k}" style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray100,#2f2f2f)">${DB_OPTS[k].map(([v, l]) => { const on = String(v) === String(D[k]); return `<button role="tab" aria-selected="${on}" data-a="${act}" ${attr || ''} data-f="${k}" data-v="${v}" style="flex:1;min-width:0;height:38px;padding:0 4px;border:0;border-radius:19px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:${on ? PINK : 'transparent'};color:${on ? '#2f2f2f' : 'var(--gray800,#afafaf)'}">${esc(l)}</button>`; }).join('')}</div>`;
+    const grp = (k, label, extra) => `<div class="msh-dbf" data-key="dbf-${k}" style="display:flex;flex-direction:column;gap:6px">${cap(esc(label))}${seg(k)}${extra || ''}</div>`;
+    const card = D.mode === 'card' || D.mode === 'both', pop = D.mode === 'popup' || D.mode === 'both';
+    return `<div class="msh-dbm" data-key="dbm" style="display:flex;flex-direction:column;gap:12px">
+      ${grp('mode', `Når det ringer · ${who}`, sub(`${(MODES.find((m) => m[0] === D.mode) || MODES[0])[2]} · gjelder deg på denne enheten`, 'dbm-sub'))}
+      ${grp('trigger', 'Utløses når', sub((DB_OPTS.trigger.find((t) => t[0] === D.trigger) || DB_OPTS.trigger[0])[2] + ' · entiteten velges i Enhet → Ringe-utløser', 'dbt-sub'))}
+      ${grp('cooldown_s', 'Ignorer ny ringing i', sub('Ny ringing innenfor tiden gir ikke nytt varsel, men nullstiller tiden', 'dbc-sub'))}
+      ${card ? grp('card_duration_min', 'Kortet på Hjem vises i') : ''}
+      ${pop ? grp('auto_close_min', 'Popupen lukkes etter', sub('Uten aktivitet – trykk eller scroll i popupen nullstiller', 'dba-sub')) : ''}</div>`;
   };
 
   /* ------------------------------------------------------------ ringetilstand */
@@ -152,34 +191,68 @@
   M.ringCfg = cfgNow;
   function emit() { try { window.dispatchEvent(new CustomEvent('ki-doorbell', { detail: { t: R.t, n: R.n, active: M.ringActive() } })); } catch (e) { /* */ } }
   M.ringActive = () => !!R.t && !R.dismissed && Date.now() < R.until;
+  const hasCard = (m) => m === 'card' || m === 'both';
   // Rosa prikk på Hjem-fanen mens ringe-kortet vises (til det er avvist)
-  M.ringDot = () => M.ringActive() && M.doorbellMode() === 'card';
-  M.ringNow = function () {
-    const c = cfgNow(), mode = M.doorbellMode(c), now = Date.now();
-    const mins = c.auto_close_min != null && c.auto_close_min !== '' ? Number(c.auto_close_min) : 2;
-    R.t = now; R.until = mins > 0 ? now + mins * 60000 : Infinity; R.dismissed = false; R.unlocked = false; R.n++;
-    if (c.haptic !== false) M.haptic('heavy');
+  M.ringDot = () => M.ringActive() && hasCard(M.doorbellMode());
+  // Varigheten (20.1): kortet (Kort/Begge/Av) = card_duration_min, bare popup = auto_close_min; 0 = til avvist
+  function setUntil(db, t0) {
+    const mins = db.mode === 'popup' ? db.auto_close_min : db.card_duration_min;
+    R.until = mins > 0 ? t0 + mins * 60000 : Infinity;
     clearTimeout(R.timer);
-    if (isFinite(R.until)) R.timer = setTimeout(emit, R.until - now + 50);
-    if (mode === 'popup' && c.auto_open !== false && location.hash !== HASH) { R.autoOpened = true; M.openPopup(HASH); }
-    emit();
+    if (isFinite(R.until)) R.timer = setTimeout(emit, Math.max(0, R.until - Date.now()) + 50);
+  }
+  // Starttidspunktet i sessionStorage, så reload/fanebytte midt i varselet fortsetter nedtellingen
+  const SS = 'ki:ring-alert';
+  function ssSave() {
+    try {
+      if (R.t && !R.dismissed && Date.now() < R.until) sessionStorage.setItem(SS, JSON.stringify({ t: R.t, until: isFinite(R.until) ? R.until : null, n: R.n, shake: R.shakeFrom || 0 }));
+      else sessionStorage.removeItem(SS);
+    } catch (e) { /* */ }
+  }
+  if (!R.t) try {
+    const s = JSON.parse(sessionStorage.getItem(SS) || 'null'), until = s && (s.until == null ? Infinity : Number(s.until));
+    if (s && s.t && Date.now() < until) {
+      R.t = Number(s.t); R.until = until; R.dismissed = false; R.n = Math.max(R.n, Number(s.n) || 1); R.shakeFrom = Number(s.shake) || 0;
+      if (isFinite(until)) R.timer = setTimeout(emit, until - Date.now() + 50);
+    } else if (s) sessionStorage.removeItem(SS);
+  } catch (e) { /* */ }
+  M.ringNow = function (force) {
+    const c = cfgNow(), db = M.doorbellCfg(c), mode = db.mode, now = Date.now();
+    // «Ignorer ny ringing i»: ingen ny haptic/scroll/popup, men «X s siden» og tidslinjen nullstilles
+    if (!force && R.t && db.cooldown_s > 0 && now - R.t < db.cooldown_s * 1000) {
+      R.t = now;
+      if (!R.dismissed) setUntil(db, now);
+      ssSave(); emit();
+      return false;
+    }
+    R.t = now; R.dismissed = false; R.unlocked = false; R.n++; R.shakeFrom = 0;
+    setUntil(db, now);
+    if (c.haptic !== false) M.haptic('heavy');
+    if ((mode === 'popup' || mode === 'both') && location.hash !== HASH) { R.autoOpened = true; M.openPopup(HASH); }
+    ssSave(); emit();
+    return true;
   };
-  M.ringSimulate = () => M.ringNow(); // «Simuler ringing» (test og designets «…»-meny)
-  M.ringDismiss = function () { R.dismissed = true; clearTimeout(R.timer); emit(); };
+  M.ringSimulate = () => M.ringNow(true); // «Simuler ringing» (test og designets «…»-meny)
+  M.ringDismiss = function () { R.dismissed = true; clearTimeout(R.timer); ssSave(); emit(); };
   M.ringTick = function (h) {
     if (!h || !h.states || h.states === R.states) return;
     R.states = h.states;
     muteRestore(h);
-    const A = M.ringAuto(h, cfgNow());
-    const trig = [A.ring, ...A.events.filter((e) => e !== A.ring && /ring|doorbell/.test(e))].filter(Boolean);
+    const c = cfgNow(), A = M.ringAuto(h, c), db = M.doorbellCfg(c);
+    // Utløser (20.1): 'on' = binary_sensor off → on, 'event' = ny hendelse på event.* (faller tilbake til den andre typen)
+    const all = [A.ring, ...A.events.filter((e) => e !== A.ring && /ring|doorbell/.test(e))].filter(Boolean);
+    const bin = all.filter((id) => id.startsWith('binary_sensor.')), evs = all.filter((id) => id.startsWith('event.'));
+    const trig = new Set(db.trigger === 'event' ? (evs.length ? evs : bin) : (bin.length ? bin : evs));
     let hit = false;
-    trig.forEach((id) => {
+    all.forEach((id) => {
       const s = h.states[id];
       if (!s) return;
-      const prev = R.last[id], v = s.state;
+      const bs = id.startsWith('binary_sensor.');
+      if (!bs && M.unavailable(s)) return; // utilgjengelig → tilbake er ingen ny hendelse
+      const prev = R.last[id], v = bs ? s.state : `${s.state}|${s.last_changed || ''}|${s.attributes.event_type || ''}`;
       R.last[id] = v;
-      if (prev === undefined) return; // første verdi (innlasting) er ikke en ringing
-      if (id.startsWith('binary_sensor.')) { if (v === 'on' && prev !== 'on') hit = true; } else if (v !== prev && !M.unavailable(s)) hit = true;
+      if (prev === undefined || !trig.has(id)) return; // første verdi (innlasting) er ikke en ringing
+      if (bs) { if (v === 'on' && prev !== 'on') hit = true; } else if (v !== prev) hit = true;
     });
     if (hit && !(R.t && Date.now() - R.t < 1500 && !R.dismissed)) M.ringNow(); // binary + event samtidig = én ringing
   };
@@ -289,7 +362,16 @@
     };
     setTimeout(tick, 250);
   };
-  window.addEventListener('hashchange', () => { if (location.hash !== HASH && R.autoOpened) { R.autoOpened = false; if (M.doorbellMode() === 'popup' && M.ringActive()) M.ringDismiss(); } });
+  // Popup: lukket auto-åpnet popup = avvist. Begge: kortet på Hjem blir liggende (klokken rister på nytt).
+  const onLeave = () => {
+    if (location.hash === HASH || !R.autoOpened) return;
+    R.autoOpened = false;
+    const m = M.doorbellMode();
+    if (m === 'popup' && M.ringActive()) M.ringDismiss();
+    else if (m === 'both' && M.ringActive()) { R.shakeFrom = Date.now(); ssSave(); emit(); }
+  };
+  // MSH.closePopup / Bubble Card lukker med replaceState + location-changed (ingen hashchange)
+  ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => setTimeout(onLeave, 0)));
 
   /* ------------------------------------------------------------ hold for å låse opp (felles) */
   // el: knappen, fill: fyll-elementet (transform scaleX/scaleY 0 → 1), ms: hold-tid, done(): låser opp
@@ -352,10 +434,8 @@
           ] },
           { type: 'section', id: 'svar', label: 'Svar', icon: 'mdi:message-reply-text-outline', fields: [{ type: 'html', html: (hh, cc, key, ed) => repliesGUI(cc, key, ed), click: (d, ed) => repliesClick(d, ed) }] },
           { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
-            { type: 'html', html: (hh, cc, key) => `<div class="f">${M.doorbellModeHTML('fn', `data-k="${key}"`)}</div>`, click: (d, ed) => { M.setDoorbellMode(d.v); ed._render(); } },
+            { type: 'html', html: (hh, cc, key) => `<div class="f">${M.doorbellModeHTML('fn', `data-k="${key}"`)}</div>`, click: (d, ed) => { M.setDoorbell(d.f || 'mode', d.v); ed._render(); } },
             { type: 'html', html: (hh, cc, key) => { const on = new Set(detsOf(cc)); return `<div class="f"><label>Deteksjoner som vises</label><div class="chips">${DET.map(([k, l]) => `<button class="chip ${on.has(k) ? 'on' : ''}" aria-pressed="${on.has(k)}" data-a="fn" data-k="${key}" data-v="${k}">${esc(l)}</button>`).join('')}</div></div>`; }, click: (d, ed) => { const s = new Set(detsOf(ed._config)); if (s.has(d.v)) s.delete(d.v); else s.add(d.v); M.haptic('selection'); ed._set('detections', DET_KEYS.filter((k) => s.has(k))); } },
-            { type: 'select', name: 'auto_close_min', label: 'Lukk automatisk etter', options: [[1, '1 min'], [2, '2 min'], [5, '5 min'], [0, 'Aldri']], default: 2 },
-            { type: 'boolean', name: 'auto_open', label: 'Åpne automatisk (Popup-modus)', default: true },
             { type: 'boolean', name: 'show_replies', label: 'Svar via høyttaleren', default: true },
             { type: 'boolean', name: 'show_history', label: 'Tidligere i dag', default: true },
           ] },
@@ -388,7 +468,7 @@
     // Aktivitet i popupen → auto-lukk-tiden starter på nytt
     _touch() {
       clearTimeout(this._ac);
-      const c = this.config, mins = c.auto_close_min != null && c.auto_close_min !== '' ? Number(c.auto_close_min) : 2;
+      const db = M.doorbellCfg(this.config), mins = db.mode === 'popup' || db.mode === 'both' ? db.auto_close_min : 0; // 20.1: bare ved Popup/Begge
       if (!this.isOpen || !(mins > 0)) return;
       this._ac = setTimeout(() => { if (location.hash === HASH && !(M.drafts && [...M.drafts.values()].some((d) => d.card === this && !d.closed))) M.closePopup(); }, mins * 60000);
     }
@@ -588,6 +668,8 @@
       onReload: () => draw(),
     });
     const D = () => ctl.draft || {};
+    // 20.1: auto_open fjernes – false blir doorbell.mode 'off' (lagres ved Ferdig)
+    if (D().auto_open !== undefined) { const n = { ...D() }; if (n.auto_open === false) n.doorbell = { ...(n.doorbell || {}), mode: (n.doorbell && n.doorbell.mode) || 'off' }; delete n.auto_open; ctl.set(n); }
     const apply = (patch, hap) => {
       if (st.busy) return;
       const next = { ...D() };
@@ -606,7 +688,7 @@
       return `<div class="fl"><span class="cap">${esc(label)}</span><select class="sel" data-in="ent" data-k="${k}" aria-label="${esc(label)}">${opt('', `Automatisk (${autoId ? M.name(h, autoId) : 'fant ingen'})`)}${opt('none', '(ingen)')}${ord.map((id) => opt(id, `${M.name(h, id)} · ${id}`)).join('')}${v && v !== 'none' && !ids.includes(v) ? opt(v, v) : ''}</select>${sub ? `<span class="rs" style="padding:0 6px">${esc(sub)}</span>` : ''}</div>`;
     };
     const tabHTML = () => {
-      const h = card.hass, c = { ...DEF, ...D() }, A = M.ringAuto(h, D());
+      const h = card.hass, A = M.ringAuto(h, D());
       if (st.tab === 'enhet') {
         return `${pick('ring_entity', 'Ringe-utløser', ['binary_sensor', 'event'], M.ringFind(h), '«(ingen)» slår av ringe-varselet')}
           ${pick('camera', 'Kamera (høy / middels / lav oppløsning)', ['camera'], M.ringAuto(h, { ...D(), camera: '' }).camera)}
@@ -633,9 +715,7 @@
       const on = new Set(detsOf(D()));
       return `${M.doorbellModeHTML('mode')}
         <div class="fl"><span class="cap">Deteksjoner som vises</span><div class="chips">${DET.map(([k, l, icn]) => `<button class="chip ${on.has(k) ? 'on' : ''}" data-a="det" data-k="${k}" aria-pressed="${on.has(k)}">${M.icon(icn, 16)}${esc(l)}</button>`).join('')}</div></div>
-        ${segRow('auto_close_min', 'Lukk automatisk etter', [[1, '1 min'], [2, '2 min'], [5, '5 min'], [0, 'Aldri']], 2)}
-        <div class="rows">${sw('auto_open', 'Åpne automatisk', 'Popup-modus: åpner #ringeklokke når det ringer')}${sw('show_replies', 'Svar via høyttaleren')}${sw('show_history', 'Tidligere i dag')}</div>
-        <span class="rs" style="padding:0 6px">${c.auto_open === false ? 'Popupen åpnes bare manuelt.' : ''}</span>`;
+        <div class="rows">${sw('show_replies', 'Svar via høyttaleren')}${sw('show_history', 'Tidligere i dag')}</div>`;
     };
     const draw = () => {
       if (!ov) return;
@@ -663,7 +743,7 @@
         case 'sw': { const def = el.dataset.d === '1', cur = D()[k] != null ? D()[k] !== false : def; return apply({ [k]: !cur === def ? undefined : !cur }, 'selection'); }
         case 'num': return apply({ [k]: Number(el.dataset.v) }, 'selection');
         case 'det': { const s = new Set(detsOf(D())); if (s.has(k)) s.delete(k); else s.add(k); return apply({ detections: DET_KEYS.filter((x) => s.has(x)) }, 'selection'); }
-        case 'mode': M.setDoorbellMode(el.dataset.v); return draw();
+        case 'mode': M.setDoorbell(el.dataset.f || 'mode', el.dataset.v); return draw();
         case 'copy': return copyLink();
         case 'rpadd': return apply({ replies: [...reps(D()), { icon: 'mdi:message-text-outline', text: 'Nytt svar' }] }, 'selection');
         case 'rprm': { const L = reps(D()).slice(); L.splice(Number(el.dataset.i), 1); return apply({ replies: L }, 'selection'); }
@@ -736,8 +816,11 @@
     }
     set hass(h) { this._hass = h; this._draw(); }
     get hass() { return this._hass || M.lastHass; }
-    connectedCallback() { this._draw(); clearInterval(this._iv); this._iv = setInterval(() => this._draw(), 1000); }
-    disconnectedCallback() { clearInterval(this._iv); this._iv = 0; }
+    connectedCallback() {
+      this._draw(); clearInterval(this._iv); this._iv = setInterval(() => this._draw(), 1000);
+      if (!this._onRing) { this._onRing = () => this._draw(); window.addEventListener('ki-doorbell', this._onRing); } // ny tid / ristende klokke straks
+    }
+    disconnectedCallback() { clearInterval(this._iv); this._iv = 0; if (this._onRing) { window.removeEventListener('ki-doorbell', this._onRing); this._onRing = null; } }
     _click(e) {
       const el = e.composedPath().find((n) => n.dataset && n.dataset.a);
       if (!el) return;
@@ -765,7 +848,7 @@
       const html = `<style>${BANNER_CSS}</style><div class="rc" data-key="rc-${R.n}">
         <div class="r1">
           <button class="th" data-a="open" aria-label="Åpne ringeklokke"><span class="thm" data-nomorph></span>${img ? `<img src="${esc(img)}" alt="">` : ''}<span class="live"><i></i>LIVE</span><span class="ex">${M.icon('mdi:arrow-expand', 14)}</span></button>
-          <div class="tx"><div class="when ${el < 8000 ? 'shk' : ''}">${M.icon('mdi:bell-ring', 16)}<span>${esc(el < 5000 ? 'Nå' : agoTxt(R.t).replace(/^for /, ''))}</span></div>
+          <div class="tx"><div class="when ${el < 8000 || (R.shakeFrom && now - R.shakeFrom < 8000) ? 'shk' : ''}">${M.icon('mdi:bell-ring', 16)}<span>${esc(el < 5000 ? 'Nå' : agoTxt(R.t).replace(/^for /, ''))}</span></div>
             <div class="ttl ell">Det ringer på · ${esc(areaLabel(h, A))}</div>
             ${chips.length ? `<div class="dcs">${chips.map(chipHTML).join('')}</div>` : ''}</div>
           <button class="x" data-a="x" aria-label="Avvis">${M.icon('mdi:close', 20)}</button>
@@ -838,7 +921,7 @@
   if (!customElements.get('msh-ring-banner')) customElements.define('msh-ring-banner', RingBanner);
 
   /* ------------------------------------------------------------ Hjem-integrasjon (kalles fra 25-hjem.js) */
-  M.ringShowCard = () => M.ringActive() && M.doorbellMode() === 'card';
+  M.ringShowCard = () => M.ringActive() && hasCard(M.doorbellMode());
   // Monter/fjern ringe-kortet: i fanekortets ring-slot (under fanelinjen, bare på Hjem-fanen), ellers i Hjem-kortets egen slot
   M.ringHjem = function (hj) {
     const on = M.ringShowCard(), f = hj._kids && hj._kids.faner, fvis = (hj._vis || []).includes('faner') && f && f.isConnected;

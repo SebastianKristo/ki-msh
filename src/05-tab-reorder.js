@@ -14,6 +14,9 @@
  * Touch: touchstart/touchmove {passive:false} direkte på knappen. Under holdet avbryter > 8 px bevegelse (vanlig
  * scroll). Når draget er i gang: touchmove → preventDefault + stopPropagation, og pointercancel ignoreres (dra
  * fortsetter via touch-hendelsene). Glass-drag slås av på containeren (dataset.glassDragOff = '1') mens man drar.
+ * Fiks 20.3 (fasit Hjem v3 glassTabs, pending/scroll/drag): raden har ALLTID touch-action: pan-y (loddrett side-scroll
+ * er nettleserens). Flyter raden over, blir > 6 px sideveis (mus og touch) fasen «pan»: scrollLeft = start − dx i JS,
+ * slipp velger ingenting. Slipp uten bevegelse = vanlig trykk. pointercancel (loddrett scroll) velger aldri.
  * Haptic: medium (dra starter) → selection (fanen passerer en annen) → light (slipp). Ingen haptic ved scroll.
  */
 (function () {
@@ -21,12 +24,12 @@
   if (!M || M.tabReorder) return;
 
   M.TAB_ROW_CSS = `
-    .msh-tr{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;min-width:0;max-width:100%;
+    .msh-tr{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;white-space:nowrap;touch-action:pan-y;overscroll-behavior-x:contain;min-width:0;max-width:100%;
       -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--tr-fl,0px),#000 calc(100% - var(--tr-fr,0px)),transparent 100%)}
     .msh-tr::-webkit-scrollbar{display:none}
     .msh-tr.tr-fitglass{touch-action:pan-y}
     .msh-tr>button{flex:0 0 auto;min-width:max-content;scroll-snap-align:start;white-space:nowrap;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-    .msh-tr.tr-drag{scroll-snap-type:none}
+    .msh-tr.tr-drag,.msh-tr.tr-pan{scroll-snap-type:none}
     .msh-tr.tr-drag>button{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
     .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px var(--pink,#f285c9)}
     .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--gray300,#404040) !important;color:var(--white,#fafafa) !important}
@@ -135,7 +138,7 @@
       b.addEventListener('pointercancel', (e) => {
         const st = this.st;
         if (!st || st.b !== b || e.pointerId !== st.pid) return;
-        if ((st.phase === 'drag' || st.phase === 'glass') && st.touchLock) return; // touch-lytteren har stoppet scrollen – dra videre
+        if ((st.phase === 'drag' || st.phase === 'glass' || st.phase === 'pan') && st.touchLock) return; // touch-lytteren har stoppet scrollen – dra videre
         if (st.phase === 'hold') this._abortHold(); else this._end(false);
       });
       b.addEventListener('touchstart', (e) => {
@@ -151,10 +154,10 @@
         if (!st || st.b !== b) return;
         const t = [...e.touches].find((x) => st.tid == null || x.identifier === st.tid) || e.touches[0];
         if (!t) return;
-        if (st.phase === 'drag' || st.phase === 'glass') { if (e.cancelable) e.preventDefault(); st.touchLock = true; }
+        if (st.phase === 'drag' || st.phase === 'glass' || st.phase === 'pan') { if (e.cancelable) e.preventDefault(); st.touchLock = true; }
         this._move(t.clientX, t.clientY, e, true);
       }, { passive: false });
-      b.addEventListener('touchend', (e) => { const st = this.st; if (st && st.b === b && (st.phase === 'drag' || st.phase === 'glass')) { const t = e.changedTouches[0]; this._end(true, t ? t.clientX : st.x); } });
+      b.addEventListener('touchend', (e) => { const st = this.st; if (st && st.b === b && (st.phase === 'drag' || st.phase === 'glass' || st.phase === 'pan')) { const t = e.changedTouches[0]; this._end(true, t ? t.clientX : st.x); } });
       b.addEventListener('touchcancel', () => { const st = this.st; if (st && st.b === b && st.phase !== 'hold') this._end(false); });
     }
     refresh() {
@@ -217,12 +220,13 @@
       st.x = x; st.y = y;
       const dx = x - st.x0, dy = y - st.y0;
       if (st.phase === 'hold') {
-        if (Math.hypot(dx, dy) <= SLOP) return;
+        const ovf = this.overflow();
+        if (Math.hypot(dx, dy) <= (ovf && !st.edit ? 6 : SLOP)) return;
         this._clearHold();
         const horiz = Math.abs(dx) >= Math.abs(dy);
         if (st.edit && horiz && this.canReorder()) this._startDrag();
-        else if (horiz && this.o.glass && this.o.onSelect && !this.overflow() && this.items().length > 1) this._startGlass();
-        else if (horiz && st.type === 'mouse' && this.overflow()) { st.phase = 'pan'; }
+        else if (horiz && this.o.glass && this.o.onSelect && !ovf && this.items().length > 1) this._startGlass();
+        else if (horiz && ovf) { st.phase = 'pan'; this.row.classList.add('tr-pan'); if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } } }
         else { this.st = null; return; } // vanlig scroll (touch: native)
         if (touch && e.cancelable) { e.preventDefault(); st.touchLock = true; }
       }
@@ -301,7 +305,7 @@
       if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte (+ MSH.glassTap-animasjon)
       this.eatUntil = Date.now() + 350;
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon etter dra/glass-dra
-      if (st.phase === 'pan') return;
+      if (st.phase === 'pan') { this.row.classList.remove('tr-pan'); return; }
       if (st.phase === 'glass') return this._glassEnd(st, commit);
       // drag
       cancelAnimationFrame(st.raf);

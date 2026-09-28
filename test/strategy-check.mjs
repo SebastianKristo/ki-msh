@@ -87,7 +87,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const pe = all().find((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));
       const cards = pe ? [...pe.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName)) : [];
       const hd = pe && pe.querySelector('.bubble-header-container');
-      opened.push(`${pp.hash}:${pe ? 'åpen' : 'LUKKET'}/${cards.length}kort/${hd && hd.getBoundingClientRect().height > 0 ? 'header' : 'INGEN-HEADER'}/${cards[0] && cards[0].getBoundingClientRect().height > 40 ? 'innhold' : 'TOMT'}`);
+      opened.push(`${pp.hash}:${pe ? 'åpen' : 'LUKKET'}/${cards.length}kort/${hd && hd.getBoundingClientRect().height > 0 ? 'header' : pp.show_header === false ? 'header' /* 20.22: #kart har egen topp med × */ : 'INGEN-HEADER'}/${cards[0] && cards[0].getBoundingClientRect().height > 40 ? 'innhold' : 'TOMT'}`);
       history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await wait(400);
     }
     res.opened = opened;

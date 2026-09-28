@@ -1,0 +1,5 @@
+[
+  { "name": "Kart", "hash": "#kart", "cards": [ { "type": "custom:msh-kart-card", "card_id": "pop-kart" } ] },
+  { "name": "Kart · standard uten kollektiv", "hash": "#kart", "cards": [ { "type": "custom:msh-kart-card", "transit": false, "style": "standard", "start": "home", "zones": ["zone.home"] } ] },
+  { "name": "Kart · tom", "hash": "#kart", "cards": [ { "type": "custom:msh-kart-card", "persons": ["person.finnes_ikke"], "cars": ["device_tracker.finnes_ikke"], "zones": [], "transit": false } ] }
+]

@@ -451,6 +451,12 @@
             { type: 'text', name: b + '.hide_sources', label: 'Skjul kilder (kommaseparert)', placeholder: 'f.eks. Bluetooth, USB' },
           );
         }
+        // Fiks 20.21: seertid-chip i Album-kortet (watch_time.<spiller>.i_dag / .maned)
+        const wy = ((c.watch_time || {})[p.id]) || {};
+        fields.push(
+          { type: 'entity', name: `watch_time.${p.obj}.i_dag`, label: 'Seertid i dag (Album-kortet)', domains: ['sensor'], auto: () => wy.i_dag || '' },
+          { type: 'entity', name: `watch_time.${p.obj}.maned`, label: 'Seertid denne måneden (Album-kortet)', domains: ['sensor'], auto: () => wy.maned || '' },
+        );
         return { type: 'section', id: 'p_' + p.obj, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, fields };
       }),
       { type: 'info', label: 'Felles for begge faner' },
@@ -458,7 +464,8 @@
       { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
       { type: 'lists', label: 'Mediaspillere', lists: (hh) => [{ key: 'spillere', label: 'Mediaspillere', ids: M.all(hh, 'media_player'), domains: ['media_player'] }] },
       { type: 'area', name: 'area', label: 'Begrens til område', help: 'Tomt = alle media_player.* i huset, sortert per område' },
-      { type: 'range', name: 'card_height', label: 'Kortets høyde (TV og Musikk)', min: 200, max: 320, step: 4, default: CARD_H, unit: 'px' },
+      { type: 'select', name: 'now_playing.style', label: 'Spilles nå-kort', options: [['album', 'Album'], ['detailed', 'Detaljert']], default: 'album', help: 'Album: farget kort med bilde og seertid · Detaljert: kortet fra 19.5 med chips og fremdrift' },
+      { type: 'range', name: 'card_height', label: 'Kortets høyde (Detaljert)', min: 200, max: 320, step: 4, default: CARD_H, unit: 'px' },
       { type: 'select', name: 'vol_style', label: 'Volum-stil · Musikk', options: [['pille', 'Pille'], ['trinn', 'Trinn'], ['user', 'La brukeren bytte']], default: 'user' },
       { type: 'select', name: 'vol_style_tv', label: 'Volum-stil · TV', options: [['trinn', 'Trinn'], ['knapper', 'Knapper'], ['user', 'La brukeren bytte']], default: 'user' },
       { type: 'boolean', name: 'remote_swipe', label: 'Sveip på styreflaten', default: true, help: 'Dra på fjernkontrollens runde flate for Opp/Ned/Venstre/Høyre (én kommando per 34 px)' },
@@ -576,6 +583,46 @@
     const t = Math.floor(min / 60), m = Math.round(min % 60);
     return t ? `${t} t ${m} min i dag` : `${m} min i dag`;
   };
+  /* ------------------------------------------------------------ Fiks 20.21: «Album»-kortet (now_playing.style) */
+  // now_playing.style: 'album' (standard) | 'detailed' (19.5-kortet)
+  const npStyle = (cfg) => (((cfg && cfg.now_playing) || {}).style === 'detailed' ? 'detailed' : 'album');
+  // watch_time: { <media_player.id | obj>: { i_dag, maned } } – GUI-editoren skriver under obj (punktum i nøkkelen tåles ikke i stier)
+  const wtOf = (cfg, p) => {
+    const w = (cfg && cfg.watch_time) || {}, o = { ...(w[p.id] || {}), ...(w[p.obj] || {}) };
+    return o.i_dag || o.maned ? o : null;
+  };
+  // Minutter fra en seertid-sensor: h/min/s/d/ms via unit_of_measurement, «t:mm(:ss)»-tekst, ellers timer (history_stats/duration)
+  const wtMin = (st) => {
+    if (!st) return null;
+    const v = String(st.state), u = String((st.attributes || {}).unit_of_measurement || '').toLowerCase();
+    if (/^\d+:\d{2}(:\d{2})?$/.test(v)) { const [hh, mm, ss] = v.split(':').map(Number); return hh * 60 + mm + (ss || 0) / 60; }
+    if (!M.isNum(v)) return null;
+    const n = Number(v);
+    return u === 'min' ? n : u === 's' ? n / 60 : u === 'ms' ? n / 60000 : u === 'd' ? n * 1440 : n * 60;
+  };
+  const fmtHM = (min) => { const t = Math.max(0, Math.round(min)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  // Farge → [r,g,b] (hex, rgb(), var(--x, #hex)); null når den ikke kan leses
+  const rgbOf = (c) => {
+    const x = String(c || ''), hx = x.match(/#([0-9a-f]{3}|[0-9a-f]{6})\b/i);
+    if (/^\s*rgba?\(/i.test(x)) { const n = x.match(/[\d.]+/g); return n && n.length >= 3 ? n.slice(0, 3).map(Number) : null; }
+    if (!hx) return null;
+    const h = hx[1].length === 3 ? hx[1].replace(/./g, (d) => d + d) : hx[1];
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  };
+  const relLum = (rgb) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
+  // Bakgrunnsfarge for Album-kortet: fargen blandet med #111 (68 % → ned) til kontrasten mot hvit tekst er ≥ 4.5:1
+  const albumBg = (col) => {
+    const rgb = rgbOf(col);
+    if (!rgb) return `color-mix(in oklch, ${col} 55%, #111)`;
+    for (let k = 0.68; k > 0.15; k -= 0.02) {
+      const m = rgb.map((v) => v * k + 17 * (1 - k));
+      if (1.05 / (relLum(m) + 0.05) >= 4.5) return `rgb(${m.map(Math.round).join(', ')})`;
+    }
+    return 'rgb(34, 34, 34)';
+  };
+  M.mediaAlbumBg = albumBg; // (test)
+  const SEG_H = [8, 12, 16, 10, 14, 7, 12, 16, 9, 13, 6, 11, 15, 10]; // 14 segmenter, 6–16 px
+
   class MediaHero extends MediaBase {
     static get cardName() { return 'Media · nå spilles'; }
     static get schema() { return (h, c) => [{ type: 'info', label: 'Hero-kortet bruker innstillingene fra msh-media-card i samme popup. Felt satt her overstyrer dem.' }, ...baseSchema(h, c)]; }
@@ -613,9 +660,49 @@
           <div class="bot"></div>
         </section></div><div class="dots"><span class="dot on"></span></div></div>`;
       }
-      const cards = R.L.map((p) => this._card(p)).join('');
+      const album = npStyle(cfg) === 'album';
+      const cards = R.L.map((p) => (album ? this._album(p, cfg) : this._card(p))).join('');
       const dots = R.L.map((p, j) => `<button class="dot ${j === R.i ? 'on' : ''}" data-act="dot" data-i="${j}" data-haptic="selection" data-key="${esc(p.id)}" title="${esc(p.name)}"></button>`).join('');
-      return `<div class="wrap"><div class="sw noscroll" style="--mh:${hgt}px">${cards}</div><div class="dots">${dots}</div></div>`;
+      return `<div class="wrap"><div class="sw noscroll ${album ? 'alb' : ''}" style="--mh:${hgt}px">${cards}</div><div class="dots">${dots}</div></div>`;
+    }
+    // Fiks 20.21 · «Album»-kortet (standard): grid 1fr auto – venstre chip (+ eq), tittel, artist/serie/kanal og bunnrad
+    // (14 fremdrift-segmenter + av/på og neste (musikk) / spill-pause (TV)); høyre bilde 104×104 + seertid-chip (watch_time).
+    // Bakgrunn når den spiller: farge fra bildet (reserve: app-farge / aksent), mørknet til ≥ 4.5:1 mot hvit tekst.
+    _album(p, cfg) {
+      const h = this.hass, I = info(this, p), a = I.a, s = I.s, tv = I.tv, off = I.off;
+      const aIc = a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '';
+      const pic = off ? '' : tv ? (I.pic || aIc) : I.pic;
+      const col = off ? null : (artColor(pic, () => this.update()) || (tv ? I.col : appStyle(I.app).col) || C.pink);
+      const bg = off ? '' : `background-color:${albumBg(col)}`;
+      let title, sub;
+      if (off) { title = I.title; sub = p.name; }
+      else {
+        title = a.media_title || I.app || a.source || (s.state === 'idle' ? (tv ? 'Hjem' : 'Klar') : '–');
+        sub = [a.media_artist, a.media_series_title, a.media_channel, I.app].find((x) => x && x !== title) || '';
+      }
+      const run = I.run && !off;
+      const eq = run ? `<span class="al-eq" aria-hidden="true">${[0, 1, 2, 3, 4].map((k) => `<span style="animation-duration:${(0.62 + (k % 3) * 0.17).toFixed(2)}s;animation-delay:${(k * 0.11).toFixed(2)}s"></span>`).join('')}</span>` : '';
+      const chip = `<span class="al-chip">${M.icon(p.pc.icon || (tv ? 'tv' : I.icon), 16)}<span class="ell">${esc(off ? p.name : I.label)}</span></span>`;
+      // Fremdrift: 14 segmenter (direkte: uten fremdrift, av: ingen)
+      const P = off ? null : posOf(s), n = P ? Math.round((P.pos / P.dur) * 14) : 0;
+      const segs = off ? '<span class="al-seg"></span>' : `<span class="al-seg" ${P ? `title="${fmtT(P.pos)} / ${fmtT(P.dur)}"` : ''}>${SEG_H.map((sh, i) => `<i class="${i < n ? 'on' : ''}" style="height:${sh}px"></i>`).join('')}</span>`;
+      const id = esc(p.id);
+      const b2 = tv
+        ? `<button class="al-b press" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 24)}</button>`
+        : `<button class="al-b press" data-act="next" data-id="${id}" title="Neste" aria-label="Neste">${M.icon('skip_next', 24)}</button>`;
+      const btns = `<button class="al-b press" data-act="power" data-id="${id}" title="Av/på" aria-label="Av/på">${M.icon('power_settings_new', 20)}</button>${b2}`;
+      const art = `<div class="al-art ${pic && tv ? 'logo' : ''}">${pic ? `<img src="${esc(pic)}" alt="" data-key="img">` : M.icon(off ? (tv ? 'tv' : 'speaker') : tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 40)}</div>`;
+      // Seertid-chip (alltid synlig når spilleren har watch_time): i dag (fet) · denne måneden, t:mm
+      const W = wtOf(cfg, p);
+      let wt = '';
+      if (W) {
+        const v = (eid) => { const m = eid ? wtMin(this.s(eid)) : null; return m == null ? '–' : fmtHM(m); };
+        wt = `<span class="al-wt" title="Seertid i dag · denne måneden">${M.icon('mdi:timer-outline', 13)}<b>${v(W.i_dag)}</b><span>·</span><span>${v(W.maned)}</span></span>`;
+      }
+      return `<section class="pc al ${off ? 'off' : 'on'} ${run ? 'run' : ''} ${tv ? 'tv' : 'mus'}" data-key="${id}" data-ent="${id}" style="${bg}">
+        <div class="al-l"><div class="al-top">${chip}${eq}</div><div class="al-ti ell">${esc(title)}</div>${sub ? `<div class="al-ar ell">${esc(sub)}</div>` : ''}
+          <div class="al-bot">${segs}${btns}</div></div>
+        <div class="al-r">${art}${wt}</div></section>`;
     }
     // Ett kort i karusellen (Fiks 19.5): samme oppbygning for Musikk og TV – ingen egen topprad. Plakat/omslag til venstre,
     // tekstkolonnen starter med enhetslinjen (ikon · navn · app/kilde · eq), av/på ligger absolutt øverst til høyre.
@@ -759,6 +846,14 @@
           this._st = setTimeout(() => this._settle(sw), 140);
         }, { passive: true });
       }
+      // Fiks 20.21: knappene i Album-kortet – trykket skal ikke gå videre (sveip/hold på kortet)
+      sw.querySelectorAll('.al-b').forEach((bt) => {
+        if (bt.__b) return;
+        bt.__b = true;
+        // (klikket må nå kortets egen lytter på shadowRoot; hold → more-info på kortet avbrytes)
+        bt.addEventListener('pointerdown', (e) => { e.stopPropagation(); this._cancelHold(); });
+        bt.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      });
       const R = this._R;
       if (R && sw.clientWidth && Date.now() - (this._scr || 0) > 500) {
         const want = R.i * sw.clientWidth;
@@ -839,6 +934,36 @@
         .lrow .end{flex:none;color:var(--gray600,#7f7f7f);font-variant-numeric:tabular-nums}
         .live{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:11px;background:${M.alpha(C.red, 0.16)};color:${C.red};font-size:11px;font-weight:600;letter-spacing:.06em;flex:none}
         .live i{width:6px;height:6px;border-radius:3px;background:currentColor;animation:mhlive 1.6s ease-in-out infinite}
+        /* Fiks 20.21 · Album-kortet */
+        .pc.al{height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:16px 16px 16px 18px;background-color:var(--gray200,#3a3a3a);transition:background-color .4s;color:#fafafa}
+        .pc.al.on{background-image:radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,0.16), transparent 55%), linear-gradient(160deg, rgba(255,255,255,0.03), rgba(0,0,0,0.2))}
+        .al-l{display:flex;flex-direction:column;min-width:0}
+        .al-top{display:flex;align-items:center;gap:10px;min-width:0;height:30px;flex:none}
+        .al-chip{height:30px;min-width:0;flex:0 1 auto;display:inline-flex;align-items:center;gap:6px;padding:0 12px 0 10px;border-radius:15px;background:rgba(0,0,0,0.2);font-size:12px;white-space:nowrap;box-sizing:border-box;color:#fafafa}
+        .off .al-chip{background:#4a4a4a}
+        .al-eq{display:flex;gap:3px;align-items:flex-end;height:22px;flex:none}
+        .al-eq span{width:3px;height:22px;border-radius:1.5px;background:#fff;transform-origin:bottom;transform:scaleY(.35);animation:eq ease-in-out infinite}
+        .al-ti{margin-top:12px;font-size:22px;font-weight:400;line-height:1.2;letter-spacing:-0.01em;color:#fafafa}
+        .al-ar{margin-top:2px;font-size:14px;color:rgba(255,255,255,0.78)}
+        .off .al-ar{color:var(--gray800,#afafaf)}
+        .al-bot{margin-top:auto;padding-top:14px;display:flex;align-items:center;gap:10px;min-width:0}
+        .al-seg{flex:1;min-width:0;height:16px;display:flex;align-items:center;gap:3px}
+        .al-seg i{flex:0 1 5px;min-width:2px;border-radius:3px;background:rgba(255,255,255,0.28)}
+        .al-seg i.on{background:rgba(255,255,255,0.75)}
+        .al-b{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:rgba(0,0,0,0.2);color:#fafafa;transition:transform .12s}
+        .al-b:active{transform:scale(.92)}
+        .off .al-b{background:#4a4a4a}
+        .al-r{width:104px;display:flex;flex-direction:column;align-items:center;gap:10px}
+        .al-art{position:relative;width:104px;height:104px;border-radius:20px;overflow:hidden;flex:none;display:grid;place-items:center;background:rgba(255,255,255,0.12);color:#fafafa;box-shadow:0 14px 30px rgba(0,0,0,0.35)}
+        .al-art::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16);background:linear-gradient(125deg, rgba(255,255,255,0.22), transparent 38%)}
+        .al-art img{width:100%;height:100%;object-fit:cover;display:block}
+        .al-art.logo{background:rgba(255,255,255,0.9)}
+        .al-art.logo img{object-fit:contain;padding:8px;box-sizing:border-box}
+        .off .al-art{background:#4a4a4a;color:var(--gray700,#979797);box-shadow:none}
+        .off .al-art::after{background:none}
+        .al-wt{flex:none;height:24px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border-radius:12px;background:rgba(0,0,0,0.22);font-size:12px;color:#fafafa;white-space:nowrap;font-variant-numeric:tabular-nums}
+        .al-wt b{font-weight:700}
+        .off .al-wt{background:#4a4a4a}
         .dots{display:flex;justify-content:center;gap:6px;height:10px;align-items:center}
         .dot{width:6px;height:6px;border-radius:3px;background:var(--gray400,#545454);transition:all .25s;flex:none}
         .dot.on{width:18px;background:var(--white,#fafafa)}

@@ -171,12 +171,12 @@ ok('17.8 popup-velger: egen hash med advarsel, lagres likevel', /finnes ikke i d
 const fe = await page.evaluate(async () => {
   const e = document.createElement('msh-editor'); e.cardClass = customElements.get('msh-soppel-card'); e.inline = true; e.hass = H; e.setConfig({ type: 'custom:msh-soppel-card', popup_hash: '#soppel' });
   document.body.appendChild(e); await new Promise((r) => setTimeout(r, 200));
-  const f = e.shadowRoot.querySelector('msh-popup-field[data-name="popup_hash"]');
+  const f = e.shadowRoot.querySelector('msh-popup-field[data-name="tap_action.hash"]'); // 20.2: popup_hash → tap_action { action: popup, hash }
   const shown = f && f.shadowRoot.textContent;
   f.shadowRoot.querySelector('[data-p="open"]').click(); await new Promise((r) => setTimeout(r, 200));
   const hosts = MSH.portals();
   const sh = hosts[hosts.length - 1].shadowRoot; sh.querySelector('.pr[data-v="#vaer"]').click(); await new Promise((r) => setTimeout(r, 200));
-  const out = { shown, cfg: e._config.popup_hash, attr: f.getAttribute('value') }; e.remove(); return out;
+  const out = { shown, cfg: (e._config.tap_action || {}).hash, attr: f.getAttribute('value') }; e.remove(); return out;
 });
 ok('17.8 editor-felt «hash» → popup-felt (ikon, navn, #hash) og valg lagres', fe.shown && /#soppel/.test(fe.shown) && fe.cfg === '#vaer', fe);
 // tap-velgeren: Popup-modus åpner arket, Test-knapp

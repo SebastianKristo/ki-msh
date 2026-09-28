@@ -127,6 +127,118 @@ const run = async () => p.evaluate(async () => {
     await wait(50);
     res.hjemSwipe = { i: vp.dataset.i, on: hd().findIndex((d) => d.classList.contains('on')), rendersAtRelease: hc() - c1 };
   } else res.hjemTap = 'ingen karusell';
+  // ---------- Fiks 20.19: posisjonen lagres ikke – ny instans (reload) starter på første kort fra første tegning
+  {
+    const saved = localStorage.getItem('ki:hf:ui') || '';
+    res.noSwStored = !/"sw"/.test(saved);
+    localStorage.setItem('ki:hf:ui', JSON.stringify({ tab: 'hjem', sw: { 'hjem-car-L': 2, 'hjem-car-R': 1, 'hjem-L-top': 1 } })); // gammelt lagret oppsett
+    hj.remove();
+    const h2 = document.createElement('msh-hjem-faner-card');
+    h2.setConfig({ type: 'custom:msh-hjem-faner-card', card_id: 'hf' }); h2.hass = hass;
+    document.getElementById('dash').appendChild(h2);
+    await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+    const first = [...h2.shadowRoot.querySelectorAll('[data-sw]')].map((v) => `${v.dataset.sw}:${v.dataset.i}:${v.firstElementChild.style.transform}:${(v.nextElementSibling && v.nextElementSibling.classList.contains('msh-dots')) ? [...v.nextElementSibling.children].findIndex((d) => d.classList.contains('on')) : '-'}`);
+    res.reloadFirst = first;
+    // bytte fane og tilbake → første kort
+    const vp0 = h2.shadowRoot.querySelector('.car[data-sw]'), dts = vp0.nextElementSibling;
+    dts.querySelectorAll('.msh-dot')[1].click(); await wait(600);
+    const TV = h2._TV || [], other = TV.findIndex((t) => t.id !== 'hjem');
+    if (other >= 0) { h2._pickTab(other); await wait(200); h2._pickTab(TV.findIndex((t) => t.id === 'hjem')); await wait(300); }
+    res.tabBack = h2.shadowRoot.querySelector('.car[data-sw]').dataset.i;
+    // retur fra bakgrunn (visibilitychange) → første kort, uten animasjon
+    h2.shadowRoot.querySelector('.car[data-sw]').nextElementSibling.querySelectorAll('.msh-dot')[1].click(); await wait(600);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+    const tr = h2.shadowRoot.querySelector('.car[data-sw] .track');
+    res.resume = { i: h2.shadowRoot.querySelector('.car[data-sw]').dataset.i, noAnim: getComputedStyle(tr).transitionDuration.split(',').every((x) => parseFloat(x) === 0) };
+    delete document.visibilityState;
+    h2.remove();
+  }
+  // ---------- Fiks 20.4: MSH.condEval (HA-conditions)
+  {
+    const M = window.MSH, subs = [];
+    const H = { ...hass, states: { ...hass.states }, connection: { subscribeMessage: (cb, m) => { if (m.type === 'render_template') { subs.push({ cb, m }); setTimeout(() => cb({ result: /Fotball/.test(m.template) }), 5); return Promise.resolve(() => {}); } return hass.connection.subscribeMessage(cb, m); } } };
+    const st = (id, state, a) => { H.states[id] = { entity_id: id, state, attributes: a || {}, last_changed: new Date().toISOString() }; };
+    st('calendar.familie', 'on', { message: 'Fotball' }); st('sensor.pris', '1.8'); st('person.a', 'home', {}); st('zone.home', '0', { friendly_name: 'Hjem', latitude: 59.9, longitude: 10.7, radius: 100 });
+    const E = (c) => M.condEval(H, M.condParse(c).value);
+    const now = new Date(), hh = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    let changed = 0;
+    M.condEval(H, { condition: 'template', value_template: "{{ state_attr('calendar.familie','message') == 'Fotball' }}" }, { onChange: () => changed++ });
+    await wait(50);
+    res.cond = {
+      state: E('condition: state\nentity_id: calendar.familie\nstate: "on"'),
+      stateList: E({ condition: 'state', entity_id: 'calendar.familie', state: ['off', 'on'] }),
+      attr: E({ condition: 'state', entity_id: 'calendar.familie', attribute: 'message', state: 'Fotball' }),
+      numAbove: E({ condition: 'numeric_state', entity_id: 'sensor.pris', above: 1.5 }),
+      numBelow: E({ condition: 'numeric_state', entity_id: 'sensor.pris', above: 1.5, below: 1.7 }),
+      time: E({ condition: 'time', after: hh(new Date(now - 3600000)), before: hh(new Date(+now + 3600000)) }),
+      timeNo: E({ condition: 'time', after: hh(new Date(+now + 3600000)), before: hh(new Date(+now + 7200000)) }),
+      zone: E({ condition: 'zone', entity_id: 'person.a', zone: 'zone.home' }),
+      and: E({ condition: 'and', conditions: [{ condition: 'state', entity_id: 'calendar.familie', state: 'on' }, { condition: 'numeric_state', entity_id: 'sensor.pris', below: 1 }] }),
+      or: E('condition: or\nconditions:\n  - condition: state\n    entity_id: calendar.familie\n    state: "off"\n  - condition: numeric_state\n    entity_id: sensor.pris\n    above: 1'),
+      not: E({ condition: 'not', conditions: [{ condition: 'state', entity_id: 'calendar.familie', state: 'off' }] }),
+      tpl: E({ condition: 'template', value_template: "{{ state_attr('calendar.familie','message') == 'Fotball' }}" }),
+      tplSubs: subs.length, tplChanged: changed,
+      bad: M.condParse('condition: [').error || null,
+    };
+  }
+  // ---------- Fiks 20.4: «Vis først når …» på Hjem-karusellen + «Vis prikker» av
+  {
+    const H = { ...hass, states: { ...hass.states } };
+    const setCal = (on) => { H.states = { ...H.states, 'calendar.familie': { ...hass.states['calendar.familie'], state: on ? 'on' : 'off', last_changed: new Date().toISOString() } }; h3.hass = { ...H }; };
+    const h3 = document.createElement('msh-hjem-faner-card');
+    const cfg = { type: 'custom:msh-hjem-faner-card', card_id: 'hf3', slides: { hjem: { L: { cal: true }, R: { vaer: true } } }, carousel: { hjem: { L: { first: [{ slide: 'cal', condition: [{ condition: 'state', entity_id: 'calendar.familie', state: 'on' }] }] }, R: { dots: false } } } };
+    H.states['calendar.familie'] = { ...hass.states['calendar.familie'], state: 'on' };
+    h3.setConfig(cfg); h3.hass = H;
+    document.getElementById('dash').appendChild(h3);
+    await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+    const L = () => h3.shadowRoot.querySelector('.car[data-sw="hjem-car-L"]'), R = () => h3.shadowRoot.querySelector('.car[data-sw="hjem-car-R"]');
+    const calIdx = () => [...L().firstElementChild.children].findIndex((s) => s.querySelector('[data-s="cal"]'));
+    const on = (vp) => [...vp.nextElementSibling.querySelectorAll('.msh-dot')].findIndex((d) => d.classList.contains('on'));
+    res.rule = { calIdx: calIdx(), first: L().dataset.i, dotOn: on(L()) };
+    setCal(false); await wait(300);
+    res.rule.off = L().dataset.i;
+    setCal(true); await wait(300);
+    res.rule.onAgain = L().dataset.i;
+    // manuell sveip (prikk 0) → regelen overstyrer ikke de neste 60 s
+    L().nextElementSibling.querySelectorAll('.msh-dot')[0].click(); await wait(600);
+    setCal(false); await wait(200); setCal(true); await wait(300);
+    res.rule.manual = L().dataset.i;
+    res.dotsR = R() ? { next: !!(R().nextElementSibling && R().nextElementSibling.classList.contains('msh-dots')), n: R().dataset.n } : null;
+    res.dotsL = !!L().nextElementSibling;
+    h3.remove();
+    // ugyldig YAML (streng) → regelen hoppes over, ingen feil
+    const h4 = document.createElement('msh-hjem-faner-card');
+    h4.setConfig({ ...cfg, card_id: 'hf4', carousel: { hjem: { L: { first: [{ slide: 'cal', condition: 'condition: [' }, { slide: 'cal', condition: 'condition: state\nentity_id: calendar.familie\nstate: "on"' }] } } } }); h4.hass = H;
+    document.getElementById('dash').appendChild(h4); await wait(200);
+    res.rule.yamlStr = h4.shadowRoot.querySelector('.car[data-sw="hjem-car-L"]').dataset.i;
+    // GUI-schema har feltene
+    const sch = JSON.stringify(customElements.get('msh-hjem-faner-card').schema(hass, cfg), (k, v) => (typeof v === 'function' ? 'fn' : v));
+    res.gui = { dots: /carousel\.hjem\.L\.dots/.test(sch), rule: /carousel\.hjem\.L\.first\.0\.slide/.test(sch), add: /legg til regel/.test(sch) };
+    // «Tilpass Hjem» → Kort → Swipe-kort
+    const M = window.MSH, ed = M.openHomeEditor(); await wait(500);
+    ed.u.acc = { ...ed.u.acc, swipe: true }; ed.render(); await wait(200);
+    const ER = ed.root, q = (s2) => ER.querySelector(s2);
+    res.ed = { dotsTgl: !!q('[data-a="cardots"][data-s="L"]'), add: !!q('[data-a="cradd"][data-s="L"]') };
+    q('[data-a="cradd"][data-s="R"]').click(); await wait(300);
+    res.ed.rows = ER.querySelectorAll('[data-key="crl-R"] [data-key^="crr-"]').length;
+    const preR = ER.querySelector('[data-a="crpre"][data-s="R"][data-v="cal"]'); res.ed.presets = [...ER.querySelectorAll('[data-a="crpre"][data-s="R"][data-i="0"]')].map((b) => b.textContent.trim()).join(' · ');
+    preR.click(); await wait(300);
+    const ta = () => ER.querySelector('textarea[data-in="crcond"][data-s="R"][data-i="0"]');
+    res.ed.yaml = ta() && ta().value;
+    res.ed.mono = ta() && /mono/i.test(getComputedStyle(ta()).fontFamily);
+    res.ed.badge = (ER.querySelector('[data-key="crl-R"] .crb') || {}).textContent;
+    const x = ta(); x.value = 'condition: ['; x.dispatchEvent(new Event('change', { bubbles: true })); await wait(300);
+    res.ed.err = !!ER.querySelector('[data-key="crl-R"] .cre');
+    const x2 = ta(); x2.value = 'condition: time\nafter: "00:00"'; x2.dispatchEvent(new Event('change', { bubbles: true })); await wait(300);
+    res.ed.errGone = !ER.querySelector('[data-key="crl-R"] .cre');
+    q('[data-a="cardots"][data-s="L"]').click(); await wait(300);
+    const eff = (M.liveOf ? M.liveOf('msh-hjem-faner-card') : null);
+    res.ed.cfg = JSON.stringify((eff && eff.config && eff.config.carousel) || ed.F().carousel || null);
+    ed.root.querySelector('[data-a="cancel"]') && ed.root.querySelector('[data-a="cancel"]').click(); await wait(300);
+    h4.remove();
+  }
   return res;
 });
 const out = await run();
@@ -157,6 +269,32 @@ if (typeof out.hjemTap === 'object') {
   ok(out.hjemKept.i === '1' && out.hjemKept.on === 1, 'Hjem: siden beholdes etter tegning');
   ok(out.hjemSwipe.i === '0' && out.hjemSwipe.on === 0 && out.hjemSwipe.rendersAtRelease === 0, 'Hjem: sveip uten re-render ved slipp');
 }
+// Fiks 20.19
+ok(out.noSwStored, '20.19: karusell-posisjonen (sw) lagres ikke i localStorage');
+ok(out.reloadFirst.length && out.reloadFirst.every((x) => /:0:translateX\(-?0%\):(0|-)$/.test(x)), '20.19: ny instans starter på første kort (også med gammelt lagret sw), prikkene stemmer: ' + out.reloadFirst.join(' '));
+ok(out.tabBack === '0', '20.19: tilbake til Hjem-fanen → første kort');
+ok(out.resume.i === '0' && out.resume.noAnim, '20.19: retur fra bakgrunn → første kort uten animasjon');
+// Fiks 20.4
+const cd = out.cond;
+ok(cd.state === true && cd.stateList === true && cd.attr === true, '20.4 condEval: state (YAML, liste, attribute)');
+ok(cd.numAbove === true && cd.numBelow === false, '20.4 condEval: numeric_state');
+ok(cd.time === true && cd.timeNo === false, '20.4 condEval: time');
+ok(cd.zone === true, '20.4 condEval: zone');
+ok(cd.and === false && cd.or === true && cd.not === true, '20.4 condEval: and/or/not');
+ok(cd.tpl === true && cd.tplSubs === 1 && cd.tplChanged >= 1, '20.4 condEval: template via render_template-abonnement (ett abonnement, onChange)');
+ok(!!cd.bad, '20.4 condParse: ugyldig YAML gir feil');
+ok(out.rule.calIdx > 0 && out.rule.first === String(out.rule.calIdx) && out.rule.dotOn === out.rule.calIdx, '20.4: regel slår til → starter på Kalender (prikk stemmer)');
+ok(out.rule.off === '0' && out.rule.onAgain === String(out.rule.calIdx), '20.4: resultatet endres → karusellen følger');
+ok(out.rule.manual === '0', '20.4: manuell sveip overstyres ikke');
+ok(out.dotsR && !out.dotsR.next && Number(out.dotsR.n) > 1 && out.dotsL, '20.4: «Vis prikker» av fjerner prikkene (bare den karusellen)');
+ok(out.rule.yamlStr === String(out.rule.calIdx), '20.4: ugyldig YAML-regel hoppes over, neste regel brukes');
+ok(out.gui.dots && out.gui.rule && out.gui.add, '20.4: GUI-editoren har Vis prikker + regler');
+ok(out.ed.dotsTgl && out.ed.add && out.ed.rows === 1, '20.4 Tilpass Hjem: bryter, + Legg til regel, regel-rad');
+ok(/Kalender-event pågår · Søppel i dag · Strømpris > 1,5 kr · Morgen 06–09 · Mal/.test(out.ed.presets), '20.4 Tilpass Hjem: hurtigvalg');
+ok(/condition: state/.test(out.ed.yaml) && /calendar\.familie/.test(out.ed.yaml) && out.ed.mono, '20.4 Tilpass Hjem: hurtigvalg fyller YAML (monospace)');
+ok(/Slår til nå|Nei nå/.test(out.ed.badge || ''), '20.4 Tilpass Hjem: live-merke');
+ok(out.ed.err && out.ed.errGone, '20.4 Tilpass Hjem: ugyldig YAML → rød feilmelding');
+ok(/"dots":false/.test(out.ed.cfg) && /"condition":"time"/.test(out.ed.cfg), '20.4 Tilpass Hjem: lagres som objekt i config: ' + out.ed.cfg);
 ok(!errs.length, 'sidefeil: ' + errs.join(' | '));
 await b.close();
 if (fail.length) { console.log('FEIL:\n- ' + fail.join('\n- ')); process.exit(1); }

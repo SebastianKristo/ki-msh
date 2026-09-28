@@ -1,4 +1,4 @@
-// Fiks 19.17–19.19 · Ringeklokke (#ringeklokke, msh-ringeklokke-card) + ringe-kortet på Hjem + kaldstart fra varsel.
+// Fiks 19.17–19.19 + 20.1 · Ringeklokke (#ringeklokke, msh-ringeklokke-card) + ringe-kortet på Hjem + kaldstart fra varsel.
 //   node test/ringeklokke-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
@@ -101,6 +101,7 @@ const ed = await p.evaluate(async () => {
   const acts = [...window.__c.shadowRoot.querySelectorAll('.ac')].map((e) => e.querySelector('span:not(.fill)').textContent);
   q('.tab[data-k="visning"]').click(); await w(80);
   const vis = !!q('.msh-dbm') && root.querySelectorAll('.chip[data-a="det"]').length;
+  const vis20 = { trig: !!q('[data-f="trigger"]'), cool: !!q('[data-f="cooldown_s"]'), card: !!q('[data-f="card_duration_min"]'), ao: !!q('[data-k="auto_open"]'), ac: !!q('[data-k="auto_close_min"]') };
   q('.tab[data-k="svar"]').click(); await w(80);
   const nRep = root.querySelectorAll('input[data-in="rp"]').length;
   q('[data-a="rpadd"]').click(); await w(80);
@@ -109,12 +110,13 @@ const ed = await p.evaluate(async () => {
   q('.tab[data-k="handlinger"]').click(); await w(80);
   const segs = root.querySelectorAll('.seg').length;
   q('[data-a="done"]').click(); await w(900);
-  return { tabs, link, acts, vis, nRep, nRep2, pills, segs, closed: sheet.ov.closed, cfg: window.__c.config.lock, stored: window.MSH.store.get('cards.pop-ringeklokke') };
+  return { tabs, link, acts, vis, vis20, nRep, nRep2, pills, segs, closed: sheet.ov.closed, cfg: window.__c.config.lock, stored: window.MSH.store.get('cards.pop-ringeklokke') };
 });
 ok('19.17 Tilpass ringeklokke: fire faner', ed.tabs.join('|') === 'Enhet|Handlinger|Svar|Visning', ed.tabs);
 ok('19.19 Lenke for varsler i Enhet', /#ringeklokke$/.test(ed.link || ''), ed.link);
 ok('19.17 «(ingen)» lås skjuler Lås opp (live), to handlinger', ed.acts.join('|') === 'Ta bilde|Avvis', ed.acts);
 ok('19.17/19.18 Visning: «Når det ringer» + 8 deteksjoner', ed.vis === 8, ed.vis);
+ok('20.1 Visning: Utløses når · Ignorer ny ringing · Kortet vises i (ingen Åpne automatisk)', ed.vis20.trig && ed.vis20.cool && ed.vis20.card && !ed.vis20.ao && !ed.vis20.ac, ed.vis20);
 ok('19.17 Svar: legg til svar vises straks', ed.nRep === 4 && ed.nRep2 === 5 && ed.pills === 6, ed);
 ok('19.17 Handlinger: hold-tid + demp-segment', ed.segs === 2, ed.segs);
 ok('19.17 Ferdig lagrer (ki-store cards.pop-ringeklokke)', ed.closed && ed.stored && ed.stored.lock === 'none' && Array.isArray(ed.stored.replies) && ed.stored.replies.length === 5, ed.stored);
@@ -129,7 +131,7 @@ const gui = await p.evaluate(async () => {
   let got = null; e.addEventListener('config-changed', (ev) => { got = ev.detail.config; });
   const add = e.shadowRoot.querySelector('[data-op="add"]'); if (add) add.click();
   await new Promise((q) => setTimeout(q, 50));
-  const dbm = !!e.shadowRoot.querySelector('.msh-dbm');
+  const dbm = !!e.shadowRoot.querySelector('.msh-dbm') && !!e.shadowRoot.querySelector('[data-f="cooldown_s"]') && !e.shadowRoot.querySelector('[data-name="auto_open"]');
   e.remove();
   return { secs, got: got && got.replies && got.replies.length, dbm };
 });
@@ -178,6 +180,7 @@ await p2.evaluate(async () => {
   window.__hap = []; window.addEventListener('haptic', (e) => window.__hap.push(e.detail));
   await new Promise((q) => setTimeout(q, 900));
   window.MSH.setDoorbellMode('card');
+  window.MSH.setDoorbell('cooldown_s', 0); // 19.18-sekvensen ringer flere ganger tett
   await new Promise((q) => setTimeout(q, 120));
   window.__hap.length = 0;
 });
@@ -234,6 +237,115 @@ ok('19.18 Av: ingen kort, ingen popup', !H.banner && H.hash === '', H);
 const persisted = await p2.evaluate(() => ({ prof: window.MSH.store.get('doorbell_profiles'), mode: window.MSH.doorbellMode() }));
 ok('19.18 valget lagres per bruker × enhet (doorbell_profiles)', persisted.mode === 'off' && JSON.stringify(persisted.prof || {}).includes('"mode":"off"'), persisted);
 await p2.close();
+
+/* ---------------------------------------------------------------- 20.1 · tid, cooldown, Begge, utløser, reload */
+const HJEM_SETUP = async () => {
+  window.__hh = window.__hh || window.mockHass();
+  history.pushState = () => {};
+  const hj = document.createElement('msh-hjem-card');
+  hj.setConfig({ type: 'custom:msh-hjem-card', card_id: 'ki-home', cards: { faner: { type: 'custom:msh-hjem-faner-card', card_id: 'ki-home-faner' } }, hidden: ['header', 'prosa', 'soppel', 'strom', 'gjoremal'] });
+  hj.hass = window.__hh;
+  document.getElementById('dash').appendChild(hj);
+  window.__hj = hj;
+  window.__hap = []; window.addEventListener('haptic', (e) => window.__hap.push(e.detail));
+  await new Promise((q) => setTimeout(q, 900));
+};
+let p4 = await page('file://' + resolve('test/harness.html'));
+const mig = await p4.evaluate(() => ({ off: window.MSH.doorbellCfg({ auto_open: false }).mode, on: window.MSH.doorbellCfg({ auto_open: true }).mode, def: window.MSH.doorbellCfg({}), legacy: window.MSH.doorbellCfg({ auto_close_min: 5 }).auto_close_min, cd: window.MSH.doorbellCfg({ doorbell: { mode: 'both', cooldown_s: 10 } }) }));
+ok('20.1 migrering: auto_open false → Av, true → standard (Kort)', mig.off === 'off' && mig.on === 'card', mig);
+ok('20.1 standard: Kort · Sensor går på · 30 s · 2 min · 2 min', JSON.stringify(mig.def) === JSON.stringify({ mode: 'card', trigger: 'on', cooldown_s: 30, card_duration_min: 2, auto_close_min: 2 }) && mig.legacy === 5 && mig.cd.mode === 'both' && mig.cd.cooldown_s === 10, mig);
+await p4.evaluate(HJEM_SETUP);
+const set4 = (k, v) => p4.evaluate(async ([k, v]) => { window.MSH.setDoorbell(k, v); await new Promise((q) => setTimeout(q, 80)); }, [k, v]); // > 40 ms haptic-sperre før ringingen
+const flip4 = (id, st) => p4.evaluate(async ([id, st]) => {
+  const h = window.__hh, S = { ...h.states };
+  S[id] = { ...S[id], state: st, last_changed: new Date().toISOString() };
+  window.__hh = { ...h, states: S };
+  window.__hj.hass = window.__hh;
+  await new Promise((q) => setTimeout(q, 350));
+}, [id, st]);
+const DB = 'binary_sensor.inngang_doorbell';
+const st4 = () => p4.evaluate(() => {
+  const f = window.__hj._kids.faner, bn = f && f.shadowRoot && f.shadowRoot.querySelector('[data-ring-slot] msh-ring-banner'), bsr = bn && bn.shadowRoot, R = window.MSH.ring;
+  const tl = bsr && bsr.querySelector('.tl span');
+  return { banner: !!bn, n: R.n, t: R.t, dur: isFinite(R.until) ? R.until - R.t : 'inf', tl: tl ? tl.style.animationDuration : null, delay: tl ? tl.style.animationDelay : null, shk: !!(bsr && bsr.querySelector('.when.shk')), hash: location.hash,
+    heavy: window.__hap.filter((x) => x === 'heavy').length, ss: JSON.parse(sessionStorage.getItem('ki:ring-alert') || 'null') };
+});
+await set4('mode', 'card'); await set4('card_duration_min', 2); await set4('cooldown_s', 30);
+await flip4(DB, 'on'); await flip4(DB, 'off');
+await p4.waitForTimeout(1200);
+let S4 = await st4();
+ok('20.1 én ringing (sensor på < 1 s) → kortet blir liggende i valgt tid (2 min)', S4.banner && S4.dur === 120000 && S4.tl === '120000ms' && S4.heavy === 1, S4);
+const n1 = S4.n, t1 = S4.t;
+await flip4(DB, 'on'); await flip4(DB, 'off');
+S4 = await st4();
+ok('20.1 ny ringing innen 30 s: ikke nytt varsel (ingen ny haptic), men tiden nullstilles', S4.banner && S4.n === n1 && S4.heavy === 1 && S4.t > t1 && S4.dur === 120000, [n1, t1, S4]);
+ok('20.1 starttid i sessionStorage', S4.ss && S4.ss.t === S4.t && S4.ss.n === S4.n, S4.ss);
+// Reload midt i varselet → fortsetter nedtellingen
+const before = S4;
+await p4.waitForTimeout(1500);
+await p4.reload();
+for (const m of mocks) await p4.addScriptTag({ path: m });
+await p4.addScriptTag({ path: bundle });
+await p4.evaluate(HJEM_SETUP);
+S4 = await st4();
+const dl = -parseFloat(S4.delay || '0');
+ok('20.1 reload midt i varselet: samme starttid, tidslinjen fortsetter', S4.banner && S4.t === before.t && S4.dur === 120000 && dl >= 2000 && dl < 20000 && S4.heavy === 0, S4);
+// Til avvist: ingen tidslinje, blir til ✕
+await set4('card_duration_min', 0);
+await p4.waitForTimeout(300);
+S4 = await st4();
+ok('20.1 «Til avvist»: ingen tidslinje, kortet blir liggende', S4.banner && S4.dur === 'inf' && !S4.tl, S4);
+await p4.evaluate(async () => { window.__hj._kids.faner.shadowRoot.querySelector('msh-ring-banner').shadowRoot.querySelector('.x').click(); await new Promise((q) => setTimeout(q, 300)); });
+S4 = await st4();
+ok('20.1 ✕ avviser («Til avvist») og tømmer sessionStorage', !S4.banner && !S4.ss, S4);
+// Begge: popupen åpnes, kortet ligger på Hjem når den lukkes (ristende klokke)
+await set4('cooldown_s', 0); await set4('card_duration_min', 2); await set4('mode', 'both');
+await flip4(DB, 'on'); await flip4(DB, 'off');
+S4 = await st4();
+ok('20.1 Begge: åpner #ringeklokke', S4.hash === '#ringeklokke', S4);
+await p4.waitForTimeout(8500);
+await p4.evaluate(async () => { window.MSH.closePopup(); await new Promise((q) => setTimeout(q, 500)); });
+S4 = await st4();
+ok('20.1 Begge: kortet på Hjem når popupen lukkes, klokken rister', S4.hash === '' && S4.banner && S4.shk && S4.dur === 120000, S4);
+// Popup: ikke kort; Av: ingenting
+await p4.evaluate(() => window.MSH.ringDismiss());
+await set4('mode', 'popup');
+await flip4(DB, 'on'); await flip4(DB, 'off');
+S4 = await st4();
+ok('20.1 Popup: åpner popupen, ikke kort', S4.hash === '#ringeklokke' && !S4.banner, S4);
+await p4.evaluate(async () => { window.MSH.closePopup(); await new Promise((q) => setTimeout(q, 400)); });
+S4 = await st4();
+const act = await p4.evaluate(() => window.MSH.ringActive());
+ok('20.1 Popup: lukket auto-åpnet popup = avvist', !S4.banner && !act, [S4, act]);
+await set4('mode', 'off');
+const nOff = (await st4()).n;
+await flip4(DB, 'on'); await flip4(DB, 'off');
+S4 = await st4();
+ok('20.1 Av: ingen kort og ingen popup', !S4.banner && S4.hash === '' && S4.n === nOff + 1, S4);
+// Utløser «Ny hendelse»: sensoren alene utløser ikke, ny hendelse på event.* gjør
+await p4.evaluate(() => window.MSH.ringDismiss());
+await set4('mode', 'card'); await set4('trigger', 'event');
+const nEv = (await st4()).n;
+await flip4(DB, 'on'); await flip4(DB, 'off');
+const afterBin = (await st4()).n;
+await p4.evaluate(async () => {
+  const h = window.__hh, S = { ...h.states }, id = 'event.inngang_ringeklokke', now = new Date().toISOString();
+  S[id] = { ...S[id], state: now, last_changed: now, attributes: { ...S[id].attributes, event_type: 'ring' } };
+  window.__hh = { ...h, states: S }; window.__hj.hass = window.__hh;
+  await new Promise((q) => setTimeout(q, 350));
+});
+S4 = await st4();
+ok('20.1 «Ny hendelse»: binary_sensor ignoreres, ny event.* gir varsel', afterBin === nEv && S4.n === nEv + 1 && S4.banner, [nEv, afterBin, S4]);
+// Feltene i «Tilpass Hjem» → Popups / GUI: samme segmenter, betinget av modus
+const flds = await p4.evaluate(() => {
+  const f = (m) => { window.MSH.setDoorbell('mode', m); const h = window.MSH.doorbellModeHTML('x'); return ['mode', 'trigger', 'cooldown_s', 'card_duration_min', 'auto_close_min'].filter((k) => h.includes(`data-f="${k}"`)).join(','); };
+  const r = { card: f('card'), popup: f('popup'), both: f('both'), off: f('off') };
+  r.labels = (window.MSH.doorbellModeHTML('x').match(/data-f="mode" data-v="\w+"[^>]*>([^<]+)</g) || []).map((x) => x.replace(/.*>|<$/g, ''));
+  return r;
+});
+ok('20.1 felt: Kortet vises i (Kort/Begge), Popupen lukkes etter (Popup/Begge)', flds.card === 'mode,trigger,cooldown_s,card_duration_min' && flds.popup === 'mode,trigger,cooldown_s,auto_close_min' && flds.both === 'mode,trigger,cooldown_s,card_duration_min,auto_close_min' && flds.off === 'mode,trigger,cooldown_s' && flds.labels.join('|') === 'Kort|Popup|Begge|Av', flds);
+if (shots) await p4.screenshot({ path: shots + '/rk20.png' });
+await p4.close();
 
 /* ---------------------------------------------------------------- 19.19 · kaldstart med #ringeklokke (ekte Bubble Card) */
 const BC = resolve('test/.vendor/bubble-card.js');

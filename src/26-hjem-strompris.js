@@ -47,7 +47,7 @@
     const t = tab || {}, glass = t.style === 'glass';
     return `<div class="seg ${glass ? 'glass' : 'std'}" role="tablist" data-glass-drag="x" ${attrs || ''}>${[['today', 'I dag', true], ['tomorrow', 'I morgen', hasM]].map(([k, l, ok]) => {
       const on = (k === 'today') === isToday;
-      return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="day" data-d="${k}" ${ok ? '' : 'disabled title="Kommer ca. 13:00"'}>${l}</button>`;
+      return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="day" data-d="${k}" ${ok ? '' : 'title="Prisene for i morgen kommer ca. kl. 13:00"'}>${l}</button>`;
     }).join('')}</div>`;
   };
   M.powerTabCSS = (t) => {
@@ -115,7 +115,9 @@
       const P = M.powerPrice(this.hass, M.powerPriceCfg(this._rawConfig || c), this);
       const se = P.profile === 'se', st = P.state;
       const hasT = P.hasToday, hasM = P.hasTomorrow;
-      const isToday = !(ui.day === 'tomorrow' && hasM);
+      // Fiks 20.10: «I morgen» virker alltid (også før Nord Pool publiserer ca. kl. 13) – valget ligger på instansen (this._ui)
+      // og beholdes ved hass-oppdateringer; uten data vises tom graf + «Prisene for i morgen kommer ca. kl. 13:00».
+      const isToday = ui.day !== 'tomorrow';
       const ser = isToday ? P.today : P.tomorrow, has = isToday ? hasT : hasM;
       const refSer = P.ref && c.show_norgespris !== false ? (isToday ? P.ref.today : P.ref.tomorrow) : null;
       const showRef = !se && !!refSer;
@@ -128,11 +130,12 @@
 
       // Verdirad (valgt enhet)
       let label, val;
-      if (scrub) { label = `${ML} ${dayL} kl. ${hh(sel)}`; val = ser[sel]; }
+      if (scrub) { label = isToday ? `${ML} ${dayL} kl. ${hh(sel)}` : `I morgen kl. ${hh(sel)}–${hh(sel + 1)}`; val = ser[sel]; }
       else if (isToday) { label = `${ML} nå`; val = P.now != null ? P.now : ser[nowH]; }
       else { label = `${ML} snitt i morgen`; val = avg(ser); }
       let rLabel, rVal;
       if (se) { rLabel = `Snitt ${dayL}`; rVal = avg(ser); }
+      else if (!isToday && !scrub) { const m = P.cheapest({ day: 'tomorrow' }); rLabel = m ? `Billigst kl. ${hh(m.h)}–${hh(m.h + 1)}` : 'Billigst i morgen'; rVal = m ? m.v : null; }
       else if (showRef) { rLabel = P.ref.label; rVal = scrub ? refSer[sel] : isToday ? P.ref.now : avg(refSer); }
       const tr = !se && (P.mode === 'norgespris' || P.mode === 'total') ? M.gridTrend(P) : null;
 
@@ -205,6 +208,7 @@
           <div class="gr">
             <div class="ya num">${yax}</div>
             <div class="plot" role="img" aria-label="${esc(ML)} per time ${dayL} i ${P.graphUnit}">${svg}${marker}
+              ${st && !has && !isToday ? '<span class="tmr-note">Prisene for i morgen kommer ca. kl. 13:00</span>' : ''}
               ${st ? '' : `<button class="pick" data-act="customize" data-section="kilde">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
           </div>
           <div class="xa num">${xax}</div>
@@ -212,7 +216,7 @@
       </div>`;
     }
     onAction(name, el, ev) {
-      if (name === 'day') { if (el.disabled) return; return this.setUI({ day: el.dataset.d, sel: null }); }
+      if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null }); // haptic light kommer fra _onClick
       return super.onAction(name, el, ev);
     }
     afterRender() {
@@ -280,6 +284,7 @@
         .halo{width:34px;height:34px}
         .dot{width:14px;height:14px;box-shadow:0 0 0 3px #303030}
         .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+        .tmr-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:90%;text-align:center;font-size:13px;color:#8e8d89;pointer-events:none}
         .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:#6d6c69}
         .xa span{position:absolute;top:0;transform:translateX(-50%);line-height:11px}
         .xa span:first-child{transform:none}

@@ -2,7 +2,7 @@
  * Kort som selv definerer static uiPersist (Kamera, Media) står urørt. */
 (function () {
   const KEYS = {
-    'msh-hjem-faner-card': ['tab', 'sw'],
+    'msh-hjem-faner-card': ['tab'], // Fiks 20.19: karusell-/stabel-posisjonen (sw) lagres IKKE – starter på første kort ved innlasting
     // msh-rom-card: ingen – seksjonene starter fra «Åpen ved start» (config) ved hver åpning (Fiks 7)
     'msh-klima-card': ['tab', 'zone', 'water'],
     'msh-lys-card': ['tab', 'fold'],

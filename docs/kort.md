@@ -90,10 +90,8 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `prose_gap` | Avstand til prosa · range | Størrelser |
 | `prose_gap` | Avstand til prosa · range | Størrelser |
 | `people` | Personer i headeren · rows | Personer |
-| `zones` | Soner med eget ikon og farge · rows | Soner |
-| `zone_away.icon` | Borte · ikon · icon | Soner |
-| `zone_away.color` | Borte · farge · color | Soner |
-| `away_marker` | Borte · vis merke · boolean | Soner |
+| `zones` | Soner med eget ikon og farge · rows | Status og soner |
+| `away_marker` | Borte · vis merke · boolean | Status og soner |
 | `greeting` | Hilsen | Hilsen |
 | `size` | Størrelse (S \| M \| L) | Bilder |
 | `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
@@ -102,7 +100,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `ring_me` | Ring rundt meg · markerer bildet ditt · boolean | Bilder |
 | `weather_tap` | Trykk på været åpner Vær · gjelder «Hjem» og «Profil» · boolean | Bilder |
 | `weather_hash` | Vær-popup · hash | Bilder |
-| `person_tap` | Trykk på person (quick \| popup) | Bilder |
+| `person_tap` | Trykk på person (kart \| quick \| popup) | Bilder |
 | `this_server.name` | Navn på dette stedet | Steder |
 | `this_server.icon` | Ikon for dette stedet · icon | Steder |
 | `this_server.color` | Farge for dette stedet · color | Steder |
@@ -166,11 +164,10 @@ Setninger med live verdier i bobler (vær, strømpris, effekt, lys …) og handl
 
 ## `msh-soppel-card`
 
-Dager til neste søppeltømming. Trykk åpner søppel-popupen (#soppel).
+Dager til neste søppeltømming. Trykk og hold kan velges (popup, visning, more-info, tjeneste, URL).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `popup_hash` | Popup-hash · hash |  |
 | `sensor` | Entitet · dager til tømming · entity |  |
 | `type_sensor` | Sensor · type avfall (valgfri) · entity |  |
 | `rosa` | Rosa på tømmedagen · boolean |  |
@@ -236,6 +233,8 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `slides.hjem.R.strom` | Sveip-kort · høyre karusell · Strøm · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.L.trash` | Sveip-kort · venstre karusell · Søppel · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.R.trash` | Sveip-kort · høyre karusell · Søppel · boolean | Rom og snarveier · Hjem |
+| `carousel.hjem.L.dots` | Vis prikker · venstre karusell · boolean | Rom og snarveier · Hjem |
+| `carousel.hjem.R.dots` | Vis prikker · høyre karusell · boolean | Rom og snarveier · Hjem |
 | `tiles.hjem.lock.slot` | Snarvei · Dørlås (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Hjem |
 | `tiles.hjem.lock.stack` | Dørlås · sveip sammen med andre i samme plass · boolean | Rom og snarveier · Hjem |
 | `tiles.hjem.lock.fra` | Dørlås · vis fra (MM-DD) | Rom og snarveier · Hjem |
@@ -331,7 +330,6 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tiles.uten_etasje.tv.slot` | Snarvei · TV (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
 | `tiles.uten_etasje.wash.slot` | Snarvei · Vaskemaskin (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
 | `tiles.uten_etasje.jul.slot` | Snarvei · Jul (off \| L-top \| L-bottom \| R-top \| R-bottom) | Rom og snarveier · Andre rom |
-| `layout.aktuelt.order · layout.aktuelt.hidden` | rekkefølge/synlighet: bod, gang, kjokken, stue, bad, kontor, soverom, vaskerom, basseng, hage, garasje | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.bod` | Kolonne · Bod (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.gang` | Kolonne · Gang (L \| R) | Rom og snarveier · Aktuelt |
 | `layout.aktuelt.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Aktuelt |
@@ -355,6 +353,24 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.lock.name` | Navn | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.icon` | Ikon · icon | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.sub` | Undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
+| `tile_cfg.lock.state_text.locked.title` | locked · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.locked.sub` | locked · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unlocked.title` | unlocked · nå · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unlocked.sub` | unlocked · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.locking.title` | locking · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.locking.sub` | locking · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unlocking.title` | unlocking · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unlocking.sub` | unlocking · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.open.title` | open · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.open.sub` | open · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.opening.title` | opening · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.opening.sub` | opening · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.jammed.title` | jammed · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.jammed.sub` | jammed · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
 | `tile_cfg.lock.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
@@ -364,6 +380,28 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.alarm.name` | Navn | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
 | `tile_cfg.alarm.icon` | Ikon · icon | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
 | `tile_cfg.alarm.sub` | Undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
+| `tile_cfg.alarm.state_text.disarmed.title` | disarmed · nå · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.disarmed.sub` | disarmed · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_home.title` | armed_home · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_home.sub` | armed_home · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_away.title` | armed_away · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_away.sub` | armed_away · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_night.title` | armed_night · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_night.sub` | armed_night · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_vacation.title` | armed_vacation · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_vacation.sub` | armed_vacation · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_custom_bypass.title` | armed_custom_bypass · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.armed_custom_bypass.sub` | armed_custom_bypass · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.arming.title` | arming · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.arming.sub` | arming · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.pending.title` | pending · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.pending.sub` | pending · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.triggered.title` | triggered · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.triggered.sub` | triggered · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
+| `tile_cfg.alarm.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm › Tekst per tilstand |
 | `tile_cfg.alarm.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
 | `tile_cfg.alarm.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
 | `tile_cfg.alarm.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · under rommene › Alarm |
@@ -386,6 +424,14 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.cam.active.sub_active` | Undertekst mens aktiv | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
 | `tile_cfg.cam.active.sub_after` | Undertekst i holdetiden | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
 | `tile_cfg.cam.active.on_activate` | Ved aktivering (none \| haptic \| popup \| top) | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
+| `tile_cfg.cam.state_text.on.title` | on · tittel | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.on.sub` | on · undertekst | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.off.title` | off · tittel | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.off.sub` | off · undertekst | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
+| `tile_cfg.cam.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera › Tekst per tilstand |
 | `tile_cfg.cam.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
 | `tile_cfg.cam.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
 | `tile_cfg.cam.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Høyre · under rommene › Kamera |
@@ -415,6 +461,18 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.garage.name` | Navn | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.icon` | Ikon · icon | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.sub` | Undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
+| `tile_cfg.garage.state_text.closed.title` | closed · nå · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.closed.sub` | closed · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.open.title` | open · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.open.sub` | open · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.opening.title` | opening · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.opening.sub` | opening · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.closing.title` | closing · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.closing.sub` | closing · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
 | `tile_cfg.garage.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
@@ -433,6 +491,22 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.vacr.name` | Navn | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
 | `tile_cfg.vacr.icon` | Ikon · icon | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
 | `tile_cfg.vacr.sub` | Undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
+| `tile_cfg.vacr.state_text.cleaning.title` | cleaning · nå · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.cleaning.sub` | cleaning · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.docked.title` | docked · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.docked.sub` | docked · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.paused.title` | paused · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.paused.sub` | paused · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.returning.title` | returning · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.returning.sub` | returning · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.idle.title` | idle · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.idle.sub` | idle · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.error.title` | error · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.error.sub` | error · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
+| `tile_cfg.vacr.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger › Tekst per tilstand |
 | `tile_cfg.vacr.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
 | `tile_cfg.vacr.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
 | `tile_cfg.vacr.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Støvsuger |
@@ -442,6 +516,22 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.tv.name` | Navn | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
 | `tile_cfg.tv.icon` | Ikon · icon | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
 | `tile_cfg.tv.sub` | Undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
+| `tile_cfg.tv.state_text.on.title` | on · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.on.sub` | on · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.off.title` | off · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.off.sub` | off · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.playing.title` | playing · nå · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.playing.sub` | playing · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.paused.title` | paused · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.paused.sub` | paused · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.idle.title` | idle · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.idle.sub` | idle · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.standby.title` | standby · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.standby.sub` | standby · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.unavailable.title` | unavailable · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
+| `tile_cfg.tv.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV › Tekst per tilstand |
 | `tile_cfg.tv.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
 | `tile_cfg.tv.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
 | `tile_cfg.tv.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › TV |
@@ -601,7 +691,7 @@ Temperatur, fukt, termostat-chip og 24 t-graf med scrubbing. Alltid første kort
 | `overrides.temperature` | Temperatursensor · entity | Klima |
 | `overrides.humidity` | Fuktsensor · entity | Klima |
 | `header_icon` | Rommets ikon i popup-headeren · boolean |  |
-| `graph_t` | Linje · temperatur (romfarge) · color | Graf |
+| `graph_t` | Linje · temperatur · color | Graf |
 | `graph_h` | Linje · fukt · color | Graf |
 | `graph_fill` | Fyll (0 \| 0.2 \| 0.4) | Graf |
 | `graph_width` | Linje (1.5 \| 2 \| 3) | Graf |
@@ -625,6 +715,8 @@ Romkort for Hjem: temperatur, fukt, lys, termostat og varsler. Trykk åpner Rom-
 | `name` | Navn | Rom |
 | `hash` | Popup (hash) · hash | Rom |
 | `klima` | Klima-knapp (+/−) på kortet · boolean | Rom |
+| `room_card.klima_pill_height.M` | Klima-knapp · høyde Medium (px) · number | Rom |
+| `room_card.klima_pill_height.L` | Klima-knapp · høyde Stor/karusell (px) · number | Rom |
 | `icon` | Ikon · icon | Ikon og farge |
 | `color` | Romfarge (ikon når lys er på) · color | Ikon og farge |
 | `icon_color_mode` | Ikonfarge ( \| lights \| always \| never) | Ikon og farge |
@@ -971,6 +1063,8 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
+| `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
+| `watch_time.stue_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Stue TV · TV · Stue |
 | `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
@@ -987,6 +1081,8 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
+| `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
+| `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
 | `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
@@ -1003,10 +1099,13 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.prosjektor.hide_sources` | Skjul apper (kommaseparert) | Prosjektor · TV |
 | `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
+| `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
+| `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
 | `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |
-| `card_height` | Kortets høyde (TV og Musikk) · range |  |
+| `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
+| `card_height` | Kortets høyde (Detaljert) · range |  |
 | `vol_style` | Volum-stil · Musikk (pille \| trinn \| user) |  |
 | `vol_style_tv` | Volum-stil · TV (trinn \| knapper \| user) |  |
 | `remote_swipe` | Sveip på styreflaten · boolean |  |
@@ -1034,6 +1133,8 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.stue_tv.hide_sources` | Skjul apper (kommaseparert) | Stue TV · TV · Stue |
 | `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
 | `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
+| `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
+| `watch_time.stue_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Stue TV · TV · Stue |
 | `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
 | `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
@@ -1050,6 +1151,8 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.soverom_tv.hide_sources` | Skjul apper (kommaseparert) | Soverom TV · TV · Soverom |
 | `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
 | `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
+| `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
+| `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
 | `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
 | `players.prosjektor.name` | Navn | Prosjektor · TV |
 | `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
@@ -1066,11 +1169,14 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.prosjektor.hide_sources` | Skjul apper (kommaseparert) | Prosjektor · TV |
 | `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
+| `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
+| `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
 | `default_tab` | Fane ved åpning (tv \| musikk \| last) |  |
 | `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |
-| `card_height` | Kortets høyde (TV og Musikk) · range |  |
+| `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
+| `card_height` | Kortets høyde (Detaljert) · range |  |
 | `vol_style` | Volum-stil · Musikk (pille \| trinn \| user) |  |
 | `vol_style_tv` | Volum-stil · TV (trinn \| knapper \| user) |  |
 | `remote_swipe` | Sveip på styreflaten · boolean |  |
@@ -1397,10 +1503,20 @@ Ringeklokke-popup (#ringeklokke): live-video, deteksjoner, Ta bilde / Lås opp (
 | `snapshot` | Ta bilde · boolean | Handlinger |
 | `haptic` | Vibrer når det ringer · boolean | Handlinger |
 | `package_first` | Vis pakkekamera først (når pakke er oppdaget) · boolean | Handlinger |
-| `auto_close_min` | Lukk automatisk etter (1 \| 2 \| 5 \| 0) | Visning |
-| `auto_open` | Åpne automatisk (Popup-modus) · boolean | Visning |
 | `show_replies` | Svar via høyttaleren · boolean | Visning |
 | `show_history` | Tidligere i dag · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-kart-card`
+
+Kart-popup (#kart): fullskjerm-kart med personer, biler, soner og kollektiv i sanntid (Entur).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `persons` | Personer · tomt = alle · entities | Personer og biler |
+| `cars` | Biler (device_tracker med GPS) · tomt = automatisk · entities | Personer og biler |
+| `transit` | Vis busser og trikker i sanntid (Entur) · boolean | Kollektiv |
+| `start` | Startvisning (fit \| home \| me) | Visning |
+| `style` | Kartstil (dark \| standard \| satellite) | Visning |

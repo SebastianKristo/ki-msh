@@ -15,16 +15,19 @@ const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-
 const fails = [];
 const ok = (c, msg) => { if (!c) fails.push(msg); };
 
-const page = async (mainCfg, heroCfg, vw) => {
+// Fiks 20.21: standard er Album-kortet – de gamle testene (19.5) kjører mot «Detaljert» (now_playing.style: detailed)
+const page = async (mainCfg0, heroCfg, vw, extra) => {
+  const mainCfg = { now_playing: { style: 'detailed' }, ...(mainCfg0 || {}) };
   const p = await b.newPage({ viewport: { width: vw || 390, height: 844 }, hasTouch: false });
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/net::ERR|fonts/.test(m.text())) errs.push(m.text()); });
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
-  await p.evaluate(async ({ mainCfg, heroCfg }) => {
+  await p.evaluate(async ({ mainCfg, heroCfg, extra }) => {
     try { localStorage.clear(); } catch (e) { /* */ }
     const h = window.mockHass(); window.__h = h;
+    Object.entries(extra || {}).forEach(([id, [st, attributes]]) => { h.states[id] = { entity_id: id, state: String(st), attributes: attributes || {}, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() }; });
     const bc = document.createElement('bubble-card');
     bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#media' });
     bc.innerHTML = '<div class="pop"><div class="hdr">Media</div><div class="inner"></div></div>';
@@ -36,7 +39,7 @@ const page = async (mainCfg, heroCfg, vw) => {
     window.__main = mk('msh-media-card', mainCfg || {});
     window.__deep = (sel) => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
     await new Promise((q) => setTimeout(q, 700));
-  }, { mainCfg, heroCfg });
+  }, { mainCfg, heroCfg, extra });
   return { p, errs };
 };
 const calls = (p) => p.evaluate(() => window.__calls.map((c) => [c[0], c[1], JSON.stringify(c[2])]));
@@ -333,6 +336,80 @@ for (const vw of [390, 360]) {
   const k = await p.evaluate(() => ({ dp: !!window.__main.shadowRoot.querySelector('.dp'), sp: !!window.__main.shadowRoot.querySelector('.sp'), keys: window.__main.shadowRoot.querySelectorAll('.keys .key').length, vol: !!window.__main.shadowRoot.querySelector('.mvr') }));
   ok(k.dp && !k.sp && k.keys === 4 && k.vol, '19.4: kompakt ' + JSON.stringify(k));
   ok(!errs.length, '19.4: feil ' + errs.join(' | '));
+  await p.close();
+}
+/* 20.21 · Album-kortet (standard): TV og Musikk, farget/grå bakgrunn, seertid-chip, kontrast, Detaljert = gamle kortet */
+{
+  const WT = { 'sensor.tv_seertid_i_dag': [2.2334, { unit_of_measurement: 'h' }], 'sensor.tv_seertid_denne_maned': [2883, { unit_of_measurement: 'min' }] };
+  const cfg = { default_tab: 'tv', now_playing: { style: 'album' }, watch_time: { 'media_player.stue_tv': { i_dag: 'sensor.tv_seertid_i_dag', maned: 'sensor.tv_seertid_denne_maned' } } };
+  const { p, errs } = await page(cfg, null, 390, WT);
+  const alb = () => p.evaluate(() => [...window.__hero.shadowRoot.querySelectorAll('.pc')].map((c) => {
+    const cs = getComputedStyle(c), wt = c.querySelector('.al-wt'), art = c.querySelector('.al-art'), ar = art && art.getBoundingClientRect(), wr = wt && wt.getBoundingClientRect();
+    return { id: c.dataset.key, al: c.classList.contains('al'), off: c.classList.contains('off'), h: Math.round(c.getBoundingClientRect().height), bg: cs.backgroundColor, grid: cs.gridTemplateColumns,
+      chip: (c.querySelector('.al-chip') || {}).textContent, ti: (c.querySelector('.al-ti') || {}).textContent, ar: (c.querySelector('.al-ar') || {}).textContent,
+      eq: c.querySelectorAll('.al-eq span').length, segs: c.querySelectorAll('.al-seg i').length, segOn: c.querySelectorAll('.al-seg i.on').length,
+      btns: [...c.querySelectorAll('.al-b')].map((x) => x.dataset.act), art: ar && [Math.round(ar.width), Math.round(ar.height)],
+      wt: wt && wt.textContent.replace(/\s+/g, '').replace('·', ' · '), wtTitle: wt && wt.title, wtBelow: !!(wt && wr.top >= ar.bottom), wtBg: wt && getComputedStyle(wt).backgroundColor };
+  }));
+  await p.evaluate(() => window.__main.onOpen && window.__main.onOpen());
+  await p.waitForTimeout(500);
+  let A = await alb();
+  const tv = A.find((c) => c.id === 'media_player.stue_tv'), sov = A.find((c) => c.id === 'media_player.soverom_tv');
+  ok(A.length && A.every((c) => c.al), '20.21 TV: ikke Album-kort ' + JSON.stringify(A.map((c) => c.id + ':' + c.al)));
+  ok(tv && tv.h >= 150 && tv.h <= 190 && / 104px$/.test(tv.grid), '20.21 TV: høyde/grid ' + JSON.stringify(tv && [tv.h, tv.grid]));
+  ok(tv && /^Stue TV · Netflix$/.test((tv.chip || '').trim()) && tv.ti === 'Wednesday' && /Sesong 2/.test(tv.ar || ''), '20.21 TV: chip/tittel ' + JSON.stringify(tv));
+  ok(tv && tv.btns.join(',') === 'power,pp' && tv.art.join('x') === '104x104', '20.21 TV: knapper/bilde ' + JSON.stringify(tv && [tv.btns, tv.art]));
+  ok(tv && tv.wt === '2:14 · 48:03' && tv.wtTitle === 'Seertid i dag · denne måneden' && tv.wtBelow, '20.21 TV: seertid ' + JSON.stringify(tv && [tv.wt, tv.wtBelow]));
+  ok(sov && sov.off && sov.bg === 'rgb(58, 58, 58)' && sov.ti === 'Av' && sov.segs === 0 && sov.eq === 0 && !sov.wt, '20.21 TV av: ' + JSON.stringify(sov));
+  // Stue TV av → grå, seertid står fortsatt (#4a4a4a)
+  await p.evaluate(async () => { const h = window.__h, s = { ...h.states }; s['media_player.stue_tv'] = { ...s['media_player.stue_tv'], state: 'off' }; window.__h = { ...h, states: s }; window.__hero.hass = window.__h; window.__main.hass = window.__h; await new Promise((q) => setTimeout(q, 700)); });
+  A = await alb();
+  const tvOff = A.find((c) => c.id === 'media_player.stue_tv');
+  ok(tvOff && tvOff.off && tvOff.bg === 'rgb(58, 58, 58)' && tvOff.wt === '2:14 · 48:03' && tvOff.wtBg === 'rgb(74, 74, 74)', '20.21 TV av: seertid/grå ' + JSON.stringify(tvOff));
+  // Mangler én sensor → «–»
+  await p.evaluate(async () => { window.__main.setConfig({ type: 'custom:msh-media-card', default_tab: 'tv', watch_time: { stue_tv: { i_dag: 'sensor.tv_seertid_i_dag' } } }); await new Promise((q) => setTimeout(q, 300)); });
+  A = await alb();
+  ok((A.find((c) => c.id === 'media_player.stue_tv') || {}).wt === '2:14 · –', '20.21: manglende sensor ≠ «–» ' + JSON.stringify(A[0] && A[0].wt));
+  // Musikk: farget bakgrunn når den spiller, eq, neste-knapp, kontrast ≥ 4.5 mot hvitt
+  await tab(p, 'musikk'); await p.waitForTimeout(700);
+  A = await alb();
+  const lum = (c) => { const n = (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * n[0] + 0.7152 * n[1] + 0.0722 * n[2]; };
+  const run = A.filter((c) => !c.off);
+  ok(run.length && run.every((c) => c.bg !== 'rgb(58, 58, 58)' && 1.05 / (lum(c.bg) + 0.05) >= 4.5), '20.21 musikk: bakgrunn/kontrast ' + JSON.stringify(run.map((c) => c.bg)));
+  const jem = A.find((c) => c.id === 'media_player.spotify_jem');
+  ok(jem && jem.eq === 5 && jem.segs === 14 && jem.segOn > 0 && jem.segOn < 14 && jem.btns.join(',') === 'power,next', '20.21 musikk: eq/segmenter/knapper ' + JSON.stringify(jem));
+  // kontrast-hjelperen på lyse farger
+  const bgs = await p.evaluate(() => ['#ffffff', '#f5cfd0', '#ffeb3b', '#1db954', 'rgb(200, 220, 240)'].map((c) => window.MSH.mediaAlbumBg(c)));
+  ok(bgs.every((c) => 1.05 / (lum(c) + 0.05) >= 4.5), '20.21: kontrast ' + JSON.stringify(bgs));
+  // Knappene: neste → media_next_track, haptic, ingen videre propagering til kortet (ingen more-info)
+  await clearCalls(p);
+  await p.evaluate(() => { window.__hap = 0; window.addEventListener('haptic', () => window.__hap++); });
+  const nb = await p.evaluate(() => { const b = window.__hero.shadowRoot.querySelector('.pc[data-key="media_player.spotify_jem"] .al-b[data-act="next"]'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await p.mouse.click(nb.x, nb.y); await p.waitForTimeout(150);
+  const nc = await calls(p);
+  ok(nc.some((c) => c[1] === 'media_next_track'), '20.21: neste ' + JSON.stringify(nc));
+  ok(await p.evaluate(() => window.__hap >= 1), '20.21: haptic mangler');
+  if (SHOTS) await shot(p, 'album-musikk');
+  // Detaljert → det gamle kortet (256)
+  await p.evaluate(async () => { window.__main.setConfig({ type: 'custom:msh-media-card', default_tab: 'musikk', now_playing: { style: 'detailed' } }); await new Promise((q) => setTimeout(q, 400)); });
+  const C2 = await cards(p);
+  ok(C2.length && C2.every((c) => c.h === 256) && !(await p.evaluate(() => !!window.__hero.shadowRoot.querySelector('.pc.al'))), '20.21: Detaljert ≠ gamle kortet');
+  // Editoren: «Spilles nå-kort» (Album*/Detaljert) + seertid-velgere i TV-seksjonen
+  const ed = await p.evaluate(async () => {
+    const ed = window.__main.constructor.getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-media-card' });
+    document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 100));
+    const out = []; ed.addEventListener('config-changed', (e) => out.push(e.detail.config));
+    const R = ed.shadowRoot; R.querySelector('[data-a="fn"][data-t="tv"]').click(); await new Promise((q) => setTimeout(q, 50));
+    const bs = [...R.querySelectorAll('[data-name="now_playing.style"]')];
+    const labels = bs.map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''));
+    const html = R.innerHTML;
+    const d = bs.find((b) => b.dataset.v === 'detailed'); if (d) d.click(); await new Promise((q) => setTimeout(q, 50));
+    const last = out[out.length - 1];
+    ed.remove();
+    return { labels, wt: /watch_time\.stue_tv\.i_dag/.test(html) && /watch_time\.stue_tv\.maned/.test(html), v: last && last.now_playing && last.now_playing.style };
+  });
+  ok(ed.labels.join('|') === 'Album*|Detaljert' && ed.wt && ed.v === 'detailed', '20.21: editor ' + JSON.stringify(ed));
+  ok(!errs.length, '20.21: feil ' + errs.join(' | '));
   await p.close();
 }
 await b.close();

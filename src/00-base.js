@@ -688,7 +688,7 @@
   //     --ki-sheet-bg / --ki-sheet-blur (sticky nav/footer/håndtak), --ki-sheet-grp / --ki-sheet-grp-sh (grupper),
   //     --ki-sheet-in (indre flate), --ki-sheet-seg (segmentspor), --ki-sheet-line (skillelinje)
   //   Standard: bakteppe rgba(0,0,0,.5) uten blur; ark #282828 radius 28 28 0 0, grupper #3a3a3a r24, indre #404040.
-  //   Liquid Glass: bakteppe rgba(0,0,0,.35) + blur(6px); ark rgba(34,34,37,.72) + blur(22px) saturate(190%) brightness(1.1),
+  //   Liquid Glass: bakteppe rgba(0,0,0,.62) uten blur (Fiks 20.8); ark rgba(34,34,37,.72) + blur(22px) saturate(190%) brightness(1.1),
   //   radius 32 32 0 0 (som «Tilpass klima» i Klima v3).
   const SH_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
   const SH = {
@@ -698,7 +698,8 @@
       vars: '--ki-sheet-bg:var(--gray050,#282828);--ki-sheet-blur:none;--ki-sheet-grp:var(--gray200,#3a3a3a);--ki-sheet-grp-sh:none;--ki-sheet-in:var(--gray300,#404040);--ki-sheet-seg:var(--gray050,#282828);--ki-sheet-line:rgba(255,255,255,0.06);--ki-sheet-grab:var(--gray400,#545454);',
     },
     glass: {
-      scrim: 'background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);',
+      // Fiks 20.8: ingen backdrop-filter på bakteppet – blur over hele skjermen bak et ark som scroller hakker på mobil
+      scrim: 'background:rgba(0,0,0,0.62);backdrop-filter:none;-webkit-backdrop-filter:none;',
       sheet: `background:rgba(34,34,37,0.72);backdrop-filter:${SH_BLUR};-webkit-backdrop-filter:${SH_BLUR};border-radius:32px 32px 0 0;box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 -12px 40px rgba(0,0,0,0.5);color:#fafafa;`,
       vars: `--ki-sheet-bg:rgba(34,34,37,0.72);--ki-sheet-blur:${SH_BLUR};--ki-sheet-grp:rgba(255,255,255,0.06);--ki-sheet-grp-sh:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-sheet-in:rgba(0,0,0,0.25);--ki-sheet-seg:rgba(0,0,0,0.25);--ki-sheet-line:rgba(255,255,255,0.1);--ki-sheet-grab:rgba(255,255,255,0.3);`,
     },
@@ -943,6 +944,10 @@
     s.an = an;
     s.fw = MSH.lensFollow(l, to); // rammene er regnet fra start – følg målet hvis raden scroller / layouten flytter seg
     an.onfinish = () => s.finish();
+    // Fiks 20.18: avbrutt animasjon (oncancel, fanen byttes midt i, siden skjult) eller onfinish som aldri kommer →
+    // linsen blir aldri stående grå over en skjult ekte pille: sikkerhets-timeout 400 ms fjerner den alltid.
+    an.oncancel = () => s.finish();
+    s.timers.push(setTimeout(() => s.finish(), 400));
     return an;
   };
   const hasBg = (el) => { const cs = getComputedStyle(el); return (cs.backgroundImage && cs.backgroundImage !== 'none') || !/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor); };
@@ -1001,15 +1006,17 @@
     const R = MSH.dashRect(), rx = railX();
     Object.assign(host.style, { position: 'fixed', left: R.left + rx + 'px', top: '0', width: R.width - rx + 'px', height: '100%', pointerEvents: 'auto' });
     const sr = host.attachShadow({ mode: 'open' });
+    // Fiks 20.8 · jevn scrolling: arket er eget lag (translate3d), egen scroll-container (overscroll-behavior: contain,
+    // -webkit-overflow-scrolling: touch, touch-action: pan-y, contain: layout paint) – scrollen kjedes aldri til dashbordet.
     const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
       :host{${MSH.sheetVars(false)}--ki-grab-h:25px}
       .bg{position:absolute;inset:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
-      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translateY(-40%) scale(.96);' : 'bottom:0;transform:translateY(30px);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
         --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(28px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
-      :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translateY(-50%) scale(1)' : 'translateY(0)'}}
+      :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translate3d(0,-50%,0) scale(1)' : 'translate3d(0,0,0)'}}
       .gz{position:sticky;top:calc(-1 * var(--ki-sh-pt));z-index:6;box-sizing:border-box;height:var(--ki-grab-h);margin:calc(-1 * var(--ki-sh-pt)) calc(-1 * var(--ki-sh-px)) 0;padding:10px 0;background:var(--ki-sheet-bg);-webkit-backdrop-filter:var(--ki-sheet-blur);backdrop-filter:var(--ki-sheet-blur)}
       .grab{width:40px;height:5px;border-radius:3px;background:var(--ki-sheet-grab);margin:0 auto}
 </style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
@@ -1154,6 +1161,165 @@
     MSH.bindDots(o.dots && o.dots(), S.go);
     S.jump(o.index ? o.index() : 0);
     return S;
+  };
+
+  /* ------------------------------------------------------------ HA-conditions (Fiks 20.4) */
+  // MSH.condParse(tekst|objekt) → { value, error }: YAML (MSH.yaml / HAs window.jsyaml) eller ferdig objekt. Tom = ingen betingelse.
+  // MSH.condEval(hass, cond, o) → true/false (null = ugyldig/ukjent → regelen hoppes over). Støtter HA-typene state (attribute,
+  // liste av tilstander, for), numeric_state (above/below, attribute, entitet som grense), time (after/before/weekday),
+  // sun (after/before sunrise|sunset + offset), zone, template (render_template-abonnement, ikke polling) og and/or/not.
+  // o: { dep(id) – registrer entiteten som avhengighet, onChange() – malresultatet er endret (tegn på nytt) }.
+  MSH.condParse = function (src) {
+    if (src == null || src === '') return { value: null };
+    if (typeof src === 'object') return { value: src };
+    const t = String(src);
+    if (!t.trim()) return { value: null };
+    try {
+      const Y = MSH.yaml || window.jsyaml;
+      if (!Y) return { error: 'YAML-parser mangler' };
+      const v = Y.parse ? Y.parse(t) : Y.load(t);
+      if (v == null || (typeof v !== 'object' && !(typeof v === 'string' && /\{\{/.test(v)))) return { error: 'Forventet en HA-condition (condition: state …)' };
+      return { value: v };
+    } catch (e) { return { error: (e && e.message ? e.message : String(e)) + (e && e.line ? ` (linje ${e.line})` : '') }; }
+  };
+  const TPL = (MSH.__condTpl = MSH.__condTpl || new Map());
+  const tplTrue = (r) => (typeof r === 'boolean' ? r : typeof r === 'number' ? r !== 0 : /^(true|yes|on|enable|1)$/i.test(String(r == null ? '' : r).trim()) || (MSH.isNum(r) && Number(r) !== 0));
+  // Én abonnent per mal (delt mellom kortene); ubrukt i 5 min → avsluttes.
+  MSH.condTemplate = function (hass, template, onChange) {
+    const conn = hass && hass.connection;
+    if (!conn || !conn.subscribeMessage) return null;
+    let e = TPL.get(template);
+    if (e && e.conn !== conn) { try { e.unsub && e.unsub.then((u) => u && u()); } catch (x) { /* */ } TPL.delete(template); e = null; }
+    if (!e) {
+      e = { conn, val: undefined, err: null, cbs: new Set(), used: Date.now() };
+      TPL.set(template, e);
+      e.unsub = conn.subscribeMessage((m) => {
+        const nv = m && 'result' in m ? tplTrue(m.result) : e.val, ne = m && m.error ? String(m.error) : null;
+        if (nv === e.val && ne === e.err) return;
+        e.val = nv; e.err = ne;
+        e.cbs.forEach((f) => { try { f(); } catch (x) { /* */ } });
+      }, { type: 'render_template', template, report_errors: true }).catch((x) => { e.err = (x && x.message) || 'Malfeil'; e.val = false; e.cbs.forEach((f) => { try { f(); } catch (y) { /* */ } }); return null; });
+      if (!MSH.__condSweep) MSH.__condSweep = setInterval(() => {
+        const now = Date.now();
+        TPL.forEach((x, k) => { if (now - x.used > 300000) { try { x.unsub && x.unsub.then((u) => u && u()); } catch (y) { /* */ } TPL.delete(k); } });
+      }, 60000);
+    }
+    e.used = Date.now();
+    if (onChange) e.cbs.add(onChange);
+    return e;
+  };
+  const durMs = (d) => {
+    if (d == null) return 0;
+    if (typeof d === 'number') return d * 1000;
+    if (typeof d === 'object') return (((d.days || 0) * 24 + (d.hours || 0)) * 60 + (d.minutes || 0)) * 60000 + (d.seconds || 0) * 1000 + (d.milliseconds || 0);
+    const s = String(d).trim(), neg = s[0] === '-', p = s.replace(/^[-+]/, '').split(':').map(Number);
+    const ms = p.length === 1 ? p[0] * 1000 : ((p[0] || 0) * 3600 + (p[1] || 0) * 60 + (p[2] || 0)) * 1000;
+    return neg ? -ms : ms;
+  };
+  const WD = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  MSH.condEval = function (hass, cond, o = {}) {
+    if (!hass || !hass.states) return null;
+    const dep = o.dep || (() => {});
+    const st = (id) => { if (!id) return null; dep(id); return hass.states[id] || null; };
+    const ids = (x) => (Array.isArray(x) ? x : x == null ? [] : String(x).split(',').map((s) => s.trim())).filter(Boolean);
+    const ev = (c) => {
+      if (c == null) return null;
+      if (Array.isArray(c)) { const r = c.map(ev); return r.includes(null) ? null : r.every(Boolean); } // liste = and
+      if (typeof c === 'string') return /\{\{|\{%/.test(c) ? ev({ condition: 'template', value_template: c }) : null;
+      if (typeof c !== 'object') return null;
+      if (c.enabled === false) return true;
+      const type = c.condition || (c.and ? 'and' : c.or ? 'or' : c.not ? 'not' : null);
+      const sub = () => { const L = c.conditions || c[type]; return Array.isArray(L) ? L : L ? [L] : []; };
+      switch (type) {
+        case 'and': { const r = sub().map(ev); return r.includes(null) ? null : r.every(Boolean); }
+        case 'or': { const r = sub().map(ev); return r.some((x) => x === true) ? true : r.includes(null) ? null : false; }
+        case 'not': { const r = sub().map(ev); return r.includes(null) ? null : !r.some(Boolean); }
+        case 'state': {
+          const E = ids(c.entity_id);
+          if (!E.length || c.state === undefined) return null;
+          const want = (Array.isArray(c.state) ? c.state : [c.state]).map((x) => (typeof x === 'boolean' ? (x ? 'on' : 'off') : String(x)));
+          const forMs = durMs(c.for);
+          const one = (id) => {
+            const s = st(id);
+            if (!s) return false;
+            const v = c.attribute ? s.attributes[c.attribute] : s.state;
+            const hit = want.some((w) => String(v) === w || (typeof v === 'boolean' && w === (v ? 'on' : 'off')));
+            return hit && (!forMs || Date.now() - Date.parse(s.last_changed) >= forMs);
+          };
+          return c.match === 'any' ? E.some(one) : E.every(one);
+        }
+        case 'numeric_state': {
+          const E = ids(c.entity_id);
+          if (!E.length || (c.above == null && c.below == null)) return null;
+          const lim = (x) => { if (x == null) return null; if (MSH.isNum(x)) return Number(x); const s = st(String(x)); return s && MSH.isNum(s.state) ? Number(s.state) : NaN; };
+          const a = lim(c.above), b = lim(c.below);
+          return E.every((id) => {
+            const s = st(id);
+            if (!s) return false;
+            const raw = c.attribute ? s.attributes[c.attribute] : s.state;
+            if (!MSH.isNum(raw)) return false;
+            const v = Number(raw);
+            return (a == null || v > a) && (b == null || v < b);
+          });
+        }
+        case 'time': {
+          const now = new Date();
+          const tod = (x) => {
+            if (x == null) return null;
+            const s = String(x), e = hass.states[s];
+            if (e) { dep(s); const a = e.attributes || {}; if (a.hour != null) return a.hour * 3600 + (a.minute || 0) * 60 + (a.second || 0); const d = new Date(e.state); if (!isNaN(d)) return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(); const m = /^(\d+):(\d+)/.exec(e.state); return m ? m[1] * 3600 + m[2] * 60 : null; }
+            const p = s.split(':').map(Number);
+            return p.some(isNaN) ? null : (p[0] || 0) * 3600 + (p[1] || 0) * 60 + (p[2] || 0);
+          };
+          const t = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds(), a = tod(c.after), b = tod(c.before);
+          let ok = true;
+          if (a != null && b != null) ok = a <= b ? t >= a && t < b : t >= a || t < b;
+          else if (a != null) ok = t >= a;
+          else if (b != null) ok = t < b;
+          if (c.weekday) ok = ok && ids(c.weekday).map((x) => x.toLowerCase().slice(0, 3)).includes(WD[now.getDay()]);
+          return ok;
+        }
+        case 'sun': {
+          const s = st('sun.sun');
+          if (!s) return null;
+          const now = Date.now(), day = 86400000, today = (iso) => { let x = Date.parse(iso); if (isNaN(x)) return null; const d0 = new Date(); d0.setHours(0, 0, 0, 0); while (x >= d0.getTime() + day) x -= day; return x; };
+          const ev2 = { sunrise: today(s.attributes.next_rising), sunset: today(s.attributes.next_setting) };
+          let ok = true;
+          if (c.after) { const x = ev2[c.after]; if (x == null) return null; ok = ok && now > x + durMs(c.after_offset); }
+          if (c.before) { const x = ev2[c.before]; if (x == null) return null; ok = ok && now < x + durMs(c.before_offset); }
+          return ok;
+        }
+        case 'zone': {
+          const E = ids(c.entity_id), Z = ids(c.zone);
+          if (!E.length || !Z.length) return null;
+          return E.every((id) => {
+            const s = st(id);
+            if (!s) return false;
+            return Z.some((zid) => {
+              const z = st(zid);
+              if (!z) return false;
+              const a = s.attributes || {}, za = z.attributes || {};
+              if (a.latitude != null && za.latitude != null && za.radius != null) {
+                const R = 6371000, r = Math.PI / 180, dLa = (za.latitude - a.latitude) * r, dLo = (za.longitude - a.longitude) * r;
+                const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.latitude * r) * Math.cos(za.latitude * r) * Math.sin(dLo / 2) ** 2;
+                return 2 * R * Math.asin(Math.sqrt(h)) <= za.radius + (a.gps_accuracy || 0);
+              }
+              return s.state === (zid === 'zone.home' ? 'home' : za.friendly_name || zid.split('.')[1]);
+            });
+          });
+        }
+        case 'template': {
+          const tp = c.value_template;
+          if (!tp) return null;
+          const e = MSH.condTemplate(hass, String(tp), o.onChange);
+          if (!e) return null;
+          if (o.errors && e.err) o.errors.push(e.err);
+          return e.val === undefined ? false : e.err ? null : e.val;
+        }
+        default: return null; // device/trigger o.l. støttes ikke her
+      }
+    };
+    try { return ev(cond); } catch (e) { return null; }
   };
 
   /* ------------------------------------------------------------ drag-vern */

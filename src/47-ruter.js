@@ -3,6 +3,9 @@
  * Avganger: entur_public_transport-sensorene + Entur Journey Planner v3 (hentes bare mens popupen er åpen; feiler den, brukes sensorene).
  * Attributter leses defensivt: route, due_at, due_in, delay, real_time, next_route, next_due_at, next_due_in,
  * next_real_time, transport_mode, stop_id, departure_#N («ca. 21:30 5 Vestli»), evt. departures-liste.
+ * Fiks 20.11: reise-kortet kan åpnes (ui.trips) → vertikal reiseplan (gå → påstigning per etappe → bytte → fremme) +
+ *   «Neste mulighet» og «Vis i toppkortet» (ui.heroAlt). Tannhjulet i toppkortet er eneste Tilpass-inngang; «Tilpass» over
+ *   Avganger bare når toppkortet er av.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -156,7 +159,7 @@
   };
   const Q_STOP = `query($id:String!){stopPlace(id:$id){id name estimatedCalls(timeRange:3600,numberOfDepartures:20){aimedDepartureTime expectedDepartureTime realtime occupancyStatus quay{publicCode name} destinationDisplay{frontText} serviceJourney{line{publicCode transportMode}}}}}`;
   const MODES = ['bus', 'tram', 'metro', 'rail', 'water', 'coach'];
-  const qTrip = (mode) => `query($from:String!,$to:String!,$t:DateTime){trip(from:{place:$from},to:{place:$to},dateTime:$t,numTripPatterns:12,searchWindow:90${MODES.includes(mode) ? `,modes:{transportModes:[{transportMode:${mode}}]}` : ''}){tripPatterns{legs{mode realtime aimedStartTime expectedStartTime expectedEndTime fromPlace{name quay{publicCode}} toPlace{name} line{publicCode transportMode}}}}}`;
+  const qTrip = (mode) => `query($from:String!,$to:String!,$t:DateTime){trip(from:{place:$from},to:{place:$to},dateTime:$t,numTripPatterns:12,searchWindow:90${MODES.includes(mode) ? `,modes:{transportModes:[{transportMode:${mode}}]}` : ''}){tripPatterns{legs{mode realtime aimedStartTime expectedStartTime expectedEndTime fromPlace{name quay{publicCode}} toPlace{name} line{publicCode transportMode} fromEstimatedCall{occupancyStatus}}}}}`;
   // Estimerte avganger fra Entur → samme form som sensoravgangene (+ perrong, rutetid, belegg)
   const callDep = (c) => {
     const t = new Date(c.expectedDepartureTime || c.aimedDepartureTime).getTime(), a = c.aimedDepartureTime ? new Date(c.aimedDepartureTime).getTime() : null;
@@ -172,6 +175,7 @@
       delay: i === 0 && M.isNum(A.delay) ? Math.round(Number(A.delay) > 90 ? Number(A.delay) / 60 : Number(A.delay)) : 0, src: 'sensor' }));
   };
   const depKey = (d) => `${d.line}|${d.dest}|${hm(d.aimed || d.t)}`;
+  const altKey = (p, i) => String(p.alt.id || (p.alt.legs || []).map((l) => `${l.from}>${l.to}`).join('|') || i);
   // Plattform: «Spor 2» (tall) / «Plf. B» (bokstav)
   const platL = (p) => (!p ? '' : /^\d+$/.test(String(p)) ? `Spor ${p}` : `Plf. ${p}`);
   const OCC = { empty: 1, manySeatsAvailable: 1, fewSeatsAvailable: 2, standingRoomOnly: 2, crushedStandingRoomOnly: 3, full: 3 };
@@ -261,8 +265,8 @@
       for (let i = 0; i < alt.legs.length; i++) {
         const leg = alt.legs[i], toRef = resolveStop(hass, cfg, leg.to, stops);
         if (i > 0) fromRef = resolveStop(hass, cfg, fromNames(leg.from)[0] || alt.legs[i - 1].to, stops);
-        const c = legConns(hass, cfg, leg, fromRef, toRef).find((x) => x.t >= ready - 20000);
-        legs.push({ leg, from: fromRef, to: toRef, c: c || null });
+        const conns = legConns(hass, cfg, leg, fromRef, toRef), c = conns.find((x) => x.t >= ready - 20000);
+        legs.push({ leg, from: fromRef, to: toRef, c: c || null, all: i === 0 ? conns : null }); // all: «Neste mulighet» (20.11)
         if (!c || c.arr == null) break;
         ready = c.arr + tm;
       }
@@ -308,7 +312,7 @@
         seen.add(key);
         const aimed = l.aimedStartTime ? new Date(l.aimedStartTime).getTime() : null;
         out.push({ line: String(l.line.publicCode || ''), dest: (l.toPlace && l.toPlace.name) || '', mode: l.line.transportMode || l.mode, t: tt, aimed, arr: new Date(l.expectedEndTime).getTime(), rt: !!l.realtime,
-          plat: (l.fromPlace && l.fromPlace.quay && l.fromPlace.quay.publicCode) || '', delay: aimed ? Math.round((tt - aimed) / 60000) : 0, occ: null, src: 'entur' });
+          plat: (l.fromPlace && l.fromPlace.quay && l.fromPlace.quay.publicCode) || '', delay: aimed ? Math.round((tt - aimed) / 60000) : 0, occ: (l.fromEstimatedCall && l.fromEstimatedCall.occupancyStatus) || null, src: 'entur' });
       });
       return out.sort((x, y) => x.t - y.t);
     })))));
@@ -446,7 +450,7 @@
     }
     onClose() {
       clearInterval(this._tick); this._tick = 0; clearTimeout(this._first);
-      this._ui = { ...this._ui, dir: null, sel: null, open: {}, more: {} }; // nullstilles når popupen lukkes
+      this._ui = { ...this._ui, dir: null, sel: null, open: {}, more: {}, trips: {}, heroAlt: null }; // nullstilles når popupen lukkes
     }
     async _fetch() {
       if (!this.isOpen || !this.hass || this._fetching || !M.isPopupOpen(this)) return;
@@ -561,7 +565,8 @@
           </section>`;
         }
       }
-      const hdr = `<div class="hdr"><span class="cap">Avganger</span><button class="ed press" data-act="customize" data-section="stops" title="Rediger">${M.icon('tune', 18)}Rediger</button></div>`;
+      // 20.11: tannhjulet i toppkortet er eneste Tilpass-inngang – «Tilpass» her bare når toppkortet er av
+      const hdr = `<div class="hdr"><span class="cap">Avganger</span>${c.hero === false ? `<button class="ed press" data-act="customize" data-section="stops" title="Tilpass">${M.icon('settings', 18)}Tilpass</button>` : ''}</div>`;
       const body = stops.length ? stops.map((s) => this._stopHTML(s)).join('') : this._empty();
       let foot = '';
       if (c.updated !== false && upd) {
@@ -574,8 +579,10 @@
     // A · toppkort: neste avgang du rekker (gangtid), «Gå nå», tidslinje for de neste 30 min
     _heroHTML(c, h, stops, plans, upd) {
       let name = '', deps = [], walk = 0;
-      const hs = c.hero_stop && stops.find((s) => s.id === c.hero_stop);
-      const p0 = !hs && plans.find((p) => p.fromRef && p.first);
+      // «Vis i toppkortet» (20.11) går foran toppkort-stoppet fra Tilpass
+      const ha = this.ui.heroAlt ? plans.find((p) => altKey(p) === this.ui.heroAlt && p.fromRef && p.first) : null;
+      const hs = !ha && c.hero_stop && stops.find((s) => s.id === c.hero_stop);
+      const p0 = ha || (!hs && plans.find((p) => p.fromRef && p.first));
       if (hs) { name = hs.name; deps = hs.all; walk = hs.walk; }
       else if (p0) {
         const leg = p0.alt.legs[0], sc = p0.fromRef.sensor ? stopCfg(c, p0.fromRef.sensor) : {}, wl = listOf(sc.lines);
@@ -585,7 +592,8 @@
       } else if (stops[0]) { name = stops[0].name; deps = stops[0].all; walk = stops[0].walk; }
       deps = deps.filter((d) => minTo(d.t) >= 0);
       const reach = deps.find((d) => minTo(d.t) >= walk) || null;
-      const selD = this.ui.sel ? deps.find((d) => depKey(d) === this.ui.sel) : null;
+      let selD = this.ui.sel ? deps.find((d) => depKey(d) === this.ui.sel) : null;
+      if (!selD && ha) { selD = deps.find((x) => x.line === ha.first.line && Math.abs(x.t - ha.first.t) < 90000) || ha.first; if (!deps.includes(selD)) deps = [...deps, selD].sort((x, y) => x.t - y.t); }
       const d = selD || reach;
       const m = d ? minTo(d.t) : null;
       const info = d ? [c.platform !== false && d.plat ? platL(d.plat) : '', c.aimed !== false ? (d.aimed && Math.abs(d.aimed - d.t) >= 60000 ? `${hm(d.aimed)} → ${hm(d.t)}` : hm(d.t)) : '', c.occupancy !== false && OCC[d.occ] ? OCC_L[OCC[d.occ]] : ''].filter(Boolean).join(' · ') : '';
@@ -608,7 +616,7 @@
       }
       return `<section class="hero" data-key="hero">
         <div class="htop"><span class="hname ell">${esc(name || 'Ruter')}</span>${d ? this._chip(m - walk, 'go') : ''}</div>
-        <button class="hset press" data-act="customize" data-section="view" title="Rediger">${M.icon('mdi:cog', 22)}</button>
+        <button class="hset press" data-act="customize" data-section="view" title="Tilpass">${M.icon('mdi:cog', 22)}</button>
         <div class="hval">
           <span class="hbig num">${m == null ? '–' : m <= 1 ? 'Nå' : `${m}<small>min</small>`}</span>
           ${d ? `<span class="hinfo"><span class="row" style="gap:8px;min-width:0">${this._badge(d.line, d.mode || 'bus')}<span class="hdest ell">${esc(d.dest)}</span>${this._delay(d)}</span>${info ? `<span class="hsub ell num">${esc(info)}</span>` : ''}</span>` : `<span class="hinfo"><span class="hsub">${esc(name ? 'Ingen avganger funnet' : 'Velg stopp i Rediger')}</span></span>`}
@@ -622,20 +630,61 @@
       if (!T.school.alts.length && !T.home.alts.length) return '';
       const seg = ['school', 'home'].map((k) => `<button class="sg${k === dk ? ' on' : ''}" data-act="dir" data-v="${k}" aria-pressed="${k === dk}" data-haptic="selection">${esc(T[k].name)}</button>`).join('');
       const cards = plans.map((p, i) => {
-        const fast = i === 0 && p.arrive != null;
+        const fast = i === 0 && p.arrive != null, k = altKey(p, i), open = !!(this.ui.trips || {})[k];
         const badges = p.alt.legs.map((leg, j) => { const x = p.legs[j] && p.legs[j].c; return this._badge(x ? x.line : listOf(leg.lines)[0] || '?', (x && x.mode) || leg.mode || 'bus'); }).join('<span class="sep">›</span>');
         const txt = [];
         if (p.first) txt.push(`${p.fromRef ? p.fromRef.name : fromNames(p.alt.legs[0].from)[0]} ${hm(p.first.t)}`);
         p.legs.slice(1).forEach((l, j) => { const prev = p.legs[j].c, w = l.c && prev && prev.arr != null ? Math.round((l.c.t - prev.arr) / 60000) : null; txt.push(`bytte ${l.from ? l.from.name : l.leg.from}${w != null ? ` (${w} min)` : ''}`); });
         txt.push(`til ${p.alt.legs[p.alt.legs.length - 1].to}`);
         const ledig = p.first ? minTo(p.first.t) - p.walk : null;
-        return `<div class="alt${fast ? ' fast' : ''}" data-key="alt-${esc(p.alt.id || i)}">
+        return `<div class="alt${fast ? ' fast' : ''}" role="button" tabindex="0" aria-expanded="${open}" data-act="trip" data-k="${esc(k)}" data-haptic="light" data-key="alt-${esc(k)}">
           <div class="row" style="gap:8px"><span class="row grow" style="gap:4px;min-width:0;flex-wrap:wrap">${badges}${fast ? '<span class="rk">Raskest</span>' : ''}</span>
-            <span class="col" style="align-items:flex-end;flex:none"><span class="atot num">${p.total != null ? `${p.total} min` : '–'}</span><span class="aarr num">${p.arrive != null ? `fremme ${hm(p.arrive)}` : p.first ? `går ${hm(p.first.t)}` : 'Ingen avgang funnet'}</span></span></div>
+            <span class="col" style="align-items:flex-end;flex:none"><span class="atot num">${p.total != null ? `${p.total} min` : '–'}</span><span class="aarr num">${p.arrive != null ? `fremme ${hm(p.arrive)}` : p.first ? `går ${hm(p.first.t)}` : 'Ingen avgang funnet'}</span></span>
+            ${M.icon('expand_more', 22, `color:var(--gray800, #afafaf);flex:none;transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</div>
           <div class="row" style="gap:8px"><span class="atxt grow ell num">${esc(p.first ? txt.join(' · ') : txt.slice(-1).join(''))}</span>${ledig != null ? this._chip(ledig, 'go') : ''}</div>
+          ${open ? this._planHTML(p, T, k) : ''}
         </div>`;
       }).join('');
-      return `<section class="trip" data-key="trip"><div class="thd"><span class="cap">Reise</span><div class="seg">${seg}</div></div>${cards || '<span class="none">Ingen reiser er slått på – se Rediger → Reiser</span>'}</section>`;
+      return `<section class="trip" data-key="trip"><div class="thd"><span class="cap">Reise</span><div class="seg">${seg}</div></div>${cards || '<span class="none">Ingen reiser er slått på – se Tilpass → Reiser</span>'}</section>`;
+    }
+    // 20.11 · åpen reise = vertikal reiseplan (rutenett 44px 22px 1fr: klokkeslett · skinne med node · tekst)
+    _planHTML(p, T, k) {
+      const c = this.config, h = this.hass, rows = [], GR = 'var(--gray500, #696969)';
+      // Mangler perrong/belegg i reisen: hent fra stoppets avganger (samme linje, samme minutt)
+      const fill = (L, x) => {
+        if (!x || (x.plat && x.occ)) return x;
+        const m = depsFor(h, L.from).deps.find((d) => d.line === x.line && Math.abs(d.t - x.t) < 90000);
+        return m ? { ...x, plat: x.plat || m.plat, occ: x.occ || m.occ } : x;
+      };
+      // node: ['dot', farge] | ['ic', ikon, farge] ; rail: null | [farge, stiplet]
+      const step = (time, node, rail, title, sub, cls) => rows.push(`<div class="ps${cls ? ' ' + cls : ''}"><span class="pt num">${esc(time || '')}</span>
+        <span class="pr">${rail ? `<b class="pl${rail[1] ? ' dash' : ''}" style="${rail[1] ? `border-color:${rail[0]}` : `background:${rail[0]}`}"></b>` : ''}${node[0] === 'dot' ? `<i class="pn" style="background:${node[1]}"></i>` : `<i class="pn ic" style="background:${node[2] || 'var(--gray300, #404040)'};color:${node[3] || 'var(--gray900, #c7c7c7)'}">${M.icon(node[1], 13)}</i>`}</span>
+        <span class="pb"><span class="ptl">${title}</span>${sub ? `<span class="psb num">${sub}</span>` : ''}</span></div>`);
+      const nm = (L, fb) => esc((L && L.name) || fb || '');
+      if (p.first) {
+        const walk = p.walk || 0, go = goOf(minTo(p.first.t) - walk);
+        step(p.goAt != null ? hm(p.goAt) : '', ['ic', 'directions_walk'], [GR, true], `Gå til ${nm(p.legs[0].from, fromNames(p.alt.legs[0].from)[0])}`,
+          esc([walk > 0 ? `${walk} min gange` : '', go[0]].filter(Boolean).join(' · ')), 'walk');
+      }
+      for (let j = 0; j < p.legs.length; j++) {
+        const L = p.legs[j], x = fill(L, L.c), leg = L.leg, col = (modeOf((x && x.mode) || leg.mode) || MODE.bus)[1];
+        const badge = this._badge(x ? x.line : listOf(leg.lines)[0] || '?', (x && x.mode) || leg.mode || 'bus');
+        if (!x) { step('–', ['dot', GR], null, `${badge}<span class="ell">${nm(L.from, leg.from)}</span>`, 'Ingen avgang funnet', 'leg'); break; }
+        const sub = [c.platform !== false && x.plat ? platL(x.plat) : '', x.dest ? `mot ${x.dest}` : '', x.arr != null ? `${Math.max(1, Math.round((x.arr - x.t) / 60000))} min` : '', c.occupancy !== false && OCC[x.occ] ? OCC_L[OCC[x.occ]] : ''].filter(Boolean);
+        step(hm(x.t), ['dot', col], [col, false], `${badge}<span class="ell">${nm(L.from, leg.from)}</span>`, `${esc(sub.join(' · '))}${this._delay(x)}`, 'leg');
+        const N = p.legs[j + 1];
+        if (N) {
+          const nx = fill(N, N.c), w = nx && x.arr != null ? Math.round((nx.t - x.arr) / 60000) : null, kort = w != null && w < T.transfer_min;
+          const s2 = [w != null ? `${kort ? 'Kort bytte · ' : ''}${w} min til neste` : '', c.platform !== false && nx && nx.plat ? platL(nx.plat) : ''].filter(Boolean).join(' · ');
+          step(x.arr != null ? hm(x.arr) : '', ['ic', 'mdi:transit-transfer'], [GR, true], `Bytte på ${nm(N.from, N.leg.from)}`, s2 ? `<span style="${kort ? `color:${C.orange}` : ''}">${esc(s2)}</span>` : '', 'swap');
+        }
+      }
+      if (p.arrive != null) step(hm(p.arrive), ['ic', 'flag', C.green, 'var(--gray200, #3a3a3a)'], null, esc(p.alt.legs[p.alt.legs.length - 1].to || 'Fremme'), esc(`Fremme${p.total != null ? ` · ${p.total} min totalt` : ''}`), 'end');
+      // Neste mulighet: neste avganger på første etappe etter den valgte
+      const L0 = p.legs[0], nxt = p.first && L0 && L0.all ? L0.all.filter((x) => x.t > p.first.t + 30000).slice(0, 2) : [];
+      const more = nxt.length ? `Neste mulighet: ${nxt[0].line} kl ${hm(nxt[0].t)}${nxt[1] ? ` · deretter ${hm(nxt[1].t)}` : ''}` : '';
+      return `<div class="plan" data-act="plan" data-haptic="off" data-key="plan-${esc(k)}"><div class="pgrid">${rows.join('')}</div>
+        <div class="pft"><span class="pnx grow ell num">${esc(more)}</span>${p.first && p.fromRef ? `<button class="pv press" data-act="tripHero" data-k="${esc(k)}" data-haptic="light">${M.icon('mdi:arrow-collapse-up', 16)}Vis i toppkortet</button>` : ''}</div></div>`;
     }
     // C · ett stopp som nedtrekksliste: lukket = neste avgang + «så …», åpen = «Neste avgang» + «Senere» + «Vis flere»
     _stopHTML(s) {
@@ -702,8 +751,17 @@
       if (name === 'dis') return this.setUI({ disOpen: !this.ui.disOpen });
       if (name === 'dx') return this.setUI({ xOpen: this.ui.xOpen === el.dataset.k ? null : el.dataset.k });
       if (name === 'dot') { if (ev) ev.stopPropagation(); return this.setUI({ sel: el.dataset.k }); }
-      if (name === 'herosel') return this.ui.sel ? this.setUI({ sel: null }) : undefined;
+      if (name === 'herosel') return this.ui.sel || this.ui.heroAlt ? this.setUI({ sel: null, heroAlt: null }) : undefined;
       if (name === 'dir') { this.setUI({ dir: el.dataset.v, sel: null }); return this._fetch(); }
+      if (name === 'plan') return undefined; // trykk i reiseplanen lukker ikke kortet
+      if (name === 'trip') { const o = { ...(this.ui.trips || {}) }; o[el.dataset.k] = !o[el.dataset.k]; return this.setUI({ trips: o }); }
+      if (name === 'tripHero') {
+        if (ev) ev.stopPropagation();
+        this.setUI({ heroAlt: el.dataset.k, sel: null });
+        const hero = this.shadowRoot && this.shadowRoot.querySelector('.hero');
+        if (hero && hero.scrollIntoView) try { hero.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* */ }
+        return undefined;
+      }
       if (name === 'stop') { const o = { ...(this.ui.open || {}) }; o[el.dataset.k] = !o[el.dataset.k]; return this.setUI({ open: o }); }
       if (name === 'more') { if (ev) ev.stopPropagation(); const o = { ...(this.ui.more || {}) }; o[el.dataset.k] = !o[el.dataset.k]; return this.setUI({ more: o }); }
       return super.onAction(name, el, ev);
@@ -753,6 +811,25 @@
         .sg.on{background:${C.accent};color:var(--gray200,#3a3a3a)}
         .alt{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:22px;background:var(--gray200,#3a3a3a)}
         .alt.fast{box-shadow:inset 0 0 0 1.5px ${M.alpha(C.green, 0.7)}}
+        .alt{cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
+        .alt:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
+        .plan{display:flex;flex-direction:column;gap:10px;margin-top:4px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);cursor:default}
+        .pgrid{display:flex;flex-direction:column}
+        .ps{display:grid;grid-template-columns:44px 22px minmax(0,1fr);column-gap:8px;min-height:46px}
+        .ps.end{min-height:0}
+        .pt{font-size:13px;font-weight:500;padding-top:2px;font-variant-numeric:tabular-nums;color:var(--gray900,#c7c7c7)}
+        .pr{position:relative}
+        .pn{position:absolute;left:5px;top:4px;width:12px;height:12px;border-radius:50%;z-index:1}
+        .pn.ic{left:1px;top:0;width:20px;height:20px;display:grid;place-items:center}
+        .pl{position:absolute;left:10px;top:12px;bottom:-4px;width:2px;border-radius:1px}
+        .pl.dash{width:0;background:none;border-left:2px dashed}
+        .pb{display:flex;flex-direction:column;gap:3px;min-width:0;padding:1px 0 12px}
+        .ptl{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;font-weight:500}
+        .psb{font-size:12px;color:var(--gray700,#979797);display:flex;flex-wrap:wrap;gap:0 8px}
+        .ps.walk .ptl,.ps.swap .ptl{font-weight:400;color:var(--gray900,#c7c7c7)}
+        .pft{display:flex;align-items:center;gap:8px;min-width:0}
+        .pnx{font-size:12px;color:var(--gray700,#979797)}
+        .pv{flex:none;height:34px;padding:0 12px 0 10px;border-radius:17px;background:var(--gray300,#404040);display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--gray1000,#e1e1e1)}
         .sep{color:var(--gray600,#7f7f7f);font-size:14px}
         .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${C.green};background:${M.alpha(C.green, 0.16)}}
         .atot{font-size:17px;font-weight:600}
