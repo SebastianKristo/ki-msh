@@ -103,7 +103,7 @@
     .fl::-webkit-scrollbar{display:none}
     .fc{flex:none;height:30px;padding:0 12px;border-radius:15px;background:#3a3a3a;font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
     .fc.on{background:#fafafa;color:#282828}
-    .pls{max-height:280px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
+    .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
     .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .pr:hover{background:rgba(255,255,255,0.05)}
     .pr.on{background:rgba(255,255,255,0.08)}
@@ -121,7 +121,7 @@
       sr.addEventListener('input', (e) => { e.stopPropagation(); if (e.target.classList.contains('pks')) { this._q = e.target.value; this._render(); } });
       sr.addEventListener('keydown', (e) => this._key(e));
       // Vannrett chip-rad og liste: ikke la Bubble Card lukke/scrolle popupen
-      ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && (n.classList.contains('fl') || n.classList.contains('pls')))) e.stopPropagation(); }, { passive: true }));
+      ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && (n.classList.contains('fl') || n.classList.contains('pls')))) e.stopPropagation(); }, { passive: true })); // 26.9: aldri preventDefault
       this._outside = (e) => { if (this._open && !e.composedPath().includes(this)) this.close(); };
     }
     set hass(h) { const o = this._hass; this._hass = h; if (!o || !this._open) this._render(); }
@@ -139,6 +139,8 @@
       this._render();
       const i = this.shadowRoot.querySelector('.pks');
       if (i) requestAnimationFrame(() => { try { i.focus({ preventScroll: true }); } catch (e) { i.focus(); } });
+      // 26.9: valgt rad scrolles inn i listen (scrollTop, ikke scrollIntoView)
+      requestAnimationFrame(() => { const L = this.shadowRoot.querySelector('.pls'), on = L && L.querySelector('.pr.on'); if (on && L.clientHeight) L.scrollTop += on.getBoundingClientRect().top - L.getBoundingClientRect().top - (L.clientHeight - on.offsetHeight) / 2; });
     }
     close() {
       if (!this._open) return;
@@ -271,7 +273,7 @@
     .sg{display:flex;gap:2px;padding:3px;border-radius:14px;background:#232323}
     .sg button{flex:1;height:30px;border-radius:11px;font-size:12px;font-weight:500;color:#afafaf;white-space:nowrap}
     .sg button.on{background:#fafafa;color:#232323}
-    .ls{max-height:300px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+    .ls{max-height:300px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
     .gh{font-size:11px;font-weight:600;color:#979797;letter-spacing:.02em;padding:8px 8px 2px;text-transform:uppercase}
     .rw{display:flex;align-items:center;gap:10px;height:48px;flex:none;padding:0 8px;border-radius:12px;width:100%;text-align:left}
     .rw:hover{background:rgba(255,255,255,0.05)}
@@ -400,7 +402,12 @@
     /* Tittelrad: sticky rett under håndtaket (arkets flate fra MSH.sheetVars), med «Lagret»-pillen til høyre (Fiks 11) */
     .ttl{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;font-size:18px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;
       margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 0;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg, transparent);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
-    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;font-weight:600;letter-spacing:-0.01em}
+    /* Fiks 26 (brukerens valg): «Ferdig» er en rosa pille ØVERST TIL HØYRE i headeren (ingen bunnlinje); Avbryt = liten ×-knapp ved siden av */
+    .ttl .hb{flex:none;width:40px;height:40px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);color:#c7c7c7;display:grid;place-items:center}
+    .ttl .done{flex:none;${M.DONE_PILL}}
+    .ttl .done[disabled]{opacity:.7;cursor:progress}
+    @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
     .ttl .stat.on{opacity:1;transform:none}
     .ttl .stat.ok{background:var(--green,#66d19e);color:#12291d}
@@ -433,7 +440,7 @@
     .line{display:flex;align-items:center;gap:8px}
     .sw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-    .sw.on{background:var(--green,#66d19e)} .sw.on::after{transform:translateX(18px)}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: brytere er rosa overalt */
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip{height:32px;padding:0 12px;border-radius:16px;background:#2f2f2f;font-size:12px;font-weight:500;color:#afafaf;display:inline-flex;align-items:center;gap:6px}
     .chip.on{background:#fafafa;color:#282828}
@@ -452,7 +459,7 @@
        kuttet av kortets bunn og fikk egen scrollbar). Entitetssøk viser maks 6 treff uten egen scroll – kortet vokser.
        Bare lange lister (områder) får max-height + scroll (.menu.sc), og de ligger alltid sist i feltet. */
     .menu{position:static;margin-top:6px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:#232323;padding:4px 4px 6px}
-    .menu.sc{max-height:260px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+    .menu.sc{max-height:260px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .menu .more{font-size:11px;color:#7f7f7f;padding:4px 10px 2px}
     .menu button.addq{flex-direction:row;align-items:center;gap:8px;color:#fafafa}
     .dd .menu{scroll-margin-bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
@@ -503,7 +510,7 @@
     :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
     :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
     :host([glass]) .chip,:host([glass]) .pill{background:rgba(255,255,255,0.1)}
-    :host([glass]) .btn:not(.pri){${M.glassSurface('row')}}
+    :host([glass]) .btn:not(.pri),:host([glass]) .ttl .hb{${M.glassSurface('row')}}
     :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
     :host([glass]) .menu{${M.glassSurface('menu')}}
     ${M.glassFallback(':host([glass]) .menu', 'menu')}
@@ -518,6 +525,8 @@
       this._q = {};
       this.shadowRoot.addEventListener('click', (e) => this._click(e));
       this.shadowRoot.addEventListener('input', (e) => this._input(e));
+      // 26.9: rullelister (områder) eier scroll-gesten – arket/Bubble-popupen fanger den ikke (aldri preventDefault)
+      ['touchstart', 'touchmove', 'wheel'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('sc'))) e.stopPropagation(); }, { passive: true }));
       this.shadowRoot.addEventListener('change', (e) => this._change(e));
       this.shadowRoot.addEventListener('focusin', (e) => { const t = e.target; if (t.dataset && t.dataset.search) { this._menu = t.dataset.search; this._render(); } });
       // Åpne seksjoner = UI-tilstand (per kort i localStorage ki:<card_id>:ed:ui, aldri i config) – overlever lagring og ny åpning
@@ -604,7 +613,7 @@
       el.disabled = this._busy; el.toggleAttribute('aria-busy', this._busy);
       el.innerHTML = this._saveBtnInner();
     }
-    _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : `${M.icon('mdi:check', 20)}Ferdig`; }
+    _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : 'Ferdig'; }
     connectedCallback() { this._glassSync(); }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
     // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
@@ -638,10 +647,9 @@
       const cls = this.cardClass || {};
       const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}<span class="tt">${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span></div>` : ''}
+        ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
-        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();

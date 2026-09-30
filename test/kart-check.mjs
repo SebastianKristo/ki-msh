@@ -298,7 +298,7 @@ const N = await q.evaluate(async () => {
   if (hb) { hb.click(); await w(100); }
   out.saved = got && { more: got.more, hidden: got.hidden };
   ed.remove();
-  // Header: trykk på personbilde → #kart, hold → hurtigark
+  // Header (26.22): trykk på personbilde → hurtigark, hold → person-popup
   const hd = document.createElement('msh-hjem-header-card'); hd.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'ki-home-header' }); hd.hass = h; dash.appendChild(hd); await w(400);
   const face = hd.shadowRoot.querySelector('.face[data-act="person"]');
   out.face = !!face;
@@ -327,7 +327,7 @@ ok('20.22 navbar: «Kart» er ikke på som standard', !N.def.includes('kart'), N
 ok('20.22 navbar: «Kart» lagt til i bar → ikon mdi:map og åpner #kart', N.withKart.includes('kart') && /map/.test(N.icon || '') && N.hash === '#kart', N);
 ok('20.22 Tilpass navbar: «Kart» kan slås på (lagres i more)', N.edRow && N.saved && Array.isArray(N.saved.more) && N.saved.more.includes('kart') && !(N.saved.hidden || []).includes('kart'), N);
 // 22.7 erstatter 20.22: trykk på personbilde = person-popup (#person-<id>), hold = hurtigark
-ok('22.7 header: trykk på personbilde → #person-…, hold → hurtigark', N.face && /^#person-/.test(N.tap || '') && N.holdHash !== '#kart' && N.quick, N);
+ok('26.22 header: trykk på personbilde → hurtigark, hold → #person-… (snur 22.7)', N.face && !N.tap && N.quick && /^#person-/.test(N.holdHash || '') && N.holdHash !== '#kart', N);
 ok('20.22 GUI-editor: personer/biler, soner, kollektiv-linjer, startvisning, kartstil – lagrer', !N.edTxt.length && N.kc && N.kc.start === 'home', N);
 await q.close();
 

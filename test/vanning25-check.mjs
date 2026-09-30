@@ -269,13 +269,22 @@ let S = await p.evaluate(async () => {
   R.querySelector('.tabs [role="tab"][data-v="avansert"]').click(); await new Promise((q) => setTimeout(q, 200));
   const av = R.textContent;
   const draft = { ...ed._config };
-  return { tabs, inPortal, live, ta: ta0[0], ta0, leaked, soner, gr, draft, ents: ['KI Vanning-oversikt', 'Anlegget', 'Regnpause', 'Vintermodus', 'Strømtrekk', 'Vannmåler totalt', 'KI Vann-prefiks', 'KI Vann-modell'].filter((x) => !ents.includes(x)), av: ['Vis vannmåler', 'Haptikk', 'Styring av programmer', 'Dagsmål', 'Stopp alt nå', 'Tilbakestill til standard'].filter((x) => !av.includes(x)) };
+  return { tabs, inPortal, live, ta: ta0[0], ta0, leaked, soner, gr, draft, ents: ['KI Vanning-oversikt', 'Anlegget', 'Regnpause', 'Vintermodus', 'Strømtrekk', 'Vannmåler totalt', 'KI Vann-prefiks', 'KI Vann-modell', 'Hendelser (Hvor gikk vannet)', 'Vannflyt / måler for hendelser', 'Minste hendelse'].filter((x) => !ents.includes(x)), av: ['Vis vannmåler', 'Haptikk', 'Styring av programmer', 'Dagsmål', 'Stopp alt nå', 'Tilbakestill til standard'].filter((x) => !av.includes(x)) };
 });
 ok('D · Tilpass Vanning: fire faner Faner · Soner · Entiteter · Avansert, portalt ut av kortet', S.tabs.join() === 'Faner,Soner,Entiteter,Avansert' && S.inPortal, S);
 ok('D · av/på for fane vises straks i kortet (utkast)', !S.live.includes('Program') && S.live.includes('Soner'), S.live);
 ok('D · dra-håndtak: touch-action none, pointerdown/touchstart når ikke dokumentet', S.ta === 'none' && S.leaked === 0, S);
 ok('D · Soner: grupper (+ Ny gruppe) og alle soner', S.gr === 1 && S.soner === 3 && Array.isArray(S.draft.grupper), S);
 ok('D · Entiteter og Avansert har alle radene', !S.ents.length && !S.av.length, { ents: S.ents, av: S.av });
+const FS = await p.evaluate(async () => {
+  const R = window.__ui.editor.shadowRoot;
+  R.querySelector('.tabs [role="tab"][data-v="faner"]').click(); await new Promise((q) => setTimeout(q, 200));
+  const sv = R.querySelector('[data-a="save"]'), ttl = sv && sv.closest('.ttl'), sw = R.querySelector('.sw.on');
+  const r = sv && sv.getBoundingClientRect(), tr = ttl && ttl.getBoundingClientRect();
+  const d = document.createElement('div'); d.style.color = '#f285c9'; document.body.appendChild(d); const pink = getComputedStyle(d).color; d.remove();
+  return { iHeader: !!ttl, hoyre: r && tr && tr.right - r.right < 40, tekst: sv && sv.textContent.trim(), br: sv && getComputedStyle(sv).borderRadius, sw: sw && getComputedStyle(sw).backgroundColor, pink };
+});
+ok('D · Tilpass Vanning: Ferdig er pille øverst til høyre, brytere rosa', FS.iHeader && FS.hoyre && /Ferdig/.test(FS.tekst) && parseFloat(FS.br) >= 14 && FS.sw === FS.pink, FS);
 await shot(p, 'i-tilpass');
 // GUI-editoren: samme skjema, lagrer til config
 await p.evaluate(() => window.__ui.overlay.close()); await wait(p, 500);
@@ -297,6 +306,81 @@ await p.close();
 p = await page({ demo: true, faner: ['soner', 'naa'] });
 Z = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { g: [...sr.querySelectorAll('.gh .gn')].map((e) => e.textContent), t: sr.querySelector('.tittel').textContent, demo: !!sr.querySelector('.demo') }; });
 ok('demo: true → DEMO-merke, boks 1–3 og «Vanner S05 Plen nord»', Z.demo && Z.g.join() === 'Boks 1,Boks 2,Boks 3' && /Vanner S05 Plen nord/.test(Z.t), Z);
+await p.close();
+
+
+// ================================================================ E · Forbruk: «Hvor gikk vannet» vises alltid (26.13)
+const hvor = (p) => p.evaluate(() => { const sr = window.__c.shadowRoot, h = sr.querySelector('[data-key="hvor"]'); if (!h) return null; const cs = getComputedStyle(h), idag = sr.querySelector('[data-key="idag"], [data-key="vtom"]');
+  return { kilde: h.dataset.kilde, etter: !!idag && idag.nextElementSibling === h, r: cs.borderRadius, pad: cs.padding, bg: cs.backgroundColor, t: h.querySelector('.hvt').textContent, s: h.querySelector('.hvs').textContent,
+    rows: [...h.querySelectorAll('.hvr')].map((r) => ({ k: (r.querySelector('.hvk') || {}).textContent || '', b: r.querySelector('.hvx b').textContent, m: (r.querySelector('.hvx span') || {}).textContent || '', c: r.querySelector('.hvc') ? r.querySelector('.hvc').textContent + '|' + r.querySelector('.hvc').className : '', kw: r.querySelector('.hvk') ? getComputedStyle(r.querySelector('.hvk')).width : '' })),
+    alle: (h.querySelector('[data-act="hvoralle"]') || {}).textContent || '', velg: !!h.querySelector('[data-act="customize"][data-section="entiteter"]') }; });
+// 1) KI Vann-attributtet (mock: hendelser på sensor.hjemme_vann_i_dag)
+p = await page({});
+await tab(p, 'forbruk');
+let HV = await hvor(p);
+ok('E · Hvor gikk vannet rett under «I dag», #3a3a3a r28 p16, header + «rom + tidspunkt»', HV && HV.etter && HV.r === '28px' && HV.pad === '16px' && HV.bg === 'rgb(58, 58, 58)' && HV.t === 'Hvor gikk vannet' && HV.s === 'rom + tidspunkt', HV);
+ok('E · rader fra integrasjonen kronologisk (07:05 Dusj først), klokke 40 px, uten sikkerhet = «Ukjent»', HV && HV.kilde === 'attr' && HV.rows.length === 3 && HV.rows[0].k === '07:05' && HV.rows[0].b === 'Dusj' && /62 L/.test(HV.rows[0].m) && HV.rows[0].kw === '40px' && /Ukjent\|hvc uk/.test(HV.rows[0].c) && HV.rows[2].b === 'Oppvaskmaskin', HV);
+await shot(p, 'j-hvor-attr');
+await p.close();
+// 2) egen events_entity med rom, varighet, sikkerhet og opptatt; > 8 hendelser → «Vis alle (N)»
+const EVS = Array.from({ length: 10 }, (_, i) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setMinutes(7 * 60 + 10 + i * 30); return { time: d.toISOString(), category: ['shower', 'toilet', 'tap', 'washing_machine', 'garden'][i % 5], room: ['Bad', 'Bad', 'Kjøkken', 'Vaskerom', 'Hage'][i % 5], liters: 48 - i, duration: 6, confidence: i === 0 ? 0.92 : 0.6, occupancy: i === 0 ? 'Bad opptatt 07:10–07:19' : null }; });
+p = await page({ events_entity: 'sensor.ki_vann_hendelser' }, { 'sensor.ki_vann_hendelser': { entity_id: 'sensor.ki_vann_hendelser', state: '10', attributes: { events: EVS.slice().reverse() }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() } });
+await tab(p, 'forbruk');
+HV = await hvor(p);
+ok('E · maks 8 rader + «Vis alle (10)», nyeste nederst', HV && HV.rows.length === 8 && HV.alle === 'Vis alle (10)' && HV.rows[7].k === '11:40', HV);
+await click(p, '[data-act="hvoralle"]');
+HV = await hvor(p);
+const r0 = HV.rows[0];
+ok('E · «Vis alle» viser alle; «Dusj · Bad», «48 L · 6 min · Bad opptatt 07:10–07:19», 92 % grønn, 60 % grå', HV.rows.length === 10 && r0.b === 'Dusj · Bad' && r0.m === '48 L · 6 min · Bad opptatt 07:10–07:19' && /^92 %\|hvc hoy$/.test(r0.c) && /^60 %\|hvc$/.test(HV.rows[1].c) && HV.rows[1].b === 'Toalett · Bad' && HV.rows[2].b === 'Kran · Kjøkken' && HV.rows[4].b === 'Hage · Hage', HV.rows.slice(0, 5));
+await p.close();
+// 3) uten attributtet: bygget fra flow-historikken, rom fra occupancy i samme tidsrom, ellers «Uforklart»/«Ukjent»
+p = await page({ events_entity: 'sensor.finnes_ikke', flow_entity: 'sensor.hus_vannflyt', event_min_l: 1 }, { 'sensor.hus_vannflyt': { entity_id: 'sensor.hus_vannflyt', state: '0', attributes: { device_class: 'volume_flow_rate', unit_of_measurement: 'L/min', friendly_name: 'Hus vannflyt' }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() }, 'binary_sensor.bad_occupancy': { entity_id: 'binary_sensor.bad_occupancy', state: 'off', attributes: { device_class: 'occupancy' }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() } });
+const HB = await p.evaluate(async () => {
+  const h = window.__h, base = Date.now() - 4 * 3600000, m = 60000, S = (t, s) => ({ s: String(s), lu: t / 1000 });
+  h.entities['binary_sensor.bad_occupancy'] = { entity_id: 'binary_sensor.bad_occupancy', area_id: 'bad' };
+  const old = h.callWS; let fr = 0;
+  h.callWS = (q) => {
+    if (q.type === 'history/history_during_period' && (q.entity_ids || []).includes('sensor.hus_vannflyt')) { fr++; return Promise.resolve({ 'sensor.hus_vannflyt': [S(base - 30 * m, 0), S(base, 8), S(base + 6 * m, 0), S(base + 60 * m, 0.5), S(base + 61 * m, 0), S(base + 120 * m, 3), S(base + 122 * m, 0)] }); }
+    if (q.type === 'history/history_during_period' && (q.entity_ids || []).includes('binary_sensor.bad_occupancy')) return Promise.resolve({ 'binary_sensor.bad_occupancy': [S(base - 60 * m, 'off'), S(base - 2 * m, 'on'), S(base + 9 * m, 'off')] });
+    return old(q);
+  };
+  window.__fr = () => fr;
+  window.__c.hass = { ...h }; await new Promise((q) => setTimeout(q, 300));
+  return { foer: fr };
+});
+await tab(p, 'forbruk');
+await wait(p, 500);
+HV = await hvor(p);
+const fr = await p.evaluate(() => window.__fr());
+ok('E · historikk hentes først når Forbruk åpnes (fallgruve 8)', HB.foer === 0 && fr === 1, { HB, fr });
+ok('E · fra flow-historikken: 48 L/6 min i Bad → «Dusj · Bad» med «Bad opptatt», 0,5 L under terskel, 6 L uten rom → «Uforklart»/«Ukjent»', HV && HV.kilde === 'hist' && HV.rows.length === 2 && HV.rows[0].b === 'Dusj · Bad' && /^48 L · 6 min · Bad opptatt \d\d:\d\d–\d\d:\d\d$/.test(HV.rows[0].m) && !/Ukjent/.test(HV.rows[0].c) && HV.rows[1].b === 'Uforklart' && /^6 L · 2 min$/.test(HV.rows[1].m) && /Ukjent\|hvc uk/.test(HV.rows[1].c), HV);
+await tab(p, 'naa'); await tab(p, 'forbruk'); await wait(p, 300);
+ok('E · mellomlagret i 5 min (ingen ny henting ved fanebytte)', (await p.evaluate(() => window.__fr())) === 1);
+await shot(p, 'k-hvor-hist');
+await p.close();
+// 4) ingen vannsensor: kortet vises med tom rad og «Velg entitet» (aldri skjult, aldri mock)
+p = await page({ vann_prefiks: 'sensor.x_' });
+await p.evaluate(async () => { const h = { ...window.__h, states: { ...window.__h.states } }; Object.keys(h.states).filter((k) => /hjemme_|vannmaler|ki_vann/.test(k) || ['water', 'volume_flow_rate'].includes((h.states[k].attributes || {}).device_class)).forEach((k) => delete h.states[k]); window.__c.hass = h; await new Promise((q) => setTimeout(q, 300)); });
+T = await txt(p, '.tabs .tab');
+await tab(p, 'forbruk');
+HV = await hvor(p);
+ok('E · uten sensor: Forbruk-fanen finnes, «Ingen hendelser i dag» + «Velg entitet»', T.some((x) => /Forbruk/.test(x)) && HV && HV.kilde === 'tom' && HV.rows.length === 1 && HV.rows[0].b === 'Ingen hendelser i dag' && HV.velg, { T, HV });
+await shot(p, 'l-hvor-tom');
+await p.close();
+// 5) events_entity / flow_entity / event_min_l i GUI-editoren (samme skjema som Tilpass Vanning) → config
+p = await page({}, MOCK.ki());
+const GE = await p.evaluate(async () => {
+  const ed = window.__c.constructor.getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-vanning-card', card_id: 'pop-vanning' }); document.body.appendChild(ed);
+  await new Promise((q) => setTimeout(q, 200));
+  let got = null; ed.addEventListener('config-changed', (e) => { got = e.detail.config; });
+  ed.shadowRoot.querySelector('.tabs [role="tab"][data-v="entiteter"]').click(); await new Promise((q) => setTimeout(q, 200));
+  const t = ed.shadowRoot.textContent, inp = ed.shadowRoot.querySelector('input[data-name="event_min_l"]');
+  if (inp) { inp.value = '2.5'; inp.dispatchEvent(new Event('input', { bubbles: true, composed: true })); inp.dispatchEvent(new Event('change', { bubbles: true, composed: true })); }
+  await new Promise((q) => setTimeout(q, 900));
+  ed.remove();
+  return { felt: ['Hendelser (Hvor gikk vannet)', 'Vannflyt / måler for hendelser', 'Minste hendelse'].filter((x) => !t.includes(x)), got: got && got.event_min_l };
+});
+ok('E · GUI-editor: events_entity, flow_entity og event_min_l (lagres i config)', !GE.felt.length && Number(GE.got) === 2.5, GE);
 await p.close();
 
 await b.close();

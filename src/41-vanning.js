@@ -790,6 +790,22 @@
       const L = Object.keys(S).filter((id) => id.startsWith('sensor.') && (S[id].attributes || {}).device_class === 'water' && (S[id].attributes || {}).state_class === 'total_increasing' && !/_i_dag$/.test(id));
       return (p && L.find((id) => id.startsWith(p))) || L[0] || null;
     },
+    /* «Hvor gikk vannet» (26.13): kilde for hendelseslisten / flow-måleren (samme i kortet og i Tilpass) */
+    _hvorAttr(id) { const s = id ? this._st(id) : null, A = (s && s.attributes) || {}; return [A.events, A.hendelser].find((x) => Array.isArray(x)) || null; },
+    _hvorEventsId() {
+      const c = this._c || {}, S = this._states || {};
+      if (c.events_entity) return this._hvorAttr(c.events_entity) ? c.events_entity : null;
+      const p = this._vannPrefiks();
+      if (p && this._hvorAttr(p + 'vann_i_dag')) return p + 'vann_i_dag';
+      return Object.keys(S).find((id) => /^sensor\.ki_vann_/.test(id) && this._hvorAttr(id))
+        || Object.keys(S).find((id) => /^sensor\..*_vann_i_dag$/.test(id) && this._hvorAttr(id)) || null;
+    },
+    _hvorFlowId(V) {
+      const c = this._c || {}, S = this._states || {};
+      if (c.flow_entity) return this._st(c.flow_entity) ? c.flow_entity : null;
+      const fl = Object.keys(S).find((id) => id.startsWith('sensor.') && (S[id].attributes || {}).device_class === 'volume_flow_rate' && /vann|water|flow|flyt/i.test(id + ' ' + ((S[id].attributes || {}).friendly_name || '')) && !/vanning|sprinkl|sone|zone|station|basseng|pool/i.test(id));
+      return fl || (V && V.maler) || null;
+    },
   };
   /* Kategoriene fra KI Vann i den rekkefølgen de vises, med entitetssuffiks, ikon og farge. */
   const KI_VN_KAT = [
@@ -803,6 +819,17 @@
     { id: 'basis_og_udefinert', navn: 'Udefinert', ikon: 'mdi:water-outline', farge: 'var(--gray600, #7a7a7d)' },
   ];
   M.KI_VN_KAT = KI_VN_KAT;
+  // «Hvor gikk vannet»: visningskategori fra KI Vann-/egne kategorinavn (Dusj blå, Toalett lilla, Kran/Vaskemaskin gul, Hage grønn, Uforklart grå)
+  const HV_KAT = [
+    { id: 'dusj', re: /dusj|shower|bad(?!e)/, navn: 'Dusj', ikon: 'mdi:shower-head', farge: 'var(--blue, #73b9f2)' },
+    { id: 'toalett', re: /toalett|toilet|wc|do\b/, navn: 'Toalett', ikon: 'mdi:toilet', farge: 'var(--purple, #ad99e6)' },
+    { id: 'oppvaskmaskin', re: /oppvaskmaskin|dishwasher/, navn: 'Oppvaskmaskin', ikon: 'mdi:dishwasher', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'vaskemaskin', re: /vaskemaskin|washing|washer|laundry/, navn: 'Vaskemaskin', ikon: 'mdi:washing-machine', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'kran', re: /kran|tap|faucet|sink|handvask|håndvask|oppvask|matlaging|kitchen/, navn: 'Kran', ikon: 'mdi:faucet', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'hage', re: /hage|garden|utend|outdoor|vanning|irrig/, navn: 'Hage', ikon: 'mdi:sprinkler-variant', farge: 'var(--green, #66d19e)' },
+  ];
+  const HV_UFORKLART = { id: 'uforklart', navn: 'Uforklart', ikon: 'mdi:help', farge: 'var(--gray600, #7f7f7f)' };
+  const hvKat = (x) => { const t = String(x || '').toLowerCase(); return (t && HV_KAT.find((k) => k.id === t || k.re.test(t))) || HV_UFORKLART; };
   // Standardverdier (ki-cards setConfig + KI Vann)
   const DEF = { varigheter: [5, 10, 15, 30], skjul_ubrukte: true, historikk_dager: 30, mal: 400 };
   // Logikk-objekt uten kort (Tilpass-arket / GUI-editoren): samme metoder, samme config.
@@ -907,7 +934,9 @@
       V.maler = this._vannmaler();
       if (V.kiMode) this._vmKi(V); else this._vmRes(V);
       V.aktiv = V.soner.find((z) => z.gaar) || null;
-      V.harForbruk = !!V.vann || V.harFlyt;
+      // Har huset vannforbruk-data (KI Vann, flyt, vannmåler eller valgt kilde)? Forbruk-fanen vises uansett (26.13:
+      // «Hvor gikk vannet» skjules aldri – uten sensor viser den tom-tilstand med «Velg entitet»).
+      V.harForbruk = !!V.vann || V.harFlyt || !!V.maler || !!c.events_entity || !!c.flow_entity;
       return V;
     }
     _vmKi(V) {
@@ -1067,7 +1096,7 @@
     render() {
       const c = this.config, V = this._vm();
       this.__V = V;
-      const tabs = fanerCfg(c).filter((f) => (f !== 'forbruk' || V.harForbruk) && (f !== 'historikk' || V.harHist));
+      const tabs = fanerCfg(c).filter((f) => (f !== 'historikk' || V.harHist));
       if (!tabs.length) tabs.push('naa');
       const cur = tabs.includes(this.ui.tab) ? this.ui.tab : tabs[0];
       this.__cur = cur;
@@ -1273,7 +1302,7 @@
       let o = this._seg('fvis', view, [['liste', 'Liste'], ['kalender', 'Kalender']]);
       if (!v) {
         o += `<div class="card" data-key="vtom"><div class="b48 num">–<span>L</span></div><button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:water-plus', 20)}</span><div class="sx"><b>Velg entitet</b><span>Velg KI Vann-prefiks i Tilpass</span></div>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button></div>`;
-        return o + this._hagevanning(V);
+        return o + (view === 'liste' ? this._hvor(V) : '') + this._hagevanning(V);
       }
       if (view === 'kalender') return o + this._fKalender(V, v, mal);
       const pct = Math.round((v.totalt / mal) * 100), sum = v.deler.reduce((t, k) => t + k.liter, 0) || 1;
@@ -1287,17 +1316,126 @@
         ${v.forklart != null && v.forklart < 50 ? `<div class="warnrow">${M.icon('mdi:help-circle-outline', 20)}<span>Uforklart forbruk: under halvparten av vannet er forklart av sensorene i dag.</span></div>` : ''}
         ${v.modell || v.kr != null || v.storste ? `<div class="lab ell">${esc([v.modell ? `Modell ${v.modell}${v.timer ? ` · ${v.timer} t` : ''}` : '', v.kr != null ? `${M.nf(v.kr, 1)} kr i dag` : '', v.storste ? `mest til ${String(v.storste).toLowerCase()}` : ''].filter(Boolean).join(' · '))}</div>` : ''}
       </div>`;
-      if (v.hendelser.length) {
-        const kat = (x) => KI_VN_KAT.find((k) => k.id === x || k.navn.toLowerCase() === String(x || '').toLowerCase()) || KI_VN_KAT[7];
-        o += `<div class="sh"><span class="st">Hvor gikk vannet</span></div><div class="card" data-key="hvor" style="padding:4px 16px;gap:0">${v.hendelser.slice(0, 12).map((h, i) => {
-          const k = kat(h.kategori || h.type || h.category), t = h.tid || h.start || h.time || h.tidspunkt, L = h.liter != null ? h.liter : h.l != null ? h.l : h.volum;
-          const tt = t ? (isNaN(new Date(t)) ? String(t) : M.hm(t)) : '';
-          return `<div class="lr ${i ? 'bt' : ''}"><span class="agt num">${esc(tt)}</span>${M.icon(k.ikon, 18, `color:${k.farge}`)}<span class="ell grow">${esc(h.navn || h.name || k.navn)}</span><span class="num">${L != null ? esc(nf(L)) + ' L' : ''}</span></div>`;
-        }).join('')}</div>`;
-      }
+      // «Hvor gikk vannet» rett under «I dag» – vises alltid (26.13)
+      o += this._hvor(V);
       return o + this._hagevanning(V);
     }
-    // Hagevanningen per sone i dag (KI Vanning: ki.soner, som _panelForbruk)
+    /* ---------------- «Hvor gikk vannet» (26.13) – vises ALLTID i Forbruk → Liste, rett under «I dag».
+       Data i prioritert rekkefølge: 1) KI Vann-attributtet `events`/`hendelser` (config `events_entity`, ellers
+       <prefiks>vann_i_dag / sensor.ki_vann_*), 2) bygget fra dagens historikk for flow-/målersensoren (config `flow_entity`,
+       ellers volume_flow_rate-sensor eller vannmåleren) med rom/kategori fra tilstedeværelse/bevegelse/dører i samme tidsrom,
+       3) tom-tilstand «Ingen hendelser i dag» + «Velg entitet». Aldri mock-rader. Historikken hentes bare når Forbruk er
+       åpen, mellomlagret i 5 min (fallgruve 8). Terskel: `event_min_l` (standard 1 L). */
+    // Én rad i felles form: { t, kat, rom, L, min, konf, opptatt }
+    _hvorNorm(h) {
+      const n = (x) => (x == null || x === '' || isNaN(Number(x)) ? null : Number(x));
+      const t = h.time || h.tid || h.start || h.tidspunkt || null, tm = t && !isNaN(new Date(t)) ? new Date(t).getTime() : null;
+      let konf = n(h.confidence != null ? h.confidence : h.sikkerhet); if (konf != null && konf <= 1) konf *= 100;
+      const sek = n(h.duration_s != null ? h.duration_s : h.sekunder);
+      const min = sek != null ? sek / 60 : n(h.duration != null ? h.duration : h.varighet != null ? h.varighet : h.minutter);
+      const oc = h.occupancy != null ? h.occupancy : h.opptatt;
+      const opptatt = !oc ? '' : typeof oc === 'string' ? oc : [oc.room || oc.rom || '', 'opptatt', oc.start || oc.fra ? `${this._hvorHm(oc.start || oc.fra)}–${this._hvorHm(oc.end || oc.til)}` : ''].filter(Boolean).join(' ');
+      return { t: tm, tt: tm == null && t ? String(t) : '', kat: h.category || h.kategori || h.type || '', rom: h.room || h.rom || '', L: n(h.liters != null ? h.liters : h.liter != null ? h.liter : h.l != null ? h.l : h.volum), min, konf, opptatt };
+    }
+    _hvorHm(t) { return t && !isNaN(new Date(t)) ? M.hm(t) : String(t || ''); }
+    _hvorData(V) {
+      const evId = this._hvorEventsId();
+      if (evId) return { kilde: 'attr', id: evId, rows: this._hvorAttr(evId).map((h) => this._hvorNorm(h || {})) };
+      const fid = this._hvorFlowId(V);
+      if (!fid) return { kilde: null, rows: [] };
+      const minL = Number(this.config.event_min_l) > 0 ? Number(this.config.event_min_l) : 1, key = `${fid}|${minL}`;
+      const C0 = this._hvorC;
+      if (!C0 || C0.key !== key || (!C0.busy && Date.now() - C0.t > 300000)) {
+        if (this.isOpen && this.hass && this.hass.callWS && !this.config.demo) {
+          this._hvorC = { key, t: Date.now(), busy: true, rows: C0 && C0.key === key ? C0.rows : null };
+          this._hvorBygg(fid, minL).then((rows) => { this._hvorC = { key, t: Date.now(), rows }; this.update(); })
+            .catch(() => { this._hvorC = { key, t: Date.now(), rows: [] }; this.update(); });
+        }
+      }
+      const C1 = this._hvorC && this._hvorC.key === key ? this._hvorC : null;
+      return { kilde: 'hist', id: fid, rows: (C1 && C1.rows) || [], laster: !C1 || (C1.busy && !C1.rows) };
+    }
+    // Hendelser fra dagens historikk: flow > 0 → 0 er én hendelse (flow-sensor), eller en sammenhengende økning (måler).
+    async _hvorBygg(fid, minL) {
+      const h = this.hass, S = h.states, st = S[fid], A = (st && st.attributes) || {};
+      const unit = String(A.unit_of_measurement || 'L'), start = d0(Date.now());
+      const rate = A.device_class === 'volume_flow_rate' || /\/\s*(min|h|s)/i.test(unit);
+      const volF = /m³|m3/i.test(unit) ? 1000 : /gal/i.test(unit) ? 3.785 : 1;
+      const perMin = /\/\s*h/i.test(unit) ? 1 / 60 : /\/\s*s/i.test(unit) ? 60 : 1;
+      const d = await M.stateHistory(h, [fid], start, Date.now());
+      const pts = (d[fid] || []).map((p) => ({ t: p.t, v: parseFloat(p.s) })).filter((p) => !isNaN(p.v) && !isNaN(p.t)).sort((a, b) => a.t - b.t);
+      const ev = [];
+      if (rate) {
+        let cur = null;
+        pts.forEach((p, i) => {
+          const nt = i + 1 < pts.length ? pts[i + 1].t : Date.now();
+          if (p.v > 0) { if (!cur) cur = { t0: p.t, L: 0 }; cur.L += p.v * volF * perMin * ((nt - p.t) / 60000); cur.t1 = nt; }
+          else if (cur) { cur.t1 = p.t; ev.push(cur); cur = null; }
+        });
+        if (cur) ev.push(cur);
+      } else {
+        let cur = null;
+        for (let i = 1; i < pts.length; i++) {
+          const dv = (pts[i].v - pts[i - 1].v) * volF;
+          if (dv > 0 && dv < 5000) {
+            if (cur && pts[i].t - cur.t1 <= 180000) { cur.L += dv; cur.t1 = pts[i].t; }
+            else { if (cur) ev.push(cur); cur = { t0: Math.max(pts[i - 1].t, pts[i].t - 60000), t1: pts[i].t, L: dv }; }
+          }
+        }
+        if (cur) ev.push(cur);
+      }
+      const hend = ev.filter((e) => e.L >= minL);
+      if (!hend.length) return [];
+      // Rom: tilstedeværelse (occupancy/presence), bevegelse og dører per område i samme tidsrom
+      const ids = Object.keys(S).filter((id) => {
+        if (!id.startsWith('binary_sensor.')) return false;
+        const dc = (S[id].attributes || {}).device_class;
+        return (['occupancy', 'presence', 'motion', 'door'].includes(dc) || /_(occupancy|motion|opptatt|tilstede|bevegelse)$/.test(id)) && M.areaOf(h, id);
+      }).slice(0, 60);
+      const oh = ids.length ? await M.stateHistory(h, ids, start - 3600000, Date.now()) : {};
+      const iv = {};
+      ids.forEach((id) => {
+        const L = oh[id] || [], out = [];
+        L.forEach((p, i) => { if (p.s === 'on') out.push([p.t, i + 1 < L.length ? L[i + 1].t : Date.now()]); });
+        const dc = (S[id].attributes || {}).device_class, w = dc === 'door' ? 1 : dc === 'motion' || /motion|bevegelse/.test(id) ? 2 : 3;
+        if (out.length) iv[id] = { a: M.areaOf(h, id), w, out };
+      });
+      return hend.map((e) => {
+        const a0 = e.t0 - 120000, a1 = e.t1 + 120000, score = {};
+        Object.values(iv).forEach((x) => x.out.forEach(([s0, s1]) => {
+          const ov = Math.min(a1, s1) - Math.max(a0, s0);
+          if (ov > 0) { const r = (score[x.a] = score[x.a] || { p: 0, w: 0, s0, s1 }); r.p += ov * x.w; r.w = Math.max(r.w, x.w); if (x.w >= r.w) { r.s0 = s0; r.s1 = s1; } }
+        }));
+        const best = Object.entries(score).sort((x, y) => y[1].p - x[1].p)[0];
+        const min = (e.t1 - e.t0) / 60000;
+        if (!best) return { t: e.t0, kat: 'uforklart', rom: '', L: e.L, min, konf: null, opptatt: '' };
+        const rom = M.areaName(h, best[0]), r = rom.toLowerCase();
+        const kat = /bad|dusj|wc|toalett/.test(r) ? (min >= 3 && e.L >= 15 ? 'dusj' : e.L <= 12 ? 'toalett' : 'kran')
+          : /vaskerom|vaskemaskin/.test(r) ? 'vaskemaskin' : /kjøkken|kjokken/.test(r) ? 'kran' : /hage|ute|terrasse|garasje/.test(r) ? 'hage' : 'kran';
+        const flere = Object.keys(score).length > 1;
+        return { t: e.t0, kat, rom, L: e.L, min, konf: best[1].w === 3 ? (flere ? 60 : 70) : 55, opptatt: `${rom} ${best[1].w === 3 ? 'opptatt' : best[1].w === 2 ? 'bevegelse' : 'dør'} ${M.hm(best[1].s0)}–${M.hm(Math.min(best[1].s1, Date.now()))}` };
+      });
+    }
+    _hvor(V) {
+      const D = this._hvorData(V), rows = D.rows.slice().sort((a, b) => (a.t || 0) - (b.t || 0));
+      const alle = !!this.ui.hvorAlle, vis = alle ? rows : rows.slice(-8);
+      const head = `<div class="hvh"><span class="hvt">Hvor gikk vannet</span><span class="hvs">rom + tidspunkt</span></div>`;
+      let body;
+      if (!rows.length) {
+        const tekst = D.laster ? 'Henter dagens hendelser …' : 'Ingen hendelser i dag';
+        body = `<div class="hvr hvtom"><span class="hvi" style="background:${M.alpha(C.gray600, 0.16)};color:${C.gray600}">${M.icon('mdi:water-off-outline', 18)}</span><div class="hvx"><b>${tekst}</b>${D.kilde ? `<span>${D.kilde === 'hist' ? 'Fra ' + esc(this._navn(D.id)) : 'Fra KI Vann'}</span>` : '<span>Fant ingen vannsensor</span>'}</div>${D.kilde ? '' : `<button class="hvv press" data-act="customize" data-section="entiteter" data-haptic="light">Velg entitet</button>`}</div>`;
+      } else {
+        body = vis.map((x) => {
+          const k = hvKat(x.kat), tittel = [k.navn, x.rom].filter(Boolean).join(' · ');
+          const meta = [x.L != null ? `${nf(x.L)} L` : '', x.min != null ? `${Math.max(1, Math.round(x.min))} min` : '', x.opptatt].filter(Boolean).join(' · ');
+          const kc = x.konf == null || k.id === 'uforklart' ? null : Math.round(x.konf);
+          const chip = kc == null ? `<span class="hvc uk">Ukjent</span>` : `<span class="hvc${kc >= 85 ? ' hoy' : ''}">${kc} %</span>`;
+          return `<div class="hvr"><span class="hvk num">${esc(x.t != null ? M.hm(x.t) : x.tt)}</span><span class="hvi" style="background:${M.alpha(k.farge, 0.16)};color:${k.farge}">${M.icon(k.ikon, 18)}</span><div class="hvx"><b class="ell">${esc(tittel)}</b><span class="ell">${esc(meta)}</span></div>${chip}</div>`;
+        }).join('') + (rows.length > 8 ? `<button class="hva press" data-act="hvoralle" data-haptic="selection">${alle ? 'Vis færre' : `Vis alle (${rows.length})`}</button>` : '');
+      }
+      return `<div class="hvor" data-key="hvor" data-kilde="${D.kilde || 'tom'}">${head}${body}</div>`;
+    }
+    _navn(id) { const s = id ? this._st(id) : null; return (s && s.attributes && s.attributes.friendly_name) || id || ''; }    // Hagevanningen per sone i dag (KI Vanning: ki.soner, som _panelForbruk)
     _hagevanning(V) {
       const ki = V.ki;
       if (!ki || !Array.isArray(ki.soner) || !ki.soner.length || !V.harFlyt) return '';
@@ -1511,6 +1649,7 @@
         }
         // forbruk / historikk
         case 'fvis': return ui({ fvis: d.v });
+        case 'hvoralle': return ui({ hvorAlle: !this.ui.hvorAlle });
         case 'hvis': return ui({ hvis: d.v });
         case 'fdag': return ui({ fdag: d.k });
         case 'hdag': return ui({ hdag: d.k });
@@ -1753,6 +1892,22 @@
         .warn{color:${C.orange}}
         .warnrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:${M.alpha(C.orange, 0.14)};color:${C.orange};font-size:13px}
         .lr{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:14px;min-width:0}
+        /* «Hvor gikk vannet» (26.13) */
+        .hvor{background:${C.card};box-shadow:${C.edge};border-radius:28px;padding:16px;display:flex;flex-direction:column;min-width:0}
+        .hvh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:4px}
+        .hvt{font-size:13px;color:#afafaf}.hvs{font-size:12px;color:#7f7f7f;white-space:nowrap}
+        .hvr{display:flex;align-items:center;gap:10px;padding:10px 0;min-width:0}
+        .hvr+.hvr{border-top:1px solid rgba(255,255,255,.06)}
+        .hvk{width:40px;flex:none;font-size:13px;color:#979797;font-variant-numeric:tabular-nums}
+        .hvi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;--mdc-icon-size:18px}
+        .hvx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .hvx b{font-size:14px;font-weight:500;color:#fafafa}.hvx span{font-size:12px;color:#979797}
+        .hvx .ell,.hvx b,.hvx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .hvc{height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap;background:rgba(255,255,255,.08);color:#afafaf}
+        .hvc.hoy{background:${M.alpha(C.green, 0.16)};color:${C.green}}
+        .hvc.uk{background:${M.alpha(C.orange, 0.18)};color:${C.orange}}
+        .hvv{height:34px;padding:0 14px;border-radius:17px;background:${C.inner};color:#fafafa;font-size:13px;font-weight:500;flex:none;border:0;font-family:inherit;cursor:pointer}
+        .hva{align-self:flex-start;background:none;border:0;color:${C.pink};font-size:13px;font-weight:500;padding:10px 0 2px;cursor:pointer;font-family:inherit}
         .zbar{position:relative;height:4px;border-radius:2px;background:#282828;overflow:hidden}
         .zbar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:${C.blue}}
         .cal{padding:14px 12px 16px;gap:10px}
@@ -1861,7 +2016,7 @@
         return `<div class="ordrow" data-vk="${k}" data-vl="fane" data-key="vf-${k}" style="${rowCss};${on ? '' : 'opacity:.55'}">${hdl('fane')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(ic, 20)}</span>
           <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(l)}</span>${sw(on, `data-a="fn" data-k="${key}" data-op="fane" data-v="${k}"`, 'Vis ' + l)}</div>`;
-      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk vises når KI Vann eller en vannmåler finnes, Historikk når KI Vanning fører statistikk.</span></div>`;
+      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk viser KI Vann, vannmåleren og «Hvor gikk vannet» (tom-tilstand uten sensor), Historikk vises når KI Vanning fører statistikk.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, vis = fanerCfg(cc);
       if (dd.op === 'fane') {
@@ -1926,6 +2081,10 @@
       ent('vannmaler', 'Vannmåler totalt', ['sensor'], (L) => L._vannmaler(), 'water'),
       { type: 'text', name: 'vann_prefiks', label: 'KI Vann-prefiks', placeholder: 'sensor.hjemme_', auto: (hh, cc) => { try { return L0(hh, cc)._vannPrefiks(); } catch (e) { return null; } }, help: 'Slik KI Vann-sensorene heter, f.eks. sensor.hjemme_ (→ sensor.hjemme_vann_i_dag)' },
       ent('vann_modell', 'KI Vann-modell', ['sensor'], (L) => { const p = L._vannPrefiks(); return p && L._st(p + 'modell') ? p + 'modell' : null; }),
+      // «Hvor gikk vannet» (26.13): hendelseslisten fra KI Vann, ellers bygget fra flow/måler-historikken
+      ent('events_entity', 'Hendelser (Hvor gikk vannet)', ['sensor'], (L) => L._hvorEventsId()),
+      ent('flow_entity', 'Vannflyt / måler for hendelser', ['sensor'], (L) => L._hvorFlowId({ maler: L._vannmaler() })),
+      { type: 'number', name: 'event_min_l', label: 'Minste hendelse', min: 0.5, max: 50, step: 0.5, unit: 'L', default: 1, help: 'Forbruk under dette regnes ikke som en hendelse' },
       { type: 'section', id: 'reserve', label: 'Uten KI Vanning (reserve)', icon: 'mdi:sprinkler', fields: SCHEMA_BASE },
     ];
     // Avansert · innstillingsradene fra KI Vanning (_panelInnstillinger) – virker rett mot Home Assistant

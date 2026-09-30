@@ -102,7 +102,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
         // etter «Legg til»: søkefeltet tomt og synlig mellom sticky tittel og bunnlinje
         const ni = E.querySelector(`input[data-search="${inp.dataset.search}"]`);
         const rI = ni.getBoundingClientRect(), rS = sh.getBoundingClientRect();
-        const ttl = E.querySelector('.ttl').getBoundingClientRect(), act = E.querySelector('.actions').getBoundingClientRect();
+        const ttl = E.querySelector('.ttl').getBoundingClientRect(), act = E.querySelector('.actions') ? E.querySelector('.actions').getBoundingClientRect() : { top: sh.getBoundingClientRect().bottom }; // Fiks 26: Ferdig i headeren, ingen bunnlinje
         const m2 = E.querySelector('.menu button'); if (m2) { const rm = m2.getBoundingClientRect(); if (rm.bottom > Math.min(rS.bottom, act.top) + 1) res.bad.push(`${sub}#${i}: første treff under bunnlinjen`); }
         if (ni.value) res.bad.push(`${sub}#${i}: søkefeltet ikke tømt`);
         if (rI.top < Math.max(rS.top, ttl.bottom) - 1 || rI.bottom > Math.min(rS.bottom, act.top) + 1) res.bad.push(`${sub}#${i}: søkefeltet utenfor synlig flate (${Math.round(rI.top)}–${Math.round(rI.bottom)} vs ${Math.round(ttl.bottom)}–${Math.round(act.top)})`);

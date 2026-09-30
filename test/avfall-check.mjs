@@ -182,7 +182,7 @@ const ST = await p4.evaluate(async () => {
   return { n: sop.length, card: sop[0] && sop[0].cards, inactive: (M.popupReport.inactive || []).filter((x) => x.hash === '#soppel').map((x) => x.by), inn: pops.some((c) => c.hash === '#innstillinger'), settings: pops.filter((c) => c.hash === '#settings').map((c) => c.cards[0].type) };
 });
 ok('strategien: #soppel genereres med msh-avfall-card og oppsettet fra ki-avfall-card; den importerte = «Erstattet av Søppel»', ST.n === 1 && ST.card.length === 1 && ST.card[0].type === 'custom:msh-avfall-card' && ST.card[0].intervall_dager === 14 && ST.card[0].entities.length === 2 && ST.inactive.join() === 'Søppel', ST);
-ok('strategien: #innstillinger genereres ved siden av #settings (msh-settings-card uendret)', ST.inn && ST.settings.join() === 'custom:msh-settings-card', ST);
+ok('strategien: #settings = msh-innstillinger-card (26.15, dashbordinnstillingene nederst); #innstillinger bare når noe peker dit', !ST.inn && ST.settings.join() === 'custom:msh-innstillinger-card', ST);
 await p4.close();
 
 ok('ingen sidefeil', !errs.length, errs);

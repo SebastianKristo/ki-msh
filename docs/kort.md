@@ -1600,8 +1600,16 @@ Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender o
 
 ## `msh-innstillinger-card`
 
-Innstillinger-popupen (#innstillinger): natt-/privatmodus, automasjoner, varsler og strøm (fiks 25.5).
+Innstillinger-popupen (#settings): natt-/privatmodus, regler fra KI Varslinger og sikkerhet (automasjoner, varsler), strøm fra KI Energi og dashbordets innstillinger (fiks 26.15).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `tabs` | Faner: `[{ key, title, hidden, filter: { enheter, ikke_enheter, plattform } }]` | Faner |
+| `tab_labels` | Faner viser (`ikon` · `name` · `icon` = begge) | Visning |
+| `start_tab` | Startfane | Visning |
+| `rows` | Overstyring: `exclude`, `move`, `include`, `names`, `subs`, `icons`, `order` | Rader |
+| `natt` · `privat` · `vekking` | Entitetene i toppkortet (autokonfig) | Entiteter |
+| `animasjoner` | Animasjoner (standard på) | Avansert |
+| `dashbord` | Dashbordinnstillinger nederst (standard på) | Avansert |
+| `sok` · `av_forst` · `haptikk` · `scene` | Søkefelt · avslåtte øverst · haptikk · toppkort-scene | Avansert |
 

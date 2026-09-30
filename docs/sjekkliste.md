@@ -22,7 +22,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-30), med moc
 | ✔ | mobil | Kalender #kalender | ja | ok 354 | ja | ja | ja / ja | ja | ok 2 | ok (bunn x=14) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | mobil | Server #server | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 26 | ja | ok | 1 · mal A |
 | ✔ | mobil | Søppel #soppel | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 5 | ja | ok | 1 · mal A |
-| ✔ | mobil | Innstillinger #innstillinger | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 9 | ja | ok | 1 · mal A |
+| ✔ | mobil | Innstillinger #settings | ja | ok 354 | ja | ja | ja / ja | ja | ok 1 | ok (bunn x=14) | ok 11 | ja | ok | 1 · mal A |
 | ✔ | mobil | Sir Sweeps #rolf | ja | ok 354 | ja | ja | ja / ja | ja | ok 2 | ok (bunn x=14) | ok 21 | ja | ok | 1 · mal A |
 | ✔ | mobil | Tesla Model Y #tesla | ja | ok 354 | ja | ja | ja / ja | ja | ok 2 | ok (bunn x=14) | ok 11 | ja | ok | 1 · mal A |
 | ✔ | mobil | Kart #kart | ja | ok 390 | ja | ja | ja / ja | ja | ok 8 | ok (bunn x=14) | ok 17 | ja | ok | 1 · mal A |
@@ -45,7 +45,7 @@ Generert av `node test/checklist.mjs` mot ekte Bubble Card (2026-09-30), med moc
 | ✔ | PC | Kalender #kalender | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 7 | ja | ok | 1 · mal A |
 | ✔ | PC | Server #server | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 26 | ja | ok | 1 · mal A |
 | ✔ | PC | Søppel #soppel | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 5 | ja | ok | 1 · mal A |
-| ✔ | PC | Innstillinger #innstillinger | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 9 | ja | ok | 1 · mal A |
+| ✔ | PC | Innstillinger #settings | ja | ok 504 | ja | ja | ja / ja | ja | ok 1 | ok (rail x=276) | ok 11 | ja | ok | 1 · mal A |
 | ✔ | PC | Sir Sweeps #rolf | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 21 | ja | ok | 1 · mal A |
 | ✔ | PC | Tesla Model Y #tesla | ja | ok 504 | ja | ja | ja / ja | ja | ok 2 | ok (rail x=276) | ok 11 | ja | ok | 1 · mal A |
 | ✔ | PC | Kart #kart | ja | ok 1024 | ja | ja | ja / ja | ja | ok 8 | ok (rail x=276) | ok 17 | ja | ok | 1 · mal A |

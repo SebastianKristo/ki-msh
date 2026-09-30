@@ -206,7 +206,7 @@
         .dva{display:flex;gap:6px;flex:none}
         .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
         .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-        .trk.on{background:var(--green,#66d19e)}
+        .trk.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'}} /* Fiks 26: rosa brytere */
         .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;transition:left .2s}
         .trk.on i{left:23px}
         .sm.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}

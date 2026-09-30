@@ -688,7 +688,9 @@
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
     .hic{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-    .htx b{font-size:18px;font-weight:500}
+    .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+    .hd .done{flex:none;${M.DONE_PILL}} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
     .htx i{font-style:normal;font-size:13px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .x{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
     .scope:empty{display:none} .scope{padding:0 4px}
@@ -709,7 +711,7 @@
     .rv{font-size:14px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;flex:none}
     .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-    .sw.on{background:rgb(102 209 158)} .sw.on::after{transform:translateX(18px)}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: rosa brytere */
     .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--gray300,#404040);flex:none}
     .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--gray800,#afafaf)}
     .ts button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
@@ -732,7 +734,7 @@
     .cb[disabled]{background:#2c2c2c;color:var(--gray400,#545454);pointer-events:none}
     .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040)}
     .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--gray300,#404040);font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
-    .res{display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto;overscroll-behavior:contain}
+    .res{display:flex;flex-direction:column;gap:2px;max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .rr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .rr:hover{background:rgba(255,255,255,0.06)}
     .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
@@ -784,7 +786,7 @@
       const sw = (k) => { const on = c[k] !== false; return `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="tog" data-k="${k}"></button>`; };
       const add = this._q != null ? this._addList(ord) : `<button class="add" data-a="addopen">${M.icon('mdi:plus', 20)}Legg til kamera</button>`;
       const html = `<style>${M.BASE_CSS}${ED_CSS}</style><div class="w">
-        <div class="hd"><span class="hic">${M.icon('tune', 24)}</span><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="x" data-a="done" title="Lukk">${M.icon('close', 22)}</button></div>
+        <div class="hd"><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="hb" data-a="reset">Nullstill</button><button class="done" data-a="done">Ferdig</button></div>
         <div class="scope" data-nomorph></div>
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -811,7 +813,6 @@
         </div>
         <button class="more" data-a="adv">${M.icon('mdi:cog-outline', 20)}Flere innstillinger (lys, sirene, hendelser …)</button>
         ${this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
-        <div class="act"><button data-a="reset">Nullstill</button><button class="pri" data-a="done">Ferdig</button></div>
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       // «Denne enheten · Alle enheter» (fra openEditor) rett under headeren

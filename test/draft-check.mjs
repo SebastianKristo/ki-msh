@@ -161,17 +161,17 @@ res.andre = await p.evaluate(async () => {
     const n0 = window.__sets.length;
     vaer.customize(); await W(300);
     const R = M.portals().pop().shadowRoot;
-    R.querySelector('[data-a="eye"]').click(); await W(700);
+    R.querySelector('[data-a="sec"]').click(); await W(700); // 26.25: «Tilpass Vær» → Seksjoner av/på (hide)
     r.vaerBefore = window.__sets.length - n0;
-    r.vaerPreview = (vaer._rawConfig.hidden_sections || []).length;
+    r.vaerPreview = (vaer._rawConfig.hide || []).length;
     R.querySelector('[data-a="done"]').click(); R.querySelector('[data-a="done"]').click(); await W(600);
     r.vaerSets = window.__sets.length - n0; r.vaerSheets = M.portals().length;
     // Avbryt forkaster
     vaer.customize(); await W(300);
-    const R2 = M.portals().pop().shadowRoot, hid0 = (vaer._rawConfig.hidden_sections || []).length;
-    R2.querySelectorAll('[data-a="eye"]')[1].click(); await W(50);
-    R2.querySelector('[data-a="cancel"]').click(); await W(300);
-    r.vaerCancel = { sheets: M.portals().length, same: (vaer._rawConfig.hidden_sections || []).length === hid0, sets: window.__sets.length - n0 };
+    const R2 = M.portals().pop().shadowRoot, hid0 = (vaer._rawConfig.hide || []).length;
+    R2.querySelectorAll('[data-a="sec"]')[1].click(); await W(50);
+    vaer._sheet.ov.close(); await W(300); // utenfor/Esc forkaster
+    r.vaerCancel = { sheets: M.portals().length, same: (vaer._rawConfig.hide || []).length === hid0, sets: window.__sets.length - n0 };
   }
   // Tilpass Hjem (utkast i ki-store)
   location.hash = ''; await W(300);

@@ -1,4 +1,4 @@
-// Testdata for Server (#server, msh-server-card, fiks 24.10): et realistisk homelab – UniFi Network (UDM Pro, PoE-switch,
+// Testdata for Server (#server, msh-server-card, fiks 24.10 + 26: Protect, switch-porter, Proxmox/Unraid-kontroller): et realistisk homelab – UniFi Network (UDM Pro, PoE-switch,
 // to aksesspunkt der det ene er frakoblet, to WLAN med QR-kode, klienter med blokker-bryter), Proxmox VE (node, VM-er,
 // LXC-containere, lagring) og Unraid (array, disker, Docker og VM). Config entries (config_entries/get) + enhetsregister.
 // Diagnostikk/konfig-entiteter har entity_category som i HA, så de ikke dukker opp i andre kort. Bare test – aldri i kortet.
@@ -123,6 +123,71 @@ window.mockExtend(({ add, D }) => {
   });
   R('binary_sensor.tower_docker_sonarr_update', 'on', { friendly_name: 'Tower Sonarr update', device_class: 'update' }, 'dev_tower', 'diagnostic');
 
+  /* Fiks 26: switch-porter (port av/på, strømsyklus, trafikk, hastighet), PoE-budsjett */
+  U('sensor.switch_kontor_ac_power_budget', 52, { ...W, friendly_name: 'Switch Kontor AC power budget' }, 'dev_usw', 'diagnostic');
+  [[1, 'on', 1000], [2, 'on', 1000], [3, 'off', 0], [4, 'on', 100], [5, 'on', 1000]].forEach(([n, s, sp]) => {
+    U(`switch.switch_kontor_port_${n}`, s, { friendly_name: `Switch Kontor Port ${n}` }, 'dev_usw', 'config');
+    U(`sensor.switch_kontor_port_${n}_link_speed`, sp, { unit_of_measurement: 'Mbit/s', friendly_name: `Switch Kontor Port ${n} link speed` }, 'dev_usw', 'diagnostic');
+    U(`sensor.switch_kontor_port_${n}_rx`, s === 'on' ? 12.5 * n : 0, { ...rate, friendly_name: `Switch Kontor Port ${n} RX` }, 'dev_usw', 'diagnostic');
+    U(`sensor.switch_kontor_port_${n}_tx`, s === 'on' ? 2.1 * n : 0, { ...rate, friendly_name: `Switch Kontor Port ${n} TX` }, 'dev_usw', 'diagnostic');
+  });
+  [1, 2, 3, 4].forEach((n) => U(`button.switch_kontor_port_${n}_power_cycle`, 'unknown', { friendly_name: `Switch Kontor Port ${n} Power cycle` }, 'dev_usw', 'config'));
+  U('sensor.ap_stue_channel', 36, { friendly_name: 'AP Stue channel' }, 'dev_ap1', 'diagnostic');
+
+  /* UniFi Protect (kameraer + ringeklokke) */
+  const PR = (id, st, at, d, cat) => add(id, st, at, { platform: 'unifiprotect', device: d, category: cat || null });
+  const modes = { options: ['always', 'detections', 'never'] };
+  [['dev_cam1', 'Innkjørsel', 'G4 Bullet', 'innkjorsel', 'recording', 'always'], ['dev_cam2', 'Hage', 'G5 Flex', 'hage', 'unavailable', 'always'], ['dev_cam3', 'Ringeklokke', 'G4 Doorbell Pro', 'ringeklokke', 'idle', 'never']].forEach(([d, n, m, o, st, md]) => {
+    dev(d, n, m, 'Ubiquiti Inc.', 'ce_protect');
+    PR(`camera.${o}_high`, st, { friendly_name: `${n} High` }, d);
+    PR(`select.${o}_recording_mode`, md, { ...modes, friendly_name: `${n} Recording mode` }, d, 'config');
+    PR(`binary_sensor.${o}_motion`, 'off', { friendly_name: `${n} Motion`, device_class: 'motion' }, d);
+    PR(`sensor.${o}_bitrate`, 2.4, { unit_of_measurement: 'Mbit/s', friendly_name: `${n} bitrate` }, d, 'diagnostic');
+    PR(`button.${o}_restart`, 'unknown', { friendly_name: `${n} Restart` }, d, 'config');
+  });
+  add('binary_sensor.ringeklokke_doorbell', 'off', { friendly_name: 'Ringeklokke Doorbell', device_class: 'occupancy' }, { platform: 'unifiprotect', device: 'dev_cam3' });
+
+  /* Proxmox: ytelse, systeminfo, lagring brukt/total, disker, node-knapper */
+  P('sensor.pve_load_average', 1.2, { friendly_name: 'pve Load average' }, 'dev_pve');
+  P('sensor.pve_swap_usage', 12, { ...pct, friendly_name: 'pve Swap usage' }, 'dev_pve');
+  P('sensor.pve_io_wait', 3, { ...pct, friendly_name: 'pve IO wait' }, 'dev_pve');
+  P('sensor.pve_power', 96, { ...W, friendly_name: 'pve Power' }, 'dev_pve');
+  P('sensor.pve_version', '8.2.4', { friendly_name: 'pve Version' }, 'dev_pve', 'diagnostic');
+  P('sensor.pve_kernel', '6.8.12-1-pve', { friendly_name: 'pve Kernel' }, 'dev_pve', 'diagnostic');
+  P('sensor.pve_updates', 7, { friendly_name: 'pve Updates' }, 'dev_pve', 'diagnostic');
+  P('button.pve_reboot', 'unknown', { friendly_name: 'pve Reboot' }, 'dev_pve', 'config');
+  P('button.pve_shutdown', 'unknown', { friendly_name: 'pve Shutdown' }, 'dev_pve', 'config');
+  P('sensor.local_lvm_used', 301, { unit_of_measurement: 'GB', friendly_name: 'local-lvm Used' }, 'dev_st1');
+  P('sensor.local_lvm_total', 476, { unit_of_measurement: 'GB', friendly_name: 'local-lvm Total' }, 'dev_st1');
+  dev('dev_st2', 'tank', 'Storage', 'Proxmox', 'ce_pve');
+  P('sensor.tank_zfs_usage', 91, { ...pct, friendly_name: 'tank Usage' }, 'dev_st2');
+  dev('dev_pvedisk', 'pve disker', 'Disk', 'Proxmox', 'ce_pve');
+  [['nvme0', 41], ['sda', 35], ['sdb', 52]].forEach(([k, t]) => {
+    P(`sensor.pve_${k}_temperature`, t, { ...tmp, friendly_name: `${k} temperature` }, 'dev_pvedisk', 'diagnostic');
+    P(`sensor.pve_${k}_health`, 'PASSED', { friendly_name: `${k} health` }, 'dev_pvedisk', 'diagnostic');
+  });
+
+  /* Unraid: array-kontroller, paritet, mover, spinn ned, disk-status, docker.img */
+  R('sensor.tower_array_used', 14.2, { unit_of_measurement: 'TB', friendly_name: 'Tower Array used' }, 'dev_tower');
+  R('sensor.tower_array_total', 18, { unit_of_measurement: 'TB', friendly_name: 'Tower Array total' }, 'dev_tower');
+  R('sensor.tower_docker_img_usage', 38, { ...pct, friendly_name: 'Tower docker.img usage' }, 'dev_tower');
+  R('sensor.tower_load_average', 2.4, { friendly_name: 'Tower Load' }, 'dev_tower');
+  R('sensor.tower_ups_load', 34, { ...pct, friendly_name: 'Tower UPS load' }, 'dev_tower', 'diagnostic');
+  R('sensor.tower_network_rx', 42, { ...rate, friendly_name: 'Tower Network RX' }, 'dev_tower', 'diagnostic');
+  R('sensor.tower_version', '7.0.1', { friendly_name: 'Tower Version' }, 'dev_tower', 'diagnostic');
+  R('button.tower_parity_check', 'unknown', { friendly_name: 'Tower Parity check' }, 'dev_tower', 'config');
+  R('button.tower_spin_down', 'unknown', { friendly_name: 'Tower Spin down' }, 'dev_tower', 'config');
+  R('button.tower_mover', 'unknown', { friendly_name: 'Tower Mover' }, 'dev_tower', 'config');
+  R('button.tower_reboot', 'unknown', { friendly_name: 'Tower Reboot' }, 'dev_tower', 'config');
+  [['disk1', 'on'], ['disk2', 'off'], ['disk3', 'on'], ['parity', 'on']].forEach(([k, s]) => {
+    R(`binary_sensor.tower_${k}_spinning`, s, { friendly_name: `Tower ${k} spinning` }, 'dev_tower', 'diagnostic');
+    R(`switch.tower_${k}_spin`, s, { friendly_name: `Tower ${k} spin` }, 'dev_tower', 'config');
+    R(`binary_sensor.tower_${k}_smart`, 'off', { friendly_name: `Tower ${k} SMART`, device_class: 'problem' }, 'dev_tower', 'diagnostic');
+  });
+  R('sensor.tower_docker_plex_cpu', 4, { ...pct, friendly_name: 'Tower Plex CPU' }, 'dev_tower', 'diagnostic');
+  R('sensor.tower_docker_plex_memory', 22, { ...pct, friendly_name: 'Tower Plex memory' }, 'dev_tower', 'diagnostic');
+  R('button.tower_docker_sonarr_update', 'unknown', { friendly_name: 'Tower Sonarr update' }, 'dev_tower', 'config');
+
   function S_last(id, min) { window.__svLast = window.__svLast || {}; window.__svLast[id] = ago(min); }
 });
 (function () {
@@ -131,6 +196,8 @@ window.mockExtend(({ add, D }) => {
     { entry_id: 'ce_unifi', domain: 'unifi', title: 'UniFi Network', state: 'loaded', source: 'user' },
     { entry_id: 'ce_pve', domain: 'proxmoxve', title: 'pve.lan', state: 'loaded', source: 'user' },
     { entry_id: 'ce_unraid', domain: 'unraid', title: 'Tower', state: 'loaded', source: 'user' },
+    { entry_id: 'ce_protect', domain: 'unifiprotect', title: 'UniFi Protect', state: 'loaded', source: 'user' },
+    { entry_id: 'ce_unifi2', domain: 'unifi', title: 'UniFi Hytta', state: 'loaded', source: 'user' },
   ];
   window.mockHass = function () {
     const h = prev();

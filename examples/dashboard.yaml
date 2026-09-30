@@ -182,6 +182,7 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-basseng-card
+                card_id: pop-basseng
           - type: custom:bubble-card
             card_type: pop-up
             name: Ruter
@@ -427,6 +428,14 @@ views:
                 background-color: var(--gray200) !important;
                 border-radius: 50%;
               }
+              /* ki-vaer:start (fiks 26.25 · værscene bak hele popupen, aktiv når kortets stil er scene) */
+              .bubble-pop-up[data-ki-vaer="scene"]{background:transparent!important;--bubble-pop-up-background-color:transparent;--bubble-pop-up-main-background-color:transparent;box-shadow:none!important;border:none!important;overflow:hidden}
+              .bubble-pop-up[data-ki-vaer="scene"] .bubble-pop-up-background{background:none!important;display:none!important}
+              .bubble-pop-up[data-ki-vaer="scene"] #header-container,.bubble-pop-up[data-ki-vaer="scene"] #header-container > div > div,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header-container,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header{background:transparent!important;box-shadow:none!important;border:none!important}
+              .bubble-pop-up[data-ki-vaer="scene"] .bubble-name{color:#fff!important;text-shadow:0 1px 6px rgba(0,0,0,.3)}
+              .bubble-pop-up[data-ki-vaer="scene"] .bubble-close-button{background-color:rgba(28,30,36,.55)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:#fff!important}
+              .bubble-pop-up[data-ki-vaer="scene"] > .bubble-pop-up-container{background:transparent!important}
+              /* ki-vaer:end */
             bg_blur: '5'
             shadow_opacity: '20'
             bg_opacity: '98'
@@ -441,6 +450,7 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-vaer-card
+                card_id: pop-vaer
           - type: custom:bubble-card
             card_type: pop-up
             name: Lys
@@ -747,7 +757,7 @@ views:
             cards:
               - type: custom:msh-kalender-card
                 card_id: pop-kalender
-          # Server (fiks 24.10): homelab – UniFi, Proxmox VE og Unraid fra config entries/enhetsregisteret; erstatter den importerte #server
+          # Server (fiks 26): Nettverk (UniFi Network + Protect) · Proxmox · Unraid (Glances-reserve) fra config entries/enhetsregisteret; erstatter den importerte #server
           - type: custom:bubble-card
             card_type: pop-up
             name: Server
@@ -792,6 +802,51 @@ views:
             cards:
               - type: custom:msh-server-card
                 card_id: pop-server
+          # Varmepumpe (fiks 26.20): NIBE S/F-serien (nibe_heatpump/myuplink) – ETT kort, rollene finnes automatisk; erstatter den importerte #varmepumpe
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Varmepumpe
+            icon: mdi:heat-pump
+            state: null
+            hash: '#varmepumpe'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-varmepumpe-card
+                card_id: varmepumpe
           # Søppel (fiks 25.4): avfallsfraksjonene (days_to_pickup), kalender og varsler – erstatter den importerte #soppel (ki-avfall-card)
           - type: custom:bubble-card
             card_type: pop-up
@@ -837,13 +892,14 @@ views:
             cards:
               - type: custom:msh-avfall-card
                 card_id: pop-soppel
-          # Innstillinger (fiks 25.5): natt-/privatmodus, automasjoner, varsler og strøm – egen hash ved siden av #settings (dashbordets innstillinger)
+          # Innstillinger (fiks 25.5/26.15): #settings = ÉTT msh-innstillinger-card – natt-/privatmodus, regler fra KI Varslinger og
+          # sikkerhet (automasjoner/varsler), strøm fra KI Energi og dashbordets innstillinger nederst (erstatter ki-natt/tabs/varsling-card)
           - type: custom:bubble-card
             card_type: pop-up
             name: Innstillinger
-            icon: mdi:tune-variant
+            icon: mdi:cog
             state: null
-            hash: '#innstillinger'
+            hash: '#settings'
             is_sidebar_hidden: true
             styles: |-
               .bubble-pop-up-container {

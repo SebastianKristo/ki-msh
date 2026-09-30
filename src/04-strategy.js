@@ -9,6 +9,8 @@
  *       '#vaer': { name: Været, width_desktop: 600px }       # deep-merge inn i generert popup (lister erstattes, color = ikonfarge)
  *       '#media': { replace: true, config: { … } }          # erstatt hele popupen
  *       '#basseng': false                                    # skjul popupen
+ *       '#kart': { header_gap: 0 }                           # 26.18: eget mellomrom under Bubble-headeren for én popup
+ *     popup_header_gap: -10                # 26.18: felles mellomrom (px) fra Bubble-headeren til første kort (MSH.applyHeaderGap)
  * Resultat: én panel-visning med én vertical-stack: msh-hjem-card, msh-navbar-card og alle Bubble-popups
  * (mal B per HA-område med synlige entiteter, mal A per funksjon det finnes entiteter for, per person, #settings).
  * Brukerens valg fra dashbord-editorene (ki-store / frontend user data) leses ved hver generering.
@@ -114,7 +116,7 @@
       '#klima': () => has(['climate', 'fan']),
       '#kamera': () => has('camera'),
       '#sikkerhet': () => has(['alarm_control_panel', 'lock']),
-      '#basseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']),
+      '#basseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|baseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']) || !!(M.bassengLegacy && M.bassengLegacy(config)), // fiks 26.14: også den gamle importerte #badebasseng
       '#ruter': () => plat('entur', 'entur_public_transport', 'entur_sx'),
       '#vanning': () => has('valve') || plat('opensprinkler') || rx(/vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean']),
       '#vaer': () => has('weather'),
@@ -128,8 +130,9 @@
       '#tesla': () => !!(M.teslaHas && M.teslaHas(hass)), // fiks 24.8: Tesla-entiteter (prefiks/plattform, 56-tesla.js)
       '#rolf': () => has('vacuum'), // fiks 24.9: Sir Sweeps – bare med vacuum.*
       '#soppel': () => (M.avfallIds ? M.avfallIds(hass, {}).length > 0 : false) || !!(M.avfallLegacy && M.avfallLegacy(config)), // fiks 25.4: sensorer med days_to_pickup, eller den gamle importerte #soppel
-      '#innstillinger': () => has('automation') || !!(M.innstEntities && (M.innstEntities(hass, {}).natt || M.innstEntities(hass, {}).privat)), // fiks 25.5: automasjoner / natt-/privatmodus
+      '#innstillinger': () => false, // fiks 26.15: innholdet er nå #settings (msh-innstillinger-card) – #innstillinger bare når noe peker dit
       '#server': () => plat('unifi', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/Proxmox VE/Unraid)
+      '#varmepumpe': () => !!(M.varmepumpeHas && M.varmepumpeHas(hass)), // fiks 26.20: en NIBE-enhet (produsent NIBE, nibe_heatpump/myuplink)
     };
     const hide = (config.popups || {});
     const out = [];
@@ -146,7 +149,9 @@
       if (hide['person-' + pid.split('.')[1]] === false) return;
       out.push({ hash, name: M.name(hass, pid), icon: 'mdi:account', tag: 'msh-person-card', extra: { person: pid }, person: true });
     });
-    if (hide.settings !== false) out.push({ hash: '#settings', name: 'Innstillinger', icon: 'mdi:cog', tag: 'msh-settings-card', tap: { action: 'navigate', navigation_path: '/config' } });
+    // Fiks 26.15: #settings = msh-innstillinger-card (erstatter den importerte ki-cards-popupen, oppsettet flyttes via POPUP_EXTRA);
+    // dashbordinnstillingene (msh-settings-card) ligger i fanen «Dashbord». Samme card_id som #innstillinger (25.5).
+    if (hide.settings !== false) { const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA['#settings'] === 'function' ? M.POPUP_EXTRA['#settings'](config) : undefined; out.push({ hash: '#settings', name: 'Innstillinger', icon: 'mdi:cog', tag: 'msh-innstillinger-card', extra: { card_id: 'pop-innstillinger', ...(ex || {}) }, tap: { action: 'navigate', navigation_path: '/config' } }); }
     return out;
   }
   function roomLook(area, hass, user) {
@@ -239,6 +244,9 @@
     const cand = new Map(); // hash → [{ source, index, config, meta }]
     const order = [];
     const push = (source, cfg, index, meta) => {
+      // Fiks 26.14 · gammel hash for en generert popup (M.POPUP_ALIAS, f.eks. importert #badebasseng → #basseng)
+      const AL = source !== 'auto' && isObj(cfg) && (M.POPUP_ALIAS || {})[normHash(cfg.hash)];
+      if (AL) { try { if (!AL.test || AL.test(cfg)) { meta = { ...(meta || {}), aliasOf: normHash(cfg.hash) }; cfg = { ...cfg, hash: AL.to }; } } catch (e) { /* */ } }
       const hash = isObj(cfg) ? normHash(cfg.hash) : '';
       if (!hash) { report.invalid.push({ source, index, reason: isObj(cfg) ? 'mangler hash' : 'er ikke et objekt' }); return; }
       if (!cand.has(hash)) cand.set(hash, []);
@@ -408,7 +416,7 @@
     return r;
   };
   // Endring i ki-store (egne popups, overstyringer, skjul/navn/ikon) → oppdater popupene (debounce 250 ms)
-  const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null]); } catch (e) { return ''; } };
+  const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null, d.popup_header_gap == null ? null : d.popup_header_gap]); } catch (e) { return ''; } };
   const gSigOf = (d) => { try { return JSON.stringify(d.dashboard_globals || null); } catch (e) { return ''; } };
   let lastSig = null, sigTimer = null, lastG = null, gTimer = null;
   /* Maler/globale nøkler endret → skriv dem inn i den levende lovelace.config (så nye kort finner dem straks) og be HA
@@ -438,7 +446,7 @@
         if (M.strategyIsDashboard && g !== lastG) { lastG = g; clearTimeout(gTimer); gTimer = setTimeout(() => M.applyDashboardGlobals(), 300); }
         else lastG = g;
       }
-      if (path && !/^(custom_popups|popup_overrides|popups|devices)(\.|$)/.test(path)) return;
+      if (path && !/^(custom_popups|popup_overrides|popups|popup_header_gap|devices)(\.|$)/.test(path)) return;
       const sig = sigOf(d || {});
       if (sig === lastSig) return;
       lastSig = sig;
@@ -494,6 +502,14 @@
       const G = M.getGlobals();
       if (Object.keys(G).length) res.popups = res.popups.map((p) => { try { return M.resolveTemplates(p, G); } catch (e) { console.warn('[ki-msh] maler', p && p.hash, e); return p; } });
     }
+    // Fiks 26.18 · mellomrom under Bubble-headeren (MSH.applyHeaderGap, 02-popups.js) – ett sted, alle popups.
+    // Per popup: ki-store popups.<key>.header_gap (Tilpass Hjem → Popups) › header_gap i popup_overrides › felles
+    // ki-store popup_header_gap › strategiens popup_header_gap › −10.
+    if (M.applyHeaderGap) res.popups = res.popups.map((p) => {
+      const { header_gap: hg, ...rest } = p || {};
+      return M.applyHeaderGap(rest, M.headerGapOf((uo(p.hash) || {}).header_gap, hg, S.popup_header_gap, config.popup_header_gap));
+    });
+    if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => f.hash.slice(1));
     const navbar = { type: 'custom:msh-navbar-card', card_id: I.navbar, bar: fk.slice(0, 5), more: fk.slice(5), ...(config.navbar || {}) };
@@ -559,6 +575,7 @@
         { type: 'section', id: 'funcs', label: 'Funksjons-popups', icon: 'mdi:layers-outline', fields: [...M.FUNCTION_POPUPS.map(([hash, name]) => ({ type: 'boolean', name: 'popups.' + hash.slice(1), label: name, default: true })), { type: 'boolean', name: 'popups.settings', label: 'Innstillinger', default: true }] },
         { type: 'section', id: 'home', label: 'Hjem', icon: 'mdi:home', fields: [
           { type: 'select', name: 'home.layout_mode', label: 'Layout', options: [['auto', 'Auto'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
+          { type: 'range', name: 'popup_header_gap', label: 'Popups · fra Bubble-headeren til første kort (px)', icon: 'mdi:format-vertical-align-top', min: -40, max: 40, default: -10, presets: [[-10, 'Standard −10'], [0, 'Som før 0']] }, // 26.18 (overstyres av Tilpass Hjem → Popups)
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
           { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
           { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },

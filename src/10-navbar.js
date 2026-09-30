@@ -401,7 +401,8 @@
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-    :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
+    :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
+    :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
     :host([data-kart]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 20.22: mini-spilleren skjult mens #kart er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -477,6 +478,9 @@
       window.addEventListener('ki-device-info', this._onResize);
       window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
       window.addEventListener('scroll', this._onScroll, { passive: true });
+      // Fiks 26.16: Tilpass-ark åpent → navbar, mini-spiller og «Mer»-meny tar ikke imot trykk (ligger under bakteppet)
+      this._onSheet = () => { if (this._portal) this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); };
+      window.addEventListener('ki-sheet', this._onSheet);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
@@ -491,6 +495,7 @@
       window.removeEventListener('ki-device-info', this._onResize);
       window.removeEventListener('msh-tcol', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
+      window.removeEventListener('ki-sheet', this._onSheet);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
       if (this._mRO) { this._mRO.disconnect(); this._mRO = null; this._mROel = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
@@ -662,7 +667,7 @@
           background:var(--gray050,#282828);border-radius:38px 38px min(38px, calc(var(--tp-b) * 100)) min(38px, calc(var(--tp-b) * 100));--ki-sh-pb:max(20px, calc(env(safe-area-inset-bottom,0px) + 20px - var(--tp-b)))}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
-        .tpd{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2f2f2f;font-size:15px;font-weight:600}
+        .tpd{${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille */
         .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--gray200,#3a3a3a);overflow:hidden}
         .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:#fafafa;border-top:1px solid rgba(255,255,255,0.06)}
         .tpr:first-child{border-top:0}
@@ -764,7 +769,8 @@
       this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
-      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules
+      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke' || location.hash === '#vaer'); // 19.17 / 26.24: navbar og mini-spiller skjules (#ringeklokke, #vaer)
+      this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
@@ -1596,7 +1602,7 @@
     .tg .tx2 b{font-size:15px;font-weight:500} .tg .tx2 i{font-style:normal;font-size:12px;font-weight:400;color:#979797}
     .tg:has(.tx2){height:auto;min-height:62px;padding-top:8px;padding-bottom:8px;border-radius:24px;gap:10px}
     .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
-    .trk.on{background:${C.green}}
+    .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
     .trk.on .knb{left:23px;background:#2f2f2f}
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a}

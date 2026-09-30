@@ -1,6 +1,8 @@
 // Fiks 24.8 · Tesla (#tesla, msh-tesla-card): bilscenen som toppkort (msh-tesla-scene, tap none), hurtigknapper med
 // bekreftelse, faner + tannhjul, Lading (dra ladegrense uten at popupen lukkes), Kjøring, Sparing, «Tilpass Tesla»
 // (live forhåndsvisning, dra-og-slipp, lakk) ↔ GUI-editor, autofunn og popup-vilkåret.
+// Fiks 26.10 (Tesla v3): chip uten ikon, hurtigknapper 76 px med etikett, fanelinje i full bredde med boble som treffer,
+// ett Lading-kort (batteristolpe 56 px + grense-chips), nøkkeltall i ett kort (3 kolonner), Smartlading med 12 søyler (390 px).
 //   node test/tesla-check.mjs   (SHOTS=<mappe> for skjermbilder)
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -66,8 +68,8 @@ await shot(p, '1-lading');
 
 // ---------------------------------------------------------------- hurtigknapper
 const Q = await p.evaluate(() => { const sr = window.__c.shadowRoot; return [...sr.querySelectorAll('.qbtn')].map((b) => { const r = b.getBoundingClientRect(); return { k: b.dataset.v, cls: b.className, w: Math.round(r.width), h: Math.round(r.height), rad: getComputedStyle(b).borderRadius, ent: b.dataset.ent || '' }; }); });
-ok('Hurtigknapper: 5 kvadratiske, r24', Q.length === 5 && Q.every((x) => Math.abs(x.w - x.h) <= 1 && x.rad === '24px'), Q);
-ok('Lås oransje + rist (ulåst, lås omvendt), Defrost rosa + pust, Bagasje rosa (åpen), Frunk normal', /warn/.test(Q[0].cls) && /shake/.test(Q[0].cls) && /pink/.test(Q[2].cls) && /breathe/.test(Q[2].cls) && /pink/.test(Q[4].cls) && !/pink/.test(Q[3].cls), Q);
+ok('Hurtigknapper: 5 like brede, 76 px høye, r22 (26.10)', Q.length === 5 && Q.every((x) => x.h === 76 && Math.abs(x.w - Q[0].w) <= 1 && x.rad === '22px'), Q);
+ok('Lås oransje + rist (ulåst, lås omvendt), Defrost og Bagasje lys flis (aktiv), Frunk normal', /warn/.test(Q[0].cls) && /shake/.test(Q[0].cls) && /act/.test(Q[2].cls) && /act/.test(Q[4].cls) && !/act/.test(Q[3].cls), Q);
 // Lås: bekreftelse (standard på) → Lås → switch toggle
 const lk = await p.evaluate(async () => {
   window.__calls.length = 0;
@@ -94,11 +96,11 @@ const F = await p.evaluate(() => { const sr = window.__c.shadowRoot, g = sr.quer
 ok('Faner Lading/Kjøring/Sparing + 48 px tannhjul i samme rad', F.tabs.join('|') === 'Lading|Kjøring|Sparing' && F.on === 'Lading' && F.gear.join('x') === '48x48' && F.same, F);
 
 // ---------------------------------------------------------------- Lading
-const L = await p.evaluate(() => { const sr = window.__c.shadowRoot, lim = sr.querySelector('.lim'); return { st: sr.querySelector('.cs').textContent.replace(/\s+/g, ' ').trim(), ss: sr.querySelector('.ss') && sr.querySelector('.ss').textContent.trim(), lv: sr.querySelector('.lv').textContent, ta: getComputedStyle(lim).touchAction, chips: [...sr.querySelectorAll('.lchip')].map((c) => c.textContent + (c.classList.contains('on') ? '*' : '')), sum: [...sr.querySelectorAll('.sum .st')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), bars: sr.querySelectorAll('.pb i').length, cheap: sr.querySelectorAll('.pb i.c').length }; });
-ok('Lading: status «Lader» + 7,4 kW + Stopp', /Lader/.test(L.st) && /7,4\s*kW/.test(L.st) && L.ss === 'Stopp', L);
-ok('Ladegrense: 80 %, touch-action none, knapper 50/60/70/80/100 med 80 aktiv', L.lv === '80 %' && L.ta === 'none' && L.chips.join() === '50 %,60 %,70 %,80 %*,100 %', L);
+const L = await p.evaluate(() => { const sr = window.__c.shadowRoot, lim = sr.querySelector('.lim'); return { st: sr.querySelector('.lc .lhead').textContent.replace(/\s+/g, ' ').trim(), ss: sr.querySelector('.ss') && sr.querySelector('.ss').textContent.trim(), lv: sr.querySelector('.lv').textContent, ta: getComputedStyle(lim).touchAction, chips: [...sr.querySelectorAll('.lchip')].map((c) => c.textContent + (c.classList.contains('on') ? '*' : '')), sum: [...sr.querySelectorAll('.kpi .kc')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), bars: sr.querySelectorAll('.pb i').length, cheap: sr.querySelectorAll('.pb i.c').length }; });
+ok('Lading: status «Tilkoblet · lader» + 7,4 kW + Stopp', /Tilkoblet · lader/.test(L.st) && /7,4\s*kW/.test(L.st) && L.ss === 'Stopp', L);
+ok('Ladegrense: 80 %, touch-action none, knapper 50/60/70/80/100 med 80 aktiv', L.lv === '80 %' && L.ta === 'none' && L.chips.join() === '50,60,70,80*,100', L);
 ok('Oppsummering: tid til grense · pris · sist lading', /1 t 35 m/.test(L.sum[0]) && /38 kr/.test(L.sum[1]) && /112 kr/.test(L.sum[2]), L.sum);
-ok('Smartlading: timepriser med billigste timer uthevet', L.bars > 0 && L.cheap >= 1 && L.cheap < L.bars, L);
+ok('Smartlading: 12 timer med billigste time(r) uthevet', L.bars === 12 && L.cheap >= 1 && L.cheap < L.bars, L);
 // dra ladegrensen: popupen skal ikke få touch/pointer (stopPropagation), verdi 95 → input_number.set_value
 const drag = await p.evaluate(async () => {
   const sr = window.__c.shadowRoot, lim = sr.querySelector('.lim'), r = lim.getBoundingClientRect();
@@ -107,10 +109,10 @@ const drag = await p.evaluate(async () => {
   window.__calls.length = 0;
   const y = r.top + r.height / 2, o = (x) => ({ bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 11, pointerType: 'touch' });
   const t = (x) => { const tt = new Touch({ identifier: 11, target: lim, clientX: x, clientY: y }); return new TouchEvent('touchmove', { bubbles: true, composed: true, cancelable: true, touches: [tt], targetTouches: [tt], changedTouches: [tt] }); };
-  lim.dispatchEvent(new PointerEvent('pointerdown', o(r.left + r.width * 0.5)));
-  for (const f of [0.6, 0.75, 0.9]) { lim.dispatchEvent(new PointerEvent('pointermove', o(r.left + r.width * f))); lim.dispatchEvent(t(r.left + r.width * f)); await new Promise((q) => setTimeout(q, 30)); }
+  lim.dispatchEvent(new PointerEvent('pointerdown', o(r.left + r.width * 0.6)));
+  for (const f of [0.7, 0.85, 0.95]) { lim.dispatchEvent(new PointerEvent('pointermove', o(r.left + r.width * f))); lim.dispatchEvent(t(r.left + r.width * f)); await new Promise((q) => setTimeout(q, 30)); }
   const mid = sr.querySelector('.lv').textContent;
-  lim.dispatchEvent(new PointerEvent('pointerup', o(r.left + r.width * 0.9)));
+  lim.dispatchEvent(new PointerEvent('pointerup', o(r.left + r.width * 0.95)));
   await new Promise((q) => setTimeout(q, 300));
   pop.removeEventListener('touchmove', lk); pop.removeEventListener('pointermove', lk); pop.removeEventListener('pointerdown', lk);
   return { leaked, mid, calls: window.__calls.slice(), lv: sr.querySelector('.lv').textContent, hash: location.hash };
@@ -254,6 +256,128 @@ await wait(g, 300);
 const W = await g.evaluate(() => { const c = window.__c.getBoundingClientRect(), i = document.querySelector('.pop .inner').getBoundingClientRect(); return { c: Math.round(c.width), i: Math.round(i.width - 36) }; });
 ok('Fyller bredden på PC', Math.abs(W.c - W.i) <= 1, W);
 await g.close();
+
+// ---------------------------------------------------------------- Fiks 26.10 · Tesla v3 på 390 px
+{
+const p = await b.newPage({ viewport: { width: 390, height: 1400 }, hasTouch: true });
+p.on('pageerror', (e) => errs.push(e.message));
+await p.goto('file://' + resolve('test/harness.html'));
+for (const m of mocks) await p.addScriptTag({ path: m });
+await p.addScriptTag({ path: bundle });
+const wait = (ms) => p.evaluate((ms) => new Promise((q) => setTimeout(q, ms)), ms);
+await p.evaluate(async () => {
+  window.__h = window.mockHass();
+  const bc = document.createElement('bubble-card');
+  bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#tesla' });
+  bc.innerHTML = '<div class="pop"><div class="hdr">Tesla</div><div class="inner"></div></div>';
+  document.getElementById('dash').appendChild(bc);
+  location.hash = '#tesla';
+  const c = document.createElement('msh-tesla-card');
+  c.setConfig({ type: 'custom:msh-tesla-card', card_id: 'pop-tesla-check' });
+  c.hass = window.__h;
+  bc.querySelector('.inner').appendChild(c);
+  window.__c = c;
+});
+await wait(900);
+
+const A = await p.evaluate(() => {
+  const c = window.__c, sr = c.shadowRoot, q = (s) => sr.querySelector(s), qa = (s) => [...sr.querySelectorAll(s)];
+  const R = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top) }; };
+  const scene = q('msh-tesla-scene'), ss = scene && scene.shadowRoot;
+  const pille = ss && ss.querySelector('.pille'), n = ss && ss.querySelector('.n'), tc = ss && ss.querySelector('.tc');
+  const cs = (el) => getComputedStyle(el);
+  const tabs = qa('.tabs .tab'), tbox = q('.tbox'), row = q('.tabs');
+  return {
+    chip: pille && { icon: !!pille.querySelector('ha-icon'), fs: cs(pille).fontSize, bg: cs(pille).backgroundColor, txt: pille.textContent.trim() },
+    name: n && { fs: cs(n).fontSize, col: cs(n).color, op: cs(n).opacity, txt: n.textContent },
+    sceneH: tc && R(tc).h,
+    qb: qa('.qbtn').map((e) => ({ ...R(e), r: cs(e).borderRadius, bg: cs(e).backgroundColor, ic: e.querySelector('ha-icon').getAttribute('icon'), l: (e.querySelector('.ql') || {}).textContent, lfs: e.querySelector('.ql') && cs(e.querySelector('.ql')).fontSize, cls: e.className })),
+    qgap: cs(q('.qb')).columnGap,
+    tbox: tbox && R(tbox), row: row && R(row), gear: R(q('.gear')),
+    tabs: tabs.map((t) => ({ ...R(t), txt: t.textContent.trim(), icon: !!t.querySelector('ha-icon'), on: t.classList.contains('on'), bg: cs(t).backgroundColor })),
+    cards: qa('.pane .card').map((e) => e.className),
+    lc: qa('.lc').length, ci: qa('.ci').length,
+    lt2: q('.lt2') && { t: q('.lt2').textContent, fs: cs(q('.lt2')).fontSize },
+    big: q('.lc .big') && { fs: cs(q('.lc .big')).fontSize, fw: cs(q('.lc .big')).fontWeight, t: q('.lc .big').textContent },
+    ss: q('.ss') && { bg: cs(q('.ss')).backgroundColor, t: q('.ss').textContent.trim(), ic: q('.ss ha-icon').getAttribute('icon') },
+    lim: q('.lim') && { ...R(q('.lim')), r: cs(q('.lim')).borderRadius, ta: cs(q('.lim')).touchAction, pct: q('.lpct').textContent, mk: !!q('.lmk') },
+    chips: qa('.lchip').map((e) => e.textContent + (e.classList.contains('on') ? '*' : '')),
+    onChipBg: q('.lchip.on') && cs(q('.lchip.on')).backgroundColor,
+    ll: q('.ll') && q('.ll').textContent.replace(/\s+/g, ' ').trim(),
+    kpi: qa('.kpi').length, kc: qa('.kpi .kc').map((e) => [e.querySelector('.kl').textContent, e.querySelector('.kv').textContent, cs(e.querySelector('.kl')).fontSize, cs(e.querySelector('.kv')).fontSize, cs(e.querySelector('.kv')).fontWeight]),
+    kpiIcons: qa('.kpi ha-icon').length, sumCards: qa('.pane .sum').length,
+    smart: q('.sm') && { stt: q('.stt').textContent, sst: q('.sst').textContent, bars: qa('.pb i').length, pink: qa('.pb i.c').length, labels: qa('.pl span').map((e) => e.textContent), tg: !!q('.sm .tg'), big2: qa('.sm .big2').length },
+  };
+});
+ok('26.10 · toppkort: chip uten ikon, 13–15 px, rgba(255,255,255,.1)', A.chip && !A.chip.icon && /^1[345]px$/.test(A.chip.fs) && A.chip.bg === 'rgba(255, 255, 255, 0.1)', A.chip);
+ok('26.10 · toppkort: «Tesla Model Y» 15 px #afafaf, høyde 180', A.name && A.name.fs === '15px' && A.name.col === 'rgb(175, 175, 175)' && A.name.op === '1' && A.sceneH === 180, { n: A.name, h: A.sceneH });
+const qw = A.qb.map((x) => x.w);
+ok('26.10 · hurtigknapper: 5 like brede, 76 px, r22, #3a3a3a, gap 8', A.qb.length === 5 && Math.max(...qw) - Math.min(...qw) <= 1 && A.qb.every((x) => x.h === 76 && x.r === '22px') && A.qgap === '8px' && A.qb.filter((x) => !/act|warn/.test(x.cls)).every((x) => x.bg === 'rgb(58, 58, 58)'), { qb: A.qb, gap: A.qgap });
+ok('26.10 · hurtigknapper: etiketter 15 px', /^(Låst|Ulåst)\|Tut\|Defrost\|Frunk\|Bagasje$/.test(A.qb.map((x) => x.l).join('|')) && A.qb.every((x) => x.lfs === '15px'), A.qb.map((x) => [x.l, x.lfs]));
+ok('26.10 · hurtigknapper: riktige ikoner (ikke to bilikoner)', /^mdi:lock(-open)?$/.test(A.qb[0].ic) && A.qb.slice(1).map((x) => x.ic).join('|') === 'mdi:bullhorn|mdi:car-defrost-front|mdi:car-select|mdi:bag-suitcase', A.qb.map((x) => x.ic));
+const defr = A.qb[2], bag = A.qb[4];
+ok('26.10 · hurtigknapper: aktiv (defrost på / bagasje åpen) = lys flis #e1e1e1', /act/.test(defr.cls) && defr.bg === 'rgb(225, 225, 225)' && /act/.test(bag.cls), [defr, bag]);
+const tw = A.tabs.map((t) => t.w), sumW = tw.reduce((s, x) => s + x, 0);
+ok('26.10 · faner: høyde 48, fyller bredden ved siden av tannhjulet', A.tbox.h === 48 && A.tbox.x + A.tbox.w + 8 === A.gear.x && Math.abs(sumW + 2 * (A.tabs.length - 1) - A.row.w) <= 2, { tbox: A.tbox, row: A.row, gear: A.gear, tw });
+ok('26.10 · faner: like brede tekstfaner uten ikoner, boble 40', Math.max(...tw) - Math.min(...tw) <= 1 && A.tabs.every((t) => !t.icon && t.h === 40) && A.tabs.map((t) => t.txt).join('|') === 'Lading|Kjøring|Sparing', A.tabs);
+ok('26.10 · Lading: ett samlet kort, ingen plugg-sirkel', A.lc === 1 && A.ci === 0, { lc: A.lc, ci: A.ci, cards: A.cards });
+ok('26.10 · Lading: status 14 px #afafaf + effekt 36/300', A.lt2 && A.lt2.fs === '14px' && /^Tilkoblet/.test(A.lt2.t) && A.big.fs === '36px' && A.big.fw === '300', { lt2: A.lt2, big: A.big });
+ok('26.10 · Lading: Start/Stopp er mørk pill #4a4a4a (ikke rosa)', A.ss && A.ss.bg === 'rgb(74, 74, 74)', A.ss);
+ok('26.10 · Lading: batteristolpe 56 px, r18, touch-action none, % inni + grensemarkør', A.lim && A.lim.h === 56 && A.lim.r === '18px' && A.lim.ta === 'none' && A.lim.pct === '64%' && A.lim.mk, A.lim);
+ok('26.10 · Lading: «Ladegrense 80 %» + chips 50/60/70/80/100 (valgt rosa)', A.ll.startsWith('Ladegrense 80 %') && A.chips.join('|') === '50|60|70|80*|100' && A.onChipBg !== 'rgb(64, 64, 64)', { ll: A.ll, chips: A.chips, bg: A.onChipBg });
+ok('26.10 · Nøkkeltall: ett kort, 3 kolonner, 14/15 px 600, ingen ikoner', A.kpi === 1 && A.kc.length === 3 && A.kc[0][0] === 'Tid til 80 %' && A.kc[1][0] === 'Pris' && A.kc[2][0] === 'Sist lading' && A.kc.every((k) => k[2] === '14px' && k[3] === '15px' && k[4] === '600') && A.kpiIcons === 0 && A.sumCards === 0, A.kc);
+ok('26.10 · Smartlading: tittel, tekst, bryter, 12 søyler med akse', A.smart && A.smart.stt === 'Smartlading' && /^Lader i .*billigste.* før 07:00$/.test(A.smart.sst) && A.smart.tg && A.smart.bars === 12 && A.smart.labels.length === 4 && A.smart.big2 === 0, A.smart);
+
+if (shots) await p.screenshot({ path: resolve(shots, 'tesla-390-lading.png'), fullPage: true });
+
+/* ---------------- dra på batteristolpen setter grensen (pointer) */
+const L = await p.evaluate(async () => {
+  const w = (ms) => new Promise((q) => setTimeout(q, ms));
+  const sr = window.__c.shadowRoot, el = sr.querySelector('.lim'), r = el.getBoundingClientRect(), y = r.top + r.height / 2;
+  window.__calls.length = 0;
+  let stopped = 0; const outer = (e) => { stopped++; }; document.addEventListener('pointerdown', outer, true);
+  const fire = (t, x) => el.dispatchEvent(new PointerEvent(t, { bubbles: true, composed: true, pointerId: 7, clientX: x, clientY: y, isPrimary: true, pointerType: 'touch' }));
+  fire('pointerdown', r.left + r.width * 0.62);
+  fire('pointermove', r.left + r.width * 0.9);
+  await w(50);
+  const mid = sr.querySelector('.lv').textContent;
+  fire('pointerup', r.left + r.width * 0.9);
+  await w(300);
+  document.removeEventListener('pointerdown', outer, true);
+  return { mid, calls: window.__calls.filter((c) => c[1] === 'set_value').map((c) => c[2]) };
+});
+ok('26.10 · Lading: dra på stolpen setter grensen (90 %)', L.mid === '90 %' && L.calls.length === 1 && L.calls[0].value === 90, L);
+
+/* ---------------- fanebytte: boblen (aktiv fane) treffer fanen */
+for (const [i, key] of [[1, 'kjoring'], [2, 'sparing'], [0, 'lading']]) {
+  await p.evaluate((i) => window.__c.shadowRoot.querySelectorAll('.tabs .tab')[i].click(), i);
+  await wait(700);
+  const T = await p.evaluate(() => {
+    const sr = window.__c.shadowRoot, on = sr.querySelector('.tabs .tab.on'), r = on.getBoundingClientRect(), cs = getComputedStyle(on);
+    const lens = [...sr.querySelectorAll('*')].filter((e) => e.style && e.style.pointerEvents === 'none' && e.style.position === 'absolute' && e.style.borderRadius === '999px' && getComputedStyle(e).opacity !== '0');
+    return { key: on.dataset.key, bg: cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor, vis: cs.visibility, w: Math.round(r.width), x: Math.round(r.left), all: [...sr.querySelectorAll('.tabs .tab')].map((t) => Math.round(t.getBoundingClientRect().left)), lens: lens.length };
+  });
+  ok(`26.10 · faner: bytte til ${key} – boblen på den aktive fanen`, T.key === key && T.bg !== 'rgba(0, 0, 0, 0)' && T.vis !== 'hidden' && T.x === T.all[i] && T.lens === 0, T);
+  if (shots && key !== 'lading') await p.screenshot({ path: resolve(shots, `tesla-390-${key}.png`), fullPage: true });
+}
+
+/* ---------------- Tilpass Tesla: åpnes, har Ferdig og brytere */
+const E = await p.evaluate(async () => {
+  const w = (ms) => new Promise((q) => setTimeout(q, ms));
+  window.__c.shadowRoot.querySelector('.gear').click();
+  await w(700);
+  const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-editor');
+  if (!ed) return { ed: false };
+  const R = ed.shadowRoot, save = R.querySelector('[data-a="save"]');
+  const sw = R.querySelector('.sw.on');
+  return { ed: true, save: save && { t: save.textContent.trim(), bg: getComputedStyle(save).backgroundImage + ' ' + getComputedStyle(save).backgroundColor, top: Math.round(save.getBoundingClientRect().top) }, sw: sw && getComputedStyle(sw).backgroundColor };
+});
+console.log('info · Tilpass Tesla (felles editor):', JSON.stringify(E));
+ok('26.10 · Tilpass Tesla åpnes med Ferdig', E.ed && E.save && /Ferdig/.test(E.save.t), E);
+if (shots) await p.screenshot({ path: resolve(shots, 'tesla-390-tilpass.png') });
+
+await p.close();
+}
 
 ok('Ingen sidefeil', !errs.length, errs);
 await b.close();

@@ -72,7 +72,9 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       const first = cards[0] && cards[0].getBoundingClientRect();
       res.top = !!first && first.height > 40 && first.top < innerHeight;
       const heroTag = (window.MSH.HEROES || {})[cards[0] && cards[0].localName];
-      if (heroTag) { const he = cards[0].shadowRoot.querySelector('.msh-hero-slot > ' + heroTag); const hr = he && he.getBoundingClientRect(); res.top = res.top && !!hr && hr.height > 40 && Math.abs(hr.top - first.top) < 2; }
+      // Fiks 26.24: Vær i stilen «scene» har værscene-toppen (.snw) som toppkort i stedet for msh-vaer-hero-card
+      if (heroTag && cards[0].hasAttribute('data-scene')) { const sn = cards[0].shadowRoot.querySelector('.snw'); const sr = sn && sn.getBoundingClientRect(); res.top = res.top && !!sr && sr.height > 40 && sr.top < innerHeight; }
+      else if (heroTag) { const he = cards[0].shadowRoot.querySelector('.msh-hero-slot > ' + heroTag); const hr = he && he.getBoundingClientRect(); res.top = res.top && !!hr && hr.height > 40 && Math.abs(hr.top - first.top) < 2; }
       res.oneCard = (pop.cards || []).length === 1;
       const bn = all.find((e) => e.classList && e.classList.contains('bubble-name') && e.getBoundingClientRect().height > 0);
       const ic = all.find((e) => e.classList && e.classList.contains('icon-container') && e.getBoundingClientRect().height > 0);

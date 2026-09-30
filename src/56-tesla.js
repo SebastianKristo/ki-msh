@@ -92,10 +92,10 @@
     .tc.kjorer .glod { opacity:1; background:radial-gradient(70% 90% at 70% 100%, rgba(90,170,255,.28) 0%, transparent 62%); }
     .tc.lavt .glod { opacity:1; background:radial-gradient(70% 90% at 70% 100%, rgba(255,90,70,.28) 0%, transparent 62%); }
     .tekst { position:absolute; left:20px; top:18px; bottom:14px; display:flex; flex-direction:column; z-index:2; max-width:42%; min-width:0; }
-    .n { font-size:14px; opacity:.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pille { align-self:flex-start; margin-top:8px; display:inline-flex; align-items:center; gap:5px; padding:3px 10px 3px 8px; border-radius:999px;
-      font-size:12px; font-weight:500; background:rgba(238,243,248,.12); white-space:nowrap; --mdc-icon-size:14px; max-width:100%; overflow:hidden; }
-    .tc.lader .pille { background:rgba(90,230,160,.26); } .tc.kjorer .pille { background:rgba(90,170,255,.28); }
+    .n { font-size:15px; color:#afafaf; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Fiks 26.10: status-chippen er bare tekst (ingen ikon), 13 px, pill rgba(255,255,255,.1) */
+    .pille { align-self:flex-start; margin-top:8px; display:inline-flex; align-items:center; padding:4px 11px; border-radius:999px;
+      font-size:13px; font-weight:500; line-height:18px; background:rgba(255,255,255,.1); white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
     .pille.gul { background:rgba(255,179,74,.32) !important; } .pille.rod { background:rgba(255,80,70,.42) !important; }
     .stor { margin-top:auto; font-size:2em; line-height:1.2em; font-weight:300; white-space:nowrap; }
     .stor small { font-size:14px; font-weight:300; margin-left:2px; opacity:.85; }
@@ -342,7 +342,7 @@
     _bygg() {
       if (!this.shadowRoot) this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `<style>${STIL}</style><div class="tc" role="button" tabindex="0">
-        <div class="glod"></div><div class="tekst"><div class="n"></div><span class="pille"><ha-icon></ha-icon><span class="pt"></span></span>
+        <div class="glod"></div><div class="tekst"><div class="n"></div><span class="pille"><span class="pt"></span></span>
         <div class="stor"></div><div class="sub"></div></div><div class="scene">${SVG}</div></div>`;
       const kort = this.shadowRoot.querySelector(".tc");
       kort.addEventListener("click", () => this._trykk());
@@ -420,7 +420,7 @@
       else if (sentry) { pt = "Sentry på"; ik = "mdi:cctv"; }
       else { pt = "Låst"; ik = "mdi:lock"; }
       const pille = $(".pille"); pille.className = "pille " + farge;
-      pille.querySelector("ha-icon").setAttribute("icon", ik); $(".pt").textContent = pt;
+      pille.dataset.ikon = ik; $(".pt").textContent = pt; // Fiks 26.10: ingen ikon i chippen (ikonnavnet beholdes som data)
       $(".stor").innerHTML = isNaN(batt) ? "--" : `${Math.round(batt)}<small>%</small>`;
 
       const deler = [];
@@ -453,10 +453,11 @@
   const PAINTS = [['#7b92ac', 'Blågrå'], ['#e9e9e7', 'Perlehvit'], ['#1c1d20', 'Svart'], ['#7d8084', 'Stealth-grå'], ['#a3161f', 'Ultrarød'], ['#233f8c', 'Dyphavsblå']];
   const TABS = [['lading', 'Lading', 'mdi:ev-station'], ['kjoring', 'Kjøring', 'mdi:steering'], ['sparing', 'Sparing', 'mdi:piggy-bank']];
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
-  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:car-defrost-front'], ['frunk', 'Frunk', 'mdi:car-side'], ['trunk', 'Bagasje', 'mdi:car-back']];
+  // Fiks 26.10: riktige ikoner (lås/lås opp, horn, defrost, frunk = car-select, bagasje = bag-suitcase) – ikke to bilikoner
+  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:car-defrost-front'], ['frunk', 'Frunk', 'mdi:car-select'], ['trunk', 'Bagasje', 'mdi:bag-suitcase']];
   const CONF_DEF = { lock: true, honk: false, defrost: false, frunk: true, trunk: true };
   const LIMIT_OPTS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
-  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: false, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
+  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: true, smart_until: 7, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
   const TABS_DEF = { style: 'filled', content: 'text', start: 'lading' };
   const GROUPS = [['lading', 'Batteri og lading', 'mdi:battery-charging-high'], ['status', 'Kjøring og status', 'mdi:car-info'], ['sparing', 'Sparing', 'mdi:piggy-bank-outline']];
   /* Entitetsfelt: [nøkkel, navn, gruppe, domener, mønstre (første mønster med treff vinner), familie, ikon]
@@ -474,12 +475,13 @@
     ['time_left', 'Tid til grense', 'lading', ['sensor'], [/ladetid_gjenstaende|time_to_full|time_charge_complete/], 'car', 'mdi:timer-outline'],
     ['charge_cost', 'Pris for ladingen', 'lading', ['sensor'], [/ladepris_estimat|charge_cost_estimate/], 'car', 'mdi:cash'],
     ['last_charge', 'Sist lading', 'lading', ['sensor'], [/forrige_lading_kostnad|last_charge_cost/], 'car', 'mdi:cash-check'],
+    ['smart', 'Smartlading (bryter)', 'lading', ['input_boolean', 'switch'], [/smart_?lad|smart_?charg/], 'car', 'mdi:clock-outline'],
     ['price', 'Strømpris (smartlading)', 'lading', ['sensor'], null, 'price', 'mdi:chart-bar'],
     ['lock', 'Lås', 'status', ['lock', 'switch', 'binary_sensor'], [/doors?_lock|_lock$|_locked$|laas|_las$/], 'car', 'mdi:lock'],
     ['honk', 'Tut', 'status', ['button'], [/honk|horn|_tut$/], 'car', 'mdi:bullhorn'],
     ['defrost', 'Defrost', 'status', ['switch'], [/defrost|avising/], 'car', 'mdi:car-defrost-front'],
-    ['frunk', 'Frunk', 'status', ['switch', 'cover'], [/frunk|trunk_front|front_trunk|vehicle_state_ft/], 'car', 'mdi:car-side'],
-    ['trunk', 'Bagasjerom', 'status', ['switch', 'cover'], [/trunk_rear|rear_trunk|bagasje|liftgate|_trunk$|vehicle_state_rt/], 'car', 'mdi:car-back'],
+    ['frunk', 'Frunk', 'status', ['switch', 'cover'], [/frunk|trunk_front|front_trunk|vehicle_state_ft/], 'car', 'mdi:car-select'],
+    ['trunk', 'Bagasjerom', 'status', ['switch', 'cover'], [/trunk_rear|rear_trunk|bagasje|liftgate|_trunk$|vehicle_state_rt/], 'car', 'mdi:bag-suitcase'],
     ['window', 'Vinduer', 'status', ['switch', 'cover'], [/window_vent|vindu|windows/], 'car', 'mdi:car-door'],
     ['sentry', 'Sentry', 'status', ['switch'], [/sentry/], 'car', 'mdi:cctv'],
     ['climate', 'Klima', 'status', ['climate'], [/./], 'car', 'mdi:thermostat'],
@@ -619,11 +621,13 @@
     const st = on ? (fill ? `background:${ACC};color:${INK}` : `background:transparent;color:${PINK};box-shadow:inset 0 0 0 1.5px ${PINK}`) : 'background:transparent;color:var(--gray800,#afafaf)';
     return `<button class="tab${on ? ' on' : ''}${showLabel ? '' : ' io'}" role="tab" aria-selected="${on}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs || ''} style="${st}">${showIcon ? M.icon(icon, 20) : ''}${showLabel ? `<span>${esc(label)}</span>` : ''}</button>`;
   }
+  // Fiks 26.10: fanelinjen fyller hele bredden ved siden av tannhjulet – like brede faner (grid, minmax(0,1fr)),
+  // høyde 48 (padding 4 + boble 40), så den rosa boblen (aktiv fane + MSH.glassMorph) har fanens bredde og posisjon.
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tbox{flex:1;min-width:0;padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}overflow:hidden}
-    ${pre} .tabs{display:flex;gap:2px;border-radius:20px;overflow-x:auto;scrollbar-width:none}
-    ${pre} .tabs::-webkit-scrollbar{display:none}
-    ${pre} .tab{flex:1 0 auto;height:40px;padding:0 14px;border-radius:20px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
+    ${pre} .tbox{flex:1;min-width:0;box-sizing:border-box;height:48px;padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}overflow:hidden}
+    ${pre} .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:20px;overflow:hidden;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tabs>.tab{min-width:0;width:100%}
+    ${pre} .tab{height:40px;padding:0 8px;overflow:hidden;text-overflow:ellipsis;border-radius:20px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
     ${pre} .tab.io{padding:0 10px}
     ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     ${pre} .gear:active{transform:scale(.92)}`;
@@ -735,7 +739,7 @@
             { type: 'range', name: 'capacity', label: 'Batterikapasitet', icon: 'mdi:battery-high', min: 40, max: 110, step: 1, default: DEF.capacity, unit: 'kWh', presets: [[60, '60'], [75, '75'], [82, '82'], [100, '100']] },
           ] },
           { type: 'section', id: 'buttons', label: 'Hurtigknapper', icon: 'mdi:gesture-tap-button', fields: [
-            { type: 'boolean', name: 'button_text', label: 'Vis tekst under ikonet', default: false },
+            { type: 'boolean', name: 'button_text', label: 'Vis tekst under ikonet', default: true },
             ...BTNS.map(btnSec),
           ] },
         ] },
@@ -756,6 +760,7 @@
           { type: 'section', id: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', fields: [
             { type: 'boolean', name: 'lock_inverted', label: 'Lås: «på» betyr åpen', default: true, help: 'Tesla-brua (switch …_doors_locked) melder «på» når bilen er ÅPEN. Slå av for en ekte lock.-entitet.' },
             { type: 'boolean', name: 'confirm', label: 'Bekreftelse på alle hurtigknapper', default: false },
+            { type: 'select', name: 'smart_until', label: 'Smartlading: ferdig før', options: [5, 6, 7, 8, 9].map((x) => [x, `kl. ${M.pad(x)}:00`]), default: DEF.smart_until, help: 'Smartlading viser de 12 timene før dette klokkeslettet og velger de billigste.' },
             { type: 'text', name: 'prefix', label: 'Prefiks for autofunn', placeholder: DEF_PREFIX.join(', '), help: 'Kommaseparert. Entiteter som inneholder prefikset (og Tesla-integrasjonens entiteter) brukes.' },
           ] },
           M.spacingSchema({ gap: 8, pad_top: 20, pad_bottom: 24 }),
@@ -829,17 +834,19 @@
     }
     _miss(text, section) { return `<div class="miss"><span class="mdash">–</span><button class="pick press" data-act="customize" data-section="${esc(section || 'entiteter')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
     _buttons() {
-      const c = this.config, h = this.hass, txt = !!c.button_text;
+      const c = this.config, h = this.hass, txt = c.button_text !== false;
       const B = BTNS.filter(([k]) => btnCfg(c, k).show !== false);
       if (!B.length) return '';
       return `<div class="qb${txt ? ' txt' : ''}" style="--qn:${B.length}">${B.map(([k, label, icon]) => {
         const id = this._bid(k), st = id ? this.s(id) : null;
         let cls = '', ic = icon, lab = label;
-        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open-variant'; lab = 'Ulåst'; } else if (st) lab = 'Låst'; }
-        if (k === 'defrost' && st && st.state === 'on') cls = 'pink breathe';
-        if ((k === 'frunk' || k === 'trunk') && isOpen(st)) { cls = 'pink'; lab = k === 'frunk' ? 'Frunk åpen' : 'Bagasje åpen'; }
+        // Fiks 26.10: aktiv tilstand (defrost på, frunk/bagasje åpen) = lys flis #e1e1e1 med mørkt ikon og tekst
+        let aria = lab;
+        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open'; lab = 'Ulåst'; } else if (st) lab = 'Låst'; aria = lab; }
+        if (k === 'defrost' && st && st.state === 'on') { cls = 'act'; aria = 'Defrost på'; }
+        if ((k === 'frunk' || k === 'trunk') && isOpen(st)) { cls = 'act'; aria = k === 'frunk' ? 'Frunk åpen' : 'Bagasje åpen'; }
         if (!id || !st) cls = 'none';
-        return `<button class="qbtn press ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(lab)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 26)}</span>${txt ? `<span class="ql">${esc(!id ? '–' : lab)}</span>` : ''}</button>`;
+        return `<button class="qbtn press ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(aria)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 22)}</span>${txt ? `<span class="ql">${esc(lab)}</span>` : ''}</button>`;
       }).join('')}</div>`;
     }
     _btn(k) {
@@ -864,34 +871,38 @@
       else Promise.resolve(run()).catch(() => {});
     }
 
-    /* ---------------------------------------------------------- Lading */
+    /* ---------------------------------------------------------- Lading (Fiks 26.10: ett samlet kort + nøkkeltall + Smartlading) */
     _t_lading() {
       const c = this.config, h = this.hass;
       const bat = this._N('battery'), lim = this._N('charge_limit'), limId = this._e('charge_limit');
       const S = charging(h, c);
       ['charging_state', 'charger', 'charge_power', 'charge_cable'].forEach((k) => this._S(k));
       const swId = this._e('charger'), sw = swId ? this.s(swId) : null;
-      const stTxt = S.lader ? 'Lader' : S.ferdig ? 'Ferdig ladet' : S.tilkoblet ? 'Tilkoblet' : (this._e('charging_state') || swId || this._e('charge_power')) ? 'Ikke tilkoblet' : '–';
-      const status = `<div class="card cs${S.lader ? ' on' : ''}">
-        <span class="ci" style="background:${S.lader ? M.alpha(GREEN, 0.2) : 'rgba(255,255,255,.08)'};color:${S.lader ? GREEN : '#fafafa'}">${M.icon(S.lader ? 'mdi:ev-station' : S.tilkoblet ? 'mdi:power-plug' : 'mdi:power-plug-off-outline', 24)}</span>
-        <div class="grow col"><span class="lt">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>
-        ${swId && sw ? `<button class="ss press ${sw.state === 'on' ? 'stop' : ''}" data-act="charge" data-ent="${esc(swId)}">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:play', 20)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>` : `<button class="pick press" data-act="customize" data-section="ent-lading">${M.icon('mdi:plus', 18)}Velg lader</button>`}</div>`;
-      // ladegrense: dra-bar 50–100 (steg 5) + knapper
+      const known = !!(this._e('charging_state') || swId || this._e('charge_power') || this._e('charge_cable'));
+      const stTxt = S.lader ? 'Tilkoblet · lader' : S.ferdig ? 'Tilkoblet · ferdig ladet' : S.tilkoblet ? 'Tilkoblet · lader ikke' : known ? 'Ikke tilkoblet' : '–';
+      const start = swId && sw
+        ? `<button class="ss press" data-act="charge" data-ent="${esc(swId)}" data-haptic="light">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:flash', 18)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>`
+        : `<button class="ss press" data-act="customize" data-section="ent-lading" aria-label="Velg lader">${M.icon('mdi:flash', 18)}Start</button>`;
+      // batteristolpe 56 px (0–100 %): grønt fyll med «79%» inni + hvit markering for ladegrensen. Dra setter grensen.
       const cur = this.ui.limDraft != null ? this.ui.limDraft : lim;
-      const fr = cur != null ? M.clamp((cur - 50) / 50, 0, 1) : 0, bfr = bat != null ? M.clamp((bat - 50) / 50, 0, 1) : 0;
-      const limit = limId ? `<div class="card lc">
-        <div class="row"><span class="lt grow">Ladegrense</span><span class="lv num" data-key="lv">${cur != null ? Math.round(cur) + ' %' : '–'}</span></div>
-        <div class="lim" data-key="lim" role="slider" aria-label="Ladegrense" aria-valuemin="50" aria-valuemax="100" aria-valuenow="${cur != null ? Math.round(cur) : ''}" tabindex="0" style="--f:${fr.toFixed(4)};--b:${bfr.toFixed(4)}">
-          <div class="ltr"><div class="lbat"></div><div class="lfi"></div></div><div class="lth"></div></div>
-        <div class="lb">${limitsOf(c).map((v) => `<button class="lchip press ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection">${v} %</button>`).join('')}</div></div>`
-        : `<div class="card lc"><span class="lt">Ladegrense</span>${this._miss('', 'ent-lading')}</div>`;
-      // oppsummering: tid til grense · pris · sist lading
+      const bp = bat != null ? M.clamp(bat, 0, 100) : 0, lp = cur != null ? M.clamp(cur, 0, 100) : null;
+      const bar = `<div class="lim${limId ? '' : ' ro'}" data-key="lim" ${limId ? `role="slider" aria-label="Ladegrense" aria-valuemin="50" aria-valuemax="100" aria-valuenow="${cur != null ? Math.round(cur) : ''}" tabindex="0"` : 'aria-hidden="true"'} style="--b:${bp.toFixed(2)};--f:${lp != null ? lp.toFixed(2) : 0}">
+          <div class="lbat${S.lader ? ' chg' : ''}"></div><span class="lpct num">${bat != null ? Math.round(bat) + '%' : '–'}</span>${lp != null ? '<i class="lmk"></i>' : ''}</div>`;
+      const limRow = limId
+        ? `<div class="lrow"><span class="ll">Ladegrense <b class="lv num" data-key="lv">${cur != null ? Math.round(cur) + ' %' : '–'}</b></span>
+            <div class="lb">${limitsOf(c).map((v) => `<button class="lchip press ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection" aria-label="Ladegrense ${v} %">${v}</button>`).join('')}</div></div>`
+        : `<div class="lrow"><span class="ll">Ladegrense</span>${this._miss('', 'ent-lading')}</div>`;
+      const main = `<div class="card lc">
+        <div class="lhead"><div class="grow col"><span class="lt2">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>${start}</div>
+        ${bar}${limRow}</div>`;
+      // nøkkeltall: ett kort, 3 kolonner med skillelinjer (etikett over verdi, ingen ikoner)
       let tl = this._N('time_left');
       if (tl == null && S.lader && S.eff > 0.3 && lim != null && bat != null && lim > bat) tl = ((lim - bat) / 100) * (Number(c.capacity) || DEF.capacity) / S.eff * 60;
       const tlTxt = tl == null ? '–' : tl < 1 ? 'under 1 min' : (tl >= 60 ? `${Math.floor(tl / 60)} t ${Math.round(tl % 60)} m` : `${Math.round(tl)} min`);
-      const sum = `<div class="sum">${[['mdi:timer-outline', 'Til grensen', tlTxt, 'time_left'], ['mdi:cash', 'Pris', kr(this._N('charge_cost'), 0), 'charge_cost'], ['mdi:cash-check', 'Sist lading', kr(this._N('last_charge'), 0), 'last_charge']].map(([ic, l, v, k]) => `<div class="card st" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}>${M.icon(ic, 20, 'color:#afafaf')}<span class="sv num">${esc(v)}</span><span class="sl">${esc(l)}</span></div>`).join('')}</div>`;
-      return `<div class="col gap">${status}${limit}${sum}${this._smart(bat, lim, S)}</div>`;
+      const kpi = `<div class="card kpi">${[[lim != null ? `Tid til ${Math.round(lim)} %` : 'Tid til grensen', tlTxt, 'time_left'], ['Pris', kr(this._N('charge_cost'), 0), 'charge_cost'], ['Sist lading', kr(this._N('last_charge'), 0), 'last_charge']].map(([l, v, k]) => `<div class="kc" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}><span class="kl">${esc(l)}</span><span class="kv num">${esc(v)}</span></div>`).join('')}</div>`;
+      return `<div class="col gap">${main}${kpi}${this._smart(bat, lim, S)}</div>`;
     }
+    // Smartlading: bryter + de 12 timene før fristen (standard 07:00) med pris per time; de billigste timene er rosa
     _smart(bat, lim, S) {
       const h = this.hass, c = this.config, ov = (c.entities || {}).price;
       let today = [], tomorrow = [], fmt = (v) => (v == null ? '–' : M.nf(v, 2) + ' kr');
@@ -899,23 +910,31 @@
         if (ov) { this.s(ov); const s = M.priceSeries(h, ov); today = s.slice(0, 24); tomorrow = s.slice(24); }
         else if (M.powerPrice) { const P = M.powerPrice(h, null, this); today = P.today || []; tomorrow = P.tomorrow || []; if (P.fmt) fmt = (v) => P.fmt(v, { unit: false }); if (P.entity) this.s(P.entity); }
       } catch (e) { /* ingen pris */ }
-      const hr = new Date().getHours();
-      const bars = [...today.slice(hr).map((v, i) => ({ h: hr + i, v })), ...tomorrow.map((v, i) => ({ h: 24 + i, v }))].filter((x) => x.v != null).slice(0, 24);
-      if (!bars.length) return `<div class="card sm"><div class="row"><span class="lt grow">Smartlading</span></div>${this._miss('Fant ingen timepriser', 'ent-lading')}</div>`;
-      // timer som trengs for å nå grensen (ellers 4): fra «tid til grense» eller kapasitet × (grense − batteri) / effekt
+      const until = M.clamp(Math.round(Number(c.smart_until != null ? c.smart_until : DEF.smart_until)) || DEF.smart_until, 0, 23);
+      const now = new Date(), hr = now.getHours();
+      const end = hr < until ? until : until + 24, from = end - 12; // timeindeks: 0–23 i dag, 24–47 i morgen
+      const at = (i) => (i < 0 ? null : i < 24 ? today[i] : tomorrow[i - 24]);
+      const bars = Array.from({ length: 12 }, (_, j) => { const i = from + j, v = at(i); return { i, h: ((i % 24) + 24) % 24, v: v == null || isNaN(v) ? null : Number(v), past: i < hr }; });
+      // timer som trengs for å nå grensen (ellers 1): fra «tid til grense» eller kapasitet × (grense − batteri) / effekt
       let need = null;
       const tl = this._N('time_left');
       if (tl != null && tl > 0) need = Math.ceil(tl / 60);
       else if (lim != null && bat != null && lim > bat) need = Math.ceil(((lim - bat) / 100) * (Number(c.capacity) || DEF.capacity) / (S.eff > 0.3 ? S.eff : 11));
-      need = M.clamp(need || 4, 1, bars.length);
-      const cheap = new Set(bars.map((x, i) => [x.v, i]).sort((a, b) => a[0] - b[0]).slice(0, need).map((x) => x[1]));
-      const mx = Math.max(...bars.map((x) => x.v)), mn = Math.min(0, ...bars.map((x) => x.v));
-      const ch = [...cheap].sort((a, b) => a - b), from = bars[ch[0]].h % 24, to = (bars[ch[ch.length - 1]].h + 1) % 24;
-      const avg = ch.reduce((s, i) => s + bars[i].v, 0) / ch.length;
-      return `<div class="card sm"><div class="row"><span class="lt grow">Smartlading</span><span class="sub">${need} billigste ${need === 1 ? 'time' : 'timer'}</span></div>
-        <div class="smt"><span class="big2 num">kl. ${M.pad(from)}–${M.pad(to)}</span><span class="sub">snitt ${esc(fmt(avg))}/kWh</span></div>
-        <div class="pb">${bars.map((x, i) => `<i class="${cheap.has(i) ? 'c' : ''}${i === 0 ? ' n' : ''}" style="height:${Math.max(6, ((x.v - mn) / ((mx - mn) || 1)) * 100).toFixed(1)}%" title="kl. ${M.pad(x.h % 24)} · ${esc(fmt(x.v))}"></i>`).join('')}</div>
-        <div class="pl"><span>nå</span><span>${bars.length > 12 ? 'kl. ' + M.pad(bars[Math.floor(bars.length / 2)].h % 24) : ''}</span><span>kl. ${M.pad((bars[bars.length - 1].h + 1) % 24)}</span></div></div>`;
+      const fut = bars.map((x, j) => [x, j]).filter(([x]) => x.v != null && !x.past);
+      need = M.clamp(need || 1, 1, Math.max(1, fut.length));
+      const cheap = new Set(fut.sort((a, b) => a[0].v - b[0].v).slice(0, need).map((x) => x[1]));
+      const vals = bars.filter((x) => x.v != null).map((x) => x.v);
+      const mx = vals.length ? Math.max(...vals) : 1, mn = vals.length ? Math.min(0, ...vals) : 0;
+      const swId = this._e('smart'), sw = swId ? this.s(swId) : null, on = !!sw && sw.state === 'on';
+      const txt = `Lader i ${need === 1 ? 'den billigste timen' : `de ${need} billigste timene`} før ${M.pad(until)}:00`;
+      const tog = swId && sw
+        ? `<button class="tg${on ? ' on' : ''}" role="switch" aria-checked="${on}" aria-label="Smartlading" data-act="smart" data-ent="${esc(swId)}" data-haptic="selection"><i></i></button>`
+        : `<button class="tg none" role="switch" aria-checked="false" aria-label="Smartlading – velg entitet" data-act="customize" data-section="ent-lading"><i></i></button>`;
+      const graph = vals.length
+        ? `<div class="pb">${bars.map((x, j) => `<i class="${cheap.has(j) ? 'c' : ''}${x.past ? ' p' : ''}${x.v == null ? ' x' : ''}" style="height:${x.v == null ? 4 : Math.max(8, ((x.v - mn) / ((mx - mn) || 1)) * 100).toFixed(1) + '%'}${x.v == null ? 'px' : ''}" title="kl. ${M.pad(x.h)} · ${esc(fmt(x.v))}"></i>`).join('')}</div>
+          <div class="pl">${[0, 4, 8, 11].map((j) => `<span style="left:calc((100% + 4px) * ${j} / 12 + (100% + 4px) / 24 - 2px)">${M.pad(bars[j].h)}:00</span>`).join('')}</div>`
+        : this._miss('Fant ingen timepriser', 'ent-lading');
+      return `<div class="card sm"><div class="srow"><span class="sci">${M.icon('mdi:clock-outline', 20)}</span><div class="grow col"><span class="stt">Smartlading</span><span class="sst">${esc(txt)}</span></div>${tog}</div>${graph}</div>`;
     }
 
     /* ---------------------------------------------------------- Kjøring */
@@ -986,6 +1005,7 @@
       if (name === 'btn') return this._btn(d.v);
       if (name === 'charge') { const id = this._e('charger'); if (id && h.states[id]) M.call(h, 'switch', h.states[id].state === 'on' ? 'turn_off' : 'turn_on', { entity_id: id }).catch(() => {}); return; }
       if (name === 'limit') return this._setLimit(Number(d.v));
+      if (name === 'smart') { const id = this._e('smart'); if (id && h.states[id]) M.toggle(h, id); return; }
       if (name === 'day') return this.setUI({ day: Number(d.v) });
       if (name === 'sp') return this.setUI({ sp: d.v, sd: null });
       if (name === 'fuel') { M.call(h, 'ki_drivstoff', 'hent_pris', {}).then(() => M.toast('Henter pumpepris …')).catch(() => {}); return; }
@@ -1033,15 +1053,16 @@
     // Ladegrense-dra og sparing-scrub: touch-action none + stopPropagation (fallgruve 2)
     _bindDrag() {
       const R = this.shadowRoot;
-      const tgt = (e) => (e.composedPath ? e.composedPath() : []).find((n) => n && n.classList && (n.classList.contains('lim') || n.classList.contains('scrub')));
+      const tgt = (e) => (e.composedPath ? e.composedPath() : []).find((n) => n && n.classList && ((n.classList.contains('lim') && !n.classList.contains('ro')) || n.classList.contains('scrub')));
       R.addEventListener('touchstart', (e) => { if (tgt(e)) e.stopPropagation(); }, { passive: true });
       R.addEventListener('touchmove', (e) => { if (tgt(e)) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
       let g = null;
-      const limVal = (el, x) => { const r = el.getBoundingClientRect(); return 50 + M.clamp((x - r.left) / (r.width || 1), 0, 1) * 50; };
+      // Fiks 26.10: batteristolpen går 0–100 %; grensen kan settes mellom 50 og 100 %
+      const limVal = (el, x) => { const r = el.getBoundingClientRect(); return M.clamp((x - r.left) / (r.width || 1) * 100, 50, 100); };
       const scrubIdx = (el, x) => { const r = el.getBoundingClientRect(), n = el.children.length; return M.clamp(Math.floor((x - r.left) / ((r.width || 1) / n)), 0, n - 1); };
       const paintLim = (el, v) => {
         const s = Math.round(v / 5) * 5;
-        el.style.setProperty('--f', ((v - 50) / 50).toFixed(4));
+        el.style.setProperty('--f', s.toFixed(2));
         const lv = R.querySelector('.lv'); if (lv) lv.textContent = s + ' %';
         R.querySelectorAll('.lchip').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s));
         if (g.last !== s) { if (g.last != null) M.haptic('selection'); g.last = s; }
@@ -1083,13 +1104,12 @@
         .col{display:flex;flex-direction:column}.gap{gap:var(--msh-gap,8px)}
         .scene-slot{display:block;min-height:180px}
         .scene-slot msh-tesla-scene{display:block;--ha-card-border-radius:28px}
-        /* hurtigknapper: 5 kolonner, kvadratiske, r24 */
+        /* Fiks 26.10: hurtigknapper – 5 like brede fliser, 76 px høye, r22, #3a3a3a, gap 8; ikon 22 over etikett 15/500 */
         .qb{display:grid;grid-template-columns:repeat(var(--qn,5),minmax(0,1fr));gap:8px}
-        .qbtn{aspect-ratio:1/1;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--white,#fafafa);min-width:0;transition:background .3s,color .3s,transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .qb.txt .qbtn{aspect-ratio:auto;min-height:0;padding:12px 2px}
-        .qbtn .ql{font-size:11px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+        .qbtn{height:76px;border-radius:22px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--white,#fafafa);min-width:0;padding:0 1px;transition:background .3s,color .3s,transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .qbtn .ql{font-size:15px;font-weight:500;line-height:18px;letter-spacing:-.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .qbtn.warn{background:${ORANGE};color:#2c1d0c}
-        .qbtn.pink{background:${ACC};color:${INK}}
+        .qbtn.act{background:var(--gray1000,#e1e1e1);color:var(--gray200,#3a3a3a)}
         .qbtn.none{color:var(--gray600,#7f7f7f)}
         .qbtn.shake .qi{animation:rist 2.6s ease-in-out infinite}
         .qbtn.breathe{animation:pust 2.4s ease-in-out infinite}
@@ -1105,30 +1125,53 @@
         .big small,.sv small{font-size:15px;font-weight:400;margin-left:4px;color:var(--gray800,#afafaf)}
         .big2{font-size:24px;font-weight:400}
         .smt{display:flex;align-items:baseline;gap:10px}
-        .cs{flex-direction:row;align-items:center;gap:14px}
-        .ci{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;flex:none}
-        .ss{height:44px;padding:0 18px 0 14px;border-radius:22px;background:${ACC};color:${INK};font-weight:600;display:inline-flex;align-items:center;gap:6px;flex:none}
-        .ss.stop{background:var(--gray300,#404040);color:var(--white,#fafafa)}
-        .lv{font-size:20px;font-weight:500}
-        .lim{position:relative;height:44px;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none}
-        .ltr{position:absolute;left:0;right:0;top:12px;height:20px;border-radius:10px;background:var(--gray300,#404040);overflow:hidden}
-        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 100%);background:${M.alpha(GREEN, 0.35)}}
-        .lfi{position:absolute;left:0;top:0;bottom:0;width:calc(var(--f) * 100%);background:${ACC};opacity:.9;transition:width .25s}
-        .lim.drag .lfi,.lim.drag .lth{transition:none}
-        .lth{position:absolute;top:6px;width:32px;height:32px;border-radius:16px;background:#fafafa;box-shadow:0 2px 8px rgba(0,0,0,.4);left:calc(var(--f) * (100% - 32px));transition:left .25s}
-        .lb{display:flex;gap:6px;flex-wrap:wrap}
-        .lchip{flex:1;min-width:52px;height:36px;border-radius:18px;background:var(--gray300,#404040);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+        /* Fiks 26.10: Lading – ett kort: status + effekt, mørk Start-pill, batteristolpe 56 px med grensemarkør, grense-chips */
+        .lhead{display:flex;align-items:flex-start;gap:12px}
+        .lt2{font-size:14px;color:var(--gray800,#afafaf)}
+        .lc .big{font-size:36px;font-weight:300;margin-top:2px}
+        .ss{height:40px;padding:0 16px 0 12px;border-radius:20px;background:#4a4a4a;color:var(--white,#fafafa);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
+        .lim{position:relative;height:56px;border-radius:18px;background:var(--gray300,#404040);overflow:hidden;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none;margin-top:4px}
+        .lim.ro{cursor:default}
+        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 1%);background:${GREEN};transition:width .4s}
+        .lpct{position:absolute;left:16px;top:0;bottom:0;display:flex;align-items:center;font-size:17px;font-weight:600;color:#12291d;pointer-events:none}
+        .lmk{position:absolute;top:8px;bottom:8px;width:3px;border-radius:2px;background:#fafafa;box-shadow:0 0 0 1px rgba(0,0,0,.25);left:calc(var(--f) * 1% - 1.5px);transition:left .25s;pointer-events:none}
+        .lim.drag .lmk{transition:none}
+        .lrow{display:flex;align-items:center;gap:6px}
+        .ll{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;color:var(--gray800,#afafaf)}
+        .ll b{font-weight:600;color:var(--white,#fafafa);margin-left:2px}
+        .lb{display:flex;gap:3px;flex:none}
+        .lchip{min-width:30px;height:28px;padding:0 4px;border-radius:14px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
         .lchip.on{background:${ACC};color:${INK}}
+        /* nøkkeltall: ett kort, 3 kolonner med skillelinjer */
+        .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:14px 0}
+        .kc{display:flex;flex-direction:column;gap:4px;padding:0 14px;min-width:0}
+        .kc+.kc{border-left:1px solid rgba(255,255,255,.08)}
+        .kl{font-size:14px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .kv{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* Smartlading: ikon-sirkel, tittel/tekst, bryter; 12 søyler med tidsakse */
+        .srow{display:flex;align-items:center;gap:12px}
+        .sci{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none;color:var(--white,#fafafa)}
+        .stt{font-size:15px;font-weight:600}
+        .sst{font-size:13px;color:var(--gray800,#afafaf)}
+        .tg{position:relative;width:50px;height:30px;border-radius:15px;background:var(--gray400,#545454);flex:none;transition:background .2s}
+        .tg i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .tg.on{background:${PINK}}
+        .tg.on i{transform:translateX(20px)}
+        .tg.none{opacity:.5}
         .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
         .sum.two{grid-template-columns:repeat(2,minmax(0,1fr))}
         .st{gap:4px;padding:14px}
         .sv{font-size:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pb{display:flex;align-items:flex-end;gap:2px;height:72px}
-        .pb i{flex:1;border-radius:3px 3px 1px 1px;background:var(--gray400,#545454);min-width:0}
-        .pb i.c{background:${PINK}}
-        .pb i.n{outline:1.5px solid rgba(255,255,255,.55);outline-offset:1px}
-        .pl{display:flex;justify-content:space-between;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .pb{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-items:end;gap:4px;height:72px}
+        .pb i{display:block;border-radius:5px 5px 2px 2px;background:var(--gray400,#545454);min-width:0}
+        .pb i.p{opacity:.4}
+        .pb i.x{background:var(--gray300,#404040)}
+        .pb i.c{background:${PINK};opacity:1}
+        .pl{position:relative;height:14px;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .pl span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+        .pl span:first-child{transform:none;left:0 !important}
+        .pl span:last-child{transform:none;left:auto !important;right:0}
         .rb{position:relative;height:12px;border-radius:6px;background:var(--gray300,#404040)}
         .rb i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:${GREEN}}
         .rb b{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:#fafafa}

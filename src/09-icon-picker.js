@@ -157,7 +157,8 @@
   /* ------------------------------------------------------------ arket */
   const SHEET_CSS = `
     .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
-    .body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+    .sh>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden} /* 26.9: bare .sc scroller */
+    .body>*{flex:none}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
@@ -172,7 +173,7 @@
     .chips::-webkit-scrollbar{display:none}
     .chip{flex:none;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-grp,#3a3a3a);font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
     .chip.on{background:#fafafa;color:#282828}
-    .sc{flex:1;min-height:120px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-bottom:4px}
+    .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-bottom:4px}
     .sc::-webkit-scrollbar{display:none}
     .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:0 2px;flex:none}
     .gr{display:grid;grid-template-columns:repeat(${COLS}, ${CELL}px);justify-content:space-between;row-gap:${GAP}px}
@@ -256,6 +257,8 @@
     let t = null;
     qi.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { st.q = qi.value; const m = /^([a-z][a-z0-9_-]*):/.exec(lc(st.q)); if (m && st.sets && st.sets.some((s) => s.prefix === m[1]) && st.set !== m[1]) { st.set = m[1]; drawChips(); } draw(); }, 120); });
     sc.addEventListener('scroll', () => paintWin(false), { passive: true });
+    // Fiks 26.9: listen eier scroll-gesten (touch, hjul, trackpad) – aldri preventDefault
+    ['touchstart', 'touchmove', 'wheel'].forEach((ty) => sc.addEventListener(ty, (e) => e.stopPropagation(), { passive: true }));
     // «Skriv inn selv»: live forhåndsvisning av prefiks:navn
     const mi = R.querySelector('.mi'), pv = R.querySelector('.man .pv');
     mi.addEventListener('input', () => { const v = mi.value.trim(), id = v ? (v.indexOf(':') > 0 ? v : 'mdi:' + v) : ''; pv.innerHTML = M.icon(id || 'mdi:help-circle-outline', 24, id ? '' : 'opacity:.4'); });

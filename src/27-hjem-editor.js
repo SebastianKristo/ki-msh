@@ -145,7 +145,7 @@
     .ed{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:14px;font-family:${M.FONT};-webkit-user-select:none;user-select:none}
     input,textarea{-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:8px;padding:0 4px}
-    .hd .t{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.02em}
+    .hd .t{flex:1;font-size:22px;font-weight:600;letter-spacing:-0.01em} /* Fiks 26: lik header i alle Tilpass-ark */
     .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
     @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
     .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
@@ -167,7 +167,7 @@
     .tgl{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 0 16px;border-radius:24px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;width:100%;text-align:left}
     .trk{display:block;position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
     .trk::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#c7c7c7;transition:left .2s,background .2s}
-    .trk.on{background:rgb(102 209 158)}
+    .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .trk.on::after{left:21px;background:#2f2f2f}
     .trk.big{width:52px;height:32px;border-radius:16px}
     .trk.big::after{width:26px;height:26px;border-radius:13px}

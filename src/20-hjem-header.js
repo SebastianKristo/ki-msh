@@ -99,7 +99,8 @@
   const PACTS = [['popup', 'Person-popup', 'mdi:account-box'], ['quick', 'Hurtigark', 'mdi:card-account-details'], ['kart', 'Vis på kart', 'mdi:map-marker-account'], ['more', 'More-info', 'mdi:information-outline'], ['none', 'Ingen', 'mdi:cancel']];
   const PACT_L = Object.fromEntries(PACTS.map(([k, l]) => [k, l]));
   const PGESTS = [['tap', 'Trykk', 'mdi:gesture-tap'], ['double', 'Dobbelttrykk', 'mdi:gesture-double-tap'], ['hold', 'Hold', 'mdi:gesture-tap-hold']];
-  const PACT_DEF = { tap: 'popup', double: 'none', hold: 'quick' };
+  // Fiks 26.22 snur 22.7-standarden: trykk = hurtigark (som før 22.7), langt trykk = person-popup.
+  const PACT_DEF = { tap: 'quick', double: 'none', hold: 'popup' };
   M.HJEM_PERSON_ACTIONS = PACTS;
   // Effektive handlinger (ukjente/manglende → standard, gammel person_tap migreres). Ren funksjon.
   M.hjemPersonActions = function (c) {
@@ -999,6 +1000,27 @@
     const A = M.hjemStatusStyle(c, 'away');
     return { icon: A.icon, color: A.color, badge: c && c.away_marker != null ? c.away_marker === true : A.own };
   };
+  /* Fiks 26.22 · statusmerket i Hilsen/Sted (ren funksjon): { icon, color } eller null (Hjemme / ukjent → ingen merke).
+   *   Reiser/fly (sone/sted *fly*|travel|reise|airport) → lilla fly · Jobb/skole (*jobb*|work|skole|school|kontor|office) →
+   *   blå kontorbygg · annen sone / Borte → blå kartnål · Sover → lilla måne. Egne farger/ikoner i «Status og soner»
+   *   (hjemme, sover, borte, sone) vinner – et eget Hjemme-ikon gir merke også hjemme. info = M.hjemPersonInfo(…). */
+  const HB_PURPLE = 'var(--purple, #ad99e6)', HB_BLUE = 'var(--blue, #73b9f2)';
+  const HB_TRAVEL = /fly|travel|reise|airport|lufthavn/i, HB_WORK = /jobb|work|skole|school|kontor|office/i;
+  M.hjemHilBadge = function (info, c) {
+    const st = (info && info.status) || {};
+    if (info && info.sleep) return info.sleepOwn ? { icon: info.glyph, color: info.stCol } : { icon: 'mdi:weather-night', color: HB_PURPLE };
+    if (st.kind === 'zone') {
+      const z = zoneCfg(c, st.zone);
+      if (z.icon || z.color) return { icon: st.icon || 'mdi:map-marker', color: st.color || HB_BLUE };
+      const key = `${st.zone || ''} ${st.place || ''}`;
+      if (HB_TRAVEL.test(key)) return { icon: 'mdi:airplane', color: HB_PURPLE };
+      if (HB_WORK.test(key)) return { icon: 'mdi:office-building', color: HB_BLUE };
+      return { icon: 'mdi:map-marker', color: HB_BLUE };
+    }
+    if (st.kind === 'away') return M.hjemStatusStyle(c, 'away').own ? { icon: st.icon, color: st.color } : { icon: 'mdi:map-marker', color: HB_BLUE };
+    if (st.kind === 'home' && M.hjemStatusStyle(c, 'home').own) return { icon: st.icon, color: st.color }; // eget Hjemme-ikon (20.5) vises
+    return null;
+  };
   /* Status for én person (ren funksjon – testbar). p = 'person.x' eller en people-rad. rd = state-leser (valgfri).
    * 1) Hjemme-bryter på → Hjemme (vinner over GPS/sone).
    * 2) person.* i en annen sone enn home og «Bruk HA-sone når borte» på (zone ≠ false) → sonens ikon + farge
@@ -1121,40 +1143,38 @@
   const modeOf = (c) => { const m = (c && c.mode) || 'hilsen'; return OLD_MODES.includes(m) ? 'hilsen' : m; };
   // Fiks 17.13/17.15: Hilsen og Sted = én rad, stor tittel + store bilder med status-merker (designets faces «hil»)
   const isHil = (m) => m === 'hilsen' || m === 'sted';
-  const HIL_DEF = { hFont: 58, hAv: 62, hBadge: 24, hGap: 10, hTGap: 16 };
+  // Fiks 26.22: hilsen 44 px/500 + menu-down 24 px på én linje; avatarer 80 px runde side om side (8 px, aldri overlapp);
+  // statusmerke 34 px. Under 420 px dashbordbredde: 56 px avatarer og 26 px merke (HIL_NARROW). Maks 3 bilder + «+N».
+  const HIL_DEF = { hFont: 44, hAv: 80, hBadge: 34, hGap: 8, hTGap: 16 };
+  const HIL_NARROW = { w: 420, av: 56 / 80, badge: 26 / 34 }, HIL_MAX = 3;
   // Fiks 18.4: i Fold-oppsettet (fold = true) skaleres tekst, bilder og merker med 0,72 og mellomrom mellom bildene med 0,8
   // (58 → 42, 62 → 45, 24 → 17 px) – oppå brukerens egne verdier; config endres ikke.
   const hilSizes = (c, fold) => {
     const n = (k, lo, hi) => { const v = c && c[k] != null && c[k] !== '' ? Number(c[k]) : NaN; return isNaN(v) ? HIL_DEF[k] : Math.min(hi, Math.max(lo, v)); };
-    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 96), badge: n('hBadge', 12, 40), gap: n('hGap', 0, 24), tgap: n('hTGap', 0, 48) };
     if (fold) { S.font = Math.round(S.font * 0.72); S.av = Math.round(S.av * 0.72); S.badge = Math.round(S.badge * 0.72); S.gap = Math.round(S.gap * 0.8); }
     return S;
   };
-  // Fiks 19.12: navnet har forrang, bildene tilpasser seg. W = radens bredde, tw1 = tekstbredde per px skrift,
-  // arr = ▾ + mellomrom, n = antall bilder. Er det ikke plass: ① bildene overlapper (−14 px, 2 px ring) ② bildene
-  // krymper ned til 40 px ③ hilsenen krymper ned til 28 px ④ «+N» i stedet for de siste bildene.
-  // → { fs, av, gap, k } (k = antall bilder som vises; k < n → «+(n − k)»-sirkel etter dem)
-  const HIL_MIN = { av: 40, fs: 28, gap: -14 };
-  // Status-merket følger bildet: 40 % av bildet, maks 24 px (og aldri over hBadge)
-  const hilBadge = (S, av) => Math.max(8, Math.min(S.badge, 24, Math.round(av * 0.4)));
-  const fitHil = (W, tw1, arr, n, S) => {
-    let fs = S.font, av = S.av, gap = S.gap, k = n;
-    const R = () => ({ fs, av, gap, k });
-    if (!n || !(W > 0) || !(tw1 > 0)) return R();
-    const text = (f) => tw1 * f * 1.01 + arr + 2;
-    const pics = (m) => (m ? m * av + (m - 1) * gap + Math.round(hilBadge(S, av) * 0.2) + S.tgap : 0);
-    const fits = (m) => text(fs) + pics(m) <= W;
-    if (fits(k)) return R();
-    if (n > 1) { gap = Math.min(gap, HIL_MIN.gap); if (fits(k)) return R(); }
-    av = Math.max(Math.min(S.av, HIL_MIN.av), Math.min(av, Math.floor((W - text(fs) - S.tgap - (n - 1) * gap - Math.round(hilBadge(S, av) * 0.2)) / n)));
-    if (fits(k)) return R();
-    fs = Math.max(Math.min(S.font, HIL_MIN.fs), Math.min(fs, Math.floor(((W - pics(k) - arr - 2) / (tw1 * 1.01)) * 10) / 10));
-    if (fits(k)) return R();
-    for (k = n - 1; k > 0 && !fits(k + 1); k--);
-    // ⑤ nødløsning (svært langt navn): heller mindre enn 28 px (min. 18) enn at raden går ut av skjermen
-    if (!fits(k + 1)) fs = Math.max(18, Math.floor(((W - pics(k + 1) - arr - 2) / (tw1 * 1.01)) * 10) / 10);
-    // ⑥ får det fortsatt ikke plass: først nå kortes teksten med «…» (cut)
-    return { ...R(), cut: !fits(k + 1) };
+  /* Fiks 26.22 (erstatter 19.12-tilpasningen med overlapp/krymping av bildene): bildene har fast størrelse (80 px, 56 px når
+   * dashbordet er smalere enn 420 px), står side om side med hGap (≥ 0, aldri overlapp) og vises maks 3 + «+N».
+   * Får ikke hilsen + bilder plass på én rad: ① hilsenen krymper ned til 32 px ② bildene flyttes til egen rad under
+   * (høyrejustert, wrap) og hilsenen får hele bredden igjen ③ først da kortes navnet med «…» (min. 26 px).
+   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom, n = antall personer.
+   * → { fs, av, gap, k, bs, wrap, cut } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
+  const HIL_MIN = { fs: 32, wrapFs: 26 };
+  const hilBadge = (S, av, narrow) => Math.max(8, Math.min(Math.round(av / 2), narrow ? Math.round(S.badge * HIL_NARROW.badge) : S.badge));
+  const fitHil = (W, tw1, arr, n, S, narrow) => {
+    const av = narrow ? Math.round(S.av * HIL_NARROW.av) : S.av, gap = S.gap, bs = hilBadge(S, av, narrow);
+    let k = Math.min(n, HIL_MAX);
+    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut });
+    if (!(W > 0) || !(tw1 > 0) || !n) return R(S.font);
+    const row = (kk) => { const m = kk < n ? kk + 1 : kk; return m ? m * av + (m - 1) * gap + Math.round(bs * 0.25) : 0; };
+    const fsIn = (w) => Math.min(S.font, Math.floor(((w - arr - 2) / (tw1 * 1.01)) * 10) / 10);
+    const one = fsIn(W - row(k) - S.tgap);
+    if (one >= Math.min(S.font, HIL_MIN.fs)) return R(one);
+    while (k > 1 && row(k) > W) k--; // egen rad: så mange bilder som får plass (normalt alle 3 + «+N»)
+    const fs = fsIn(W), min = Math.min(S.font, HIL_MIN.wrapFs);
+    return fs >= min ? R(fs, true) : R(min, true, true);
   };
   M.hjemFitHil = fitHil;
   // Fiks 19.13: header-profiler per bruker × enhetsklasse (ki-store header_profiles, MSH.profileGet/profileSet i
@@ -1228,7 +1248,7 @@
           // Fiks 22.7: rett under «Handlinger på tittelen»
           { type: 'section', id: 'person_actions', label: 'Handlinger på personbilder', icon: 'mdi:account-circle', meta: (h, cc) => PACT_L[M.hjemPersonActions(cc).tap], fields: [
             { type: 'personacts' },
-            { type: 'info', label: 'Standard: trykk åpner person-popupen (#person-<id>), hold åpner hurtigarket, dobbelttrykk gjør ingenting.' },
+            { type: 'info', label: 'Standard: trykk åpner hurtigarket, langt trykk åpner person-popupen (#person-<id>), dobbelttrykk gjør ingenting.' },
           ] },
           { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => modeOf(cc) === 'stor', open: true, fields: [
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
@@ -1247,9 +1267,9 @@
           // Fiks 17.15: Hilsen og Sted – egne verdier (uavhengig av Stor hilsen), live i headeren mens man drar
           { type: 'section', id: 'hsizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => isHil(modeOf(cc)), open: true, fields: [
             { type: 'range', name: 'hFont', label: 'Tekststørrelse (maks)', icon: 'mdi:format-size', min: 24, max: 72, step: 1, default: HIL_DEF.hFont, unit: 'px' },
-            { type: 'range', name: 'hAv', label: 'Bildestørrelse (maks)', icon: 'mdi:account-circle', min: 32, max: 80, step: 1, default: HIL_DEF.hAv, unit: 'px' },
-            { type: 'range', name: 'hBadge', label: 'Merke (ikon-sirkel)', icon: 'mdi:circle-medium', min: 12, max: 32, step: 1, default: HIL_DEF.hBadge, unit: 'px', help: 'Merket blir aldri større enn halve bildet.' },
-            { type: 'range', name: 'hGap', label: 'Mellom bildene', icon: 'mdi:arrow-expand-horizontal', min: -12, max: 24, step: 1, default: HIL_DEF.hGap, unit: 'px', help: 'Minus = bildene overlapper.' },
+            { type: 'range', name: 'hAv', label: 'Bildestørrelse', icon: 'mdi:account-circle', min: 32, max: 96, step: 1, default: HIL_DEF.hAv, unit: 'px', help: 'Under 420 px bredde krymper bildene til 70 % (80 → 56 px).' },
+            { type: 'range', name: 'hBadge', label: 'Merke (ikon-sirkel)', icon: 'mdi:circle-medium', min: 12, max: 40, step: 1, default: HIL_DEF.hBadge, unit: 'px', help: 'Merket blir aldri større enn halve bildet.' },
+            { type: 'range', name: 'hGap', label: 'Mellom bildene', icon: 'mdi:arrow-expand-horizontal', min: 0, max: 24, step: 1, default: HIL_DEF.hGap, unit: 'px', help: 'Bildene står side om side (ingen overlapp). Flere enn 3 personer → 3 bilder + «+N».' },
             { type: 'range', name: 'hTGap', label: 'Mellom tekst og bilder', icon: 'mdi:format-letter-spacing', min: 0, max: 48, step: 1, default: HIL_DEF.hTGap, unit: 'px' },
             PROSE_GAP,
             { type: 'info', label: 'Teksten krymper for å få plass før den kortes med «…».' },
@@ -1377,8 +1397,9 @@
       const c = this.config, h = this.hass, Md = modeOf(c);
       const rd = (id) => this.s(id);
       const P = M.hjemPersons(h, c);
-      const people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
+      let people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
       const meP = people.find((p) => p.me);
+      if (isHil(Md) && meP) people = [meP, ...people.filter((p) => p !== meP)]; // 26.22: den innloggede først
       const userFirst = firstName((h.user && h.user.name) || (meP && meP.name) || '');
       const srv = this._server();
       const fill = (t) => String(t || '').replace(/\{name\}/g, userFirst).replace(/\{server\}/g, srv.name);
@@ -1387,20 +1408,23 @@
       const W = this._weather();
       const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
       const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
+      // 26.22: smal dashbordflate (< 420 px) → 56 px bilder og 26 px merke
+      const narrow = hil && (M.dashRect ? M.dashRect().width : window.innerWidth) < HIL_NARROW.w;
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
-      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
+      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
       // Fiks 19.12: målt tilpasning (_hFitNow); før første måling et estimat fra radens bredde (tegnvekt-estimat)
-      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS) : {};
+      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS, narrow) : {};
+      this._hNarrow = narrow;
       const hGapN = HF.gap != null ? HF.gap : HS.gap;
-      const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = hilBadge(HS, hAvN), hK = HF.k != null ? HF.k : people.length;
+      const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = HF.bs || hilBadge(HS, hAvN, narrow), hK = HF.k != null ? HF.k : Math.min(people.length, HIL_MAX);
       this._hNum = hil ? people.length : 0;
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
       if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
-      else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 600; ls = '-0.03em'; ht = 'auto'; pb = '0'; } // Fiks 19.12: fitHil
+      else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; } // 26.22: 44 px/500 (fitHil)
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
@@ -1409,7 +1433,7 @@
       // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
       const szN = hil ? HS.av : big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
       const SZ = hil ? hSZ : big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
-      const RAD = hil || big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
+      const RAD = hil ? '50%' : big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px'; // 26.22: runde bilder i Hilsen
       const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big && !hil;
       const face = (p, k, dress) => {
@@ -1420,43 +1444,44 @@
         const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
         const av = ini
           ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.dim ? 0.55 : 1};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
-          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? (hil && !dress && hGapN < 0 ? `0 0 0 2px ${C.dash}` : 'none') : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
         let bd = '', bi = '';
         // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
         // Merke = status (M.personStatus): hjemme-bryter → sone → borte. Borte uten away_marker / ukjent → ingen merke.
-        if (!p.badge) { /* ingen merke */ }
-        else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
-        else if (hil) {
-          // Fiks 19.12: merket følger bildestørrelsen (40 % av bildet, maks 24 px / hBadge) og ligger inni bildegruppen
-          if (c.badge !== 'none') {
-            const o = -Math.round(hBs * 0.2), is = Math.round(hBs * 0.6);
-            bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${p.stCol};z-index:1`;
-            bi = M.icon(p.sleep && !p.sleepOwn ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
+        const hb = hil && !dress && c.badge !== 'none' ? M.hjemHilBadge(p, c) : null;
+        if (hil && !dress) {
+          // 26.22: 34 px (smal: 26) sirkel øverst til høyre, overlapper kanten ca. 25 %, hvitt ikon 18 px (smal: 14), uten ring
+          if (hb) {
+            const o = -Math.round(hBs * 0.25), is = Math.round((hBs * 18) / 34);
+            bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${hb.color};z-index:1`;
+            bi = M.icon(hb.icon, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
           }
         }
+        else if (!p.badge) { /* ingen merke */ }
+        else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
         else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 13, 'color:#fafafa'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : hil ? hGapN : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
-        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-haptic="off" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.2)}px` : ''}">
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-haptic="off" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.25)}px` : ''}">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [], hMore = 0;
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
       if (hil && hK < people.length) { hMore = people.length - hK; faces = people.slice(0, hK); } // Fiks 19.12 ④
       const more = hMore ? people[hK] : null;
-      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);box-shadow:0 0 0 2px ${C.dash};font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
+      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
       const facesHTML = (Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('')) + moreHTML;
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
-      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}" data-ent="__tilpass">
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}" data-ent="__tilpass">
         <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
-              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : hil ? M.icon('arrow_drop_down', 24, 'color:#afafaf;align-self:center') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : hil ? M.icon('mdi:menu-down', 24, 'color:#afafaf;align-self:center;flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
@@ -1787,8 +1812,8 @@
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
       if (!tw || !W) return;
       const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0;
-      const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS);
-      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || !!next.cut !== !!cur.cut;
+      const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS, !!this._hNarrow);
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut;
       if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
       this._hFit = next;
       this.update();
@@ -1853,14 +1878,15 @@
         .hil .top{align-items:center}
         .hil .ttl{line-height:1.15;column-gap:4px;max-width:none;overflow:visible}
         .hil .faces{align-items:center}
-        /* Fiks 19.12: hilsenen har forrang (aldri ellipsis), bildegruppen tilpasser seg */
-        .hil .lc{flex:1 1 auto;min-width:max-content}
-        .hil .ttl .tx{flex:none;max-width:none;overflow:visible;text-overflow:clip}
-        .hil .faces{flex:0 1 auto;min-width:0}
-        .hil.hcut .lc{flex:1 1 0;min-width:0}
-        .hil.hcut .faces{flex:none}
-        .hil.hcut .ttl{overflow:hidden;max-width:100%}
-        .hil.hcut .ttl .tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+        /* Fiks 26.22: bildene har fast størrelse (side om side, aldri overlapp); hilsen + ▾ på én linje, langt navn → «…» */
+        .hil .lc{flex:1 1 0;min-width:0}
+        .hil .faces{flex:none}
+        .hil .ttl{overflow:hidden;max-width:100%;color:#fafafa}
+        .hil .ttl .tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        /* ikke plass på én rad (smal skjerm / mange personer): bildene på egen rad under hilsenen, høyrejustert */
+        .hil.hwrap .top{flex-wrap:wrap;row-gap:12px}
+        .hil.hwrap .lc{flex:1 0 100%}
+        .hil.hwrap .faces{margin-left:auto}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }

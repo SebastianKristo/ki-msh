@@ -1,9 +1,11 @@
-/* Basseng-popup (#basseng). Kilde: Basseng v3.dc.html.
- *   msh-basseng-hero-card – hero med apparat-animasjoner (bølger, bobler, pumpe, varmepumpe, tak, lys)
- *   msh-basseng-card      – kontroller, glass-faner (Oversikt · Varme · Klor · Spreder) og innholdet i hver fane
- * Autokonfig: entiteter i område «Basseng»/«pool» (M.findArea) – temperatur, pumpe, varmepumpe, tak, lys,
- * spreder, pH/klor, effekt, modus-select, brytere. Klorlogg i calendar.* (klor/basseng/pool), personer = person.*.
- * Alt kan overstyres: overrides.<felt>, exclude, include.flagg / include.personer.
+/* Basseng-popup (#basseng). Kilde: Basseng v4 (variant a, fiks 26.14) · Basseng v3.dc.html for rollene (ENTS) og CFG.
+ * ÉTT kort i popupen: msh-basseng-card tegner toppkort (msh-basseng-hero-card, innebygd via MSH.HEROES) → prosalinje
+ * «Vannet er …» → glass-faner (Oversikt · Varme · Klor · Spreder) → innholdet i fanen (Oversikt: hurtigknapper Lys ·
+ * Pumpe · Varme · Stille (lyd av) · Stikkontakt, nøkkeltall, I dag, temperaturgraf med maks/min, moduser, brytere).
+ * Autokonfig (M.poolAuto): 1) område «Basseng»/«Pool»/«Badebasseng», 2) navn/id med basseng|baseng|pool, 3) domene +
+ * device_class. Overstyring: overrides.<rolle> (bytt), exclude: [rolle|entitet], include: [{ entity, navn, ikon }] /
+ * include.hurtig (ekstra hurtigknapper), include.flagg / include.personer. Gammel config (`hurtig:`, ki-basseng-nøkler,
+ * basseng-v3-cfg i localStorage) migreres én gang til config (M.poolNorm). Bunnluft: MSH.popupBottomPad (ingen gap-card).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -93,28 +95,66 @@
     return M.isOn(s);
   };
 
-  /* ------------------------------------------------------------ autokonfig */
-  const DOMS = ['sensor', 'switch', 'input_boolean', 'fan', 'climate', 'water_heater', 'cover', 'binary_sensor', 'light', 'valve', 'select', 'input_select', 'number', 'input_number'];
-  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.findArea(hass, 'basseng', 'pool', 'svommebasseng');
+  /* ------------------------------------------------------------ autokonfig (fiks 26.14 · rollene i ENTS) */
+  // Hver rolle søkes i rekkefølge: 1) entiteter i området «Basseng»/«Pool»/«Badebasseng», 2) entiteter der navn eller id
+  // inneholder basseng|baseng|pool (typoen «baseng» tas med), 3) domene + device_class innenfor de to settene.
+  const DOMS = ['sensor', 'switch', 'input_boolean', 'fan', 'climate', 'water_heater', 'cover', 'binary_sensor', 'light', 'valve', 'select', 'input_select', 'number', 'input_number', 'input_datetime', 'counter'];
+  const POOL_RX = /basseng|baseng|pool|svommebasseng|svømmebasseng/;
+  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.findArea(hass, 'basseng', 'pool', 'badebasseng', 'svommebasseng');
+  // Rolle ut fra én entitet (brukes av migreringen av gamle `hurtig:`)
+  const QUIET_RX = /stille|silent|quiet|lyd_av|mute/, PUMP_RX = /pump|filter|sirkul/, HEAT_RX = /varme|heat/, SOCK_RX = /stikkontakt|outlet|socket|(^|[_ .])plug/;
+  M.poolRoleOf = function (hass, id) {
+    const d = String(id || '').split('.')[0], s = hass && hass.states[id], t = M.txt(hass, id), dc = s && s.attributes.device_class;
+    if (d === 'light') return 'light';
+    if (d === 'climate' || d === 'water_heater') return 'heat';
+    if (d === 'cover') return 'cover';
+    if (d === 'valve' || /spreder|sprinkler/.test(t)) return ['switch', 'valve', 'input_boolean'].includes(d) ? 'spr' : null;
+    if (!['switch', 'input_boolean', 'fan'].includes(d)) return null;
+    if (QUIET_RX.test(t)) return 'quiet';
+    if (dc === 'outlet' || SOCK_RX.test(t)) return 'sock';
+    if (PUMP_RX.test(t) && !HEAT_RX.test(t)) return 'pump';
+    if (/lys|light/.test(t)) return 'light';
+    if (HEAT_RX.test(t)) return 'heat';
+    return null;
+  };
   M.poolAuto = function (hass, cfg) {
     const area = M.poolArea(hass, cfg), o = { area };
     if (!hass) return o;
-    const ids = area ? M.all(hass, DOMS, (s, id) => M.areaOf(hass, id) === area) : [];
     const T = (id) => M.txt(hass, id), dc = (id) => hass.states[id].attributes.device_class;
-    const f = (doms, re, not) => ids.find((id) => doms.includes(id.split('.')[0]) && (!re || re.test(T(id))) && (!not || !not.test(T(id)))) || null;
+    const A1 = area ? M.all(hass, DOMS, (s, id) => M.areaOf(hass, id) === area) : [];
+    // 2) navn/id – bare når området ikke er valgt eksplisitt (et valgt område er fasit)
+    const A2 = cfg && cfg.area ? [] : M.all(hass, DOMS, (s, id) => !A1.includes(id) && POOL_RX.test(T(id)));
+    const ids = A1.concat(A2);
+    const used = new Set();
+    // første treff i område-settet, deretter i navne-settet
+    const f = (doms, re, not, pred) => {
+      for (const L of [A1, A2]) {
+        const id = L.find((x) => doms.includes(x.split('.')[0]) && !used.has(x) && (!re || re.test(T(x))) && (!not || !not.test(T(x))) && (!pred || pred(x)));
+        if (id) return id;
+      }
+      return null;
+    };
+    const take = (id) => { if (id) used.add(id); return id || null; };
     const sens = ids.filter((id) => id.startsWith('sensor.'));
     const temps = sens.filter((id) => dc(id) === 'temperature');
     const OUT = /(^|[_ .])ute|outdoor|outside|luft|(^|[_ .])air/;
-    o.water = temps.find((id) => !OUT.test(T(id)) && /vann|water|basseng|pool/.test(T(id))) || temps.find((id) => !OUT.test(T(id))) || null;
-    o.ute = temps.find((id) => OUT.test(T(id))) || M.all(hass, 'weather')[0] || null;
-    o.pump = f(['switch', 'input_boolean', 'fan'], /pump|filter|sirkul/, /varme|heat/);
-    o.heat = f(['climate']) || f(['water_heater']) || f(['switch', 'input_boolean'], /varme|heat/);
-    o.cover = f(['cover']) || f(['switch', 'input_boolean', 'binary_sensor'], /tak|cover|lokk|presenning/);
-    o.light = f(['light']) || f(['switch'], /(^|[_ .])lys|light|led/);
-    o.spr = f(['switch', 'valve', 'input_boolean'], /spreder|sprinkler|fontene|fountain|dusj/);
+    o.water = temps.find((id) => !OUT.test(T(id)) && /vann|water|basseng|baseng|pool/.test(T(id))) || temps.find((id) => !OUT.test(T(id))) || null;
+    // Utetemperatur: bassengets egen ute-sensor, ellers samme som Hjem (ute-temperatursensor / weather.*)
+    o.ute = temps.find((id) => OUT.test(T(id))) || M.all(hass, 'sensor', (s, id) => s.attributes.device_class === 'temperature' && /(^|[_ .])ute|outdoor|outside/.test(T(id)))[0] || M.all(hass, 'weather')[0] || null;
+    // Stille-/lyd av-bryteren først, så den ikke tas som pumpe eller varme
+    o.quiet = take(f(['switch', 'input_boolean'], QUIET_RX));
+    o.heat = take(f(['climate']) || f(['water_heater']) || f(['switch', 'input_boolean'], HEAT_RX, /prio|natt|night|senk|vinter|winter/));
+    o.pump = take(f(['switch', 'input_boolean', 'fan'], PUMP_RX, HEAT_RX));
+    o.light = take(f(['light']) || f(['switch'], /lys|light|(^|[_ .])led/));
+    o.spr = take(f(['switch', 'valve', 'input_boolean'], /spreder|sprinkler|fontene|fountain|dusj/));
+    o.sock = take(f(['switch'], null, null, (id) => dc(id) === 'outlet') || f(['switch'], SOCK_RX));
+    o.cover = take(f(['cover']) || f(['switch', 'input_boolean', 'binary_sensor'], /(^|[_ .])tak|pooltak|cover|lokk|presenning/, SOCK_RX));
+    // Effekt: device_class power på pumpe-/varmeenheten, ellers navnet
+    const devOf = (id) => { const e = id && M.regEntry(hass, id); return (e && e.device_id) || null; };
     const pw = sens.filter((id) => dc(id) === 'power');
-    o.power = pw.find((id) => /pump/.test(T(id)) && !/varme|heat/.test(T(id))) || pw.find((id) => !/varme|heat/.test(T(id))) || null;
-    o.heat_power = pw.find((id) => /varme|heat/.test(T(id))) || null;
+    const onDev = (dev) => (dev ? pw.find((id) => devOf(id) === dev) : null);
+    o.power = onDev(devOf(o.pump)) || pw.find((id) => PUMP_RX.test(T(id)) && !HEAT_RX.test(T(id))) || pw.find((id) => !HEAT_RX.test(T(id))) || null;
+    o.heat_power = (onDev(devOf(o.heat)) !== o.power && onDev(devOf(o.heat))) || pw.find((id) => HEAT_RX.test(T(id)) && id !== o.power) || null;
     o.ph = sens.find((id) => dc(id) === 'ph' || /(^|[_ .])ph($|[_ .])/.test(T(id))) || null;
     o.klor = sens.find((id) => /klor|chlor|orp|redox/.test(T(id))) || null;
     o.savings = sens.find((id) => /spart|saving/.test(T(id))) || null;
@@ -131,26 +171,51 @@
     o.solar = sens.find((id) => dc(id) === 'irradiance' || /(^|[_ .])sol|solar/.test(T(id))) || null;
     o.target = (o.heat && /^(climate|water_heater)\./.test(o.heat)) ? o.heat : f(['number', 'input_number'], /mal|mål|target|settpunkt|setpunkt|setpoint/);
     o.spr_duration = f(['number', 'input_number'], /varighet|duration/);
-    o.klor_calendar = M.all(hass, 'calendar', (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || M.all(hass, 'calendar', (s, id) => /basseng|pool/.test(M.txt(hass, id)))[0] || null;
+    // Klorkalender: calendar.* med klor i navnet, ellers input_datetime/counter for siste klortablett
+    o.klor_calendar = M.all(hass, 'calendar', (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || M.all(hass, 'calendar', (s, id) => POOL_RX.test(M.txt(hass, id)))[0] || null;
+    o.klor_last = o.klor_calendar ? null : (M.all(hass, ['input_datetime', 'counter'], (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || null);
     o.flags = [o.auto, o.price, o.prio].filter(Boolean);
     o.people = M.all(hass, 'person');
     return o;
   };
-  // Endelig oppsett: overrides vinner, exclude fjerner auto-valg.
+  // Rollenavn fra designet (ENTS/CTL) → nøklene her
+  const ROLE_ALIAS = { out: 'ute', cal: 'klor_calendar', mute: 'quiet', stille: 'quiet', stikkontakt: 'sock', lys: 'light', pumpe: 'pump', varme: 'heat' };
+  const roleKey = (k) => ROLE_ALIAS[k] || k;
+  // Ekstra hurtigknapper: include: [{ entity, navn, ikon }] (YAML) eller include.hurtig: [id] (editoren) + labels.<id>
+  M.poolExtras = function (cfg) {
+    const c = cfg || {}, L = c.labels || {}, out = [], seen = new Set();
+    const add = (x) => {
+      const it = typeof x === 'string' ? { entity: x } : x;
+      const id = it && (it.entity || it.entity_id);
+      if (!id || seen.has(id) || (c.exclude || []).includes(id)) return;
+      seen.add(id);
+      out.push({ entity: id, navn: it.navn || it.name || (L[id] && L[id].navn) || null, ikon: it.ikon || it.icon || (L[id] && L[id].ikon) || null });
+    };
+    if (Array.isArray(c.include)) c.include.forEach(add);
+    else if (c.include && Array.isArray(c.include.hurtig)) c.include.hurtig.forEach(add);
+    return out;
+  };
+  // Endelig oppsett: overrides vinner, exclude (rolle eller entitet) fjerner auto-valg.
   M.poolEnts = function (hass, cfg) {
-    const a = M.poolAuto(hass, cfg), ex = new Set((cfg && cfg.exclude) || []), e = { area: a.area, auto: a };
-    Object.keys(a).forEach((k) => { if (k === 'area' || Array.isArray(a[k])) return; e[k] = M.pick(cfg, k, a[k] && !ex.has(a[k]) ? a[k] : null); });
-    e.flags = M.applyLists(cfg, 'flagg', a.flags || []);
-    e.people = M.applyLists(cfg, 'personer', a.people || []);
+    cfg = cfg || {};
+    const a = M.poolAuto(hass, cfg), e = { area: a.area, auto: a };
+    const ov = {};
+    Object.keys(cfg.overrides || {}).forEach((k) => { if (cfg.overrides[k]) ov[roleKey(k)] = cfg.overrides[k]; });
+    const ex = new Set((Array.isArray(cfg.exclude) ? cfg.exclude : []).map(roleKey));
+    Object.keys(a).forEach((k) => { if (k === 'area' || Array.isArray(a[k])) return; e[k] = ex.has(k) ? null : ov[k] || (a[k] && !ex.has(a[k]) ? a[k] : null); });
+    e.flags = M.applyLists(Array.isArray(cfg.include) ? { ...cfg, include: {} } : cfg, 'flagg', a.flags || []);
+    e.people = M.applyLists(Array.isArray(cfg.include) ? { ...cfg, include: {} } : cfg, 'personer', a.people || []);
+    e.extra = M.poolExtras(cfg);
     return e;
   };
   const OVR = [
-    ['water', 'Vanntemperatur', 'sensor', 'temperature'], ['ute', 'Utetemperatur', ['sensor', 'weather']], ['pump', 'Pumpe', ['switch', 'input_boolean', 'fan']], ['heat', 'Varmepumpe', ['climate', 'water_heater', 'switch', 'input_boolean']],
+    ['water', 'Vanntemperatur', 'sensor', 'temperature'], ['ute', 'Utetemperatur', ['sensor', 'weather']], ['pump', 'Pumpe', ['switch', 'input_boolean', 'fan']], ['heat', 'Varme (varmepumpe)', ['climate', 'water_heater', 'switch', 'input_boolean']],
+    ['quiet', 'Stille (lyd av)', ['switch', 'input_boolean']], ['sock', 'Stikkontakt', ['switch', 'input_boolean']],
     ['cover', 'Pooltak', ['cover', 'switch', 'input_boolean', 'binary_sensor']], ['light', 'Lys', ['light', 'switch']], ['spr', 'Spreder', ['switch', 'valve', 'input_boolean']], ['power', 'Effekt · pumpe', 'sensor', 'power'],
     ['heat_power', 'Effekt · varmepumpe', 'sensor', 'power'], ['ph', 'pH', 'sensor'], ['klor', 'Klor (mg/L / ORP)', 'sensor'], ['target', 'Måltemperatur', ['climate', 'water_heater', 'number', 'input_number']],
     ['turnover', 'Omsetninger i dag', 'sensor'], ['pumped', 'Pumpet i dag (timer)', 'sensor'], ['savings', 'Spart i dag', 'sensor'], ['cost', 'Strømkostnad i dag', 'sensor'],
     ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
-    ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'],
+    ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'], ['klor_last', 'Siste klortablett (uten kalender)', ['input_datetime', 'counter']],
   ];
   const ovrFields = (keys) => OVR.filter((x) => !keys || keys.includes(x[0])).map(([name, label, domain, device_class]) => ({ name, label, domains: [].concat(domain), device_class, auto: (h, c) => M.poolAuto(h, c)[name] }));
   const AREA_F = { type: 'area', name: 'area', label: 'Område', help: 'Tomt = område «Basseng»/«pool»', auto: (h, c) => M.poolArea(h, {}) };
@@ -173,7 +238,7 @@
     }
     get cardSize() { return 4; }
     render() {
-      const c = this.config, e = M.poolEnts(this.hass, c), A = c.anim !== false;
+      const c = M.poolNorm(this.config, this.hass), e = M.poolEnts(this.hass, c), A = c.anim !== false;
       const on = (k) => M.onState(this.s(e[k]));
       const pump = on('pump'), heat = on('heat'), cover = on('cover'), light = on('light');
       const P = pump && A, H = heat && A;
@@ -203,7 +268,7 @@
             <div class="pm"><span class="ring" style="animation:${P ? 'ring 1.6s ease-out infinite' : 'none'}"></span>${M.icon('autorenew', 16, `color:${pump ? C.pink : '#8a979b'};animation:${P ? 'spin 2.4s linear infinite' : 'none'}`)}</div>
           </div>
           <div class="tl">
-            <span class="lbl">${esc(c.name || 'Bassenget')}</span>
+            <span class="lbl">${esc(c.name || c.navn || 'Bassenget')}</span>
             <span class="st">${M.icon(status[0], 13)}${esc(status[1])}</span>
             ${c.chips !== false && chips ? `<div class="chips">${chips}</div>` : ''}
           </div>
@@ -246,10 +311,12 @@
       `;
     }
   }
-  M.define('msh-basseng-hero-card', BassengHero, 'MSH Basseng · hero', 'Basseng-hero med vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Første kort i #basseng.');
+  M.define('msh-basseng-hero-card', BassengHero, 'MSH Basseng · hero', 'Toppkortet i msh-basseng-card (innebygd via MSH.HEROES, fiks 26.14): vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Legges ikke som eget kort i popupen.');
 
   /* ============================================================ HOVEDKORT */
-  const CTL = { light: ['lightbulb', 'Lys', C.gray1000], pump: ['water_pump', 'Pumpe', C.accent], heat: ['heat', 'Varme', C.red], cover: ['roofing', 'Pooltak', C.blue], spr: ['sprinkler', 'Spreder', C.green] };
+  // Hurtigknapper (v4: q.light/pump/heat/quiet/sock) – vises bare for roller som ble funnet. Pooltak/Spreder kan slås på i Tilpass.
+  const CTL = { light: ['lightbulb', 'Lys', C.gray1000], pump: ['water_pump', 'Pumpe', C.accent], heat: ['heat', 'Varme', C.red], quiet: ['volume_off', 'Stille', C.gray1000, 'Lyd av'], sock: ['mdi:power-socket-eu', 'Stikkontakt', C.yellow], cover: ['roofing', 'Pooltak', C.blue], spr: ['sprinkler', 'Spreder', C.green] };
+  const CTL_STD = ['light', 'pump', 'heat', 'quiet', 'sock', 'cover', 'spr'], CTL_HID = ['cover', 'spr'];
   const TABS = { ov: 'Oversikt', heat: 'Varme', klor: 'Klor', spr: 'Spreder' };
   // Designets «Styring og verdier» → config.vals.<nøkkel> (placeholder = standard).
   const CFG = [
@@ -266,21 +333,139 @@
   const MODE_IC = [[/boost|turbo|maks/, 'mode_fan'], [/spre|sprink|fontene/, 'sprinkler'], [/eco|spar/, 'eco'], [/bal|normal|auto/, 'balance'], [/bade|bad|swim|komfort/, 'star'], [/av|off|stopp/, 'power_settings_new'], [/natt|night/, 'bedtime'], [/vinter|winter/, 'ac_unit']];
   const modeIcon = (o) => { const t = String(o).toLowerCase(); const m = MODE_IC.find(([re]) => re.test(t)); return m ? m[1] : 'tune'; };
 
+  /* ------------------------------------------------------------ migrering (fiks 26.14) */
+  // Gammel config (ki-basseng-card/ki-basseng-hero-card, `hurtig:`, designets ctl/ctlHide/ents, basseng-v3-cfg fra
+  // localStorage) → ny config. Rolle-entiteter som autokonfig finner selv skrives IKKE inn (overrides bare ved avvik).
+  const LEG_ROLE = { varmepumpe: 'heat', pumpe: 'pump', lys: 'light', stillemodus: 'quiet', stikkontakt: 'sock', vanntemp: 'water', ute: 'ute', pooltak: 'cover' };
+  const LEG_KEYS = ['navn', 'hurtig', 'hurtig_navn', 'hero', 'forvalg', 'ctl', 'ctlHide', 'tabHide', 'ents'];
+  const LBL = {};
+  CFG.forEach(([, , rows]) => rows.forEach(([k, l]) => { LBL[l] = k; }));
+  const hidList = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.keys(v).filter((k) => v[k]) : []);
+  M.poolLegacy = (cfg) => !!cfg && (LEG_KEYS.some((k) => k in cfg) || Object.keys(LEG_ROLE).some((k) => typeof cfg[k] === 'string' && cfg[k].includes('.')) || Array.isArray(cfg.include));
+  M.POOL_LS = 'basseng-v3-cfg';
+  M.poolLS = () => { try { return JSON.parse(localStorage.getItem(M.POOL_LS) || 'null'); } catch (e) { return null; } };
+  M.poolNorm = function (cfg, hass, pc) {
+    if (!cfg || (!M.poolLegacy(cfg) && !pc)) return cfg;
+    const n = { ...cfg }, ov = { ...(cfg.overrides || {}) }, claimed = new Set(Object.keys(ov));
+    let auto = null;
+    const A = () => auto || (auto = M.poolAuto(hass, { ...cfg, overrides: {} }));
+    const role = (k, id) => {
+      k = roleKey(k);
+      if (!id || typeof id !== 'string' || claimed.has(k)) return false;
+      claimed.add(k);
+      if (!(hass && A()[k] === id)) ov[k] = id;
+      return true;
+    };
+    const labels = { ...(cfg.labels || {}) }, inc = cfg.include && !Array.isArray(cfg.include) ? { ...cfg.include } : {}, extra = [...(inc.hurtig || [])];
+    const addExtra = (it) => {
+      const id = it && (it.entity || it.entity_id);
+      if (!id || extra.includes(id)) return;
+      extra.push(id);
+      const nv = it.navn || it.name, ik = it.ikon || it.icon;
+      if (nv || ik) labels[id] = { ...(nv ? { navn: nv } : {}), ...(ik ? { ikon: ik } : {}) };
+    };
+    if ('navn' in cfg) { if (!n.name && cfg.navn) n.name = cfg.navn; delete n.navn; }
+    Object.keys(LEG_ROLE).forEach((k) => { if (typeof cfg[k] === 'string' && cfg[k].includes('.')) { role(LEG_ROLE[k], cfg[k]); delete n[k]; } });
+    if (Array.isArray(cfg.hurtig)) cfg.hurtig.forEach((x) => {
+      const it = typeof x === 'string' ? { entity: x } : x || {}, id = it.entity;
+      if (!id) return;
+      const r = M.poolRoleOf(hass, id);
+      if (!(r && role(r, id))) addExtra(it);
+    });
+    if (Array.isArray(cfg.include)) cfg.include.forEach((x) => addExtra(typeof x === 'string' ? { entity: x } : x));
+    if (cfg.ents && typeof cfg.ents === 'object') Object.keys(cfg.ents).forEach((k) => role(k, cfg.ents[k]));
+    if (Array.isArray(cfg.forvalg) && cfg.forvalg.length && !(cfg.vals && cfg.vals.targets)) n.vals = { ...(n.vals || {}), targets: cfg.forvalg.join(' ') };
+    if (Array.isArray(cfg.ctl) && !cfg.controls) n.controls = cfg.ctl.map(roleKey).filter((k) => CTL[k]);
+    if (cfg.ctlHide && !cfg.hidden_controls) n.hidden_controls = hidList(cfg.ctlHide).map(roleKey);
+    if (cfg.tabHide && !cfg.hidden_tabs) n.hidden_tabs = hidList(cfg.tabHide);
+    // basseng-v3-cfg (designets localStorage) – bare det config ikke har fra før
+    if (pc && typeof pc === 'object') {
+      if (pc.ents) Object.keys(pc.ents).forEach((k) => role(k, pc.ents[k]));
+      if (Array.isArray(pc.ctl) && !n.controls) n.controls = pc.ctl.map(roleKey).filter((k) => CTL[k]);
+      if (pc.ctlHide && !n.hidden_controls && hidList(pc.ctlHide).length) n.hidden_controls = hidList(pc.ctlHide).map(roleKey);
+      if (Array.isArray(pc.tabs) && !n.tabs) n.tabs = pc.tabs.filter((k) => TABS[k]);
+      if (pc.tabHide && !n.hidden_tabs && hidList(pc.tabHide).length) n.hidden_tabs = hidList(pc.tabHide);
+      if (pc.vals && typeof pc.vals === 'object') {
+        const v = { ...(n.vals || {}) };
+        Object.keys(pc.vals).forEach((l) => { const k = LBL[l] || (VDEF[l] !== undefined ? l : null); if (k && v[k] == null && pc.vals[l] !== '') v[k] = pc.vals[l]; });
+        if (Object.keys(v).length) n.vals = v;
+      }
+      ['anim', 'chips'].forEach((k) => { if (pc[k] === false && n[k] == null) n[k] = false; });
+    }
+    LEG_KEYS.forEach((k) => { delete n[k]; });
+    if (Object.keys(ov).length) n.overrides = ov; else delete n.overrides;
+    if (extra.length) n.include = { ...inc, hurtig: extra }; else if (Array.isArray(cfg.include)) delete n.include;
+    if (Object.keys(labels).length) n.labels = labels;
+    return n;
+  };
+  // Popup-oppsett fra et importert/gammelt Bubble-popup (#badebasseng med ki-basseng-card, ki-basseng-hero-card og
+  // gap-card) → config for ÉTT msh-basseng-card. null = ikke et gammelt basseng-popup.
+  const LEG_TAGS = ['ki-basseng-card', 'ki-basseng-hero-card', 'msh-basseng-hero-card'];
+  const tagOfC = (c) => String((c && c.type) || '').replace(/^custom:/, '');
+  const cardsDeep = (o, out = [], d = 0) => {
+    if (!o || typeof o !== 'object' || d > 12) return out;
+    if (Array.isArray(o)) { o.forEach((x) => cardsDeep(x, out, d + 1)); return out; }
+    if (o.type) out.push(o);
+    if (Array.isArray(o.cards)) cardsDeep(o.cards, out, d + 1);
+    if (o.card && typeof o.card === 'object') cardsDeep(o.card, out, d + 1);
+    return out;
+  };
+  M.bassengLegacyCard = function (popup) {
+    const list = cardsDeep(popup && popup.cards);
+    const main = list.find((c) => tagOfC(c) === 'ki-basseng-card'), hero = list.find((c) => ['ki-basseng-hero-card', 'msh-basseng-hero-card'].includes(tagOfC(c)));
+    if (!main && !hero) return null;
+    const strip = (c) => { if (!c) return {}; const { type, card_id, view_layout, grid_options, layout_options, ...r } = c; return r; };
+    const h = strip(hero), m = strip(main), out = { ...h, ...m };
+    if (h.navn && !m.navn) out.navn = h.navn; // navn flyttes fra toppkortet
+    const own = list.find((c) => tagOfC(c) === 'msh-basseng-card');
+    return { ...strip(own), ...out };
+  };
+  M.bassengLegacyTest = (popup) => cardsDeep(popup && popup.cards).some((c) => LEG_TAGS.includes(tagOfC(c)));
+
   class Basseng extends M.Card {
     static get cardName() { return 'Basseng'; }
-    static get defaults() { return { controls: ['light', 'pump', 'heat', 'cover', 'spr'], tabs: ['ov', 'heat', 'klor', 'spr'] }; }
+    static get defaults() { return { controls: CTL_STD.slice(), hidden_controls: CTL_HID.slice(), tabs: ['ov', 'heat', 'klor', 'spr'] }; }
+    static getStubConfig() { return { card_id: 'pop-basseng' }; }
+    // Bunnluft over navbaren (fiks 26.14: minst 120 px + safe area; ingen gap-card): nav-h 68 + 8 + 44
+    static get spacingDefaults() { return { ...(M.SPACING || {}), pad_bottom: 44 }; }
     static get schema() {
       return [
         AREA_F,
-        { type: 'overrides', label: 'Entiteter', fields: ovrFields() },
-        { type: 'lists', label: 'Brytere og navn', lists: (h, c) => { const a = M.poolAuto(h, c); return [{ key: 'flagg', label: 'Brytere (Oversikt)', ids: a.flags, domains: ['switch', 'input_boolean'] }, { key: 'personer', label: 'Navn i klorloggen', ids: a.people, domains: ['person'] }]; } },
-        { type: 'order', name: 'controls', hiddenName: 'hidden_controls', label: 'Kontroller', options: Object.keys(CTL).map((k) => [k, CTL[k][1]]) },
+        { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: 'Bassenget' },
+        { type: 'overrides', id: 'overrides', label: 'Entiteter', fields: ovrFields() },
+        { type: 'lists', id: 'entities', label: 'Hurtigknapper, brytere og navn', lists: (h, c) => { const a = M.poolAuto(h, c); return [{ key: 'hurtig', label: 'Ekstra hurtigknapper', ids: [], domains: ['switch', 'light', 'input_boolean', 'fan', 'script', 'scene', 'cover', 'valve'] }, { key: 'flagg', label: 'Brytere (Oversikt)', ids: a.flags, domains: ['switch', 'input_boolean'] }, { key: 'personer', label: 'Navn i klorloggen', ids: a.people, domains: ['person'] }]; } },
+        { type: 'order', name: 'controls', hiddenName: 'hidden_controls', label: 'Hurtigknapper (vises når rollen finnes)', options: Object.keys(CTL).map((k) => [k, CTL[k][3] ? `${CTL[k][1]} (${CTL[k][3]})` : CTL[k][1]]) },
         { type: 'order', name: 'tabs', hiddenName: 'hidden_tabs', label: 'Faner', options: Object.keys(TABS).map((k) => [k, TABS[k]]) },
         { type: 'section', id: 'styr', label: 'Styring og verdier', icon: 'mdi:tune', fields: CFG.flatMap(([, title, rows]) => [{ type: 'info', label: title.toUpperCase() }].concat(rows.map(([k, l, sub, v]) => (typeof v === 'boolean' ? { type: 'boolean', name: 'vals.' + k, label: l, help: sub, default: v } : { type: 'text', name: 'vals.' + k, label: l, help: sub, placeholder: String(v) })))) },
+        { type: 'section', label: 'Animasjon', icon: 'mdi:animation', fields: [
+          { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
+          { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
+        ] },
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
       ];
     }
     get cardSize() { return 10; }
+    // Gammel config (hurtig:, navn, ctl/ctlHide …) leses normalisert til den er migrert og lagret (se _migrate)
+    get config() {
+      const c = this._config || {};
+      if (this._normSrc !== c) { this._normSrc = c; this._norm = M.poolLegacy(c) ? { ...Basseng.defaults, ...M.poolNorm(c, this._hass) } : c; }
+      return this._norm;
+    }
+    // Fiks 26.14 · migrering, lagres én gang per kort: `hurtig:`/ki-basseng-nøkler → overrides/include, og designets
+    // basseng-v3-cfg (localStorage) → config. Bare det levende kortet, ikke mens et utkast er åpent.
+    _migrate() {
+      const raw = this._rawConfig, id = raw && raw.card_id, h = this._hass;
+      if (!id || !this.isConnected || !h || !Object.keys(h.states || {}).length || !M.store || !M.store.loaded || (M.draftOf && M.draftOf(this))) return;
+      const pc = M.poolLS();
+      if (!M.poolLegacy(raw) && !pc) return;
+      const done = (M._poolMig = M._poolMig || new Set());
+      if (done.has(id)) return;
+      done.add(id);
+      const nc = M.poolNorm(raw, h, pc);
+      Promise.resolve(M.saveCardConfig(h, raw, nc, { toasts: false, card: this }))
+        .then(() => { if (pc) { try { localStorage.removeItem(M.POOL_LS); } catch (e) { /* */ } } })
+        .catch((e) => console.warn('[ki-msh] basseng-migrering', e));
+    }
     _v(k) { const v = this.config.vals && this.config.vals[k]; return v != null && v !== '' ? v : VDEF[k]; }
     _toast(t) { M.toast(t, { enabled: this.config.toasts !== false }); }
     onOpen() { this._loadHist(); this._loadKlor(); }
@@ -302,17 +487,20 @@
       this._klor = await M.calEvents(this.hass, e.klor_calendar, a.getTime(), b.getTime());
       this.update();
     }
-    _tabs() {
+    // Faner uten data skjules automatisk (Spreder uten spreder …)
+    _tabs(e) {
       const c = this.config, hid = new Set(c.hidden_tabs || []);
+      const has = { ov: true, heat: !!(e.heat || e.water || e.target), klor: !!(e.klor_calendar || e.klor_last || e.klor || e.ph), spr: !!e.spr };
       const order = (Array.isArray(c.tabs) ? c.tabs : []).filter((k) => TABS[k]);
       Object.keys(TABS).forEach((k) => { if (!order.includes(k)) order.push(k); });
-      return order.filter((k) => !hid.has(k));
+      return order.filter((k) => !hid.has(k) && has[k]);
     }
-    _ctls() {
-      const c = this.config, hid = new Set(c.hidden_controls || []);
-      const order = (Array.isArray(c.controls) ? c.controls : []).filter((k) => CTL[k]);
-      Object.keys(CTL).forEach((k) => { if (!order.includes(k)) order.push(k); });
-      return order.filter((k) => !hid.has(k));
+    // Hurtigknapper: rekkefølge (controls) og skjuling (hidden_controls); bare roller som ble funnet
+    _ctls(e) {
+      const c = this.config, hid = new Set((Array.isArray(c.hidden_controls) ? c.hidden_controls : CTL_HID).map(roleKey));
+      const order = (Array.isArray(c.controls) ? c.controls.map(roleKey) : []).filter((k) => CTL[k]);
+      CTL_STD.forEach((k) => { if (!order.includes(k)) order.push(k); });
+      return order.filter((k, i) => order.indexOf(k) === i && !hid.has(k) && e[k]);
     }
     _target(e) {
       const s = this.s(e.target);
@@ -323,28 +511,46 @@
     render() {
       const c = this.config, e = M.poolEnts(this.hass, c);
       this._e = e;
-      const tl = this._tabs(), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
+      this._migrate();
+      const tl = this._tabs(e), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
       this._tl = tl; this._cur = cur;
-      const cl = this._ctls();
-      const ctrls = cl.map((k) => {
-        const [ic, l, bg] = CTL[k], id = e[k], st = this.s(id), on = M.onState(st);
-        return `<button class="tile press" data-key="${k}" data-act="ctl" data-k="${k}" ${id ? `data-ent="${esc(id)}"` : ''} title="${esc(l)}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'};${id ? '' : 'opacity:.55'}">${M.icon(ic, 24)}</button>`;
-      }).join('');
       const idx = Math.max(0, tl.indexOf(cur)), n = tl.length || 1;
       const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
+      // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        ${cl.length ? `<div class="ctl" style="grid-template-columns:repeat(${cl.length},minmax(0,1fr))">${ctrls}</div>` : ''}
+        <div class="prose ptop" data-key="prose">${this._prose(e)}</div>
         <div class="tabrow">
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
-          <button class="cfg press" data-act="customize" title="Tilpass">${M.icon('settings', 20)}</button>
+          <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
         ${tl.length ? body : M.emptyState('Alle faner er skjult', 'sections')}
       </div>`;
     }
+    // Prosalinjen under toppkortet: «Vannet er 27,5° og 1,5° over målet. Pumpa går nå.»
+    _prose(e) {
+      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
+      let rel = '';
+      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
+      return tw != null
+        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
+        : `Vannet er <span class="pill num">–</span>. <button class="lnk" data-act="customize" data-section="overrides">Velg entitet</button>`;
+    }
+    // Hurtigknapper (Lys · Pumpe · Varme · Stille · Stikkontakt + ekstra fra include)
+    _quick(e) {
+      const cl = this._ctls(e);
+      const btn = (key, id, ic, l, bg, title) => {
+        const st = this.s(id), on = M.onState(st);
+        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
+      };
+      const L = cl.map((k) => { const [ic, l, bg, t] = CTL[k]; return btn(k, e[k], ic, l, bg, t ? `${l} · ${t}` : l); });
+      (e.extra || []).forEach((x) => { const s = this.s(x.entity); L.push(btn('x:' + x.entity, x.entity, x.ikon || (s && s.attributes.icon) || M.domainIcon(x.entity, s), x.navn || M.name(this.hass, x.entity, M.areaName(this.hass, e.area)), C.accent)); });
+      if (!L.length) return `<div class="qempty">${M.emptyState('Fant ingen hurtigknapper (lys, pumpe, varme …)', 'overrides')}</div>`;
+      return `<div class="ctl" style="grid-template-columns:repeat(${Math.min(L.length, 5)},minmax(0,1fr))">${L.join('')}</div>`;
+    }
     /* ---------------- Oversikt */
     _ov(e) {
-      const c = this.config, tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
+      const tw = this.n(e.water), tgt = this._target(e);
       const val = (id, d = 1) => { const v = this.n(id); return v != null ? M.nf(v, d) : '–'; };
       const unit = (id, u) => { const s = this.s(id); return (s && s.attributes.unit_of_measurement) || u; };
       const cards = [['water', 'Vann', tw != null ? M.nf(tw, 1) : '–', '°C', e.water]];
@@ -353,12 +559,6 @@
       if (e.ph) cards.push(['science', 'pH', val(e.ph, 1), '', e.ph]);
       if (e.klor) cards.push(['pill', 'Klor', val(e.klor, 1), unit(e.klor, ''), e.klor]);
       const ovCards = cards.map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      // prosa
-      let rel = '';
-      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
-      const prose = tw != null
-        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
-        : `Vanntemperaturen er ukjent. <button class="lnk" data-act="customize" data-section="overrides">Velg sensor</button>`;
       const date = M.cap(new Date().toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' }));
       // i dag
       let pumped = '–';
@@ -383,29 +583,23 @@
         const last = this._lastKlor();
         flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${C.card}"><span class="fli" style="background:${C.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
       }
+      // temperaturgraf siste døgn med maks og min
+      const g = this._chart(e, tw, tgt);
+      const graph = `<div class="hc" data-key="ovgraf" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
+          ${g.chart}
+        </div>`;
       return `
+        ${this._quick(e)}
         <div class="g2">${ovCards}</div>
-        <div class="prose">${prose}</div>
         <div class="dh">${M.icon('home', 20)}<span class="dht">I dag</span><span class="dhd">${esc(date)}</span></div>
         <div class="today">${today}</div>
+        ${graph}
         ${modes}
         ${flags.length ? `<div class="g2">${flags.join('')}</div>` : ''}`;
     }
-    /* ---------------- Varme */
-    _heat(e) {
-      const c = this.config, tw = this.n(e.water), tgt = this._target(e), hs = this.s(e.heat), heat = M.onState(hs);
-      const hp = this.n(e.heat_power);
-      const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
-        .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
-      const cost = this.s(e.cost);
-      const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
-      let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
-      if (tgt != null) prose += tw != null && tw < tgt - 0.3 ? ` og varmes mot ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.` : ` og holder målet på ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.`;
-      else prose += '.';
-      if (hs) prose += heat ? ' Varmepumpa varmer.' : ' Varmepumpa hviler.';
-      if (cost && M.isNum(cost.state)) prose += ` Strømmen har kostet ${pill(M.nf(Number(cost.state), 0) + ' ' + (/(nok|kr|sek)/i.test(cost.attributes.unit_of_measurement || '') || !cost.attributes.unit_of_measurement ? 'kroner' : cost.attributes.unit_of_measurement))} i dag.`;
-      // graf
+    /* ---------------- temperaturgraf siste døgn (maks/min) – Oversikt og Varme */
+    _chart(e, tw, tgt) {
       const H = (this._hist || []).slice();
       const t1 = Date.now(), t0 = t1 - 86400000;
       let chart = '', delta = '–', dcol = C.blue, mx = '', mn = '';
@@ -438,6 +632,23 @@
           <path d="${path} L300,90 L0,90 Z" style="fill:${M.alpha(C.green, 0.18)}"></path>
           <path d="${path}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke" style="stroke:${C.green}"></path></svg>`;
       } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" stroke="rgba(255,255,255,0.2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
+      return { chart, delta, dcol, mx, mn };
+    }
+    /* ---------------- Varme */
+    _heat(e) {
+      const c = this.config, tw = this.n(e.water), tgt = this._target(e), hs = this.s(e.heat), heat = M.onState(hs);
+      const hp = this.n(e.heat_power);
+      const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
+        .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
+      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
+      const cost = this.s(e.cost);
+      const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
+      let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
+      if (tgt != null) prose += tw != null && tw < tgt - 0.3 ? ` og varmes mot ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.` : ` og holder målet på ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.`;
+      else prose += '.';
+      if (hs) prose += heat ? ' Varmepumpa varmer.' : ' Varmepumpa hviler.';
+      if (cost && M.isNum(cost.state)) prose += ` Strømmen har kostet ${pill(M.nf(Number(cost.state), 0) + ' ' + (/(nok|kr|sek)/i.test(cost.attributes.unit_of_measurement || '') || !cost.attributes.unit_of_measurement ? 'kroner' : cost.attributes.unit_of_measurement))} i dag.`;
+      const { chart, delta, dcol, mx, mn } = this._chart(e, tw, tgt);
       const outS = this.s(e.ute);
       const outV = outS ? (outS.entity_id.startsWith('weather.') ? outS.attributes.temperature : M.isNum(outS.state) ? Number(outS.state) : null) : null;
       const fmtU = (id, d) => { const s = this.s(id); if (!s || !M.isNum(s.state)) return '–'; const v = Number(s.state), u = s.attributes.unit_of_measurement || ''; return u === 'W' && v >= 1000 && d === 'kw' ? `${M.nf(v / 1000, 1)} kW` : `${M.nf(v, v % 1 && v < 100 ? 1 : 0)} ${u}`.trim(); };
@@ -465,7 +676,15 @@
     }
     /* ---------------- Klor */
     _klorEvents() { return (this._klor || []).filter((ev) => /klor|chlor|tablett/i.test(ev.summary || '') || this._e.klor_calendar && /klor|chlor/.test(this._e.klor_calendar)); }
-    _lastKlor() { const L = this._klorEvents().filter((ev) => ev.t0 <= Date.now()); return L[L.length - 1] || null; }
+    _lastKlor() {
+      const L = this._klorEvents().filter((ev) => ev.t0 <= Date.now());
+      if (L.length) return L[L.length - 1];
+      // uten klorkalender: input_datetime (tidspunkt) eller counter (sist endret) for siste klortablett
+      const s = this._e && this._e.klor_last && this.s(this._e.klor_last);
+      if (!s) return null;
+      const t = s.entity_id.startsWith('input_datetime.') ? new Date(String(s.state).replace(' ', 'T')).getTime() : new Date(s.last_changed).getTime();
+      return isNaN(t) ? null : { t0: t, summary: '' };
+    }
     _qtyOf(ev) { const m = /[×x](\d+)|(\d+)\s*stk/i.exec(ev.summary || ''); return m ? Number(m[1] || m[2]) : 1; }
     _klorTab(e) {
       const c = this.config, cal = e.klor_calendar, names = e.people.map((id) => M.name(this.hass, id));
@@ -536,7 +755,7 @@
     async onAction(name, el, ev) {
       const d = el.dataset, e = this._e || M.poolEnts(this.hass, this.config), h = this.hass;
       if (name === 'ctl') {
-        const id = e[d.k];
+        const id = String(d.k || '').startsWith('x:') ? d.k.slice(2) : e[d.k];
         if (!id) return this.customize('overrides');
         const dom = id.split('.')[0];
         if (dom === 'binary_sensor') return M.moreInfo(this, id);
@@ -622,7 +841,9 @@
         .stpc{border-radius:24px;background:${C.card}}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px)}
         .ctl{display:grid;gap:8px}
-        .tile{height:64px;border-radius:22px;display:grid;place-items:center;transition:background .2s,color .2s}
+        .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
+        .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
+        .ptop{padding:2px 6px 0}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
         .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
@@ -695,5 +916,52 @@
       `;
     }
   }
-  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og spreder. Legg under msh-basseng-hero-card i #basseng.');
+  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
+
+  /* ------------------------------------------------------------ popup #basseng · importert #badebasseng (fiks 26.14) */
+  // Strategien lager #basseng med ÉTT msh-basseng-card. En importert/egen popup med de gamle kortene (ki-basseng-card,
+  // ki-basseng-hero-card, gap-card, `hurtig:`) – også under #badebasseng – erstattes av den genererte (MSH.POPUP_ALIAS
+  // flytter #badebasseng til #basseng, MSH.POPUP_SUPERSEDE lar den genererte vinne til brukeren velger «Bruk egen»).
+  // Navn og hurtig-/rolle-entitetene flyttes inn i kortet (POPUP_EXTRA) og migreres der én gang til overrides/include.
+  const PHASH = '#basseng', OLD_HASH = ['#badebasseng', '#pool', '#svommebasseng'];
+  const KEEP = ['navn', 'name', 'hurtig', 'varmepumpe', 'pumpe', 'lys', 'stillemodus', 'stikkontakt', 'vanntemp', 'ute', 'pooltak', 'forvalg', 'overrides', 'exclude', 'include', 'area'];
+  const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
+  const popLists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
+  const isLegacyPop = (cfg) => !!cfg && typeof cfg === 'object' && [PHASH, ...OLD_HASH].includes(String(cfg.hash || '').trim().replace(/^#?/, '#')) && M.bassengLegacyTest(cfg);
+  M.bassengExtra = function (config) {
+    for (const L of popLists(config)) for (const e of (Array.isArray(L) ? L : [])) {
+      const cfg = cfgOf(e);
+      if (!isLegacyPop(cfg)) continue;
+      const card = M.bassengLegacyCard(cfg) || {}, out = {};
+      KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
+      if (Object.keys(out).length) return out;
+    }
+    return undefined;
+  };
+  M.bassengLegacy = (config) => popLists(config).some((L) => (Array.isArray(L) ? L : []).some((e) => isLegacyPop(cfgOf(e))));
+  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
+  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) };
+  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
+  M.POPUP_EXTRA[PHASH] = (config) => M.bassengExtra(config);
+  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
+  M.POPUP_LEGACY_CARD[PHASH] = (popup, tag) => (tag === 'msh-basseng-card' && M.bassengLegacyTest(popup) ? M.bassengLegacyCard(popup) : null); // manuelt dashbord (M.buildPopups)
+  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
+  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => M.bassengLegacyTest(cfg) }; });
+  // Lenker/knapper som fortsatt peker på #badebasseng åpner #basseng (bare når ingen popup har den gamle hashen)
+  if (!window.__mshPoolHash) {
+    window.__mshPoolHash = true;
+    const hasPopup = (hash) => {
+      const R = M.popupReport;
+      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden);
+      let found = false;
+      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.hash === hash) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+      w(document, 0);
+      return found;
+    };
+    window.addEventListener('hashchange', () => {
+      const h = location.hash;
+      if (!OLD_HASH.includes(h) || hasPopup(h) || !hasPopup(PHASH)) return;
+      try { history.replaceState(history.state, '', location.pathname + location.search + PHASH); window.dispatchEvent(new HashChangeEvent('hashchange')); window.dispatchEvent(new CustomEvent('location-changed')); } catch (x) { /* */ }
+    });
+  }
 })();

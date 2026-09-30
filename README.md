@@ -1,137 +1,182 @@
-# KI MSH
+<p align="center">
+  <img src="docs/images/icon.svg" alt="KI MSH" width="128" height="128">
+</p>
 
-My SmartHome v3-dashbordet for Home Assistant som **custom cards i JavaScript**, laget for **Bubble Card-popups**.
-Gjenskaper Claude Design-prosjektet «Home Assistant-prosjekt» (designfilene ligger i [`design/`](design/)) piksel-nøyaktig:
-Hjem-visning med navbar, header, prosa, faner og romkort – og popups for rom, basseng, vanning, klima, lys, media,
-kamera, sikkerhet, ruter, vær, gjøremål og personer.
+<h1 align="center">KI MSH</h1>
 
-Alt autokonfigureres fra HA-områder, -etasjer og -registre og [KI Rom](https://github.com/SebastianKristo/ki-rom)
-(`sensor.<rom>_oversikt`, `_lys`, `_effekt` …). Ingen eksempeldata, ingen hardkodede entitets-IDer. Det som blir feil,
-overstyres per kort med `overrides` (bytt), `exclude` (skjul) og `include` (legg til) – i HAs GUI-editor eller i kortets
-egen «Tilpass» (samme editor, lagres til kortets YAML-config).
+<p align="center">
+  My SmartHome v3-dashbordet for Home Assistant – custom cards i JavaScript, bygget for <b>Bubble Card-popups</b>.
+</p>
+
+<p align="center">
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://www.home-assistant.io"><img src="https://img.shields.io/badge/Home%20Assistant-2024.11%2B-18BCF2.svg?logo=homeassistant&logoColor=white" alt="Home Assistant 2024.11+"></a>
+  <a href="https://github.com/SebastianKristo/ki-msh/releases"><img src="https://img.shields.io/github/v/release/SebastianKristo/ki-msh?display_name=tag&sort=semver" alt="Siste release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/SebastianKristo/ki-msh" alt="Lisens"></a>
+</p>
+
+Hele dashbordet genereres av strategien `custom:ki-dashboard`: Hjem-visning med header, prosa, faner og romkort, en navbar
+(bunn på mobil, rail på PC) og én Bubble Card-popup per rom og funksjon. Alt autokonfigureres fra HA-områder, -etasjer og
+-registre og [KI Rom](https://github.com/SebastianKristo/ki-rom) – ingen eksempeldata og ingen hardkodede entitets-IDer.
+Det som blir feil, overstyres i kortets egen «Tilpass»-ark eller i HAs GUI-editor.
+
+## Innhold
+
+- [Skjermbilder](#skjermbilder)
+- [Funksjoner](#funksjoner)
+- [Installasjon](#installasjon)
+- [Popups](#popups)
+- [Tilpasning](#tilpasning)
+- [Konfigurasjon av strategien](#konfigurasjon-av-strategien)
+- [Utvikling](#utvikling)
+- [Lisens](#lisens)
+
+## Skjermbilder
+
+Mobil (390 px, mørkt tema) og PC med rail-navbar. Bildene er tatt i testharnessen med testdata (ingen ekte personer,
+adresser eller kameraer).
+
+| Hjem | Rom | Basseng | Vanning |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/hjem.png" alt="Hjem" width="200"> | <img src="docs/images/rom.png" alt="Rom" width="200"> | <img src="docs/images/basseng.png" alt="Basseng" width="200"> | <img src="docs/images/vanning.png" alt="Vanning" width="200"> |
+
+| Varmepumpe | Innstillinger | Server |
+|:---:|:---:|:---:|
+| <img src="docs/images/varmepumpe.png" alt="Varmepumpe" width="200"> | <img src="docs/images/innstillinger.png" alt="Innstillinger" width="200"> | <img src="docs/images/server.png" alt="Server" width="200"> |
+
+<img src="docs/images/hjem-desktop.png" alt="Hjem på PC med rail-navbar" width="100%">
+
+## Funksjoner
+
+- **Ett kort per popup.** Hver Bubble Card-popup har nøyaktig ett kort i `cards:`; toppkortet (klima-toppkortet i Rom,
+  hero i Basseng/Klima/Media …) er første seksjon inni kortet. Bubble Card eier headeren, ikonet og lukk-knappen.
+- **Autokonfig først.** Rom fra HA-områder og KI Rom (`sensor.<rom>_oversikt`, `_lys`, `_effekt` …), funksjoner fra
+  integrasjonene du har. Mangler noe: kortet vises med «–» og «Velg entitet» – aldri mock-verdier.
+- **Tilpass-ark** for Hjem, navbar, header, rom og hver popup. Valgene lagres per HA-bruker i `frontend/set_user_data`
+  (synkes mellom enhetene dine) – ingen Lovelace-lagring, så du blir værende i popupen.
+- **GUI-editor** (`getConfigElement`) for alle kort, med de samme valgene som kortets egen tilpasning.
+- **Mobil, Fold, iPad og PC:** navbaren nederst på mobil og som rail til høyre for HA-sidebaren på PC; ark og overlegg
+  legger seg over navbaren og holder seg innenfor dashbordflaten.
+- **Haptic** på trykk (én per trykk), `touch-action` og `stopPropagation` på alt som dras, så Bubble Card ikke lukker
+  popupen mens du justerer en slider.
 
 ## Installasjon
 
-1. Installer **Bubble Card** (HACS) og temaet **My SmartHome v3** (mørk). KI Rom anbefales.
-2. HACS → Custom repositories → `SebastianKristo/ki-msh` (type *Dashboard*) → last ned *KI MSH*.
-   Manuelt: kopier `dist/ki-msh.js` til `/config/www/` og legg til ressursen `/local/ki-msh.js` (JavaScript-modul).
-3. Lag et nytt dashbord (Innstillinger → Dashbord → Legg til → «Nytt dashbord fra bunnen») og lim inn i rå konfigurasjon:
+1. Installer [Bubble Card](https://github.com/Clooos/Bubble-Card) (HACS) og temaet **My SmartHome v3** (mørk).
+   [KI Rom](https://github.com/SebastianKristo/ki-rom) anbefales.
+2. HACS → ⋮ → *Custom repositories* → `https://github.com/SebastianKristo/ki-msh`, type **Dashboard** → last ned **KI MSH**.
+   HACS legger til ressursen `/hacsfiles/ki-msh/ki-msh.js` selv.
+   *Manuelt:* kopier `dist/ki-msh.js` til `/config/www/` og legg til ressursen `/local/ki-msh.js` (JavaScript-modul).
+3. Innstillinger → Dashbord → *Legg til dashbord* → «Nytt dashbord fra bunnen», åpne *Rå konfigurasjon* og lim inn:
+
    ```yaml
    strategy:
      type: custom:ki-dashboard
-     # valgfritt: exclude_areas: [bod], popups: { kamera: false }, home: { layout_mode: auto }, navbar: { style: glass }
    ```
-   Strategien bygger Hjem, navbar og alle popups selv: én rom-popup per HA-område med entiteter, og funksjons-popups
-   for det du har (media, klima, kamera, sikkerhet, basseng, ruter, vanning, vær, lys, gjøremål, personer, innstillinger).
-   Nye rom dukker opp automatisk etter reload. Vil du heller skrive YAML selv, se [`examples/dashboard.yaml`](examples/dashboard.yaml).
 
-Kortene heter `msh-…` slik at de kan lastes sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards)
-(som allerede har `ki-rom-card` osv.).
+   Strategien bygger Hjem, navbaren og alle popups: én rom-popup per HA-område med entiteter og en funksjons-popup for
+   det du har. Nye rom og integrasjoner dukker opp av seg selv. Vil du skrive YAML selv, se
+   [`examples/dashboard.yaml`](examples/dashboard.yaml).
 
-## Oppsett
+Krever Home Assistant **2024.11** eller nyere (kortene bruker `getGridOptions`). Kortene heter `msh-…`, så de kan lastes
+sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards).
 
-- **Dashbord-editorene** åpnes fra navbarens «Mer»-meny («Tilpass Hjem», «Tilpass navbar», «Tilpass header»), ved langt trykk
-  på hilsenen (header) og fra tannhjulet i rommets toppkort («Tilpass rom»). Arkene legger seg over alt, innenfor
-  dashbordflaten. Alt du endrer lagres per HA-bruker (`frontend/set_user_data`, synkes mellom enhetene dine) – ingen
-  Lovelace-lagring, så du blir værende i popupen/fanen.
+## Popups
 
-- Visningen er `type: sections` (grid) – aldri panel.
-- **Navbaren** (`msh-navbar-card`) ligger i egen seksjon, utenfor alle popups. Den portales til dokumentnivå og
-  plasseres mot dashbordflaten: bunn på mobil (maks 392 px), vertikal rail til høyre for HA-sidebaren på PC.
-- **Popups** er frittstående Bubble Card `pop-up` med **nøyaktig ett kort** i `cards:`. Kortet tegner hele innholdet;
-  toppkortet (klima-toppkort i Rom, hero i Basseng/Klima/Media …) er første seksjon inni kortet. Bubble eier headeren.
-- **Maler:** mal A for funksjons-popups (header `--gray000`, ikon-sirkel `--gray1000`, navn 30 px, `bg_opacity '98'`,
-  `bg_blur '5'`) og mal B for rom-popups (header `--gray200`, ikon-sirkel i romfargen, `bg_opacity '88'`, `bg_blur '20'`),
-  begge med `is_sidebar_hidden: true`, `margin_top_*: 50px` og `--vertical-stack-card-gap: 0px`. Se
-  [`examples/dashboard.yaml`](examples/dashboard.yaml). Romfarge/-ikon endret i «Tilpass rom»/«Tilpass Hjem» oppdaterer
-  popupens `styles`/`icon` i samme lagring.
-- **Opprett popups automatisk:** «Tilpass Hjem» → Popups → «Opprett / oppdater popups» lager én mal B-popup per HA-område
-  med entiteter og én mal A-popup per funksjon/person. Finnes hashen, oppdateres bare `cards` (gamle vertical-stack- og
-  flerkort-popups slås sammen til ett kort) – dine `styles` står urørt.
-- **Mellomrom** styres inni kortet: `gap` (8), `pad_top` (20, avstand fra Bubble-headeren; negativ = inntil) og `pad_bottom` (40).
-- **Lagring** fra kortets editor lagrer bare: endringen vises straks, lagres etter 600 ms (slidere når du slipper), og
-  popup, fane, scroll og editor står der de var etter HAs rebuild. Valgt fane/kamera o.l. lagres i localStorage
-  (`ki:<card_id>:ui`), ikke i dashbord-configen.
+Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Kortnavnene er de som registreres med
+`customElements.define`.
+
+| Popup | Hash | Kort | Kilde (autokonfig) |
+|---|---|---|---|
+| Hjem | – | `msh-hjem-card` (+ `msh-hjem-header-card`, `msh-prosa-card`, `msh-hjem-faner-card`, `msh-soppel-card`, `msh-strompris-card`, `msh-hjem-gjoremal-card`) | personer, vær, strøm, kalendere, gjøremål |
+| Navbar | – | `msh-navbar-card` | funksjons-popupene som finnes |
+| Rom | `#<område>` | `msh-rom-card` | KI Rom / entiteter i området |
+| Person | `#person-<id>` | `msh-person-card` | `person.*`, mobil-sensorer |
+| Innstillinger | `#settings` | `msh-innstillinger-card` | KI Varslinger og sikkerhet, `ki_energi` |
+| Basseng | `#basseng` | `msh-basseng-card` | område «Basseng»/`pool` |
+| Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
+| Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
+| Server | `#server` | `msh-server-card` | UniFi, Proxmox VE, Unraid |
+| Klima | `#klima` | `msh-klima-card` | `climate.*`, `fan.*`, effekt og pris |
+| Lys | `#lys` | `msh-lys-card` | `light.*` per etasje/område |
+| Media | `#media` | `msh-media-card` | `media_player.*` |
+| Kamera | `#kamera` | `msh-kamera-card` | `camera.*` (+ Frigate-hendelser) |
+| Sikkerhet | `#sikkerhet` | `msh-sikkerhet-card` | alarm, låser, dør/vindu/bevegelse |
+| Dørlås | `#dorlas` | `msh-las-card` | `lock.*` (bare når den finnes) |
+| Ringeklokke | `#ringeklokke` | `msh-ringeklokke-card` | UniFi Protect-ringeklokke |
+| Ruter | `#ruter` | `msh-ruter-card` | Entur |
+| Vær | `#vaer` | `msh-vaer-card` | første `weather.*`, `sun.*`, pollen, farevarsler |
+| Gjøremål | `#gjoremal` | `msh-gjoremal-card` | `todo.*` |
+| Kalender | `#kalender` | `msh-kalender-card` | `calendar.*`, Sonarr/Radarr/Plex, Posten |
+| Energi | `#energi` | `msh-energi-card` | HAs Energi-oppsett |
+| Søppel | `#soppel` | `msh-avfall-card` | avfallssensorer (`days_to_pickup`) |
+| Kart | `#kart` | `msh-kart-card` | `person.*`, `device_tracker.*`, soner |
+| Tesla | `#tesla` | `msh-tesla-card` | Tesla-integrasjonen |
+| Sir Sweeps | `#rolf` | `msh-stovsuger-card` | `vacuum.*` |
+
+Popups som bare lages når entitetene finnes: Dørlås, Ringeklokke, Tesla, Sir Sweeps og Varmepumpe. Full liste over
+config-nøkler: [`docs/kort.md`](docs/kort.md). Autokonfig-reglene: [`docs/entiteter.md`](docs/entiteter.md).
+
+## Tilpasning
+
+| Ark | Åpnes fra | Innhold |
+|---|---|---|
+| **Tilpass Hjem** | «Mer» i navbaren | Kort, Faner, Popups (navn, ikon, farge, skjul, egne/importerte popups, maler) og Tekst (prosa) |
+| **Tilpass navbar** | «Mer» i navbaren | knapper, «Mer»-menyen, merker, stil (standard / Liquid Glass), avstand |
+| **Tilpass header** | langt trykk på hilsenen | oppsett, hilsen, personer og soner, statusmerker, handlinger på tittel og bilder |
+| **Tilpass rom** | tannhjulet i rommets toppkort | seksjoner, klima-toppkort, lys, mellomrom |
+| **Tilpass &lt;popup&gt;** | tannhjulet i popupens toppkort | faner, seksjoner og entiteter for den popupen |
+| **Kiosk-modus** | «Mer» → Kiosk | skjul HA-header/sidebar per enhet |
+
+- **Personer i headeren:** trykk på et bilde åpner hurtigarket (Hjemme/Borte · Våken/Sover), langt trykk åpner
+  person-popupen. Bildene er 80 px (56 px under 420 px bredde), maks 3 + «+N», med statusmerke etter sone/tilstand.
+- **Mellomrom under Bubble-headeren:** Tilpass Hjem → Popups → «Alle popups · mellomrom under headeren» (standard −10 px),
+  og per popup i popupens skjema. Strategien legger det inn i popupens `styles`.
+- **Mellomrom inni kortet:** `gap`, `pad_top` og `pad_bottom` (luft over navbaren) i kortets «Mellomrom».
+- **GUI-editoren** i Bubble Card-popupen («Rediger kort») har de samme valgene og lagrer til kortets YAML.
+
+## Konfigurasjon av strategien
 
 ```yaml
-type: custom:bubble-card
-card_type: pop-up
-name: Klima
-icon: mdi:thermostat
-hash: '#klima'
-# … mal A (se examples/dashboard.yaml)
-cards:
-  - type: custom:msh-klima-card     # toppkortet er innebygd
+strategy:
+  type: custom:ki-dashboard
+  exclude_areas: [bod]              # rom som ikke skal ha popup
+  popups: { kamera: false }         # slå av funksjons-popups
+  home: { layout_mode: auto }       # auto | mobil | stor
+  navbar: { style: glass }          # white | glass
+  popup_header_gap: -10             # px fra Bubble-headeren til første kort (Tilpass Hjem vinner)
+  popup_overrides:
+    '#vaer': { name: Været, width_desktop: 600px }
+    '#kart': { header_gap: 0 }      # eget mellomrom for én popup
+  custom_popups:                    # egne Bubble Card-popups, passeres uendret
+    - { type: custom:bubble-card, card_type: pop-up, hash: '#garasje', name: Garasje, cards: [] }
 ```
-
-## Kortene
-
-| Skjerm | Hash | Kort (det ene kortet i popupen) | Design |
-|---|---|---|---|
-| Navbar | – | `msh-navbar-card` | Hjem v2 (`<nav>`) |
-| Hjem | – | `msh-hjem-card` (container, full bredde – tegner griden og oppretter delkortene under `cards.header/prosa/faner/soppel/strom/gjoremal`, hvert med `type` + `card_id`; `layout_mode`, `zoom`, `breakout`, `order`, `hidden`). Delkortene virker også alene: `msh-hjem-header-card`, `msh-prosa-card`, `msh-hjem-faner-card`, `msh-soppel-card`, `msh-strompris-card`, `msh-hjem-gjoremal-card` | Hjem v2 |
-| Strømpris | – (trykk → `#strom`) | `msh-strompris-card` (nåpris, søyler per time i dag/i morgen, billigste time, dra for å se time; `overrides.price`/`watt`, `day`, `price_high`/`price_mid`, `popup_hash`) | Hjem v2 strøm-data + ki-strompris-card |
-| Romkort | – | `msh-romkort-card` (også brukt inni fanene) | Romkort |
-| Rom | `#<area_id>` | `msh-rom-card` (klima-toppkortet innebygd først; «Tilpass rom»: Mellomrom, Rom, Klima …) | Rom v4 |
-| Basseng | `#basseng` | `msh-basseng-card` | Basseng v3 |
-| Vanning | `#vanning` | `msh-vanning-card` | Vanning v4 |
-| Klima | `#klima` | `msh-klima-card` | Klima v2 |
-| Lys | `#lys` | `msh-lys-card` | Lys v4 |
-| Media | `#media` | `msh-media-card` (`default_tab: tv`) | Media v4 |
-| Kamera | `#kamera` | `msh-kamera-card` | Kamera v2 |
-| Sikkerhet | `#sikkerhet` | `msh-sikkerhet-card` | Sikkerhet v3 |
-| Ruter | `#ruter` | `msh-ruter-card` | Ruter v2 |
-| Vær | `#vaer` | `msh-vaer-card` | Vær v3 |
-| Gjøremål | `#gjoremal` | `msh-gjoremal-card` | Gjøremål |
-| Person | `#person-<id>` | `msh-person-card` | Person |
-| Søppel | `#soppel` (ekstern) | `msh-soppel-card` åpner popupen, vises alltid | Hjem v2 |
-
-Toppkortene (`msh-*-hero-card`, `msh-rom-klima-card`) finnes fortsatt som elementer, men legges ikke i YAML – hovedkortet bygger dem inn. Alle kort kan stå uten config. Rom-kortene henter rommet fra popupens hash (`#stue` → område `stue`), Person-kortene
-personen fra `#person-<slug>`. Alle config-nøkler finnes i GUI-editoren; se [`docs/kort.md`](docs/kort.md) for full liste.
-
-### Autokonfig (kort fortalt, se [`docs/entiteter.md`](docs/entiteter.md))
-
-| Popup | Kilde |
-|---|---|
-| Rom | KI Rom `sensor.<rom>_oversikt` (lys, media, brytere, vifter, klima, gardiner, sensorer, scener, skript, temperatur, fukt) → ellers entiteter i området |
-| Hjem | `person.*`, første `weather.*`, `sensor.hele_huset_effekt`/`_lys`, `alarm_control_panel.*`, `lock.*`, `calendar.*`, `todo.*`; strømpris = `MSH.priceSensor` (plattform nordpool → tibber → energi_data_service, kun sensorer med enhet …/kWh eller timesprislister; aldri kostnad/energi) – samme sensor i prosa og strømpriskortet |
-| Basseng | område «Basseng»/`pool`: temperatur, pumpe, varmepumpe, pH/klor, tak, lys, spreder, klorkalender |
-| Vanning | område «Hage», OpenSprinkler, `valve.*`, vann-brytere, jordfuktighet, vanningskalender |
-| Klima | alle `climate.*` + `fan.*` per område, effekt/timegrense/pris, varmtvann |
-| Lys | alle `light.*` per etasje/område, utelys, `sun.*` |
-| Media / Kamera | alle `media_player.*` / `camera.*` (+ remote, knapper, lys, sirene og hendelser på samme enhet) |
-| Sikkerhet | `alarm_control_panel.*`, `lock.*`, `binary_sensor` dør/vindu/port/bevegelse |
-| Ruter | plattform `entur_public_transport`/`entur` + `entur_sx` |
-| Vær | første `weather.*` (+ `weather/subscribe_forecast` mens popupen er åpen), `sun.*`, pollen, farevarsler |
-| Gjøremål | alle `todo.*` (`todo/item/subscribe` mens popupen er åpen) |
-
-Finnes ingenting: kortet vises likevel med «–» og en «Velg entitet»-knapp som åpner overstyringen.
-
-## Felles oppførsel
-
-- **Ikoner** rendres alltid med `<ha-icon>` (alle prefiks: `mdi:`, `hass:`, `phu:`, `hue:`, `fapro:`, `si:` …);
-  designets Material Symbols-navn mappes til `mdi:`.
-- **Farger** er temafarger med fallback (`var(--red, #f28073)`); fargevelgerne tilbyr temafarger, HA-farger og hex.
-- **Haptic** (`haptic`-eventet) én gang per trykk, maks én per 40 ms; ikke på Bubble Cards egne knapper.
-- **Drag** (slidere, graf-scrub, sveip, fane-omorganisering, glass-linse) har `touch-action` + `stopPropagation`,
-  og vannrett scrollbare lister stopper sveip – Bubble Card lukker ikke popupen mens man drar.
-- **Overlegg** (tastatur, ark, menyer, fullskjerm) portales til dokumentnivå og plasseres mot dashbordflaten.
-- **Historikk** hentes kun når popupen åpnes (`minimal_response`, `no_attributes`), cache 5 min, siste punkt live.
-- **Lagring fra kortets egen editor:** fersk `lovelace/config` → kortet finnes via `card_id` → kun det kortet endres →
-  `lovelace/config/save`. YAML-modus: meldingen «Rediger i YAML», endringen lagres kun lokalt.
-- **Toasts** («Dørlås låst opp») kan slås av per kort med `toasts: false`.
 
 ## Utvikling
 
 ```bash
-npm run build       # dist/ki-msh.js (alle filer i src/ i navnerekkefølge, hver i egen try-blokk)
-npm test            # smoke-test av alle kort (test/cases, test/mock) i Chromium, mobil + PC
+npm run build       # dist/ki-msh.js (alle filer i src/ i navnerekkefølge)
+npm test            # smoke-test av alle kort i Chromium (test/cases, test/mock), mobil + PC
 npm run checklist   # «Sjekk før levering» per popup mot ekte Bubble Card → docs/sjekkliste.md
+npm run strategy    # strategien: generering, egne popups, import, editorene
+npm run klima       # #klima via strategien mot ekte Bubble Card
+npm run device      # felles config og oppsett per enhet (Kamera/Person)
+npm run picker      # systemets velgere (felt, −/+, tjenestekall)
+npm run hold        # langt trykk i Hjem/headeren (aldri more-info for plassholdere)
+npm run draft       # utkast og «Ferdig» i Tilpass-arkene
+npm run icons       # ikonvelgeren og trykk-handlinger (MSH.tap) mot ekte Bubble Card
+npm run glass       # Liquid Glass-indikatoren (TV / Musikk i Media)
+npm run templates   # button-card-/decluttering-maler (MSH.resolveTemplates)
 ```
 
-- `src/00-base.js` – felles hjelpere (`window.MSH`): ikoner, haptic, farger, fonter, autokonfig, historikk,
-  overlegg/toast, drag-vern, DOM-morph, config-lagring og basekortet `MSH.Card`.
+Enkeltsjekker ligger i `test/*-check.mjs` (`node test/<navn>-check.mjs`). Prosjektregler: [`CLAUDE.md`](CLAUDE.md).
+Avvik fra designet: [`docs/avvik.md`](docs/avvik.md). Endringer: [`CHANGELOG.md`](CHANGELOG.md).
+
+- `src/00-base.js` – felles hjelpere (`window.MSH`) og basekortet `MSH.Card`.
 - `src/01-editor.js` – felles editor `msh-editor` (GUI-editor og kortets egen tilpasning).
+- `src/02-popups.js` / `src/04-strategy.js` – popup-malene og strategien `custom:ki-dashboard`.
 - `src/NN-*.js` – ett eller flere kort per skjerm.
-- Prosjektregler: [`CLAUDE.md`](CLAUDE.md). Siste sjekkliste-resultat: [`docs/sjekkliste.md`](docs/sjekkliste.md).
-- Avvik fra designet og hvorfor: [`docs/avvik.md`](docs/avvik.md).
+
+## Lisens
+
+[Apache-2.0](LICENSE) © 2026 Sebastian Kristo Jemtland.

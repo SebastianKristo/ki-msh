@@ -54,6 +54,10 @@
   C.ctrl = 'var(--gray400, #545454)';
   C.edge = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
   MSH.C = C;
+  // Fiks 26 (brukerens valg): «Ferdig» i ALLE Tilpass-ark = rosa pille øverst til høyre i headeren (tittel 22/600 til
+  // venstre), og brytere er rosa overalt. Én kilde for målene/fargen.
+  MSH.DONE_PILL = `height:40px;padding:0 18px;border-radius:20px;border:0;background:${C.accent};color:#2f2f2f;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer;`;
+  MSH.SWITCH_ON = C.pink;
   // Løs opp 'var(--x, #hex)' til faktisk farge (for canvas/SVG-beregning).
   MSH.resolveColor = function (v) {
     const m = /^var\((--[\w-]+)\s*(?:,\s*([^)]+))?\)$/.exec(String(v || '').trim());
@@ -1015,6 +1019,20 @@
   }
 
   let glassSub = null;
+  // Fiks 26.16: antall åpne ark. >0 → <html data-ki-sheet> + window-event 'ki-sheet' { open } – navbaren (msh-navbar-card)
+  // setter da pointer-events: none på navbar, mini-spiller og «Mer»-meny, og gir dem tilbake uten hopp når siste ark lukkes.
+  let sheetN = 0;
+  MSH.sheetCount = function (d) {
+    const was = sheetN > 0;
+    sheetN = Math.max(0, sheetN + (d || 0));
+    const on = sheetN > 0;
+    if (on !== was) {
+      document.documentElement.toggleAttribute('data-ki-sheet', on);
+      window.dispatchEvent(new CustomEvent('ki-sheet', { detail: { open: on } }));
+    }
+    return sheetN;
+  };
+  MSH.sheetOpen = () => sheetN > 0;
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
   // Ark/overlegg i ki-overlay-root. Flaten kommer fra MSH.sheetStyle/scrimStyle/sheetVars (Fiks 6) og følger Liquid
   // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
@@ -1026,19 +1044,23 @@
     const gl = glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
-    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) dekker arket bare innholdsflaten til høyre for railen
+    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) ligger ARKET på innholdsflaten til høyre for railen (--ki-rail-x).
+    // Fiks 26.16: bakteppet dekker HELE dashbordflaten, også navbaren/railen (ikke HA-sidebaren). Lag i ki-overlay-root:
+    // innhold < navbar (z 24) < Bubble-popups < ark-bakteppe (42) < ark (43) < toast (60). Mens et ark er åpent får
+    // navbaren, mini-spilleren og «Mer»-menyen pointer-events: none (MSH.sheetCount → html[data-ki-sheet] + 'ki-sheet').
     const railX = () => (MSH.railOn && MSH.railPad ? MSH.railPad() : 0);
     const R = MSH.dashRect(), rx = railX();
-    Object.assign(host.style, { position: 'fixed', left: R.left + rx + 'px', top: '0', width: R.width - rx + 'px', height: '100%', pointerEvents: 'auto' });
+    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto', zIndex: '42' });
+    host.style.setProperty('--ki-rail-x', rx + 'px');
     const sr = host.attachShadow({ mode: 'open' });
     // Fiks 20.8 · jevn scrolling: arket er eget lag (translate3d), egen scroll-container (overscroll-behavior: contain,
     // -webkit-overflow-scrolling: touch, touch-action: pan-y, contain: layout paint) – scrollen kjedes aldri til dashbordet.
     const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
       :host{${MSH.sheetVars(false)}--ki-grab-h:25px}
-      .bg{position:absolute;inset:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
-      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
-        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(28px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
+      .bg{position:absolute;inset:0;z-index:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
+      .sh{position:absolute;z-index:1;left:var(--ki-rail-x,0px);right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
+        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(24px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
       /* Fiks 21.7: arkets innhold er en ett-kolonners grid som starter øverst – ingen rad kan krympe (flex-shrink),
@@ -1066,6 +1088,7 @@
       if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
+      MSH.sheetCount(-1);
       onClose && onClose();
       api.onClosed && api.onClosed();
     };
@@ -1088,12 +1111,13 @@
     if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + x + 'px'; host.style.width = D.width - x + 'px'; };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); };
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
     const off = () => { window.removeEventListener('resize', place); ro && ro.disconnect(); };
     requestAnimationFrame(() => host.classList.add('on'));
+    MSH.sheetCount(1);
     const api = { host, root: sr, body: sr.querySelector('.body'), close };
     return api;
   };
@@ -1108,7 +1132,7 @@
     t.id = 'msh-toast';
     t.textContent = text;
     Object.assign(t.style, {
-      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
+      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '60', // 26.16: over ark (43) height: '44px', padding: '0 22px', borderRadius: '22px',
       display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 14px ${MSH.FONT}`,
       boxShadow: '0 12px 30px rgba(0,0,0,0.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none',
     });
@@ -1872,7 +1896,9 @@
         const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
         const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
         const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
-        const mt = hr && hr.height ? top - (fr.top - hr.bottom) : null;
+        // 26.18: popupens felles header-mellomrom (--ki-popup-header-gap, MSH.applyHeaderGap i 02-popups.js) legges til pad_top én gang
+        const hg = parseFloat(getComputedStyle(cont).getPropertyValue('--ki-popup-header-gap')) || 0;
+        const mt = hr && hr.height ? top + hg - (fr.top - hr.bottom) : null;
         if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
       }
     }
@@ -2138,7 +2164,7 @@
     return ctl;
   };
 
-  // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark med sticky bunnlinje (Avbryt/Ferdig).
+  // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark; Avbryt/Ferdig ligger i den sticky headeren (Fiks 26).
   // Utkastflyten over (MSH.draftEditor): endringer vises live i alle instanser av kortet, men lagres først ved Ferdig.
   // Er arket for samme kort/nøkkel allerede åpent, gis det åpne tilbake (aldri to ark oppå hverandre).
   MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
@@ -2147,7 +2173,7 @@
     const open = MSH.draftFor(key || card);
     if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
-    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, footer: true });
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true }); // Fiks 26: Ferdig/Avbryt i headeren – ingen bunnlinje
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;

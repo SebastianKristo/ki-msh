@@ -397,7 +397,8 @@
         { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: ANIM_LV, default: 'full', help: 'Rist/spinn/puls på ikonet når enheten er aktiv. Rolig = halv fart. Av = stillestående ikon' },
         { type: 'number', name: 'run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto', help: 'Uten status-sensor: effekt over dette = kjører' },
       ] });
-      out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: true });
+      // 26.21: av som standard – Tilpass åpnes via tannhjulet i klima-toppkortet (vises alltid). Bare true viser knappen.
+      out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: false });
       return tabsOf(out, h, c, area);
     };
   }
@@ -463,6 +464,8 @@
   class Rom extends M.Card {
     static get cardName() { return 'Rom'; }
     static get defaults() { return {}; }
+    // 26.21: stub-config har «Tilpass rommet»-knappen nederst av (tannhjulet i toppkortet åpner Tilpass)
+    static getStubConfig() { return { ...super.getStubConfig(), customize_button: false }; }
     // Mellomrom-standard (MSH._applySpacing): bare rom uten lagret verdi får disse.
     static get spacingDefaults() { return SPACING; }
     static get schema() { return buildSchema(null); }
@@ -548,7 +551,8 @@
       const secs = order.filter((k) => !hid.has(k)).map((k) => R[k]()).filter(Boolean).join('');
       const any = LISTS.some(([k]) => L.lists[k].length);
       const body = secs || (any ? '' : M.emptyState(`Fant ingen entiteter i ${this._areaName}`, 'entities'));
-      const tune = c.customize_button !== false ? `<button class="tune press" data-act="customize">${M.icon('tune', 18)}Tilpass rommet</button>` : '';
+      // 26.21: knappen nederst bare med `customize_button: true` (eller ki-room-card-navnet `show_edit_button: true`)
+      const tune = c.customize_button === true || c.show_edit_button === true ? `<button class="tune press" data-act="customize">${M.icon('tune', 18)}Tilpass rommet</button>` : '';
       return `<div class="rom">${body}${tune}</div>`;
     }
 

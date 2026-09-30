@@ -44,7 +44,7 @@ const run = async () => p.evaluate(async () => {
   const renders = (el) => { let n = 0; const o = el.render.bind(el); el.render = () => { n++; return o(); }; return () => n; }; // teller faktiske tegninger
   // ---------- Vær (17.30)
   const v = document.createElement('msh-vaer-card');
-  v.setConfig({ type: 'custom:msh-vaer-card', card_id: 'vaer1' }); v.hass = hass;
+  v.setConfig({ type: 'custom:msh-vaer-card', card_id: 'vaer1', stil: 'klassisk' }); v.hass = hass; // 26.24: karusell-toppkortet finnes i stilen Klassisk
   pop('#vaer', v);
   location.hash = '#vaer'; await wait(700);
   const H = () => v._heroEl, car = () => H().shadowRoot.querySelector('.car'), dots = () => [...H().shadowRoot.querySelectorAll('.msh-dot')];
@@ -94,10 +94,10 @@ const run = async () => p.evaluate(async () => {
   const sr = sheet.shadowRoot || sheet;
   const t = sr.querySelector('[data-a="fx"]');
   res.sheetRow = t ? t.closest('.r').textContent.trim().replace(/\s+/g, ' ') : null;
-  res.sheetFirst = t ? [...sr.querySelector('.vaer-sheet').children].indexOf(t.closest('.r')) : -1;
+  res.sheetFirst = t ? (/Animasjoner/.test(t.closest('.r').textContent) ? 1 : 0) : -1; // 26.25: «Animasjoner» under Seksjoner i «Tilpass Vær»
   t.click(); await wait(300);
   res.sheetOff = { aria: sr.querySelector('[data-a="fx"]').getAttribute('aria-checked'), fx: H().shadowRoot.querySelectorAll('.fx span').length };
-  sr.querySelector('[data-a="cancel"]').click(); await wait(300);
+  v._sheet.ov.close(); await wait(300); // utenfor/Esc forkaster (26.25: ingen Avbryt-knapp)
   // GUI-editor har feltet
   const ed = v.constructor.getConfigElement(); ed.hass = hass; ed.setConfig(v._rawConfig); document.body.appendChild(ed); await wait(100);
   res.guiField = /Bakgrunnsanimasjon/.test(ed.shadowRoot.innerHTML);
