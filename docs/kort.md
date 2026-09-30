@@ -782,47 +782,13 @@ Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og s
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
 
-## `msh-vanning-hero-card`
-
-Hage-scene med spreder, status, neste vanning og dagens forbruk. Første kort i #vanning.
-
-| Nøkkel | Betydning | Gruppe |
-|---|---|---|
-| `area` | Område · area |  |
-| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
-| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
-| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
-| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
-| `water_price` | Vannpris (kr per m³) · number | Vanning |
-| `rain_hours` | Regnpause (timer) · number | Vanning |
-| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
-| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
-| `group_by` | Grupper soner (area \| none) | Vanning |
-
 ## `msh-vanning-card`
 
-Vanning-popup: kontroller, soner, programmer, forbruk og historikk (OpenSprinkler, valve/switch, kalender, vannmåler). Legg under msh-vanning-hero-card i #vanning.
+Vanning-popup (#vanning), ett kort: hagescene, Nå · Soner · Program · Forbruk (KI Vann) · Historikk. Setter seg opp selv fra KI Vanning, OpenSprinkler og KI Vann.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `area` | Område · area |  |
-| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
-| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
-| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
-| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
-| `water_price` | Vannpris (kr per m³) · number | Vanning |
-| `rain_hours` | Regnpause (timer) · number | Vanning |
-| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
-| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
-| `group_by` | Grupper soner (area \| none) | Vanning |
-| `tabs · hidden_tabs` | rekkefølge/synlighet: now, zones, prog, use, hist |  |
-| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
-| `gap` | 4 / 8 / 18 px | Visning |
-| `gap` | Mellom seksjonene · range | Mellomrom |
-| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
-| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
 
 ## `msh-klima-hero-card`
 
@@ -1384,6 +1350,7 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `overrides.{alarm}` | bytt entitet |  |
+| `state_entity` | Status-entitet · entity | Status og tekst |
 | `code_for` | Krev kode (alle \| av \| aldri) | Kode |
 | `code_length` | Kodelengde (4 \| 6) | Kode |
 | `exclude · include.{sensorer}` | skjul / legg til |  |
@@ -1429,6 +1396,7 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
 | `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
 | `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `unlock_sensor` | Hvem låste opp · entity | Siste hendelser · hvem låste opp |
 | `sections · hidden_sections` | rekkefølge/synlighet: modes, alerts, rooms, log, edit |  |
 | `show_alerts` | Varsler · «Krever oppmerksomhet» øverst · boolean | Visning |
 | `show_log` | Siste hendelser · logg nederst · boolean | Visning |
@@ -1593,6 +1561,46 @@ Energi-popup (#energi): hus med strømflyt, snarveier, strøm, strømpriser, top
 ## `msh-kalender-card`
 
 Kalender-popup (#kalender): kalendere, hyttebesøk, Sonarr/Radarr/Plex, bursdager, Posten og pakker.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-tesla-card`
+
+Tesla-popup (#tesla): bilscenen, hurtigknapper, Lading, Kjøring og Sparing med «Tilpass Tesla».
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-stovsuger-card`
+
+Støvsuger-popup (#rolf): animert robot, rom, soner, kontroll, vedlikehold og kart.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-server-card`
+
+Server-popup (#server): homelab med UniFi, Proxmox VE og Unraid – nodekart, varsler, målere og enhetsark.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-avfall-card`
+
+Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender og varsler (fiks 25.4).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-innstillinger-card`
+
+Innstillinger-popupen (#innstillinger): natt-/privatmodus, automasjoner, varsler og strøm (fiks 25.5).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
