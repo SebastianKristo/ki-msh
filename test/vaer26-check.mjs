@@ -105,7 +105,7 @@ const Wd = await p.evaluate(async () => {
 });
 ok('26.24 vind-boble «HH · x m/s · kast y» + kastlinje', /^\d\d · [\d,]+ m\/s · kast [\d,]+$/.test(Wd.t || '') && Wd.gust === 2, Wd);
 
-// Dag folder ut (én åpen), setning + timestripe + 3×2
+// Dag folder ut (én åpen), setning + timestripe + 3×2 (etter kl. 21 er det ingen hele 3-timers tider igjen i dag → ingen stripe)
 const D = await p.evaluate(async () => {
   const w = (ms) => new Promise((q) => setTimeout(q, ms));
   const sr = window.__c.shadowRoot;
@@ -117,7 +117,7 @@ const D = await p.evaluate(async () => {
   sr.querySelectorAll('.dr')[1].click(); await w(100);
   return { one, sen, cells, strip, rot, two, open1 };
 });
-ok('26.24 detaljert dag: setning + timestripe hver 3. time + 3×2, én åpen, pil roteres', D.one === 1 && /^I dag: .+ om natta til .+ på ettermiddagen/.test(D.sen || '') && D.cells === 6 && D.strip >= 1 && /180/.test(D.rot || '') && D.two === 1 && D.open1, D);
+ok('26.24 detaljert dag: setning + timestripe hver 3. time + 3×2, én åpen, pil roteres', D.one === 1 && /^I dag: .+ om natta til .+ på ettermiddagen/.test(D.sen || '') && D.cells === 6 && (new Date().getHours() < 21 ? D.strip >= 1 : D.strip === 0) && /180/.test(D.rot || '') && D.two === 1 && D.open1, D);
 
 // Alle 15 HA-tilstander har egen scene
 const SC = await p.evaluate(async () => {
