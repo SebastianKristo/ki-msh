@@ -424,11 +424,11 @@ for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390
   ok(`${tag}: draget åpnet ingen popup, menyen er åpen`, await p.evaluate(() => !location.hash && !!deep('.mbox')));
   ok(`${tag}: menyen viser ny rekkefølge`, JSON.stringify((await items()).slice(0, 3).map((x) => x.id)) === JSON.stringify([i0[1].id, i0[2].id, i0[0].id]));
   // verktøyene under streken står fast
-  const tl = await p.evaluate(() => { const r = deep('.mbox .mi[data-id="__edit"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  const tl = await p.evaluate(() => { const r = deep('.mbox .mi[data-id="__tilpass"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   await T('touchStart', tl.x, tl.y); await p.waitForTimeout(550);
   const tLift = await p.evaluate(() => !!deep('.mbox .mi.lift'));
   await T('touchMove', tl.x, tl.y - 60); await p.waitForTimeout(60); await T('touchEnd'); await p.waitForTimeout(400);
-  ok(`${tag}: verktøy (Tilpass navbar) kan ikke flyttes`, !tLift);
+  ok(`${tag}: verktøy (Tilpass) kan ikke flyttes`, !tLift);
   // trykk (med litt skjelv) åpner funksjonen hver gang
   const hits = [];
   for (const jit of [0, 4, 7]) {

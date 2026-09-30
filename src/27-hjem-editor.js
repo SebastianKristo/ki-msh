@@ -402,7 +402,7 @@
       this._bind();
       this._storeOff = M.store ? M.store.subscribe((d, path) => {
         if (this._saving) return;
-        if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; }
+        if (!path || /^(cards|devices)(\.|$)/.test(path)) { this._F = null; this._P = null; this._H = null; this._S = null; }
         this._schedule();
       }) : null;
       // Utkast: start når ki-store er lastet (ellers ville første innlasting sett ut som «endret et annet sted»)
@@ -415,7 +415,7 @@
       this._banner = M.draftBanner(this.sheet, () => {
         if (this._banner) this._banner.remove(); this._banner = null;
         if (this.tx) this.tx.reload();
-        this._F = null; this._P = null; this._H = null;
+        this._F = null; this._P = null; this._H = null; this._S = null;
         this.render();
       }, this.body);
     }
@@ -475,9 +475,11 @@
     F() { return this._F || this._raw('msh-hjem-faner-card', 'faner'); }
     P() { return this._P || this._raw('msh-prosa-card', 'prosa'); }
     H() { return this._H || this._raw('msh-hjem-card', 'home'); }
+    // 24.4: søppelkortet på Hjem (msh-soppel-card, blokk-nøkkel «soppel», card_id M.CARD_IDS.soppel)
+    S() { return this._S || this._raw('msh-soppel-card', 'soppel'); }
     // patch: { 'sti': verdi } (undefined/'' = fjern)
     _save(tag, key, patch) {
-      const CK = { faner: '_F', prosa: '_P', home: '_H' }[key];
+      const CK = { faner: '_F', prosa: '_P', home: '_H', soppel: '_S' }[key];
       const old = this._raw(tag, key), base = this[CK] || old;
       let nc = { ...base };
       Object.keys(patch).forEach((p) => { nc = setIn(nc, p, patch[p]); });
@@ -506,6 +508,7 @@
     }
     saveP(patch) { this._save('msh-prosa-card', 'prosa', patch); }
     saveH(patch) { this._save('msh-hjem-card', 'home', patch); }
+    saveS(patch) { this._save('msh-soppel-card', 'soppel', patch); }
     // Snarvei-entiteter (samme autokonfig som kortet): hentes fra en frakoblet faner-instans.
     _E(c) {
       const hass = this.hass, key = JSON.stringify([c.overrides || {}, c.trash_sensor || '']);
@@ -687,11 +690,38 @@
       const H = this.H() || {}, hid = Array.isArray(H.hidden) ? H.hidden : [], todo = H.show_todo !== false;
       const on = (k) => (k === 'gjoremal' ? todo : !hid.includes(k));
       const n = BLOCKS.filter(([k]) => on(k)).length;
-      const rows = BLOCKS.map(([k, l, icn]) => `<div class="tr ${on(k) ? '' : 'hid'}" data-key="blk-${k}"><span class="tm">${ic(icn, 22, `color:${on(k) ? '#fafafa' : '#696969'}`)}<span class="tt"><b>${esc(l)}</b><i>${on(k) ? 'Vises' : 'Skjult'}${k === 'gjoremal' ? ' · show_todo' : ''}</i></span></span>
-          <button class="sq" data-a="blkeye" data-v="${k}" data-h="selection" title="${on(k) ? 'Skjul' : 'Vis'}">${ic(on(k) ? 'visibility' : 'visibility_off', 18, `color:${on(k) ? '#fafafa' : '#696969'}`)}</button></div>`).join('');
+      const PAN = { soppel: () => this._trashPanel() }; // 24.4: oppsett-register for kortene på Hjem (nøkkel = blokk-nøkkelen)
+      const rows = BLOCKS.map(([k, l, icn]) => { const ed = PAN[k] && this.u.blk === k;
+        return `<div class="tr ${on(k) ? '' : 'hid'}" data-key="blk-${k}"><span class="tm" ${PAN[k] ? `data-a="blked" data-v="${k}" style="cursor:pointer"` : ''}>${ic(icn, 22, `color:${on(k) ? '#fafafa' : '#696969'}`)}<span class="tt"><b>${esc(l)}</b><i>${on(k) ? 'Vises' : 'Skjult'}${k === 'gjoremal' ? ' · show_todo' : ''}</i></span></span>
+          ${PAN[k] ? `<button class="sq" data-a="blked" data-v="${k}" title="Oppsett" aria-expanded="${!!ed}">${ic(ed ? 'expand_less' : 'expand_more', 20, 'color:#979797')}</button>` : ''}
+          <button class="sq" data-a="blkeye" data-v="${k}" data-h="selection" title="${on(k) ? 'Skjul' : 'Vis'}">${ic(on(k) ? 'visibility' : 'visibility_off', 18, `color:${on(k) ? '#fafafa' : '#696969'}`)}</button></div>${ed ? PAN[k]() : ''}`; }).join('');
       return `<div class="box t6" data-key="blocks"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Kort på Hjem</span><span style="font-size:12px;color:#979797">${n} av ${BLOCKS.length} vises</span></span>
           <button class="tgl" data-a="showtodo" data-h="selection" style="background:var(--gray100,#2f2f2f)">Vis gjøremål${this._sw(todo)}</button>
           ${rows}</div>`;
+    }
+    /* ---------- 24.4 · «Søppelkort på Hjem» (Hjem v3 · ce.popTrash / TRASH_ACTS / trashCfg). Lagres i søppelkortets
+     * config (card_id M.CARD_IDS.soppel): tap_action, hold_action (20.2-formatet, M.hjemTrashAct), sensor, type_sensor –
+     * samme felt som kortets GUI-editor (msh-soppel-card-schemaet). Autoforslag: entiteter med søppel/avfall/renovasjon/waste. */
+    _trashPanel() {
+      const c = this.S() || {}, hass = this.hass, st = (hass && hass.states) || {};
+      const cur = (kind) => { const a = c[kind]; if (a && typeof a === 'object' && a.action) return M.tap ? M.tap.norm(a) : a; return kind === 'tap_action' && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null; };
+      const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
+      const tp = (kind, lab, icn, std) => `<div class="tap" data-key="tr-tp-${kind}"><span class="th">${ic(icn, 20, 'color:#afafaf')}${esc(lab)}</span>
+          ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { path: 'Naviger', service: 'Tjeneste' }, stdHint: std, attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
+      const RE = /s(ø|o)ppel|avfall|renovasjon|waste|garbage|trash/i;
+      const sugg = (doms, cur2) => Object.keys(st).filter((id) => doms.includes(id.split('.')[0]) && id !== cur2 && RE.test(id + ' ' + ((st[id].attributes || {}).friendly_name || ''))).sort().slice(0, 6);
+      const chips = (f, doms) => { const L = sugg(doms, c[f]); return L.length ? `<div class="chs" data-key="tr-sg-${f}">${L.map((id) => `<button class="o34 press" data-a="trsug" data-f="${f}" data-v="${esc(id)}" title="${esc(id)}">${ic('mdi:auto-fix', 16)}${esc(M.name(hass, id))}</button>`).join('')}</div>` : ''; };
+      const auto = hass && st['sensor.neste_tomming'] ? 'sensor.neste_tomming' : M.hjemTrashAuto ? M.hjemTrashAuto(hass) : '';
+      const as = auto && st[auto];
+      const pk = (f, doms, lab, a) => `<div class="fld"><span class="fl">${esc(lab)}</span>${M.entityPicker ? M.entityPicker.html({ key: 'tr-pk-' + f, value: c[f] || '', auto: a || '', autoMode: f === 'sensor', autoLabel: f === 'sensor' ? `Automatisk (${as ? as.attributes.friendly_name || auto : auto || 'fant ingen'})` : '', domains: doms, placeholder: f === 'sensor' ? 'Velg entitet' : 'Ingen (valgfri)', attrs: `data-in="trent" data-f="${f}"` }) : ''}${chips(f, doms)}</div>`;
+      const noS = !c.sensor && !auto;
+      return `<div class="ted" data-key="tr-ed">
+          <span style="display:flex;flex-direction:column;gap:2px;padding:2px 4px"><span class="lb">Søppelkort på Hjem</span><span class="sub">Velg hva trykk og hold gjør, og hvilke sensorer kortet viser.${noS ? ' Uten sensor viser kortet «–» og «Velg entitet».' : ''}</span></span>
+          ${tp('tap_action', 'Trykk', 'touch_app', 'Standard: åpner popupen #soppel')}
+          ${tp('hold_action', 'Hold', 'mdi:gesture-tap-hold', 'Standard: more-info for sensoren')}
+          ${pk('sensor', ['sensor'], 'Sensor · dager til tømming', auto)}
+          ${pk('type_sensor', ['sensor', 'input_text', 'input_select'], 'Sensor · type avfall (valgfri)', '')}
+        </div>`;
     }
     _col(m, sd) {
       const u = this.u, top = m.inSlot(sd + '-top'), bot = m.inSlot(sd + '-bottom'), rooms = m.side(sd);
@@ -1376,6 +1406,15 @@
         if (d.in === 'teactent') return this._actSet(d.k, d.f, v || undefined);
         if (d.in === 'teacticon') return this._actSet(d.k, 'icon', v || undefined);
       });
+      // 24.4 · søppelkortet: handlinger (msh-tap-picker) og sensorer (msh-entity-picker)
+      r.addEventListener('value-changed', (e) => {
+        const el = e.composedPath().find((n) => n.dataset && /^(trtap|trent)$/.test(n.dataset.in || ''));
+        if (!el) return;
+        e.stopPropagation();
+        const v = e.detail ? e.detail.value : null, d = el.dataset;
+        if (d.in === 'trtap') return this.saveS(d.w === 'tap_action' ? { tap_action: v || undefined, popup_hash: undefined } : { hold_action: v || undefined });
+        return this.saveS({ [d.f]: v || undefined });
+      });
       r.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') e.target.blur(); });
       // .sh stopper pointerdown (MSH.overlay) → lytt i capture-fasen på selve arket.
       const sh = this.sheet;
@@ -1405,6 +1444,8 @@
       if (a === 'tall') { const go = () => M.openTilpassAlt && M.openTilpassAlt(); if (this.tx && this.tx.active && this.tx.dirty) return this._done().then(() => { if (this.closed) go(); }); this.close(); return go(); } // 23.7: utkast lagres først
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
       if (a === 'showtodo' || a === 'blkeye') return this._actBlock(a, d);
+      if (a === 'blked') { u.blk = u.blk === d.v ? null : d.v; return this.render(); } // 24.4
+      if (a === 'trsug') return this.saveS({ [d.f]: d.v }); // 24.4: autoforslag
       if (a === 'rkpill' && M.romkortPillPanel) return M.romkortPillPanel.act(this, d); // 20.12 (32-romkort.js)
       if (a === 'rkdef') return this.saveF({ [d.k]: d.v === (d.k === 'icon_tap' ? 'toggle_lights' : 'lights') ? undefined : d.v });
       if (u.sec === 'kort') return this._actKort(a, d);

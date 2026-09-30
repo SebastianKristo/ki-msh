@@ -125,6 +125,11 @@
       '#energi': () => has('sensor', (s) => ['energy', 'power', 'water'].includes(s.attributes.device_class)), // fiks 21.1: energi-/effekt-/vannmålere (Energi-oppsettet)
       '#kart': () => ['person', 'device_tracker'].some((d) => M.all(hass, d).some((id) => hass.states[id].attributes.latitude != null)), // fiks 20.22: personer/sporere med posisjon
       '#kalender': () => has('calendar') || rx(/nar_kommer_posten/, ['sensor']) || plat('norwegian_parcel_tracker', 'ki_hyttebesok') || !!(M.kalenderLegacy && M.kalenderLegacy(config)), // fiks 23.8: kalendere/Posten/pakker/hytta, eller den gamle importerte #kalender
+      '#tesla': () => !!(M.teslaHas && M.teslaHas(hass)), // fiks 24.8: Tesla-entiteter (prefiks/plattform, 56-tesla.js)
+      '#rolf': () => has('vacuum'), // fiks 24.9: Sir Sweeps – bare med vacuum.*
+      '#soppel': () => (M.avfallIds ? M.avfallIds(hass, {}).length > 0 : false) || !!(M.avfallLegacy && M.avfallLegacy(config)), // fiks 25.4: sensorer med days_to_pickup, eller den gamle importerte #soppel
+      '#innstillinger': () => has('automation') || !!(M.innstEntities && (M.innstEntities(hass, {}).natt || M.innstEntities(hass, {}).privat)), // fiks 25.5: automasjoner / natt-/privatmodus
+      '#server': () => plat('unifi', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/Proxmox VE/Unraid)
     };
     const hide = (config.popups || {});
     const out = [];
@@ -133,7 +138,8 @@
       if (hide[key] === false) return;
       if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
       if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
-      out.push({ hash, name, icon, tag, ...(hash === '#kalender' && M.kalenderExtra ? { extra: M.kalenderExtra(config) } : {}) }); // 23.8: kildene fra de gamle kortene → src
+      const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA[hash] === 'function' ? M.POPUP_EXTRA[hash](config) : undefined; // 25.4: oppsett fra en importert popup (#soppel)
+      out.push({ hash, name, icon, tag, ...(hash === '#kalender' && M.kalenderExtra ? { extra: M.kalenderExtra(config) } : ex ? { extra: ex } : {}) }); // 23.8: kildene fra de gamle kortene → src
     });
     M.all(hass, 'person').forEach((pid) => {
       const hash = '#person-' + pid.split('.')[1];

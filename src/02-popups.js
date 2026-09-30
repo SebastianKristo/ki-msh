@@ -72,6 +72,11 @@
     ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22/23.3 – fullskjerm-kart (M.POPUP_LOOK/M.POPUP_FORCE['#kart'], Bubble-header over kartet)
     ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
     ['#kalender', 'Kalender', 'mdi:calendar-month', 'msh-kalender-card'], // fiks 23.8 – kalendere, hytta, Sonarr/Radarr/Plex, bursdager, Posten (55-kalender.js); erstatter den importerte #kalender
+    ['#server', 'Server', 'mdi:server', 'msh-server-card'], // fiks 24.10 – homelab: UniFi, Proxmox VE, Unraid (58-server.js); erstatter den importerte #server
+    ['#tesla', 'Tesla Model Y', 'phu:tesla-icon', 'msh-tesla-card'], // fiks 24.8 – bilscene, hurtigknapper, Lading/Kjøring/Sparing (56-tesla.js); bare med Tesla-entiteter (M.popupNeeds)
+    ['#rolf', 'Sir Sweeps', 'mdi:robot-vacuum', 'msh-stovsuger-card'], // fiks 24.9 – støvsuger (57-stovsuger.js), bare når vacuum.* finnes (M.popupNeeds); sub_button via M.POPUP_LOOK/M.POPUP_FORCE['#rolf']
+    ['#soppel', 'Søppel', 'mdi:trash-can', 'msh-avfall-card'], // fiks 25.4 – avfallsfraksjoner (days_to_pickup), kalender og varsler (59-avfall.js); erstatter den importerte #soppel (ki-avfall-card)
+    ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – natt-/privatmodus, automasjoner, varsler og strøm (60-innstillinger.js); egen hash ved siden av #settings (dashbordets innstillinger)
   ];
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
@@ -94,7 +99,8 @@
   };
   // [verdi, etikett]-par for nedtrekkslister (egne popups merkes «Egen · »)
   M.popupOptions = (hass) => M.allPopups(hass).map((p) => [p.hash, (p.group === 'egne' ? 'Egen · ' : '') + p.name]);
-  const HERO_OF = () => M.HEROES || {};
+  // Fiks 25.1: Vanning tegner toppkortet selv (ett kort, ingen hero) – et gammelt msh-vanning-hero-card slås fortsatt sammen
+  const HERO_OF = () => ({ 'msh-vanning-card': 'msh-vanning-hero-card', ...(M.HEROES || {}) });
   const isPopup = (c) => c && typeof c === 'object' && c.type === 'custom:bubble-card' && c.card_type === 'pop-up';
   const tagOf = (c) => String((c && c.type) || '').replace('custom:', '');
 

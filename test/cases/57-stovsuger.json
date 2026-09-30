@@ -1,0 +1,5 @@
+[
+  { "name": "Sir Sweeps", "hash": "#rolf", "cards": [ { "type": "custom:msh-stovsuger-card", "card_id": "pop-rolf" } ] },
+  { "name": "Sir Sweeps · navn på fanene, Kontroll først", "hash": "#rolf", "cards": [ { "type": "custom:msh-stovsuger-card", "card_id": "pop-rolf-2", "tab_labels": "name", "startTab": "kontroll", "tab_order": ["kontroll", "renhold", "info", "kart"], "room_order": ["trappegang", "mamma_soverom"], "rooms": { "trappegang": { "m2": 6, "color": "var(--red)" } } } ] },
+  { "name": "Sir Sweeps · uten entiteter", "hash": "#rolf", "cards": [ { "type": "custom:msh-stovsuger-card", "card_id": "pop-rolf-3", "entities": { "vacuum": "vacuum.finnes_ikke", "map": "none", "tank": "none" } } ] }
+]

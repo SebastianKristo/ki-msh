@@ -379,12 +379,12 @@
    *   MSH.iconTabs.btn({ label, icon }, on, attrs, cls) → én fane-knapp (title/aria-label = navnet, aria-selected)
    *   MSH.iconTabs.fits(tabs)             → true når mønsteret skal brukes (4+ faner, alle med ikon) */
   M.iconTabs = {
-    css: (sel) => `${sel}>.itab{flex:1 1 0;min-width:44px;height:40px;padding:0;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:0;white-space:nowrap;overflow:hidden;transition:flex .25s ease,padding .25s ease,gap .25s ease,background .25s,color .25s}
+    css: (sel) => `${sel}>.itab{flex:1 1 0;min-width:44px;height:40px;padding:0;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:0;white-space:nowrap;overflow:hidden;transition:color .25s}
     ${sel}>.itab[aria-selected="true"]{flex:0 0 auto;padding:0 14px 0 12px;gap:6px}
     ${sel}>.itab ha-icon{--mdc-icon-size:20px;width:20px;height:20px;flex:none}
-    ${sel}>.itab .itl{display:inline-block;max-width:0;opacity:0;overflow:hidden;white-space:nowrap;transition:max-width .25s ease,opacity .2s ease}
+    ${sel}>.itab .itl{display:inline-block;max-width:0;opacity:0;overflow:hidden;white-space:nowrap}
     ${sel}>.itab[aria-selected="true"] .itl{max-width:200px;opacity:1}
-    @media (prefers-reduced-motion: reduce){${sel}>.itab,${sel}>.itab .itl{transition:none}}`,
+    @media (prefers-reduced-motion: reduce){${sel}>.itab{transition:none}}`,
     btn: (t, on, attrs = '', cls = '') => `<button class="itab ${cls}" role="tab" aria-selected="${!!on}" title="${esc(t.label)}" aria-label="${esc(t.label)}" ${attrs}>${M.icon(t.icon, 20)}<span class="itl">${esc(t.label)}</span></button>`,
     fits: (T) => (T || []).length >= 4 && T.every((t) => t && t.icon),
   };

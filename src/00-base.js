@@ -897,8 +897,13 @@
         done = true;
         cancelAnimationFrame(s.raf); s.raf = 0;
         if (s.an) { try { s.an.commitStyles(); } catch (e) { /* */ } s.an.onfinish = null; try { s.an.cancel(); } catch (e) { /* */ } s.an = null; }
-        s.hidden.forEach(unhide); s.hidden.clear();
         l.style.transition = 'opacity .12s';
+        // Fiks 24.2: linsen får nøyaktig målene til den ekte aktive fanen (etter fanebyttet) før den tones ut → ingen hopp
+        let t = null;
+        try { t = s.active && s.active(); } catch (e) { t = null; }
+        if (!(t && t.nodeType === 1 && t.isConnected)) t = s.target && s.target.isConnected ? s.target : null;
+        if (t && c.isConnected) { const r = t.getBoundingClientRect(); if (r.width && r.height) s.place(r.left, r.top, r.width, r.height); }
+        s.hidden.forEach(unhide); s.hidden.clear();
         l.style.opacity = '0';
         s.timers.push(setTimeout(() => MSH.glassKill(c, s), 140));
       };
@@ -920,6 +925,10 @@
   };
   // Trykk: WAAPI-morf fra → til på 300 ms (cubic-bezier(.3,.8,.3,1), lett strekk midtveis), fill: forwards. Både fra- og
   // til-knappen er skjult under morfen, så rosa bare finnes i linsen. Til slutt vises den ekte pillen og linsen fjernes.
+  // Fiks 24.2 (fasit glass-drag.js tapMorph): startfanen (from) måles FØR klikket og linsen legges der; målfanen måles
+  // først i neste rAF, ETTER at fanebyttet er rendret (ikon → ikon + navn gjør den bredere), og linsen animeres dit.
+  // Viser opt.active() fortsatt den gamle fanen, ventes maks 3 frames til. Ny animasjon i mellomtiden (glassKill →
+  // s.dead) avbryter. Animasjonsobjektet lages straks (står på startfanen) og får keyframes når målet er målt.
   MSH.glassMorph = function (host, from, to, opt = {}) {
     if (!host || !from || !to || from === to || !host.isConnected || !to.animate) return null;
     if (MSH.animOff()) { MSH.glassKill(host); return null; }
@@ -927,27 +936,43 @@
     const l = s.l;
     s.hide(from); s.hide(to);
     // klient-rect → lokale koordinater i linsens containing block (skala fra Bubble-transform + scroll)
-    const op = l.offsetParent || host, orr = op.getBoundingClientRect(), k = op.offsetWidth ? orr.width / op.offsetWidth : 1;
-    const loc = (el) => { const r = el.getBoundingClientRect(); return { x: (r.left - orr.left) / k - op.clientLeft + op.scrollLeft, y: (r.top - orr.top) / k - op.clientTop + op.scrollTop, w: r.width / k, h: r.height / k }; };
-    const A = loc(from), B = loc(to);
-    const ax = opt.axis || (Math.abs(B.x + B.w / 2 - A.x - A.w / 2) >= Math.abs(B.y + B.h / 2 - A.y - A.h / 2) ? 'x' : 'y');
-    const cx = (A.x + A.w / 2 + B.x + B.w / 2) / 2, cy = (A.y + A.h / 2 + B.y + B.h / 2) / 2;
+    const loc = (el) => { const op = l.offsetParent || host, orr = op.getBoundingClientRect(), k = op.offsetWidth ? orr.width / op.offsetWidth : 1, r = el.getBoundingClientRect(); return { x: (r.left - orr.left) / k - op.clientLeft + op.scrollLeft, y: (r.top - orr.top) / k - op.clientTop + op.scrollTop, w: r.width / k, h: r.height / k }; };
+    const A = loc(from);
     const f = (x, y, w, h, t) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transform: t });
-    const W = ax === 'x' ? Math.max(A.w, B.w) * 1.15 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.15 : (A.h + B.h) / 2;
-    const frames = [
-      { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)') },
-      { offset: 0.5, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.02, 0.94)' : 'scale(0.94, 1.02)') },
-      { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)') },
-    ];
     Object.assign(l.style, { transition: 'none', ...f(A.x, A.y, A.w, A.h, '') });
-    const an = l.animate(frames, { duration: 300, easing: 'cubic-bezier(.3,.8,.3,1)', fill: 'forwards' });
+    const an = l.animate([f(A.x, A.y, A.w, A.h, 'scale(1)'), f(A.x, A.y, A.w, A.h, 'scale(1)')], { duration: 300, easing: 'cubic-bezier(.3,.8,.3,1)', fill: 'forwards' });
+    an.pause();
     s.an = an;
-    s.fw = MSH.lensFollow(l, to); // rammene er regnet fra start – følg målet hvis raden scroller / layouten flytter seg
-    an.onfinish = () => s.finish();
-    // Fiks 20.18: avbrutt animasjon (oncancel, fanen byttes midt i, siden skjult) eller onfinish som aldri kommer →
-    // linsen blir aldri stående grå over en skjult ekte pille: sikkerhets-timeout 400 ms fjerner den alltid.
-    an.oncancel = () => s.finish();
-    s.timers.push(setTimeout(() => s.finish(), 400));
+    an.oncancel = () => s.finish(); // Fiks 20.18: avbrutt (fanen byttes midt i, siden skjult) → linsen fjernes alltid
+    const act = () => { try { const a = opt.active && opt.active(); return a && a.nodeType === 1 && a.isConnected ? a : null; } catch (e) { return null; } };
+    let tries = 0;
+    const go = () => {
+      if (s.dead || s.fin) return;
+      const a = act();
+      if (a === from && from.isConnected && tries++ < 3) { requestAnimationFrame(go); return; } // fanebyttet er ikke tegnet ennå
+      const T = a && a !== from ? a : (to.isConnected ? to : a);
+      if (!T || !host.isConnected) { s.finish(); return; }
+      s.target = T;
+      s.hide(T);
+      const B = loc(T);
+      const ax = opt.axis || (Math.abs(B.x + B.w / 2 - A.x - A.w / 2) >= Math.abs(B.y + B.h / 2 - A.y - A.h / 2) ? 'x' : 'y');
+      const cx = (A.x + A.w / 2 + B.x + B.w / 2) / 2, cy = (A.y + A.h / 2 + B.y + B.h / 2) / 2;
+      const W = ax === 'x' ? Math.max(A.w, B.w) * 1.15 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.15 : (A.h + B.h) / 2;
+      try {
+        an.effect.setKeyframes([
+          { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)') },
+          { offset: 0.5, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.02, 0.94)' : 'scale(0.94, 1.02)') },
+          { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)') },
+        ]);
+      } catch (e) { s.finish(); return; }
+      s.fw = MSH.lensFollow(l, T); // rammene er regnet fra start – følg målet hvis raden scroller / layouten flytter seg
+      an.onfinish = () => s.finish();
+      an.play();
+      // Fiks 20.18: onfinish som aldri kommer → sikkerhets-timeout fjerner linsen alltid
+      s.timers.push(setTimeout(() => s.finish(), 400));
+    };
+    requestAnimationFrame(go);
+    s.timers.push(setTimeout(() => { if (!s.target) s.finish(); }, 250)); // rAF kommer aldri (skjult side) → rydd
     return an;
   };
   const hasBg = (el) => { const cs = getComputedStyle(el); return (cs.backgroundImage && cs.backgroundImage !== 'none') || !/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor); };
@@ -1943,7 +1968,6 @@
   MSH.HEROES = {
     'msh-rom-card': 'msh-rom-klima-card',
     'msh-basseng-card': 'msh-basseng-hero-card',
-    'msh-vanning-card': 'msh-vanning-hero-card',
     'msh-klima-card': 'msh-klima-hero-card',
     'msh-media-card': 'msh-media-hero-card',
     'msh-sikkerhet-card': 'msh-sikkerhet-hero-card',

@@ -52,6 +52,105 @@
     return X ? { key: s, label: X[0], icon: X[1], color: X[2], armed: s !== 'disarming' } : { key: s, label: s, icon: 'shield', color: GRAY9, armed: true };
   };
 
+  /* Fiks 24.6 · status-entitet + tekst per tilstand. config: state_entity (alarm_control_panel/select/sensor/input_select,
+   * tom = alarm-entiteten) og state_map: { <rå tilstand>: { mode: av|hjemme|borte|natt, text } }.
+   * Felles hjelper MSH.alarmState(hass, cfg) → { mode, text, … } brukes av popupen (modusknapper, ring, overskrift) og
+   * Hjem (alarm-flisen, varsel-chip). Ukjent tilstand → rå verdi, modus Av (aldri gjett «hjemme»). */
+  const ST_DOMAINS = ['alarm_control_panel', 'select', 'sensor', 'input_select'];
+  const ACP_STATES = ['disarmed', 'armed_home', 'armed_away', 'armed_night', 'armed_vacation', 'arming', 'pending', 'triggered'];
+  const ST_DEF = {
+    armed: ['borte', 'Armert borte'], partially_armed: ['hjemme', 'Delvis armert'], disarmed: ['av', 'Av'],
+    armed_home: ['hjemme', 'Armert hjemme'], armed_away: ['borte', 'Armert borte'], armed_night: ['natt', 'Nattmodus'],
+    armed_vacation: ['borte', 'Armert ferie'], armed_custom_bypass: ['hjemme', 'Egendefinert'], triggered: ['borte', 'Alarm utløst!'],
+    arming: ['av', 'Aktiveres'], pending: ['borte', 'Venter'], disarming: ['av', 'Slås av'],
+  };
+  const modeLabel = (k) => (MODES.find((m) => m[0] === k) || [])[1] || k;
+  // Effektiv mapping for én rå tilstand: brukerens valg over standard; tom tekst = modusnavn (eller standardteksten).
+  const stMap = (cfg, raw) => {
+    const u = ((cfg && cfg.state_map) || {})[raw] || {}, D = ST_DEF[raw];
+    const um = MODES.some((m) => m[0] === u.mode) ? u.mode : null;
+    const mode = um || (D ? D[0] : 'av');
+    const text = u.text ? String(u.text) : um && (!D || um !== D[0]) ? modeLabel(um) : D ? D[1] : String(raw);
+    return { mode, text, known: !!(D || um) };
+  };
+  M.sikStateEntity = (hass, cfg) => (cfg && cfg.state_entity) || M.pick(cfg, 'alarm', hass ? M.all(hass, 'alarm_control_panel')[0] || null : null);
+  M.alarmState = function (hass, cfg, alarmId) {
+    cfg = cfg || {};
+    const alarm = alarmId || M.pick(cfg, 'alarm', hass ? M.all(hass, 'alarm_control_panel')[0] || null : null);
+    const entity = cfg.state_entity || alarm, st = entity && hass ? hass.states[entity] || null : null;
+    if (!st || M.unavailable(st)) return { mode: null, text: st ? 'Utilgjengelig' : '–', raw: st ? st.state : null, entity, alarm, st, known: false, armed: false, triggered: false, busy: false, color: GRAY9, icon: 'mdi:shield-off-outline' };
+    const raw = String(st.state), m = stMap(cfg, raw), M0 = MODES.find((x) => x[0] === m.mode);
+    const triggered = raw === 'triggered', busy = /^(arming|pending|disarming)$/.test(raw);
+    return { mode: m.mode, text: m.text, raw, entity, alarm, st, known: m.known, armed: m.mode !== 'av' || triggered, triggered, busy,
+      color: triggered ? C.red : M0[3], icon: triggered ? 'mdi:alarm-light' : busy ? 'mdi:shield-sync' : M0[2] };
+  };
+  // Samme form som M.sikMode (key/label/icon/color/armed) – for ring, kjerne og modusknapper.
+  const sikModeOf = (hass, cfg) => {
+    const A = M.alarmState(hass, cfg);
+    return A.mode ? { key: A.mode, label: A.text, icon: A.icon, color: A.color, armed: A.armed, A } : null;
+  };
+  // Mulige rå tilstander for editoren: options (select/input_select), fast liste (alarm_control_panel), ellers nå + lagrede.
+  const stStates = (hass, cfg) => {
+    const id = M.sikStateEntity(hass, cfg), st = id && hass ? hass.states[id] : null, d = id ? id.split('.')[0] : '';
+    const base = d === 'alarm_control_panel' ? ACP_STATES : st && Array.isArray(st.attributes.options) ? st.attributes.options.map(String) : [];
+    const cur = st && !M.unavailable(st) ? [String(st.state)] : [];
+    return [...new Set([...base, ...cur, ...Object.keys((cfg && cfg.state_map) || {})])].filter((s) => s && !s.includes('.'));
+  };
+  // Sett modus: alarm_control_panel (med kode) på alarm-entiteten; ellers select/input_select.select_option med første
+  // rå tilstand som er mappet til modusen.
+  M.sikSetMode = function (hass, cfg, k, code, alarmId) {
+    const m = MODES.find((x) => x[0] === k), alarm = alarmId || M.pick(cfg, 'alarm', M.all(hass, 'alarm_control_panel')[0] || null);
+    if (!m) return Promise.reject(new Error('Ukjent modus'));
+    if (alarm && hass.states[alarm]) return hass.callService('alarm_control_panel', m[4], { entity_id: alarm, ...(code ? { code } : {}) });
+    const se = cfg && cfg.state_entity, d = se ? se.split('.')[0] : '';
+    if (se && (d === 'select' || d === 'input_select') && hass.states[se]) {
+      const opt = stStates(hass, cfg).find((s) => stMap(cfg, s).mode === k && s !== 'triggered');
+      if (opt == null) return Promise.reject(new Error(`Ingen tilstand er koblet til ${m[1].toLowerCase()}`));
+      return hass.callService(d, 'select_option', { entity_id: se, option: opt });
+    }
+    return Promise.reject(new Error('Ingen alarm valgt'));
+  };
+  // Siste kjente config for sikkerhetskortet (Hjem-flisen bruker samme state_map). Endring → Hjem-kortene tegnes på nytt.
+  let sikCfgKey = '';
+  M.sikSetCfg = function (cfg) {
+    M._sikCfg = cfg || {};
+    const k = JSON.stringify([M._sikCfg.overrides || null, M._sikCfg.state_entity || null, M._sikCfg.state_map || null]);
+    if (k === sikCfgKey) return;
+    const first = !sikCfgKey;
+    sikCfgKey = k;
+    if (first && !cfg.state_entity && !cfg.state_map) return;
+    try { (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && /^msh-hjem/.test(el.localName) && el.update) el.update(); })); } catch (e) { /* */ }
+  };
+  M.sikCfg = function () {
+    if (M._sikCfg) return M._sikCfg;
+    try {
+      const own = M.store && M.store.card && M.store.card('pop-sikkerhet');
+      if (own) return own;
+      const cards = (M.store && M.store.view && (M.store.view() || {}).cards) || {};
+      return Object.values(cards).find((c) => c && (c.state_entity || c.state_map || c.unlock_sensor)) || {};
+    } catch (e) { return {}; }
+  };
+
+  /* Fiks 24.7 · «Hvem låste opp» (ansiktsgjenkjenning): tilstand = navnet → person.* (friendly_name / objekt-ID),
+   * overstyring i unlock_people: { '<tilstand>': 'person.x' }. Avatar = entity_picture, ellers forbokstav i personfarge. */
+  const UNLOCK_RE = /ansikt|face|last_opp|unlocked_by/i;
+  const P_COLS = [C.pink, C.green, C.blue, C.orange, C.purple, C.yellow];
+  M.sikUnlockAuto = (hass) => (hass ? Object.keys(hass.states).filter((id) => /^(sensor|input_text)\./.test(id) && UNLOCK_RE.test(id)).sort()[0] || null : null);
+  M.sikUnlockSensor = (hass, cfg) => (cfg && cfg.unlock_sensor) || M.sikUnlockAuto(hass);
+  M.sikPerson = function (hass, cfg, name) {
+    name = String(name || '').trim();
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    // personfarge etter rekkefølgen i HA (opprettelse, ikke alfabetisk): 1. rosa, 2. grønn, 3. blå …
+    const P = Object.keys(hass.states).filter((x) => x.startsWith('person.')), map = (cfg && cfg.unlock_people) || {};
+    const ov = Object.keys(map).find((k) => norm(k) === norm(name));
+    let id = ov && map[ov] && hass.states[map[ov]] ? map[ov] : null;
+    if (!id) id = P.find((p) => norm(hass.states[p].attributes.friendly_name) === norm(name) || norm(p.split('.')[1]) === norm(name).replace(/\s+/g, '_')) || null;
+    const st = id ? hass.states[id] : null;
+    const nm = st ? st.attributes.friendly_name || name : name;
+    return { id, name: nm, pic: st && st.attributes.entity_picture ? st.attributes.entity_picture : '', initial: (nm || '?').trim().charAt(0).toUpperCase(), color: id ? P_COLS[Math.max(0, P.indexOf(id)) % P_COLS.length] : 'var(--gray500, #696969)' };
+  };
+  const UCACHE = new Map(); // sensor → { t, d: [{ s, t }] } (5 min, fallgruve 8)
+
   function battery(hass, id, st) {
     if (st.attributes.battery_level != null && M.isNum(st.attributes.battery_level)) return Math.round(Number(st.attributes.battery_level));
     const e = M.regEntry(hass, id);
@@ -97,6 +196,37 @@
 
   // Felles skjemadeler (kortets egen tilpasning = HA GUI-editor).
   const alarmOverride = { type: 'overrides', label: 'Alarm', fields: [{ name: 'alarm', label: 'Alarmpanel', domain: 'alarm_control_panel', auto: (h) => M.all(h, 'alarm_control_panel')[0] || null }] };
+  // 24.6 · «Status og tekst»: status-entitet + én rad per tilstand (rå tilstand · «nå» · segment Av/Hjemme/Borte/Natt · tekst)
+  const statusSection = () => ({ type: 'section', label: 'Status og tekst', icon: 'mdi:list-status', id: 'status', meta: (h, c) => { const id = M.sikStateEntity(h, c); return id ? id.split('.')[0] : 'ingen'; }, fields: [
+    { type: 'entity', name: 'state_entity', label: 'Status-entitet', domain: ST_DOMAINS, domains: ST_DOMAINS, auto: (h, c) => M.pick(c, 'alarm', M.all(h, 'alarm_control_panel')[0] || null), help: 'Tom = alarmpanelet. Velg f.eks. select.* hvis alarmen melder status der.' },
+    { type: 'html', html: (h, c) => {
+      const S = stStates(h, c), id = M.sikStateEntity(h, c), st = id && h ? h.states[id] : null, now = st ? String(st.state) : null;
+      if (!S.length) return `<div class="small" style="padding:0 6px">${esc(id ? `Fant ingen tilstander for ${id}` : 'Velg status-entitet')}</div>`;
+      return S.map((raw) => {
+        const m = stMap(c, raw), u = ((c.state_map || {})[raw]) || {};
+        return `<div class="f" data-key="st-${esc(raw)}" style="gap:8px">
+          <div class="line" style="gap:8px"><code style="font:500 13px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:#fafafa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(raw)}</code>${raw === now ? `<span style="flex:none;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#2f2f2f;background:${C.pink}">nå</span>` : ''}</div>
+          <div class="chips sg">${MODES.map((x) => `<button class="chip ${x[0] === m.mode ? 'on' : ''}" aria-selected="${x[0] === m.mode}" data-a="sel" data-name="state_map.${esc(raw)}.mode" data-v="${x[0]}">${esc(x[1])}</button>`).join('')}</div>
+          <input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" aria-label="Tekst for ${esc(raw)}" data-name="state_map.${esc(raw)}.text" value="${esc(u.text || '')}" placeholder="${esc(u.text ? '' : m.text)}">
+        </div>`;
+      }).join('');
+    } },
+  ] });
+  // 24.7 · «Hvem låste opp»: sensor + personkobling per navn (tom = auto på navn/objekt-ID)
+  const unlockFields = (h, c) => {
+    const sid = M.sikUnlockSensor(h, c), P = h ? M.all(h, 'person') : [];
+    const names = new Set(Object.keys(c.unlock_people || {}));
+    const st = sid && h ? h.states[sid] : null;
+    if (st && !['unknown', 'unavailable', ''].includes(st.state)) names.add(st.state);
+    ((UCACHE.get(sid) || {}).d || []).forEach((p) => names.add(p.s));
+    return [
+      { type: 'entity', name: 'unlock_sensor', label: 'Hvem låste opp', domains: ['sensor', 'input_text'], domain: ['sensor', 'input_text'], auto: (hh) => M.sikUnlockAuto(hh), help: 'Tilstand = navnet på personen (f.eks. ansiktsgjenkjenning på døra). Tom = autoforslag.' },
+      ...[...names].filter((n) => n && !String(n).includes('.')).map((n) => {
+        const auto = M.sikPerson(h, { ...c, unlock_people: {} }, n);
+        return { type: 'select', name: `unlock_people.${n}`, label: `«${n}» er`, options: [['', auto.id ? `Auto · ${auto.name}` : 'Auto · ukjent'], ...P.map((p) => [p, h.states[p].attributes.friendly_name || p])], default: '' };
+      }),
+    ];
+  };
   const sensorLists = { type: 'lists', label: 'Sensorer', lists: (h, c) => [{ key: 'sensorer', label: 'Sensorer og låser', ids: M.sikAuto(h, c).auto, domains: ['binary_sensor', 'lock'] }] };
   const sensorEdit = (h, c) => {
     let S = [];
@@ -129,7 +259,8 @@
     render() {
       const c = this.config, a = M.sikAuto(this.hass, c), S = a.sensors;
       S.forEach((x) => this.s(x.id));
-      const al = this.s(a.alarm), mode = M.sikMode(al), armed = !!(mode && mode.armed);
+      const al = this.s(a.alarm), mode = sikModeOf(this.hass, c), armed = !!(mode && mode.armed), stE = mode ? mode.A.st : this.s(M.sikStateEntity(this.hass, c));
+      if (c.state_entity) this.s(c.state_entity);
       const { headline, subline } = summary(S);
       const n = S.length;
       const bars = n ? S : Array.from({ length: 24 }, () => null);
@@ -138,13 +269,13 @@
         const bg = col || (armed ? M.alpha(mode.color, 0.55) : 'var(--gray300, #404040)');
         return `<div class="bar" data-key="${esc(x ? x.id : 'p' + i)}" title="${esc(x ? `${x.room} · ${x.name}` : '')}" style="transform:rotate(${deg.toFixed(2)}deg) translateY(-110px);background:${bg};box-shadow:${col ? `0 0 14px ${M.alpha(col, 0.7)}` : 'none'}"></div>`;
       }).join('');
-      const since = al && !M.unavailable(al) ? `${armed ? 'Aktivert' : 'Avslått'} ${when(new Date(al.last_changed).getTime())}` : al ? 'Utilgjengelig' : a.alarm ? 'Fant ikke alarmen' : 'Ingen alarm valgt';
+      const since = stE && !M.unavailable(stE) ? `${armed ? 'Aktivert' : 'Avslått'} ${when(new Date(stE.last_changed).getTime())}` : stE ? 'Utilgjengelig' : c.state_entity ? `Fant ikke ${c.state_entity}` : a.alarm ? 'Fant ikke alarmen' : 'Ingen alarm valgt';
       const core = armed ? `background:radial-gradient(circle at 50% 35%, ${M.alpha(mode.color, 0.16)}, var(--gray200, #3a3a3a) 70%)` : '';
       return `
         <section class="hero">
           <div class="ring ${c.show_ring === false ? 'noring' : ''}">
             ${ring}
-            <button class="core" data-act="core" ${al ? `data-ent="${esc(a.alarm)}"` : ''} style="${core}">
+            <button class="core" data-act="core" ${stE ? `data-ent="${esc(stE.entity_id)}"` : ''} style="${core}">
               ${M.icon(mode ? mode.icon : 'mdi:shield-off-outline', 30, `color:${mode ? mode.color : 'var(--gray600, #7f7f7f)'}`)}
               <div class="ml">${esc(mode ? mode.label : '–')}</div>
               <div class="ms">${esc(since)}</div>
@@ -159,7 +290,8 @@
     onAction(name, el, ev) {
       if (name === 'core') {
         const a = M.sikAuto(this.hass, this.config);
-        return a.alarm && this.hass.states[a.alarm] ? M.moreInfo(this, a.alarm) : this.customize('overrides');
+        const se = M.sikStateEntity(this.hass, this.config);
+        return se && this.hass.states[se] ? M.moreInfo(this, se) : this.customize('overrides');
       }
       return super.onAction(name, el, ev);
     }
@@ -214,6 +346,7 @@
     static get schema() {
       return (h, c) => [
         alarmOverride,
+        statusSection(),
         { type: 'section', label: 'Kode', icon: 'mdi:dialpad', id: 'code', fields: [
           { type: 'select', name: 'code_for', label: 'Krev kode', options: [['alle', 'Alle endringer'], ['av', 'Bare for å slå av'], ['aldri', 'Aldri']], default: 'alle' },
           { type: 'select', name: 'code_length', label: 'Kodelengde', options: [[4, '4 siffer'], [6, '6 siffer']], default: 4 },
@@ -221,6 +354,7 @@
         ] },
         sensorLists,
         sensorEdit(h, c),
+        { type: 'section', label: 'Siste hendelser · hvem låste opp', icon: 'mdi:face-recognition', id: 'unlock', fields: unlockFields(h, c) },
         { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Rekkefølge på seksjoner', options: [['modes', 'Modus'], ['alerts', 'Krever oppmerksomhet'], ['rooms', 'Rom'], ['log', 'Siste hendelser'], ['edit', 'Tilpass-knapp']] },
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', id: 'view', fields: [
           { type: 'boolean', name: 'show_alerts', label: 'Varsler · «Krever oppmerksomhet» øverst', default: true },
@@ -232,19 +366,38 @@
       ];
     }
     get cardSize() { return 8; }
+    setConfig(cfg) { super.setConfig(cfg); M.sikSetCfg(this.config); }
     onOpen() { this._loadLog(); }
     onClose() { if (this._ov) this._ov.close(); this._cancelHoldAnim(); }
     async _loadLog() {
       const a = M.sikAuto(this.hass, this.config);
-      const ids = [a.alarm, ...a.sensors.map((x) => x.id)].filter(Boolean);
-      if (!ids.length || !this.hass || !this.hass.callWS) return;
-      try {
-        const r = await this.hass.callWS({ type: 'logbook/get_events', start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: ids });
-        this._log = (Array.isArray(r) ? r : []).filter((e) => e && e.entity_id && e.state != null && e.when != null)
-          .map((e) => ({ id: e.entity_id, state: String(e.state), t: typeof e.when === 'number' ? e.when * 1000 : new Date(e.when).getTime(), user: e.context_user_id || null }));
-        this._logT = Date.now();
-      } catch (e) { this._log = []; this._logT = 0; }
+      const ids = [...new Set([a.alarm, M.sikStateEntity(this.hass, this.config), ...a.sensors.map((x) => x.id)])].filter(Boolean);
+      if (!this.hass || !this.hass.callWS) return;
+      const us = M.sikUnlockSensor(this.hass, this.config), uP = us ? this._loadUnlock(us) : null;
+      if (ids.length) {
+        try {
+          const r = await this.hass.callWS({ type: 'logbook/get_events', start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: ids });
+          this._log = (Array.isArray(r) ? r : []).filter((e) => e && e.entity_id && e.state != null && e.when != null)
+            .map((e) => ({ id: e.entity_id, state: String(e.state), t: typeof e.when === 'number' ? e.when * 1000 : new Date(e.when).getTime(), user: e.context_user_id || null }));
+          this._logT = Date.now();
+        } catch (e) { this._log = []; this._logT = 0; }
+      }
+      if (uP) await uP;
       this.update();
+    }
+    // 24.7 · historikk for «hvem låste opp» (siste 24 t, minimal_response/no_attributes, 5 min cache). Hver endring = én hendelse.
+    async _loadUnlock(us) {
+      const c0 = UCACHE.get(us), now = Date.now();
+      if (c0 && now - c0.t < 300000) { this._ulog = c0.d; return; }
+      const start = now - 86400000;
+      try {
+        const r = await this.hass.callWS({ type: 'history/history_during_period', start_time: new Date(start).toISOString(), end_time: new Date(now).toISOString(), entity_ids: [us], minimal_response: true, no_attributes: true, significant_changes_only: false });
+        const pts = ((r && r[us]) || []).map((p) => ({ s: String(p.s != null ? p.s : p.state != null ? p.state : ''), t: p.lu != null ? p.lu * 1000 : p.lc != null ? p.lc * 1000 : new Date(p.last_changed || p.last_updated).getTime() }));
+        // første punkt = tilstanden ved start (ingen endring); tom/unknown/unavailable ignoreres
+        const d = pts.filter((p, i) => i > 0 && p.t > start + 2000 && p.s !== pts[i - 1].s && p.s.trim() && !['unknown', 'unavailable'].includes(p.s));
+        UCACHE.set(us, { t: now, d });
+        this._ulog = d;
+      } catch (e) { this._ulog = []; }
     }
     _toast(t) { if (this.config.toasts !== false) M.toast(t); }
     _needCode(k, al) {
@@ -260,9 +413,16 @@
     }
     // Én logglinje ut fra entitet + tilstand.
     _entry(a, S, id, state, t, user) {
-      if (id === a.alarm) {
-        const m = M.sikMode({ state }) || {};
-        const text = state === 'disarmed' ? 'Alarm slått av' : state === 'triggered' ? 'Alarm utløst' : ['arming', 'pending', 'disarming'].includes(state) ? `Alarm ${m.label.toLowerCase()}` : `Alarm satt til ${m.label || state}`;
+      if (a.us && id === a.us) { // 24.7: «<navn> låste opp <sted>» med personens avatar
+        if (!state || !String(state).trim() || ['unknown', 'unavailable'].includes(state)) return null;
+        const p = M.sikPerson(this.hass, this.config, state);
+        return { text: `${p.name} låste opp ${a.place}`, who: 'Ansiktsgjenkjenning', t, kind: 'person', person: p };
+      }
+      if (id === a.alarm && a.se && a.se !== a.alarm) return null; // status kommer fra state_entity (24.6)
+      if (id === a.se || id === a.alarm) {
+        if (['unavailable', 'unknown'].includes(state)) return null;
+        const m = stMap(this.config, state), busy = ['arming', 'pending', 'disarming'].includes(state);
+        const text = state === 'triggered' ? 'Alarm utløst' : busy ? `Alarm: ${m.text.toLowerCase()}` : m.mode === 'av' ? 'Alarm slått av' : `Alarm satt til ${m.text.toLowerCase()}`;
         const me = user && this.hass.user && user === this.hass.user.id;
         return { text, who: me ? 'Deg' : 'Alarmpanel', t, kind: state === 'triggered' ? 'alert' : 'mode' };
       }
@@ -277,10 +437,21 @@
       return { text: `${place} ${state === 'on' ? 'åpnet' : 'lukket'}`, who: WHO[x.type] || 'Sensor', t, kind: state === 'on' ? 'alert' : 'ok' };
     }
     _events(a, S, al) {
+      const h = this.hass, c = this.config, se = M.sikStateEntity(h, c), us = M.sikUnlockSensor(h, c);
+      const place = (() => { // sted for «låste opp»: sensorens rom → første lås sitt rom → «døra»
+        const ar = us && M.areaOf(h, us), lk = S.find((x) => x.type === 'lock' && x.room !== 'Annet');
+        return (ar ? M.areaName(h, ar) : lk ? lk.room : 'døra').toLowerCase();
+      })();
+      a = { ...a, se, us, place };
       const raw = (this._log || []).slice();
+      if (us) {
+        (this._ulog || []).forEach((p) => raw.push({ id: us, state: p.s, t: p.t }));
+        const ust = this.s(us), ut = ust && ust.last_changed ? new Date(ust.last_changed).getTime() : 0;
+        if (ut > Date.now() - 86400000) raw.push({ id: us, state: ust.state, t: ut }); // ny opplåsing siden historikken ble hentet
+      }
       // Live endringer etter at loggen ble hentet (logbook feilet → siste døgn fra state).
       const since = this._logT ? this._logT - 1000 : Date.now() - 86400000;
-      if (this._log) [al, ...S.map((x) => x.st)].forEach((st) => { const t = st && st.last_changed ? new Date(st.last_changed).getTime() : 0; if (t > since) raw.push({ id: st.entity_id, state: st.state, t }); });
+      if (this._log) [al, se && se !== a.alarm ? this.s(se) : null, ...S.map((x) => x.st)].forEach((st) => { const t = st && st.last_changed ? new Date(st.last_changed).getTime() : 0; if (t > since) raw.push({ id: st.entity_id, state: st.state, t }); });
       const seen = new Set(), out = [];
       raw.sort((x, y) => y.t - x.t).forEach((e) => {
         const k = `${e.id}|${e.state}|${Math.round(e.t / 2000)}`;
@@ -294,19 +465,21 @@
     render() {
       const c = this.config, a = M.sikAuto(this.hass, c), S = a.sensors;
       S.forEach((x) => this.s(x.id));
-      const al = this.s(a.alarm), mode = M.sikMode(al);
+      const al = this.s(a.alarm), mode = sikModeOf(this.hass, c);
+      if (c.state_entity) this.s(c.state_entity);
+      const selOnly = !al && !!mode && /^(select|input_select)\./.test(c.state_entity || ''); // 24.6: select uten alarmpanel
       const dis = this.ui.dismiss || {};
       const { alerts } = summary(S);
       const shownAlerts = alerts.filter((x) => dis[x.id] !== x.st.last_changed);
       const hold = this._hold;
-      const hint = hold ? `Hold for å sette ${MODES.find((m) => m[0] === hold.k)[1].toLowerCase()}…` : !al ? 'Ingen alarm valgt' : c.code_for === 'aldri' ? 'Hold inne for å bytte modus' : c.code_for === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus · krever kode';
+      const hint = hold ? `Hold for å sette ${MODES.find((m) => m[0] === hold.k)[1].toLowerCase()}…` : selOnly ? `${mode.label} · hold inne for å bytte modus` : !al ? 'Ingen alarm valgt' : c.code_for === 'aldri' ? 'Hold inne for å bytte modus' : c.code_for === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus · krever kode';
       const codeNeeded = !!al && c.code_for !== 'aldri' && !(al && al.attributes.code_format == null);
 
       const sec = {};
       sec.modes = `
         <section class="sec modes-s">
           <div class="modes">${MODES.map((m) => {
-            const act = mode && mode.key === m[0], holding = hold && hold.k === m[0], ok = this._supported(m, al);
+            const act = mode && mode.key === m[0], holding = hold && hold.k === m[0], ok = selOnly || this._supported(m, al);
             return `<button class="mode ${act ? 'act' : ''} ${ok ? '' : 'dis'}" data-mode="${m[0]}" data-key="m-${m[0]}" style="background:${act ? M.alpha(m[3], 0.18) : 'transparent'};box-shadow:${act ? `inset 0 0 0 1px ${M.alpha(m[3], 0.45)}` : 'none'};color:${act ? 'var(--white, #fafafa)' : 'var(--gray700, #979797)'}">
               <div class="fill" style="width:${holding ? (hold.p * 100).toFixed(1) : 0}%;background:${M.alpha(m[3], 0.28)}"></div>
               ${M.icon(m[2], 21, `position:relative;color:${act || holding ? m[3] : 'var(--gray700, #979797)'}`)}
@@ -314,7 +487,7 @@
             </button>`;
           }).join('')}</div>
           <div class="hint">${codeNeeded ? M.icon('dialpad', 13) : ''}<span class="ht">${esc(hint)}</span></div>
-          ${al ? '' : M.emptyState(a.alarm ? `Fant ikke ${a.alarm}` : 'Fant ingen alarm_control_panel', 'overrides')}
+          ${al || selOnly ? '' : M.emptyState(a.alarm ? `Fant ikke ${a.alarm}` : 'Fant ingen alarm_control_panel', 'overrides')}
         </section>`;
       sec.alerts = c.show_alerts !== false && shownAlerts.length ? `
         <section class="sec">
@@ -358,9 +531,11 @@
         sec.log = `
           <section class="sec">
             <div class="cap" style="padding:0 4px">Siste hendelser</div>
-            <div class="log">${ev.length ? ev.map((e, i) => {
-              const col = e.kind === 'alert' ? C.orange : e.kind === 'motion' ? C.blue : e.kind === 'mode' ? 'var(--white, #fafafa)' : C.green;
-              return `<div class="ev" data-key="ev-${i}"><div class="evl"><span class="evd" style="background:${col}"></span><span class="evline" style="background:${i < ev.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
+            <div class="log ${ev.some((e) => e.person) ? 'wide' : ''}">${ev.length ? ev.map((e, i) => {
+              const col = e.kind === 'alert' ? C.orange : e.kind === 'motion' ? C.blue : e.kind === 'mode' ? 'var(--white, #fafafa)' : C.green, p = e.person;
+              const pic = p && p.pic ? (M.hjemPicUrl ? M.hjemPicUrl(this.hass, p.pic) : p.pic) : '';
+              const dot = p ? `<span class="eva" title="${esc(p.id || p.name)}" style="background:${pic ? 'var(--gray300, #404040)' : p.color}">${pic ? `<img src="${esc(pic)}" alt="">` : esc(p.initial)}</span>` : `<span class="evd" style="background:${col}"></span>`;
+              return `<div class="ev" data-key="ev-${i}"><div class="evl">${dot}<span class="evline" style="background:${i < ev.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
                 <div class="evb"><div class="col" style="gap:2px"><div style="font-size:14px">${esc(e.text)}</div><div class="evw">${esc(e.who)}</div></div><div class="evw num">${esc(when(e.t))}</div></div></div>`;
             }).join('') : `<div class="evw" style="padding:0 0 4px">${this._log ? 'Ingen hendelser siste døgn' : 'Henter …'}</div>`}</div>
           </section>`;
@@ -402,10 +577,11 @@
     }
     /* ---------- hold inne for å bytte modus (900 ms) */
     _startHold(k) {
-      const a = M.sikAuto(this.hass, this.config), al = this.hass.states[a.alarm], mode = M.sikMode(al), m = MODES.find((x) => x[0] === k);
-      if (!al) { M.haptic('warning'); return this.customize('overrides'); }
+      const a = M.sikAuto(this.hass, this.config), al = this.hass.states[a.alarm], mode = sikModeOf(this.hass, this.config), m = MODES.find((x) => x[0] === k);
+      const se = this.config.state_entity, selOnly = !al && !!se && /^(select|input_select)\./.test(se) && !!this.hass.states[se];
+      if (!al && !selOnly) { M.haptic('warning'); return this.customize('overrides'); }
       if (!m || (mode && mode.key === k)) return;
-      if (!this._supported(m, al)) { M.haptic('failure'); return this._toast(`${m[1]} støttes ikke av alarmen`); }
+      if (al && !this._supported(m, al)) { M.haptic('failure'); return this._toast(`${m[1]} støttes ikke av alarmen`); }
       this._cancelHoldAnim();
       M.haptic('selection');
       const t0 = performance.now();
@@ -434,12 +610,10 @@
       this.update();
     }
     async _apply(k, code) {
-      const a = M.sikAuto(this.hass, this.config), m = MODES.find((x) => x[0] === k);
-      if (!a.alarm || !m) return false;
-      const data = { entity_id: a.alarm };
-      if (code) data.code = code;
+      const m = MODES.find((x) => x[0] === k);
+      if (!m) return false;
       try {
-        await this.hass.callService('alarm_control_panel', m[4], data);
+        await M.sikSetMode(this.hass, this.config, k, code); // alarm_control_panel.* (med kode) – eller select_option (24.6)
         M.haptic('success');
         this._toast(k === 'av' ? 'Alarm slått av' : `Alarm satt til ${m[1].toLowerCase()}`);
         return true;
@@ -538,6 +712,9 @@
         .ev{display:flex;gap:14px;align-items:stretch}
         .evl{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}
         .evd{width:9px;height:9px;border-radius:5px;margin-top:5px;flex:none}
+        .log.wide .evl{width:28px}
+        .eva{width:28px;height:28px;border-radius:14px;flex:none;overflow:hidden;display:grid;place-items:center;box-shadow:0 0 0 2px #282828;font-size:13px;font-weight:600;color:#2f2f2f}
+        .eva img{width:100%;height:100%;object-fit:cover;display:block}
         .evline{flex:1;width:1px;margin-top:4px}
         .evb{flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px}
         .evw{font-size:12px;color:var(--gray600,#7f7f7f)}

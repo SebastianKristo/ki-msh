@@ -291,16 +291,18 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const stI = dI.views[0].cards[0], pI = stI.cards.filter((c) => c.card_type === 'pop-up'), byI = (h) => pI.filter((c) => c.hash === h);
     const want = ['#rolf', '#server', '#settings', '#kalender', '#tesla', '#3d', '#vanning', '#norgespris', '#stromregning', '#planter'];
     // Fiks 23.8: den importerte #kalender (ki-tabs-card …) erstattes av den genererte Kalender-popupen («Erstattet av Kalender»)
-    const wantC = want.filter((h) => h !== '#kalender');
+    // 25: #rolf (ki-robot-card) → Sir Sweeps (24.9), #tesla (ki-tesla-card) → Tesla, #server (ki-homelab-/unifi-card …) → Server
+    const SUPD = { '#kalender': ['msh-kalender-card', 'Kalender'], '#rolf': ['msh-stovsuger-card', 'Sir Sweeps'], '#tesla': ['msh-tesla-card', 'Tesla'], '#server': ['msh-server-card', 'Server'] };
+    const wantC = want.filter((h) => !SUPD[h]);
     I.tiIStacken = want.every((h) => byI(h).length === 1) && wantC.every((h) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.resolveTemplates(M.yaml.parse(docs[want.indexOf(h)].text))))
-      && byI('#kalender')[0].cards[0].type === 'custom:msh-kalender-card' && (M.popupReport.inactive || []).some((x) => x.hash === '#kalender' && x.by === 'Kalender');
+      && Object.entries(SUPD).every(([h, [tag, by]]) => byI(h)[0].cards[0].type === 'custom:' + tag && (M.popupReport.inactive || []).some((x) => x.hash === h && x.by === by));
     // Fiks 16.12 · malene er løst i strategien: ingen template: på button-card/decluttering-card i popupene
     const tplLeft = (v, out) => { out = out || []; if (!v || typeof v !== 'object') return out; if (Array.isArray(v)) { v.forEach((x) => tplLeft(x, out)); return out; } if (/^custom:(button-card|decluttering-card)$/.test(v.type || '') && 'template' in v) out.push(v.template); Object.values(v).forEach((x) => tplLeft(x, out)); return out; };
     const hadTpl = (h) => tplLeft(M.yaml.parse(docs[want.indexOf(h)].text)).length > 0;
     // (#stromregning bruker ingen maler i fixturen – sjekkes likevel for rester)
     I.malerLost = ['#server', '#rolf', '#tesla', '#vanning', '#stromregning'].every((h) => byI(h).length === 1 && tplLeft(byI(h)[0]).length === 0) && ['#server', '#rolf', '#tesla', '#vanning'].every(hadTpl)
-      && JSON.stringify(byI('#server')[0]).includes('[[[') && (M.customPopupConfig(CP[1]).cfg.cards || []).length > 0 && tplLeft(M.customPopupConfig(CP[1]).cfg).length > 0;
-    I.stackRekkefolge = pI.map((c) => c.hash).slice(-9).join() === wantC.join();
+      && JSON.stringify(byI('#vanning')[0]).includes('[[[') && (M.customPopupConfig(CP[1]).cfg.cards || []).length > 0 && tplLeft(M.customPopupConfig(CP[1]).cfg).length > 0;
+    I.stackRekkefolge = pI.map((c) => c.hash).slice(-wantC.length).join() === wantC.join();
     I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && !byI('#settings')[0].cards.some((c) => c.type === 'custom:msh-settings-card') && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')
       && ['#vanning', '#settings'].every((h) => (M.popupReport.replaced || []).some((x) => x.hash === h)) && !(M.popupReport.collisions || []).some((c) => c.kind !== 'replace');
     I.globaleRot = Object.keys(dI.button_card_templates || {}).length === 40 && Object.keys(dI.decluttering_templates || {}).length === 6 && Object.keys(dI.paper_buttons_row || {}).length === 1 && !!dI.paper_buttons_row.presets.weather && Array.isArray(dI.views) && dI.views.length === 1
@@ -310,10 +312,12 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     // editoren: Egne popups-liste, erstattet-rader, manglende kort, maler-raden
     await openPop();
     const rowOf = (h) => qa('.ppr').find((r) => r.querySelector('.pn i') && r.querySelector('.pn i').textContent.startsWith(h + ' ') && r.querySelector('[data-a="ppopen"]'));
-    I.listeKort = /\d+ kort/.test(rowOf('#rolf').textContent) && /Egen/.test(rowOf('#rolf').textContent);
+    I.listeKort = /\d+ kort/.test(rowOf('#norgespris').textContent) && /Egen/.test(rowOf('#norgespris').textContent);
     I.manglerKort = /Mangler kort: .*ki-k2-card/.test(rowOf('#3d').textContent);
     I.erstattetRader = ['#vanning', '#settings'].every((h) => !!q(`[data-key="pprep-${h}"]`) && /Erstattet av egen popup/.test(q(`[data-key="pprep-${h}"]`).textContent));
     I.erstattetKalender = /#kalender · Erstattet av Kalender/.test((q('[data-key="ppina-#kalender"]') || {}).textContent || '') && /Bruk egen/.test(q('[data-key="ppina-#kalender"]').textContent); // 23.8
+    I.erstattetRolf = /#rolf · Erstattet av Sir Sweeps/.test((q('[data-key="ppina-#rolf"]') || {}).textContent || ''); // 24.9
+    I.erstattetTeslaServer = [['#tesla', 'Tesla'], ['#server', 'Server']].every(([h, by]) => new RegExp(`${h} · Erstattet av ${by}`).test((q(`[data-key="ppina-${h}"]`) || {}).textContent || '') && /Bruk egen/.test(q(`[data-key="ppina-${h}"]`).textContent)); // 25
     I.malerRad = /40 button-card · 6 decluttering · paper-buttons-row/.test(q('[data-key="ppglob"]').textContent);
     I.hacsListe = /Mangler: button-card.*\(HACS\)/.test((q('[data-key="pphacs"]') || {}).textContent || '') && !/bubble-card,|bubble-card \(/.test(q('[data-key="pphacs"]').textContent);
     // «Bruk autogenerert» → #vanning blir generert igjen, egen popup står som av
@@ -325,7 +329,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const dB = await S.generate({}, hass);
     I.brukEgen = !!ina && dB.views[0].cards[0].cards.filter((c) => c.hash === '#vanning')[0].cards.length > 1;
     // redigering: navn-feltet endrer bare name-linjen, resten av YAML-teksten er uendret
-    await act('ppopen', '#rolf');
+    q('[data-key="ppina-#rolf"] [data-a="ppopenraw"]').click(); await wait(250); // 24.9: den importerte #rolf er erstattet av Sir Sweeps
     const t0 = q('.ppcode textarea').value;
     I.editorTekstUendret = t0 === docs[0].text && !!q('[data-a="ppgo"]') && !!q('[data-a="ppdup"]') && !!q('[data-a="ppdl1"]') && !!q('[data-a="ppdelask"]') && !!q('[data-key="ppicf"]');
     const nmI = q('[data-in="ppname"]'); nmI.value = 'Rolf'; nmI.dispatchEvent(new Event('input', { bubbles: true })); await wait(300);

@@ -109,7 +109,10 @@
     const un = v === 'unavailable' || v === 'unknown';
     switch (kd) {
       case 'lock': return { title: un ? '–' : v === 'jammed' ? 'Feil' : v === 'locked' ? 'Låst' : v === 'locking' ? 'Låser …' : v === 'unlocking' ? 'Låser opp …' : v === 'open' ? 'Åpen' : 'Ulåst', sub: 'Dørlås' };
-      case 'alarm': return { title: v === 'triggered' ? 'Utløst' : /^armed/.test(v) ? 'Armert' : /arming|pending/.test(v) ? 'Armerer' : 'Av', sub: 'Alarm' };
+      case 'alarm': { // Fiks 25: samme tekst som flisen (M.alarmState + state_map fra Sikkerhet)
+        if (M.alarmState) { const id = 'alarm_control_panel.x', A = M.alarmState({ states: { [id]: { entity_id: id, state: v, attributes: {} } } }, { ...(M.sikCfg ? M.sikCfg() : {}), state_entity: id }, id); return { title: un ? '–' : A.text, sub: 'Alarm' }; }
+        return { title: v === 'triggered' ? 'Utløst' : /^armed/.test(v) ? 'Armert' : /arming|pending/.test(v) ? 'Armerer' : 'Av', sub: 'Alarm' };
+      }
       case 'garage': return { title: v === 'open' ? 'Åpen' : v === 'opening' ? 'Åpner' : v === 'closing' ? 'Lukker' : 'Lukket', sub: 'Garasjeport' };
       case 'cam': return { title: 'Kamera', sub: v === 'on' ? 'Bevegelse nå' : 'Ingen bevegelse' };
       case 'tv': return { title: nm || 'TV', sub: un ? '–' : ['off', 'standby'].includes(v) ? 'Av' : 'På' };
@@ -902,10 +905,14 @@
             ic: () => this._lockTap(id, nm) });
         }
         case 'alarm': {
-          const id = E.alarm, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', armed = /^armed/.test(v), trig = v === 'triggered', busy = /arming|pending/.test(v);
-          return T({ ent: id, title: trig ? 'Utløst' : armed ? 'Armert' : busy ? 'Armerer' : st ? 'Av' : '–', sub: 'Alarm', variant: tileVariant('alarm', !st || M.unavailable(st) ? 'unavailable' : v), cardHash: '#sikkerhet',
-            ic: () => { if (v === 'disarmed' && st && !st.attributes.code_arm_required) { M.call(hass, 'alarm_control_panel', 'alarm_arm_away', { entity_id: id }); this._toast('Alarm armert'); } else M.openPopup('#sikkerhet'); } });
+          // Fiks 24.6: status-entitet + state_map fra Sikkerhet (M.alarmState) – samme tekst/modus som popupen
+          const SC = M.sikCfg ? M.sikCfg() : {}, A = M.alarmState ? M.alarmState(hass, SC, E.alarm) : null;
+          const id = (A && A.entity) || E.alarm, st = s(id); if (!id) return null;
+          if (E.alarm && E.alarm !== id) s(E.alarm);
+          const v = st ? st.state : '', trig = v === 'triggered', busy = /arming|pending/.test(v), armed = A ? A.armed && !trig : /^armed/.test(v);
+          const un = !st || M.unavailable(st), al = E.alarm && hass.states[E.alarm];
+          return T({ ent: id, title: un ? '–' : A ? A.text : trig ? 'Utløst' : armed ? 'Armert' : busy ? 'Armerer' : 'Av', sub: 'Alarm', variant: A ? (un ? 'error' : trig ? 'alert' : busy ? 'busy' : armed ? 'pink' : 'neutral') : tileVariant('alarm', un ? 'unavailable' : v), cardHash: '#sikkerhet',
+            ic: () => { if (!un && !armed && !busy && !trig && (al ? !al.attributes.code_arm_required : /^(select|input_select)\./.test(id)) && M.sikSetMode) { M.sikSetMode(hass, SC, 'borte', null, al ? E.alarm : null).then(() => this._toast('Alarm armert')).catch(() => M.openPopup('#sikkerhet')); } else M.openPopup('#sikkerhet'); } });
         }
         case 'cam': {
           const id = E.cam; if (!id) return null;
@@ -1333,7 +1340,7 @@
       }
       if (on.includes('alerts')) {
         bins(PROB_DC).forEach((id) => { const st = this.s(id); if (M.isOn(st)) dyn(id, { ent: id, icon: 'mdi:alert-circle', title: M.name(hass, id), sub: ['Avvik', where(id)].filter(Boolean).join(' · '), tone: C.red, solid: true }); });
-        if (E.alarm) { const st = this.s(E.alarm); if (st && st.state === 'triggered') dyn(E.alarm, { ent: E.alarm, icon: 'shield', title: 'Alarm utløst', sub: M.name(hass, E.alarm), tone: C.red, solid: true, hash: '#sikkerhet' }); }
+        { const A = M.alarmState ? M.alarmState(hass, M.sikCfg ? M.sikCfg() : {}, E.alarm) : null, aid = (A && A.entity) || E.alarm, st = aid && this.s(aid); if (st && st.state === 'triggered') dyn(aid, { ent: aid, icon: 'shield', title: A && A.text !== 'triggered' ? A.text : 'Alarm utløst', sub: M.name(hass, aid), tone: C.red, solid: true, hash: '#sikkerhet' }); } // 24.6: status-entitet
         if (E.lock) { const st = this.s(E.lock); if (st && st.state === 'jammed') dyn(E.lock, { ent: E.lock, icon: 'lock_open', title: 'Dørlås feil', sub: M.name(hass, E.lock), tone: C.red, hash: '#sikkerhet' }); }
       }
       return out;

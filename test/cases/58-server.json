@@ -1,0 +1,4 @@
+[
+  { "name": "Server", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "card_id": "pop-server" } ] },
+  { "name": "Server · bare navn, skjult UniFi, uten varsler", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "tab_style": "name", "tabs": ["unraid", "proxmox", "unifi"], "tabs_hidden": ["unifi"], "alerts": { "cpu": false, "disk": false, "ap": false }, "lines": false, "auto_list": false } ] }
+]

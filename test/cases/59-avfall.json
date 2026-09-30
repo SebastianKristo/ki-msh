@@ -1,0 +1,5 @@
+[
+  { "name": "Søppel", "hash": "#soppel", "cards": [ { "type": "custom:msh-avfall-card", "card_id": "pop-soppel" } ] },
+  { "name": "Søppel · entities, Kalender først, uten søppelbil", "hash": "#soppel", "cards": [ { "type": "custom:msh-avfall-card", "entities": ["sensor.restavfall", "sensor.papir_og_papp"], "dager_attributt": "days_to_pickup", "dato_attributt": "raw_date", "kalender": true, "intervall_dager": 14, "start_tab": "kalender", "soppelbil": false } ] },
+  { "name": "Søppel · uten sensorer", "hash": "#soppel", "cards": [ { "type": "custom:msh-avfall-card", "entities": ["sensor.finnes_ikke"] } ] }
+]

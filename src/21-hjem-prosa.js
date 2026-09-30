@@ -149,7 +149,10 @@
     const lk = E.lock && rd(E.lock);
     if (lk) { const L = lk.state === 'locked'; S.lock = [L ? 'låst' : lk.state === 'jammed' ? 'fastlåst' : M.unavailable(lk) ? '–' : 'ulåst', L ? 1 : 0, L ? C.green : C.orange, E.lock]; }
     const al = E.alarm && rd(E.alarm);
-    if (al) {
+    // Fiks 25: samme tekst/status-entitet/state_map som Sikkerhet og Hjem-flisen (MSH.alarmState), lest via rd
+    const AS = al && M.alarmState ? M.alarmState({ ...h, states: new Proxy(h.states || {}, { get: (t, k) => (typeof k === 'string' ? rd(k) : t[k]) }) }, M.sikCfg && M.sikCfg(), E.alarm) : null;
+    if (AS) S.alarm = [AS.text, AS.armed ? 1 : 0, AS.triggered ? C.red : AS.armed ? C.pink : null, AS.entity || E.alarm];
+    else if (al) {
       const st = al.state, armed = /^armed/.test(st);
       const T = { disarmed: 'av', triggered: 'utløst', arming: 'armerer', pending: 'venter', disarming: 'slås av' };
       S.alarm = [armed ? 'armert' : T[st] || (M.unavailable(al) ? '–' : st), armed ? 1 : 0, armed ? C.pink : st === 'triggered' ? C.red : null, E.alarm];
