@@ -1,7 +1,9 @@
 [
   { "name": "Vær", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card" } ] },
   { "name": "Vær · toppkort alene", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-hero-card" } ] },
-  { "name": "Vær · graf og egen rekkefølge", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "show_graph": true, "sections": ["hours", "hero", "tiles", "days"], "hidden_sections": ["moon"], "tiles": ["rain", "sky"], "hidden_tiles": ["uv"], "hours": 12, "days": 3 } ] },
+  { "name": "Vær · graf og egen rekkefølge", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "stil": "klassisk", "show_graph": true, "sections": ["hours", "hero", "tiles", "days"], "hidden_sections": ["moon"], "tiles": ["rain", "sky"], "hidden_tiles": ["uv"], "hours": 12, "days": 3 } ] },
   { "name": "Vær · uten farevarsler", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "exclude": ["sensor.met_alerts", "sensor.halden_farevarsel", "binary_sensor.meteoalarm"] } ] },
-  { "name": "Vær · tom", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "overrides": { "weather": "weather.finnes_ikke" }, "exclude": ["sensor.pollen_bjork_oslo_today", "sensor.pollen_gress_oslo_today", "sensor.pollen_burot_oslo_today", "sensor.pollen_hassel_oslo_today", "sensor.pollen_or_oslo_today", "sensor.pollen_salix_oslo_today"] } ] }
+  { "name": "Vær · tom", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "overrides": { "weather": "weather.finnes_ikke" }, "exclude": ["sensor.pollen_bjork_oslo_today", "sensor.pollen_gress_oslo_today", "sensor.pollen_burot_oslo_today", "sensor.pollen_hassel_oslo_today", "sensor.pollen_or_oslo_today", "sensor.pollen_salix_oslo_today"] } ] },
+  { "name": "Vær · Klassisk", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "stil": "klassisk" } ] },
+  { "name": "Vær · Scene med to steder og skjult døgnvarsel", "hash": "#vaer", "cards": [ { "type": "custom:msh-vaer-card", "stil": "scene", "places": [ { "name": "Hjem", "entity": "weather.home" }, { "name": "Hytta", "entity": "weather.hytta" } ], "hide": ["days"], "tile_order": ["moon", "rain", "sky"] } ] }
 ]

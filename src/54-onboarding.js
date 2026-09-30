@@ -171,7 +171,7 @@
     .av{width:44px;height:44px;border-radius:22px;flex:none;overflow:hidden;background:#545454;display:grid;place-items:center;color:#232323;font-weight:600}
     .av img{width:100%;height:100%;object-fit:cover}
     .sw{position:relative;width:51px;height:31px;border-radius:16px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-    .sw.on{background:${GREEN}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fafafa;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.25)}.sw.on i{left:22px}
+    .sw.on{background:${M.SWITCH_ON}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fafafa;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.25)}.sw.on i{left:22px}
     .sw[disabled]{opacity:.4}
     .me{height:28px;padding:0 10px;border-radius:14px;background:var(--gray300,#404040);color:#afafaf;font-size:12px;font-weight:600;flex:none}
     .me.on{background:${PINK};color:#2a1720}
@@ -631,7 +631,7 @@
         return `<div class="gh" data-key="g-${g}">${esc(gl)}</div><div class="list" data-key="gl-${g}">${rows.map(([x, m]) => rowHtml(x, R, m)).join('')}</div>`;
       }).join('');
       return `<div class="ob" data-key="ta-list">
-        <div class="hd"><span class="h">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
+        <div class="hd"><span class="h ta">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
         <div class="sr" data-key="sr">${ic('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" data-in="q" data-key="q" placeholder="Søk i innstillinger og hurtigvalg" value="${esc(u.q)}" autocomplete="off">${u.q ? `<button data-a="qx" aria-label="Tøm">${ic('mdi:close-circle', 18, 'color:#7f7f7f')}</button>` : ''}</div>
         ${q ? '' : `<div class="rv" data-key="rv"><div class="rvt"><b>Gå gjennom alt</b><i>${done} av ${RV.length} sjekket</i><div class="bar"><span style="width:${RV.length ? Math.round((done / RV.length) * 100) : 0}%"></span></div></div><button class="rvb" data-a="review">${lbl}</button></div>`}
         ${groups || '<p class="lead" style="margin-top:20px">Ingen treff.</p>'}
@@ -786,7 +786,8 @@
     .hd{display:flex;align-items:center;gap:12px;min-height:44px}
     .hd .h{flex:1;min-width:0;font-size:28px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hd .h.sm{font-size:14px;color:#979797;font-weight:500}
-    .done{height:40px;padding:0 18px;border-radius:20px;background:#e1e1e1;color:#232323;font-size:15px;font-weight:600;flex:none}
+    .done{${M.DONE_PILL}flex:none} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
+    .hd .h.ta{font-size:22px;font-weight:600;letter-spacing:-0.01em}
     .sr{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;margin:16px 0 12px;border-radius:24px;background:var(--ki-sheet-in,#404040)}
     .sr .q{flex:1;min-width:0;height:100%;border:0;background:none;color:#fafafa;font-size:16px;outline:none}
     .rv{display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}

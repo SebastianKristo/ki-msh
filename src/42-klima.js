@@ -1022,7 +1022,7 @@
           <div class="spp">${f.presets.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" data-a="sp" data-k="${f.name}" data-v="${v}">${esc(l)}</button>`).join('')}</div>
           ${f.help ? `<span class="rs">${esc(f.help)}</span>` : ''}</div>`;
       }).join('');
-      box.innerHTML = `<div class="nav"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      box.innerHTML = `<div class="nav main"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         ${st.reset ? '<p class="note top">Tilbakestilt til standardoppsett i utkastet – trykk Ferdig for å lagre.</p>' : ''}
         <span class="cap">Visning</span>
         <div class="grp">
@@ -1139,7 +1139,10 @@
     .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--red,#f28073)}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nd{justify-self:end;height:36px;padding:0 18px;border-radius:18px;background:${PINK};color:${INK};font-size:14px;font-weight:600}
+    .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
+    .nav.main{display:flex}
+    .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
     .nd:disabled{opacity:.6}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
     .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
@@ -1169,7 +1172,7 @@
     .note.top{padding:0 8px 4px;color:var(--orange,#f2b573)}
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:var(--green,#66d19e)} .sw.on span{left:26px;background:#2a2a2c}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .r.col2{flex-direction:column;align-items:stretch;gap:10px;padding:12px 12px 12px 16px}
     .hsg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}

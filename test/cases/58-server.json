@@ -1,4 +1,5 @@
 [
   { "name": "Server", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "card_id": "pop-server" } ] },
-  { "name": "Server · bare navn, skjult UniFi, uten varsler", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "tab_style": "name", "tabs": ["unraid", "proxmox", "unifi"], "tabs_hidden": ["unifi"], "alerts": { "cpu": false, "disk": false, "ap": false }, "lines": false, "auto_list": false } ] }
+  { "name": "Server · Unraid først, ikon-faner, skjult Nettverk, piller, Kameraer skjult", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "tabs": { "order": ["unraid", "proxmox", "net"], "hidden": ["net"], "style": "icon", "start": "unraid" }, "subtabs": { "style": "pills" }, "sections": { "hidden": ["net.cams"], "map": { "unraid.docker": "oversikt" } }, "hero_metric": { "unraid": "temp" }, "limits": { "disk_temp": 40, "storage": 70 } } ] },
+  { "name": "Server · Proxmox satt til Ingen", "hash": "#server", "cards": [ { "type": "custom:msh-server-card", "tabs": { "start": "proxmox" }, "integrations": { "proxmox": "none" } } ] }
 ]

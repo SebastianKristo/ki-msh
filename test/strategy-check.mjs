@@ -144,13 +144,13 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const ent = (h) => R3.entries.find((e) => e.hash === h);
     res.merge = {
       unik: new Set(p3.map((c) => c.hash)).size === p3.length,
-      yamlUendret: by('#verksted').length === 1 && same(by('#verksted')[0], cfgY.custom_popups[0]),
+      yamlUendret: by('#verksted').length === 1 && same(by('#verksted')[0], M.applyHeaderGap(cfgY.custom_popups[0], -10)), // 26.18: + header-gap-blokken
       yamlSlaarAuto: by('#vaer').length === 1 && by('#vaer')[0].name === 'Vær YAML',
       kollisjoner: !!(col('#verksted') && col('#verksted').winner === 'yaml' && col('#verksted').losers.join() === 'custom' && col('#vaer') && col('#vaer').winner === 'yaml' && col('#vaer').losers.join() === 'auto'),
       falseSkjuler: by('#basseng').length === 0 && ent('#basseng').hidden && ent('#basseng').hiddenBy === 'yaml' && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('basseng'),
-      replace: same(by('#media')[0], cfgY.popup_overrides['#media'].config),
+      replace: same(by('#media')[0], M.applyHeaderGap(cfgY.popup_overrides['#media'].config, -10)),
       deepMerge: by('#klima')[0].name === 'Klimaet' && by('#klima')[0].width_desktop === '620px' && /var\(--red\)/.test(by('#klima')[0].styles) && by('#klima')[0].cards.length === 1 && by('#klima')[0].cards[0].type === 'custom:msh-klima-card' && ent('#klima').override === 'merge',
-      kiStoreUendret: same(by('#egen')[0], egen),
+      kiStoreUendret: same(by('#egen')[0], M.applyHeaderGap(egen, -10)),
       storeOverride: same(by('#lys')[0], M.popupReport.entries.find((e) => e.hash === '#lys').config) && by('#lys')[0].name === 'Lys egen' && ent('#lys').overrideFrom === 'store',
       rekkefolge: p3.map((c) => c.hash).slice(-3).join() === '#verksted,#vaer,#egen',
       allPopups: ['#egen', '#verksted', '#stue'].every((h) => M.allPopups(hass).some((x) => x.hash === h)) && !M.allPopups(hass).some((x) => x.hash === '#basseng'),
@@ -292,9 +292,9 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const want = ['#rolf', '#server', '#settings', '#kalender', '#tesla', '#3d', '#vanning', '#norgespris', '#stromregning', '#planter'];
     // Fiks 23.8: den importerte #kalender (ki-tabs-card …) erstattes av den genererte Kalender-popupen («Erstattet av Kalender»)
     // 25: #rolf (ki-robot-card) → Sir Sweeps (24.9), #tesla (ki-tesla-card) → Tesla, #server (ki-homelab-/unifi-card …) → Server
-    const SUPD = { '#kalender': ['msh-kalender-card', 'Kalender'], '#rolf': ['msh-stovsuger-card', 'Sir Sweeps'], '#tesla': ['msh-tesla-card', 'Tesla'], '#server': ['msh-server-card', 'Server'] };
+    const SUPD = { '#settings': ['msh-innstillinger-card', 'Innstillinger'], '#kalender': ['msh-kalender-card', 'Kalender'], '#rolf': ['msh-stovsuger-card', 'Sir Sweeps'], '#tesla': ['msh-tesla-card', 'Tesla'], '#server': ['msh-server-card', 'Server'] };
     const wantC = want.filter((h) => !SUPD[h]);
-    I.tiIStacken = want.every((h) => byI(h).length === 1) && wantC.every((h) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.resolveTemplates(M.yaml.parse(docs[want.indexOf(h)].text))))
+    I.tiIStacken = want.every((h) => byI(h).length === 1) && wantC.every((h) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.applyHeaderGap(M.resolveTemplates(M.yaml.parse(docs[want.indexOf(h)].text)), -10))) // 26.18: header-gap + gap-card øverst fjernet
       && Object.entries(SUPD).every(([h, [tag, by]]) => byI(h)[0].cards[0].type === 'custom:' + tag && (M.popupReport.inactive || []).some((x) => x.hash === h && x.by === by));
     // Fiks 16.12 · malene er løst i strategien: ingen template: på button-card/decluttering-card i popupene
     const tplLeft = (v, out) => { out = out || []; if (!v || typeof v !== 'object') return out; if (Array.isArray(v)) { v.forEach((x) => tplLeft(x, out)); return out; } if (/^custom:(button-card|decluttering-card)$/.test(v.type || '') && 'template' in v) out.push(v.template); Object.values(v).forEach((x) => tplLeft(x, out)); return out; };
@@ -303,8 +303,8 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     I.malerLost = ['#server', '#rolf', '#tesla', '#vanning', '#stromregning'].every((h) => byI(h).length === 1 && tplLeft(byI(h)[0]).length === 0) && ['#server', '#rolf', '#tesla', '#vanning'].every(hadTpl)
       && JSON.stringify(byI('#vanning')[0]).includes('[[[') && (M.customPopupConfig(CP[1]).cfg.cards || []).length > 0 && tplLeft(M.customPopupConfig(CP[1]).cfg).length > 0;
     I.stackRekkefolge = pI.map((c) => c.hash).slice(-wantC.length).join() === wantC.join();
-    I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && !byI('#settings')[0].cards.some((c) => c.type === 'custom:msh-settings-card') && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')
-      && ['#vanning', '#settings'].every((h) => (M.popupReport.replaced || []).some((x) => x.hash === h)) && !(M.popupReport.collisions || []).some((c) => c.kind !== 'replace');
+    I.vinnerVanningSettings = byI('#vanning')[0].cards.length > 1 && byI('#settings')[0].name === 'Innstillinger' && byI('#settings')[0].cards.length === 1 && byI('#settings')[0].cards[0].privat === 'input_boolean.innendors_privace_mode' && !byI('#vanning')[0].cards.some((c) => c.type === 'custom:msh-vanning-card')
+      && ['#vanning'].every((h) => (M.popupReport.replaced || []).some((x) => x.hash === h)) && !(M.popupReport.collisions || []).some((c) => c.kind !== 'replace');
     I.globaleRot = Object.keys(dI.button_card_templates || {}).length === 40 && Object.keys(dI.decluttering_templates || {}).length === 6 && Object.keys(dI.paper_buttons_row || {}).length === 1 && !!dI.paper_buttons_row.presets.weather && Array.isArray(dI.views) && dI.views.length === 1
       && /\[\[\[/.test(JSON.stringify(dI.button_card_templates.universal_base));
     await wait(900);
@@ -314,7 +314,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const rowOf = (h) => qa('.ppr').find((r) => r.querySelector('.pn i') && r.querySelector('.pn i').textContent.startsWith(h + ' ') && r.querySelector('[data-a="ppopen"]'));
     I.listeKort = /\d+ kort/.test(rowOf('#norgespris').textContent) && /Egen/.test(rowOf('#norgespris').textContent);
     I.manglerKort = /Mangler kort: .*ki-k2-card/.test(rowOf('#3d').textContent);
-    I.erstattetRader = ['#vanning', '#settings'].every((h) => !!q(`[data-key="pprep-${h}"]`) && /Erstattet av egen popup/.test(q(`[data-key="pprep-${h}"]`).textContent));
+    I.erstattetRader = ['#vanning'].every((h) => !!q(`[data-key="pprep-${h}"]`) && /Erstattet av egen popup/.test(q(`[data-key="pprep-${h}"]`).textContent));
     I.erstattetKalender = /#kalender · Erstattet av Kalender/.test((q('[data-key="ppina-#kalender"]') || {}).textContent || '') && /Bruk egen/.test(q('[data-key="ppina-#kalender"]').textContent); // 23.8
     I.erstattetRolf = /#rolf · Erstattet av Sir Sweeps/.test((q('[data-key="ppina-#rolf"]') || {}).textContent || ''); // 24.9
     I.erstattetTeslaServer = [['#tesla', 'Tesla'], ['#server', 'Server']].every(([h, by]) => new RegExp(`${h} · Erstattet av ${by}`).test((q(`[data-key="ppina-${h}"]`) || {}).textContent || '') && /Bruk egen/.test(q(`[data-key="ppina-${h}"]`).textContent)); // 25

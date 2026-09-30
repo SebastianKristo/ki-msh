@@ -430,10 +430,31 @@
     } else rows = (g === 'egne' ? gRow : '') + (E.map(row).join('') + extra(g) || `<div class="hint" data-key="ppnone">${g === 'egne' ? 'Ingen egne popups ennå – trykk «Ny popup» eller «Importer».' : 'Ingen popups her.'}</div>`);
     return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops"><style>${CSS}</style>
       ${bar}${warns}
-      <div class="pl">${rows}</div>${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
+      <div class="pl">${rows}</div>${gapRow(ed, null)}${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
       ${(g === 'alle' || g === 'fn') && M.doorbellModeHTML && M.ringFind && M.ringFind(ed.hass) ? M.doorbellModeHTML('ppring') : ''}
+      ${(g === 'alle' || g === 'fn') && M.vaerStilHTML ? M.vaerStilHTML('ppvaer') : ''}
       <span class="hint">Trykk en popup for å redigere navn, ikon og farge – eller hele YAML-en. Egne popups kan ha alle Bubble Card-valg og vilkårlige kort${nCustom > 1 ? '; dra i ⠿ for rekkefølge' : ''}. Endringer tas i bruk straks.</span>
     </div>`;
+  }
+
+  /* Fiks 26.18 · mellomrom fra Bubble-headeren til første kort. key = null → felles (ki-store popup_header_gap, standard −10);
+   * key = popupens nøkkel → overstyring for én popup (ki-store popups.<key>.header_gap). Strategien bruker det (MSH.applyHeaderGap). */
+  function gapRow(ed, key) {
+    const S = store(), glob = M.headerGapOf ? M.headerGapOf(S.popup_header_gap, (M.strategyConfig || {}).popup_header_gap) : -10;
+    const own = key ? (userPops(ed)[key] || {}).header_gap : S.popup_header_gap;
+    const set = own !== undefined && own !== null && own !== '';
+    const val = set ? Number(own) : glob;
+    const lbl = key ? 'Mellomrom under headeren (denne popupen)' : 'Alle popups · mellomrom under headeren';
+    const sub = key ? (set ? 'Egen verdi' : `Felles: ${glob} px`) : 'Fra Bubble-headeren til første kort. Standard −10 px; kan overstyres per popup.';
+    return `<div class="${key ? 'fld' : 'ppf'}" data-key="ppgap-${esc(key || '_')}"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">${lbl}</b><span class="hint" style="padding:0">${esc(sub)}</span></span>
+      <div class="rw"><input type="range" min="-40" max="40" step="1" data-in="ppgap" data-k="${esc(key || '')}" value="${val}" style="flex:1"><span class="rv">${val} px</span>${set && (key || val !== -10) ? `<button class="std" data-a="ppgapreset" data-k="${esc(key || '')}">Standard</button>` : ''}</div></div>`;
+  }
+  function gapSave(ed, key, v) {
+    if (!key) { save(ed, 'popup_header_gap', v === undefined || v === -10 ? undefined : v); return; }
+    if (ed._popSet) { ed._popSet(key, { header_gap: v }); return; }
+    const cur = { ...(userPops(ed)[key] || {}), header_gap: v };
+    if (v === undefined) delete cur.header_gap;
+    save(ed, 'popups.' + key, Object.keys(cur).length ? cur : undefined);
   }
 
   // Rom-popups · «Åpen ved start» (Fiks 7): global standard i ki-store room_defaults.open_on_start [ids].
@@ -496,6 +517,7 @@
         <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span><div class="rw"><span class="pv2" style="background:${col}">${ic(o.icon || e.icon, 22)}</span><input class="in" style="flex:1" data-in="popicon" data-k="${esc(key)}" value="${esc(o.icon || '')}" placeholder="${esc(e.icon || '')}"></div></div>
         <div class="fld"><span class="fl">Ikonfarge</span><div class="ppsw">${COLS.map((x) => `<button class="${o.color === x ? 'on' : ''}" data-a="popcol" data-k="${esc(key)}" data-v="${esc(x)}" style="background:${M.color(x, x)}"></button>`).join('')}</div></div>
         ${o.name || o.icon || o.color ? `<button class="std" style="align-self:flex-start;height:32px;padding:0 12px" data-a="popreset" data-v="${esc(key)}">Standard</button>` : ''}
+        ${gapRow(ed, key)}
         <span class="hint" style="padding:0">Vil du endre mer (bredde, bakgrunn, kort …)? Bytt til YAML – lagring gjør popupen «Overstyrt».</span>
       </div>`;
     }
@@ -512,6 +534,7 @@
       ${colRow('bg_color', 'Bakgrunnsfarge (bg_color)', obj.bg_color || '')}
       ${colRow('iconcol', 'Header · ikonfarge', F.iconcol)}
       ${colRow('hdrcol', 'Header · bakgrunn', F.hdrcol)}
+      ${obj.hash && HASH_RX.test(String(obj.hash)) && !d.ro ? gapRow(ed, String(obj.hash).slice(1)) : ''}
     </div>`;
   }
   function errBox(d) {
@@ -845,6 +868,7 @@
     },
     act(ed, a, d) {
       const u = ed.u;
+      if (a === 'ppvaer') { if (M.setVaerStil) Promise.resolve(M.setVaerStil(d.v)).then(() => ed.render()); ed.render(); return true; } // 26.24: Vær · Klassisk | Scene (kortets stil)
       if (a === 'ppring') { if (M.setDoorbell) M.setDoorbell(d.f || 'mode', d.v); ed.render(); return true; } // 19.18/20.1: «Når det ringer» + tid/utløser (per bruker × enhet)
       if (a === 'ppstrom') { u.pv = 'strom'; u.pd = null; u.ppMenu = false; ed.render(); return true; }
       if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
@@ -855,6 +879,7 @@
           const nx = cur.includes(d.v) ? cur.filter((k) => k !== d.v) : [...cur, d.v];
           save(ed, 'room_defaults', { ...rd, open_on_start: nx }); ed.render(); return true;
         }
+        case 'ppgapreset': gapSave(ed, d.k || null, undefined); ed.render(); return true; // 26.18
         case 'pprdreset': { const { open_on_start, ...rd } = store().room_defaults || {}; save(ed, 'room_defaults', Object.keys(rd).length ? rd : undefined); ed.render(); return true; }
         case 'ppmenu': u.ppMenu = !u.ppMenu; ed.render(); return true;
         case 'ppexport': u.ppMenu = false; u.pv = 'export'; u.pd = { id: 'x' + ++seq, text: exportText(), ro: true, src: 'export' }; ed.render(); return true;
@@ -971,6 +996,11 @@
         return true;
       }
       if (k === 'ppicon') { if (kind === 'change') setIcon(ed, el.value); return true; }
+      if (k === 'ppgap') { // 26.18
+        if (kind === 'input') { const sp = el.parentNode.querySelector('.rv'); if (sp) sp.textContent = el.value + ' px'; return true; }
+        if (kind === 'change') { M.haptic('selection'); gapSave(ed, el.dataset.k || null, Number(el.value)); ed.render(); }
+        return true;
+      }
       if (!d) return false;
       if (k === 'ppname' || k === 'pphash') {
         if (kind !== 'input' && kind !== 'change') return true;

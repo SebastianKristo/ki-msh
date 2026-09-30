@@ -23,7 +23,8 @@
  *
  * MSH.popupPicker (Fiks 17.8) – gjenbrukbar popup-velger for alle rad-editorer og GUI-editoren:
  *   open({ value, onPick(hash), title, hass }) → Promise<'#hash' | '' | null>  · arket: søk, liste Rom · Funksjoner ·
- *     Importert (MSH.allPopups = strategiens liste), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
+ *     Andre (MSH.allPopups = strategiens liste + alle andre Bubble pop-up-hasher i dashbordets config; Fiks 26.9: ingen
+ *     maks-antall, listen scroller med touch/hjul/trackpad og valgt rad scrolles inn med scrollTop), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
  *     (lagres likevel) og «Test» (location.hash).
  *   html({ name, value, placeholder, key, label, attrs }) → '<msh-popup-field …>' (ikon, navn, #hash · Test · ×).
  *     Hendelse value-changed { value: '#hash' | '' } – msh-editor lagrer via data-name.
@@ -52,7 +53,7 @@
     return null;
   }
   const hashOf = (t) => { t = norm(t); const p = t && t.action === 'navigate' ? t.navigation_path : ''; return p && p[0] === '#' ? p : ''; };
-  const popupOf = (hash, hass) => { if (!hash || !M.allPopups) return null; try { return M.allPopups(hass || M.lastHass, { hidden: true }).find((p) => p.hash === hash) || null; } catch (e) { return null; } };
+  const popupOf = (hash, hass) => { if (!hash) return null; try { return popupList(hass).find((p) => p.hash === hash) || null; } catch (e) { return null; } }; // 26.9: også manuelle dashbord-popups
   function run(el, t, o = {}) {
     t = norm(t);
     if (!t) return false;
@@ -107,7 +108,7 @@
     .in::placeholder{color:#7f7f7f}
     .pl{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:16px;background:var(--msh-tp-bg,#232323)}
     .pl .in{height:40px;background:#3a3a3a;font-size:15px}
-    .pls{max-height:280px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;display:flex;flex-direction:column;gap:2px}
+    .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px}
     .pr{display:flex;align-items:center;gap:10px;min-height:46px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .pr.on{background:rgba(255,255,255,0.08)}
     .pr .h{font-size:12px;color:#979797;font-variant-numeric:tabular-nums;flex:none}
@@ -121,7 +122,7 @@
     .none{font-size:12px;color:#7f7f7f;padding:10px}
     textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
   `;
-  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
+  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
   const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
 
   class MshTapPicker extends HTMLElement {
@@ -136,7 +137,7 @@
       // entitet-velgeren (More-info) sender value-changed – fang den her, ellers når den verten som en tap-verdi
       sr.addEventListener('value-changed', (e) => { e.stopPropagation(); const t = e.composedPath().find((n) => n.dataset && n.dataset.f === 'ent'); if (t) { const v = (e.detail && e.detail.value) || ''; this._emit(v ? { action: 'more-info', entity: v } : { action: 'more-info' }, 'more'); } });
       sr.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); if (e.target.dataset.f === 'q') { const f = sr.querySelector('.pr[data-v]'); if (f) this._emit({ action: 'navigate', navigation_path: f.dataset.v }, 'popup'); } else e.target.blur(); } });
-      ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true }));
+      ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true })); // 26.9: aldri preventDefault
     }
     set hass(h) { this._hass = h; if (!this._open) this._render(); }
     get hass() { return this._hass || M.lastHass || null; }
@@ -222,7 +223,7 @@
       return `Ingen popup med ${esc(h)} – lagres likevel (f.eks. en popup du legger til senere).`;
     }
     _list(cur) {
-      const h = this.hass, all = M.allPopups ? M.allPopups(h, { hidden: true }) : [];
+      const h = this.hass, all = popupList(h); // 26.9: samme liste som popup-velgeren (alle popups, ingen maks)
       const q = fold(this._q.trim());
       const hits = all.filter((p) => !q || fold(`${p.name} ${p.hash}`).includes(q));
       const g = {};
@@ -271,14 +272,38 @@
   if (!customElements.get('msh-tap-picker')) customElements.define('msh-tap-picker', MshTapPicker);
 
   /* ------------------------------------------------------------ Fiks 17.8 · popup-velger (ark) + <msh-popup-field> */
-  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Importert.
-  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
-  const popupList = (hass) => { try { return M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { return []; } };
+  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Andre.
+  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
+  // Fiks 26.9: alle Bubble pop-up-hasher i dashbordet – også manuelle popups utenfor strategien (lovelace-configen)
+  const dashPopups = () => {
+    const out = [];
+    try {
+      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const cfg = panel && panel.lovelace && panel.lovelace.config;
+      const walk = (c, d) => {
+        if (!c || typeof c !== 'object' || d > 12) return;
+        if (Array.isArray(c)) { c.forEach((x) => walk(x, d + 1)); return; }
+        if (c.type === 'custom:bubble-card' && c.card_type === 'pop-up' && c.hash) out.push({ hash: normHash(c.hash), name: c.name || normHash(c.hash), icon: c.icon, group: 'egne', source: 'dash' });
+        ['views', 'cards', 'sections', 'card', 'elements'].forEach((k) => { if (c[k]) walk(c[k], d + 1); });
+      };
+      walk(cfg, 0);
+    } catch (e) { /* ingen lovelace (GUI-editor utenfor dashbordet) */ }
+    return out;
+  };
+  const popupList = (hass) => {
+    let L = [];
+    try { L = M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { L = []; }
+    const seen = new Set(L.map((p) => p.hash));
+    dashPopups().forEach((p) => { if (!seen.has(p.hash)) { seen.add(p.hash); L.push(p); } });
+    return L.map((p) => (PGROUPS[p.group] ? p : { ...p, group: 'egne' })); // ukjent gruppe → «Andre»
+  };
   const normHash = (s) => { const r = String(s == null ? '' : s).trim(); return r ? '#' + r.replace(/^#+/, '').replace(/\s+/g, '-') : ''; };
   const MISSING = 'Popupen finnes ikke i dette dashbordet';
   const PSHEET_CSS = `
     .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
-    .body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+    /* Fiks 26.9: flex-kolonne – header/søk/egen hash faste (flex:none), bare listen (.sc) scroller */
+    .sh>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+    .body>*{flex:none}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
@@ -289,8 +314,8 @@
     .sr input{flex:1;min-width:0;height:100%;font-size:16px}
     .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
     .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
-    .sc{flex:1;min-height:120px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
-    .sc::-webkit-scrollbar{display:none}
+    .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
+    .sc::-webkit-scrollbar{width:4px}.sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:2px}
     .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 2px 4px;flex:none}
     .pr{display:flex;align-items:center;gap:12px;min-height:52px;padding:4px 10px 4px 6px;border-radius:14px;text-align:left;width:100%;flex:none}
     .pr:active{transform:scale(.99)}
@@ -338,6 +363,8 @@
         || `<div class="note">Ingen popups${q ? ` matcher «${esc(qi.value.trim())}»` : ' i dette dashbordet'}. Bruk «Egen hash» under.</div>`;
     };
     qi.addEventListener('input', draw);
+    // Fiks 26.9: listen eier scroll-gesten – Bubble-popupen/arket fanger den ikke (aldri preventDefault)
+    ['touchstart', 'touchmove', 'wheel'].forEach((t) => sc.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
     oh.addEventListener('input', () => { const h = normHash(oh.value); wr.textContent = h && !known(h) ? MISSING : ''; });
     R.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
@@ -358,7 +385,9 @@
       if (p === 'test') { const h = normHash(oh.value) || cur; if (!h) return M.toast ? M.toast('Velg en popup først') : null; M.haptic('light'); S.close(); M.openPopup(h); }
     });
     draw();
-    requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
+    // Valgt rad scrolles inn i synsfeltet ved åpning (scrollTop, ikke scrollIntoView – det scroller arket/siden også)
+    const toSel = () => { const on = sc.querySelector('.pr.on'); if (!on || !sc.clientHeight) return; const r = on.getBoundingClientRect(), b = sc.getBoundingClientRect(); sc.scrollTop += r.top - b.top - (sc.clientHeight - r.height) / 2; };
+    requestAnimationFrame(() => { toSel(); try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
     P.close = S.close; P.sheet = S;
     return P;
   }
@@ -420,7 +449,7 @@
     tag: 'msh-popup-field', GROUPS: PGROUPS, MISSING,
     open: openPopupPicker, list: popupList, norm: normHash,
     // ha-selector select (GUI-editoren): samme liste, egen verdi tillatt
-    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (importert)' : ''}` })) } }),
+    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (andre)' : ''}` })) } }),
     html(o = {}) {
       return `<msh-popup-field data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} value="${esc(normHash(o.value))}" placeholder="${esc(o.placeholder || '')}"${o.label ? ` label="${esc(o.label)}"` : ''} ${o.attrs || ''}></msh-popup-field>`;
     },

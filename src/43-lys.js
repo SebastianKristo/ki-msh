@@ -909,7 +909,7 @@
     // ---------- byggeklosser
     const nav = () => {
       const main = st.page === 'main';
-      return `<div class="nav">${main ? '<button class="nb" data-a="cancel">Avbryt</button>' : `<button class="nb" data-a="page" data-p="main">${M.icon('mdi:chevron-left', 22)}Tilpass</button>`}
+      return `<div class="nav${main ? ' main' : ''}">${main ? '<button class="nb" data-a="cancel">Avbryt</button>' : `<button class="nb" data-a="page" data-p="main">${M.icon('mdi:chevron-left', 22)}Tilpass</button>`}
         <span class="nt">${esc(TITLES[st.page] || '')}</span>
         ${main ? `<button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button>` : '<span></span>'}</div>`;
     };
@@ -1202,7 +1202,10 @@
     .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--gray900,#c7c7c7)}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nd{justify-self:end;height:36px;padding:0 18px;border-radius:18px;background:${PINK};color:${INK};font-size:14px;font-weight:600}
+    .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
+    .nav.main{display:flex}
+    .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
     .nd:disabled{opacity:.6}
     .pg{display:flex;flex-direction:column}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
@@ -1234,7 +1237,7 @@
     .rg{width:120px;accent-color:#f285c9}
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:${G}} .sw.on span{left:26px;background:#2a2a2c}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
     .lp{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 14px}
     .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray1000,#e1e1e1)}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}

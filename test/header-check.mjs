@@ -1,7 +1,10 @@
 // Fiks 17.13/17.15/17.20: «Hilsen»/«Sted» i headeren (én rad, store bilder, merker), justerbare størrelser,
 // tittelen krymper før den kortes. Fiks 18.4/18.7: Fold-oppsettet (≥ 1000 px, berøring ≥ 600 px: Fold, iPad, PC) =
 // telefon-innholdet i én kolonne i full bredde, padding-left = rail + 2 × avstand, header skalert 0,72, ingen zoom.
-// Fiks 19.12: navnet har forrang – bildene overlapper (−14), krymper (40), så teksten (28), til slutt «+N»; aldri ellipsis.
+// Fiks 26.22 (erstatter 19.12): hilsen 44 px/500 + menu-down på én linje; bildene 80 px (56 px under 420 px) side om side
+// med 8 px (aldri overlapp), maks 3 + «+N»; statusmerker 34 px (26 px) etter sone/tilstand; teksten krymper (32 px), så får
+// bildene egen rad under hilsenen (hwrap), og først da kortes navnet med «…» (26 px).
+// Trykk på bilde = hurtigark, langt trykk = person-popup (snur 22.7-standarden).
 // Fiks 19.13: header-profiler per bruker × enhetsklasse (ki-store header_profiles) – «Redigerer: bruker · enhet ▾».
 import { createRequire } from 'node:module';
 import { readdirSync } from 'node:fs';
@@ -36,7 +39,7 @@ const measure = `(() => {
   const g = all.find((e) => e.classList && e.classList.contains('g'));
   const f0 = R.querySelector('.faces .face'), more = R.querySelector('.faces .face.more');
   return { txR: Math.round(tx.getBoundingClientRect().right), f0L: f0 ? Math.round(f0.getBoundingClientRect().left) : null, more: more ? more.textContent.trim() : null, hR: Math.round(hr.right),
-    hil: !!R.querySelector('.hd.hil'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
+    hil: !!R.querySelector('.hd.hil'), wrap: !!R.querySelector('.hd.hwrap'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
     av, bd, gaps: over, arrowGap: arrow, overflow: top.scrollWidth > top.clientWidth + 1 || (lastBd ? lastBd.getBoundingClientRect().right > hr.right + 0.5 : false),
     layout: g ? g.className : null, gW: g ? Math.round(g.getBoundingClientRect().width) : null, dashW: Math.round(document.getElementById('dash').getBoundingClientRect().width),
     padL: g ? parseFloat(getComputedStyle(g).paddingLeft) : null, zoom: g ? getComputedStyle(g).zoom : null, grid: g ? getComputedStyle(g).display : null,
@@ -65,14 +68,15 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
   ok(fold ? Math.abs(m.padL - 120) < 0.5 : Math.abs(m.padL - 18) < 0.5, `${name}: padding-left ${m.padL}`);
   ok(m.cols === 2, `${name}: flisene står ikke i to kolonner (${m.cols})`);
   ok(!fold || m.hfW >= m.gW - m.padL - 18 - 2, `${name}: fanene/flisene fyller ikke bredden (max-width?) ${m.hfW}`);
-  // Header i Fold: 0,72 × standard (58 → 42 px tekst, 62 → 45 px bilder, 24 → 17 px merker), navnet avkortes ikke
-  if (fold) ok(m.fs <= 42.01 && m.av.every((x) => x <= 45) && m.bd.every((x) => x <= 17) && !m.cut, `${name}: header ikke skalert 0,72 (${m.fs}px, ${m.av}, ${m.bd}, kuttet ${m.cut})`);
-  else ok(m.fs > 42.01 || m.av.some((x) => x > 45) || w < 420, `${name}: telefon-header er skalert`);
+  // Header i Fold: 0,72 × standard (44 → 32 px tekst (avrundet), 80 → 58 px bilder, 34 → 24 px merker), navnet avkortes ikke
+  if (fold) ok(m.fs <= 32.01 && m.av.every((x) => x <= 58) && m.bd.every((x) => x <= 25) && !m.cut, `${name}: header ikke skalert 0,72 (${m.fs}px, ${m.av}, ${m.bd}, kuttet ${m.cut})`);
+  else { const nw = m.dashW < 420; ok(m.av.every((x) => x === (nw ? 56 : 80)) && m.bd.every((x) => x === (nw ? 26 : 34)), `${name}: 26.22 bilder/merker (${nw ? '56/26' : '80/34'}): ${m.av} / ${m.bd}`); }
   ok(m.hil, `${name}: standard er ikke Hilsen`);
-  // Fiks 19.12: navnet vises alltid helt (ingen ellipsis, ikke dekket av bildene), minst 28 px
-  ok(!m.cut && m.text === '👋 Sebastian!' && (m.f0L == null || m.txR <= m.f0L), `${name}: navnet er kuttet/dekket (${m.text} ${m.fs}px, tekst → ${m.txR}, bilder fra ${m.f0L})`);
+  // 26.22: navnet dekkes aldri av bildene; «…» bare når teksten allerede er krympet til 26 px (og bildene har fått egen rad)
+  ok(m.text === '👋 Sebastian!' && (!m.cut || m.fs <= 26.01) && (m.f0L == null || m.wrap || m.txR <= m.f0L), `${name}: navnet er kuttet/dekket (${m.text} ${m.fs}px, kuttet ${m.cut}, tekst → ${m.txR}, bilder fra ${m.f0L})`);
+  ok(m.gaps.every((g) => g >= 0), `${name}: 26.22 bildene overlapper (${m.gaps})`);
   ok(!m.overflow, `${name}: horisontal overflow i header-raden`);
-  ok(m.fs >= 28 - 0.01, `${name}: tittel under 28 px (${m.fs})`);
+  ok(m.fs >= 26 - 0.01, `${name}: tittel under 26 px (${m.fs})`);
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr-${name}.png` });
   ok(!p.__errs.length, `${name}: ${p.__errs.join(' | ')}`);
   // Live bretting: 884 → 412 → 884 uten reload
@@ -80,36 +84,74 @@ for (const [name, w, h, touch, fold] of [['telefon412', 412, 915, true, false], 
     await p.setViewportSize({ width: 412, height: 915 }); await p.waitForTimeout(500);
     const m2 = await p.evaluate(measure); res.foldLukket = m2.layout;
     ok(!/fold/.test(m2.layout) && Math.abs(m2.padL - 18) < 0.5, `bretting: ble ikke telefon ved 412 (${m2.layout}, ${m2.padL})`);
-    ok(!m2.cut, 'bretting: tittel kuttet ved 412');
+    ok(!m2.cut || m2.fs <= 26.01, 'bretting: tittel kuttet ved 412 før 26 px');
+    ok(m2.av.every((x) => x === 56), `bretting: bildene ble ikke 56 px ved 412 (${m2.av})`);
     await p.setViewportSize({ width: 884, height: 1032 }); await p.waitForTimeout(500);
     const m3 = await p.evaluate(measure); res.foldIgjen = m3.layout;
-    ok(/fold/.test(m3.layout) && Math.abs(m3.padL - 120) < 0.5 && m3.fs <= 42.01, 'bretting: ble ikke Fold igjen');
+    ok(/fold/.test(m3.layout) && Math.abs(m3.padL - 120) < 0.5 && m3.fs <= 32.01, 'bretting: ble ikke Fold igjen');
   }
   await p.close();
 }
 
-// 19.12: telefon 360 / 393 / 412 (Pixel 9 Pro / Fold lukket) / 430 – «👋 Sebastian!» helt; bildene tilpasser seg
+// 26.22: telefon 360 / 393 / 412 / 430 – bildene 56 px under 420 px (ellers 80), 8 px mellom, merker 26/34 px, ▾ rett etter
 for (const w of [360, 393, 412, 430]) {
   const p = await page(w, 900, true);
   await hjem(p);
-  const m = await p.evaluate(measure); res['w' + w] = { fs: m.fs, av: m.av, gaps: m.gaps, bd: m.bd, more: m.more, txR: m.txR, f0L: m.f0L };
-  ok(m.text === '👋 Sebastian!' && !m.cut && m.txR <= m.f0L, `19.12 ${w}: navnet dekkes (${m.txR} / ${m.f0L})`);
-  ok(m.fs >= 28 - 0.01, `19.12 ${w}: tekst under 28 px (${m.fs})`);
-  ok(m.av.every((x) => x >= 40), `19.12 ${w}: bilder under 40 px (${m.av})`);
-  ok(m.av.length < 2 || m.gaps.every((g) => g <= -13), `19.12 ${w}: bildene overlapper ikke før de krymper (${m.gaps})`);
-  ok(m.bd.every((x, i) => x <= 24 && x <= Math.round(m.av[i] * 0.4) + 1), `19.12 ${w}: merke ikke 40 % av bildet (${m.bd} / ${m.av})`);
-  ok(!m.overflow, `19.12 ${w}: overflow`);
-  if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr1912-${w}.png` });
-  ok(!p.__errs.length, `19.12 ${w}: ${p.__errs.join(' | ')}`);
+  const m = await p.evaluate(measure); res['w' + w] = { fs: m.fs, av: m.av, gaps: m.gaps, bd: m.bd, more: m.more, txR: m.txR, f0L: m.f0L, cut: m.cut, wrap: m.wrap };
+  const nw = w < 420;
+  ok(m.text === '👋 Sebastian!' && (m.wrap || m.txR <= m.f0L) && (!m.cut || m.fs <= 26.01), `26.22 ${w}: navnet dekkes / kuttet før 26 px (${m.txR} / ${m.f0L}, ${m.fs}px, wrap ${m.wrap})`);
+  ok(m.fs >= 26 - 0.01, `26.22 ${w}: tekst under 26 px (${m.fs})`);
+  ok(m.av.every((x) => x === (nw ? 56 : 80)), `26.22 ${w}: bilder ${m.av} (ventet ${nw ? 56 : 80})`);
+  ok(m.gaps.every((g) => g === 8), `26.22 ${w}: bildene står ikke side om side med 8 px (${m.gaps})`);
+  ok(m.bd.every((x) => x === (nw ? 26 : 34)), `26.22 ${w}: merker ${m.bd} (ventet ${nw ? 26 : 34})`);
+  ok(m.arrowGap != null && m.arrowGap <= 6, `26.22 ${w}: ▾ står ikke rett etter teksten: ${m.arrowGap}`);
+  ok(!m.overflow, `26.22 ${w}: overflow`);
+  if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr2622-${w}.png` });
+  ok(!p.__errs.length, `26.22 ${w}: ${p.__errs.join(' | ')}`);
   await p.close();
 }
-// 19.12 ④: mange personer på smal skjerm → «+N» i stedet for de siste bildene
+// 26.22: flere enn 3 personer → 3 bilder + «+N»; den innloggede først; statusmerker etter sone/tilstand; ingen dimming
 {
-  const p = await page(360, 900, true);
-  await hjem(p);
-  const m = await p.evaluate(measure);
-  ok(m.more == null || /^\+\d$/.test(m.more), `19.12 +N: ${m.more}`);
-  res.plusN = m.more;
+  const p = await page(390, 900, true);
+  const r = await p.evaluate(async () => {
+    const h = window.mockHass();
+    const base = Object.keys(h.states).filter((k) => k.startsWith('person.'));
+    const mk = (id, name, state) => { h.states[id] = { entity_id: id, state, attributes: { friendly_name: name } }; };
+    mk('person.ola', 'Ola', 'Jobb'); mk('person.kari', 'Kari', 'not_home');
+    h.states['zone.jobb'] = { entity_id: 'zone.jobb', state: '0', attributes: { friendly_name: 'Jobb', icon: 'mdi:briefcase' } };
+    const d = document.getElementById('dash'); d.innerHTML = '';
+    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr' }); c.hass = h; d.appendChild(c);
+    await new Promise((q) => setTimeout(q, 800));
+    const R = c.shadowRoot, faces = [...R.querySelectorAll('.faces .face')];
+    const me = Object.keys(h.states).find((k) => k.startsWith('person.') && h.states[k].attributes.user_id && h.user && h.states[k].attributes.user_id === h.user.id) || null;
+    const B = MSH.hjemHilBadge, st = (kind, extra) => ({ status: { kind, ...extra } });
+    return { n: base.length + 2, faces: faces.length, more: (R.querySelector('.faces .face.more') || {}).textContent, first: faces[0] && faces[0].dataset.id, me,
+      op: [...R.querySelectorAll('.faces .av')].map((e) => getComputedStyle(e).opacity), round: [...R.querySelectorAll('.faces .av')].map((e) => getComputedStyle(e).borderRadius),
+      ttl: (() => { const t = R.querySelector('.ttl'), a = t.querySelector('ha-icon'); const r1 = t.querySelector('.tx').getBoundingClientRect(), r2 = a.getBoundingClientRect(); return { icon: a.getAttribute('icon'), oneLine: Math.abs((r1.top + r1.bottom) / 2 - (r2.top + r2.bottom) / 2) < 6, fw: getComputedStyle(t).fontWeight }; })(),
+      map: {
+        home: B(st('home'), {}), unknown: B(st('unknown'), {}),
+        sleep: B({ sleep: true, status: { kind: 'home' } }, {}),
+        away: B(st('away'), {}),
+        jobb: B(st('zone', { zone: 'zone.jobb', place: 'Jobb' }), {}), skole: B(st('zone', { zone: 'zone.skole', place: 'Skole' }), {}),
+        fly: B(st('zone', { zone: 'zone.flyplass', place: 'Gardermoen' }), {}), travel: B(st('zone', { zone: 'zone.travel', place: 'Travel' }), {}),
+        annen: B(st('zone', { zone: 'zone.hytta', place: 'Hytta' }), {}),
+        egen: B(st('zone', { zone: 'zone.jobb', place: 'Jobb', icon: 'mdi:star', color: '#f00' }), { zones: { 'zone.jobb': { icon: 'mdi:star' } } }),
+      } };
+  });
+  res.p2622 = r;
+  ok(r.n > 3 && r.faces === 4 && r.more === '+' + (r.n - 3), `26.22 +N: ${r.faces} bilder, ${r.more} (n=${r.n})`);
+  ok(!r.me || r.first === r.me, `26.22 den innloggede står ikke først: ${r.first} / ${r.me}`);
+  ok(r.op.every((o) => o === '1'), `26.22 dimming: ${r.op}`);
+  ok(r.round.every((x) => x === '50%'), `26.22 ikke runde: ${r.round}`);
+  ok(r.ttl.icon === 'mdi:menu-down' && r.ttl.oneLine && r.ttl.fw === '500', `26.22 hilsen + menu-down på én linje: ${JSON.stringify(r.ttl)}`);
+  const M = r.map, is = (x, icon, col) => !!x && x.icon === icon && String(x.color).includes(col);
+  ok(M.home === null && M.unknown === null, `26.22 hjemme/ukjent har merke: ${JSON.stringify([M.home, M.unknown])}`);
+  ok(is(M.sleep, 'mdi:weather-night', '--purple') && is(M.away, 'mdi:map-marker', '--blue') && is(M.annen, 'mdi:map-marker', '--blue'), `26.22 sover/borte: ${JSON.stringify([M.sleep, M.away, M.annen])}`);
+  ok(is(M.jobb, 'mdi:office-building', '--blue') && is(M.skole, 'mdi:office-building', '--blue'), `26.22 jobb/skole: ${JSON.stringify([M.jobb, M.skole])}`);
+  ok(is(M.fly, 'mdi:airplane', '--purple') && is(M.travel, 'mdi:airplane', '--purple'), `26.22 reise: ${JSON.stringify([M.fly, M.travel])}`);
+  ok(M.egen && M.egen.icon === 'mdi:star', `26.22 eget sone-ikon vinner ikke: ${JSON.stringify(M.egen)}`);
+  if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr2622-plussN.png` });
+  ok(!p.__errs.length, `26.22 +N: ${p.__errs.join(' | ')}`);
   await p.close();
 }
 
@@ -120,7 +162,7 @@ for (const w of [360, 393, 412, 430]) {
   const m = await p.evaluate(measure);
   ok(m.text === '👋 Sebastian!', `tekst: ${m.text}`);
   ok(m.av.length === 3 || m.av.length >= 3, `bilder: ${m.av.length}`);
-  ok(m.bd.every((x) => x <= 24 && x <= Math.max(...m.av) / 2 + 0.5), `merker for store: ${m.bd}`);
+  ok(m.bd.every((x) => x === 26 && x <= Math.max(...m.av) / 2 + 0.5), `merker (26 px under 420 px): ${m.bd}`);
   ok(m.arrowGap != null && m.arrowGap <= 6, `▾ står ikke rett etter teksten: ${m.arrowGap}`);
   res.def412 = m;
   // migrering: familie/under/kompakt → hilsen
@@ -132,12 +174,12 @@ for (const w of [360, 393, 412, 430]) {
   await hjem(p, { mode: 'sted', this_server: { name: 'Hytta på Strømstad sommerhus' } });
   const s = await p.evaluate(measure); res.stedLang = s;
   ok(s.hil && !s.overflow, 'Sted: ikke hil / overflow');
-  // størrelser: stort merke klemmes til 50 %, overlapp
+  // størrelser: stort merke klemmes til 50 %; 26.22: negativ hGap gir aldri overlapp
   await hjem(p, { hBadge: 32, hAv: 40, hGap: -12, hFont: 30, hTGap: 0 });
   const z = await p.evaluate(measure); res.sizes = z;
-  ok(z.bd.every((x, i) => x <= z.av[i] * 0.4 + 0.5), `merke > 40 %: ${z.bd} / ${z.av}`);
+  ok(z.bd.every((x, i) => x <= z.av[i] * 0.5 + 0.5), `merke > 50 %: ${z.bd} / ${z.av}`);
   ok(z.fs <= 30.01, `hFont ignoreres: ${z.fs}`);
-  ok(z.gaps.every((g) => g < 0), `hGap negativ gir ikke overlapp: ${z.gaps}`);
+  ok(z.gaps.every((g) => g >= 0), `26.22 hGap negativ gir overlapp: ${z.gaps}`);
   ok(z.fs <= 30.01 && !z.cut, `hFont 30: ${z.fs}`);
   // live endring via setConfig på headeren (som editoren gjør)
   const live = await p.evaluate(async () => {
@@ -147,7 +189,7 @@ for (const w of [360, 393, 412, 430]) {
     H.setConfig({ ...H._rawConfig, hBadge: 14 }); await new Promise((q) => setTimeout(q, 200));
     return [before, H.shadowRoot.querySelector('.bd').getBoundingClientRect().width];
   });
-  res.live = live; ok(Math.round(live[1]) === 14, `live hBadge: ${live}`);
+  res.live = live; ok(Math.round(live[1]) === Math.round((14 * 26) / 34), `live hBadge (14 → 11 px under 420 px): ${live}`);
   // «Tilpass header»: Oppsett-valg + Størrelser-slidere
   const ed = await p.evaluate(async () => {
     const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
@@ -225,7 +267,7 @@ for (const w of [360, 393, 412, 430]) {
   ok(r.store['u1/fold_open'] && r.store['u1/fold_open'].hFont === 30 && Object.keys(r.store).length === 1 && r.dot, `19.13 lagret: ${JSON.stringify(r.store)}`);
   const fs1 = await hdrFs();
   ok(Math.abs(fs1 - 30 * 0.72) < 0.6 && fs0 > fs1, `19.13 headeren følger profilen live: ${fs0} → ${fs1}`);
-  ok(r.closed.v === '58' && r.closed.pv === '412px' && /Arver fra kortets oppsett/.test(r.closed.help) && r.closed.opts.includes('● Pixel Fold (åpen) · denne'), `19.13 Fold lukket arver: ${JSON.stringify(r.closed)}`);
+  ok(r.closed.v === '44' && r.closed.pv === '412px' && /Arver fra kortets oppsett/.test(r.closed.help) && r.closed.opts.includes('● Pixel Fold (åpen) · denne'), `19.13 Fold lukket arver: ${JSON.stringify(r.closed)}`);
   ok(r.users.join(',') === '● Sebastian,Alle brukere', `19.13 brukere (admin): ${r.users}`);
   ok(r.gui, '19.13 GUI-editoren mangler bruker-/enhetsvelgeren');
   // bretting uten reload: 884 → 412 (fold_closed: standard) → 884 (fold_open: 30 px · 0,72)
@@ -247,7 +289,7 @@ for (const w of [360, 393, 412, 430]) {
     return { dis0, store: MSH.store.get('header_profiles') || null, v: R.querySelector('input[type=range][data-name="hFont"]').value, dis1: R.querySelector('[data-a="x-preset"]').disabled };
   });
   const fsR = await hdrFs();
-  ok(!rs.dis0 && rs.store == null && rs.v === '58' && rs.dis1 && Math.abs(fsR - fs0) < 0.6, `19.13 Tilbakestill til arvet: ${JSON.stringify(rs)} ${fsR}`);
+  ok(!rs.dis0 && rs.store == null && rs.v === '44' && rs.dis1 && Math.abs(fsR - fs0) < 0.6, `19.13 Tilbakestill til arvet: ${JSON.stringify(rs)} ${fsR}`);
   ok(!errs.length, `19.13: ${errs.join(' | ')}`);
   await ctx.close();
 }
@@ -271,7 +313,7 @@ for (const w of [360, 393, 412, 430]) {
   ok(r.fs > 31 && r.users.join(',') === 'Kari' && r.copy === 1 && /^u2\//.test(r.sel), `19.13 annen bruker: ${JSON.stringify(r)}`);
   await p.close();
 }
-// 22.7: handlinger på personbilder (trykk = person-popup, hold = hurtigark, dobbelttrykk venter 260 ms, migrering, editor)
+// 22.7 + 26.22: handlinger på personbilder (26.22: trykk = hurtigark, hold = person-popup; dobbelttrykk venter 260 ms, migrering, editor)
 {
   const p = await page(412, 915, true);
   const r = await p.evaluate(async () => {
@@ -285,20 +327,22 @@ for (const w of [360, 393, 412, 430]) {
     let c = mk({}); await wait(500);
     const f = () => c.shadowRoot.querySelector('.faces .face[data-act="person"]');
     const pid = f().dataset.id; out.pid = pid;
+    const hz = []; const onH = (e) => hz.push(e.detail); window.addEventListener('haptic', onH);
     f().click(); out.tap = log.slice(); log.length = 0;
-    // hold
+    out.sheet = !!(c._sheets && c._sheets.size); out.tapHaptic = hz.slice(); window.removeEventListener('haptic', onH);
+    const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
+    // Fiks 23.1: hurtigarket (26.22: fra trykk) – avataren helt synlig (arket klipper ikke), i ki-overlay-root
+    { await wait(400); const sh0 = c._sheets && [...c._sheets][0]; const sr = sh0 && sh0.ov.root, S = sr && sr.querySelector('.sh'), O = sr && sr.querySelector('.orb');
+      if (S && O) { const cs = getComputedStyle(S), o = O.getBoundingClientRect(), hit = sr.elementFromPoint(o.left + o.width / 2, o.top + 2);
+        out.q231 = { ov: cs.overflow, ct: cs.contain, top: Math.round(o.top), dy: Math.round(S.getBoundingClientRect().top - o.top), hit: !!hit && (hit === O || O.contains(hit)), root: sh0.ov.host.getRootNode().host.localName }; }
+      if (sh0) { sh0.ov.close(); await wait(300); } }
+    document.querySelectorAll('body > *:not(#dash)').forEach((e) => { if (!/SCRIPT|STYLE/.test(e.tagName)) e.remove(); });
+    // hold → person-popup
     const r0 = f().getBoundingClientRect();
     f().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: r0.x + 5, clientY: r0.y + 5 }));
     await wait(650); f().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true })); f().click();
     await wait(100);
-    const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
-    out.sheet = !!(c._sheets && c._sheets.size);
-    // Fiks 23.1: hurtigarket fra hold – avataren helt synlig (arket klipper ikke), i ki-overlay-root
-    { await wait(400); const sh0 = c._sheets && [...c._sheets][0]; const sr = sh0 && sh0.ov.root, S = sr && sr.querySelector('.sh'), O = sr && sr.querySelector('.orb');
-      if (S && O) { const cs = getComputedStyle(S), o = O.getBoundingClientRect(), hit = sr.elementFromPoint(o.left + o.width / 2, o.top + 2);
-        out.q231 = { ov: cs.overflow, ct: cs.contain, top: Math.round(o.top), dy: Math.round(S.getBoundingClientRect().top - o.top), hit: !!hit && (hit === O || O.contains(hit)), root: sh0.ov.host.getRootNode().host.localName }; } }
-    out.holdPop = log.slice(); log.length = 0;
-    document.querySelectorAll('body > *:not(#dash)').forEach((e) => { if (!/SCRIPT|STYLE/.test(e.tagName)) e.remove(); });
+    out.holdPop = log.slice(); log.length = 0; out.holdSheet = !!(c._sheets && c._sheets.size);
     // dobbelttrykk = more, trykk = kart
     const mi = []; window.addEventListener('hass-more-info', (e) => mi.push(e.detail.entityId));
     const fe = []; window.addEventListener('msh-kart-focus', (e) => fe.push(e.detail.entity_id));
@@ -311,19 +355,20 @@ for (const w of [360, 393, 412, 430]) {
     const E = all().find((e) => e.localName === 'msh-hjem-editor');
     const sel = E && E.shadowRoot.querySelector('select[data-pact="hold"]');
     out.ed = { has: !!sel, rows: E ? E.shadowRoot.querySelectorAll('[data-pact]').length : 0 };
-    if (sel) { sel.value = 'popup'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(300); out.ed.cfg = (E._config || {}).person_actions; }
+    if (sel) { sel.value = 'quick'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(300); out.ed.cfg = (E._config || {}).person_actions; }
     MSH.openPopup = oo;
     return out;
   });
   res.p227 = r;
   const [m0, m1, m2, m3] = r.mig;
-  ok(m0.tap === 'popup' && m0.double === 'none' && m0.hold === 'quick' && m1.tap === 'quick' && m2.tap === 'popup' && m3.tap === 'popup' && m3.hold === 'more', `22.7 migrering: ${JSON.stringify(r.mig)}`);
-  ok(r.tap.length === 1 && r.tap[0] === 'pop:#person-' + r.pid.split('.')[1], `22.7 trykk: ${JSON.stringify(r.tap)}`);
+  ok(m0.tap === 'quick' && m0.double === 'none' && m0.hold === 'popup' && m1.tap === 'quick' && m2.tap === 'quick' && m3.tap === 'quick' && m3.hold === 'more', `26.22 standard/migrering: ${JSON.stringify(r.mig)}`);
+  ok(!r.tap.length && r.sheet, `26.22 trykk → hurtigark: ${r.sheet} ${JSON.stringify(r.tap)}`);
+  ok(r.tapHaptic.length === 1 && r.tapHaptic[0] === 'light', `26.22 én haptic('light') per trykk: ${JSON.stringify(r.tapHaptic)}`);
   ok(r.q231 && r.q231.ov === 'visible' && r.q231.ct === 'none' && r.q231.dy === 48 && r.q231.top >= 6 && r.q231.hit && r.q231.root === 'ki-overlay-root', `23.1 avataren helt synlig i hurtigarket: ${JSON.stringify(r.q231)}`);
-  ok(r.sheet && !r.holdPop.length, `22.7 hold → hurtigark: ${r.sheet} ${JSON.stringify(r.holdPop)}`);
+  ok(r.holdPop.length === 1 && r.holdPop[0] === 'pop:#person-' + r.pid.split('.')[1], `26.22 langt trykk → person-popup: ${JSON.stringify(r.holdPop)}`);
   ok(r.waiting === 0 && r.kart.join() === 'pop:#kart' && r.focus.join() === r.pid, `22.7 kart + 260 ms: ${JSON.stringify(r)}`);
   ok(!r.dbl.pop.length && r.dbl.mi.join() === r.pid, `22.7 dobbelttrykk: ${JSON.stringify(r.dbl)}`);
-  ok(r.ed.has && r.ed.rows === 3 && r.ed.cfg && r.ed.cfg.hold === 'popup', `22.7 editor: ${JSON.stringify(r.ed)}`);
+  ok(r.ed.has && r.ed.rows === 3 && r.ed.cfg && r.ed.cfg.hold === 'quick', `22.7 editor: ${JSON.stringify(r.ed)}`);
   ok(!p.__errs.length, `22.7: ${p.__errs.join(' | ')}`);
   await p.close();
 }

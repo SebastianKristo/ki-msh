@@ -1248,6 +1248,10 @@ try {
   C.ctrl = 'var(--gray400, #545454)';
   C.edge = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
   MSH.C = C;
+  // Fiks 26 (brukerens valg): «Ferdig» i ALLE Tilpass-ark = rosa pille øverst til høyre i headeren (tittel 22/600 til
+  // venstre), og brytere er rosa overalt. Én kilde for målene/fargen.
+  MSH.DONE_PILL = `height:40px;padding:0 18px;border-radius:20px;border:0;background:${C.accent};color:#2f2f2f;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer;`;
+  MSH.SWITCH_ON = C.pink;
   // Løs opp 'var(--x, #hex)' til faktisk farge (for canvas/SVG-beregning).
   MSH.resolveColor = function (v) {
     const m = /^var\((--[\w-]+)\s*(?:,\s*([^)]+))?\)$/.exec(String(v || '').trim());
@@ -2209,6 +2213,20 @@ try {
   }
 
   let glassSub = null;
+  // Fiks 26.16: antall åpne ark. >0 → <html data-ki-sheet> + window-event 'ki-sheet' { open } – navbaren (msh-navbar-card)
+  // setter da pointer-events: none på navbar, mini-spiller og «Mer»-meny, og gir dem tilbake uten hopp når siste ark lukkes.
+  let sheetN = 0;
+  MSH.sheetCount = function (d) {
+    const was = sheetN > 0;
+    sheetN = Math.max(0, sheetN + (d || 0));
+    const on = sheetN > 0;
+    if (on !== was) {
+      document.documentElement.toggleAttribute('data-ki-sheet', on);
+      window.dispatchEvent(new CustomEvent('ki-sheet', { detail: { open: on } }));
+    }
+    return sheetN;
+  };
+  MSH.sheetOpen = () => sheetN > 0;
   MSH.portals = () => [...MSH.overlayRoot().querySelectorAll('.msh-portal')];
   // Ark/overlegg i ki-overlay-root. Flaten kommer fra MSH.sheetStyle/scrimStyle/sheetVars (Fiks 6) og følger Liquid
   // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
@@ -2220,19 +2238,23 @@ try {
     const gl = glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
-    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) dekker arket bare innholdsflaten til høyre for railen
+    // Fiks 18.4: med vertikal navbar (Fold-oppsettet) ligger ARKET på innholdsflaten til høyre for railen (--ki-rail-x).
+    // Fiks 26.16: bakteppet dekker HELE dashbordflaten, også navbaren/railen (ikke HA-sidebaren). Lag i ki-overlay-root:
+    // innhold < navbar (z 24) < Bubble-popups < ark-bakteppe (42) < ark (43) < toast (60). Mens et ark er åpent får
+    // navbaren, mini-spilleren og «Mer»-menyen pointer-events: none (MSH.sheetCount → html[data-ki-sheet] + 'ki-sheet').
     const railX = () => (MSH.railOn && MSH.railPad ? MSH.railPad() : 0);
     const R = MSH.dashRect(), rx = railX();
-    Object.assign(host.style, { position: 'fixed', left: R.left + rx + 'px', top: '0', width: R.width - rx + 'px', height: '100%', pointerEvents: 'auto' });
+    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto', zIndex: '42' });
+    host.style.setProperty('--ki-rail-x', rx + 'px');
     const sr = host.attachShadow({ mode: 'open' });
     // Fiks 20.8 · jevn scrolling: arket er eget lag (translate3d), egen scroll-container (overscroll-behavior: contain,
     // -webkit-overflow-scrolling: touch, touch-action: pan-y, contain: layout paint) – scrollen kjedes aldri til dashbordet.
     const mh = center ? '90%' : tall ? 'calc(100% - 24px - env(safe-area-inset-top, 0px))' : 'min(88vh, calc(100% - 24px - env(safe-area-inset-top, 0px)))';
     sr.innerHTML = `<style>${MSH.BASE_CSS}
       :host{${MSH.sheetVars(false)}--ki-grab-h:25px}
-      .bg{position:absolute;inset:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
-      .sh{position:absolute;left:0;right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
-        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(28px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
+      .bg{position:absolute;inset:0;z-index:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
+      .sh{position:absolute;z-index:1;left:var(--ki-rail-x,0px);right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
+        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(24px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
       /* Fiks 21.7: arkets innhold er en ett-kolonners grid som starter øverst – ingen rad kan krympe (flex-shrink),
@@ -2260,6 +2282,7 @@ try {
       if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
+      MSH.sheetCount(-1);
       onClose && onClose();
       api.onClosed && api.onClosed();
     };
@@ -2282,12 +2305,13 @@ try {
     if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + x + 'px'; host.style.width = D.width - x + 'px'; };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); };
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
     const off = () => { window.removeEventListener('resize', place); ro && ro.disconnect(); };
     requestAnimationFrame(() => host.classList.add('on'));
+    MSH.sheetCount(1);
     const api = { host, root: sr, body: sr.querySelector('.body'), close };
     return api;
   };
@@ -2302,7 +2326,7 @@ try {
     t.id = 'msh-toast';
     t.textContent = text;
     Object.assign(t.style, {
-      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '10', height: '44px', padding: '0 22px', borderRadius: '22px',
+      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '60', // 26.16: over ark (43) height: '44px', padding: '0 22px', borderRadius: '22px',
       display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 14px ${MSH.FONT}`,
       boxShadow: '0 12px 30px rgba(0,0,0,0.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none',
     });
@@ -3066,7 +3090,9 @@ try {
         const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
         const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
         const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
-        const mt = hr && hr.height ? top - (fr.top - hr.bottom) : null;
+        // 26.18: popupens felles header-mellomrom (--ki-popup-header-gap, MSH.applyHeaderGap i 02-popups.js) legges til pad_top én gang
+        const hg = parseFloat(getComputedStyle(cont).getPropertyValue('--ki-popup-header-gap')) || 0;
+        const mt = hr && hr.height ? top + hg - (fr.top - hr.bottom) : null;
         if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
       }
     }
@@ -3332,7 +3358,7 @@ try {
     return ctl;
   };
 
-  // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark med sticky bunnlinje (Avbryt/Ferdig).
+  // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark; Avbryt/Ferdig ligger i den sticky headeren (Fiks 26).
   // Utkastflyten over (MSH.draftEditor): endringer vises live i alle instanser av kortet, men lagres først ved Ferdig.
   // Er arket for samme kort/nøkkel allerede åpent, gis det åpne tilbake (aldri to ark oppå hverandre).
   MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
@@ -3341,7 +3367,7 @@ try {
     const open = MSH.draftFor(key || card);
     if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
-    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, footer: true });
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true }); // Fiks 26: Ferdig/Avbryt i headeren – ingen bunnlinje
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;
@@ -3538,7 +3564,7 @@ try {
     .fl::-webkit-scrollbar{display:none}
     .fc{flex:none;height:30px;padding:0 12px;border-radius:15px;background:#3a3a3a;font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
     .fc.on{background:#fafafa;color:#282828}
-    .pls{max-height:280px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
+    .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
     .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .pr:hover{background:rgba(255,255,255,0.05)}
     .pr.on{background:rgba(255,255,255,0.08)}
@@ -3556,7 +3582,7 @@ try {
       sr.addEventListener('input', (e) => { e.stopPropagation(); if (e.target.classList.contains('pks')) { this._q = e.target.value; this._render(); } });
       sr.addEventListener('keydown', (e) => this._key(e));
       // Vannrett chip-rad og liste: ikke la Bubble Card lukke/scrolle popupen
-      ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && (n.classList.contains('fl') || n.classList.contains('pls')))) e.stopPropagation(); }, { passive: true }));
+      ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && (n.classList.contains('fl') || n.classList.contains('pls')))) e.stopPropagation(); }, { passive: true })); // 26.9: aldri preventDefault
       this._outside = (e) => { if (this._open && !e.composedPath().includes(this)) this.close(); };
     }
     set hass(h) { const o = this._hass; this._hass = h; if (!o || !this._open) this._render(); }
@@ -3574,6 +3600,8 @@ try {
       this._render();
       const i = this.shadowRoot.querySelector('.pks');
       if (i) requestAnimationFrame(() => { try { i.focus({ preventScroll: true }); } catch (e) { i.focus(); } });
+      // 26.9: valgt rad scrolles inn i listen (scrollTop, ikke scrollIntoView)
+      requestAnimationFrame(() => { const L = this.shadowRoot.querySelector('.pls'), on = L && L.querySelector('.pr.on'); if (on && L.clientHeight) L.scrollTop += on.getBoundingClientRect().top - L.getBoundingClientRect().top - (L.clientHeight - on.offsetHeight) / 2; });
     }
     close() {
       if (!this._open) return;
@@ -3706,7 +3734,7 @@ try {
     .sg{display:flex;gap:2px;padding:3px;border-radius:14px;background:#232323}
     .sg button{flex:1;height:30px;border-radius:11px;font-size:12px;font-weight:500;color:#afafaf;white-space:nowrap}
     .sg button.on{background:#fafafa;color:#232323}
-    .ls{max-height:300px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+    .ls{max-height:300px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
     .gh{font-size:11px;font-weight:600;color:#979797;letter-spacing:.02em;padding:8px 8px 2px;text-transform:uppercase}
     .rw{display:flex;align-items:center;gap:10px;height:48px;flex:none;padding:0 8px;border-radius:12px;width:100%;text-align:left}
     .rw:hover{background:rgba(255,255,255,0.05)}
@@ -3835,7 +3863,12 @@ try {
     /* Tittelrad: sticky rett under håndtaket (arkets flate fra MSH.sheetVars), med «Lagret»-pillen til høyre (Fiks 11) */
     .ttl{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;font-size:18px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;
       margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 0;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg, transparent);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
-    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;font-weight:600;letter-spacing:-0.01em}
+    /* Fiks 26 (brukerens valg): «Ferdig» er en rosa pille ØVERST TIL HØYRE i headeren (ingen bunnlinje); Avbryt = liten ×-knapp ved siden av */
+    .ttl .hb{flex:none;width:40px;height:40px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);color:#c7c7c7;display:grid;place-items:center}
+    .ttl .done{flex:none;${M.DONE_PILL}}
+    .ttl .done[disabled]{opacity:.7;cursor:progress}
+    @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
     .ttl .stat.on{opacity:1;transform:none}
     .ttl .stat.ok{background:var(--green,#66d19e);color:#12291d}
@@ -3868,7 +3901,7 @@ try {
     .line{display:flex;align-items:center;gap:8px}
     .sw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-    .sw.on{background:var(--green,#66d19e)} .sw.on::after{transform:translateX(18px)}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: brytere er rosa overalt */
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip{height:32px;padding:0 12px;border-radius:16px;background:#2f2f2f;font-size:12px;font-weight:500;color:#afafaf;display:inline-flex;align-items:center;gap:6px}
     .chip.on{background:#fafafa;color:#282828}
@@ -3887,7 +3920,7 @@ try {
        kuttet av kortets bunn og fikk egen scrollbar). Entitetssøk viser maks 6 treff uten egen scroll – kortet vokser.
        Bare lange lister (områder) får max-height + scroll (.menu.sc), og de ligger alltid sist i feltet. */
     .menu{position:static;margin-top:6px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:#232323;padding:4px 4px 6px}
-    .menu.sc{max-height:260px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+    .menu.sc{max-height:260px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .menu .more{font-size:11px;color:#7f7f7f;padding:4px 10px 2px}
     .menu button.addq{flex-direction:row;align-items:center;gap:8px;color:#fafafa}
     .dd .menu{scroll-margin-bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
@@ -3938,7 +3971,7 @@ try {
     :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
     :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
     :host([glass]) .chip,:host([glass]) .pill{background:rgba(255,255,255,0.1)}
-    :host([glass]) .btn:not(.pri){${M.glassSurface('row')}}
+    :host([glass]) .btn:not(.pri),:host([glass]) .ttl .hb{${M.glassSurface('row')}}
     :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
     :host([glass]) .menu{${M.glassSurface('menu')}}
     ${M.glassFallback(':host([glass]) .menu', 'menu')}
@@ -3953,6 +3986,8 @@ try {
       this._q = {};
       this.shadowRoot.addEventListener('click', (e) => this._click(e));
       this.shadowRoot.addEventListener('input', (e) => this._input(e));
+      // 26.9: rullelister (områder) eier scroll-gesten – arket/Bubble-popupen fanger den ikke (aldri preventDefault)
+      ['touchstart', 'touchmove', 'wheel'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('sc'))) e.stopPropagation(); }, { passive: true }));
       this.shadowRoot.addEventListener('change', (e) => this._change(e));
       this.shadowRoot.addEventListener('focusin', (e) => { const t = e.target; if (t.dataset && t.dataset.search) { this._menu = t.dataset.search; this._render(); } });
       // Åpne seksjoner = UI-tilstand (per kort i localStorage ki:<card_id>:ed:ui, aldri i config) – overlever lagring og ny åpning
@@ -4039,7 +4074,7 @@ try {
       el.disabled = this._busy; el.toggleAttribute('aria-busy', this._busy);
       el.innerHTML = this._saveBtnInner();
     }
-    _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : `${M.icon('mdi:check', 20)}Ferdig`; }
+    _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : 'Ferdig'; }
     connectedCallback() { this._glassSync(); }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
     // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
@@ -4073,10 +4108,9 @@ try {
       const cls = this.cardClass || {};
       const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl">${M.icon('mdi:tune', 22)}<span class="tt">${esc(cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass')}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span></div>` : ''}
+        ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
-        ${this._inline ? `<div class="actions"><button class="btn" data-a="cancel">Avbryt</button><button class="btn pri" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
@@ -4790,6 +4824,26 @@ try {
   const COMMON = { state: null, is_sidebar_hidden: true, margin_top_mobile: '50px', margin_top_desktop: '50px', card_layout: 'large', button_type: 'name', sub_button: { main: [], bottom: [] }, slider_fill_orientation: 'left', slider_value_position: 'right' };
   M.popupTemplateA = ({ name, icon, hash, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: STYLES_A, bg_blur: '5', shadow_opacity: '20', bg_opacity: '98', ...((M.POPUP_LOOK && M.POPUP_LOOK[hash]) || {}), cards: card ? [card] : [] }); // POPUP_LOOK: eget utseende per hash (#kart = fullskjerm, 51-kart.js)
   M.popupTemplateB = ({ name, icon, hash, color, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: stylesB(color || 'var(--orange)'), bg_blur: '20', shadow_opacity: '20', bg_opacity: '88', cards: card ? [card] : [] });
+  /* Fiks 26.18 · mellomrom under Bubble-headeren (ÉN metode, bare her): popupens styles får en merket blokk som trekker
+   * innholdet i popup-containeren opp (standard −10 px) og setter --ki-popup-header-gap. MSH.Card._applySpacing (00-base)
+   * leser variabelen og legger den til pad_top, så msh-kort (som måler seg mot headeren) ikke nuller ut – eller dobler –
+   * effekten. En gap-card med height 0 øverst i cards: fjernes (ga ekstra luft). gap: tall (px), ugyldig → −10.
+   * Metode: containerens padding-top (Bubble Cards egen formel + gap; calc klemmes til ≥ 0). Selektorer mot første kort
+   * («.bubble-pop-up-container > :first-child», «#root > :first-child») virker IKKE i Bubble Card v3: første barn er
+   * <style>, og Bubble legger «:not(.bubble-cards-grid-container, .bubble-cards-grid-container *)» på alle styles-selektorer. */
+  M.HEADER_GAP = -10;
+  const GAP_RX = /\n?\/\* ki-header-gap \*\/[\s\S]*?\/\* \/ki-header-gap \*\/\n?/g;
+  M.headerGapOf = (...vals) => { for (const v of vals) { if (v === undefined || v === null || v === '') continue; const n = Number(v); if (Number.isFinite(n)) return Math.max(-60, Math.min(60, Math.round(n))); } return M.HEADER_GAP; };
+  const zeroGap = (c) => c && typeof c === 'object' && String(c.type || '') === 'custom:gap-card' && (c.height === undefined ? false : parseFloat(c.height) === 0);
+  M.applyHeaderGap = function (p, gap) {
+    if (!isPopup(p)) return p;
+    const g = M.headerGapOf(gap);
+    const out = { ...p };
+    if (Array.isArray(out.cards)) { let i = 0; while (i < out.cards.length && zeroGap(out.cards[i])) i++; if (i) out.cards = out.cards.slice(i); }
+    const st = (typeof out.styles === 'string' ? out.styles : '').replace(GAP_RX, '\n').replace(/\n+$/, '');
+    out.styles = `${st}${st ? '\n' : ''}/* ki-header-gap */\n.bubble-pop-up-container {\n  --vertical-stack-card-gap: 0px !important;\n  --ki-popup-header-gap: ${g}px;\n  padding-top: calc(max(18px, calc(18px + var(--bubble-pop-up-gap, 14px) - var(--bubble-pop-up-header-gap-reserve, 8px))) + ${g}px) !important;\n}\n/* /ki-header-gap */\n`;
+    return out;
+  };
   // Maler for «Ny popup» i «Tilpass Hjem» → Popups (egne popups kan ha vilkårlige kort i cards:)
   M.newPopupTemplate = function (kind, { name, hash, area, hass } = {}) {
     if (kind === 'rom') {
@@ -4821,7 +4875,8 @@ try {
     ['#tesla', 'Tesla Model Y', 'phu:tesla-icon', 'msh-tesla-card'], // fiks 24.8 – bilscene, hurtigknapper, Lading/Kjøring/Sparing (56-tesla.js); bare med Tesla-entiteter (M.popupNeeds)
     ['#rolf', 'Sir Sweeps', 'mdi:robot-vacuum', 'msh-stovsuger-card'], // fiks 24.9 – støvsuger (57-stovsuger.js), bare når vacuum.* finnes (M.popupNeeds); sub_button via M.POPUP_LOOK/M.POPUP_FORCE['#rolf']
     ['#soppel', 'Søppel', 'mdi:trash-can', 'msh-avfall-card'], // fiks 25.4 – avfallsfraksjoner (days_to_pickup), kalender og varsler (59-avfall.js); erstatter den importerte #soppel (ki-avfall-card)
-    ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – natt-/privatmodus, automasjoner, varsler og strøm (60-innstillinger.js); egen hash ved siden av #settings (dashbordets innstillinger)
+    ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
+    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe
   ];
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
@@ -4923,23 +4978,29 @@ try {
       return target;
     };
     const res = { created: [], updated: [] };
+    const S0 = (M.store && M.store.get()) || {}, gapFor = (hash) => M.headerGapOf(((S0.popups || {})[hash.slice(1)] || {}).header_gap, S0.popup_header_gap);
     const put = (hash, make, mainTag, extra) => {
-      const cur = existing.get(hash);
+      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #badebasseng) tas over av den nye
+      const alias = () => { for (const h of Object.keys(M.POPUP_ALIAS || {})) { const A = M.POPUP_ALIAS[h], p = existing.get(h); if (A.to === hash && (!A.tag || A.tag === mainTag) && p && (!A.test || A.test(p))) { p.hash = hash; existing.delete(h); existing.set(hash, p); return p; } } return null; };
+      const cur = existing.get(hash) || alias();
       if (cur) {
+        const legacy = M.POPUP_LEGACY_CARD && typeof M.POPUP_LEGACY_CARD[hash] === 'function' ? M.POPUP_LEGACY_CARD[hash](cur, mainTag) : null; // gamle ki-kort → innstillinger i det nye kortet
         const merged = mergeCards(cur.cards, mainTag);
+        if (legacy) Object.keys(legacy).forEach((k) => { if (k !== 'type' && k !== 'card_id' && merged[k] == null) merged[k] = legacy[k]; });
         if (extra) Object.assign(merged, extra(merged));
         cur.cards = [merged];
         const fx = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash](cur) : null; // 23.3: #kart-unntaket også på eksisterende popup
         if (fx) { Object.keys(cur).forEach((k) => { if (!(k in fx)) delete cur[k]; }); Object.assign(cur, fx); }
+        Object.assign(cur, M.applyHeaderGap(cur, gapFor(hash))); // 26.18
         res.updated.push(hash);
       } else {
         const card = { type: 'custom:' + mainTag, card_id: M.uid(), ...(extra ? extra({}) : {}) };
-        ensureTarget().cards.push(make(card));
+        ensureTarget().cards.push(M.applyHeaderGap(make(card), gapFor(hash))); // 26.18
         res.created.push(hash);
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id)).forEach((a) => {
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === '#' + a.id && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });
@@ -5657,7 +5718,7 @@ try {
         .dva{display:flex;gap:6px;flex:none}
         .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
         .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-        .trk.on{background:var(--green,#66d19e)}
+        .trk.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'}} /* Fiks 26: rosa brytere */
         .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;transition:left .2s}
         .trk.on i{left:23px}
         .sm.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}
@@ -5937,6 +5998,8 @@ try {
  *       '#vaer': { name: Været, width_desktop: 600px }       # deep-merge inn i generert popup (lister erstattes, color = ikonfarge)
  *       '#media': { replace: true, config: { … } }          # erstatt hele popupen
  *       '#basseng': false                                    # skjul popupen
+ *       '#kart': { header_gap: 0 }                           # 26.18: eget mellomrom under Bubble-headeren for én popup
+ *     popup_header_gap: -10                # 26.18: felles mellomrom (px) fra Bubble-headeren til første kort (MSH.applyHeaderGap)
  * Resultat: én panel-visning med én vertical-stack: msh-hjem-card, msh-navbar-card og alle Bubble-popups
  * (mal B per HA-område med synlige entiteter, mal A per funksjon det finnes entiteter for, per person, #settings).
  * Brukerens valg fra dashbord-editorene (ki-store / frontend user data) leses ved hver generering.
@@ -6042,7 +6105,7 @@ try {
       '#klima': () => has(['climate', 'fan']),
       '#kamera': () => has('camera'),
       '#sikkerhet': () => has(['alarm_control_panel', 'lock']),
-      '#basseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']),
+      '#basseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|baseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']) || !!(M.bassengLegacy && M.bassengLegacy(config)), // fiks 26.14: også den gamle importerte #badebasseng
       '#ruter': () => plat('entur', 'entur_public_transport', 'entur_sx'),
       '#vanning': () => has('valve') || plat('opensprinkler') || rx(/vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean']),
       '#vaer': () => has('weather'),
@@ -6056,8 +6119,9 @@ try {
       '#tesla': () => !!(M.teslaHas && M.teslaHas(hass)), // fiks 24.8: Tesla-entiteter (prefiks/plattform, 56-tesla.js)
       '#rolf': () => has('vacuum'), // fiks 24.9: Sir Sweeps – bare med vacuum.*
       '#soppel': () => (M.avfallIds ? M.avfallIds(hass, {}).length > 0 : false) || !!(M.avfallLegacy && M.avfallLegacy(config)), // fiks 25.4: sensorer med days_to_pickup, eller den gamle importerte #soppel
-      '#innstillinger': () => has('automation') || !!(M.innstEntities && (M.innstEntities(hass, {}).natt || M.innstEntities(hass, {}).privat)), // fiks 25.5: automasjoner / natt-/privatmodus
-      '#server': () => plat('unifi', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/Proxmox VE/Unraid)
+      '#innstillinger': () => false, // fiks 26.15: innholdet er nå #settings (msh-innstillinger-card) – #innstillinger bare når noe peker dit
+      '#server': () => plat('unifi', 'unifiprotect', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/UniFi Protect/Proxmox VE/Unraid)
+      '#varmepumpe': () => !!(M.varmepumpeHas && M.varmepumpeHas(hass)), // fiks 26.20: en NIBE-enhet (produsent NIBE, nibe_heatpump/myuplink)
     };
     const hide = (config.popups || {});
     const out = [];
@@ -6074,7 +6138,9 @@ try {
       if (hide['person-' + pid.split('.')[1]] === false) return;
       out.push({ hash, name: M.name(hass, pid), icon: 'mdi:account', tag: 'msh-person-card', extra: { person: pid }, person: true });
     });
-    if (hide.settings !== false) out.push({ hash: '#settings', name: 'Innstillinger', icon: 'mdi:cog', tag: 'msh-settings-card', tap: { action: 'navigate', navigation_path: '/config' } });
+    // Fiks 26.15: #settings = msh-innstillinger-card (erstatter den importerte ki-cards-popupen, oppsettet flyttes via POPUP_EXTRA);
+    // dashbordinnstillingene (msh-settings-card) ligger i fanen «Dashbord». Samme card_id som #innstillinger (25.5).
+    if (hide.settings !== false) { const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA['#settings'] === 'function' ? M.POPUP_EXTRA['#settings'](config) : undefined; out.push({ hash: '#settings', name: 'Innstillinger', icon: 'mdi:cog', tag: 'msh-innstillinger-card', extra: { card_id: 'pop-innstillinger', ...(ex || {}) }, tap: { action: 'navigate', navigation_path: '/config' } }); }
     return out;
   }
   function roomLook(area, hass, user) {
@@ -6167,6 +6233,9 @@ try {
     const cand = new Map(); // hash → [{ source, index, config, meta }]
     const order = [];
     const push = (source, cfg, index, meta) => {
+      // Fiks 26.14 · gammel hash for en generert popup (M.POPUP_ALIAS, f.eks. importert #badebasseng → #basseng)
+      const AL = source !== 'auto' && isObj(cfg) && (M.POPUP_ALIAS || {})[normHash(cfg.hash)];
+      if (AL) { try { if (!AL.test || AL.test(cfg)) { meta = { ...(meta || {}), aliasOf: normHash(cfg.hash) }; cfg = { ...cfg, hash: AL.to }; } } catch (e) { /* */ } }
       const hash = isObj(cfg) ? normHash(cfg.hash) : '';
       if (!hash) { report.invalid.push({ source, index, reason: isObj(cfg) ? 'mangler hash' : 'er ikke et objekt' }); return; }
       if (!cand.has(hash)) cand.set(hash, []);
@@ -6336,7 +6405,7 @@ try {
     return r;
   };
   // Endring i ki-store (egne popups, overstyringer, skjul/navn/ikon) → oppdater popupene (debounce 250 ms)
-  const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null]); } catch (e) { return ''; } };
+  const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null, d.popup_header_gap == null ? null : d.popup_header_gap]); } catch (e) { return ''; } };
   const gSigOf = (d) => { try { return JSON.stringify(d.dashboard_globals || null); } catch (e) { return ''; } };
   let lastSig = null, sigTimer = null, lastG = null, gTimer = null;
   /* Maler/globale nøkler endret → skriv dem inn i den levende lovelace.config (så nye kort finner dem straks) og be HA
@@ -6366,7 +6435,7 @@ try {
         if (M.strategyIsDashboard && g !== lastG) { lastG = g; clearTimeout(gTimer); gTimer = setTimeout(() => M.applyDashboardGlobals(), 300); }
         else lastG = g;
       }
-      if (path && !/^(custom_popups|popup_overrides|popups|devices)(\.|$)/.test(path)) return;
+      if (path && !/^(custom_popups|popup_overrides|popups|popup_header_gap|devices)(\.|$)/.test(path)) return;
       const sig = sigOf(d || {});
       if (sig === lastSig) return;
       lastSig = sig;
@@ -6422,6 +6491,14 @@ try {
       const G = M.getGlobals();
       if (Object.keys(G).length) res.popups = res.popups.map((p) => { try { return M.resolveTemplates(p, G); } catch (e) { console.warn('[ki-msh] maler', p && p.hash, e); return p; } });
     }
+    // Fiks 26.18 · mellomrom under Bubble-headeren (MSH.applyHeaderGap, 02-popups.js) – ett sted, alle popups.
+    // Per popup: ki-store popups.<key>.header_gap (Tilpass Hjem → Popups) › header_gap i popup_overrides › felles
+    // ki-store popup_header_gap › strategiens popup_header_gap › −10.
+    if (M.applyHeaderGap) res.popups = res.popups.map((p) => {
+      const { header_gap: hg, ...rest } = p || {};
+      return M.applyHeaderGap(rest, M.headerGapOf((uo(p.hash) || {}).header_gap, hg, S.popup_header_gap, config.popup_header_gap));
+    });
+    if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => f.hash.slice(1));
     const navbar = { type: 'custom:msh-navbar-card', card_id: I.navbar, bar: fk.slice(0, 5), more: fk.slice(5), ...(config.navbar || {}) };
@@ -6487,6 +6564,7 @@ try {
         { type: 'section', id: 'funcs', label: 'Funksjons-popups', icon: 'mdi:layers-outline', fields: [...M.FUNCTION_POPUPS.map(([hash, name]) => ({ type: 'boolean', name: 'popups.' + hash.slice(1), label: name, default: true })), { type: 'boolean', name: 'popups.settings', label: 'Innstillinger', default: true }] },
         { type: 'section', id: 'home', label: 'Hjem', icon: 'mdi:home', fields: [
           { type: 'select', name: 'home.layout_mode', label: 'Layout', options: [['auto', 'Auto'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
+          { type: 'range', name: 'popup_header_gap', label: 'Popups · fra Bubble-headeren til første kort (px)', icon: 'mdi:format-vertical-align-top', min: -40, max: 40, default: -10, presets: [[-10, 'Standard −10'], [0, 'Som før 0']] }, // 26.18 (overstyres av Tilpass Hjem → Popups)
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
           { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
           { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },
@@ -7868,7 +7946,8 @@ try {
   /* ------------------------------------------------------------ arket */
   const SHEET_CSS = `
     .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
-    .body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+    .sh>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden} /* 26.9: bare .sc scroller */
+    .body>*{flex:none}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
@@ -7883,7 +7962,7 @@ try {
     .chips::-webkit-scrollbar{display:none}
     .chip{flex:none;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-grp,#3a3a3a);font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
     .chip.on{background:#fafafa;color:#282828}
-    .sc{flex:1;min-height:120px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-bottom:4px}
+    .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-bottom:4px}
     .sc::-webkit-scrollbar{display:none}
     .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:0 2px;flex:none}
     .gr{display:grid;grid-template-columns:repeat(${COLS}, ${CELL}px);justify-content:space-between;row-gap:${GAP}px}
@@ -7967,6 +8046,8 @@ try {
     let t = null;
     qi.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { st.q = qi.value; const m = /^([a-z][a-z0-9_-]*):/.exec(lc(st.q)); if (m && st.sets && st.sets.some((s) => s.prefix === m[1]) && st.set !== m[1]) { st.set = m[1]; drawChips(); } draw(); }, 120); });
     sc.addEventListener('scroll', () => paintWin(false), { passive: true });
+    // Fiks 26.9: listen eier scroll-gesten (touch, hjul, trackpad) – aldri preventDefault
+    ['touchstart', 'touchmove', 'wheel'].forEach((ty) => sc.addEventListener(ty, (e) => e.stopPropagation(), { passive: true }));
     // «Skriv inn selv»: live forhåndsvisning av prefiks:navn
     const mi = R.querySelector('.mi'), pv = R.querySelector('.man .pv');
     mi.addEventListener('input', () => { const v = mi.value.trim(), id = v ? (v.indexOf(':') > 0 ? v : 'mdi:' + v) : ''; pv.innerHTML = M.icon(id || 'mdi:help-circle-outline', 24, id ? '' : 'opacity:.4'); });
@@ -8355,7 +8436,8 @@ try {
  *
  * MSH.popupPicker (Fiks 17.8) – gjenbrukbar popup-velger for alle rad-editorer og GUI-editoren:
  *   open({ value, onPick(hash), title, hass }) → Promise<'#hash' | '' | null>  · arket: søk, liste Rom · Funksjoner ·
- *     Importert (MSH.allPopups = strategiens liste), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
+ *     Andre (MSH.allPopups = strategiens liste + alle andre Bubble pop-up-hasher i dashbordets config; Fiks 26.9: ingen
+ *     maks-antall, listen scroller med touch/hjul/trackpad og valgt rad scrolles inn med scrollTop), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
  *     (lagres likevel) og «Test» (location.hash).
  *   html({ name, value, placeholder, key, label, attrs }) → '<msh-popup-field …>' (ikon, navn, #hash · Test · ×).
  *     Hendelse value-changed { value: '#hash' | '' } – msh-editor lagrer via data-name.
@@ -8384,7 +8466,7 @@ try {
     return null;
   }
   const hashOf = (t) => { t = norm(t); const p = t && t.action === 'navigate' ? t.navigation_path : ''; return p && p[0] === '#' ? p : ''; };
-  const popupOf = (hash, hass) => { if (!hash || !M.allPopups) return null; try { return M.allPopups(hass || M.lastHass, { hidden: true }).find((p) => p.hash === hash) || null; } catch (e) { return null; } };
+  const popupOf = (hash, hass) => { if (!hash) return null; try { return popupList(hass).find((p) => p.hash === hash) || null; } catch (e) { return null; } }; // 26.9: også manuelle dashbord-popups
   function run(el, t, o = {}) {
     t = norm(t);
     if (!t) return false;
@@ -8439,7 +8521,7 @@ try {
     .in::placeholder{color:#7f7f7f}
     .pl{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:16px;background:var(--msh-tp-bg,#232323)}
     .pl .in{height:40px;background:#3a3a3a;font-size:15px}
-    .pls{max-height:280px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;display:flex;flex-direction:column;gap:2px}
+    .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px}
     .pr{display:flex;align-items:center;gap:10px;min-height:46px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .pr.on{background:rgba(255,255,255,0.08)}
     .pr .h{font-size:12px;color:#979797;font-variant-numeric:tabular-nums;flex:none}
@@ -8453,7 +8535,7 @@ try {
     .none{font-size:12px;color:#7f7f7f;padding:10px}
     textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
   `;
-  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
+  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
   const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
 
   class MshTapPicker extends HTMLElement {
@@ -8468,7 +8550,7 @@ try {
       // entitet-velgeren (More-info) sender value-changed – fang den her, ellers når den verten som en tap-verdi
       sr.addEventListener('value-changed', (e) => { e.stopPropagation(); const t = e.composedPath().find((n) => n.dataset && n.dataset.f === 'ent'); if (t) { const v = (e.detail && e.detail.value) || ''; this._emit(v ? { action: 'more-info', entity: v } : { action: 'more-info' }, 'more'); } });
       sr.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); if (e.target.dataset.f === 'q') { const f = sr.querySelector('.pr[data-v]'); if (f) this._emit({ action: 'navigate', navigation_path: f.dataset.v }, 'popup'); } else e.target.blur(); } });
-      ['touchstart', 'touchmove', 'pointerdown'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true }));
+      ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true })); // 26.9: aldri preventDefault
     }
     set hass(h) { this._hass = h; if (!this._open) this._render(); }
     get hass() { return this._hass || M.lastHass || null; }
@@ -8554,7 +8636,7 @@ try {
       return `Ingen popup med ${esc(h)} – lagres likevel (f.eks. en popup du legger til senere).`;
     }
     _list(cur) {
-      const h = this.hass, all = M.allPopups ? M.allPopups(h, { hidden: true }) : [];
+      const h = this.hass, all = popupList(h); // 26.9: samme liste som popup-velgeren (alle popups, ingen maks)
       const q = fold(this._q.trim());
       const hits = all.filter((p) => !q || fold(`${p.name} ${p.hash}`).includes(q));
       const g = {};
@@ -8603,14 +8685,38 @@ try {
   if (!customElements.get('msh-tap-picker')) customElements.define('msh-tap-picker', MshTapPicker);
 
   /* ------------------------------------------------------------ Fiks 17.8 · popup-velger (ark) + <msh-popup-field> */
-  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Importert.
-  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Importert' };
-  const popupList = (hass) => { try { return M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { return []; } };
+  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Andre.
+  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
+  // Fiks 26.9: alle Bubble pop-up-hasher i dashbordet – også manuelle popups utenfor strategien (lovelace-configen)
+  const dashPopups = () => {
+    const out = [];
+    try {
+      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const cfg = panel && panel.lovelace && panel.lovelace.config;
+      const walk = (c, d) => {
+        if (!c || typeof c !== 'object' || d > 12) return;
+        if (Array.isArray(c)) { c.forEach((x) => walk(x, d + 1)); return; }
+        if (c.type === 'custom:bubble-card' && c.card_type === 'pop-up' && c.hash) out.push({ hash: normHash(c.hash), name: c.name || normHash(c.hash), icon: c.icon, group: 'egne', source: 'dash' });
+        ['views', 'cards', 'sections', 'card', 'elements'].forEach((k) => { if (c[k]) walk(c[k], d + 1); });
+      };
+      walk(cfg, 0);
+    } catch (e) { /* ingen lovelace (GUI-editor utenfor dashbordet) */ }
+    return out;
+  };
+  const popupList = (hass) => {
+    let L = [];
+    try { L = M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { L = []; }
+    const seen = new Set(L.map((p) => p.hash));
+    dashPopups().forEach((p) => { if (!seen.has(p.hash)) { seen.add(p.hash); L.push(p); } });
+    return L.map((p) => (PGROUPS[p.group] ? p : { ...p, group: 'egne' })); // ukjent gruppe → «Andre»
+  };
   const normHash = (s) => { const r = String(s == null ? '' : s).trim(); return r ? '#' + r.replace(/^#+/, '').replace(/\s+/g, '-') : ''; };
   const MISSING = 'Popupen finnes ikke i dette dashbordet';
   const PSHEET_CSS = `
     .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
-    .body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+    /* Fiks 26.9: flex-kolonne – header/søk/egen hash faste (flex:none), bare listen (.sc) scroller */
+    .sh>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+    .body>*{flex:none}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
@@ -8621,8 +8727,8 @@ try {
     .sr input{flex:1;min-width:0;height:100%;font-size:16px}
     .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
     .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
-    .sc{flex:1;min-height:120px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
-    .sc::-webkit-scrollbar{display:none}
+    .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
+    .sc::-webkit-scrollbar{width:4px}.sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:2px}
     .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 2px 4px;flex:none}
     .pr{display:flex;align-items:center;gap:12px;min-height:52px;padding:4px 10px 4px 6px;border-radius:14px;text-align:left;width:100%;flex:none}
     .pr:active{transform:scale(.99)}
@@ -8670,6 +8776,8 @@ try {
         || `<div class="note">Ingen popups${q ? ` matcher «${esc(qi.value.trim())}»` : ' i dette dashbordet'}. Bruk «Egen hash» under.</div>`;
     };
     qi.addEventListener('input', draw);
+    // Fiks 26.9: listen eier scroll-gesten – Bubble-popupen/arket fanger den ikke (aldri preventDefault)
+    ['touchstart', 'touchmove', 'wheel'].forEach((t) => sc.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
     oh.addEventListener('input', () => { const h = normHash(oh.value); wr.textContent = h && !known(h) ? MISSING : ''; });
     R.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
@@ -8690,7 +8798,9 @@ try {
       if (p === 'test') { const h = normHash(oh.value) || cur; if (!h) return M.toast ? M.toast('Velg en popup først') : null; M.haptic('light'); S.close(); M.openPopup(h); }
     });
     draw();
-    requestAnimationFrame(() => { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
+    // Valgt rad scrolles inn i synsfeltet ved åpning (scrollTop, ikke scrollIntoView – det scroller arket/siden også)
+    const toSel = () => { const on = sc.querySelector('.pr.on'); if (!on || !sc.clientHeight) return; const r = on.getBoundingClientRect(), b = sc.getBoundingClientRect(); sc.scrollTop += r.top - b.top - (sc.clientHeight - r.height) / 2; };
+    requestAnimationFrame(() => { toSel(); try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
     P.close = S.close; P.sheet = S;
     return P;
   }
@@ -8752,7 +8862,7 @@ try {
     tag: 'msh-popup-field', GROUPS: PGROUPS, MISSING,
     open: openPopupPicker, list: popupList, norm: normHash,
     // ha-selector select (GUI-editoren): samme liste, egen verdi tillatt
-    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (importert)' : ''}` })) } }),
+    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (andre)' : ''}` })) } }),
     html(o = {}) {
       return `<msh-popup-field data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} value="${esc(normHash(o.value))}" placeholder="${esc(o.placeholder || '')}"${o.label ? ` label="${esc(o.label)}"` : ''} ${o.attrs || ''}></msh-popup-field>`;
     },
@@ -9190,7 +9300,8 @@ try {
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-    :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
+    :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
+    :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
     :host([data-kart]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 20.22: mini-spilleren skjult mens #kart er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -9266,6 +9377,9 @@ try {
       window.addEventListener('ki-device-info', this._onResize);
       window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
       window.addEventListener('scroll', this._onScroll, { passive: true });
+      // Fiks 26.16: Tilpass-ark åpent → navbar, mini-spiller og «Mer»-meny tar ikke imot trykk (ligger under bakteppet)
+      this._onSheet = () => { if (this._portal) this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); };
+      window.addEventListener('ki-sheet', this._onSheet);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
@@ -9280,6 +9394,7 @@ try {
       window.removeEventListener('ki-device-info', this._onResize);
       window.removeEventListener('msh-tcol', this._onResize);
       window.removeEventListener('scroll', this._onScroll);
+      window.removeEventListener('ki-sheet', this._onSheet);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
       if (this._mRO) { this._mRO.disconnect(); this._mRO = null; this._mROel = null; }
       if (this._outside) window.removeEventListener('click', this._outside, true);
@@ -9451,7 +9566,7 @@ try {
           background:var(--gray050,#282828);border-radius:38px 38px min(38px, calc(var(--tp-b) * 100)) min(38px, calc(var(--tp-b) * 100));--ki-sh-pb:max(20px, calc(env(safe-area-inset-bottom,0px) + 20px - var(--tp-b)))}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
-        .tpd{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2f2f2f;font-size:15px;font-weight:600}
+        .tpd{${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille */
         .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--gray200,#3a3a3a);overflow:hidden}
         .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:#fafafa;border-top:1px solid rgba(255,255,255,0.06)}
         .tpr:first-child{border-top:0}
@@ -9553,7 +9668,8 @@ try {
       this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
-      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules
+      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke' || location.hash === '#vaer'); // 19.17 / 26.24: navbar og mini-spiller skjules (#ringeklokke, #vaer)
+      this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
@@ -10385,7 +10501,7 @@ try {
     .tg .tx2 b{font-size:15px;font-weight:500} .tg .tx2 i{font-style:normal;font-size:12px;font-weight:400;color:#979797}
     .tg:has(.tx2){height:auto;min-height:62px;padding-top:8px;padding-bottom:8px;border-radius:24px;gap:10px}
     .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
-    .trk.on{background:${C.green}}
+    .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
     .trk.on .knb{left:23px;background:#2f2f2f}
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a}
@@ -10767,6 +10883,8 @@ try {
  * Faner = todo.*-lister (alle, eller config.entities; exclude/include som ellers). Data via
  * hass.connection.subscribeMessage({type:'todo/item/subscribe'}) kun mens popupen er åpen (fallback todo/item/list).
  * Legg til: todo.add_item · fullfør/gjenåpne: todo.update_item (status) · slett: todo.remove_item.
+ * 26.19: trykk på teksten = rediger på stedet (todo.update_item rename; Enter lagrer, Shift+Enter ny linje, Esc avbryter),
+ * teksten kan merkes (user-select: text), kopier per rad og «Kopier» for den synlige lista (clipboard m/ execCommand-reserve).
  * Prioritet finnes ikke i HA: lagres som prefiks i beskrivelsen – «[h] …», «[m] …», «[l] …» (Høy/Medium/Lav).
  * Mangler prefiks (eller listen støtter ikke beskrivelse) → «Medium». Resten av beskrivelsen vises som «hvem».
  */
@@ -10780,6 +10898,16 @@ try {
     const m = /^\s*\[(h|m|l)\]\s*/i.exec(d);
     return { prio: m ? m[1].toLowerCase() : 'm', who: (m ? d.slice(m[0].length) : d).trim() };
   };
+  // Kopier tekst: navigator.clipboard, ellers execCommand('copy') via et skjult tekstfelt på dokumentnivå
+  const copyText = async (t) => {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(t); return true; } } catch (e) { /* reserve under */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  };
   const dueTxt = (due) => {
     if (!due) return '';
     const d = new Date(due.length <= 10 ? due + 'T00:00:00' : due);
@@ -10789,6 +10917,16 @@ try {
   };
 
   class Gjoremal extends M.Card {
+    constructor() {
+      super();
+      // Redigering: Enter lagrer, Shift+Enter gir ny linje, Esc avbryter (26.19)
+      this.shadowRoot.addEventListener('keydown', (e) => {
+        const ta = e.target && e.target.closest && e.target.closest('textarea[data-input="edtext"]');
+        if (!ta || !this._edit) return;
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); M.haptic('light'); this._edit = null; this.update(); }
+        else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.stopPropagation(); this._edit.text = ta.value; M.haptic('success'); this._lagre(); }
+      });
+    }
     static get cardName() { return 'Gjøremål'; }
     static get defaults() { return { filter: 'open', priority: true, show_who: true }; }
     static get schema() {
@@ -10865,17 +11003,21 @@ try {
         const n = act && loaded ? open : s && M.isNum(s.state) ? Number(s.state) : '–';
         return `<button class="tab press ${act ? 'on' : ''}" data-key="${esc(id)}" data-act="tab" data-id="${esc(id)}" data-haptic="selection" data-ent="${esc(id)}"><span class="ell">${esc(M.name(this.hass, id))}</span><span class="cnt num">${esc(n)}</span></button>`;
       }).join('');
+      const E = this._edit && shown.some((x) => x.uid === this._edit.uid) ? this._edit : null;
+      const canEdit = !!(feat & F_UPDATE);
       const rows = shown.map((x, i) => {
+        if (E && E.uid === x.uid) return this._redRad(x, i, E, canDesc, feat, tag);
         const meta = [x.done ? 'Fullført' : '', c.show_who !== false ? x.who : '', c.show_who !== false ? dueTxt(x.due) : ''].filter(Boolean).join(' · ');
         return `<div class="it ${x.done ? 'done' : ''}" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
           <button class="box" data-act="check" data-uid="${esc(x.uid)}" data-haptic="success" title="${x.done ? 'Marker som ikke fullført' : 'Fullfør'}">${M.icon('check', 18, 'color:#282828')}</button>
           <div class="tx">
-            <span class="t">${esc(x.summary)}</span>
+            <span class="t" ${canEdit && x.uid.indexOf('__new') !== 0 ? `data-act="edit" data-uid="${esc(x.uid)}" data-haptic="light" title="Trykk for å redigere"` : ''}>${esc(x.summary)}</span>
             ${c.priority !== false || meta ? `<div class="mt">${c.priority !== false ? `<button class="pt" ${canDesc ? `data-act="cycle" data-uid="${esc(x.uid)}" data-haptic="selection" title="Bytt prioritet"` : 'disabled'} style="${tag(x.prio)}">${PR[x.prio][0]}</button>` : ''}${meta ? `<span class="who">${esc(meta)}</span>` : ''}</div>` : ''}
           </div>
-          ${feat & F_DELETE ? `<button class="rm" data-act="remove" data-uid="${esc(x.uid)}" title="Slett">${M.icon('close', 18)}</button>` : ''}
+          <button class="rm cp ${this._copied === x.uid ? 'ok' : ''}" data-act="copy" data-uid="${esc(x.uid)}" data-haptic="light" title="Kopier" aria-label="Kopier «${esc(x.summary)}»">${M.icon(this._copied === x.uid ? 'mdi:check' : 'mdi:content-copy', 18)}</button>
         </div>`;
       }).join('');
+      this.__shown = shown;
       return `<div class="wrap">
         <section class="head">
           <div class="hl">${esc(headline)}</div>
@@ -10888,13 +11030,65 @@ try {
           <input data-input="draft" placeholder="Ny oppgave" enterkeyhint="done" autocomplete="off">
           ${canDesc ? `<button type="button" class="dp press" data-act="prio" data-haptic="selection" style="${tag(prio)};height:32px;padding:0 12px;border-radius:16px;font-size:12px">${PR[prio][0]}</button>` : ''}
         </form>` : ''}
-        <div class="flt">${[['open', 'Åpne'], ['high', 'Høy'], ['done', 'Fullført'], ['all', 'Alle']].map(([k, l]) => `<button class="f press ${filter === k ? 'on' : ''}" data-act="filter" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}</div>
+        <div class="flt">${[['open', 'Åpne'], ['high', 'Høy'], ['done', 'Fullført'], ['all', 'Alle']].map(([k, l]) => `<button class="f press ${filter === k ? 'on' : ''}" data-act="filter" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}<button class="f press cpa ${this._copied === '__alle' ? 'ok' : ''}" data-act="copyall" data-haptic="light" ${shown.length ? '' : 'disabled'}>${M.icon(this._copied === '__alle' ? 'mdi:check' : 'mdi:content-copy', 16)}Kopier</button></div>
         <section class="list">
           ${rows}
           ${loaded && !shown.length ? '<div class="none">Ingen oppgaver her</div>' : ''}
           ${!loaded ? `<div class="none">${this.isOpen ? 'Henter …' : '–'}</div>` : ''}
         </section>
       </div>`;
+    }
+
+    // Rad i redigeringsmodus: tekstfelt med rosa kant + prioritet · Kopier · Slett · Avbryt · Lagre (26.19)
+    _redRad(x, i, E, canDesc, feat, tag) {
+      const pr = E.prio || x.prio;
+      return `<div class="it red" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
+        <div class="tx">
+          <textarea class="ed" data-input="edtext" data-key="ed-${esc(x.uid)}" rows="1" enterkeyhint="done" autocapitalize="sentences" aria-label="Rediger oppgave">${esc(E.text)}</textarea>
+          <div class="ea">
+            ${this.config.priority !== false ? `<button class="pt" ${canDesc ? 'data-act="eprio" data-haptic="selection" title="Bytt prioritet"' : 'disabled'} style="${tag(pr)}">${PR[pr][0]}</button>` : ''}
+            <button class="eb press ${this._copied === x.uid ? 'ok' : ''}" data-act="copy" data-uid="${esc(x.uid)}" data-haptic="light">${M.icon(this._copied === x.uid ? 'mdi:check' : 'mdi:content-copy', 16)}Kopier</button>
+            ${feat & F_DELETE ? `<button class="eb press del" data-act="remove" data-uid="${esc(x.uid)}" data-haptic="warning">Slett</button>` : ''}
+            <span class="sp"></span>
+            <button class="eb press" data-act="ecancel" data-haptic="light">Avbryt</button>
+            <button class="eb press lagre" data-act="esave" data-haptic="success">Lagre</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    _tab() { const lists = this._lists(); return lists.includes(this.ui.tab) ? this.ui.tab : lists[0]; }
+    // Lagre redigeringen: todo.update_item med rename (+ ny prioritet i beskrivelsen)
+    _lagre() {
+      const E = this._edit; if (!E) return undefined;
+      const it = this._items && this._items.find((x) => x.uid === E.uid);
+      const t = String(E.text || '').trim();
+      this._edit = null;
+      if (!it || !t) { this.update(); return undefined; }
+      const tab = this._tab(), feat = Number((this.hass.states[tab] && this.hass.states[tab].attributes.supported_features) || 0);
+      const p = parse(it), data = { entity_id: tab, item: it.uid };
+      if (t !== it.summary) data.rename = t;
+      if (E.prio && E.prio !== p.prio && this.config.priority !== false && feat & F_DESC) data.description = `[${E.prio}]${p.who ? ' ' + p.who : ''}`;
+      this._upd(it.uid, () => ({ summary: t, ...(data.description ? { description: data.description } : {}) }));
+      if (!data.rename && !data.description) return undefined;
+      return M.call(this.hass, 'todo', 'update_item', data).catch(() => {});
+    }
+    // Kopiert: ikonet blir en hake i 1,4 s (haptic kommer fra data-haptic="light" – én per trykk)
+    async _kopier(t, id) {
+      await copyText(t);
+      this._copied = id; this.update();
+      clearTimeout(this._cpT);
+      this._cpT = setTimeout(() => { this._copied = null; this.update(); }, 1400);
+    }
+    afterRender() {
+      const ta = this.shadowRoot.querySelector('textarea[data-input="edtext"]');
+      if (!ta) return;
+      // Tekstfeltet: merking/dra skal ikke lukke eller scrolle popupen (fallgruve 2)
+      if (!ta.__stop) { ta.__stop = true; const st = (e) => e.stopPropagation(); ['pointerdown', 'touchstart', 'touchmove', 'pointermove'].forEach((n) => ta.addEventListener(n, st, { passive: true })); }
+      ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+      if (this._edit && !this._edit.fokus) { this._edit.fokus = true; ta.focus(); try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* */ } }
+    }
+    onInput(name, el) {
+      if (name === 'edtext' && this._edit) { this._edit.text = el.value; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
     }
 
     _upd(uid, f) { if (this._items) { this._items = this._items.map((x) => (x.uid === uid ? { ...x, ...f(x) } : x)); this.update(); } }
@@ -10934,8 +11128,34 @@ try {
           this._upd(it.uid, () => ({ description }));
           return M.call(h, 'todo', 'update_item', { entity_id: tab, item: it.uid, description }).catch(() => {});
         }
+        case 'edit': {
+          if (!it) return undefined;
+          const sel = window.getSelection && String(window.getSelection() || '');
+          if (sel) return undefined; // merket tekst (kopier-menyen) – ikke åpne redigering
+          this._edit = { uid: it.uid, text: it.summary || '', prio: parse(it).prio };
+          return this.update();
+        }
+        case 'eprio': if (this._edit) { this._edit.prio = { l: 'm', m: 'h', h: 'l' }[this._edit.prio || 'm']; this.update(); } return undefined;
+        case 'ecancel': this._edit = null; return this.update();
+        case 'esave': {
+          const ta = this.shadowRoot.querySelector('textarea[data-input="edtext"]');
+          if (ta && this._edit) this._edit.text = ta.value;
+          return this._lagre();
+        }
+        case 'copy': {
+          if (!it) return undefined;
+          const ta = this._edit && this._edit.uid === it.uid ? this.shadowRoot.querySelector('textarea[data-input="edtext"]') : null;
+          return this._kopier(ta ? ta.value : it.summary || '', it.uid);
+        }
+        case 'copyall': {
+          // Den synlige lista som tekst: «- [ ] tekst (Prioritet, Person)»
+          const L = (this.__shown || []).map((x) => { const m = [this.config.priority !== false ? PR[x.prio][0] : '', x.who].filter(Boolean).join(', '); return `- [${x.done ? 'x' : ' '}] ${x.summary}${m ? ` (${m})` : ''}`; });
+          if (!L.length) return undefined;
+          return this._kopier(L.join('\n'), '__alle');
+        }
         case 'remove': {
           if (!it) return undefined;
+          if (this._edit && this._edit.uid === it.uid) this._edit = null;
           if (this._items) { this._items = this._items.filter((x) => x.uid !== it.uid); this.update(); }
           return M.call(h, 'todo', 'remove_item', { entity_id: tab, item: [it.uid] }).catch(() => {});
         }
@@ -10971,7 +11191,16 @@ try {
         .it.done .box{background:${C.green};box-shadow:none}
         .it.done .box ha-icon{opacity:1}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-        .t{font-size:14px;line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere}
+        .t{font-size:14px;line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere;white-space:pre-wrap;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;cursor:text}
+        .ed{width:100%;box-sizing:border-box;min-height:44px;resize:none;overflow:hidden;font:inherit;font-size:14px;line-height:1.4;color:#fafafa;background:var(--gray300,#404040);border:0;outline:none;border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px ${C.pink};user-select:text;-webkit-user-select:text;touch-action:auto}
+        .ea{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+        .ea .sp{flex:1}
+        .eb{height:30px;padding:0 10px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--gray300,#404040);color:var(--gray900,#c7c7c7);--mdc-icon-size:16px}
+        .eb.del{color:${C.red}}
+        .eb.lagre{background:${C.pink};color:#282828}
+        .eb.ok,.rm.ok,.cpa.ok{color:${C.green}}
+        .cpa{margin-left:auto;display:inline-flex;align-items:center;gap:5px;--mdc-icon-size:16px}
+        .cpa[disabled]{opacity:.4}
         .it.done .t{text-decoration:line-through}
         .mt{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
         .pt[disabled]{cursor:default}
@@ -11824,7 +12053,8 @@ try {
   const PACTS = [['popup', 'Person-popup', 'mdi:account-box'], ['quick', 'Hurtigark', 'mdi:card-account-details'], ['kart', 'Vis på kart', 'mdi:map-marker-account'], ['more', 'More-info', 'mdi:information-outline'], ['none', 'Ingen', 'mdi:cancel']];
   const PACT_L = Object.fromEntries(PACTS.map(([k, l]) => [k, l]));
   const PGESTS = [['tap', 'Trykk', 'mdi:gesture-tap'], ['double', 'Dobbelttrykk', 'mdi:gesture-double-tap'], ['hold', 'Hold', 'mdi:gesture-tap-hold']];
-  const PACT_DEF = { tap: 'popup', double: 'none', hold: 'quick' };
+  // Fiks 26.22 snur 22.7-standarden: trykk = hurtigark (som før 22.7), langt trykk = person-popup.
+  const PACT_DEF = { tap: 'quick', double: 'none', hold: 'popup' };
   M.HJEM_PERSON_ACTIONS = PACTS;
   // Effektive handlinger (ukjente/manglende → standard, gammel person_tap migreres). Ren funksjon.
   M.hjemPersonActions = function (c) {
@@ -12724,6 +12954,27 @@ try {
     const A = M.hjemStatusStyle(c, 'away');
     return { icon: A.icon, color: A.color, badge: c && c.away_marker != null ? c.away_marker === true : A.own };
   };
+  /* Fiks 26.22 · statusmerket i Hilsen/Sted (ren funksjon): { icon, color } eller null (Hjemme / ukjent → ingen merke).
+   *   Reiser/fly (sone/sted *fly*|travel|reise|airport) → lilla fly · Jobb/skole (*jobb*|work|skole|school|kontor|office) →
+   *   blå kontorbygg · annen sone / Borte → blå kartnål · Sover → lilla måne. Egne farger/ikoner i «Status og soner»
+   *   (hjemme, sover, borte, sone) vinner – et eget Hjemme-ikon gir merke også hjemme. info = M.hjemPersonInfo(…). */
+  const HB_PURPLE = 'var(--purple, #ad99e6)', HB_BLUE = 'var(--blue, #73b9f2)';
+  const HB_TRAVEL = /fly|travel|reise|airport|lufthavn/i, HB_WORK = /jobb|work|skole|school|kontor|office/i;
+  M.hjemHilBadge = function (info, c) {
+    const st = (info && info.status) || {};
+    if (info && info.sleep) return info.sleepOwn ? { icon: info.glyph, color: info.stCol } : { icon: 'mdi:weather-night', color: HB_PURPLE };
+    if (st.kind === 'zone') {
+      const z = zoneCfg(c, st.zone);
+      if (z.icon || z.color) return { icon: st.icon || 'mdi:map-marker', color: st.color || HB_BLUE };
+      const key = `${st.zone || ''} ${st.place || ''}`;
+      if (HB_TRAVEL.test(key)) return { icon: 'mdi:airplane', color: HB_PURPLE };
+      if (HB_WORK.test(key)) return { icon: 'mdi:office-building', color: HB_BLUE };
+      return { icon: 'mdi:map-marker', color: HB_BLUE };
+    }
+    if (st.kind === 'away') return M.hjemStatusStyle(c, 'away').own ? { icon: st.icon, color: st.color } : { icon: 'mdi:map-marker', color: HB_BLUE };
+    if (st.kind === 'home' && M.hjemStatusStyle(c, 'home').own) return { icon: st.icon, color: st.color }; // eget Hjemme-ikon (20.5) vises
+    return null;
+  };
   /* Status for én person (ren funksjon – testbar). p = 'person.x' eller en people-rad. rd = state-leser (valgfri).
    * 1) Hjemme-bryter på → Hjemme (vinner over GPS/sone).
    * 2) person.* i en annen sone enn home og «Bruk HA-sone når borte» på (zone ≠ false) → sonens ikon + farge
@@ -12846,40 +13097,38 @@ try {
   const modeOf = (c) => { const m = (c && c.mode) || 'hilsen'; return OLD_MODES.includes(m) ? 'hilsen' : m; };
   // Fiks 17.13/17.15: Hilsen og Sted = én rad, stor tittel + store bilder med status-merker (designets faces «hil»)
   const isHil = (m) => m === 'hilsen' || m === 'sted';
-  const HIL_DEF = { hFont: 58, hAv: 62, hBadge: 24, hGap: 10, hTGap: 16 };
+  // Fiks 26.22: hilsen 44 px/500 + menu-down 24 px på én linje; avatarer 80 px runde side om side (8 px, aldri overlapp);
+  // statusmerke 34 px. Under 420 px dashbordbredde: 56 px avatarer og 26 px merke (HIL_NARROW). Maks 3 bilder + «+N».
+  const HIL_DEF = { hFont: 44, hAv: 80, hBadge: 34, hGap: 8, hTGap: 16 };
+  const HIL_NARROW = { w: 420, av: 56 / 80, badge: 26 / 34 }, HIL_MAX = 3;
   // Fiks 18.4: i Fold-oppsettet (fold = true) skaleres tekst, bilder og merker med 0,72 og mellomrom mellom bildene med 0,8
   // (58 → 42, 62 → 45, 24 → 17 px) – oppå brukerens egne verdier; config endres ikke.
   const hilSizes = (c, fold) => {
     const n = (k, lo, hi) => { const v = c && c[k] != null && c[k] !== '' ? Number(c[k]) : NaN; return isNaN(v) ? HIL_DEF[k] : Math.min(hi, Math.max(lo, v)); };
-    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 80), badge: n('hBadge', 12, 32), gap: n('hGap', -12, 24), tgap: n('hTGap', 0, 48) };
+    const S = { font: n('hFont', 24, 72), av: n('hAv', 32, 96), badge: n('hBadge', 12, 40), gap: n('hGap', 0, 24), tgap: n('hTGap', 0, 48) };
     if (fold) { S.font = Math.round(S.font * 0.72); S.av = Math.round(S.av * 0.72); S.badge = Math.round(S.badge * 0.72); S.gap = Math.round(S.gap * 0.8); }
     return S;
   };
-  // Fiks 19.12: navnet har forrang, bildene tilpasser seg. W = radens bredde, tw1 = tekstbredde per px skrift,
-  // arr = ▾ + mellomrom, n = antall bilder. Er det ikke plass: ① bildene overlapper (−14 px, 2 px ring) ② bildene
-  // krymper ned til 40 px ③ hilsenen krymper ned til 28 px ④ «+N» i stedet for de siste bildene.
-  // → { fs, av, gap, k } (k = antall bilder som vises; k < n → «+(n − k)»-sirkel etter dem)
-  const HIL_MIN = { av: 40, fs: 28, gap: -14 };
-  // Status-merket følger bildet: 40 % av bildet, maks 24 px (og aldri over hBadge)
-  const hilBadge = (S, av) => Math.max(8, Math.min(S.badge, 24, Math.round(av * 0.4)));
-  const fitHil = (W, tw1, arr, n, S) => {
-    let fs = S.font, av = S.av, gap = S.gap, k = n;
-    const R = () => ({ fs, av, gap, k });
-    if (!n || !(W > 0) || !(tw1 > 0)) return R();
-    const text = (f) => tw1 * f * 1.01 + arr + 2;
-    const pics = (m) => (m ? m * av + (m - 1) * gap + Math.round(hilBadge(S, av) * 0.2) + S.tgap : 0);
-    const fits = (m) => text(fs) + pics(m) <= W;
-    if (fits(k)) return R();
-    if (n > 1) { gap = Math.min(gap, HIL_MIN.gap); if (fits(k)) return R(); }
-    av = Math.max(Math.min(S.av, HIL_MIN.av), Math.min(av, Math.floor((W - text(fs) - S.tgap - (n - 1) * gap - Math.round(hilBadge(S, av) * 0.2)) / n)));
-    if (fits(k)) return R();
-    fs = Math.max(Math.min(S.font, HIL_MIN.fs), Math.min(fs, Math.floor(((W - pics(k) - arr - 2) / (tw1 * 1.01)) * 10) / 10));
-    if (fits(k)) return R();
-    for (k = n - 1; k > 0 && !fits(k + 1); k--);
-    // ⑤ nødløsning (svært langt navn): heller mindre enn 28 px (min. 18) enn at raden går ut av skjermen
-    if (!fits(k + 1)) fs = Math.max(18, Math.floor(((W - pics(k + 1) - arr - 2) / (tw1 * 1.01)) * 10) / 10);
-    // ⑥ får det fortsatt ikke plass: først nå kortes teksten med «…» (cut)
-    return { ...R(), cut: !fits(k + 1) };
+  /* Fiks 26.22 (erstatter 19.12-tilpasningen med overlapp/krymping av bildene): bildene har fast størrelse (80 px, 56 px når
+   * dashbordet er smalere enn 420 px), står side om side med hGap (≥ 0, aldri overlapp) og vises maks 3 + «+N».
+   * Får ikke hilsen + bilder plass på én rad: ① hilsenen krymper ned til 32 px ② bildene flyttes til egen rad under
+   * (høyrejustert, wrap) og hilsenen får hele bredden igjen ③ først da kortes navnet med «…» (min. 26 px).
+   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom, n = antall personer.
+   * → { fs, av, gap, k, bs, wrap, cut } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
+  const HIL_MIN = { fs: 32, wrapFs: 26 };
+  const hilBadge = (S, av, narrow) => Math.max(8, Math.min(Math.round(av / 2), narrow ? Math.round(S.badge * HIL_NARROW.badge) : S.badge));
+  const fitHil = (W, tw1, arr, n, S, narrow) => {
+    const av = narrow ? Math.round(S.av * HIL_NARROW.av) : S.av, gap = S.gap, bs = hilBadge(S, av, narrow);
+    let k = Math.min(n, HIL_MAX);
+    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut });
+    if (!(W > 0) || !(tw1 > 0) || !n) return R(S.font);
+    const row = (kk) => { const m = kk < n ? kk + 1 : kk; return m ? m * av + (m - 1) * gap + Math.round(bs * 0.25) : 0; };
+    const fsIn = (w) => Math.min(S.font, Math.floor(((w - arr - 2) / (tw1 * 1.01)) * 10) / 10);
+    const one = fsIn(W - row(k) - S.tgap);
+    if (one >= Math.min(S.font, HIL_MIN.fs)) return R(one);
+    while (k > 1 && row(k) > W) k--; // egen rad: så mange bilder som får plass (normalt alle 3 + «+N»)
+    const fs = fsIn(W), min = Math.min(S.font, HIL_MIN.wrapFs);
+    return fs >= min ? R(fs, true) : R(min, true, true);
   };
   M.hjemFitHil = fitHil;
   // Fiks 19.13: header-profiler per bruker × enhetsklasse (ki-store header_profiles, MSH.profileGet/profileSet i
@@ -12953,7 +13202,7 @@ try {
           // Fiks 22.7: rett under «Handlinger på tittelen»
           { type: 'section', id: 'person_actions', label: 'Handlinger på personbilder', icon: 'mdi:account-circle', meta: (h, cc) => PACT_L[M.hjemPersonActions(cc).tap], fields: [
             { type: 'personacts' },
-            { type: 'info', label: 'Standard: trykk åpner person-popupen (#person-<id>), hold åpner hurtigarket, dobbelttrykk gjør ingenting.' },
+            { type: 'info', label: 'Standard: trykk åpner hurtigarket, langt trykk åpner person-popupen (#person-<id>), dobbelttrykk gjør ingenting.' },
           ] },
           { type: 'section', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => modeOf(cc) === 'stor', open: true, fields: [
             { type: 'range', name: 'g_font', label: 'Maks tekst', min: 1.6, max: 6, step: 0.1, default: D.g_font, fmt: (v) => `${M.nf(v, 1)} em` },
@@ -12972,9 +13221,9 @@ try {
           // Fiks 17.15: Hilsen og Sted – egne verdier (uavhengig av Stor hilsen), live i headeren mens man drar
           { type: 'section', id: 'hsizes', label: 'Størrelser', icon: 'mdi:format-size', when: (h, cc) => isHil(modeOf(cc)), open: true, fields: [
             { type: 'range', name: 'hFont', label: 'Tekststørrelse (maks)', icon: 'mdi:format-size', min: 24, max: 72, step: 1, default: HIL_DEF.hFont, unit: 'px' },
-            { type: 'range', name: 'hAv', label: 'Bildestørrelse (maks)', icon: 'mdi:account-circle', min: 32, max: 80, step: 1, default: HIL_DEF.hAv, unit: 'px' },
-            { type: 'range', name: 'hBadge', label: 'Merke (ikon-sirkel)', icon: 'mdi:circle-medium', min: 12, max: 32, step: 1, default: HIL_DEF.hBadge, unit: 'px', help: 'Merket blir aldri større enn halve bildet.' },
-            { type: 'range', name: 'hGap', label: 'Mellom bildene', icon: 'mdi:arrow-expand-horizontal', min: -12, max: 24, step: 1, default: HIL_DEF.hGap, unit: 'px', help: 'Minus = bildene overlapper.' },
+            { type: 'range', name: 'hAv', label: 'Bildestørrelse', icon: 'mdi:account-circle', min: 32, max: 96, step: 1, default: HIL_DEF.hAv, unit: 'px', help: 'Under 420 px bredde krymper bildene til 70 % (80 → 56 px).' },
+            { type: 'range', name: 'hBadge', label: 'Merke (ikon-sirkel)', icon: 'mdi:circle-medium', min: 12, max: 40, step: 1, default: HIL_DEF.hBadge, unit: 'px', help: 'Merket blir aldri større enn halve bildet.' },
+            { type: 'range', name: 'hGap', label: 'Mellom bildene', icon: 'mdi:arrow-expand-horizontal', min: 0, max: 24, step: 1, default: HIL_DEF.hGap, unit: 'px', help: 'Bildene står side om side (ingen overlapp). Flere enn 3 personer → 3 bilder + «+N».' },
             { type: 'range', name: 'hTGap', label: 'Mellom tekst og bilder', icon: 'mdi:format-letter-spacing', min: 0, max: 48, step: 1, default: HIL_DEF.hTGap, unit: 'px' },
             PROSE_GAP,
             { type: 'info', label: 'Teksten krymper for å få plass før den kortes med «…».' },
@@ -13102,8 +13351,9 @@ try {
       const c = this.config, h = this.hass, Md = modeOf(c);
       const rd = (id) => this.s(id);
       const P = M.hjemPersons(h, c);
-      const people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
+      let people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
       const meP = people.find((p) => p.me);
+      if (isHil(Md) && meP) people = [meP, ...people.filter((p) => p !== meP)]; // 26.22: den innloggede først
       const userFirst = firstName((h.user && h.user.name) || (meP && meP.name) || '');
       const srv = this._server();
       const fill = (t) => String(t || '').replace(/\{name\}/g, userFirst).replace(/\{server\}/g, srv.name);
@@ -13112,20 +13362,23 @@ try {
       const W = this._weather();
       const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
       const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
+      // 26.22: smal dashbordflate (< 420 px) → 56 px bilder og 26 px merke
+      const narrow = hil && (M.dashRect ? M.dashRect().width : window.innerWidth) < HIL_NARROW.w;
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
-      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap].join('|') : '';
+      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
       // Fiks 19.12: målt tilpasning (_hFitNow); før første måling et estimat fra radens bredde (tegnvekt-estimat)
-      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS) : {};
+      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS, narrow) : {};
+      this._hNarrow = narrow;
       const hGapN = HF.gap != null ? HF.gap : HS.gap;
-      const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = hilBadge(HS, hAvN), hK = HF.k != null ? HF.k : people.length;
+      const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = HF.bs || hilBadge(HS, hAvN, narrow), hK = HF.k != null ? HF.k : Math.min(people.length, HIL_MAX);
       this._hNum = hil ? people.length : 0;
       // tittelstil (designets hdr.titleStyle)
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
       if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
-      else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 600; ls = '-0.03em'; ht = 'auto'; pb = '0'; } // Fiks 19.12: fitHil
+      else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; } // 26.22: 44 px/500 (fitHil)
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
         fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
@@ -13134,7 +13387,7 @@ try {
       // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
       const szN = hil ? HS.av : big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
       const SZ = hil ? hSZ : big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
-      const RAD = hil || big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px';
+      const RAD = hil ? '50%' : big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px'; // 26.22: runde bilder i Hilsen
       const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big && !hil;
       const face = (p, k, dress) => {
@@ -13145,43 +13398,44 @@ try {
         const ini = dress && p.display !== 'icon' && !(p.pic && !(bad && bad.has(p.pic)));
         const av = ini
           ? `width:${sz};height:${sz};border-radius:50%;background:var(--gray300,#404040);opacity:${p.dim ? 0.55 : 1};font-size:18px;font-weight:500;color:var(--white,#fafafa);transition:opacity .3s`
-          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? (hil && !dress && hGapN < 0 ? `0 0 0 2px ${C.dash}` : 'none') : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
+          : `width:${sz};height:${sz};border-radius:${rad};background:${p.bg};box-shadow:${dress || hil ? 'none' : `0 0 0 3px ${C.dash}${ring}${meRing}`};opacity:${p.dim && !hil ? 0.55 : 1};font-size:${faceTxt(p, bad) ? `calc(${sz} * 0.38)` : '0'};font-weight:600;color:#232323;transition:opacity .3s,box-shadow .3s`;
         let bd = '', bi = '';
         // Status-merke (profil): 21 px sirkel grå 100 øverst til høyre, ikon 12 px grønt (hjemme) / grå 700 (borte).
         // Merke = status (M.personStatus): hjemme-bryter → sone → borte. Borte uten away_marker / ukjent → ingen merke.
-        if (!p.badge) { /* ingen merke */ }
-        else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
-        else if (hil) {
-          // Fiks 19.12: merket følger bildestørrelsen (40 % av bildet, maks 24 px / hBadge) og ligger inni bildegruppen
-          if (c.badge !== 'none') {
-            const o = -Math.round(hBs * 0.2), is = Math.round(hBs * 0.6);
-            bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${p.stCol};z-index:1`;
-            bi = M.icon(p.sleep && !p.sleepOwn ? 'mdi:power-sleep' : p.glyph, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
+        const hb = hil && !dress && c.badge !== 'none' ? M.hjemHilBadge(p, c) : null;
+        if (hil && !dress) {
+          // 26.22: 34 px (smal: 26) sirkel øverst til høyre, overlapper kanten ca. 25 %, hvitt ikon 18 px (smal: 14), uten ring
+          if (hb) {
+            const o = -Math.round(hBs * 0.25), is = Math.round((hBs * 18) / 34);
+            bd = `right:${o}px;top:${o}px;width:${hBs}px;height:${hBs}px;border-radius:50%;background:${hb.color};z-index:1`;
+            bi = M.icon(hb.icon, is, `color:#fafafa;--mdc-icon-size:${is}px;width:auto;height:auto`);
           }
         }
+        else if (!p.badge) { /* ingen merke */ }
+        else if (dress) { bd = `right:0;top:0;transform:translate(30%,-15%);width:${dress.bs}px;height:${dress.bs}px;border-radius:50%;background:var(--gray100,#2f2f2f);z-index:1`; bi = M.icon(p.glyph, 12, `color:${p.stCol};transition:color .3s`); }
         else if (big) { bd = `right:${-gBadge * 0.3}px;top:${-gBadge * 0.3}px;width:${gBadge}px;height:${gBadge}px;border-radius:${gBadge / 2}px;background:${p.stCol};z-index:1`; bi = M.icon(p.glyph, Math.round(gBadge * 0.6), 'color:#fafafa'); }
         else if (c.badge === 'icon') { bd = `right:-4px;top:-4px;width:22px;height:22px;border-radius:11px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`; bi = M.icon(p.glyph, 13, 'color:#fafafa'); }
         else if (c.badge === 'dot') bd = `right:1px;top:1px;width:12px;height:12px;border-radius:6px;background:${p.stCol};box-shadow:0 0 0 2px ${C.dash}`;
         const ml = dress ? 0 : k ? (ov ? -8 : hil ? hGapN : big ? gGap : 6) : 0; // stor: g_gap < 0 = overlapp (standard −8 som MySmartHome)
         const lbl = !dress && !ov && (c.show_name || c.show_place) ? `<span class="lb">${c.show_name ? `<span class="ln">${esc(p.first)}</span>` : ''}${c.show_place ? `<span class="lp">${esc(p.place)}</span>` : ''}</span>` : '';
-        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-haptic="off" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.2)}px` : ''}">
+        return `<button class="face press" data-key="${esc(p.id)}" data-act="person" data-haptic="off" data-id="${esc(p.id)}" data-ent="${esc(p.id)}" title="${esc(p.name)} · ${esc(p.place)}" style="margin-left:${ml}px${hil && k === faces.length - 1 && !hMore ? `;margin-right:${Math.round(hBs * 0.25)}px` : ''}">
           <span class="fw"><span class="av" style="${av}">${ini ? esc(p.initial) : faceInner(p, n, bad)}</span>${bd ? `<span class="bd" style="${bd}">${bi}</span>` : ''}</span>${lbl}</button>`;
       };
       let faces = people, row2 = [], hMore = 0;
       if (Md === 'profil') { const me = meP || people[0]; faces = me ? [me] : []; row2 = people.filter((p) => p !== me); }
       if (hil && hK < people.length) { hMore = people.length - hK; faces = people.slice(0, hK); } // Fiks 19.12 ④
       const more = hMore ? people[hK] : null;
-      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);box-shadow:0 0 0 2px ${C.dash};font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
+      const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--gray300,#404040);font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--white,#fafafa)">+${hMore}</span></span></button>` : '';
       const facesHTML = (Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('')) + moreHTML;
       const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
-      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}" data-ent="__tilpass">
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}" data-ent="__tilpass">
         <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
             <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
-              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : hil ? M.icon('arrow_drop_down', 24, 'color:#afafaf;align-self:center') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
+              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:#afafaf;--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--gray800,#afafaf);flex:none') : hil ? M.icon('mdi:menu-down', 24, 'color:#afafaf;align-self:center;flex:none') : M.icon('arrow_drop_down', 26, 'color:#afafaf')}
             </button>
             ${sub ? `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
           </div>
@@ -13512,8 +13766,8 @@ try {
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
       if (!tw || !W) return;
       const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0;
-      const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS);
-      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || !!next.cut !== !!cur.cut;
+      const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS, !!this._hNarrow);
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut;
       if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
       this._hFit = next;
       this.update();
@@ -13578,14 +13832,15 @@ try {
         .hil .top{align-items:center}
         .hil .ttl{line-height:1.15;column-gap:4px;max-width:none;overflow:visible}
         .hil .faces{align-items:center}
-        /* Fiks 19.12: hilsenen har forrang (aldri ellipsis), bildegruppen tilpasser seg */
-        .hil .lc{flex:1 1 auto;min-width:max-content}
-        .hil .ttl .tx{flex:none;max-width:none;overflow:visible;text-overflow:clip}
-        .hil .faces{flex:0 1 auto;min-width:0}
-        .hil.hcut .lc{flex:1 1 0;min-width:0}
-        .hil.hcut .faces{flex:none}
-        .hil.hcut .ttl{overflow:hidden;max-width:100%}
-        .hil.hcut .ttl .tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+        /* Fiks 26.22: bildene har fast størrelse (side om side, aldri overlapp); hilsen + ▾ på én linje, langt navn → «…» */
+        .hil .lc{flex:1 1 0;min-width:0}
+        .hil .faces{flex:none}
+        .hil .ttl{overflow:hidden;max-width:100%;color:#fafafa}
+        .hil .ttl .tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        /* ikke plass på én rad (smal skjerm / mange personer): bildene på egen rad under hilsenen, høyrejustert */
+        .hil.hwrap .top{flex-wrap:wrap;row-gap:12px}
+        .hil.hwrap .lc{flex:1 0 100%}
+        .hil.hwrap .faces{margin-left:auto}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797)}
       `;
     }
@@ -17287,7 +17542,7 @@ try {
     .ed{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:14px;font-family:${M.FONT};-webkit-user-select:none;user-select:none}
     input,textarea{-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:8px;padding:0 4px}
-    .hd .t{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.02em}
+    .hd .t{flex:1;font-size:22px;font-weight:600;letter-spacing:-0.01em} /* Fiks 26: lik header i alle Tilpass-ark */
     .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
     @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
     .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
@@ -17309,7 +17564,7 @@ try {
     .tgl{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 0 16px;border-radius:24px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;width:100%;text-align:left}
     .trk{display:block;position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
     .trk::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#c7c7c7;transition:left .2s,background .2s}
-    .trk.on{background:rgb(102 209 158)}
+    .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .trk.on::after{left:21px;background:#2f2f2f}
     .trk.big{width:52px;height:32px;border-radius:16px}
     .trk.big::after{width:26px;height:26px;border-radius:13px}
@@ -19599,10 +19854,31 @@ try {
     } else rows = (g === 'egne' ? gRow : '') + (E.map(row).join('') + extra(g) || `<div class="hint" data-key="ppnone">${g === 'egne' ? 'Ingen egne popups ennå – trykk «Ny popup» eller «Importer».' : 'Ingen popups her.'}</div>`);
     return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops"><style>${CSS}</style>
       ${bar}${warns}
-      <div class="pl">${rows}</div>${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
+      <div class="pl">${rows}</div>${gapRow(ed, null)}${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
       ${(g === 'alle' || g === 'fn') && M.doorbellModeHTML && M.ringFind && M.ringFind(ed.hass) ? M.doorbellModeHTML('ppring') : ''}
+      ${(g === 'alle' || g === 'fn') && M.vaerStilHTML ? M.vaerStilHTML('ppvaer') : ''}
       <span class="hint">Trykk en popup for å redigere navn, ikon og farge – eller hele YAML-en. Egne popups kan ha alle Bubble Card-valg og vilkårlige kort${nCustom > 1 ? '; dra i ⠿ for rekkefølge' : ''}. Endringer tas i bruk straks.</span>
     </div>`;
+  }
+
+  /* Fiks 26.18 · mellomrom fra Bubble-headeren til første kort. key = null → felles (ki-store popup_header_gap, standard −10);
+   * key = popupens nøkkel → overstyring for én popup (ki-store popups.<key>.header_gap). Strategien bruker det (MSH.applyHeaderGap). */
+  function gapRow(ed, key) {
+    const S = store(), glob = M.headerGapOf ? M.headerGapOf(S.popup_header_gap, (M.strategyConfig || {}).popup_header_gap) : -10;
+    const own = key ? (userPops(ed)[key] || {}).header_gap : S.popup_header_gap;
+    const set = own !== undefined && own !== null && own !== '';
+    const val = set ? Number(own) : glob;
+    const lbl = key ? 'Mellomrom under headeren (denne popupen)' : 'Alle popups · mellomrom under headeren';
+    const sub = key ? (set ? 'Egen verdi' : `Felles: ${glob} px`) : 'Fra Bubble-headeren til første kort. Standard −10 px; kan overstyres per popup.';
+    return `<div class="${key ? 'fld' : 'ppf'}" data-key="ppgap-${esc(key || '_')}"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">${lbl}</b><span class="hint" style="padding:0">${esc(sub)}</span></span>
+      <div class="rw"><input type="range" min="-40" max="40" step="1" data-in="ppgap" data-k="${esc(key || '')}" value="${val}" style="flex:1"><span class="rv">${val} px</span>${set && (key || val !== -10) ? `<button class="std" data-a="ppgapreset" data-k="${esc(key || '')}">Standard</button>` : ''}</div></div>`;
+  }
+  function gapSave(ed, key, v) {
+    if (!key) { save(ed, 'popup_header_gap', v === undefined || v === -10 ? undefined : v); return; }
+    if (ed._popSet) { ed._popSet(key, { header_gap: v }); return; }
+    const cur = { ...(userPops(ed)[key] || {}), header_gap: v };
+    if (v === undefined) delete cur.header_gap;
+    save(ed, 'popups.' + key, Object.keys(cur).length ? cur : undefined);
   }
 
   // Rom-popups · «Åpen ved start» (Fiks 7): global standard i ki-store room_defaults.open_on_start [ids].
@@ -19665,6 +19941,7 @@ try {
         <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span><div class="rw"><span class="pv2" style="background:${col}">${ic(o.icon || e.icon, 22)}</span><input class="in" style="flex:1" data-in="popicon" data-k="${esc(key)}" value="${esc(o.icon || '')}" placeholder="${esc(e.icon || '')}"></div></div>
         <div class="fld"><span class="fl">Ikonfarge</span><div class="ppsw">${COLS.map((x) => `<button class="${o.color === x ? 'on' : ''}" data-a="popcol" data-k="${esc(key)}" data-v="${esc(x)}" style="background:${M.color(x, x)}"></button>`).join('')}</div></div>
         ${o.name || o.icon || o.color ? `<button class="std" style="align-self:flex-start;height:32px;padding:0 12px" data-a="popreset" data-v="${esc(key)}">Standard</button>` : ''}
+        ${gapRow(ed, key)}
         <span class="hint" style="padding:0">Vil du endre mer (bredde, bakgrunn, kort …)? Bytt til YAML – lagring gjør popupen «Overstyrt».</span>
       </div>`;
     }
@@ -19681,6 +19958,7 @@ try {
       ${colRow('bg_color', 'Bakgrunnsfarge (bg_color)', obj.bg_color || '')}
       ${colRow('iconcol', 'Header · ikonfarge', F.iconcol)}
       ${colRow('hdrcol', 'Header · bakgrunn', F.hdrcol)}
+      ${obj.hash && HASH_RX.test(String(obj.hash)) && !d.ro ? gapRow(ed, String(obj.hash).slice(1)) : ''}
     </div>`;
   }
   function errBox(d) {
@@ -20014,6 +20292,7 @@ try {
     },
     act(ed, a, d) {
       const u = ed.u;
+      if (a === 'ppvaer') { if (M.setVaerStil) Promise.resolve(M.setVaerStil(d.v)).then(() => ed.render()); ed.render(); return true; } // 26.24: Vær · Klassisk | Scene (kortets stil)
       if (a === 'ppring') { if (M.setDoorbell) M.setDoorbell(d.f || 'mode', d.v); ed.render(); return true; } // 19.18/20.1: «Når det ringer» + tid/utløser (per bruker × enhet)
       if (a === 'ppstrom') { u.pv = 'strom'; u.pd = null; u.ppMenu = false; ed.render(); return true; }
       if (u.pv === 'strom' && M.powerPricePanel && M.powerPricePanel.act(ed, a, d)) return true;
@@ -20024,6 +20303,7 @@ try {
           const nx = cur.includes(d.v) ? cur.filter((k) => k !== d.v) : [...cur, d.v];
           save(ed, 'room_defaults', { ...rd, open_on_start: nx }); ed.render(); return true;
         }
+        case 'ppgapreset': gapSave(ed, d.k || null, undefined); ed.render(); return true; // 26.18
         case 'pprdreset': { const { open_on_start, ...rd } = store().room_defaults || {}; save(ed, 'room_defaults', Object.keys(rd).length ? rd : undefined); ed.render(); return true; }
         case 'ppmenu': u.ppMenu = !u.ppMenu; ed.render(); return true;
         case 'ppexport': u.ppMenu = false; u.pv = 'export'; u.pd = { id: 'x' + ++seq, text: exportText(), ro: true, src: 'export' }; ed.render(); return true;
@@ -20140,6 +20420,11 @@ try {
         return true;
       }
       if (k === 'ppicon') { if (kind === 'change') setIcon(ed, el.value); return true; }
+      if (k === 'ppgap') { // 26.18
+        if (kind === 'input') { const sp = el.parentNode.querySelector('.rv'); if (sp) sp.textContent = el.value + ' px'; return true; }
+        if (kind === 'change') { M.haptic('selection'); gapSave(ed, el.dataset.k || null, Number(el.value)); ed.render(); }
+        return true;
+      }
       if (!d) return false;
       if (k === 'ppname' || k === 'pphash') {
         if (kind !== 'input' && kind !== 'change') return true;
@@ -21070,7 +21355,8 @@ try {
         { type: 'select', name: 'appliance_animation', label: 'Animasjon', options: ANIM_LV, default: 'full', help: 'Rist/spinn/puls på ikonet når enheten er aktiv. Rolig = halv fart. Av = stillestående ikon' },
         { type: 'number', name: 'run_threshold_w', label: 'Kjører over (W)', min: 0, max: 3000, placeholder: 'Auto', help: 'Uten status-sensor: effekt over dette = kjører' },
       ] });
-      out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: true });
+      // 26.21: av som standard – Tilpass åpnes via tannhjulet i klima-toppkortet (vises alltid). Bare true viser knappen.
+      out.push({ type: 'boolean', name: 'customize_button', label: 'Vis «Tilpass rommet»-knapp nederst', default: false });
       return tabsOf(out, h, c, area);
     };
   }
@@ -21136,6 +21422,8 @@ try {
   class Rom extends M.Card {
     static get cardName() { return 'Rom'; }
     static get defaults() { return {}; }
+    // 26.21: stub-config har «Tilpass rommet»-knappen nederst av (tannhjulet i toppkortet åpner Tilpass)
+    static getStubConfig() { return { ...super.getStubConfig(), customize_button: false }; }
     // Mellomrom-standard (MSH._applySpacing): bare rom uten lagret verdi får disse.
     static get spacingDefaults() { return SPACING; }
     static get schema() { return buildSchema(null); }
@@ -21221,7 +21509,8 @@ try {
       const secs = order.filter((k) => !hid.has(k)).map((k) => R[k]()).filter(Boolean).join('');
       const any = LISTS.some(([k]) => L.lists[k].length);
       const body = secs || (any ? '' : M.emptyState(`Fant ingen entiteter i ${this._areaName}`, 'entities'));
-      const tune = c.customize_button !== false ? `<button class="tune press" data-act="customize">${M.icon('tune', 18)}Tilpass rommet</button>` : '';
+      // 26.21: knappen nederst bare med `customize_button: true` (eller ki-room-card-navnet `show_edit_button: true`)
+      const tune = c.customize_button === true || c.show_edit_button === true ? `<button class="tune press" data-act="customize">${M.icon('tune', 18)}Tilpass rommet</button>` : '';
       return `<div class="rom">${body}${tune}</div>`;
     }
 
@@ -22443,12 +22732,14 @@ try {
 
 /* ---- 40-basseng.js ---- */
 try {
-/* Basseng-popup (#basseng). Kilde: Basseng v3.dc.html.
- *   msh-basseng-hero-card – hero med apparat-animasjoner (bølger, bobler, pumpe, varmepumpe, tak, lys)
- *   msh-basseng-card      – kontroller, glass-faner (Oversikt · Varme · Klor · Spreder) og innholdet i hver fane
- * Autokonfig: entiteter i område «Basseng»/«pool» (M.findArea) – temperatur, pumpe, varmepumpe, tak, lys,
- * spreder, pH/klor, effekt, modus-select, brytere. Klorlogg i calendar.* (klor/basseng/pool), personer = person.*.
- * Alt kan overstyres: overrides.<felt>, exclude, include.flagg / include.personer.
+/* Basseng-popup (#basseng). Kilde: Basseng v4 (variant a, fiks 26.14) · Basseng v3.dc.html for rollene (ENTS) og CFG.
+ * ÉTT kort i popupen: msh-basseng-card tegner toppkort (msh-basseng-hero-card, innebygd via MSH.HEROES) → prosalinje
+ * «Vannet er …» → glass-faner (Oversikt · Varme · Klor · Spreder) → innholdet i fanen (Oversikt: hurtigknapper Lys ·
+ * Pumpe · Varme · Stille (lyd av) · Stikkontakt, nøkkeltall, I dag, temperaturgraf med maks/min, moduser, brytere).
+ * Autokonfig (M.poolAuto): 1) område «Basseng»/«Pool»/«Badebasseng», 2) navn/id med basseng|baseng|pool, 3) domene +
+ * device_class. Overstyring: overrides.<rolle> (bytt), exclude: [rolle|entitet], include: [{ entity, navn, ikon }] /
+ * include.hurtig (ekstra hurtigknapper), include.flagg / include.personer. Gammel config (`hurtig:`, ki-basseng-nøkler,
+ * basseng-v3-cfg i localStorage) migreres én gang til config (M.poolNorm). Bunnluft: MSH.popupBottomPad (ingen gap-card).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -22538,28 +22829,66 @@ try {
     return M.isOn(s);
   };
 
-  /* ------------------------------------------------------------ autokonfig */
-  const DOMS = ['sensor', 'switch', 'input_boolean', 'fan', 'climate', 'water_heater', 'cover', 'binary_sensor', 'light', 'valve', 'select', 'input_select', 'number', 'input_number'];
-  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.findArea(hass, 'basseng', 'pool', 'svommebasseng');
+  /* ------------------------------------------------------------ autokonfig (fiks 26.14 · rollene i ENTS) */
+  // Hver rolle søkes i rekkefølge: 1) entiteter i området «Basseng»/«Pool»/«Badebasseng», 2) entiteter der navn eller id
+  // inneholder basseng|baseng|pool (typoen «baseng» tas med), 3) domene + device_class innenfor de to settene.
+  const DOMS = ['sensor', 'switch', 'input_boolean', 'fan', 'climate', 'water_heater', 'cover', 'binary_sensor', 'light', 'valve', 'select', 'input_select', 'number', 'input_number', 'input_datetime', 'counter'];
+  const POOL_RX = /basseng|baseng|pool|svommebasseng|svømmebasseng/;
+  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.findArea(hass, 'basseng', 'pool', 'badebasseng', 'svommebasseng');
+  // Rolle ut fra én entitet (brukes av migreringen av gamle `hurtig:`)
+  const QUIET_RX = /stille|silent|quiet|lyd_av|mute/, PUMP_RX = /pump|filter|sirkul/, HEAT_RX = /varme|heat/, SOCK_RX = /stikkontakt|outlet|socket|(^|[_ .])plug/;
+  M.poolRoleOf = function (hass, id) {
+    const d = String(id || '').split('.')[0], s = hass && hass.states[id], t = M.txt(hass, id), dc = s && s.attributes.device_class;
+    if (d === 'light') return 'light';
+    if (d === 'climate' || d === 'water_heater') return 'heat';
+    if (d === 'cover') return 'cover';
+    if (d === 'valve' || /spreder|sprinkler/.test(t)) return ['switch', 'valve', 'input_boolean'].includes(d) ? 'spr' : null;
+    if (!['switch', 'input_boolean', 'fan'].includes(d)) return null;
+    if (QUIET_RX.test(t)) return 'quiet';
+    if (dc === 'outlet' || SOCK_RX.test(t)) return 'sock';
+    if (PUMP_RX.test(t) && !HEAT_RX.test(t)) return 'pump';
+    if (/lys|light/.test(t)) return 'light';
+    if (HEAT_RX.test(t)) return 'heat';
+    return null;
+  };
   M.poolAuto = function (hass, cfg) {
     const area = M.poolArea(hass, cfg), o = { area };
     if (!hass) return o;
-    const ids = area ? M.all(hass, DOMS, (s, id) => M.areaOf(hass, id) === area) : [];
     const T = (id) => M.txt(hass, id), dc = (id) => hass.states[id].attributes.device_class;
-    const f = (doms, re, not) => ids.find((id) => doms.includes(id.split('.')[0]) && (!re || re.test(T(id))) && (!not || !not.test(T(id)))) || null;
+    const A1 = area ? M.all(hass, DOMS, (s, id) => M.areaOf(hass, id) === area) : [];
+    // 2) navn/id – bare når området ikke er valgt eksplisitt (et valgt område er fasit)
+    const A2 = cfg && cfg.area ? [] : M.all(hass, DOMS, (s, id) => !A1.includes(id) && POOL_RX.test(T(id)));
+    const ids = A1.concat(A2);
+    const used = new Set();
+    // første treff i område-settet, deretter i navne-settet
+    const f = (doms, re, not, pred) => {
+      for (const L of [A1, A2]) {
+        const id = L.find((x) => doms.includes(x.split('.')[0]) && !used.has(x) && (!re || re.test(T(x))) && (!not || !not.test(T(x))) && (!pred || pred(x)));
+        if (id) return id;
+      }
+      return null;
+    };
+    const take = (id) => { if (id) used.add(id); return id || null; };
     const sens = ids.filter((id) => id.startsWith('sensor.'));
     const temps = sens.filter((id) => dc(id) === 'temperature');
     const OUT = /(^|[_ .])ute|outdoor|outside|luft|(^|[_ .])air/;
-    o.water = temps.find((id) => !OUT.test(T(id)) && /vann|water|basseng|pool/.test(T(id))) || temps.find((id) => !OUT.test(T(id))) || null;
-    o.ute = temps.find((id) => OUT.test(T(id))) || M.all(hass, 'weather')[0] || null;
-    o.pump = f(['switch', 'input_boolean', 'fan'], /pump|filter|sirkul/, /varme|heat/);
-    o.heat = f(['climate']) || f(['water_heater']) || f(['switch', 'input_boolean'], /varme|heat/);
-    o.cover = f(['cover']) || f(['switch', 'input_boolean', 'binary_sensor'], /tak|cover|lokk|presenning/);
-    o.light = f(['light']) || f(['switch'], /(^|[_ .])lys|light|led/);
-    o.spr = f(['switch', 'valve', 'input_boolean'], /spreder|sprinkler|fontene|fountain|dusj/);
+    o.water = temps.find((id) => !OUT.test(T(id)) && /vann|water|basseng|baseng|pool/.test(T(id))) || temps.find((id) => !OUT.test(T(id))) || null;
+    // Utetemperatur: bassengets egen ute-sensor, ellers samme som Hjem (ute-temperatursensor / weather.*)
+    o.ute = temps.find((id) => OUT.test(T(id))) || M.all(hass, 'sensor', (s, id) => s.attributes.device_class === 'temperature' && /(^|[_ .])ute|outdoor|outside/.test(T(id)))[0] || M.all(hass, 'weather')[0] || null;
+    // Stille-/lyd av-bryteren først, så den ikke tas som pumpe eller varme
+    o.quiet = take(f(['switch', 'input_boolean'], QUIET_RX));
+    o.heat = take(f(['climate']) || f(['water_heater']) || f(['switch', 'input_boolean'], HEAT_RX, /prio|natt|night|senk|vinter|winter/));
+    o.pump = take(f(['switch', 'input_boolean', 'fan'], PUMP_RX, HEAT_RX));
+    o.light = take(f(['light']) || f(['switch'], /lys|light|(^|[_ .])led/));
+    o.spr = take(f(['switch', 'valve', 'input_boolean'], /spreder|sprinkler|fontene|fountain|dusj/));
+    o.sock = take(f(['switch'], null, null, (id) => dc(id) === 'outlet') || f(['switch'], SOCK_RX));
+    o.cover = take(f(['cover']) || f(['switch', 'input_boolean', 'binary_sensor'], /(^|[_ .])tak|pooltak|cover|lokk|presenning/, SOCK_RX));
+    // Effekt: device_class power på pumpe-/varmeenheten, ellers navnet
+    const devOf = (id) => { const e = id && M.regEntry(hass, id); return (e && e.device_id) || null; };
     const pw = sens.filter((id) => dc(id) === 'power');
-    o.power = pw.find((id) => /pump/.test(T(id)) && !/varme|heat/.test(T(id))) || pw.find((id) => !/varme|heat/.test(T(id))) || null;
-    o.heat_power = pw.find((id) => /varme|heat/.test(T(id))) || null;
+    const onDev = (dev) => (dev ? pw.find((id) => devOf(id) === dev) : null);
+    o.power = onDev(devOf(o.pump)) || pw.find((id) => PUMP_RX.test(T(id)) && !HEAT_RX.test(T(id))) || pw.find((id) => !HEAT_RX.test(T(id))) || null;
+    o.heat_power = (onDev(devOf(o.heat)) !== o.power && onDev(devOf(o.heat))) || pw.find((id) => HEAT_RX.test(T(id)) && id !== o.power) || null;
     o.ph = sens.find((id) => dc(id) === 'ph' || /(^|[_ .])ph($|[_ .])/.test(T(id))) || null;
     o.klor = sens.find((id) => /klor|chlor|orp|redox/.test(T(id))) || null;
     o.savings = sens.find((id) => /spart|saving/.test(T(id))) || null;
@@ -22576,26 +22905,51 @@ try {
     o.solar = sens.find((id) => dc(id) === 'irradiance' || /(^|[_ .])sol|solar/.test(T(id))) || null;
     o.target = (o.heat && /^(climate|water_heater)\./.test(o.heat)) ? o.heat : f(['number', 'input_number'], /mal|mål|target|settpunkt|setpunkt|setpoint/);
     o.spr_duration = f(['number', 'input_number'], /varighet|duration/);
-    o.klor_calendar = M.all(hass, 'calendar', (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || M.all(hass, 'calendar', (s, id) => /basseng|pool/.test(M.txt(hass, id)))[0] || null;
+    // Klorkalender: calendar.* med klor i navnet, ellers input_datetime/counter for siste klortablett
+    o.klor_calendar = M.all(hass, 'calendar', (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || M.all(hass, 'calendar', (s, id) => POOL_RX.test(M.txt(hass, id)))[0] || null;
+    o.klor_last = o.klor_calendar ? null : (M.all(hass, ['input_datetime', 'counter'], (s, id) => /klor|chlor/.test(M.txt(hass, id)))[0] || null);
     o.flags = [o.auto, o.price, o.prio].filter(Boolean);
     o.people = M.all(hass, 'person');
     return o;
   };
-  // Endelig oppsett: overrides vinner, exclude fjerner auto-valg.
+  // Rollenavn fra designet (ENTS/CTL) → nøklene her
+  const ROLE_ALIAS = { out: 'ute', cal: 'klor_calendar', mute: 'quiet', stille: 'quiet', stikkontakt: 'sock', lys: 'light', pumpe: 'pump', varme: 'heat' };
+  const roleKey = (k) => ROLE_ALIAS[k] || k;
+  // Ekstra hurtigknapper: include: [{ entity, navn, ikon }] (YAML) eller include.hurtig: [id] (editoren) + labels.<id>
+  M.poolExtras = function (cfg) {
+    const c = cfg || {}, L = c.labels || {}, out = [], seen = new Set();
+    const add = (x) => {
+      const it = typeof x === 'string' ? { entity: x } : x;
+      const id = it && (it.entity || it.entity_id);
+      if (!id || seen.has(id) || (c.exclude || []).includes(id)) return;
+      seen.add(id);
+      out.push({ entity: id, navn: it.navn || it.name || (L[id] && L[id].navn) || null, ikon: it.ikon || it.icon || (L[id] && L[id].ikon) || null });
+    };
+    if (Array.isArray(c.include)) c.include.forEach(add);
+    else if (c.include && Array.isArray(c.include.hurtig)) c.include.hurtig.forEach(add);
+    return out;
+  };
+  // Endelig oppsett: overrides vinner, exclude (rolle eller entitet) fjerner auto-valg.
   M.poolEnts = function (hass, cfg) {
-    const a = M.poolAuto(hass, cfg), ex = new Set((cfg && cfg.exclude) || []), e = { area: a.area, auto: a };
-    Object.keys(a).forEach((k) => { if (k === 'area' || Array.isArray(a[k])) return; e[k] = M.pick(cfg, k, a[k] && !ex.has(a[k]) ? a[k] : null); });
-    e.flags = M.applyLists(cfg, 'flagg', a.flags || []);
-    e.people = M.applyLists(cfg, 'personer', a.people || []);
+    cfg = cfg || {};
+    const a = M.poolAuto(hass, cfg), e = { area: a.area, auto: a };
+    const ov = {};
+    Object.keys(cfg.overrides || {}).forEach((k) => { if (cfg.overrides[k]) ov[roleKey(k)] = cfg.overrides[k]; });
+    const ex = new Set((Array.isArray(cfg.exclude) ? cfg.exclude : []).map(roleKey));
+    Object.keys(a).forEach((k) => { if (k === 'area' || Array.isArray(a[k])) return; e[k] = ex.has(k) ? null : ov[k] || (a[k] && !ex.has(a[k]) ? a[k] : null); });
+    e.flags = M.applyLists(Array.isArray(cfg.include) ? { ...cfg, include: {} } : cfg, 'flagg', a.flags || []);
+    e.people = M.applyLists(Array.isArray(cfg.include) ? { ...cfg, include: {} } : cfg, 'personer', a.people || []);
+    e.extra = M.poolExtras(cfg);
     return e;
   };
   const OVR = [
-    ['water', 'Vanntemperatur', 'sensor', 'temperature'], ['ute', 'Utetemperatur', ['sensor', 'weather']], ['pump', 'Pumpe', ['switch', 'input_boolean', 'fan']], ['heat', 'Varmepumpe', ['climate', 'water_heater', 'switch', 'input_boolean']],
+    ['water', 'Vanntemperatur', 'sensor', 'temperature'], ['ute', 'Utetemperatur', ['sensor', 'weather']], ['pump', 'Pumpe', ['switch', 'input_boolean', 'fan']], ['heat', 'Varme (varmepumpe)', ['climate', 'water_heater', 'switch', 'input_boolean']],
+    ['quiet', 'Stille (lyd av)', ['switch', 'input_boolean']], ['sock', 'Stikkontakt', ['switch', 'input_boolean']],
     ['cover', 'Pooltak', ['cover', 'switch', 'input_boolean', 'binary_sensor']], ['light', 'Lys', ['light', 'switch']], ['spr', 'Spreder', ['switch', 'valve', 'input_boolean']], ['power', 'Effekt · pumpe', 'sensor', 'power'],
     ['heat_power', 'Effekt · varmepumpe', 'sensor', 'power'], ['ph', 'pH', 'sensor'], ['klor', 'Klor (mg/L / ORP)', 'sensor'], ['target', 'Måltemperatur', ['climate', 'water_heater', 'number', 'input_number']],
     ['turnover', 'Omsetninger i dag', 'sensor'], ['pumped', 'Pumpet i dag (timer)', 'sensor'], ['savings', 'Spart i dag', 'sensor'], ['cost', 'Strømkostnad i dag', 'sensor'],
     ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
-    ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'],
+    ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'], ['klor_last', 'Siste klortablett (uten kalender)', ['input_datetime', 'counter']],
   ];
   const ovrFields = (keys) => OVR.filter((x) => !keys || keys.includes(x[0])).map(([name, label, domain, device_class]) => ({ name, label, domains: [].concat(domain), device_class, auto: (h, c) => M.poolAuto(h, c)[name] }));
   const AREA_F = { type: 'area', name: 'area', label: 'Område', help: 'Tomt = område «Basseng»/«pool»', auto: (h, c) => M.poolArea(h, {}) };
@@ -22618,7 +22972,7 @@ try {
     }
     get cardSize() { return 4; }
     render() {
-      const c = this.config, e = M.poolEnts(this.hass, c), A = c.anim !== false;
+      const c = M.poolNorm(this.config, this.hass), e = M.poolEnts(this.hass, c), A = c.anim !== false;
       const on = (k) => M.onState(this.s(e[k]));
       const pump = on('pump'), heat = on('heat'), cover = on('cover'), light = on('light');
       const P = pump && A, H = heat && A;
@@ -22648,7 +23002,7 @@ try {
             <div class="pm"><span class="ring" style="animation:${P ? 'ring 1.6s ease-out infinite' : 'none'}"></span>${M.icon('autorenew', 16, `color:${pump ? C.pink : '#8a979b'};animation:${P ? 'spin 2.4s linear infinite' : 'none'}`)}</div>
           </div>
           <div class="tl">
-            <span class="lbl">${esc(c.name || 'Bassenget')}</span>
+            <span class="lbl">${esc(c.name || c.navn || 'Bassenget')}</span>
             <span class="st">${M.icon(status[0], 13)}${esc(status[1])}</span>
             ${c.chips !== false && chips ? `<div class="chips">${chips}</div>` : ''}
           </div>
@@ -22691,10 +23045,12 @@ try {
       `;
     }
   }
-  M.define('msh-basseng-hero-card', BassengHero, 'MSH Basseng · hero', 'Basseng-hero med vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Første kort i #basseng.');
+  M.define('msh-basseng-hero-card', BassengHero, 'MSH Basseng · hero', 'Toppkortet i msh-basseng-card (innebygd via MSH.HEROES, fiks 26.14): vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Legges ikke som eget kort i popupen.');
 
   /* ============================================================ HOVEDKORT */
-  const CTL = { light: ['lightbulb', 'Lys', C.gray1000], pump: ['water_pump', 'Pumpe', C.accent], heat: ['heat', 'Varme', C.red], cover: ['roofing', 'Pooltak', C.blue], spr: ['sprinkler', 'Spreder', C.green] };
+  // Hurtigknapper (v4: q.light/pump/heat/quiet/sock) – vises bare for roller som ble funnet. Pooltak/Spreder kan slås på i Tilpass.
+  const CTL = { light: ['lightbulb', 'Lys', C.gray1000], pump: ['water_pump', 'Pumpe', C.accent], heat: ['heat', 'Varme', C.red], quiet: ['volume_off', 'Stille', C.gray1000, 'Lyd av'], sock: ['mdi:power-socket-eu', 'Stikkontakt', C.yellow], cover: ['roofing', 'Pooltak', C.blue], spr: ['sprinkler', 'Spreder', C.green] };
+  const CTL_STD = ['light', 'pump', 'heat', 'quiet', 'sock', 'cover', 'spr'], CTL_HID = ['cover', 'spr'];
   const TABS = { ov: 'Oversikt', heat: 'Varme', klor: 'Klor', spr: 'Spreder' };
   // Designets «Styring og verdier» → config.vals.<nøkkel> (placeholder = standard).
   const CFG = [
@@ -22711,21 +23067,139 @@ try {
   const MODE_IC = [[/boost|turbo|maks/, 'mode_fan'], [/spre|sprink|fontene/, 'sprinkler'], [/eco|spar/, 'eco'], [/bal|normal|auto/, 'balance'], [/bade|bad|swim|komfort/, 'star'], [/av|off|stopp/, 'power_settings_new'], [/natt|night/, 'bedtime'], [/vinter|winter/, 'ac_unit']];
   const modeIcon = (o) => { const t = String(o).toLowerCase(); const m = MODE_IC.find(([re]) => re.test(t)); return m ? m[1] : 'tune'; };
 
+  /* ------------------------------------------------------------ migrering (fiks 26.14) */
+  // Gammel config (ki-basseng-card/ki-basseng-hero-card, `hurtig:`, designets ctl/ctlHide/ents, basseng-v3-cfg fra
+  // localStorage) → ny config. Rolle-entiteter som autokonfig finner selv skrives IKKE inn (overrides bare ved avvik).
+  const LEG_ROLE = { varmepumpe: 'heat', pumpe: 'pump', lys: 'light', stillemodus: 'quiet', stikkontakt: 'sock', vanntemp: 'water', ute: 'ute', pooltak: 'cover' };
+  const LEG_KEYS = ['navn', 'hurtig', 'hurtig_navn', 'hero', 'forvalg', 'ctl', 'ctlHide', 'tabHide', 'ents'];
+  const LBL = {};
+  CFG.forEach(([, , rows]) => rows.forEach(([k, l]) => { LBL[l] = k; }));
+  const hidList = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.keys(v).filter((k) => v[k]) : []);
+  M.poolLegacy = (cfg) => !!cfg && (LEG_KEYS.some((k) => k in cfg) || Object.keys(LEG_ROLE).some((k) => typeof cfg[k] === 'string' && cfg[k].includes('.')) || Array.isArray(cfg.include));
+  M.POOL_LS = 'basseng-v3-cfg';
+  M.poolLS = () => { try { return JSON.parse(localStorage.getItem(M.POOL_LS) || 'null'); } catch (e) { return null; } };
+  M.poolNorm = function (cfg, hass, pc) {
+    if (!cfg || (!M.poolLegacy(cfg) && !pc)) return cfg;
+    const n = { ...cfg }, ov = { ...(cfg.overrides || {}) }, claimed = new Set(Object.keys(ov));
+    let auto = null;
+    const A = () => auto || (auto = M.poolAuto(hass, { ...cfg, overrides: {} }));
+    const role = (k, id) => {
+      k = roleKey(k);
+      if (!id || typeof id !== 'string' || claimed.has(k)) return false;
+      claimed.add(k);
+      if (!(hass && A()[k] === id)) ov[k] = id;
+      return true;
+    };
+    const labels = { ...(cfg.labels || {}) }, inc = cfg.include && !Array.isArray(cfg.include) ? { ...cfg.include } : {}, extra = [...(inc.hurtig || [])];
+    const addExtra = (it) => {
+      const id = it && (it.entity || it.entity_id);
+      if (!id || extra.includes(id)) return;
+      extra.push(id);
+      const nv = it.navn || it.name, ik = it.ikon || it.icon;
+      if (nv || ik) labels[id] = { ...(nv ? { navn: nv } : {}), ...(ik ? { ikon: ik } : {}) };
+    };
+    if ('navn' in cfg) { if (!n.name && cfg.navn) n.name = cfg.navn; delete n.navn; }
+    Object.keys(LEG_ROLE).forEach((k) => { if (typeof cfg[k] === 'string' && cfg[k].includes('.')) { role(LEG_ROLE[k], cfg[k]); delete n[k]; } });
+    if (Array.isArray(cfg.hurtig)) cfg.hurtig.forEach((x) => {
+      const it = typeof x === 'string' ? { entity: x } : x || {}, id = it.entity;
+      if (!id) return;
+      const r = M.poolRoleOf(hass, id);
+      if (!(r && role(r, id))) addExtra(it);
+    });
+    if (Array.isArray(cfg.include)) cfg.include.forEach((x) => addExtra(typeof x === 'string' ? { entity: x } : x));
+    if (cfg.ents && typeof cfg.ents === 'object') Object.keys(cfg.ents).forEach((k) => role(k, cfg.ents[k]));
+    if (Array.isArray(cfg.forvalg) && cfg.forvalg.length && !(cfg.vals && cfg.vals.targets)) n.vals = { ...(n.vals || {}), targets: cfg.forvalg.join(' ') };
+    if (Array.isArray(cfg.ctl) && !cfg.controls) n.controls = cfg.ctl.map(roleKey).filter((k) => CTL[k]);
+    if (cfg.ctlHide && !cfg.hidden_controls) n.hidden_controls = hidList(cfg.ctlHide).map(roleKey);
+    if (cfg.tabHide && !cfg.hidden_tabs) n.hidden_tabs = hidList(cfg.tabHide);
+    // basseng-v3-cfg (designets localStorage) – bare det config ikke har fra før
+    if (pc && typeof pc === 'object') {
+      if (pc.ents) Object.keys(pc.ents).forEach((k) => role(k, pc.ents[k]));
+      if (Array.isArray(pc.ctl) && !n.controls) n.controls = pc.ctl.map(roleKey).filter((k) => CTL[k]);
+      if (pc.ctlHide && !n.hidden_controls && hidList(pc.ctlHide).length) n.hidden_controls = hidList(pc.ctlHide).map(roleKey);
+      if (Array.isArray(pc.tabs) && !n.tabs) n.tabs = pc.tabs.filter((k) => TABS[k]);
+      if (pc.tabHide && !n.hidden_tabs && hidList(pc.tabHide).length) n.hidden_tabs = hidList(pc.tabHide);
+      if (pc.vals && typeof pc.vals === 'object') {
+        const v = { ...(n.vals || {}) };
+        Object.keys(pc.vals).forEach((l) => { const k = LBL[l] || (VDEF[l] !== undefined ? l : null); if (k && v[k] == null && pc.vals[l] !== '') v[k] = pc.vals[l]; });
+        if (Object.keys(v).length) n.vals = v;
+      }
+      ['anim', 'chips'].forEach((k) => { if (pc[k] === false && n[k] == null) n[k] = false; });
+    }
+    LEG_KEYS.forEach((k) => { delete n[k]; });
+    if (Object.keys(ov).length) n.overrides = ov; else delete n.overrides;
+    if (extra.length) n.include = { ...inc, hurtig: extra }; else if (Array.isArray(cfg.include)) delete n.include;
+    if (Object.keys(labels).length) n.labels = labels;
+    return n;
+  };
+  // Popup-oppsett fra et importert/gammelt Bubble-popup (#badebasseng med ki-basseng-card, ki-basseng-hero-card og
+  // gap-card) → config for ÉTT msh-basseng-card. null = ikke et gammelt basseng-popup.
+  const LEG_TAGS = ['ki-basseng-card', 'ki-basseng-hero-card', 'msh-basseng-hero-card'];
+  const tagOfC = (c) => String((c && c.type) || '').replace(/^custom:/, '');
+  const cardsDeep = (o, out = [], d = 0) => {
+    if (!o || typeof o !== 'object' || d > 12) return out;
+    if (Array.isArray(o)) { o.forEach((x) => cardsDeep(x, out, d + 1)); return out; }
+    if (o.type) out.push(o);
+    if (Array.isArray(o.cards)) cardsDeep(o.cards, out, d + 1);
+    if (o.card && typeof o.card === 'object') cardsDeep(o.card, out, d + 1);
+    return out;
+  };
+  M.bassengLegacyCard = function (popup) {
+    const list = cardsDeep(popup && popup.cards);
+    const main = list.find((c) => tagOfC(c) === 'ki-basseng-card'), hero = list.find((c) => ['ki-basseng-hero-card', 'msh-basseng-hero-card'].includes(tagOfC(c)));
+    if (!main && !hero) return null;
+    const strip = (c) => { if (!c) return {}; const { type, card_id, view_layout, grid_options, layout_options, ...r } = c; return r; };
+    const h = strip(hero), m = strip(main), out = { ...h, ...m };
+    if (h.navn && !m.navn) out.navn = h.navn; // navn flyttes fra toppkortet
+    const own = list.find((c) => tagOfC(c) === 'msh-basseng-card');
+    return { ...strip(own), ...out };
+  };
+  M.bassengLegacyTest = (popup) => cardsDeep(popup && popup.cards).some((c) => LEG_TAGS.includes(tagOfC(c)));
+
   class Basseng extends M.Card {
     static get cardName() { return 'Basseng'; }
-    static get defaults() { return { controls: ['light', 'pump', 'heat', 'cover', 'spr'], tabs: ['ov', 'heat', 'klor', 'spr'] }; }
+    static get defaults() { return { controls: CTL_STD.slice(), hidden_controls: CTL_HID.slice(), tabs: ['ov', 'heat', 'klor', 'spr'] }; }
+    static getStubConfig() { return { card_id: 'pop-basseng' }; }
+    // Bunnluft over navbaren (fiks 26.14: minst 120 px + safe area; ingen gap-card): nav-h 68 + 8 + 44
+    static get spacingDefaults() { return { ...(M.SPACING || {}), pad_bottom: 44 }; }
     static get schema() {
       return [
         AREA_F,
-        { type: 'overrides', label: 'Entiteter', fields: ovrFields() },
-        { type: 'lists', label: 'Brytere og navn', lists: (h, c) => { const a = M.poolAuto(h, c); return [{ key: 'flagg', label: 'Brytere (Oversikt)', ids: a.flags, domains: ['switch', 'input_boolean'] }, { key: 'personer', label: 'Navn i klorloggen', ids: a.people, domains: ['person'] }]; } },
-        { type: 'order', name: 'controls', hiddenName: 'hidden_controls', label: 'Kontroller', options: Object.keys(CTL).map((k) => [k, CTL[k][1]]) },
+        { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: 'Bassenget' },
+        { type: 'overrides', id: 'overrides', label: 'Entiteter', fields: ovrFields() },
+        { type: 'lists', id: 'entities', label: 'Hurtigknapper, brytere og navn', lists: (h, c) => { const a = M.poolAuto(h, c); return [{ key: 'hurtig', label: 'Ekstra hurtigknapper', ids: [], domains: ['switch', 'light', 'input_boolean', 'fan', 'script', 'scene', 'cover', 'valve'] }, { key: 'flagg', label: 'Brytere (Oversikt)', ids: a.flags, domains: ['switch', 'input_boolean'] }, { key: 'personer', label: 'Navn i klorloggen', ids: a.people, domains: ['person'] }]; } },
+        { type: 'order', name: 'controls', hiddenName: 'hidden_controls', label: 'Hurtigknapper (vises når rollen finnes)', options: Object.keys(CTL).map((k) => [k, CTL[k][3] ? `${CTL[k][1]} (${CTL[k][3]})` : CTL[k][1]]) },
         { type: 'order', name: 'tabs', hiddenName: 'hidden_tabs', label: 'Faner', options: Object.keys(TABS).map((k) => [k, TABS[k]]) },
         { type: 'section', id: 'styr', label: 'Styring og verdier', icon: 'mdi:tune', fields: CFG.flatMap(([, title, rows]) => [{ type: 'info', label: title.toUpperCase() }].concat(rows.map(([k, l, sub, v]) => (typeof v === 'boolean' ? { type: 'boolean', name: 'vals.' + k, label: l, help: sub, default: v } : { type: 'text', name: 'vals.' + k, label: l, help: sub, placeholder: String(v) })))) },
+        { type: 'section', label: 'Animasjon', icon: 'mdi:animation', fields: [
+          { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
+          { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
+        ] },
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
       ];
     }
     get cardSize() { return 10; }
+    // Gammel config (hurtig:, navn, ctl/ctlHide …) leses normalisert til den er migrert og lagret (se _migrate)
+    get config() {
+      const c = this._config || {};
+      if (this._normSrc !== c) { this._normSrc = c; this._norm = M.poolLegacy(c) ? { ...Basseng.defaults, ...M.poolNorm(c, this._hass) } : c; }
+      return this._norm;
+    }
+    // Fiks 26.14 · migrering, lagres én gang per kort: `hurtig:`/ki-basseng-nøkler → overrides/include, og designets
+    // basseng-v3-cfg (localStorage) → config. Bare det levende kortet, ikke mens et utkast er åpent.
+    _migrate() {
+      const raw = this._rawConfig, id = raw && raw.card_id, h = this._hass;
+      if (!id || !this.isConnected || !h || !Object.keys(h.states || {}).length || !M.store || !M.store.loaded || (M.draftOf && M.draftOf(this))) return;
+      const pc = M.poolLS();
+      if (!M.poolLegacy(raw) && !pc) return;
+      const done = (M._poolMig = M._poolMig || new Set());
+      if (done.has(id)) return;
+      done.add(id);
+      const nc = M.poolNorm(raw, h, pc);
+      Promise.resolve(M.saveCardConfig(h, raw, nc, { toasts: false, card: this }))
+        .then(() => { if (pc) { try { localStorage.removeItem(M.POOL_LS); } catch (e) { /* */ } } })
+        .catch((e) => console.warn('[ki-msh] basseng-migrering', e));
+    }
     _v(k) { const v = this.config.vals && this.config.vals[k]; return v != null && v !== '' ? v : VDEF[k]; }
     _toast(t) { M.toast(t, { enabled: this.config.toasts !== false }); }
     onOpen() { this._loadHist(); this._loadKlor(); }
@@ -22747,17 +23221,20 @@ try {
       this._klor = await M.calEvents(this.hass, e.klor_calendar, a.getTime(), b.getTime());
       this.update();
     }
-    _tabs() {
+    // Faner uten data skjules automatisk (Spreder uten spreder …)
+    _tabs(e) {
       const c = this.config, hid = new Set(c.hidden_tabs || []);
+      const has = { ov: true, heat: !!(e.heat || e.water || e.target), klor: !!(e.klor_calendar || e.klor_last || e.klor || e.ph), spr: !!e.spr };
       const order = (Array.isArray(c.tabs) ? c.tabs : []).filter((k) => TABS[k]);
       Object.keys(TABS).forEach((k) => { if (!order.includes(k)) order.push(k); });
-      return order.filter((k) => !hid.has(k));
+      return order.filter((k) => !hid.has(k) && has[k]);
     }
-    _ctls() {
-      const c = this.config, hid = new Set(c.hidden_controls || []);
-      const order = (Array.isArray(c.controls) ? c.controls : []).filter((k) => CTL[k]);
-      Object.keys(CTL).forEach((k) => { if (!order.includes(k)) order.push(k); });
-      return order.filter((k) => !hid.has(k));
+    // Hurtigknapper: rekkefølge (controls) og skjuling (hidden_controls); bare roller som ble funnet
+    _ctls(e) {
+      const c = this.config, hid = new Set((Array.isArray(c.hidden_controls) ? c.hidden_controls : CTL_HID).map(roleKey));
+      const order = (Array.isArray(c.controls) ? c.controls.map(roleKey) : []).filter((k) => CTL[k]);
+      CTL_STD.forEach((k) => { if (!order.includes(k)) order.push(k); });
+      return order.filter((k, i) => order.indexOf(k) === i && !hid.has(k) && e[k]);
     }
     _target(e) {
       const s = this.s(e.target);
@@ -22768,28 +23245,46 @@ try {
     render() {
       const c = this.config, e = M.poolEnts(this.hass, c);
       this._e = e;
-      const tl = this._tabs(), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
+      this._migrate();
+      const tl = this._tabs(e), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
       this._tl = tl; this._cur = cur;
-      const cl = this._ctls();
-      const ctrls = cl.map((k) => {
-        const [ic, l, bg] = CTL[k], id = e[k], st = this.s(id), on = M.onState(st);
-        return `<button class="tile press" data-key="${k}" data-act="ctl" data-k="${k}" ${id ? `data-ent="${esc(id)}"` : ''} title="${esc(l)}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'};${id ? '' : 'opacity:.55'}">${M.icon(ic, 24)}</button>`;
-      }).join('');
       const idx = Math.max(0, tl.indexOf(cur)), n = tl.length || 1;
       const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
+      // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        ${cl.length ? `<div class="ctl" style="grid-template-columns:repeat(${cl.length},minmax(0,1fr))">${ctrls}</div>` : ''}
+        <div class="prose ptop" data-key="prose">${this._prose(e)}</div>
         <div class="tabrow">
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
-          <button class="cfg press" data-act="customize" title="Tilpass">${M.icon('settings', 20)}</button>
+          <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
         ${tl.length ? body : M.emptyState('Alle faner er skjult', 'sections')}
       </div>`;
     }
+    // Prosalinjen under toppkortet: «Vannet er 27,5° og 1,5° over målet. Pumpa går nå.»
+    _prose(e) {
+      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
+      let rel = '';
+      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
+      return tw != null
+        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
+        : `Vannet er <span class="pill num">–</span>. <button class="lnk" data-act="customize" data-section="overrides">Velg entitet</button>`;
+    }
+    // Hurtigknapper (Lys · Pumpe · Varme · Stille · Stikkontakt + ekstra fra include)
+    _quick(e) {
+      const cl = this._ctls(e);
+      const btn = (key, id, ic, l, bg, title) => {
+        const st = this.s(id), on = M.onState(st);
+        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
+      };
+      const L = cl.map((k) => { const [ic, l, bg, t] = CTL[k]; return btn(k, e[k], ic, l, bg, t ? `${l} · ${t}` : l); });
+      (e.extra || []).forEach((x) => { const s = this.s(x.entity); L.push(btn('x:' + x.entity, x.entity, x.ikon || (s && s.attributes.icon) || M.domainIcon(x.entity, s), x.navn || M.name(this.hass, x.entity, M.areaName(this.hass, e.area)), C.accent)); });
+      if (!L.length) return `<div class="qempty">${M.emptyState('Fant ingen hurtigknapper (lys, pumpe, varme …)', 'overrides')}</div>`;
+      return `<div class="ctl" style="grid-template-columns:repeat(${Math.min(L.length, 5)},minmax(0,1fr))">${L.join('')}</div>`;
+    }
     /* ---------------- Oversikt */
     _ov(e) {
-      const c = this.config, tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
+      const tw = this.n(e.water), tgt = this._target(e);
       const val = (id, d = 1) => { const v = this.n(id); return v != null ? M.nf(v, d) : '–'; };
       const unit = (id, u) => { const s = this.s(id); return (s && s.attributes.unit_of_measurement) || u; };
       const cards = [['water', 'Vann', tw != null ? M.nf(tw, 1) : '–', '°C', e.water]];
@@ -22798,12 +23293,6 @@ try {
       if (e.ph) cards.push(['science', 'pH', val(e.ph, 1), '', e.ph]);
       if (e.klor) cards.push(['pill', 'Klor', val(e.klor, 1), unit(e.klor, ''), e.klor]);
       const ovCards = cards.map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      // prosa
-      let rel = '';
-      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
-      const prose = tw != null
-        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
-        : `Vanntemperaturen er ukjent. <button class="lnk" data-act="customize" data-section="overrides">Velg sensor</button>`;
       const date = M.cap(new Date().toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' }));
       // i dag
       let pumped = '–';
@@ -22828,29 +23317,23 @@ try {
         const last = this._lastKlor();
         flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${C.card}"><span class="fli" style="background:${C.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
       }
+      // temperaturgraf siste døgn med maks og min
+      const g = this._chart(e, tw, tgt);
+      const graph = `<div class="hc" data-key="ovgraf" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
+          ${g.chart}
+        </div>`;
       return `
+        ${this._quick(e)}
         <div class="g2">${ovCards}</div>
-        <div class="prose">${prose}</div>
         <div class="dh">${M.icon('home', 20)}<span class="dht">I dag</span><span class="dhd">${esc(date)}</span></div>
         <div class="today">${today}</div>
+        ${graph}
         ${modes}
         ${flags.length ? `<div class="g2">${flags.join('')}</div>` : ''}`;
     }
-    /* ---------------- Varme */
-    _heat(e) {
-      const c = this.config, tw = this.n(e.water), tgt = this._target(e), hs = this.s(e.heat), heat = M.onState(hs);
-      const hp = this.n(e.heat_power);
-      const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
-        .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
-      const cost = this.s(e.cost);
-      const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
-      let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
-      if (tgt != null) prose += tw != null && tw < tgt - 0.3 ? ` og varmes mot ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.` : ` og holder målet på ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.`;
-      else prose += '.';
-      if (hs) prose += heat ? ' Varmepumpa varmer.' : ' Varmepumpa hviler.';
-      if (cost && M.isNum(cost.state)) prose += ` Strømmen har kostet ${pill(M.nf(Number(cost.state), 0) + ' ' + (/(nok|kr|sek)/i.test(cost.attributes.unit_of_measurement || '') || !cost.attributes.unit_of_measurement ? 'kroner' : cost.attributes.unit_of_measurement))} i dag.`;
-      // graf
+    /* ---------------- temperaturgraf siste døgn (maks/min) – Oversikt og Varme */
+    _chart(e, tw, tgt) {
       const H = (this._hist || []).slice();
       const t1 = Date.now(), t0 = t1 - 86400000;
       let chart = '', delta = '–', dcol = C.blue, mx = '', mn = '';
@@ -22883,6 +23366,23 @@ try {
           <path d="${path} L300,90 L0,90 Z" style="fill:${M.alpha(C.green, 0.18)}"></path>
           <path d="${path}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke" style="stroke:${C.green}"></path></svg>`;
       } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" stroke="rgba(255,255,255,0.2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
+      return { chart, delta, dcol, mx, mn };
+    }
+    /* ---------------- Varme */
+    _heat(e) {
+      const c = this.config, tw = this.n(e.water), tgt = this._target(e), hs = this.s(e.heat), heat = M.onState(hs);
+      const hp = this.n(e.heat_power);
+      const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
+        .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
+      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
+      const cost = this.s(e.cost);
+      const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
+      let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
+      if (tgt != null) prose += tw != null && tw < tgt - 0.3 ? ` og varmes mot ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.` : ` og holder målet på ${pill(M.nf(tgt, tgt % 1 ? 1 : 0) + '°')}.`;
+      else prose += '.';
+      if (hs) prose += heat ? ' Varmepumpa varmer.' : ' Varmepumpa hviler.';
+      if (cost && M.isNum(cost.state)) prose += ` Strømmen har kostet ${pill(M.nf(Number(cost.state), 0) + ' ' + (/(nok|kr|sek)/i.test(cost.attributes.unit_of_measurement || '') || !cost.attributes.unit_of_measurement ? 'kroner' : cost.attributes.unit_of_measurement))} i dag.`;
+      const { chart, delta, dcol, mx, mn } = this._chart(e, tw, tgt);
       const outS = this.s(e.ute);
       const outV = outS ? (outS.entity_id.startsWith('weather.') ? outS.attributes.temperature : M.isNum(outS.state) ? Number(outS.state) : null) : null;
       const fmtU = (id, d) => { const s = this.s(id); if (!s || !M.isNum(s.state)) return '–'; const v = Number(s.state), u = s.attributes.unit_of_measurement || ''; return u === 'W' && v >= 1000 && d === 'kw' ? `${M.nf(v / 1000, 1)} kW` : `${M.nf(v, v % 1 && v < 100 ? 1 : 0)} ${u}`.trim(); };
@@ -22910,7 +23410,15 @@ try {
     }
     /* ---------------- Klor */
     _klorEvents() { return (this._klor || []).filter((ev) => /klor|chlor|tablett/i.test(ev.summary || '') || this._e.klor_calendar && /klor|chlor/.test(this._e.klor_calendar)); }
-    _lastKlor() { const L = this._klorEvents().filter((ev) => ev.t0 <= Date.now()); return L[L.length - 1] || null; }
+    _lastKlor() {
+      const L = this._klorEvents().filter((ev) => ev.t0 <= Date.now());
+      if (L.length) return L[L.length - 1];
+      // uten klorkalender: input_datetime (tidspunkt) eller counter (sist endret) for siste klortablett
+      const s = this._e && this._e.klor_last && this.s(this._e.klor_last);
+      if (!s) return null;
+      const t = s.entity_id.startsWith('input_datetime.') ? new Date(String(s.state).replace(' ', 'T')).getTime() : new Date(s.last_changed).getTime();
+      return isNaN(t) ? null : { t0: t, summary: '' };
+    }
     _qtyOf(ev) { const m = /[×x](\d+)|(\d+)\s*stk/i.exec(ev.summary || ''); return m ? Number(m[1] || m[2]) : 1; }
     _klorTab(e) {
       const c = this.config, cal = e.klor_calendar, names = e.people.map((id) => M.name(this.hass, id));
@@ -22981,7 +23489,7 @@ try {
     async onAction(name, el, ev) {
       const d = el.dataset, e = this._e || M.poolEnts(this.hass, this.config), h = this.hass;
       if (name === 'ctl') {
-        const id = e[d.k];
+        const id = String(d.k || '').startsWith('x:') ? d.k.slice(2) : e[d.k];
         if (!id) return this.customize('overrides');
         const dom = id.split('.')[0];
         if (dom === 'binary_sensor') return M.moreInfo(this, id);
@@ -23067,7 +23575,9 @@ try {
         .stpc{border-radius:24px;background:${C.card}}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px)}
         .ctl{display:grid;gap:8px}
-        .tile{height:64px;border-radius:22px;display:grid;place-items:center;transition:background .2s,color .2s}
+        .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
+        .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
+        .ptop{padding:2px 6px 0}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
         .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
@@ -23140,7 +23650,54 @@ try {
       `;
     }
   }
-  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og spreder. Legg under msh-basseng-hero-card i #basseng.');
+  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
+
+  /* ------------------------------------------------------------ popup #basseng · importert #badebasseng (fiks 26.14) */
+  // Strategien lager #basseng med ÉTT msh-basseng-card. En importert/egen popup med de gamle kortene (ki-basseng-card,
+  // ki-basseng-hero-card, gap-card, `hurtig:`) – også under #badebasseng – erstattes av den genererte (MSH.POPUP_ALIAS
+  // flytter #badebasseng til #basseng, MSH.POPUP_SUPERSEDE lar den genererte vinne til brukeren velger «Bruk egen»).
+  // Navn og hurtig-/rolle-entitetene flyttes inn i kortet (POPUP_EXTRA) og migreres der én gang til overrides/include.
+  const PHASH = '#basseng', OLD_HASH = ['#badebasseng', '#pool', '#svommebasseng'];
+  const KEEP = ['navn', 'name', 'hurtig', 'varmepumpe', 'pumpe', 'lys', 'stillemodus', 'stikkontakt', 'vanntemp', 'ute', 'pooltak', 'forvalg', 'overrides', 'exclude', 'include', 'area'];
+  const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
+  const popLists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
+  const isLegacyPop = (cfg) => !!cfg && typeof cfg === 'object' && [PHASH, ...OLD_HASH].includes(String(cfg.hash || '').trim().replace(/^#?/, '#')) && M.bassengLegacyTest(cfg);
+  M.bassengExtra = function (config) {
+    for (const L of popLists(config)) for (const e of (Array.isArray(L) ? L : [])) {
+      const cfg = cfgOf(e);
+      if (!isLegacyPop(cfg)) continue;
+      const card = M.bassengLegacyCard(cfg) || {}, out = {};
+      KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
+      if (Object.keys(out).length) return out;
+    }
+    return undefined;
+  };
+  M.bassengLegacy = (config) => popLists(config).some((L) => (Array.isArray(L) ? L : []).some((e) => isLegacyPop(cfgOf(e))));
+  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
+  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) };
+  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
+  M.POPUP_EXTRA[PHASH] = (config) => M.bassengExtra(config);
+  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
+  M.POPUP_LEGACY_CARD[PHASH] = (popup, tag) => (tag === 'msh-basseng-card' && M.bassengLegacyTest(popup) ? M.bassengLegacyCard(popup) : null); // manuelt dashbord (M.buildPopups)
+  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
+  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => M.bassengLegacyTest(cfg) }; });
+  // Lenker/knapper som fortsatt peker på #badebasseng åpner #basseng (bare når ingen popup har den gamle hashen)
+  if (!window.__mshPoolHash) {
+    window.__mshPoolHash = true;
+    const hasPopup = (hash) => {
+      const R = M.popupReport;
+      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden);
+      let found = false;
+      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.hash === hash) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+      w(document, 0);
+      return found;
+    };
+    window.addEventListener('hashchange', () => {
+      const h = location.hash;
+      if (!OLD_HASH.includes(h) || hasPopup(h) || !hasPopup(PHASH)) return;
+      try { history.replaceState(history.state, '', location.pathname + location.search + PHASH); window.dispatchEvent(new HashChangeEvent('hashchange')); window.dispatchEvent(new CustomEvent('location-changed')); } catch (x) { /* */ }
+    });
+  }
 })();
 
 } catch (e) { console.error('[ki-msh] 40-basseng.js', e); }
@@ -23939,6 +24496,22 @@ try {
       const L = Object.keys(S).filter((id) => id.startsWith('sensor.') && (S[id].attributes || {}).device_class === 'water' && (S[id].attributes || {}).state_class === 'total_increasing' && !/_i_dag$/.test(id));
       return (p && L.find((id) => id.startsWith(p))) || L[0] || null;
     },
+    /* «Hvor gikk vannet» (26.13): kilde for hendelseslisten / flow-måleren (samme i kortet og i Tilpass) */
+    _hvorAttr(id) { const s = id ? this._st(id) : null, A = (s && s.attributes) || {}; return [A.events, A.hendelser].find((x) => Array.isArray(x)) || null; },
+    _hvorEventsId() {
+      const c = this._c || {}, S = this._states || {};
+      if (c.events_entity) return this._hvorAttr(c.events_entity) ? c.events_entity : null;
+      const p = this._vannPrefiks();
+      if (p && this._hvorAttr(p + 'vann_i_dag')) return p + 'vann_i_dag';
+      return Object.keys(S).find((id) => /^sensor\.ki_vann_/.test(id) && this._hvorAttr(id))
+        || Object.keys(S).find((id) => /^sensor\..*_vann_i_dag$/.test(id) && this._hvorAttr(id)) || null;
+    },
+    _hvorFlowId(V) {
+      const c = this._c || {}, S = this._states || {};
+      if (c.flow_entity) return this._st(c.flow_entity) ? c.flow_entity : null;
+      const fl = Object.keys(S).find((id) => id.startsWith('sensor.') && (S[id].attributes || {}).device_class === 'volume_flow_rate' && /vann|water|flow|flyt/i.test(id + ' ' + ((S[id].attributes || {}).friendly_name || '')) && !/vanning|sprinkl|sone|zone|station|basseng|pool/i.test(id));
+      return fl || (V && V.maler) || null;
+    },
   };
   /* Kategoriene fra KI Vann i den rekkefølgen de vises, med entitetssuffiks, ikon og farge. */
   const KI_VN_KAT = [
@@ -23952,6 +24525,17 @@ try {
     { id: 'basis_og_udefinert', navn: 'Udefinert', ikon: 'mdi:water-outline', farge: 'var(--gray600, #7a7a7d)' },
   ];
   M.KI_VN_KAT = KI_VN_KAT;
+  // «Hvor gikk vannet»: visningskategori fra KI Vann-/egne kategorinavn (Dusj blå, Toalett lilla, Kran/Vaskemaskin gul, Hage grønn, Uforklart grå)
+  const HV_KAT = [
+    { id: 'dusj', re: /dusj|shower|bad(?!e)/, navn: 'Dusj', ikon: 'mdi:shower-head', farge: 'var(--blue, #73b9f2)' },
+    { id: 'toalett', re: /toalett|toilet|wc|do\b/, navn: 'Toalett', ikon: 'mdi:toilet', farge: 'var(--purple, #ad99e6)' },
+    { id: 'oppvaskmaskin', re: /oppvaskmaskin|dishwasher/, navn: 'Oppvaskmaskin', ikon: 'mdi:dishwasher', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'vaskemaskin', re: /vaskemaskin|washing|washer|laundry/, navn: 'Vaskemaskin', ikon: 'mdi:washing-machine', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'kran', re: /kran|tap|faucet|sink|handvask|håndvask|oppvask|matlaging|kitchen/, navn: 'Kran', ikon: 'mdi:faucet', farge: 'var(--yellow, #f2d26f)' },
+    { id: 'hage', re: /hage|garden|utend|outdoor|vanning|irrig/, navn: 'Hage', ikon: 'mdi:sprinkler-variant', farge: 'var(--green, #66d19e)' },
+  ];
+  const HV_UFORKLART = { id: 'uforklart', navn: 'Uforklart', ikon: 'mdi:help', farge: 'var(--gray600, #7f7f7f)' };
+  const hvKat = (x) => { const t = String(x || '').toLowerCase(); return (t && HV_KAT.find((k) => k.id === t || k.re.test(t))) || HV_UFORKLART; };
   // Standardverdier (ki-cards setConfig + KI Vann)
   const DEF = { varigheter: [5, 10, 15, 30], skjul_ubrukte: true, historikk_dager: 30, mal: 400 };
   // Logikk-objekt uten kort (Tilpass-arket / GUI-editoren): samme metoder, samme config.
@@ -24056,7 +24640,9 @@ try {
       V.maler = this._vannmaler();
       if (V.kiMode) this._vmKi(V); else this._vmRes(V);
       V.aktiv = V.soner.find((z) => z.gaar) || null;
-      V.harForbruk = !!V.vann || V.harFlyt;
+      // Har huset vannforbruk-data (KI Vann, flyt, vannmåler eller valgt kilde)? Forbruk-fanen vises uansett (26.13:
+      // «Hvor gikk vannet» skjules aldri – uten sensor viser den tom-tilstand med «Velg entitet»).
+      V.harForbruk = !!V.vann || V.harFlyt || !!V.maler || !!c.events_entity || !!c.flow_entity;
       return V;
     }
     _vmKi(V) {
@@ -24216,7 +24802,7 @@ try {
     render() {
       const c = this.config, V = this._vm();
       this.__V = V;
-      const tabs = fanerCfg(c).filter((f) => (f !== 'forbruk' || V.harForbruk) && (f !== 'historikk' || V.harHist));
+      const tabs = fanerCfg(c).filter((f) => (f !== 'historikk' || V.harHist));
       if (!tabs.length) tabs.push('naa');
       const cur = tabs.includes(this.ui.tab) ? this.ui.tab : tabs[0];
       this.__cur = cur;
@@ -24422,7 +25008,7 @@ try {
       let o = this._seg('fvis', view, [['liste', 'Liste'], ['kalender', 'Kalender']]);
       if (!v) {
         o += `<div class="card" data-key="vtom"><div class="b48 num">–<span>L</span></div><button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:water-plus', 20)}</span><div class="sx"><b>Velg entitet</b><span>Velg KI Vann-prefiks i Tilpass</span></div>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button></div>`;
-        return o + this._hagevanning(V);
+        return o + (view === 'liste' ? this._hvor(V) : '') + this._hagevanning(V);
       }
       if (view === 'kalender') return o + this._fKalender(V, v, mal);
       const pct = Math.round((v.totalt / mal) * 100), sum = v.deler.reduce((t, k) => t + k.liter, 0) || 1;
@@ -24436,17 +25022,126 @@ try {
         ${v.forklart != null && v.forklart < 50 ? `<div class="warnrow">${M.icon('mdi:help-circle-outline', 20)}<span>Uforklart forbruk: under halvparten av vannet er forklart av sensorene i dag.</span></div>` : ''}
         ${v.modell || v.kr != null || v.storste ? `<div class="lab ell">${esc([v.modell ? `Modell ${v.modell}${v.timer ? ` · ${v.timer} t` : ''}` : '', v.kr != null ? `${M.nf(v.kr, 1)} kr i dag` : '', v.storste ? `mest til ${String(v.storste).toLowerCase()}` : ''].filter(Boolean).join(' · '))}</div>` : ''}
       </div>`;
-      if (v.hendelser.length) {
-        const kat = (x) => KI_VN_KAT.find((k) => k.id === x || k.navn.toLowerCase() === String(x || '').toLowerCase()) || KI_VN_KAT[7];
-        o += `<div class="sh"><span class="st">Hvor gikk vannet</span></div><div class="card" data-key="hvor" style="padding:4px 16px;gap:0">${v.hendelser.slice(0, 12).map((h, i) => {
-          const k = kat(h.kategori || h.type || h.category), t = h.tid || h.start || h.time || h.tidspunkt, L = h.liter != null ? h.liter : h.l != null ? h.l : h.volum;
-          const tt = t ? (isNaN(new Date(t)) ? String(t) : M.hm(t)) : '';
-          return `<div class="lr ${i ? 'bt' : ''}"><span class="agt num">${esc(tt)}</span>${M.icon(k.ikon, 18, `color:${k.farge}`)}<span class="ell grow">${esc(h.navn || h.name || k.navn)}</span><span class="num">${L != null ? esc(nf(L)) + ' L' : ''}</span></div>`;
-        }).join('')}</div>`;
-      }
+      // «Hvor gikk vannet» rett under «I dag» – vises alltid (26.13)
+      o += this._hvor(V);
       return o + this._hagevanning(V);
     }
-    // Hagevanningen per sone i dag (KI Vanning: ki.soner, som _panelForbruk)
+    /* ---------------- «Hvor gikk vannet» (26.13) – vises ALLTID i Forbruk → Liste, rett under «I dag».
+       Data i prioritert rekkefølge: 1) KI Vann-attributtet `events`/`hendelser` (config `events_entity`, ellers
+       <prefiks>vann_i_dag / sensor.ki_vann_*), 2) bygget fra dagens historikk for flow-/målersensoren (config `flow_entity`,
+       ellers volume_flow_rate-sensor eller vannmåleren) med rom/kategori fra tilstedeværelse/bevegelse/dører i samme tidsrom,
+       3) tom-tilstand «Ingen hendelser i dag» + «Velg entitet». Aldri mock-rader. Historikken hentes bare når Forbruk er
+       åpen, mellomlagret i 5 min (fallgruve 8). Terskel: `event_min_l` (standard 1 L). */
+    // Én rad i felles form: { t, kat, rom, L, min, konf, opptatt }
+    _hvorNorm(h) {
+      const n = (x) => (x == null || x === '' || isNaN(Number(x)) ? null : Number(x));
+      const t = h.time || h.tid || h.start || h.tidspunkt || null, tm = t && !isNaN(new Date(t)) ? new Date(t).getTime() : null;
+      let konf = n(h.confidence != null ? h.confidence : h.sikkerhet); if (konf != null && konf <= 1) konf *= 100;
+      const sek = n(h.duration_s != null ? h.duration_s : h.sekunder);
+      const min = sek != null ? sek / 60 : n(h.duration != null ? h.duration : h.varighet != null ? h.varighet : h.minutter);
+      const oc = h.occupancy != null ? h.occupancy : h.opptatt;
+      const opptatt = !oc ? '' : typeof oc === 'string' ? oc : [oc.room || oc.rom || '', 'opptatt', oc.start || oc.fra ? `${this._hvorHm(oc.start || oc.fra)}–${this._hvorHm(oc.end || oc.til)}` : ''].filter(Boolean).join(' ');
+      return { t: tm, tt: tm == null && t ? String(t) : '', kat: h.category || h.kategori || h.type || '', rom: h.room || h.rom || '', L: n(h.liters != null ? h.liters : h.liter != null ? h.liter : h.l != null ? h.l : h.volum), min, konf, opptatt };
+    }
+    _hvorHm(t) { return t && !isNaN(new Date(t)) ? M.hm(t) : String(t || ''); }
+    _hvorData(V) {
+      const evId = this._hvorEventsId();
+      if (evId) return { kilde: 'attr', id: evId, rows: this._hvorAttr(evId).map((h) => this._hvorNorm(h || {})) };
+      const fid = this._hvorFlowId(V);
+      if (!fid) return { kilde: null, rows: [] };
+      const minL = Number(this.config.event_min_l) > 0 ? Number(this.config.event_min_l) : 1, key = `${fid}|${minL}`;
+      const C0 = this._hvorC;
+      if (!C0 || C0.key !== key || (!C0.busy && Date.now() - C0.t > 300000)) {
+        if (this.isOpen && this.hass && this.hass.callWS && !this.config.demo) {
+          this._hvorC = { key, t: Date.now(), busy: true, rows: C0 && C0.key === key ? C0.rows : null };
+          this._hvorBygg(fid, minL).then((rows) => { this._hvorC = { key, t: Date.now(), rows }; this.update(); })
+            .catch(() => { this._hvorC = { key, t: Date.now(), rows: [] }; this.update(); });
+        }
+      }
+      const C1 = this._hvorC && this._hvorC.key === key ? this._hvorC : null;
+      return { kilde: 'hist', id: fid, rows: (C1 && C1.rows) || [], laster: !C1 || (C1.busy && !C1.rows) };
+    }
+    // Hendelser fra dagens historikk: flow > 0 → 0 er én hendelse (flow-sensor), eller en sammenhengende økning (måler).
+    async _hvorBygg(fid, minL) {
+      const h = this.hass, S = h.states, st = S[fid], A = (st && st.attributes) || {};
+      const unit = String(A.unit_of_measurement || 'L'), start = d0(Date.now());
+      const rate = A.device_class === 'volume_flow_rate' || /\/\s*(min|h|s)/i.test(unit);
+      const volF = /m³|m3/i.test(unit) ? 1000 : /gal/i.test(unit) ? 3.785 : 1;
+      const perMin = /\/\s*h/i.test(unit) ? 1 / 60 : /\/\s*s/i.test(unit) ? 60 : 1;
+      const d = await M.stateHistory(h, [fid], start, Date.now());
+      const pts = (d[fid] || []).map((p) => ({ t: p.t, v: parseFloat(p.s) })).filter((p) => !isNaN(p.v) && !isNaN(p.t)).sort((a, b) => a.t - b.t);
+      const ev = [];
+      if (rate) {
+        let cur = null;
+        pts.forEach((p, i) => {
+          const nt = i + 1 < pts.length ? pts[i + 1].t : Date.now();
+          if (p.v > 0) { if (!cur) cur = { t0: p.t, L: 0 }; cur.L += p.v * volF * perMin * ((nt - p.t) / 60000); cur.t1 = nt; }
+          else if (cur) { cur.t1 = p.t; ev.push(cur); cur = null; }
+        });
+        if (cur) ev.push(cur);
+      } else {
+        let cur = null;
+        for (let i = 1; i < pts.length; i++) {
+          const dv = (pts[i].v - pts[i - 1].v) * volF;
+          if (dv > 0 && dv < 5000) {
+            if (cur && pts[i].t - cur.t1 <= 180000) { cur.L += dv; cur.t1 = pts[i].t; }
+            else { if (cur) ev.push(cur); cur = { t0: Math.max(pts[i - 1].t, pts[i].t - 60000), t1: pts[i].t, L: dv }; }
+          }
+        }
+        if (cur) ev.push(cur);
+      }
+      const hend = ev.filter((e) => e.L >= minL);
+      if (!hend.length) return [];
+      // Rom: tilstedeværelse (occupancy/presence), bevegelse og dører per område i samme tidsrom
+      const ids = Object.keys(S).filter((id) => {
+        if (!id.startsWith('binary_sensor.')) return false;
+        const dc = (S[id].attributes || {}).device_class;
+        return (['occupancy', 'presence', 'motion', 'door'].includes(dc) || /_(occupancy|motion|opptatt|tilstede|bevegelse)$/.test(id)) && M.areaOf(h, id);
+      }).slice(0, 60);
+      const oh = ids.length ? await M.stateHistory(h, ids, start - 3600000, Date.now()) : {};
+      const iv = {};
+      ids.forEach((id) => {
+        const L = oh[id] || [], out = [];
+        L.forEach((p, i) => { if (p.s === 'on') out.push([p.t, i + 1 < L.length ? L[i + 1].t : Date.now()]); });
+        const dc = (S[id].attributes || {}).device_class, w = dc === 'door' ? 1 : dc === 'motion' || /motion|bevegelse/.test(id) ? 2 : 3;
+        if (out.length) iv[id] = { a: M.areaOf(h, id), w, out };
+      });
+      return hend.map((e) => {
+        const a0 = e.t0 - 120000, a1 = e.t1 + 120000, score = {};
+        Object.values(iv).forEach((x) => x.out.forEach(([s0, s1]) => {
+          const ov = Math.min(a1, s1) - Math.max(a0, s0);
+          if (ov > 0) { const r = (score[x.a] = score[x.a] || { p: 0, w: 0, s0, s1 }); r.p += ov * x.w; r.w = Math.max(r.w, x.w); if (x.w >= r.w) { r.s0 = s0; r.s1 = s1; } }
+        }));
+        const best = Object.entries(score).sort((x, y) => y[1].p - x[1].p)[0];
+        const min = (e.t1 - e.t0) / 60000;
+        if (!best) return { t: e.t0, kat: 'uforklart', rom: '', L: e.L, min, konf: null, opptatt: '' };
+        const rom = M.areaName(h, best[0]), r = rom.toLowerCase();
+        const kat = /bad|dusj|wc|toalett/.test(r) ? (min >= 3 && e.L >= 15 ? 'dusj' : e.L <= 12 ? 'toalett' : 'kran')
+          : /vaskerom|vaskemaskin/.test(r) ? 'vaskemaskin' : /kjøkken|kjokken/.test(r) ? 'kran' : /hage|ute|terrasse|garasje/.test(r) ? 'hage' : 'kran';
+        const flere = Object.keys(score).length > 1;
+        return { t: e.t0, kat, rom, L: e.L, min, konf: best[1].w === 3 ? (flere ? 60 : 70) : 55, opptatt: `${rom} ${best[1].w === 3 ? 'opptatt' : best[1].w === 2 ? 'bevegelse' : 'dør'} ${M.hm(best[1].s0)}–${M.hm(Math.min(best[1].s1, Date.now()))}` };
+      });
+    }
+    _hvor(V) {
+      const D = this._hvorData(V), rows = D.rows.slice().sort((a, b) => (a.t || 0) - (b.t || 0));
+      const alle = !!this.ui.hvorAlle, vis = alle ? rows : rows.slice(-8);
+      const head = `<div class="hvh"><span class="hvt">Hvor gikk vannet</span><span class="hvs">rom + tidspunkt</span></div>`;
+      let body;
+      if (!rows.length) {
+        const tekst = D.laster ? 'Henter dagens hendelser …' : 'Ingen hendelser i dag';
+        body = `<div class="hvr hvtom"><span class="hvi" style="background:${M.alpha(C.gray600, 0.16)};color:${C.gray600}">${M.icon('mdi:water-off-outline', 18)}</span><div class="hvx"><b>${tekst}</b>${D.kilde ? `<span>${D.kilde === 'hist' ? 'Fra ' + esc(this._navn(D.id)) : 'Fra KI Vann'}</span>` : '<span>Fant ingen vannsensor</span>'}</div>${D.kilde ? '' : `<button class="hvv press" data-act="customize" data-section="entiteter" data-haptic="light">Velg entitet</button>`}</div>`;
+      } else {
+        body = vis.map((x) => {
+          const k = hvKat(x.kat), tittel = [k.navn, x.rom].filter(Boolean).join(' · ');
+          const meta = [x.L != null ? `${nf(x.L)} L` : '', x.min != null ? `${Math.max(1, Math.round(x.min))} min` : '', x.opptatt].filter(Boolean).join(' · ');
+          const kc = x.konf == null || k.id === 'uforklart' ? null : Math.round(x.konf);
+          const chip = kc == null ? `<span class="hvc uk">Ukjent</span>` : `<span class="hvc${kc >= 85 ? ' hoy' : ''}">${kc} %</span>`;
+          return `<div class="hvr"><span class="hvk num">${esc(x.t != null ? M.hm(x.t) : x.tt)}</span><span class="hvi" style="background:${M.alpha(k.farge, 0.16)};color:${k.farge}">${M.icon(k.ikon, 18)}</span><div class="hvx"><b class="ell">${esc(tittel)}</b><span class="ell">${esc(meta)}</span></div>${chip}</div>`;
+        }).join('') + (rows.length > 8 ? `<button class="hva press" data-act="hvoralle" data-haptic="selection">${alle ? 'Vis færre' : `Vis alle (${rows.length})`}</button>` : '');
+      }
+      return `<div class="hvor" data-key="hvor" data-kilde="${D.kilde || 'tom'}">${head}${body}</div>`;
+    }
+    _navn(id) { const s = id ? this._st(id) : null; return (s && s.attributes && s.attributes.friendly_name) || id || ''; }    // Hagevanningen per sone i dag (KI Vanning: ki.soner, som _panelForbruk)
     _hagevanning(V) {
       const ki = V.ki;
       if (!ki || !Array.isArray(ki.soner) || !ki.soner.length || !V.harFlyt) return '';
@@ -24660,6 +25355,7 @@ try {
         }
         // forbruk / historikk
         case 'fvis': return ui({ fvis: d.v });
+        case 'hvoralle': return ui({ hvorAlle: !this.ui.hvorAlle });
         case 'hvis': return ui({ hvis: d.v });
         case 'fdag': return ui({ fdag: d.k });
         case 'hdag': return ui({ hdag: d.k });
@@ -24902,6 +25598,22 @@ try {
         .warn{color:${C.orange}}
         .warnrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:${M.alpha(C.orange, 0.14)};color:${C.orange};font-size:13px}
         .lr{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:14px;min-width:0}
+        /* «Hvor gikk vannet» (26.13) */
+        .hvor{background:${C.card};box-shadow:${C.edge};border-radius:28px;padding:16px;display:flex;flex-direction:column;min-width:0}
+        .hvh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:4px}
+        .hvt{font-size:13px;color:#afafaf}.hvs{font-size:12px;color:#7f7f7f;white-space:nowrap}
+        .hvr{display:flex;align-items:center;gap:10px;padding:10px 0;min-width:0}
+        .hvr+.hvr{border-top:1px solid rgba(255,255,255,.06)}
+        .hvk{width:40px;flex:none;font-size:13px;color:#979797;font-variant-numeric:tabular-nums}
+        .hvi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;--mdc-icon-size:18px}
+        .hvx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .hvx b{font-size:14px;font-weight:500;color:#fafafa}.hvx span{font-size:12px;color:#979797}
+        .hvx .ell,.hvx b,.hvx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .hvc{height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap;background:rgba(255,255,255,.08);color:#afafaf}
+        .hvc.hoy{background:${M.alpha(C.green, 0.16)};color:${C.green}}
+        .hvc.uk{background:${M.alpha(C.orange, 0.18)};color:${C.orange}}
+        .hvv{height:34px;padding:0 14px;border-radius:17px;background:${C.inner};color:#fafafa;font-size:13px;font-weight:500;flex:none;border:0;font-family:inherit;cursor:pointer}
+        .hva{align-self:flex-start;background:none;border:0;color:${C.pink};font-size:13px;font-weight:500;padding:10px 0 2px;cursor:pointer;font-family:inherit}
         .zbar{position:relative;height:4px;border-radius:2px;background:#282828;overflow:hidden}
         .zbar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:${C.blue}}
         .cal{padding:14px 12px 16px;gap:10px}
@@ -25010,7 +25722,7 @@ try {
         return `<div class="ordrow" data-vk="${k}" data-vl="fane" data-key="vf-${k}" style="${rowCss};${on ? '' : 'opacity:.55'}">${hdl('fane')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(ic, 20)}</span>
           <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(l)}</span>${sw(on, `data-a="fn" data-k="${key}" data-op="fane" data-v="${k}"`, 'Vis ' + l)}</div>`;
-      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk vises når KI Vann eller en vannmåler finnes, Historikk når KI Vanning fører statistikk.</span></div>`;
+      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk viser KI Vann, vannmåleren og «Hvor gikk vannet» (tom-tilstand uten sensor), Historikk vises når KI Vanning fører statistikk.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, vis = fanerCfg(cc);
       if (dd.op === 'fane') {
@@ -25075,6 +25787,10 @@ try {
       ent('vannmaler', 'Vannmåler totalt', ['sensor'], (L) => L._vannmaler(), 'water'),
       { type: 'text', name: 'vann_prefiks', label: 'KI Vann-prefiks', placeholder: 'sensor.hjemme_', auto: (hh, cc) => { try { return L0(hh, cc)._vannPrefiks(); } catch (e) { return null; } }, help: 'Slik KI Vann-sensorene heter, f.eks. sensor.hjemme_ (→ sensor.hjemme_vann_i_dag)' },
       ent('vann_modell', 'KI Vann-modell', ['sensor'], (L) => { const p = L._vannPrefiks(); return p && L._st(p + 'modell') ? p + 'modell' : null; }),
+      // «Hvor gikk vannet» (26.13): hendelseslisten fra KI Vann, ellers bygget fra flow/måler-historikken
+      ent('events_entity', 'Hendelser (Hvor gikk vannet)', ['sensor'], (L) => L._hvorEventsId()),
+      ent('flow_entity', 'Vannflyt / måler for hendelser', ['sensor'], (L) => L._hvorFlowId({ maler: L._vannmaler() })),
+      { type: 'number', name: 'event_min_l', label: 'Minste hendelse', min: 0.5, max: 50, step: 0.5, unit: 'L', default: 1, help: 'Forbruk under dette regnes ikke som en hendelse' },
       { type: 'section', id: 'reserve', label: 'Uten KI Vanning (reserve)', icon: 'mdi:sprinkler', fields: SCHEMA_BASE },
     ];
     // Avansert · innstillingsradene fra KI Vanning (_panelInnstillinger) – virker rett mot Home Assistant
@@ -28123,7 +28839,7 @@ try {
           <div class="spp">${f.presets.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" data-a="sp" data-k="${f.name}" data-v="${v}">${esc(l)}</button>`).join('')}</div>
           ${f.help ? `<span class="rs">${esc(f.help)}</span>` : ''}</div>`;
       }).join('');
-      box.innerHTML = `<div class="nav"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      box.innerHTML = `<div class="nav main"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         ${st.reset ? '<p class="note top">Tilbakestilt til standardoppsett i utkastet – trykk Ferdig for å lagre.</p>' : ''}
         <span class="cap">Visning</span>
         <div class="grp">
@@ -28240,7 +28956,10 @@ try {
     .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--red,#f28073)}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nd{justify-self:end;height:36px;padding:0 18px;border-radius:18px;background:${PINK};color:${INK};font-size:14px;font-weight:600}
+    .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
+    .nav.main{display:flex}
+    .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
     .nd:disabled{opacity:.6}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
     .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
@@ -28270,7 +28989,7 @@ try {
     .note.top{padding:0 8px 4px;color:var(--orange,#f2b573)}
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:var(--green,#66d19e)} .sw.on span{left:26px;background:#2a2a2c}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .r.col2{flex-direction:column;align-items:stretch;gap:10px;padding:12px 12px 12px 16px}
     .hsg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -29202,7 +29921,7 @@ try {
     // ---------- byggeklosser
     const nav = () => {
       const main = st.page === 'main';
-      return `<div class="nav">${main ? '<button class="nb" data-a="cancel">Avbryt</button>' : `<button class="nb" data-a="page" data-p="main">${M.icon('mdi:chevron-left', 22)}Tilpass</button>`}
+      return `<div class="nav${main ? ' main' : ''}">${main ? '<button class="nb" data-a="cancel">Avbryt</button>' : `<button class="nb" data-a="page" data-p="main">${M.icon('mdi:chevron-left', 22)}Tilpass</button>`}
         <span class="nt">${esc(TITLES[st.page] || '')}</span>
         ${main ? `<button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button>` : '<span></span>'}</div>`;
     };
@@ -29495,7 +30214,10 @@ try {
     .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--gray900,#c7c7c7)}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nd{justify-self:end;height:36px;padding:0 18px;border-radius:18px;background:${PINK};color:${INK};font-size:14px;font-weight:600}
+    .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
+    .nav.main{display:flex}
+    .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
     .nd:disabled{opacity:.6}
     .pg{display:flex;flex-direction:column}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
@@ -29527,7 +30249,7 @@ try {
     .rg{width:120px;accent-color:#f285c9}
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:${G}} .sw.on span{left:26px;background:#2a2a2c}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
     .lp{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 14px}
     .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray1000,#e1e1e1)}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
@@ -31941,7 +32663,9 @@ try {
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
     .hic{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-    .htx b{font-size:18px;font-weight:500}
+    .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+    .hd .done{flex:none;${M.DONE_PILL}} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
     .htx i{font-style:normal;font-size:13px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .x{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
     .scope:empty{display:none} .scope{padding:0 4px}
@@ -31962,7 +32686,7 @@ try {
     .rv{font-size:14px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;flex:none}
     .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-    .sw.on{background:rgb(102 209 158)} .sw.on::after{transform:translateX(18px)}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: rosa brytere */
     .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--gray300,#404040);flex:none}
     .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--gray800,#afafaf)}
     .ts button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
@@ -31985,7 +32709,7 @@ try {
     .cb[disabled]{background:#2c2c2c;color:var(--gray400,#545454);pointer-events:none}
     .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040)}
     .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--gray300,#404040);font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
-    .res{display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto;overscroll-behavior:contain}
+    .res{display:flex;flex-direction:column;gap:2px;max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .rr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .rr:hover{background:rgba(255,255,255,0.06)}
     .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
@@ -32037,7 +32761,7 @@ try {
       const sw = (k) => { const on = c[k] !== false; return `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="tog" data-k="${k}"></button>`; };
       const add = this._q != null ? this._addList(ord) : `<button class="add" data-a="addopen">${M.icon('mdi:plus', 20)}Legg til kamera</button>`;
       const html = `<style>${M.BASE_CSS}${ED_CSS}</style><div class="w">
-        <div class="hd"><span class="hic">${M.icon('tune', 24)}</span><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="x" data-a="done" title="Lukk">${M.icon('close', 22)}</button></div>
+        <div class="hd"><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="hb" data-a="reset">Nullstill</button><button class="done" data-a="done">Ferdig</button></div>
         <div class="scope" data-nomorph></div>
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -32064,7 +32788,6 @@ try {
         </div>
         <button class="more" data-a="adv">${M.icon('mdi:cog-outline', 20)}Flere innstillinger (lys, sirene, hendelser …)</button>
         ${this.status ? `<div class="stat ${this.statusKind || ''}">${esc(this.status)}</div>` : ''}
-        <div class="act"><button data-a="reset">Nullstill</button><button class="pri" data-a="done">Ferdig</button></div>
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
       // «Denne enheten · Alle enheter» (fra openEditor) rett under headeren
@@ -33896,9 +34619,13 @@ try {
     if (!st) return { name: '–', p: 0.25, none: true };
     return { name: String(st.state), p: 0.25 };
   };
+  // 26.24: fasen tegnes INNI sirkelen (clip-path: circle(50%)) – belyst del = halvsirkel + terminator-ellipse (rx = r·|cos 2πp|),
+  // myk kant (gaussisk uskarphet) og skygge som gradient; voksende = lys til høyre, avtakende speilet (lys til venstre).
+  let moonSeq = 0;
   const moonDisc = (p, size) => {
-    const k = (1 - Math.cos(2 * Math.PI * p)) / 2, dark = (1 - k) * 100, wax = p < 0.5;
-    return `<div class="moon" style="width:${size}px;height:${size}px"><div style="position:absolute;top:0;bottom:0;${wax ? 'left:0' : 'right:0'};width:${dark.toFixed(1)}%;background:#16161a;box-shadow:${wax ? '6px' : '-6px'} 0 14px rgba(0,0,0,0.5)"></div></div>`;
+    const a = 2 * Math.PI * p, cs = Math.cos(a), rx = Math.abs(50 * cs).toFixed(2), wax = p < 0.5, id = 'mf' + (++moonSeq % 1000);
+    const d = wax ? `M50,0 A50,50 0 0 1 50,100 A${rx},50 0 0 ${cs > 0 ? 0 : 1} 50,0Z` : `M50,0 A50,50 0 0 0 50,100 A${rx},50 0 0 ${cs > 0 ? 1 : 0} 50,0Z`;
+    return `<svg class="moon" data-phase="${p}" data-wax="${wax ? 1 : 0}" viewBox="0 0 100 100" style="width:${size}px;height:${size}px;clip-path:circle(50%)" aria-hidden="true"><defs><radialGradient id="${id}d" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2c2e36"/><stop offset="1" stop-color="#15161b"/></radialGradient><radialGradient id="${id}l" cx="${wax ? 62 : 38}%" cy="38%" r="70%"><stop offset="0" stop-color="#fffaea"/><stop offset=".65" stop-color="#e9e3d2"/><stop offset="1" stop-color="#c9c1ab"/></radialGradient><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.2"/></filter></defs><circle cx="50" cy="50" r="50" fill="url(#${id}d)"/><path class="lit" d="${d}" fill="url(#${id}l)" filter="url(#${id}b)"/></svg>`;
   };
   const uvOf = (v) => (v == null ? ['–', 'var(--gray600, #7f7f7f)'] : v < 1 ? ['Svært lav', C.green] : v < 3 ? ['Lav', C.green] : v < 6 ? ['Moderat', C.yellow] : v < 8 ? ['Høy', C.orange] : v < 11 ? ['Svært høy', C.red] : ['Ekstrem', C.purple]);
   // Værbakgrunn i toppkortet (heroFx): regn, snø, sludd, tåkebånd, lyn-blink, solstråler, skyer, vindstriper.
@@ -34126,14 +34853,183 @@ try {
     }).filter((x) => x && x.lv > 1);
   }
 
+  /* ================================================================ Fiks 26.24/26.25 · stil «scene» (Vær v5) */
+  // HA-state → [norsk, ikon, bakgrunnsgradient, korttone]. Ukjent → cloudy. Natt + sunny/partlycloudy → natt-scene.
+  const SC = {
+    'clear-night': ['Klart', 'bedtime', 'linear-gradient(180deg,#0b1026 0%,#1b2347 55%,#2b3259 100%)', 'rgba(30,36,64,.55)'],
+    cloudy: ['Skyet', 'cloud', 'linear-gradient(180deg,#465160 0%,#667180 60%,#7a8490 100%)', 'rgba(40,48,58,.55)'],
+    fog: ['Tåke', 'foggy', 'linear-gradient(180deg,#59616a 0%,#838a91 60%,#959ba0 100%)', 'rgba(56,62,70,.55)'],
+    hail: ['Hagl', 'mdi:weather-hail', 'linear-gradient(180deg,#212833 0%,#374150 60%,#475160 100%)', 'rgba(30,36,46,.55)'],
+    lightning: ['Lyn', 'thunderstorm', 'linear-gradient(180deg,#171a28 0%,#2b2f44 60%,#3a3e56 100%)', 'rgba(28,30,44,.55)'],
+    'lightning-rainy': ['Tordenbyger', 'thunderstorm', 'linear-gradient(180deg,#151924 0%,#28303f 60%,#374152 100%)', 'rgba(26,30,40,.55)'],
+    partlycloudy: ['Delvis skyet', 'partly_cloudy_day', 'linear-gradient(180deg,#3a7cc1 0%,#66a3da 55%,#98c3e8 100%)', 'rgba(36,66,104,.45)'],
+    'partlycloudy-night': ['Delvis skyet', 'partly_cloudy_night', 'linear-gradient(180deg,#0e1430 0%,#222b4f 60%,#323b60 100%)', 'rgba(30,36,64,.55)'],
+    pouring: ['Kraftig regn', 'mdi:weather-pouring', 'linear-gradient(180deg,#1d2631 0%,#333f4d 60%,#434f5d 100%)', 'rgba(30,38,48,.55)'],
+    rainy: ['Regn', 'rainy', 'linear-gradient(180deg,#2c3846 0%,#475566 60%,#586575 100%)', 'rgba(40,48,58,.55)'],
+    snowy: ['Snø', 'weather_snowy', 'linear-gradient(180deg,#7d8b9b 0%,#a6b2bf 60%,#c3ccd5 100%)', 'rgba(62,74,88,.5)'],
+    'snowy-rainy': ['Sludd', 'weather_mix', 'linear-gradient(180deg,#525e6b 0%,#788490 60%,#8c97a2 100%)', 'rgba(48,56,66,.55)'],
+    sunny: ['Sol', 'clear_day', 'linear-gradient(180deg,#2c82d3 0%,#55a3e4 55%,#8ac2ee 100%)', 'rgba(28,66,116,.4)'],
+    windy: ['Vind', 'air', 'linear-gradient(180deg,#4a6883 0%,#6c88a1 60%,#839db3 100%)', 'rgba(40,56,72,.5)'],
+    'windy-variant': ['Vind og skyer', 'mdi:weather-windy-variant', 'linear-gradient(180deg,#475360 0%,#65727f 60%,#78848f 100%)', 'rgba(40,48,58,.55)'],
+    exceptional: ['Ekstremvær', 'mdi:alert-octagon', 'linear-gradient(180deg,#281115 0%,#471c21 60%,#5a2427 100%)', 'rgba(50,24,28,.55)'],
+  };
+  M.VAER_SCENES = Object.keys(SC).filter((k) => k !== 'partlycloudy-night'); // alle 15 HA-værtilstandene
+  const sceneOf = (state, night) => {
+    let k = SC[state] ? state : 'cloudy';
+    if (night && k === 'sunny') k = 'clear-night';
+    if (night && k === 'partlycloudy') k = 'partlycloudy-night';
+    const s = SC[k];
+    return { key: k, label: s[0], icon: s[1], bg: s[2], card: s[3], color: k === 'sunny' || k === 'partlycloudy' ? SUNY : k === 'exceptional' ? C.red : 'var(--white, #fafafa)' };
+  };
+  // Partikler/lag per scene (fasit fx() i Vær v5): stjerner, måne, sol, skyer, tåke, regn, styrtregn, sprut, snø (3 lag),
+  // hagl, lyn, vind og rød glød. Alt er absolutt plassert i scenelaget (dekker hele popupen) og pauses med .still.
+  const sceneFx = (k) => {
+    const P = [], add = (cls, s) => P.push(`<i class="${cls}" style="${s}"></i>`), R = (i, m = 100, o = 13) => (i * 37 + o) % m;
+    const has = (...a) => a.includes(k);
+    const stars = (n) => { for (let i = 0; i < n; i++) add('st', `left:${(i * 53 + 7) % 100}%;top:${(i * 29 + 3) % 58}%;width:${i % 4 ? 2 : 3}px;height:${i % 4 ? 2 : 3}px;animation-duration:${2 + (i % 5)}s;animation-delay:${-(i % 7)}s`); };
+    const clouds = (n, a, dark, fast) => { for (let i = 0; i < n; i++) add('cl', `left:${-20 + R(i, 90, 5)}%;top:${-30 + (i % 4) * 46}px;width:${260 + (i % 3) * 90}px;height:${90 + (i % 2) * 30}px;background:${dark ? `rgba(20,24,32,${a})` : `rgba(255,255,255,${a})`};animation-duration:${(fast ? 9 : 26) + (i % 3) * (fast ? 3 : 8)}s;animation-delay:${-i * 4}s`); };
+    const rain = (n, slant, dur, len, a) => { for (let i = 0; i < n; i++) add('rn', `left:${R(i, 110, 3) - 5}%;height:${len + (i % 3) * 6}px;opacity:${a};--sl:${slant}deg;--dx:${Math.round(-Math.tan(slant * Math.PI / 180) * 900)}px;animation-duration:${(dur + (i % 5) * 0.08).toFixed(2)}s;animation-delay:${(-((i * 0.137) % 1.3)).toFixed(2)}s`); };
+    const splash = (n) => { for (let i = 0; i < n; i++) add('sp', `left:${R(i, 96, 11)}%;bottom:${4 + (i % 6) * 12}px;animation-delay:${(-(i * 0.19) % 1).toFixed(2)}s`); };
+    const snow = (n) => { [[2, 14, 0.55], [4, 10, 0.75], [6, 7, 0.95]].forEach(([sz, dur, a], l) => { for (let i = 0; i < n; i++) add('sn', `left:${R(i + l * 7, 100, 17 + l * 5)}%;width:${sz}px;height:${sz}px;opacity:${a};animation-duration:${(dur + (i % 4) * 1.1).toFixed(1)}s;animation-delay:${(-((i * 1.7 + l) % dur)).toFixed(1)}s`); }); };
+    const hail = (n) => { for (let i = 0; i < n; i++) add('hl', `left:${R(i, 100, 29)}%;animation-duration:${(0.55 + (i % 4) * 0.07).toFixed(2)}s;animation-delay:${(-((i * 0.11) % 0.7)).toFixed(2)}s`); };
+    const fog = () => [8, 26, 44, 62, 80].forEach((y, i) => add('fg', `top:${y}%;animation-duration:${14 + i * 4}s;animation-delay:${-i * 3}s`));
+    const wind = (n) => { for (let i = 0; i < n; i++) add('wd', `top:${6 + (i * 13) % 88}%;width:${90 + (i % 3) * 60}px;animation-duration:${(1.4 + (i % 4) * 0.35).toFixed(2)}s;animation-delay:${(-i * 0.45).toFixed(2)}s`); };
+    const bolt = () => { add('fl', ''); P.push('<svg class="bolt" viewBox="0 0 60 160" aria-hidden="true"><path d="M34 0 L12 78 L30 78 L18 160 L52 60 L32 60 L46 0Z"/></svg>'); };
+    if (has('clear-night', 'partlycloudy-night')) stars(k === 'clear-night' ? 46 : 26);
+    if (k === 'clear-night') add('mo', '');
+    if (has('sunny', 'partlycloudy')) { add('sg', ''); add('sr', ''); }
+    if (k === 'exceptional') add('rg', '');
+    if (has('cloudy', 'fog', 'windy-variant')) clouds(5, 0.16);
+    if (has('partlycloudy', 'partlycloudy-night')) clouds(3, 0.28);
+    if (has('hail', 'lightning', 'lightning-rainy', 'exceptional', 'pouring')) clouds(5, 0.45, true);
+    if (has('rainy', 'snowy-rainy', 'snowy')) clouds(4, 0.12);
+    if (k === 'windy') clouds(3, 0.14, false, true);
+    if (k === 'fog') fog();
+    if (has('rainy', 'lightning-rainy', 'pouring')) rain(k === 'pouring' ? 42 : 34, 8, 0.75, 18, 0.7);
+    if (k === 'pouring') rain(46, 18, 0.5, 30, 0.55);
+    if (has('rainy', 'pouring', 'lightning-rainy')) splash(k === 'pouring' ? 18 : 12);
+    if (k === 'snowy-rainy') { snow(12); rain(16, 6, 0.9, 14, 0.5); }
+    if (k === 'snowy') snow(22);
+    if (k === 'hail') hail(30);
+    if (has('lightning', 'lightning-rainy', 'exceptional')) bolt();
+    if (has('windy', 'windy-variant', 'exceptional')) wind(k === 'exceptional' ? 9 : 7);
+    return P.join('');
+  };
+  const SCENE_CSS = `
+    :host{position:absolute;inset:0;z-index:-1;display:block;pointer-events:none;overflow:hidden;border-radius:inherit;contain:paint}
+    .sc{position:absolute;inset:0;overflow:hidden;border-radius:inherit;transition:background .6s}
+    .sc i,.sc svg{position:absolute;display:block;pointer-events:none}
+    .st{border-radius:50%;background:#fff;animation:vs-tw 3s ease-in-out infinite}
+    .mo{right:12%;top:max(70px,9%);width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 36% 34%,#fffbea,#ebe5d4 58%,#cfc7b0);box-shadow:0 0 50px rgba(255,248,220,.35)}
+    .sg{right:-90px;top:-90px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(255,236,160,.75),rgba(255,214,110,.25) 35%,transparent 66%);animation:vs-glow 6s ease-in-out infinite}
+    .sr{right:-200px;top:-200px;width:580px;height:580px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,240,190,.16) 0deg 6deg,transparent 6deg 20deg);-webkit-mask:radial-gradient(circle,#000 18%,transparent 62%);mask:radial-gradient(circle,#000 18%,transparent 62%);animation:vs-spin 80s linear infinite}
+    .rg{inset:-10%;background:radial-gradient(ellipse at 50% 20%,rgba(242,80,70,.55),transparent 60%);animation:vs-pulse 2.6s ease-in-out infinite}
+    .cl{border-radius:999px;filter:blur(16px);animation:vs-drift 26s ease-in-out infinite alternate}
+    .fg{left:-40%;width:180%;height:64px;border-radius:32px;background:linear-gradient(90deg,transparent,rgba(230,232,235,.22),rgba(230,232,235,.3),transparent);filter:blur(10px);animation:vs-fog 16s ease-in-out infinite alternate}
+    .rn{top:-40px;width:1.6px;border-radius:1px;background:linear-gradient(transparent,rgba(210,228,255,.95));transform:rotate(var(--sl));animation:vs-rain .8s linear infinite}
+    .sp{width:12px;height:4px;border-radius:50%;border:1px solid rgba(210,228,255,.55);opacity:0;animation:vs-splash .9s ease-out infinite}
+    .sn{top:-12px;border-radius:50%;background:#fff;animation:vs-snow 10s linear infinite}
+    .hl{top:-10px;width:5px;height:5px;border-radius:50%;background:#eef4fa;box-shadow:0 0 2px rgba(255,255,255,.8);animation:vs-hail .6s linear infinite}
+    .wd{left:0;height:2px;border-radius:1px;background:linear-gradient(90deg,transparent,rgba(230,238,248,.55),transparent);animation:vs-wind 1.6s linear infinite}
+    .fl{inset:0;background:rgba(255,255,240,.55);opacity:0;animation:vs-flash 6s linear infinite}
+    .bolt{left:58%;top:6%;width:44px;height:120px;opacity:0;fill:rgba(255,252,220,.95);filter:drop-shadow(0 0 10px rgba(255,250,200,.9));animation:vs-flash 6s linear infinite}
+    .still *{animation:none !important}
+    .still .rn,.still .sn,.still .hl,.still .sp,.still .wd,.still .fl,.still .bolt{display:none !important}
+    @media (prefers-reduced-motion: reduce){.sc *{animation:none !important}.rn,.sn,.hl,.sp,.wd,.fl,.bolt{display:none !important}}
+    @keyframes vs-tw{0%,100%{opacity:.25}50%{opacity:.95}}
+    @keyframes vs-glow{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+    @keyframes vs-spin{to{transform:rotate(360deg)}}
+    @keyframes vs-pulse{0%,100%{opacity:.45}50%{opacity:1}}
+    @keyframes vs-drift{0%{transform:translateX(-6%)}100%{transform:translateX(8%)}}
+    @keyframes vs-fog{0%{transform:translateX(-12%)}100%{transform:translateX(12%)}}
+    @keyframes vs-rain{0%{transform:translate(0,0) rotate(var(--sl))}100%{transform:translate(var(--dx),110vh) rotate(var(--sl))}}
+    @keyframes vs-splash{0%{opacity:0;transform:scale(.2)}20%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
+    @keyframes vs-snow{0%{transform:translate(0,0)}50%{transform:translate(18px,55vh)}100%{transform:translate(-10px,110vh)}}
+    @keyframes vs-hail{0%{transform:translate(0,0)}100%{transform:translate(-30px,110vh)}}
+    @keyframes vs-wind{0%{transform:translateX(-120%);opacity:0}20%{opacity:.8}100%{transform:translateX(120vw);opacity:0}}
+    @keyframes vs-flash{0%,82%,100%{opacity:0}83%,86%{opacity:1}84.5%{opacity:.15}88%{opacity:0}}
+  `;
+  // Faste kontroller i bunnen av popupen: stedsvelger (glass, nede til venstre, meny åpner oppover) og tune (nede til høyre)
+  const CTL_CSS = `
+    :host{position:absolute;left:0;right:0;bottom:0;height:0;z-index:6;pointer-events:none;display:block;font-family:${M.FONT};color:#fafafa;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+    *,*::before,*::after{box-sizing:border-box}
+    button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .b{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom, 0px));pointer-events:auto;height:44px;border-radius:22px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 6px 18px rgba(0,0,0,.25);display:flex;align-items:center;gap:6px;padding:0 12px 0 12px;font-size:14px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .b:active{transform:scale(.95)}
+    .pl{left:16px;max-width:calc(100% - 100px)}
+    .pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tn{right:16px;width:44px;padding:0;justify-content:center}
+    .mbg{position:absolute;left:0;right:0;bottom:0;height:100vh;pointer-events:auto}
+    .mn{position:absolute;left:16px;bottom:calc(68px + env(safe-area-inset-bottom, 0px));pointer-events:auto;min-width:200px;max-width:calc(100% - 32px);max-height:50vh;overflow:auto;border-radius:20px;background:rgba(28,30,36,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.35);padding:6px;display:flex;flex-direction:column;gap:2px;transform-origin:bottom left;animation:vc-in .18s ease-out}
+    .mi{height:44px;border-radius:14px;display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left;font-size:14px;white-space:nowrap}
+    .mi.on{background:rgba(255,255,255,.14)}
+    @keyframes vc-in{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion: reduce){.mn{animation:none}}
+  `;
+  // Scenelaget: eget element med shadow root, lagt i Bubble-popupen (.bubble-pop-up, transform → absolutt = hele popupen,
+  // også bak headeren; fallgruve 1). Uten popup (forhåndsvisning) ligger det bak innholdet i kortet.
+  const mkLayer = (cls) => { const el = document.createElement('div'); el.className = cls; el.attachShadow({ mode: 'open' }); return el; };
+  // Glatte kurver (Catmull-Rom → kubisk Bézier, smooth() i Vær v5)
+  const smooth = (P) => {
+    if (!P.length) return '';
+    if (P.length < 3) return P.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+    let d = `M${P[0][0].toFixed(1)},${P[0][1].toFixed(1)}`;
+    for (let i = 0; i < P.length - 1; i++) {
+      const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+  M.vaerSmooth = smooth;
+  // Steder (26.25): places: [{ name, entity }] – tom → Hjem (værentiteten fra autokonfig/overrides)
+  const placesOf = (h, c) => {
+    const L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity).map((p) => ({ name: p.name || (h && h.states[p.entity] ? M.name(h, p.entity) : p.entity), entity: p.entity }));
+    if (L.length) return L;
+    const ent = M.vaerAuto(h, c).weather;
+    return [{ name: (h && h.config && h.config.location_name) || 'Hjem', entity: ent, auto: true }];
+  };
+  M.vaerPlaces = placesOf;
+  const STIL = [['klassisk', 'Klassisk'], ['scene', 'Scene']];
+  const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'calendar_month'], ['tiles', 'Fliser', 'grid_view']];
+  const stilOf = (c) => (c && c.stil === 'klassisk' ? 'klassisk' : 'scene'); // standard scene (26.24)
+  const hiddenOf = (c) => new Set([...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])]);
+  M.vaerStilOf = stilOf;
+
+  // GUI-editoren (getConfigElement): Steder – liste med fjern + «Legg til sted» (navn + weather.*-velger)
+  const placesGui = (h, c, key) => {
+    const L = Array.isArray(c.places) ? c.places.filter((p) => p && p.entity) : [], all = M.all(h, 'weather');
+    return `<div class="f" data-key="vp-${key}"><label>Steder</label>
+      ${L.length ? L.map((p, i) => `<div class="line" data-key="vp-${i}-${esc(p.entity)}" style="gap:8px"><span style="flex:1;min-width:0;font-size:13px">${esc(p.name || p.entity)} <span class="small">${esc(p.entity)}</span></span><button class="chip" data-a="fn" data-k="${key}" data-op="rm" data-i="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">Fjern</button></div>`).join('') : '<div class="small">Bare Hjem (værmeldingen fra autokonfig) – legg til flere steder under.</div>'}
+      <div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--gray100,#2f2f2f)">
+        <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--gray100,#2f2f2f)">${all.map((id) => `<option value="${esc(id)}">${esc(M.name(h, id))} · ${esc(id)}</option>`).join('')}</select>
+        <button class="chip on" data-a="fn" data-k="${key}" data-op="add" ${all.length ? '' : 'disabled'}>Legg til sted</button></div></div>`;
+  };
+  const placesClick = (d, ed) => {
+    const c = ed._config || {}, L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity);
+    if (d.op === 'rm') { L.splice(Number(d.i), 1); M.haptic('selection'); return ed._set('places', L.length ? L : undefined); }
+    if (d.op === 'add') {
+      const R = ed.shadowRoot || ed, ent = (R.querySelector('[data-vp="ent"]') || {}).value, nm = ((R.querySelector('[data-vp="name"]') || {}).value || '').trim();
+      if (!ent) return undefined;
+      M.haptic('success');
+      return ed._set('places', [...L, { name: nm || M.name(ed._hass || ed.hass, ent), entity: ent }]);
+    }
+    return undefined;
+  };
+
   class Vaer extends Forecast(M.Card) {
     static get cardName() { return 'Vær'; }
     static get defaults() { return { hours: 24, days: 7, show_graph: false, show_extras: true, show_pollen: true }; }
     static get schema() {
       return () => [
+        // 26.24/26.25: samme valg som «Tilpass Vær» (Stil · Steder · Seksjoner · Fliser) – config er sannheten
+        { type: 'select', name: 'stil', label: 'Stil', default: 'scene', options: STIL, help: 'Scene = fullskjerms værscene bak hele popupen · Klassisk = Vær v4' },
+        { type: 'html', html: (hh, cc, key) => placesGui(hh, cc, key), click: (d, ed) => placesClick(d, ed) },
+        ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { const s = new Set(Array.isArray(cc.hide) ? cc.hide : []); if (v) s.delete(k); else s.add(k); const hs = (cc.hidden_sections || []).filter((x) => x !== k || !v); if (ed && ed._set) { if (hs.length !== (cc.hidden_sections || []).length) ed._config = { ...ed._config, hidden_sections: hs.length ? hs : undefined }; ed._set('hide', HIDE.map((x) => x[0]).filter((x) => s.has(x))); } } })),
+        { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)']] },
+        { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
-        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner', options: SECS.map((s) => [s[0], s[1]]) },
-        { type: 'order', name: 'tiles', hiddenName: 'hidden_tiles', label: 'Detaljkort', options: TILES.map((t) => [t[0], t[1]]) },
+        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner (Klassisk)', options: SECS.map((s) => [s[0], s[1]]) },
         { type: 'section', label: 'Toppkort', icon: 'mdi:view-carousel-outline', id: 'view', fields: [{ type: 'text', name: 'name', label: 'Stedsnavn', auto: (hh) => (hh.config && hh.config.location_name) || null, placeholder: 'Fra HA / værentiteten' }, ...VIEW_FIELDS] },
         { type: 'section', label: 'Prognose', icon: 'mdi:calendar-clock', id: 'forecast', fields: [
           { type: 'number', name: 'hours', label: 'Timer i «Time for time»', min: 12, max: 48, placeholder: '24' },
@@ -34145,16 +35041,216 @@ try {
       ];
     }
     get cardSize() { return 12; }
+    static get uiPersist() { return ['place', 'seg']; }
+    // Valgt sted (stedsvelgeren) overstyrer værentiteten – config er uendret (bare UI-tilstand i localStorage)
+    get config() {
+      const c = super.config, p = this._place(c);
+      return p && !p.auto && p.entity ? { ...c, overrides: { ...(c.overrides || {}), weather: p.entity } } : c;
+    }
+    _place(c) {
+      const L = placesOf(this._hass, c || super.config);
+      return L[M.clamp(Number(this.ui.place) || 0, 0, L.length - 1)] || null;
+    }
+    // Bubble-popupen kortet ligger i (på tvers av shadow roots)
+    _popEl() {
+      let n = this;
+      for (let i = 0; n && i < 60; i++) { if (n.classList && n.classList.contains('bubble-pop-up')) return n; n = n.parentNode || n.host; }
+      return null;
+    }
+    onOpen() {
+      super.onOpen();
+      if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this)) M.haptic('light'); // én haptic ved åpning (26.24)
+      this._pause(false);
+    }
+    onClose() { super.onClose(); this._pause(true); this._ctlMenu = false; this._drawCtl(); }
+    _pause(p) { const sc = this._layer && this._layer.shadowRoot.querySelector('.sc'); if (sc) sc.classList.toggle('paused', !!p); }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      this._pause(true);
+      // Kortet er tatt ut (popup lukket / ombygd): ta lagene ut av popupen hvis ingen ny instans bruker dem
+      setTimeout(() => { if (this.isConnected) return; [this._layer, this._ctl].forEach((el) => { if (el && el.parentNode) el.remove(); }); if (this._popRef && this._popRef.getAttribute('data-ki-vaer-owner') === this._uid) this._popRef.removeAttribute('data-ki-vaer'); }, 0);
+    }
+    // Bunnluft: stedsvelgeren og tune-knappen ligger fast i bunnen (navbaren er skjult mens #vaer er åpen) → 80 px
+    _applySpacing() {
+      super._applySpacing();
+      if (this._config.embedded || !M.popupContainer(this)) return;
+      this.style.paddingBottom = 'calc(80px + env(safe-area-inset-bottom, 0px))';
+    }
+    // Scenelag (bak hele popupen, også bak headeren) + faste kontroller (stedsvelger · tune) i popup-laget
+    _mountLayers() {
+      const pop = this._popEl(), scene = stilOf(this._rawConfig) === 'scene', R = this.shadowRoot;
+      this._uid = this._uid || M.uid();
+      this._popRef = pop;
+      if (pop) {
+        pop.querySelectorAll(':scope > .msh-vaer-scene, :scope > .msh-vaer-ctl').forEach((el) => { if (el !== this._layer && el !== this._ctl) el.remove(); }); // gammel instans
+        pop.setAttribute('data-ki-vaer', scene ? 'scene' : 'klassisk');
+        pop.setAttribute('data-ki-vaer-owner', this._uid);
+      }
+      this.toggleAttribute('data-scene', scene);
+      if (!this._ctl) {
+        this._ctl = mkLayer('msh-vaer-ctl');
+        this._ctl.shadowRoot.addEventListener('click', (e) => this._ctlClick(e));
+        ['pointerdown', 'touchstart'].forEach((t) => this._ctl.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+      }
+      const cp = pop || R.querySelector('.ctl-slot');
+      if (cp && this._ctl.parentNode !== cp) cp.appendChild(this._ctl);
+      this._ctl.style.cssText = pop ? '' : 'position:sticky;bottom:0;display:block;height:0;z-index:6';
+      this._drawCtl();
+      if (scene) {
+        if (!this._layer) this._layer = mkLayer('msh-vaer-scene');
+        const lp = pop || R.querySelector('.scn-slot');
+        if (lp && this._layer.parentNode !== lp) lp.insertBefore(this._layer, lp.firstChild);
+        const sc = this._sc || sceneOf(null, false), fxOn = this.config.hero_fx !== false && !(M.animOff && M.animOff());
+        const k = sc.key + '|' + (fxOn ? 1 : 0);
+        if (this._layer._k !== k) {
+          this._layer._k = k;
+          this._layer.shadowRoot.innerHTML = `<style>${SCENE_CSS}</style><div class="sc${fxOn ? '' : ' still'}" data-scene="${sc.key}" style="background:${sc.bg}">${sceneFx(sc.key)}</div>`;
+        }
+        this._pause(!!pop && !this.isOpen);
+        this.style.setProperty('--vaer-card', sc.card);
+      } else if (this._layer) { this._layer.remove(); this._layer = null; this.style.removeProperty('--vaer-card'); }
+    }
+    _drawCtl() {
+      const el = this._ctl;
+      if (!el) return;
+      const L = placesOf(this._hass, super.config), cur = this._place(), i0 = L.indexOf(cur);
+      const html = `<style>${CTL_CSS}</style>
+        ${this._ctlMenu ? `<div class="mbg" data-a="close"></div><div class="mn" role="menu">${L.map((p, i) => `<button class="mi${i === i0 ? ' on' : ''}" role="menuitemradio" aria-checked="${i === i0}" data-a="pick" data-i="${i}">${M.icon(i === i0 ? 'mdi:map-marker' : 'mdi:map-marker-outline', 18)}<span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
+        <button class="b pl" data-a="place" aria-haspopup="menu" aria-expanded="${!!this._ctlMenu}" aria-label="Velg sted">${M.icon('mdi:map-marker', 18)}<span class="pn">${esc(cur ? cur.name : 'Hjem')}</span>${M.icon(this._ctlMenu ? 'mdi:chevron-down' : 'mdi:chevron-up', 18)}</button>
+        <button class="b tn" data-a="tune" aria-label="Tilpass Vær">${M.icon('mdi:tune', 20)}</button>`;
+      if (el._h !== html) { el._h = html; el.shadowRoot.innerHTML = html; }
+    }
+    _ctlClick(e) {
+      const b = e.target.closest && e.target.closest('[data-a]');
+      if (!b) return;
+      e.stopPropagation();
+      const a = b.dataset.a;
+      if (a === 'tune') { M.haptic('light'); this._ctlMenu = false; this._drawCtl(); return this.customize(); }
+      if (a === 'place') { M.haptic('selection'); this._ctlMenu = !this._ctlMenu; return this._drawCtl(); }
+      if (a === 'close') { this._ctlMenu = false; return this._drawCtl(); }
+      if (a === 'pick') {
+        M.haptic('selection');
+        this._ctlMenu = false;
+        this._fc = null;
+        this.setUI({ place: Number(b.dataset.i) || 0 });
+        this._drawCtl();
+        if (this.isOpen) setTimeout(() => this._subscribe(), 0);
+      }
+      return undefined;
+    }
+    // Scrub på alle grafer: touch-action none, setPointerCapture, stopPropagation, stiplet markør + verdi (26.24)
+    _bindScrubs() {
+      this.shadowRoot.querySelectorAll('[data-scrub]').forEach((el) => {
+        if (el.__scr) return;
+        el.__scr = true;
+        M.guardDrag(el, 'none');
+        const pos = (e) => { const n = Number(el.dataset.n) || 1, r = el.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * (n - 1)), 0, Math.max(0, n - 1)); };
+        let down = null;
+        el.addEventListener('pointerdown', (e) => {
+          if (e.button) return;
+          e.stopPropagation();
+          down = { x: e.clientX, moved: false, id: e.pointerId };
+          try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+          M.haptic('selection');
+          this.setUI({ scr: { k: el.dataset.scrub, i: pos(e) } });
+        });
+        el.addEventListener('pointermove', (e) => {
+          if (!down && e.pointerType !== 'mouse') return;
+          if (down) { e.stopPropagation(); if (Math.abs(e.clientX - down.x) > 4) down.moved = true; }
+          const i = pos(e), s = this.ui.scr;
+          if (!s || s.k !== el.dataset.scrub || s.i !== i) this.setUI({ scr: { k: el.dataset.scrub, i } });
+        });
+        const end = (e) => {
+          const wasDrag = down && down.moved;
+          down = null;
+          if (this.ui.scr) this.setUI({ scr: null }); // slipp → visningen går tilbake
+          if (wasDrag && e && e.type === 'pointerup') { this._swallow = true; setTimeout(() => { this._swallow = false; }, 350); } // dagrad: ingen utfolding etter dra
+        };
+        ['pointerup', 'pointercancel'].forEach((t) => el.addEventListener(t, end));
+        el.addEventListener('pointerleave', (e) => { if (!down && e.pointerType === 'mouse') end(e); });
+      });
+    }
+    // Fliser: hold ~420 ms → løft (scale 1.05 + skygge), dra for å bytte plass, slipp lagrer tile_order (26.25)
+    _bindTiles() {
+      const box = this.shadowRoot.querySelector('[data-tiles]');
+      if (!box || box.__td) return;
+      box.__td = true;
+      let st = null;
+      const R = this.shadowRoot;
+      const cancel = () => { if (st && st.timer) clearTimeout(st.timer); };
+      box.addEventListener('pointerdown', (e) => {
+        const it = e.target.closest && e.target.closest('.tw');
+        if (!it || e.button || (e.target.closest && e.target.closest('[data-scrub],button'))) return;
+        st = { it, k: it.dataset.tile, x0: e.clientX, y0: e.clientY, id: e.pointerId, on: false, over: null };
+        st.timer = setTimeout(() => {
+          if (!st) return;
+          st.on = true; st.timer = null;
+          this._busy = true;
+          this._cancelHold();
+          it.classList.add('lift');
+          box.classList.add('tdrag');
+          it.style.touchAction = 'none';
+          try { it.setPointerCapture(st.id); } catch (x) { /* */ }
+          M.haptic('medium');
+        }, 420);
+      });
+      box.addEventListener('pointermove', (e) => {
+        if (!st || e.pointerId !== st.id) return;
+        const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+        if (!st.on) { if (Math.abs(dx) + Math.abs(dy) > 8) { cancel(); st = null; } return; }
+        e.stopPropagation(); e.preventDefault();
+        st.it.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+        st.it.style.pointerEvents = 'none';
+        const hit = R.elementFromPoint ? R.elementFromPoint(e.clientX, e.clientY) : null;
+        st.it.style.pointerEvents = '';
+        const ov = hit && hit.closest ? hit.closest('.tw') : null, ok = ov && ov !== st.it && box.contains(ov) ? ov : null;
+        if (ok !== st.over) { if (st.over) st.over.classList.remove('over'); st.over = ok; if (ok) { ok.classList.add('over'); M.haptic('selection'); } }
+      });
+      const end = (e) => {
+        if (!st || (e && e.pointerId !== st.id)) return;
+        cancel();
+        const s = st;
+        st = null;
+        if (!s.on) return;
+        this._busy = false;
+        this._swallow = true; setTimeout(() => { this._swallow = false; }, 400); // klikket etter slipp ignoreres
+        s.it.classList.remove('lift'); s.it.style.transform = ''; s.it.style.touchAction = '';
+        box.classList.remove('tdrag');
+        if (s.over) s.over.classList.remove('over');
+        if (!s.over) { M.haptic('light'); return this.update(); }
+        const all = [...box.querySelectorAll('.tw')].map((x) => x.dataset.tile), to = s.over.dataset.tile;
+        const o = all.filter((x) => x !== s.k), j = o.indexOf(to);
+        o.splice(all.indexOf(s.k) < all.indexOf(to) ? j + 1 : j, 0, s.k);
+        const full = orderOf(stilOf(this._rawConfig) === 'scene' ? [...TK, 'moon'] : TK, [...o, ...orderOf([...TK, 'moon'], this._rawConfig.tile_order || this._rawConfig.tiles).filter((x) => !o.includes(x))]);
+        M.haptic('success');
+        return this._saveCfg({ tile_order: full });
+      };
+      box.addEventListener('pointerup', end);
+      box.addEventListener('pointercancel', (e) => { if (st && !st.on) { cancel(); st = null; } else end(e); });
+      box.addEventListener('touchmove', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
+      // Fallgruve 2: hold-og-dra på flisene skal aldri nå Bubble (swipe-to-close) – pointerdown/touchstart/touchmove stoppes her
+      box.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); });
+      box.addEventListener('touchstart', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); }, { passive: true });
+      box.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    async _saveCfg(patch) {
+      const old = this._rawConfig || {}, n = { ...old, ...patch };
+      Object.keys(patch).forEach((k) => { if (patch[k] === undefined) delete n[k]; });
+      this.setConfig(n);
+      const mine = this._rawConfig;
+      try { const r = await M.saveCardConfig(this.hass, old, n, { card: this }); if (r && r.config && this._rawConfig === mine) this.setConfig(r.config); } catch (e) { console.warn('[ki-msh] Vær', e); } // endret imens → behold
+    }
     // Toppkortet monteres i seksjonen «hero» (egen plassering i rekkefølgen), ikke i basens faste plass øverst.
     _mountHero(tag) {
       const slot = this.shadowRoot.querySelector('.vh-slot');
       if (!customElements.get(tag)) return;
       if (!this._heroEl) { this._heroEl = document.createElement(tag); this._heroEl._host = this; }
       if (!slot) { if (this._heroEl.parentNode) this._heroEl.remove(); return; }
-      const raw = this._rawConfig || {};
-      if (this._heroSrc !== raw) {
-        this._heroSrc = raw;
-        const { type, card_id, hero, sections, hidden_sections, tiles, hidden_tiles, ...rest } = raw;
+      const raw = this._rawConfig || {}, pl = this._place(), pe = pl && !pl.auto ? pl.entity : null;
+      if (this._heroSrc !== raw || this._heroPl !== pe) {
+        this._heroSrc = raw; this._heroPl = pe;
+        const { type, card_id, hero, sections, hidden_sections, tiles, hidden_tiles, tile_order, hide, places, stil, ...rest } = raw;
+        if (pe) rest.overrides = { ...(rest.overrides || {}), weather: pe }; // valgt sted (stedsvelgeren)
         this._heroEl.setConfig({ type: 'custom:' + tag, ...rest, ...(hero || {}), embedded: true, card_id: card_id ? card_id + '_hero' : undefined });
       }
       if (this._heroEl.parentNode !== slot) slot.appendChild(this._heroEl);
@@ -34162,7 +35258,7 @@ try {
     }
     setPreview(k) { this._preview = k && WX[k] ? k : null; if (this._heroEl) { this._heroEl.update(); if (this._preview) this._heroEl.showSlide(0); } }
     customize(focus, opts) {
-      if (!focus || focus === 'sections' || focus === 'tiles' || focus === 'layout') return openSheet(this);
+      if (!focus || focus === 'sections' || focus === 'tiles' || focus === 'layout' || focus === 'stil') return openSheet(this);
       return super.customize(focus, opts);
     }
     render() {
@@ -34212,20 +35308,20 @@ try {
         return `<div class="hb ${i ? '' : 'first'}" data-key="h${i}"><span class="ht">${i ? `${M.pad(new Date(t).getHours())}:00` : 'Nå'}</span>${wxIcon(cd.icon, 30, cd.color)}<span class="htv num">${num(f.temperature) != null ? f1(f.temperature) : '–'}°</span>
           <span class="hx"><span>${num(f.wind_speed) != null ? `${f1(f.wind_speed)} ${esc(wu)}` : '–'}</span><span class="hr">${num(f.precipitation) != null ? `${f1(f.precipitation)} ${esc(pu)}` : '–'}</span></span></div>`;
       }).join('') : `<div class="hb ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen timeprognose' : 'Henter prognose …')}</div>`}</div>`;
-      // Temperaturgraf (valgfri, etter timene) med scrub
+      // Temperaturgraf (valgfri, etter timene) med scrub – glatt kurve (26.24)
       if (c.show_graph) {
         const G = H.slice(0, 25).map((f) => ({ t: new Date(f.datetime).getTime(), v: num(f.temperature) })).filter((p) => p.v != null);
-        const sel = ui.gsel != null ? Math.min(ui.gsel, G.length - 1) : 0;
-        let pts = '0,60 300,60';
+        const sc0 = ui.scr && ui.scr.k === 'kg' ? ui.scr.i : null, sel = sc0 != null ? Math.min(sc0, G.length - 1) : 0;
+        let P = [[0, 60], [300, 60]];
         if (G.length > 1) {
           const mn = Math.min(...G.map((p) => p.v)) - 0.5, mx = Math.max(...G.map((p) => p.v)) + 0.5;
-          pts = G.map((p, i) => `${((i / (G.length - 1)) * 300).toFixed(1)},${(92 - ((p.v - mn) / (mx - mn)) * 72).toFixed(1)}`).join(' ');
+          P = G.map((p, i) => [(i / (G.length - 1)) * 300, 92 - ((p.v - mn) / (mx - mn)) * 72]);
         }
-        const cur = G[sel];
+        const d = smooth(P), cur = G[sel];
         sec.hours += `<section class="gr">
           <div class="gh"><span class="row" style="gap:6px;font-size:12px;color:var(--gray700,#979797)">${M.icon('thermometer', 16)}Temperatur · neste 24 t</span><span class="num" style="font-size:14px;font-weight:500">${cur ? `${f1(cur.v)}° · ${sel ? 'kl ' + hm(cur.t) : 'nå'}` : '–'}</span></div>
-          <div class="gw"><svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline points="0,100 ${pts} 300,100" style="fill:${M.alpha(SUNY, 0.18)};stroke:none"></polyline><polyline points="${pts}" fill="none" style="stroke:${SUNY};stroke-width:2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline></svg>
-            ${G.length > 1 ? `<div class="gc" style="left:${(sel / (G.length - 1)) * 100}%"></div>` : ''}<div class="scrub"></div></div>
+          <div class="gw"><svg viewBox="0 0 300 100" preserveAspectRatio="none"><path d="${d} L300,100 L0,100Z" style="fill:${M.alpha(SUNY, 0.18)};stroke:none"></path><path class="sm" d="${d}" fill="none" style="stroke:${SUNY};stroke-width:2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+            ${G.length > 1 && sc0 != null ? `<div class="gc" style="left:${(sel / (G.length - 1)) * 100}%"></div>` : ''}<div class="scrub" data-scrub="kg" data-n="${G.length}"></div></div>
         </section>`;
       }
       // Dagskort (utvidbare, én åpen om gangen)
@@ -34282,37 +35378,140 @@ try {
           <div class="bar uvs" style="margin-top:auto">${mk(uvPos)}</div></section>`,
         press: `<section class="tl"><span class="th">${M.icon('compress', 16)}Trykk</span><span class="tvv">${pr != null ? Math.round(pr) : '–'}<small> ${esc(prU)}</small></span>
           <span class="ts row" style="gap:4px">${M.icon(trend[1], 16)}${trend[0]}</span><div class="bar prs" style="margin-top:auto">${mk(prPos)}</div></section>`,
-        rain: `<section class="tl"><span class="th">${M.icon('water_drop', 16, `color:${C.blue}`)}Nedbør</span><span class="tvv">${rain24 != null ? f1(rain24) : '–'}<small> ${esc(pu)}</small></span>
-          <div class="rb">${(H.length ? R24 : Array(24).fill(0)).map((v, i) => `<span style="height:${Math.max(2, (v / rMax) * 100).toFixed(0)}%;opacity:${v > 0 ? 1 : 0.35}" data-key="r${i}"></span>`).join('')}</div><span class="ts">Neste 24 timer</span></section>`,
+        rain: (() => {
+          const R = H.length ? R24 : Array(24).fill(0), sr = ui.scr && ui.scr.k === 'rn' ? Math.min(ui.scr.i, R.length - 1) : null;
+          const P = R.map((v, i) => [(i / Math.max(1, R.length - 1)) * 100, 40 - (v / rMax) * 36]), d = smooth(P);
+          const tt = sr != null && H[sr] ? `kl ${M.pad(new Date(H[sr].datetime).getHours())} · ${f1(R[sr])} ${pu}` : 'Neste 24 timer';
+          return `<section class="tl"><span class="th">${M.icon('water_drop', 16, `color:${C.blue}`)}Nedbør</span><span class="tvv">${rain24 != null ? f1(rain24) : '–'}<small> ${esc(pu)}</small></span>
+          <div class="rb"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><path d="${d} L100,40 L0,40Z" style="fill:${M.alpha(C.blue, 0.35)}"></path><path class="sm" d="${d}" fill="none" style="stroke:${RAIN};stroke-width:2" vector-effect="non-scaling-stroke"></path></svg>${sr != null ? `<span class="gc" style="left:${P[sr][0]}%"></span>` : ''}<span class="scrub" data-scrub="rn" data-n="${R.length}"></span></div><span class="ts num">${esc(tt)}</span></section>`;
+        })(),
+        moon: `<section class="tl mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th">${M.icon('bedtime', 16)}Månefase</span>${moon.none ? '<svg class="moon" style="width:64px;height:64px"><circle cx="32" cy="32" r="32" fill="#404040"/></svg>' : moonDisc(moon.p, 64)}<span class="ts" style="margin-top:auto">${esc(moon.name)}</span></section>`,
       };
-      const tord = orderOf(TK, c.tiles), thid = new Set(c.hidden_tiles || []);
+      const scene = stilOf(c) === 'scene';
+      const tord = orderOf(scene ? [...TK, 'moon'] : TK, c.tile_order || c.tiles), thid = new Set(c.hidden_tiles || []);
       const tl = tord.filter((k) => !thid.has(k));
-      sec.tiles = tl.length ? `<div class="tiles" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T[k]}</div>`).join('')}</div>` : '';
-      sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? `<div class="moon" style="width:56px;height:56px;background:var(--gray300,#404040)"></div>` : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--gray700,#979797)">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
-      const order = orderOf(SK, c.sections), hid = new Set(c.hidden_sections || []);
+      // Fliser: hold inne ~420 ms og dra for å bytte plass (26.25) – lagres i tile_order
+      sec.tiles = tl.length ? `<div class="tiles" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T[k]}</div>`).join('')}</div>` : '';
+      sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? '<svg class="moon" style="width:56px;height:56px"><circle cx="28" cy="28" r="28" fill="#404040"/></svg>' : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--gray700,#979797)">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
+      const hid = hiddenOf(c);
       const empty = !st ? M.emptyState(a.weather ? `Fant ikke ${a.weather}` : 'Fant ingen weather.*', 'overrides') : '';
+      if (scene) return this._scene({ c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty });
+      const order = orderOf(SK, c.sections);
       const blocks = order.filter((k) => !hid.has(k) && sec[k]).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${sec[k]}</div>`);
-      // «Tilpass været» – alltid nederst
-      return `<div class="wrap">${empty}${blocks.join('')}<button class="own press" data-key="own" data-act="customize" data-section="sections">${M.icon('tune', 20)}Tilpass været</button></div>`;
+      // Stedsvelger + «Tilpass Vær» (tune) ligger fast i bunnen av popupen (portalet, 26.25) – ingen knapp nederst i innholdet
+      return `<div class="wrap klassisk">${empty}${blocks.join('')}<div class="ctl-slot" data-nomorph></div></div>`;
+    }
+    /* ---------------------------------------------------------- stil «scene» (26.24/26.25, Vær v5) */
+    _scene(x) {
+      const { c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty } = x, ui = this.ui, raw = this._rawConfig || {};
+      const night = sunSt ? sunSt.state === 'below_horizon' : isNight(Date.now(), null);
+      const sc = sceneOf(st ? st.state : null, night);
+      this._sc = sc;
+      const pl = this._place();
+      const placeName = (pl && !pl.auto && pl.name) || c.name || (h.config && h.config.location_name) || (st ? M.name(h, a.weather) : '–');
+      const today = todayOf(Dl) || Dl[0] || null, temp = st ? num(A.temperature) : null;
+      const hi = today ? num(today.temperature) : null, lo = today ? num(today.templow) : null;
+      // H/L som ÉN ferdig streng (white-space: nowrap) – aldri flere tekstnoder i en flex-kolonne (26.24)
+      const hl = `H ${hi != null ? Math.round(hi) + '°' : '–'} · L ${lo != null ? Math.round(lo) + '°' : '–'}`;
+      const S = {};
+      S.now = `<section class="snw" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}><span class="spl ell">${esc(placeName)}</span>
+        <span class="stp num">${temp != null ? Math.round(temp) : '–'}°</span>
+        <span class="scd">${M.icon(sc.icon, 22, `color:${sc.color}`)}<span class="ell">${esc(st ? sc.label : '–')}</span></span>
+        <span class="shl num">${esc(hl)}</span></section>`;
+      if (sec.alerts) S.alerts = sec.alerts;
+      // Neste timer: segment Temperatur · Nedbør · Vind (Liquid Glass-drag) + glatt graf med scrub og boble
+      const seg = ['temp', 'rain', 'wind'].includes(ui.seg) ? ui.seg : 'temp';
+      const G = H.slice(0, Math.max(12, Math.min(48, Number(raw.hours) || 24)));
+      const val = (f) => (seg === 'temp' ? num(f.temperature) : seg === 'rain' ? num(f.precipitation) || 0 : num(f.wind_speed));
+      const V = G.map(val), ok = V.filter((v) => v != null);
+      const col = seg === 'temp' ? SUNY : seg === 'rain' ? RAIN : 'var(--light-blue, #c8ddfa)';
+      let gHtml = `<div class="gph ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen timeprognose' : 'Henter prognose …')}</div>`;
+      if (ok.length > 1) {
+        const gust = seg === 'wind' ? G.map((f) => num(f.wind_gust_speed)) : [];
+        const all = [...ok, ...gust.filter((v) => v != null)];
+        let mn = Math.min(...all), mx = Math.max(...all);
+        if (seg !== 'temp') mn = 0;
+        if (mx - mn < 1) mx = mn + 1;
+        const X = (i) => (i / (G.length - 1)) * 300, Y = (v) => 100 - ((v - mn) / (mx - mn)) * 78 - 8;
+        let last = ok[0];
+        const P = V.map((v, i) => { if (v != null) last = v; return [X(i), Y(v != null ? v : last)]; }), d = smooth(P);
+        const gP = gust.length && gust.some((v) => v != null) ? gust.map((v, i) => [X(i), Y(v != null ? v : 0)]) : null;
+        const si = ui.scr && ui.scr.k === 'hg' ? Math.min(ui.scr.i, G.length - 1) : null;
+        const txt = (i) => {
+          const f = G[i], v = V[i];
+          if (seg === 'temp') return v != null ? `${f1(v)}°` : '–';
+          if (seg === 'rain') return `${f1(v)} ${pu}${num(f.precipitation_probability) != null ? ` · ${Math.round(f.precipitation_probability)} %` : ''}`;
+          return `${v != null ? f1(v) : '–'} ${wu}${num(f.wind_gust_speed) != null ? ` · kast ${f1(f.wind_gust_speed)}` : ''}`;
+        };
+        const bub = si != null ? `<div class="gb num" style="left:clamp(56px, ${(si / (G.length - 1)) * 100}%, calc(100% - 56px))">${M.pad(new Date(G[si].datetime).getHours())} · ${esc(txt(si))}</div>` : '';
+        const ticks = [0, 6, 12, 18].filter((i) => i < G.length).map((i) => `<span style="left:${(i / (G.length - 1)) * 100}%">${i ? M.pad(new Date(G[i].datetime).getHours()) : 'Nå'}</span>`).join('');
+        gHtml = `<div class="gph" data-seg="${seg}"><svg viewBox="0 0 300 100" preserveAspectRatio="none"><defs><linearGradient id="vgf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${col};stop-opacity:.45"/><stop offset="1" style="stop-color:${col};stop-opacity:0"/></linearGradient></defs>
+          <path d="${d} L300,100 L0,100Z" fill="url(#vgf)"></path>${gP ? `<path class="sm" d="${smooth(gP)}" fill="none" style="stroke:${col};stroke-width:1.5;stroke-dasharray:4 4;opacity:.7" vector-effect="non-scaling-stroke"></path>` : ''}<path class="sm" d="${d}" fill="none" style="stroke:${col};stroke-width:2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg>
+          ${si != null ? `<div class="gc" style="left:${(si / (G.length - 1)) * 100}%"><i style="top:${P[si][1]}%;background:${col}"></i></div>` : ''}${bub}
+          <div class="scrub" data-scrub="hg" data-n="${G.length}"></div><div class="gt">${ticks}</div></div>`;
+      }
+      const strip = G.length ? `<div class="hst noscroll">${G.map((f, i) => {
+        const t = new Date(f.datetime).getTime(), cd = sceneOf(f.condition, f.is_daytime != null ? !f.is_daytime : isNight(t, sun)), v = V[i];
+        const lab = seg === 'temp' ? (v != null ? `${Math.round(v)}°` : '–') : seg === 'rain' ? (v != null ? f1(v) : '–') : (v != null ? f1(v) : '–');
+        return `<span class="hs" data-key="hs${i}"><span class="hst-t">${i ? M.pad(new Date(t).getHours()) : 'Nå'}</span>${M.icon(cd.icon, 22, `color:${cd.color}`)}<span class="hst-v num">${lab}</span></span>`;
+      }).join('')}</div>` : '';
+      S.hours = `<section class="g gcard"><div class="ghd"><span class="gl">${M.icon('schedule', 16)}Neste timer</span></div>
+        <div class="seg" role="tablist" data-glass-drag="x">${[['temp', 'Temperatur'], ['rain', 'Nedbør'], ['wind', 'Vind']].map(([k, l]) => `<button class="sg${seg === k ? ' on' : ''}" role="tab" aria-selected="${seg === k}" ${seg === k ? 'data-active="1"' : ''} data-act="seg" data-k="${k}" data-haptic="off" data-key="sg-${k}">${l}</button>`).join('')}</div>
+        ${gHtml}${strip}</section>`;
+      // Døgnvarsel (10 døgn): trykk folder ut dagen på stedet (én åpen, pil roteres); dra over spennet = klokkeslett + verdi
+      const nD = Math.max(1, Math.min(10, Number(raw.days) || 10)), days = Dl.slice(0, nD);
+      const HA = (this._fc && this._fc.hourly) || [];
+      if (days.length) {
+        const lows = days.map((f) => num(f.templow) != null ? num(f.templow) : num(f.temperature)).filter((v) => v != null), highs = days.map((f) => num(f.temperature)).filter((v) => v != null);
+        const gmn = Math.min(...lows, ...highs), gmx = Math.max(...lows, ...highs), span = Math.max(1, gmx - gmn), pos = (v) => ((v - gmn) / span) * 100;
+        const today0 = new Date().toDateString();
+        S.days = `<section class="g gcard"><div class="ghd"><span class="gl">${M.icon('calendar_month', 16)}${days.length}-døgnsvarsel</span></div><div class="dl">${days.map((f, i) => {
+          const t = new Date(f.datetime), key = 'd' + t.toDateString(), open = ui.dayOpen === key, isToday = t.toDateString() === today0;
+          const cd = sceneOf(f.condition, false), hiD = num(f.temperature), loD = num(f.templow) != null ? num(f.templow) : hiD, pp = num(f.precipitation_probability);
+          const dH = HA.filter((y) => new Date(y.datetime).toDateString() === t.toDateString());
+          const sd = ui.scr && ui.scr.k === 'd' + i ? dH[Math.min(ui.scr.i, dH.length - 1)] : null;
+          const nowM = isToday && temp != null && hiD != null ? `<i class="dnow" style="left:${M.clamp(pos(temp), 0, 100).toFixed(1)}%"></i>` : '';
+          const bar = sd ? `<span class="dsv num">${M.pad(new Date(sd.datetime).getHours())}:00 · ${num(sd.temperature) != null ? f1(sd.temperature) + '°' : '–'}</span>`
+            : `<span class="dtrk"><span class="dfill" style="left:${loD != null ? pos(loD).toFixed(1) : 0}%;width:${hiD != null && loD != null ? Math.max(4, pos(hiD) - pos(loD)).toFixed(1) : 0}%;background-size:${(10000 / Math.max(4, (hiD != null && loD != null ? pos(hiD) - pos(loD) : 100))).toFixed(0)}% 100%;background-position:${loD != null && hiD != null && pos(hiD) - pos(loD) < 100 ? (pos(loD) / Math.max(0.01, 100 - (pos(hiD) - pos(loD))) * 100).toFixed(0) : 0}% 0"></span>${nowM}</span>`;
+          let det = '';
+          if (open) {
+            const nm = isToday ? 'I dag' : cap(t.toLocaleDateString('nb-NO', { weekday: 'long' }));
+            const pr = num(f.precipitation), ws = num(f.wind_speed);
+            const sent = `${nm}: ${cd.label.toLowerCase()}${pr != null ? `, ${f1(pr)} ${pu} nedbør` : ''}. Fra ${loD != null ? Math.round(loD) + '°' : '–'} om natta til ${hiD != null ? Math.round(hiD) + '°' : '–'} på ettermiddagen${ws != null ? `, vind ${f1(ws)} ${wu}` : ''}.`;
+            const h3 = dH.filter((y) => new Date(y.datetime).getHours() % 3 === 0);
+            const shift = sun ? Math.round((new Date(t).setHours(12, 0, 0, 0) - new Date().setHours(12, 0, 0, 0)) / 86400000) * 86400000 : 0;
+            const uvD = num(f.uv_index), huD = num(f.humidity);
+            const cells = [['water_drop', 'Nedbør', pr != null ? `${f1(pr)} ${pu}${pp != null ? ` · ${Math.round(pp)} %` : ''}` : '–'], ['air', 'Vind', ws != null ? `${f1(ws)} ${wu}${f.wind_bearing != null ? ' ' + compass(f.wind_bearing) : ''}` : '–'], ['light_mode', 'UV', uvD != null ? `${f1(uvD)} · ${uvOf(uvD)[0].toLowerCase()}` : '–'],
+              ['humidity_percentage', 'Fukt', huD != null ? `${Math.round(huD)} %` : '–'], ['mdi:weather-sunset-up', 'Sol opp', sun ? hm(sun.rise + shift) : '–'], ['mdi:weather-sunset-down', 'Sol ned', sun ? hm(sun.set + shift) : '–']];
+            det = `<div class="dx" data-key="dx-${esc(key)}"><p class="dsen">${esc(sent)}</p>
+              ${h3.length ? `<div class="d3 noscroll">${h3.map((y, j) => { const cy = sceneOf(y.condition, y.is_daytime != null ? !y.is_daytime : isNight(new Date(y.datetime).getTime(), sun)), py = num(y.precipitation_probability); return `<span class="hs" data-key="d3-${j}"><span class="hst-t">${M.pad(new Date(y.datetime).getHours())}</span>${M.icon(cy.icon, 22, `color:${cy.color}`)}<span class="hst-v num">${num(y.temperature) != null ? Math.round(y.temperature) + '°' : '–'}</span><span class="hst-p num">${py != null ? Math.round(py) + ' %' : num(y.precipitation) ? f1(y.precipitation) + ' ' + esc(pu) : ''}</span></span>`; }).join('')}</div>` : ''}
+              <div class="dgr">${cells.map(([ic, l, v]) => `<span class="dc">${M.icon(ic, 18)}<span class="col" style="min-width:0"><span class="dcl">${l}</span><span class="dcv ell">${esc(v)}</span></span></span>`).join('')}</div></div>`;
+          }
+          return `<div class="dw${open ? ' open' : ''}" data-key="${esc(key)}"><button class="dr" data-act="day" data-k="${esc(key)}" data-haptic="light" aria-expanded="${open}">
+            <span class="dn">${esc(isToday ? 'I dag' : cap(wd(t)))}</span><span class="di">${M.icon(cd.icon, 24, `color:${cd.color}`)}${pp != null && pp >= 20 ? `<small class="num">${Math.round(pp)} %</small>` : ''}</span>
+            <span class="dlo2 num">${loD != null ? Math.round(loD) + '°' : '–'}</span><span class="dbar" ${dH.length > 1 ? `data-scrub="d${i}" data-n="${dH.length}"` : ''}>${bar}</span><span class="dhi2 num">${hiD != null ? Math.round(hiD) + '°' : '–'}</span>
+            <span class="chev">${M.icon('expand_more', 20, `transition:transform .25s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span></button>${det}</div>`;
+        }).join('')}</div></section>`;
+      } else S.days = `<section class="g gcard"><div class="gph ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen dagsprognose' : 'Henter prognose …')}</div></section>`;
+      if (sec.tiles) S.tiles = sec.tiles;
+      const blocks = ['now', 'alerts', 'hours', 'days', 'tiles'].filter((k) => S[k] && !hid.has(k)).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${S[k]}</div>`);
+      return `<div class="wrap scene" data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}<div class="ctl-slot" data-nomorph></div></div>`;
     }
     onAction(name, el, ev) {
       if (name === 'alert') { if (ev.composedPath().some((n) => n.tagName === 'A')) return; return this.setUI({ alertOpen: this.ui.alertOpen === el.dataset.k ? null : el.dataset.k }); }
       if (name === 'day') return this.setUI({ dayOpen: this.ui.dayOpen === el.dataset.k ? null : el.dataset.k });
+      if (name === 'seg') { if (this.ui.seg !== el.dataset.k) M.haptic('selection'); return this.setUI({ seg: el.dataset.k, scr: null }); }
       if (name === 'winddir') return this.setUI({ windDeg: !this.ui.windDeg });
       return super.onAction(name, el, ev);
     }
     afterRender() {
       guardSwipe(this.shadowRoot.querySelector('.hrs'), 'pan-x');
-      const sc = this.shadowRoot.querySelector('.scrub');
-      if (!sc || sc.__b) return;
-      sc.__b = true;
-      M.guardDrag(sc, 'none');
-      const pos = (e) => { const n = Math.min(25, this.hourly.length); const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * (n - 1)), 0, Math.max(0, n - 1)); };
-      let down = false;
-      sc.addEventListener('pointerdown', (e) => { down = true; try { sc.setPointerCapture(e.pointerId); } catch (x) { /* */ } const p = pos(e); if (p !== this.ui.gsel) { M.haptic('selection'); this.setUI({ gsel: p }); } });
-      sc.addEventListener('pointermove', (e) => { if (!down && e.pointerType !== 'mouse') return; const p = pos(e); if (p !== this.ui.gsel) { if (down) M.haptic('selection'); this.setUI({ gsel: p }); } });
-      const end = () => { down = false; this.setUI({ gsel: null }); };
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => sc.addEventListener(t, end));
+      this.shadowRoot.querySelectorAll('.hst,.d3').forEach((el) => guardSwipe(el, 'pan-x'));
+      const seg = this.shadowRoot.querySelector('.seg');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' }); // Liquid Glass-drag (26.24): pan-y + stopPropagation, haptic ved bytte
+      this._bindScrubs();
+      this._bindTiles();
+      this._mountLayers();
     }
     get styles() {
       return `${KEYFRAMES}
@@ -34363,22 +35562,142 @@ try {
         .wd{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:18px;background:var(--gray300,#404040);display:grid;place-items:center}
         .wd:active{transform:scale(.92)}
         .arr{line-height:0;transition:transform .4s;display:inline-flex}
-        .rb{flex:1;min-height:0;display:flex;align-items:flex-end;gap:2px;margin-top:4px}
-        .rb span{flex:1;border-radius:2px;background:${RAIN};min-height:2px}
+        .rb{position:relative;flex:1;min-height:28px;margin-top:4px}
+        .rb svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+        .rb .gc{border-left-color:${M.alpha(C.blue, 0.8)}}
+        .tiles{position:relative}
+        .tw{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+        .tw.lift{z-index:5;transition:none;box-shadow:0 14px 30px rgba(0,0,0,.45);border-radius:28px}
+        .tw.over>.tl{box-shadow:inset 0 0 0 2px var(--pink,#f285c9)}
+        .tdrag .tw:not(.lift){transform:scale(.98)}
+        .mnt .moon{margin:6px 0 0}
+        .ctl-slot{display:block;height:0}
+        /* ---- stil «scene» (26.24/26.25): scenen ligger i popup-laget; kortene er halvtransparente glass */
+        :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)} /* lesbar tekst over scenen */
+        .scene{position:relative;gap:12px;color:#fff}
+        .scn-slot{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:28px;overflow:hidden}
+        .scene>.blk{position:relative;z-index:1}
+        .g,.scene .tl,.scene .day{background:var(--vaer-card,rgba(40,48,58,.55));-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+        .g{border-radius:28px}
+        .gcard{display:flex;flex-direction:column;gap:12px;padding:16px}
+        .scene .th,.scene .tvv small{color:var(--vaer-t2)}
+        .scene .ts{color:rgba(255,255,255,.85)}
+        .scene .bar{background:rgba(255,255,255,.2)}
+        .scene .mk{box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+        .scene .wd{background:rgba(255,255,255,.14)}
+        .snw{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:18px 0 22px;text-shadow:0 1px 8px rgba(0,0,0,.25)}
+        .spl{font-size:17px;font-weight:500;max-width:100%}
+        .stp{font-size:92px;font-weight:200;letter-spacing:-0.04em;line-height:1;padding-left:.22em}
+        .scd{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:500;max-width:100%}
+        .shl{font-size:16px;color:rgba(255,255,255,.85);white-space:nowrap}
+        .ghd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .gl{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--vaer-t2);text-transform:uppercase;letter-spacing:.04em}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:rgba(0,0,0,.22);position:relative;touch-action:pan-y}
+        .sg{flex:1;min-width:0;height:34px;border-radius:17px;font-size:13px;font-weight:500;color:rgba(255,255,255,.78);transition:background .2s,color .2s;white-space:nowrap}
+        .sg.on{background:rgba(255,255,255,.92);color:#1c1e24}
+        .seg .gd-lens{position:absolute;z-index:3;pointer-events:none}
+        .gph{position:relative;height:120px;margin:4px 0 14px}
+        .gph.ph{height:auto;min-height:60px;display:grid;place-items:center;font-size:13px;color:var(--vaer-t2);margin:0}
+        .gph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+        .gph .gc{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.7);pointer-events:none}
+        .gph .gc i{position:absolute;left:-5px;width:10px;height:10px;margin-top:-5px;border-radius:5px;box-shadow:0 0 0 2px #fff}
+        .gb{position:absolute;top:-6px;transform:translate(-50%,-100%);padding:4px 10px;border-radius:12px;background:rgba(20,22,28,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-size:12px;font-weight:600;white-space:nowrap;pointer-events:none}
+        .gt{position:absolute;left:0;right:0;bottom:-16px;height:14px;pointer-events:none}
+        .gt span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--vaer-t3)}
+        .gt span:first-child{transform:none}
+        .hst,.d3{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -4px}
+        .hs{flex:none;width:48px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 0;border-radius:16px}
+        .hst-t{font-size:12px;color:var(--vaer-t2)}
+        .hst-v{font-size:14px;font-weight:500}
+        .hst-p{font-size:11px;color:var(--light-blue,#c8ddfa);min-height:13px}
+        .dl{display:flex;flex-direction:column}
+        .dw{border-top:1px solid rgba(255,255,255,.1)}
+        .dw:first-child{border-top:0}
+        .dr{display:grid;grid-template-columns:52px 44px 36px minmax(0,1fr) 36px 22px;align-items:center;gap:6px;width:100%;min-height:50px;text-align:left}
+        .dn{font-size:15px;font-weight:500}
+        .di{display:flex;flex-direction:column;align-items:center;line-height:1}
+        .di small{font-size:10px;color:var(--light-blue,#c8ddfa);margin-top:2px}
+        .dlo2{font-size:15px;color:var(--vaer-t2);text-align:right}
+        .dhi2{font-size:15px;font-weight:500}
+        .dbar{position:relative;height:28px;display:flex;align-items:center}
+        .dtrk{position:relative;display:block;width:100%;height:5px;border-radius:3px;background:rgba(0,0,0,.25)}
+        .dfill{position:absolute;top:0;bottom:0;border-radius:3px;background-image:linear-gradient(90deg,#73b9f2,#66d19e 35%,#f2d26f 65%,#f28073)}
+        .dnow{position:absolute;top:-2px;width:9px;height:9px;margin-left:-4.5px;border-radius:5px;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.3)}
+        .dsv{width:100%;text-align:center;font-size:13px;font-weight:600;white-space:nowrap}
+        .dr .chev{display:grid;place-items:center;color:var(--vaer-t2)}
+        .dx{display:flex;flex-direction:column;gap:12px;padding:4px 0 14px}
+        .dsen{margin:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,.9);text-wrap:pretty}
+        .dgr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .dc{display:flex;align-items:center;gap:8px;min-width:0;padding:10px;border-radius:16px;background:rgba(0,0,0,.18);color:var(--vaer-t2)}
+        .dcl{font-size:11px;color:var(--vaer-t3)}
+        .dcv{font-size:13px;font-weight:500;color:#fff}
+        .scene .tiles{gap:10px}
+        .scene .tl{border-radius:28px}
         .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
-        .moon{position:relative;flex:none;border-radius:50%;background:#e9e4d6;overflow:hidden}
-        .own{width:100%;height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
-        .own:active{transform:scale(0.98)}
+        .moon{position:relative;flex:none;border-radius:50%;overflow:hidden;display:block}
       `;
     }
   }
   M.define('msh-vaer-card', Vaer, 'MSH Vær', 'Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Tilpass været». Prognose abonneres kun mens #vaer er åpen.');
 
-  /* ================================================================ «Tilpass været» (ark, portalet ut av popupen) */
-  // Seksjoner: dra-håndtak, ikon, navn, opp/ned-piler og øye. Detaljkort: 2-kolonners rutenett, dra for å bytte, øye skjuler.
-  // Utkastflyten (MSH.draftEditor, fiks 15.13): endringer vises straks i kortet, men lagres først ved Ferdig (én gang,
-  // i kortets config via MSH.saveCardConfig). Avbryt/utenfor/Esc forkaster. «Forhåndsvis vær» lagres aldri.
-  // Arket bruker MSH.overlay sin felles ark-stil (solid som standard, frosted glass bare med Liquid Glass-tema).
+
+  /* ------------------------------------------------------------ popup-utseende #vaer (26.24/26.25 · kun Bubble Card)
+   * Stilen «scene»: scenen dekker HELE popupen, også bak Bubble-headeren – ingen grå kant/ramme og ingen mørk topplinje.
+   * Blokken under legges i popupens styles av strategien (04-strategy.js kjører M.POPUP_FORCE etter overstyringer) og av
+   * M.buildPopups. Den er inaktiv til kortet setter data-ki-vaer="scene" på .bubble-pop-up (kortets stil), så byttet
+   * Klassisk ⇄ Scene skjer live uten ny generering; Klassisk beholder mal A (bg_opacity 98 osv.) uendret. */
+  const VS = '/* ki-vaer:start (fiks 26.25 · værscene bak hele popupen, aktiv når kortets stil er scene) */', VE = '/* ki-vaer:end */';
+  const VAER_BLOCK = `${VS}
+.bubble-pop-up[data-ki-vaer="scene"]{background:transparent!important;--bubble-pop-up-background-color:transparent;--bubble-pop-up-main-background-color:transparent;box-shadow:none!important;border:none!important;overflow:hidden}
+.bubble-pop-up[data-ki-vaer="scene"] .bubble-pop-up-background{background:none!important;display:none!important}
+.bubble-pop-up[data-ki-vaer="scene"] #header-container,.bubble-pop-up[data-ki-vaer="scene"] #header-container > div > div,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header-container,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header{background:transparent!important;box-shadow:none!important;border:none!important}
+.bubble-pop-up[data-ki-vaer="scene"] .bubble-name{color:#fff!important;text-shadow:0 1px 6px rgba(0,0,0,.3)}
+.bubble-pop-up[data-ki-vaer="scene"] .bubble-close-button{background-color:rgba(28,30,36,.55)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:#fff!important}
+.bubble-pop-up[data-ki-vaer="scene"] > .bubble-pop-up-container{background:transparent!important}
+${VE}`;
+  const vaerStyles = (prev) => {
+    let s0 = typeof prev === 'string' ? prev : '';
+    for (let i = s0.indexOf(VS); i >= 0; i = s0.indexOf(VS)) { const j = s0.indexOf(VE, i); s0 = s0.slice(0, i) + (j >= 0 ? s0.slice(j + VE.length) : ''); }
+    return (s0.trim() ? s0.trim() + '\n' : '') + VAER_BLOCK;
+  };
+  M.vaerPopupStyles = vaerStyles;
+  M.POPUP_FORCE = M.POPUP_FORCE || {};
+  M.POPUP_FORCE['#vaer'] = (cfg) => {
+    if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards) || !cfg.cards.some((c) => c && String(c.type || '').replace(/^custom:/, '') === 'msh-vaer-card')) return null;
+    return { ...cfg, styles: vaerStyles(cfg.styles) };
+  };
+  // Tilpass Hjem → Popups → Vær: samme stil-verdi som «Tilpass Vær» og GUI-editoren (kortets config via ki-store)
+  const liveVaer = () => { const out = []; (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-vaer-card' && el.isConnected !== undefined) out.push(el); })); return out; };
+  M.vaerStil = () => { const el = liveVaer()[0]; if (el) return stilOf(el._rawConfig); const s0 = M.store && M.store.eff ? M.store.eff('cards.pop-vaer') : null; return stilOf(s0 || {}); };
+  M.setVaerStil = async (v) => {
+    v = v === 'klassisk' ? 'klassisk' : 'scene';
+    const els = liveVaer(), el = els.find((x) => x.isConnected) || els[0];
+    M.haptic('selection');
+    if (el && el._rawConfig) return el._saveCfg({ stil: v });
+    if (M.store) return M.store.set('cards.pop-vaer', { ...(M.store.get('cards.pop-vaer') || {}), stil: v }, { immediate: true });
+    return undefined;
+  };
+
+  // Segment «Klassisk · Scene» med miniatyr (Tilpass Hjem → Popups → Vær). act = data-a-verdien i vertsarket.
+  M.vaerStilHTML = function (act) {
+    const cur = M.vaerStil ? M.vaerStil() : 'scene', PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+    const prev = (k) => (k === 'scene'
+      ? '<span style="display:block;height:34px;border-radius:10px;background:linear-gradient(180deg,#2c3846,#586575);position:relative;overflow:hidden"><i style="position:absolute;left:25%;top:4px;width:1.5px;height:10px;background:rgba(210,228,255,.9);transform:rotate(10deg)"></i><i style="position:absolute;left:60%;top:12px;width:1.5px;height:10px;background:rgba(210,228,255,.9);transform:rotate(10deg)"></i><b style="position:absolute;left:5px;right:5px;bottom:5px;height:9px;border-radius:4px;background:rgba(40,48,58,.6)"></b></span>'
+      : '<span style="display:grid;grid-template-columns:1fr 1fr;gap:3px;height:34px;padding:4px;border-radius:10px;background:#282828"><b style="grid-column:span 2;border-radius:4px;background:#3a3a3a"></b><b style="border-radius:4px;background:#3a3a3a"></b><b style="border-radius:4px;background:#3a3a3a"></b></span>');
+    return `<div class="msh-vsm" data-key="vsm" style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:13px;color:var(--gray700,#979797);padding:0 4px">Vær · stil</div>
+      <div role="radiogroup" data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--gray100,#2f2f2f)">${STIL.map(([k, l]) => { const on = k === cur; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="${k}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? '#2f2f2f' : 'var(--gray800,#afafaf)'}">${prev(k)}<span>${l}</span></button>`; }).join('')}</div>
+      <div style="font-size:12px;color:var(--gray600,#7f7f7f);padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div></div>`;
+  };
+
+  /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */
+  // Stil (Klassisk · Scene) · Steder (liste, fjern, «Legg til sted» med navn + weather.*-velger) · Seksjoner av/på
+  // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Tilbakestill rekkefølge».
+  // Utkastflyten (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig (rosa pille øverst
+  // til høyre). Utenfor/Esc forkaster. Samme felter som GUI-editoren (stil, places, hide, tile_order, hero_fx).
+  const miniPrev = (k) => (k === 'scene'
+    ? '<span class="mp sc"><i></i><i></i><i></i><b></b><b></b></span>'
+    : '<span class="mp kl"><b></b><b></b><b class="s"></b><b class="s"></b></span>');
   function openSheet(card) {
     if (card._sheet && card._sheet.ov && !card._sheet.ov.closed) return card._sheet;
     let ov = null;
@@ -34390,110 +35709,84 @@ try {
       onBusy: (b) => { st.busy = b; draw(); },
       onReload: () => draw(),
     });
-    const st = { pv: card._preview || null, drag: null, busy: false };
-    const hass = () => card.hass;
-    const sections = () => orderOf(SK, ctl.draft.sections), tiles = () => orderOf(TK, ctl.draft.tiles); // fra utkastet
-    const hidS = () => new Set(ctl.draft.hidden_sections || []), hidT = () => new Set(ctl.draft.hidden_tiles || []);
-    // Endring = bare utkast + forhåndsvisning (ingen lagring før Ferdig)
+    const st = { busy: false, name: '', ent: '' };
     const apply = (patch, hap) => {
       if (st.busy) return;
       const next = { ...ctl.draft, ...patch };
-      Object.keys(patch).forEach((k) => { if (patch[k] === undefined || (Array.isArray(patch[k]) && !patch[k].length && k.startsWith('hidden_'))) delete next[k]; });
+      Object.keys(patch).forEach((k) => { if (patch[k] === undefined || (Array.isArray(patch[k]) && !patch[k].length)) delete next[k]; });
       ctl.set(next);
       if (hap) M.haptic(hap);
       draw();
     };
-    const eyeBtn = (a, k, hid, label, size) => `<button class="eye${hid ? ' off' : ''}" data-a="${a}" data-k="${k}" aria-pressed="${hid}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'visibility_off' : 'visibility', size)}</button>`;
+    const sw = (a, k, on, label) => `<button class="tsw${on ? ' on' : ''}" data-a="${a}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(label)}"></button>`;
     const draw = () => {
-      if (!ov || st.drag) return;
+      if (!ov) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      const so = sections(), hs = hidS(), to = tiles(), ht = hidT(), fxOn = ctl.draft.hero_fx !== false;
-      const byS = Object.fromEntries(SECS.map((s) => [s[0], s])), byT = Object.fromEntries(TILES.map((t) => [t[0], t]));
-      box.innerHTML = `<div class="hd"><span class="col grow" style="gap:2px;min-width:0"><span class="tt">Tilpass været</span><span class="st">Dra for å flytte · øyet skjuler</span></span>
-          <button class="nb" data-a="cancel">Avbryt</button><button class="nb" data-a="reset">Nullstill</button><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
-        <div class="r fxr"><span class="ri">${M.icon('mdi:weather-snowy-rainy', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">Bakgrunnsanimasjon</span><span class="rs ell">Regn, snø, sol og vind i toppkortet</span></span>
-          <button class="tsw${fxOn ? ' on' : ''}" data-a="fx" role="switch" aria-checked="${fxOn}" aria-label="Bakgrunnsanimasjon"></button></div>
-        <span class="cap">Forhåndsvis vær</span>
-        <div class="chips">${PREVIEW.map((k) => `<button class="chip${st.pv === k ? ' on' : ''}" data-a="pv" data-k="${k}" aria-pressed="${st.pv === k}">${M.icon(WX[k][0], 16, `color:${st.pv === k ? '#282828' : WX[k][2]}`)}${esc(WX[k][1])}</button>`).join('')}</div>
+      const D = ctl.draft, h = card.hass, stil = stilOf(D), hid = hiddenOf(D), fxOn = D.hero_fx !== false;
+      const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity), all = M.all(h, 'weather');
+      const auto = M.vaerAuto(h, { ...D, overrides: { ...(D.overrides || {}) } }).weather;
+      const hasSel = !!customElements.get('ha-selector');
+      if (!st.ent || !all.includes(st.ent)) st.ent = all.find((id) => !L.some((p) => p.entity === id)) || all[0] || '';
+      box.innerHTML = `<div class="hd"><span class="tt">Tilpass Vær</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+        <span class="cap">Stil</span>
+        <div class="stl" role="radiogroup">${STIL.map(([k, l]) => `<button class="sto${stil === k ? ' on' : ''}" role="radio" aria-checked="${stil === k}" data-a="stil" data-k="${k}">${miniPrev(k)}<span class="sl">${l}</span><span class="ss">${k === 'scene' ? 'Værscene bak hele popupen' : 'Vær v4 med toppkort'}</span></button>`).join('')}</div>
+        <span class="cap">Steder</span>
+        <div class="rows">${(L.length ? L : [{ name: (h && h.config && h.config.location_name) || 'Hjem', entity: auto, auto: true }]).map((p, i) => `<div class="r" data-key="pl-${i}">
+          <span class="ri">${M.icon('mdi:map-marker-outline', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">${esc(p.name || p.entity || '–')}</span><span class="rs ell">${esc(p.auto ? `Automatisk · ${p.entity || 'fant ingen weather.*'}` : p.entity)}</span></span>
+          ${p.auto ? '' : `<button class="x" data-a="rm" data-k="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">${M.icon('mdi:close', 18)}</button>`}</div>`).join('')}</div>
+        <div class="add">
+          <span class="rs" style="padding:0 4px">Legg til sted</span>
+          <input class="in" data-in="name" placeholder="Navn (f.eks. Hytta)" value="${esc(st.name)}" autocomplete="off">
+          ${hasSel ? '<ha-selector class="hsel"></ha-selector>' : `<div class="chips">${all.length ? all.map((id) => `<button class="chip${st.ent === id ? ' on' : ''}" data-a="ent" data-k="${esc(id)}" aria-pressed="${st.ent === id}">${esc(M.name(h, id))}</button>`).join('') : '<span class="rs">Fant ingen weather.*-entiteter</span>'}</div>`}
+          <button class="nb addb" data-a="add" ${st.ent ? '' : 'disabled'}>${M.icon('mdi:plus', 18)}Legg til sted</button></div>
         <span class="cap">Seksjoner</span>
-        <div class="rows" data-list="sec">${so.map((k, i) => { const s = byS[k], hid = hs.has(k); return `<div class="r${hid ? ' off' : ''}" data-dk="${k}" data-list="sec">
-          <span class="hdl" data-drag="sec" data-k="${k}" aria-label="Dra for å flytte ${esc(s[1])}">${M.icon('drag_indicator', 20)}</span>
-          <span class="ri">${M.icon(s[2], 20)}</span><span class="rl ell">${esc(s[1])}</span>
-          <span class="ud"><button data-a="mv" data-k="${k}" data-d="-1" aria-label="Flytt ${esc(s[1])} opp" ${i === 0 ? 'disabled' : ''}>${M.icon('expand_less', 20)}</button><button data-a="mv" data-k="${k}" data-d="1" aria-label="Flytt ${esc(s[1])} ned" ${i === so.length - 1 ? 'disabled' : ''}>${M.icon('expand_more', 20)}</button></span>
-          ${eyeBtn('eye', k, hid, s[1], 20)}</div>`; }).join('')}</div>
-        <span class="cap">Detaljkort</span>
-        <div class="grid" data-list="tile">${to.map((k) => { const t = byT[k], hid = ht.has(k); return `<div class="g${hid ? ' off' : ''}" data-dk="${k}" data-list="tile" data-drag="tile" data-k="${k}">
-          ${M.icon(t[2], 18, 'color:var(--gray800,#afafaf)')}<span class="gl ell">${esc(t[1])}</span>${eyeBtn('teye', k, hid, t[1], 18)}</div>`; }).join('')}</div>
-        <span class="note">Dra kortene for å bytte rekkefølge i rutenettet. På mobil kan du bruke pilene for seksjoner.</span>
+        <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}"><span class="ri">${M.icon(ic, 20)}</span><span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
+          <div class="r"><span class="ri">${M.icon('mdi:weather-snowy-rainy', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">Animasjoner</span><span class="rs ell">Regn, snø, lyn, sol og vind</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
+        <span class="cap">Fliser</span>
+        <div class="r tr"><span class="ri">${M.icon('grid_view', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl">Rekkefølge</span><span class="rs">Hold inne en flis i popupen og dra</span></span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>Tilbakestill rekkefølge</button></div>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
+      const inp = box.querySelector('[data-in="name"]');
+      if (inp) inp.addEventListener('input', () => { st.name = inp.value; });
+      const hs = box.querySelector('ha-selector');
+      if (hs) {
+        hs.hass = h; hs.selector = { entity: { domain: 'weather' } }; hs.value = st.ent; hs.label = 'Værmelding (weather.*)';
+        hs.addEventListener('value-changed', (e) => { st.ent = (e.detail && e.detail.value) || ''; const b = box.querySelector('[data-a="add"]'); if (b) b.disabled = !st.ent; });
+      }
       if (sh) sh.scrollTop = top;
     };
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { ctl.dispose(); card._sheet = null; if (card._preview) card.setPreview(null); } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const box = document.createElement('div');
     box.className = 'vaer-sheet';
     Object.defineProperty(box, '_config', { get: () => ctl.draft });
     ov.body.appendChild(box);
     ov.root.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
-      if (!el || el.disabled || st.dragged) return;
-      const a = el.dataset.a, k = el.dataset.k;
+      if (!el || el.disabled) return;
+      const a = el.dataset.a, k = el.dataset.k, D = ctl.draft;
+      const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity);
       switch (a) {
         case 'done': return ctl.done();
-        case 'cancel': M.haptic('light'); return ctl.cancel();
-        case 'reset': return apply({ sections: undefined, hidden_sections: undefined, tiles: undefined, hidden_tiles: undefined }, 'warning');
-        case 'fx': return apply({ hero_fx: ctl.draft.hero_fx === false }, 'selection'); // standard på (17.30 B)
-        case 'pv': st.pv = st.pv === k ? null : k; card.setPreview(st.pv); M.haptic('selection'); return draw();
-        case 'mv': { const o = sections(), i = o.indexOf(k), j = i + Number(el.dataset.d); if (i < 0 || j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; return apply({ sections: o }, 'selection'); }
-        case 'eye': { const s = hidS(); if (s.has(k)) s.delete(k); else s.add(k); return apply({ hidden_sections: SK.filter((x) => s.has(x)) }, 'selection'); }
-        case 'teye': { const s = hidT(); if (s.has(k)) s.delete(k); else s.add(k); return apply({ hidden_tiles: TK.filter((x) => s.has(x)) }, 'selection'); }
+        case 'stil': return stilOf(D) === k ? undefined : apply({ stil: k }, 'selection');
+        case 'rm': { L.splice(Number(k), 1); return apply({ places: L }, 'selection'); }
+        case 'ent': st.ent = k; M.haptic('selection'); return draw();
+        case 'add': {
+          if (!st.ent) return undefined;
+          const nm = (st.name || '').trim() || M.name(card.hass, st.ent);
+          st.name = '';
+          return apply({ places: [...L.filter((p) => p.entity !== st.ent || p.name !== nm), { name: nm, entity: st.ent }] }, 'success');
+        }
+        case 'sec': {
+          const s = new Set(Array.isArray(D.hide) ? D.hide : []), was = hiddenOf(D).has(k);
+          if (was) s.delete(k); else s.add(k);
+          const hs = (D.hidden_sections || []).filter((x) => !(was && x === k));
+          return apply({ hide: HIDE.map((x) => x[0]).filter((x) => s.has(x)), hidden_sections: hs }, 'selection');
+        }
+        case 'fx': return apply({ hero_fx: D.hero_fx === false }, 'selection');
+        case 'treset': return apply({ tile_order: undefined, tiles: undefined }, 'warning');
         case 'more': return Promise.resolve(ctl.done()).then((r) => { if (ctl.closed) M.Card.prototype.customize.call(card, 'overrides'); return r; });
         default: return undefined;
       }
     });
-    // Dra og slipp (pekerhendelser): touch-action none på håndtakene/flisene + stopPropagation (fallgruve 2).
-    // Lytterne ligger på arkets innhold (MSH.overlay stopper pointerdown/touch på .sh før skyggeroten).
-    const stop = (e) => e.stopPropagation();
-    const root = ov.root;
-    const itemAt = (x, y, list) => { const el = root.elementFromPoint ? root.elementFromPoint(x, y) : null; const it = el && el.closest && el.closest('[data-dk]'); return it && it.dataset.list === list ? it : null; };
-    box.addEventListener('pointerdown', (e) => {
-      const h = e.target.closest && e.target.closest('[data-drag]');
-      if (!h || e.button || (e.target.closest('[data-a]'))) return;
-      e.stopPropagation();
-      const list = h.dataset.drag, item = h.closest('[data-dk]');
-      st.drag = { list, k: h.dataset.k, item, x0: e.clientX, y0: e.clientY, over: null, moved: false, id: e.pointerId };
-      try { h.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.classList.add('drag');
-      M.haptic('selection');
-    });
-    box.addEventListener('pointermove', (e) => {
-      const d = st.drag;
-      if (!d || e.pointerId !== d.id) return;
-      e.stopPropagation(); e.preventDefault();
-      const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
-      if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
-      d.item.style.transform = `translate(${d.list === 'tile' ? dx : 0}px, ${dy}px)`;
-      d.item.style.pointerEvents = 'none';
-      const over = itemAt(e.clientX, e.clientY, d.list);
-      d.item.style.pointerEvents = '';
-      const ok = over && over !== d.item ? over : null;
-      if (ok !== d.over) { if (d.over) d.over.classList.remove('over'); d.over = ok; if (ok) { ok.classList.add('over'); M.haptic('selection'); } }
-    });
-    const end = (e) => {
-      const d = st.drag;
-      if (!d || (e && e.pointerId !== d.id)) return;
-      st.drag = null;
-      d.item.classList.remove('drag'); d.item.style.transform = '';
-      if (d.over) d.over.classList.remove('over');
-      if (d.moved) { st.dragged = true; setTimeout(() => { st.dragged = false; }, 50); }
-      if (!d.over) return draw();
-      const arr = d.list === 'sec' ? sections() : tiles(), to = d.over.dataset.dk, i = arr.indexOf(d.k);
-      const o = arr.filter((x) => x !== d.k), j = o.indexOf(to);
-      o.splice(i <= arr.indexOf(to) ? j + 1 : j, 0, d.k); // dra nedover → etter målet, oppover → før
-      apply(d.list === 'sec' ? { sections: o } : { tiles: o }, 'success');
-    };
-    box.addEventListener('pointerup', end);
-    box.addEventListener('pointercancel', end);
-    ['touchstart', 'touchmove'].forEach((t) => box.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('[data-drag]')) stop(e); }, { passive: true }));
     card._sheet = { ov, st, box };
     draw();
     return card._sheet;
@@ -34538,6 +35831,29 @@ try {
     .r.over{box-shadow:inset 0 3px 0 rgb(242 133 201)}
     .g.over{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
     .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
+    .hd{flex-wrap:nowrap}
+    .hd .tt{flex:1;min-width:0}
+    .stl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .sto{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px;border-radius:22px;background:var(--ki-g-row,var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .2s;text-align:left}
+    .sto.on{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
+    .sto:active{transform:scale(.97)}
+    .sl{font-size:15px;font-weight:600;padding:2px 4px 0}
+    .ss{font-size:11px;color:var(--ki-g-t2,var(--gray700,#979797));padding:0 4px}
+    .mp{position:relative;display:block;width:100%;height:64px;border-radius:14px;overflow:hidden}
+    .mp.kl{background:#282828;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px}
+    .mp.kl b{display:block;border-radius:6px;background:#3a3a3a;grid-column:span 2}
+    .mp.kl b.s{grid-column:span 1}
+    .mp.sc{background:linear-gradient(180deg,#2c3846,#586575);padding:6px;display:flex;flex-direction:column;gap:4px;justify-content:flex-end}
+    .mp.sc i{position:absolute;top:4px;width:1.5px;height:12px;background:rgba(210,228,255,.9);transform:rotate(10deg)}
+    .mp.sc i:nth-child(1){left:22%}.mp.sc i:nth-child(2){left:52%;top:14px}.mp.sc i:nth-child(3){left:78%}
+    .mp.sc b{display:block;height:14px;border-radius:6px;background:rgba(40,48,58,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--gray800,#afafaf)}
+    .add{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:24px;background:var(--ki-g-seg,rgba(0,0,0,0.18))}
+    .in{height:44px;padding:0 14px;border-radius:14px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:14px}
+    .addb{display:flex;align-items:center;justify-content:center;gap:6px}
+    .nb:disabled{opacity:.4}
+    .r.tr{height:auto;min-height:64px;padding:8px 8px 8px 10px;flex-wrap:wrap}
+    .hsel{display:block}
     .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;margin-top:6px;border-radius:22px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:14px;font-weight:500;color:var(--gray900,#c7c7c7)}
   `;
 })();
@@ -38179,32 +39495,46 @@ try {
   }
 
   /* ------------------------------------------------------------ arket */
+  // Fiks 26.17: samme ark-design som Tilpass Hjem/navbar/header (Hjem v3 · ko.open): #282828, radius øverst, håndtak,
+  // tittel 22/600 + rosa «Ferdig»-pille øverst til høyre (ingen Ferdig nederst). Seksjonsoverskrifter 12 px versaler
+  // #7f7f7f; hver seksjon er ÉN #3a3a3a-flate (radius 24) med flate rader og skillelinjer. Arket dekker navbaren (26.16).
   const CSS = `
-    .body{display:flex;flex-direction:column;gap:12px;padding:4px 16px 20px}
-    .top{display:flex;align-items:center;gap:12px;padding:16px;border-radius:24px;background:var(--gray100,#2f2f2f)}
-    .ic{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:#afafaf;flex:none}
-    .ic.on{background:rgba(125,213,140,0.18);color:#7dd58c}
+    .body{display:flex;flex-direction:column;gap:8px;padding:0 0 4px}
+    button{border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:0;margin:0;-webkit-tap-highlight-color:transparent}
+    .hd{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;display:flex;align-items:center;gap:10px;min-height:52px;margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 4px;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
+    .hd .t{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hd .done{flex:none;${M.DONE_PILL}}
+    .h{display:flex;align-items:center;gap:8px;min-height:32px;padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
+    .h .sp{flex:1}
+    .h .cp{height:28px;padding:0 12px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:5px}
+    .grp{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);overflow:hidden}
+    .grp>*+*{border-top:1px solid var(--ki-sheet-line,rgba(255,255,255,0.06))}
+    .top{display:flex;align-items:center;gap:12px;padding:14px 16px}
+    .ic{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-sheet-in,#404040);color:#afafaf;flex:none;transition:background .2s,color .2s}
+    .ic.on{background:rgba(242,133,201,0.18);color:var(--pink,#f285c9)}
     .tt{flex:1;min-width:0}.tt b{display:block;font-size:16px;font-weight:600}.tt span{font-size:12px;color:#979797}
-    .h{font-size:13px;color:#979797;margin:6px 4px 0}
-    .row{border-radius:22px;background:var(--gray100,#2f2f2f);overflow:hidden}
-    .rh{display:flex;align-items:center;gap:10px;padding:12px 14px;width:100%;text-align:left}
-    .rh .tt b{font-size:14px;font-weight:500}
-    .ex{display:flex;flex-direction:column;gap:8px;padding:0 14px 14px}
+    .entf{display:flex;flex-direction:column;gap:6px;padding:12px 16px 14px}
+    .entf ha-selector,.entf msh-entity-picker{display:block}
+    .row{overflow:hidden}
+    .rh{display:flex;align-items:center;gap:10px;padding:12px 14px 12px 16px;width:100%;text-align:left}
+    .rh .tt{display:flex;gap:12px;align-items:center;text-align:left}
+    .rh .tt b{font-size:15px;font-weight:500}
+    .rh .chv{margin-left:auto;color:#979797;flex:none;transition:transform .2s}
+    .row.open .rh .chv{transform:rotate(180deg)}
+    .ex{display:flex;flex-direction:column;gap:8px;padding:2px 16px 16px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--gray000,#232323);color:#afafaf;font-size:13px}
+    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:#c7c7c7;font-size:13px}
     .chip.on{background:var(--pink,#f285c9);color:#232323}
     .lab{font-size:12px;color:#7f7f7f}
-    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray200,#3a3a3a);transition:background .2s}
-    .trk.on{background:#7dd58c}.trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}.trk.on i{left:21px}
-    .stp{display:flex;align-items:center;gap:8px}.stp button{width:36px;height:32px;border-radius:16px;background:var(--gray000,#232323);font-size:18px}.stp span{min-width:70px;text-align:center;font-size:13px}
+    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+    .trk.on{background:${M.SWITCH_ON}}.trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}.trk.on i{left:21px}
+    .stp{display:flex;align-items:center;gap:8px}.stp button{width:36px;height:32px;border-radius:16px;background:var(--ki-sheet-in,#404040);font-size:18px}.stp span{min-width:70px;text-align:center;font-size:13px}
     .me{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(242,133,201,0.2);color:#f285c9;margin-left:6px}
-    input.ent{height:40px;border-radius:14px;border:0;padding:0 12px;background:var(--gray000,#232323);color:inherit;font:inherit;font-size:13px}
-    pre{margin:0;padding:12px;border-radius:16px;background:var(--gray000,#232323);font-size:12px;line-height:1.4;overflow:auto;white-space:pre}
-    .btn{height:44px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
-    .btn.pk{background:var(--pink,#f285c9);color:#232323;font-weight:600}
-    .note{font-size:12px;color:#979797;padding:0 4px}
-    .rl{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:18px;background:rgba(242,133,201,0.12);font-size:13px}
-    button{border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+    input.ent{height:44px;border-radius:14px;border:0;padding:0 12px;background:var(--ki-sheet-in,#404040);color:inherit;font:inherit;font-size:14px;width:100%;box-sizing:border-box}
+    pre{margin:0;padding:14px 16px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;color:#e1e1e1}
+    .btn{height:36px;padding:0 16px;border-radius:18px;background:var(--pink,#f285c9);color:#232323;font-size:13px;font-weight:600;flex:none}
+    .note{display:block;font-size:12px;color:#979797;padding:12px 16px}
+    .rl{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:22px;background:rgba(242,133,201,0.12);font-size:13px;margin-top:4px}
   `;
   const sw = (on, a, extra = '') => `<button class="trk ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-a="${a}" ${extra}><i></i></button>`;
 
@@ -38217,7 +39547,7 @@ try {
       const myId = ls.get(BID_KEY);
       const hideChips = (r, scope) => `<span class="lab">Skjul</span><div class="chips">${HIDE.map(([k, l]) => `<button class="chip ${hideOf(r).includes(k) ? 'on' : ''}" data-a="hide" data-s="${esc(scope)}" data-v="${k}">${esc(l)}</button>`).join('')}</div>
         <span class="lab">Når</span><div class="chips"><button class="chip ${r.when !== 'always' ? 'on' : ''}" data-a="when" data-s="${esc(scope)}" data-v="switch">Når bryteren er på</button><button class="chip ${r.when === 'always' ? 'on' : ''}" data-a="when" data-s="${esc(scope)}" data-v="always">Alltid</button></div>`;
-      const row = (scope, title, icon, r, extra, badge) => `<div class="row" data-key="r-${esc(scope)}"><div class="rh"><button class="tt" data-a="exp" data-s="${esc(scope)}" style="display:flex;gap:10px;align-items:center;text-align:left">${M.icon(icon, 22)}<span style="min-width:0"><b>${esc(title)}${badge || ''}</b><span style="display:block;font-size:12px;color:#979797">${esc(r.on ? summary(r, scope) : 'Av')}</span></span></button>${sw(r.on, 'row', `data-s="${esc(scope)}"`)}</div>${st.open[scope] ? `<div class="ex">${extra || ''}${hideChips(r, scope)}</div>` : ''}</div>`;
+      const row = (scope, title, icon, r, extra, badge) => `<div class="row${st.open[scope] ? ' open' : ''}" data-key="r-${esc(scope)}"><div class="rh"><button class="tt" data-a="exp" data-s="${esc(scope)}" aria-expanded="${!!st.open[scope]}">${M.icon(icon, 22, 'color:#afafaf;flex:none')}<span style="min-width:0;flex:1"><b>${esc(title)}${badge || ''}</b><span style="display:block;font-size:12px;color:#979797">${esc(r.on ? summary(r, scope) : 'Av')}</span></span>${M.icon('mdi:chevron-down', 20, '')}</button>${sw(r.on, 'row', `data-s="${esc(scope)}"`)}</div>${st.open[scope] ? `<div class="ex">${extra || ''}${hideChips(r, scope)}</div>` : ''}</div>`;
       const m = rowOf('mobile'), u = rowOf('users');
       const userChips = st.users ? `<span class="lab">Brukere</span><div class="chips">${st.users.map((x) => `<button class="chip ${(u.users || []).includes(x) ? 'on' : ''}" data-a="user" data-v="${esc(x)}">${esc(x)}</button>`).join('') || '<span class="note">Fant ingen brukere</span>'}</div>` : '<span class="note">Henter brukere …</span>';
       let devHtml;
@@ -38225,20 +39555,38 @@ try {
       else if (st.browsers === null) devHtml = '<span class="note">Installer Browser Mod for å velge enheter</span>';
       else if (!st.browsers.length) devHtml = '<span class="note">Ingen registrerte nettlesere i Browser Mod</span>';
       else devHtml = st.browsers.map((b) => { const d = { hide: ['kiosk'], when: 'switch', ...(devs()[b.id] || {}) }; return row('dev:' + b.id, b.name, 'mdi:monitor-cellphone', d, '', b.id === myId ? '<span class="me">Denne enheten</span>' : ''); }).join('');
-      return `<div class="top" data-key="top"><div class="ic ${on ? 'on' : ''}">${M.icon('mdi:fullscreen', 24)}</div><div class="tt"><b>Kiosk-modus er ${on ? 'på' : 'av'}</b><span>${esc(ent)} · påvirker ${n} valg</span></div>${sw(on, 'master')}</div>
-        <span class="lab" style="margin:0 4px">Bryter-entitet</span><input class="ent" data-key="ent" value="${esc(ent)}" placeholder="${DEF_ENT}">
-        <div class="h">Grupper</div>
+      // Entitetsfeltet: HAs entitetsvelger (ha-selector entity, domene input_boolean); reserve: msh-entity-picker / tekstfelt
+      const entSel = customElements.get('ha-selector') ? `<ha-selector data-nomorph data-key="entsel" class="entsel"></ha-selector>`
+        : M.entityPicker ? M.entityPicker.html({ key: 'entsel', value: ent, domains: ['input_boolean'], placeholder: DEF_ENT, attrs: 'class="entsel"' })
+          : `<input class="ent" data-key="ent" value="${esc(ent)}" placeholder="${DEF_ENT}">`;
+      return `<div class="hd" data-key="hd"><span class="t">Tilpass kiosk-modus</span><button class="done press" data-a="close">Ferdig</button></div>
+        <div class="grp" data-key="gstat"><div class="top" data-key="top"><div class="ic ${on ? 'on' : ''}">${M.icon('mdi:fullscreen', 24)}</div><div class="tt"><b>Kiosk-modus er ${on ? 'på' : 'av'}</b><span>${esc(ent)} · påvirker ${n} valg</span></div>${sw(on, 'master')}</div>
+          <div class="entf" data-key="entf"><span class="lab">Bryter-entitet</span>${entSel}</div></div>
+        <div class="h" data-key="hg">Grupper</div>
+        <div class="grp" data-key="gg">
         ${row('mobile', ROWS[0][1], ROWS[0][2], m, `<span class="lab">Bredde (custom_width)</span><div class="stp"><button data-a="w" data-v="-50">−</button><span>${Number(m.width) || 1000} px</span><button data-a="w" data-v="50">+</button></div>`)}
         ${row('non_admin', ROWS[1][1], ROWS[1][2], rowOf('non_admin'))}
         ${row('users', ROWS[2][1], ROWS[2][2], u, userChips)}
-        <div class="h">Enheter</div>${devHtml}
-        <div class="h">YAML</div><pre data-key="yaml">${esc(M.kioskYaml())}</pre>
-        <button class="btn" data-a="copy">Kopier</button>
-        ${st.dirty ? `<div class="rl" data-key="rl"><span style="flex:1">Last inn på nytt for å bruke</span><button class="btn pk" style="padding:0 16px;height:36px" data-a="reload">Last inn på nytt</button></div>` : ''}
-        <button class="btn pk" data-a="close">Ferdig</button>`;
+        </div>
+        <div class="h" data-key="he">Enheter</div><div class="grp" data-key="ge">${devHtml}</div>
+        <div class="h" data-key="hy"><span>YAML · kiosk_mode</span><span class="sp"></span><button class="cp press" data-a="copy">${M.icon('mdi:content-copy', 14)}Kopier</button></div>
+        <div class="grp" data-key="gy"><pre data-key="yaml">${esc(M.kioskYaml())}</pre></div>
+        ${st.dirty ? `<div class="rl" data-key="rl"><span style="flex:1">Last inn på nytt for å bruke</span><button class="btn" data-a="reload">Last inn på nytt</button></div>` : ''}`;
     };
     const ov = M.overlay({ html: render(), css: CSS, maxWidth: 480, onClose: () => { unsub && unsub(); } });
-    const upd = () => { if (ov.host.isConnected) M.morph(ov.body, render()); };
+    // Entitetsvelgeren (data-nomorph): hass/verdi settes etter hver tegning, valg lagres straks i ki-store kiosk.entity
+    const bindSel = () => {
+      const el = ov.root.querySelector('.entsel');
+      if (!el) return;
+      el.hass = hass;
+      if (el.localName === 'ha-selector') {
+        if (!el.__kb) { el.__kb = true; el.selector = { entity: { domain: 'input_boolean' } }; el.label = ''; }
+        if (el.value !== M.kioskEntity()) el.value = M.kioskEntity();
+      } else if (el.localName === 'msh-entity-picker' && el.value !== M.kioskEntity()) el.setAttribute('value', M.kioskEntity());
+      if (!el.__kv) { el.__kv = true; el.addEventListener('value-changed', (e) => { e.stopPropagation(); const v = String((e.detail && e.detail.value) || '').trim(); M.haptic('selection'); st.dirty = true; save('entity', v || undefined); }); }
+    };
+    const upd = () => { if (ov.host.isConnected) { M.morph(ov.body, render()); bindSel(); } };
+    bindSel();
     const unsub = M.store.subscribe((d, p) => { if (!p || /^kiosk/.test(p)) upd(); });
     loadUsers(hass).then((u) => { st.users = u; upd(); });
     loadBrowsers(hass).then((b) => { st.browsers = b; upd(); });
@@ -38460,7 +39808,7 @@ try {
     .av{width:44px;height:44px;border-radius:22px;flex:none;overflow:hidden;background:#545454;display:grid;place-items:center;color:#232323;font-weight:600}
     .av img{width:100%;height:100%;object-fit:cover}
     .sw{position:relative;width:51px;height:31px;border-radius:16px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-    .sw.on{background:${GREEN}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fafafa;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.25)}.sw.on i{left:22px}
+    .sw.on{background:${M.SWITCH_ON}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fafafa;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.25)}.sw.on i{left:22px}
     .sw[disabled]{opacity:.4}
     .me{height:28px;padding:0 10px;border-radius:14px;background:var(--gray300,#404040);color:#afafaf;font-size:12px;font-weight:600;flex:none}
     .me.on{background:${PINK};color:#2a1720}
@@ -38920,7 +40268,7 @@ try {
         return `<div class="gh" data-key="g-${g}">${esc(gl)}</div><div class="list" data-key="gl-${g}">${rows.map(([x, m]) => rowHtml(x, R, m)).join('')}</div>`;
       }).join('');
       return `<div class="ob" data-key="ta-list">
-        <div class="hd"><span class="h">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
+        <div class="hd"><span class="h ta">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
         <div class="sr" data-key="sr">${ic('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" data-in="q" data-key="q" placeholder="Søk i innstillinger og hurtigvalg" value="${esc(u.q)}" autocomplete="off">${u.q ? `<button data-a="qx" aria-label="Tøm">${ic('mdi:close-circle', 18, 'color:#7f7f7f')}</button>` : ''}</div>
         ${q ? '' : `<div class="rv" data-key="rv"><div class="rvt"><b>Gå gjennom alt</b><i>${done} av ${RV.length} sjekket</i><div class="bar"><span style="width:${RV.length ? Math.round((done / RV.length) * 100) : 0}%"></span></div></div><button class="rvb" data-a="review">${lbl}</button></div>`}
         ${groups || '<p class="lead" style="margin-top:20px">Ingen treff.</p>'}
@@ -39075,7 +40423,8 @@ try {
     .hd{display:flex;align-items:center;gap:12px;min-height:44px}
     .hd .h{flex:1;min-width:0;font-size:28px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hd .h.sm{font-size:14px;color:#979797;font-weight:500}
-    .done{height:40px;padding:0 18px;border-radius:20px;background:#e1e1e1;color:#232323;font-size:15px;font-weight:600;flex:none}
+    .done{${M.DONE_PILL}flex:none} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
+    .hd .h.ta{font-size:22px;font-weight:600;letter-spacing:-0.01em}
     .sr{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;margin:16px 0 12px;border-radius:24px;background:var(--ki-sheet-in,#404040)}
     .sr .q{flex:1;min-width:0;height:100%;border:0;background:none;color:#fafafa;font-size:16px;outline:none}
     .rv{display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}
@@ -40519,10 +41868,10 @@ try {
     .tc.kjorer .glod { opacity:1; background:radial-gradient(70% 90% at 70% 100%, rgba(90,170,255,.28) 0%, transparent 62%); }
     .tc.lavt .glod { opacity:1; background:radial-gradient(70% 90% at 70% 100%, rgba(255,90,70,.28) 0%, transparent 62%); }
     .tekst { position:absolute; left:20px; top:18px; bottom:14px; display:flex; flex-direction:column; z-index:2; max-width:42%; min-width:0; }
-    .n { font-size:14px; opacity:.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pille { align-self:flex-start; margin-top:8px; display:inline-flex; align-items:center; gap:5px; padding:3px 10px 3px 8px; border-radius:999px;
-      font-size:12px; font-weight:500; background:rgba(238,243,248,.12); white-space:nowrap; --mdc-icon-size:14px; max-width:100%; overflow:hidden; }
-    .tc.lader .pille { background:rgba(90,230,160,.26); } .tc.kjorer .pille { background:rgba(90,170,255,.28); }
+    .n { font-size:15px; color:#afafaf; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Fiks 26.10: status-chippen er bare tekst (ingen ikon), 13 px, pill rgba(255,255,255,.1) */
+    .pille { align-self:flex-start; margin-top:8px; display:inline-flex; align-items:center; padding:4px 11px; border-radius:999px;
+      font-size:13px; font-weight:500; line-height:18px; background:rgba(255,255,255,.1); white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
     .pille.gul { background:rgba(255,179,74,.32) !important; } .pille.rod { background:rgba(255,80,70,.42) !important; }
     .stor { margin-top:auto; font-size:2em; line-height:1.2em; font-weight:300; white-space:nowrap; }
     .stor small { font-size:14px; font-weight:300; margin-left:2px; opacity:.85; }
@@ -40769,7 +42118,7 @@ try {
     _bygg() {
       if (!this.shadowRoot) this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `<style>${STIL}</style><div class="tc" role="button" tabindex="0">
-        <div class="glod"></div><div class="tekst"><div class="n"></div><span class="pille"><ha-icon></ha-icon><span class="pt"></span></span>
+        <div class="glod"></div><div class="tekst"><div class="n"></div><span class="pille"><span class="pt"></span></span>
         <div class="stor"></div><div class="sub"></div></div><div class="scene">${SVG}</div></div>`;
       const kort = this.shadowRoot.querySelector(".tc");
       kort.addEventListener("click", () => this._trykk());
@@ -40847,7 +42196,7 @@ try {
       else if (sentry) { pt = "Sentry på"; ik = "mdi:cctv"; }
       else { pt = "Låst"; ik = "mdi:lock"; }
       const pille = $(".pille"); pille.className = "pille " + farge;
-      pille.querySelector("ha-icon").setAttribute("icon", ik); $(".pt").textContent = pt;
+      pille.dataset.ikon = ik; $(".pt").textContent = pt; // Fiks 26.10: ingen ikon i chippen (ikonnavnet beholdes som data)
       $(".stor").innerHTML = isNaN(batt) ? "--" : `${Math.round(batt)}<small>%</small>`;
 
       const deler = [];
@@ -40880,10 +42229,11 @@ try {
   const PAINTS = [['#7b92ac', 'Blågrå'], ['#e9e9e7', 'Perlehvit'], ['#1c1d20', 'Svart'], ['#7d8084', 'Stealth-grå'], ['#a3161f', 'Ultrarød'], ['#233f8c', 'Dyphavsblå']];
   const TABS = [['lading', 'Lading', 'mdi:ev-station'], ['kjoring', 'Kjøring', 'mdi:steering'], ['sparing', 'Sparing', 'mdi:piggy-bank']];
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
-  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:car-defrost-front'], ['frunk', 'Frunk', 'mdi:car-side'], ['trunk', 'Bagasje', 'mdi:car-back']];
+  // Fiks 26.10: riktige ikoner (lås/lås opp, horn, defrost, frunk = car-select, bagasje = bag-suitcase) – ikke to bilikoner
+  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:car-defrost-front'], ['frunk', 'Frunk', 'mdi:car-select'], ['trunk', 'Bagasje', 'mdi:bag-suitcase']];
   const CONF_DEF = { lock: true, honk: false, defrost: false, frunk: true, trunk: true };
   const LIMIT_OPTS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
-  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: false, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
+  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: true, smart_until: 7, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
   const TABS_DEF = { style: 'filled', content: 'text', start: 'lading' };
   const GROUPS = [['lading', 'Batteri og lading', 'mdi:battery-charging-high'], ['status', 'Kjøring og status', 'mdi:car-info'], ['sparing', 'Sparing', 'mdi:piggy-bank-outline']];
   /* Entitetsfelt: [nøkkel, navn, gruppe, domener, mønstre (første mønster med treff vinner), familie, ikon]
@@ -40901,12 +42251,13 @@ try {
     ['time_left', 'Tid til grense', 'lading', ['sensor'], [/ladetid_gjenstaende|time_to_full|time_charge_complete/], 'car', 'mdi:timer-outline'],
     ['charge_cost', 'Pris for ladingen', 'lading', ['sensor'], [/ladepris_estimat|charge_cost_estimate/], 'car', 'mdi:cash'],
     ['last_charge', 'Sist lading', 'lading', ['sensor'], [/forrige_lading_kostnad|last_charge_cost/], 'car', 'mdi:cash-check'],
+    ['smart', 'Smartlading (bryter)', 'lading', ['input_boolean', 'switch'], [/smart_?lad|smart_?charg/], 'car', 'mdi:clock-outline'],
     ['price', 'Strømpris (smartlading)', 'lading', ['sensor'], null, 'price', 'mdi:chart-bar'],
     ['lock', 'Lås', 'status', ['lock', 'switch', 'binary_sensor'], [/doors?_lock|_lock$|_locked$|laas|_las$/], 'car', 'mdi:lock'],
     ['honk', 'Tut', 'status', ['button'], [/honk|horn|_tut$/], 'car', 'mdi:bullhorn'],
     ['defrost', 'Defrost', 'status', ['switch'], [/defrost|avising/], 'car', 'mdi:car-defrost-front'],
-    ['frunk', 'Frunk', 'status', ['switch', 'cover'], [/frunk|trunk_front|front_trunk|vehicle_state_ft/], 'car', 'mdi:car-side'],
-    ['trunk', 'Bagasjerom', 'status', ['switch', 'cover'], [/trunk_rear|rear_trunk|bagasje|liftgate|_trunk$|vehicle_state_rt/], 'car', 'mdi:car-back'],
+    ['frunk', 'Frunk', 'status', ['switch', 'cover'], [/frunk|trunk_front|front_trunk|vehicle_state_ft/], 'car', 'mdi:car-select'],
+    ['trunk', 'Bagasjerom', 'status', ['switch', 'cover'], [/trunk_rear|rear_trunk|bagasje|liftgate|_trunk$|vehicle_state_rt/], 'car', 'mdi:bag-suitcase'],
     ['window', 'Vinduer', 'status', ['switch', 'cover'], [/window_vent|vindu|windows/], 'car', 'mdi:car-door'],
     ['sentry', 'Sentry', 'status', ['switch'], [/sentry/], 'car', 'mdi:cctv'],
     ['climate', 'Klima', 'status', ['climate'], [/./], 'car', 'mdi:thermostat'],
@@ -41046,11 +42397,13 @@ try {
     const st = on ? (fill ? `background:${ACC};color:${INK}` : `background:transparent;color:${PINK};box-shadow:inset 0 0 0 1.5px ${PINK}`) : 'background:transparent;color:var(--gray800,#afafaf)';
     return `<button class="tab${on ? ' on' : ''}${showLabel ? '' : ' io'}" role="tab" aria-selected="${on}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs || ''} style="${st}">${showIcon ? M.icon(icon, 20) : ''}${showLabel ? `<span>${esc(label)}</span>` : ''}</button>`;
   }
+  // Fiks 26.10: fanelinjen fyller hele bredden ved siden av tannhjulet – like brede faner (grid, minmax(0,1fr)),
+  // høyde 48 (padding 4 + boble 40), så den rosa boblen (aktiv fane + MSH.glassMorph) har fanens bredde og posisjon.
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tbox{flex:1;min-width:0;padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}overflow:hidden}
-    ${pre} .tabs{display:flex;gap:2px;border-radius:20px;overflow-x:auto;scrollbar-width:none}
-    ${pre} .tabs::-webkit-scrollbar{display:none}
-    ${pre} .tab{flex:1 0 auto;height:40px;padding:0 14px;border-radius:20px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
+    ${pre} .tbox{flex:1;min-width:0;box-sizing:border-box;height:48px;padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}overflow:hidden}
+    ${pre} .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:20px;overflow:hidden;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tabs>.tab{min-width:0;width:100%}
+    ${pre} .tab{height:40px;padding:0 8px;overflow:hidden;text-overflow:ellipsis;border-radius:20px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
     ${pre} .tab.io{padding:0 10px}
     ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     ${pre} .gear:active{transform:scale(.92)}`;
@@ -41162,7 +42515,7 @@ try {
             { type: 'range', name: 'capacity', label: 'Batterikapasitet', icon: 'mdi:battery-high', min: 40, max: 110, step: 1, default: DEF.capacity, unit: 'kWh', presets: [[60, '60'], [75, '75'], [82, '82'], [100, '100']] },
           ] },
           { type: 'section', id: 'buttons', label: 'Hurtigknapper', icon: 'mdi:gesture-tap-button', fields: [
-            { type: 'boolean', name: 'button_text', label: 'Vis tekst under ikonet', default: false },
+            { type: 'boolean', name: 'button_text', label: 'Vis tekst under ikonet', default: true },
             ...BTNS.map(btnSec),
           ] },
         ] },
@@ -41183,6 +42536,7 @@ try {
           { type: 'section', id: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', fields: [
             { type: 'boolean', name: 'lock_inverted', label: 'Lås: «på» betyr åpen', default: true, help: 'Tesla-brua (switch …_doors_locked) melder «på» når bilen er ÅPEN. Slå av for en ekte lock.-entitet.' },
             { type: 'boolean', name: 'confirm', label: 'Bekreftelse på alle hurtigknapper', default: false },
+            { type: 'select', name: 'smart_until', label: 'Smartlading: ferdig før', options: [5, 6, 7, 8, 9].map((x) => [x, `kl. ${M.pad(x)}:00`]), default: DEF.smart_until, help: 'Smartlading viser de 12 timene før dette klokkeslettet og velger de billigste.' },
             { type: 'text', name: 'prefix', label: 'Prefiks for autofunn', placeholder: DEF_PREFIX.join(', '), help: 'Kommaseparert. Entiteter som inneholder prefikset (og Tesla-integrasjonens entiteter) brukes.' },
           ] },
           M.spacingSchema({ gap: 8, pad_top: 20, pad_bottom: 24 }),
@@ -41256,17 +42610,19 @@ try {
     }
     _miss(text, section) { return `<div class="miss"><span class="mdash">–</span><button class="pick press" data-act="customize" data-section="${esc(section || 'entiteter')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
     _buttons() {
-      const c = this.config, h = this.hass, txt = !!c.button_text;
+      const c = this.config, h = this.hass, txt = c.button_text !== false;
       const B = BTNS.filter(([k]) => btnCfg(c, k).show !== false);
       if (!B.length) return '';
       return `<div class="qb${txt ? ' txt' : ''}" style="--qn:${B.length}">${B.map(([k, label, icon]) => {
         const id = this._bid(k), st = id ? this.s(id) : null;
         let cls = '', ic = icon, lab = label;
-        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open-variant'; lab = 'Ulåst'; } else if (st) lab = 'Låst'; }
-        if (k === 'defrost' && st && st.state === 'on') cls = 'pink breathe';
-        if ((k === 'frunk' || k === 'trunk') && isOpen(st)) { cls = 'pink'; lab = k === 'frunk' ? 'Frunk åpen' : 'Bagasje åpen'; }
+        // Fiks 26.10: aktiv tilstand (defrost på, frunk/bagasje åpen) = lys flis #e1e1e1 med mørkt ikon og tekst
+        let aria = lab;
+        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open'; lab = 'Ulåst'; } else if (st) lab = 'Låst'; aria = lab; }
+        if (k === 'defrost' && st && st.state === 'on') { cls = 'act'; aria = 'Defrost på'; }
+        if ((k === 'frunk' || k === 'trunk') && isOpen(st)) { cls = 'act'; aria = k === 'frunk' ? 'Frunk åpen' : 'Bagasje åpen'; }
         if (!id || !st) cls = 'none';
-        return `<button class="qbtn press ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(lab)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 26)}</span>${txt ? `<span class="ql">${esc(!id ? '–' : lab)}</span>` : ''}</button>`;
+        return `<button class="qbtn press ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(aria)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 22)}</span>${txt ? `<span class="ql">${esc(lab)}</span>` : ''}</button>`;
       }).join('')}</div>`;
     }
     _btn(k) {
@@ -41291,34 +42647,38 @@ try {
       else Promise.resolve(run()).catch(() => {});
     }
 
-    /* ---------------------------------------------------------- Lading */
+    /* ---------------------------------------------------------- Lading (Fiks 26.10: ett samlet kort + nøkkeltall + Smartlading) */
     _t_lading() {
       const c = this.config, h = this.hass;
       const bat = this._N('battery'), lim = this._N('charge_limit'), limId = this._e('charge_limit');
       const S = charging(h, c);
       ['charging_state', 'charger', 'charge_power', 'charge_cable'].forEach((k) => this._S(k));
       const swId = this._e('charger'), sw = swId ? this.s(swId) : null;
-      const stTxt = S.lader ? 'Lader' : S.ferdig ? 'Ferdig ladet' : S.tilkoblet ? 'Tilkoblet' : (this._e('charging_state') || swId || this._e('charge_power')) ? 'Ikke tilkoblet' : '–';
-      const status = `<div class="card cs${S.lader ? ' on' : ''}">
-        <span class="ci" style="background:${S.lader ? M.alpha(GREEN, 0.2) : 'rgba(255,255,255,.08)'};color:${S.lader ? GREEN : '#fafafa'}">${M.icon(S.lader ? 'mdi:ev-station' : S.tilkoblet ? 'mdi:power-plug' : 'mdi:power-plug-off-outline', 24)}</span>
-        <div class="grow col"><span class="lt">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>
-        ${swId && sw ? `<button class="ss press ${sw.state === 'on' ? 'stop' : ''}" data-act="charge" data-ent="${esc(swId)}">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:play', 20)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>` : `<button class="pick press" data-act="customize" data-section="ent-lading">${M.icon('mdi:plus', 18)}Velg lader</button>`}</div>`;
-      // ladegrense: dra-bar 50–100 (steg 5) + knapper
+      const known = !!(this._e('charging_state') || swId || this._e('charge_power') || this._e('charge_cable'));
+      const stTxt = S.lader ? 'Tilkoblet · lader' : S.ferdig ? 'Tilkoblet · ferdig ladet' : S.tilkoblet ? 'Tilkoblet · lader ikke' : known ? 'Ikke tilkoblet' : '–';
+      const start = swId && sw
+        ? `<button class="ss press" data-act="charge" data-ent="${esc(swId)}" data-haptic="light">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:flash', 18)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>`
+        : `<button class="ss press" data-act="customize" data-section="ent-lading" aria-label="Velg lader">${M.icon('mdi:flash', 18)}Start</button>`;
+      // batteristolpe 56 px (0–100 %): grønt fyll med «79%» inni + hvit markering for ladegrensen. Dra setter grensen.
       const cur = this.ui.limDraft != null ? this.ui.limDraft : lim;
-      const fr = cur != null ? M.clamp((cur - 50) / 50, 0, 1) : 0, bfr = bat != null ? M.clamp((bat - 50) / 50, 0, 1) : 0;
-      const limit = limId ? `<div class="card lc">
-        <div class="row"><span class="lt grow">Ladegrense</span><span class="lv num" data-key="lv">${cur != null ? Math.round(cur) + ' %' : '–'}</span></div>
-        <div class="lim" data-key="lim" role="slider" aria-label="Ladegrense" aria-valuemin="50" aria-valuemax="100" aria-valuenow="${cur != null ? Math.round(cur) : ''}" tabindex="0" style="--f:${fr.toFixed(4)};--b:${bfr.toFixed(4)}">
-          <div class="ltr"><div class="lbat"></div><div class="lfi"></div></div><div class="lth"></div></div>
-        <div class="lb">${limitsOf(c).map((v) => `<button class="lchip press ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection">${v} %</button>`).join('')}</div></div>`
-        : `<div class="card lc"><span class="lt">Ladegrense</span>${this._miss('', 'ent-lading')}</div>`;
-      // oppsummering: tid til grense · pris · sist lading
+      const bp = bat != null ? M.clamp(bat, 0, 100) : 0, lp = cur != null ? M.clamp(cur, 0, 100) : null;
+      const bar = `<div class="lim${limId ? '' : ' ro'}" data-key="lim" ${limId ? `role="slider" aria-label="Ladegrense" aria-valuemin="50" aria-valuemax="100" aria-valuenow="${cur != null ? Math.round(cur) : ''}" tabindex="0"` : 'aria-hidden="true"'} style="--b:${bp.toFixed(2)};--f:${lp != null ? lp.toFixed(2) : 0}">
+          <div class="lbat${S.lader ? ' chg' : ''}"></div><span class="lpct num">${bat != null ? Math.round(bat) + '%' : '–'}</span>${lp != null ? '<i class="lmk"></i>' : ''}</div>`;
+      const limRow = limId
+        ? `<div class="lrow"><span class="ll">Ladegrense <b class="lv num" data-key="lv">${cur != null ? Math.round(cur) + ' %' : '–'}</b></span>
+            <div class="lb">${limitsOf(c).map((v) => `<button class="lchip press ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection" aria-label="Ladegrense ${v} %">${v}</button>`).join('')}</div></div>`
+        : `<div class="lrow"><span class="ll">Ladegrense</span>${this._miss('', 'ent-lading')}</div>`;
+      const main = `<div class="card lc">
+        <div class="lhead"><div class="grow col"><span class="lt2">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>${start}</div>
+        ${bar}${limRow}</div>`;
+      // nøkkeltall: ett kort, 3 kolonner med skillelinjer (etikett over verdi, ingen ikoner)
       let tl = this._N('time_left');
       if (tl == null && S.lader && S.eff > 0.3 && lim != null && bat != null && lim > bat) tl = ((lim - bat) / 100) * (Number(c.capacity) || DEF.capacity) / S.eff * 60;
       const tlTxt = tl == null ? '–' : tl < 1 ? 'under 1 min' : (tl >= 60 ? `${Math.floor(tl / 60)} t ${Math.round(tl % 60)} m` : `${Math.round(tl)} min`);
-      const sum = `<div class="sum">${[['mdi:timer-outline', 'Til grensen', tlTxt, 'time_left'], ['mdi:cash', 'Pris', kr(this._N('charge_cost'), 0), 'charge_cost'], ['mdi:cash-check', 'Sist lading', kr(this._N('last_charge'), 0), 'last_charge']].map(([ic, l, v, k]) => `<div class="card st" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}>${M.icon(ic, 20, 'color:#afafaf')}<span class="sv num">${esc(v)}</span><span class="sl">${esc(l)}</span></div>`).join('')}</div>`;
-      return `<div class="col gap">${status}${limit}${sum}${this._smart(bat, lim, S)}</div>`;
+      const kpi = `<div class="card kpi">${[[lim != null ? `Tid til ${Math.round(lim)} %` : 'Tid til grensen', tlTxt, 'time_left'], ['Pris', kr(this._N('charge_cost'), 0), 'charge_cost'], ['Sist lading', kr(this._N('last_charge'), 0), 'last_charge']].map(([l, v, k]) => `<div class="kc" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}><span class="kl">${esc(l)}</span><span class="kv num">${esc(v)}</span></div>`).join('')}</div>`;
+      return `<div class="col gap">${main}${kpi}${this._smart(bat, lim, S)}</div>`;
     }
+    // Smartlading: bryter + de 12 timene før fristen (standard 07:00) med pris per time; de billigste timene er rosa
     _smart(bat, lim, S) {
       const h = this.hass, c = this.config, ov = (c.entities || {}).price;
       let today = [], tomorrow = [], fmt = (v) => (v == null ? '–' : M.nf(v, 2) + ' kr');
@@ -41326,23 +42686,31 @@ try {
         if (ov) { this.s(ov); const s = M.priceSeries(h, ov); today = s.slice(0, 24); tomorrow = s.slice(24); }
         else if (M.powerPrice) { const P = M.powerPrice(h, null, this); today = P.today || []; tomorrow = P.tomorrow || []; if (P.fmt) fmt = (v) => P.fmt(v, { unit: false }); if (P.entity) this.s(P.entity); }
       } catch (e) { /* ingen pris */ }
-      const hr = new Date().getHours();
-      const bars = [...today.slice(hr).map((v, i) => ({ h: hr + i, v })), ...tomorrow.map((v, i) => ({ h: 24 + i, v }))].filter((x) => x.v != null).slice(0, 24);
-      if (!bars.length) return `<div class="card sm"><div class="row"><span class="lt grow">Smartlading</span></div>${this._miss('Fant ingen timepriser', 'ent-lading')}</div>`;
-      // timer som trengs for å nå grensen (ellers 4): fra «tid til grense» eller kapasitet × (grense − batteri) / effekt
+      const until = M.clamp(Math.round(Number(c.smart_until != null ? c.smart_until : DEF.smart_until)) || DEF.smart_until, 0, 23);
+      const now = new Date(), hr = now.getHours();
+      const end = hr < until ? until : until + 24, from = end - 12; // timeindeks: 0–23 i dag, 24–47 i morgen
+      const at = (i) => (i < 0 ? null : i < 24 ? today[i] : tomorrow[i - 24]);
+      const bars = Array.from({ length: 12 }, (_, j) => { const i = from + j, v = at(i); return { i, h: ((i % 24) + 24) % 24, v: v == null || isNaN(v) ? null : Number(v), past: i < hr }; });
+      // timer som trengs for å nå grensen (ellers 1): fra «tid til grense» eller kapasitet × (grense − batteri) / effekt
       let need = null;
       const tl = this._N('time_left');
       if (tl != null && tl > 0) need = Math.ceil(tl / 60);
       else if (lim != null && bat != null && lim > bat) need = Math.ceil(((lim - bat) / 100) * (Number(c.capacity) || DEF.capacity) / (S.eff > 0.3 ? S.eff : 11));
-      need = M.clamp(need || 4, 1, bars.length);
-      const cheap = new Set(bars.map((x, i) => [x.v, i]).sort((a, b) => a[0] - b[0]).slice(0, need).map((x) => x[1]));
-      const mx = Math.max(...bars.map((x) => x.v)), mn = Math.min(0, ...bars.map((x) => x.v));
-      const ch = [...cheap].sort((a, b) => a - b), from = bars[ch[0]].h % 24, to = (bars[ch[ch.length - 1]].h + 1) % 24;
-      const avg = ch.reduce((s, i) => s + bars[i].v, 0) / ch.length;
-      return `<div class="card sm"><div class="row"><span class="lt grow">Smartlading</span><span class="sub">${need} billigste ${need === 1 ? 'time' : 'timer'}</span></div>
-        <div class="smt"><span class="big2 num">kl. ${M.pad(from)}–${M.pad(to)}</span><span class="sub">snitt ${esc(fmt(avg))}/kWh</span></div>
-        <div class="pb">${bars.map((x, i) => `<i class="${cheap.has(i) ? 'c' : ''}${i === 0 ? ' n' : ''}" style="height:${Math.max(6, ((x.v - mn) / ((mx - mn) || 1)) * 100).toFixed(1)}%" title="kl. ${M.pad(x.h % 24)} · ${esc(fmt(x.v))}"></i>`).join('')}</div>
-        <div class="pl"><span>nå</span><span>${bars.length > 12 ? 'kl. ' + M.pad(bars[Math.floor(bars.length / 2)].h % 24) : ''}</span><span>kl. ${M.pad((bars[bars.length - 1].h + 1) % 24)}</span></div></div>`;
+      const fut = bars.map((x, j) => [x, j]).filter(([x]) => x.v != null && !x.past);
+      need = M.clamp(need || 1, 1, Math.max(1, fut.length));
+      const cheap = new Set(fut.sort((a, b) => a[0].v - b[0].v).slice(0, need).map((x) => x[1]));
+      const vals = bars.filter((x) => x.v != null).map((x) => x.v);
+      const mx = vals.length ? Math.max(...vals) : 1, mn = vals.length ? Math.min(0, ...vals) : 0;
+      const swId = this._e('smart'), sw = swId ? this.s(swId) : null, on = !!sw && sw.state === 'on';
+      const txt = `Lader i ${need === 1 ? 'den billigste timen' : `de ${need} billigste timene`} før ${M.pad(until)}:00`;
+      const tog = swId && sw
+        ? `<button class="tg${on ? ' on' : ''}" role="switch" aria-checked="${on}" aria-label="Smartlading" data-act="smart" data-ent="${esc(swId)}" data-haptic="selection"><i></i></button>`
+        : `<button class="tg none" role="switch" aria-checked="false" aria-label="Smartlading – velg entitet" data-act="customize" data-section="ent-lading"><i></i></button>`;
+      const graph = vals.length
+        ? `<div class="pb">${bars.map((x, j) => `<i class="${cheap.has(j) ? 'c' : ''}${x.past ? ' p' : ''}${x.v == null ? ' x' : ''}" style="height:${x.v == null ? 4 : Math.max(8, ((x.v - mn) / ((mx - mn) || 1)) * 100).toFixed(1) + '%'}${x.v == null ? 'px' : ''}" title="kl. ${M.pad(x.h)} · ${esc(fmt(x.v))}"></i>`).join('')}</div>
+          <div class="pl">${[0, 4, 8, 11].map((j) => `<span style="left:calc((100% + 4px) * ${j} / 12 + (100% + 4px) / 24 - 2px)">${M.pad(bars[j].h)}:00</span>`).join('')}</div>`
+        : this._miss('Fant ingen timepriser', 'ent-lading');
+      return `<div class="card sm"><div class="srow"><span class="sci">${M.icon('mdi:clock-outline', 20)}</span><div class="grow col"><span class="stt">Smartlading</span><span class="sst">${esc(txt)}</span></div>${tog}</div>${graph}</div>`;
     }
 
     /* ---------------------------------------------------------- Kjøring */
@@ -41413,6 +42781,7 @@ try {
       if (name === 'btn') return this._btn(d.v);
       if (name === 'charge') { const id = this._e('charger'); if (id && h.states[id]) M.call(h, 'switch', h.states[id].state === 'on' ? 'turn_off' : 'turn_on', { entity_id: id }).catch(() => {}); return; }
       if (name === 'limit') return this._setLimit(Number(d.v));
+      if (name === 'smart') { const id = this._e('smart'); if (id && h.states[id]) M.toggle(h, id); return; }
       if (name === 'day') return this.setUI({ day: Number(d.v) });
       if (name === 'sp') return this.setUI({ sp: d.v, sd: null });
       if (name === 'fuel') { M.call(h, 'ki_drivstoff', 'hent_pris', {}).then(() => M.toast('Henter pumpepris …')).catch(() => {}); return; }
@@ -41460,15 +42829,16 @@ try {
     // Ladegrense-dra og sparing-scrub: touch-action none + stopPropagation (fallgruve 2)
     _bindDrag() {
       const R = this.shadowRoot;
-      const tgt = (e) => (e.composedPath ? e.composedPath() : []).find((n) => n && n.classList && (n.classList.contains('lim') || n.classList.contains('scrub')));
+      const tgt = (e) => (e.composedPath ? e.composedPath() : []).find((n) => n && n.classList && ((n.classList.contains('lim') && !n.classList.contains('ro')) || n.classList.contains('scrub')));
       R.addEventListener('touchstart', (e) => { if (tgt(e)) e.stopPropagation(); }, { passive: true });
       R.addEventListener('touchmove', (e) => { if (tgt(e)) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
       let g = null;
-      const limVal = (el, x) => { const r = el.getBoundingClientRect(); return 50 + M.clamp((x - r.left) / (r.width || 1), 0, 1) * 50; };
+      // Fiks 26.10: batteristolpen går 0–100 %; grensen kan settes mellom 50 og 100 %
+      const limVal = (el, x) => { const r = el.getBoundingClientRect(); return M.clamp((x - r.left) / (r.width || 1) * 100, 50, 100); };
       const scrubIdx = (el, x) => { const r = el.getBoundingClientRect(), n = el.children.length; return M.clamp(Math.floor((x - r.left) / ((r.width || 1) / n)), 0, n - 1); };
       const paintLim = (el, v) => {
         const s = Math.round(v / 5) * 5;
-        el.style.setProperty('--f', ((v - 50) / 50).toFixed(4));
+        el.style.setProperty('--f', s.toFixed(2));
         const lv = R.querySelector('.lv'); if (lv) lv.textContent = s + ' %';
         R.querySelectorAll('.lchip').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s));
         if (g.last !== s) { if (g.last != null) M.haptic('selection'); g.last = s; }
@@ -41510,13 +42880,12 @@ try {
         .col{display:flex;flex-direction:column}.gap{gap:var(--msh-gap,8px)}
         .scene-slot{display:block;min-height:180px}
         .scene-slot msh-tesla-scene{display:block;--ha-card-border-radius:28px}
-        /* hurtigknapper: 5 kolonner, kvadratiske, r24 */
+        /* Fiks 26.10: hurtigknapper – 5 like brede fliser, 76 px høye, r22, #3a3a3a, gap 8; ikon 22 over etikett 15/500 */
         .qb{display:grid;grid-template-columns:repeat(var(--qn,5),minmax(0,1fr));gap:8px}
-        .qbtn{aspect-ratio:1/1;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--white,#fafafa);min-width:0;transition:background .3s,color .3s,transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .qb.txt .qbtn{aspect-ratio:auto;min-height:0;padding:12px 2px}
-        .qbtn .ql{font-size:11px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+        .qbtn{height:76px;border-radius:22px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--white,#fafafa);min-width:0;padding:0 1px;transition:background .3s,color .3s,transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .qbtn .ql{font-size:15px;font-weight:500;line-height:18px;letter-spacing:-.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .qbtn.warn{background:${ORANGE};color:#2c1d0c}
-        .qbtn.pink{background:${ACC};color:${INK}}
+        .qbtn.act{background:var(--gray1000,#e1e1e1);color:var(--gray200,#3a3a3a)}
         .qbtn.none{color:var(--gray600,#7f7f7f)}
         .qbtn.shake .qi{animation:rist 2.6s ease-in-out infinite}
         .qbtn.breathe{animation:pust 2.4s ease-in-out infinite}
@@ -41532,30 +42901,53 @@ try {
         .big small,.sv small{font-size:15px;font-weight:400;margin-left:4px;color:var(--gray800,#afafaf)}
         .big2{font-size:24px;font-weight:400}
         .smt{display:flex;align-items:baseline;gap:10px}
-        .cs{flex-direction:row;align-items:center;gap:14px}
-        .ci{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;flex:none}
-        .ss{height:44px;padding:0 18px 0 14px;border-radius:22px;background:${ACC};color:${INK};font-weight:600;display:inline-flex;align-items:center;gap:6px;flex:none}
-        .ss.stop{background:var(--gray300,#404040);color:var(--white,#fafafa)}
-        .lv{font-size:20px;font-weight:500}
-        .lim{position:relative;height:44px;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none}
-        .ltr{position:absolute;left:0;right:0;top:12px;height:20px;border-radius:10px;background:var(--gray300,#404040);overflow:hidden}
-        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 100%);background:${M.alpha(GREEN, 0.35)}}
-        .lfi{position:absolute;left:0;top:0;bottom:0;width:calc(var(--f) * 100%);background:${ACC};opacity:.9;transition:width .25s}
-        .lim.drag .lfi,.lim.drag .lth{transition:none}
-        .lth{position:absolute;top:6px;width:32px;height:32px;border-radius:16px;background:#fafafa;box-shadow:0 2px 8px rgba(0,0,0,.4);left:calc(var(--f) * (100% - 32px));transition:left .25s}
-        .lb{display:flex;gap:6px;flex-wrap:wrap}
-        .lchip{flex:1;min-width:52px;height:36px;border-radius:18px;background:var(--gray300,#404040);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+        /* Fiks 26.10: Lading – ett kort: status + effekt, mørk Start-pill, batteristolpe 56 px med grensemarkør, grense-chips */
+        .lhead{display:flex;align-items:flex-start;gap:12px}
+        .lt2{font-size:14px;color:var(--gray800,#afafaf)}
+        .lc .big{font-size:36px;font-weight:300;margin-top:2px}
+        .ss{height:40px;padding:0 16px 0 12px;border-radius:20px;background:#4a4a4a;color:var(--white,#fafafa);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
+        .lim{position:relative;height:56px;border-radius:18px;background:var(--gray300,#404040);overflow:hidden;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none;margin-top:4px}
+        .lim.ro{cursor:default}
+        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 1%);background:${GREEN};transition:width .4s}
+        .lpct{position:absolute;left:16px;top:0;bottom:0;display:flex;align-items:center;font-size:17px;font-weight:600;color:#12291d;pointer-events:none}
+        .lmk{position:absolute;top:8px;bottom:8px;width:3px;border-radius:2px;background:#fafafa;box-shadow:0 0 0 1px rgba(0,0,0,.25);left:calc(var(--f) * 1% - 1.5px);transition:left .25s;pointer-events:none}
+        .lim.drag .lmk{transition:none}
+        .lrow{display:flex;align-items:center;gap:6px}
+        .ll{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;color:var(--gray800,#afafaf)}
+        .ll b{font-weight:600;color:var(--white,#fafafa);margin-left:2px}
+        .lb{display:flex;gap:3px;flex:none}
+        .lchip{min-width:30px;height:28px;padding:0 4px;border-radius:14px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
         .lchip.on{background:${ACC};color:${INK}}
+        /* nøkkeltall: ett kort, 3 kolonner med skillelinjer */
+        .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:14px 0}
+        .kc{display:flex;flex-direction:column;gap:4px;padding:0 14px;min-width:0}
+        .kc+.kc{border-left:1px solid rgba(255,255,255,.08)}
+        .kl{font-size:14px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .kv{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* Smartlading: ikon-sirkel, tittel/tekst, bryter; 12 søyler med tidsakse */
+        .srow{display:flex;align-items:center;gap:12px}
+        .sci{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none;color:var(--white,#fafafa)}
+        .stt{font-size:15px;font-weight:600}
+        .sst{font-size:13px;color:var(--gray800,#afafaf)}
+        .tg{position:relative;width:50px;height:30px;border-radius:15px;background:var(--gray400,#545454);flex:none;transition:background .2s}
+        .tg i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .tg.on{background:${PINK}}
+        .tg.on i{transform:translateX(20px)}
+        .tg.none{opacity:.5}
         .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
         .sum.two{grid-template-columns:repeat(2,minmax(0,1fr))}
         .st{gap:4px;padding:14px}
         .sv{font-size:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pb{display:flex;align-items:flex-end;gap:2px;height:72px}
-        .pb i{flex:1;border-radius:3px 3px 1px 1px;background:var(--gray400,#545454);min-width:0}
-        .pb i.c{background:${PINK}}
-        .pb i.n{outline:1.5px solid rgba(255,255,255,.55);outline-offset:1px}
-        .pl{display:flex;justify-content:space-between;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .pb{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-items:end;gap:4px;height:72px}
+        .pb i{display:block;border-radius:5px 5px 2px 2px;background:var(--gray400,#545454);min-width:0}
+        .pb i.p{opacity:.4}
+        .pb i.x{background:var(--gray300,#404040)}
+        .pb i.c{background:${PINK};opacity:1}
+        .pl{position:relative;height:14px;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .pl span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+        .pl span:first-child{transform:none;left:0 !important}
+        .pl span:last-child{transform:none;left:auto !important;right:0}
         .rb{position:relative;height:12px;border-radius:6px;background:var(--gray300,#404040)}
         .rb i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:${GREEN}}
         .rb b{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:#fafafa}
@@ -41609,16 +43001,18 @@ try {
  * støvsugerens state + batteri (M.POPUP_LOOK/M.POPUP_FORCE['#rolf'] under). Erstatter den importerte #rolf-popupen
  * (ki-robot-card + button-card-grid + ki-tabs-card + paper-buttons-row): «Erstattet av Sir Sweeps» (MSH.POPUP_SUPERSEDE).
  *
- * Innhold i rekkefølge: toppkort 200 px (status-pille, batteri 44 px, animert robot på gulvet – rute ved rengjøring,
- *   hjem ved retur, lyn i dokken ved lading) · varsel «Vanntanken er tom» (rød, bare når tank = on, med «Tøm») ·
- *   faner (Renhold · Kontroll · Info · Kart, MSH.iconTabs, Liquid Glass-drag) + tannhjul (→ «Tilpass») ·
- *   Renhold: romgrid (plass 1–2 store 2×2, 3–5 nederst; farge per rom, trykk velger, Velg alle/Fjern alle, sum m² og
- *     estimert tid) → stor grønn «Støvsug alt/valgte rom», pause/fortsett + hjem når aktiv · Soner (vannrette chips,
- *     touch-action pan-x + stopPropagation).
+ * Innhold i rekkefølge (fiks 26.11): toppkort 200 px (navn 15 px, status-chip med ikon, batteri 44 px + «batteri» +
+ *   tynn grønn stolpe; kartflis til høyre med tregulv, lilla sone og animert robot – rute ved rengjøring, hjem ved retur,
+ *   lyn i dokken ved lading) · varsel «Vanntanken er tom» (rød, bare når tank = on, med «Tøm») ·
+ *   faner (Renhold · Kontroll · Info · Kart, tekst og like brede i full bredde som standard, Liquid Glass-drag) + tannhjul ·
+ *   Renhold: ETT romkort (etasje + «Velg alle», fargetonede fliser 2 + 3 (1fr 2fr 1fr), «Alle rom · m² · ca min» – tall
+ *     bare når areal/tid finnes) → grønn «Støvsug alt / Støvsug N rom»-pill, pause/fortsett + hjem når aktiv · Soner
+ *     (vannrette piller 52 px, touch-action pan-x + stopPropagation).
  *   Kontroll: fremdrift %/min igjen, play/pause, «Returner hjem», «Tøm støvsuger», segmenter for vifte/moppmodus/-intensitet.
  *   Info: vasket totalt (m², ÷ 7140 = fotballbaner) / tid brukt (dager + timer) · vedlikehold (timer igjen per del,
  *     oransje + «Nullstill» ≤ 30 t → button.*_nullstill_* / *_reset_*).
- *   Kart: image.*-entiteten (3:4) + romforklaring (trykk velger rom).
+ *   Kart: image.*-entiteten (3:4) med pan/pinch/dobbelttrykk/hjul-zoom 1–4× (Pointer Events, fiks 26.12) + «Tilbakestill
+ *     visning», rom-lag fra kartets attributter (trykk uten drag velger) + romforklaring.
  * «Tilpass» (msh-editor, samme skjema som GUI-editoren, MSH.draftEditor/Ferdig): Rom · Faner · Entiteter · Avansert.
  *
  * Standard-entitetene (DEF_ENT/DEF_ROOMS/DEF_ZONES) er brukerens faktiske oppsett fra dagens #rolf-YAML – brukt i
@@ -41715,10 +43109,10 @@ try {
   // Robotens egne segmenter: attributtet rooms/segments ({kart: [{id,name}]}, [{id,name}] eller {id: navn})
   function segsOf(st) {
     const a = (st && st.attributes) || {}, out = [];
-    const push = (id, name) => { if (id == null || id === '') return; if (!out.some((x) => String(x.id) === String(id))) out.push({ id, name: String(name || 'Rom ' + id) }); };
+    const push = (id, name, x) => { if (id == null || id === '') return; if (!out.some((o) => String(o.id) === String(id))) out.push({ id, name: String(name || 'Rom ' + id), attrs: x && typeof x === 'object' ? x : null }); };
     const walk = (v) => {
-      if (Array.isArray(v)) v.forEach((x) => { if (x && typeof x === 'object') push(x.id != null ? x.id : x.segment_id, x.name || x.room_name); });
-      else if (v && typeof v === 'object') Object.keys(v).forEach((k) => { const x = v[k]; if (Array.isArray(x)) walk(x); else if (typeof x === 'string') push(k, x); else if (x && typeof x === 'object' && (x.name || x.id != null)) push(x.id != null ? x.id : k, x.name); });
+      if (Array.isArray(v)) v.forEach((x) => { if (x && typeof x === 'object') push(x.id != null ? x.id : x.segment_id, x.name || x.room_name, x); });
+      else if (v && typeof v === 'object') Object.keys(v).forEach((k) => { const x = v[k]; if (Array.isArray(x)) walk(x); else if (typeof x === 'string') push(k, x); else if (x && typeof x === 'object' && (x.name || x.id != null)) push(x.id != null ? x.id : k, x.name, x); });
     };
     walk(a.rooms || a.segments || null);
     return out;
@@ -41736,11 +43130,17 @@ try {
         const k = id.slice(pre.length), d = DEF_ROOMS.find((r) => r[0] === k);
         out.set(k, { key: k, entity: id, name: d ? d[1] : stripName(h, id, vac), icon: d ? d[2] : 'mdi:floor-plan' });
       });
-      segsOf(h.states[vac]).forEach((s) => { const k = 'seg_' + M.slug(String(s.id)); if (!out.has(k)) out.set(k, { key: k, segment: s.id, name: s.name, icon: 'mdi:floor-plan' }); });
+      segsOf(h.states[vac]).forEach((s) => { const k = 'seg_' + M.slug(String(s.id)); if (!out.has(k)) out.set(k, { key: k, segment: s.id, name: s.name, icon: 'mdi:floor-plan', attrs: s.attrs }); });
     }
     Object.keys(cfg).forEach((k) => { const r = cfg[k]; if (!r || typeof r !== 'object' || out.has(k) || !(r.manual || r.entity || r.segment != null)) return; out.set(k, { key: k, entity: r.entity || null, segment: r.segment != null && r.segment !== '' ? r.segment : null, name: r.name || k, icon: 'mdi:floor-plan', manual: true }); });
     let i = 0;
-    const L = [...out.values()].map((r) => { const x = cfg[r.key] || {}; const col = x.color || PAL[i % PAL.length]; i++; return { ...r, name: x.name || r.name, icon: x.icon || r.icon, color: col, hidden: !!x.hidden, m2: num(x.m2) }; });
+    // Fiks 26.11: areal og tid fra rom-attributtene (rom-entiteten eller robotens segment); config.m2 overstyrer arealet
+    const L = [...out.values()].map((r) => {
+      const x = cfg[r.key] || {}; const col = x.color || PAL[i % PAL.length]; i++;
+      const at = (r.entity && h && h.states[r.entity] ? h.states[r.entity].attributes : r.attrs) || {};
+      const pickA = (keys) => { for (const k of keys) { const v = num(at[k]); if (v != null && v > 0) return v; } return null; };
+      return { ...r, name: x.name || r.name, icon: x.icon || r.icon, color: col, hidden: !!x.hidden, m2: num(x.m2) || pickA(['m2', 'area', 'areal', 'size']), min: pickA(['minutes', 'time', 'duration', 'tid', 'estimated_time']) };
+    });
     return orderBy(L, c.room_order);
   }
   function zonesOf(h, c) {
@@ -41774,15 +43174,15 @@ try {
   const ACTIVE = ['cleaning', 'paused', 'returning'];
 
   /* ------------------------------------------------------------ robot-scenen (toppkortet) */
-  const ROUTE = 'M92 150 H214 V126 H92 V102 H214 V78 H92 V54 H214 V32 H92';
-  const HOME = 'M180 80 C150 96 110 120 92 162';
-  const DOCK = [92, 168];
+  // Fiks 26.11: gulvet fyller hele kartflaten (viewBox 60 0 184 200), dokken nede til venstre, sonen som lilla ellipse
+  const ROUTE = 'M84 158 H228 V132 H84 V106 H228 V80 H84 V54 H228 V28 H84';
+  const HOME = 'M196 92 C166 112 112 142 84 168';
+  const DOCK = [84, 184];
   function scene(mode, charging, animOff) {
-    const floor = `<defs><pattern id="pl" width="40" height="12" patternUnits="userSpaceOnUse"><rect width="40" height="12" fill="#4a3f36"/><path d="M0 11.5H40M22 0V12" stroke="#3d332b" stroke-width="1"/></pattern>
+    const floor = `<defs><pattern id="pl" width="44" height="12" patternUnits="userSpaceOnUse"><rect width="44" height="12" fill="#5a4636"/><path d="M0 11.5H44M26 0V12" stroke="#4a3a2d" stroke-width="1"/><path d="M0 5H18" stroke="#63503f" stroke-width=".6" opacity=".6"/></pattern>
         <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs>
-      <rect x="72" y="14" width="160" height="176" rx="14" fill="url(#pl)"/>
-      <ellipse cx="170" cy="120" rx="34" ry="22" fill="#5f5a6e" opacity=".55"/>
-      <rect x="72" y="14" width="160" height="176" rx="14" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/>
+      <rect x="60" y="0" width="184" height="200" fill="url(#pl)"/>
+      <ellipse class="zone" cx="176" cy="92" rx="40" ry="26"/>
       <g class="dock"><rect x="${DOCK[0] - 12}" y="${DOCK[1] - 6}" width="24" height="20" rx="5" fill="#2a3038"/><rect x="${DOCK[0] - 7}" y="${DOCK[1] - 2}" width="14" height="3.5" rx="1.75" class="dl ${charging ? 'on' : ''}"/></g>`;
     const bot = (inner) => `<g class="bot ${mode}">${inner}<circle r="11" fill="url(#rg)"/><circle r="11" fill="none" stroke="#b8bec6" stroke-width=".8"/><path d="M6.5 -8.5 A11 11 0 0 1 6.5 8.5" fill="none" stroke="#2a3038" stroke-width="2.4"/><circle cx="-2" r="3.4" fill="#2a3038"/><circle cx="-2" r="1.4" class="led"/>${mode === 'error' ? '<circle r="15" class="err"/>' : ''}</g>`;
     let trail = '', robot = '';
@@ -41791,19 +43191,45 @@ try {
       robot = bot(`<animateMotion dur="36s" repeatCount="indefinite" rotate="auto" path="${ROUTE}"/>`);
     } else if (mode === 'cleaning' || mode === 'paused') {
       trail = `<path class="trail" d="${ROUTE}" pathLength="100" stroke-dasharray="100" stroke-dashoffset="52"/>`;
-      robot = `<g transform="translate(214 90) rotate(90)">${bot('')}</g>`;
+      robot = `<g transform="translate(228 93) rotate(90)">${bot('')}</g>`;
     } else if (mode === 'returning' && !animOff) {
       trail = `<path class="homep" d="${HOME}"/>`;
       robot = bot(`<animateMotion dur="5s" repeatCount="indefinite" rotate="auto" path="${HOME}"/>`);
     } else if (mode === 'returning') {
       trail = `<path class="homep" d="${HOME}"/>`;
-      robot = `<g transform="translate(130 112)">${bot('')}</g>`;
+      robot = `<g transform="translate(130 126)">${bot('')}</g>`;
     } else {
       robot = `<g transform="translate(${DOCK[0]} ${DOCK[1] - 14}) rotate(-90)">${bot('')}</g>`;
     }
-    const bolt = charging ? `<g class="bolt" transform="translate(${DOCK[0] + 20} ${DOCK[1] - 30})"><circle r="10" fill="rgba(102,209,158,.22)"/><path d="M1.5 -7 L-4.5 1 H-0.5 L-1.5 7 L4.5 -1 H0.5 Z" fill="${C.green}"/></g>` : '';
-    return `<svg class="scene" viewBox="60 0 184 200" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">${floor}${trail}${robot}${bolt}</svg>`;
+    const bolt = charging ? `<g class="bolt" transform="translate(${DOCK[0] + 22} ${DOCK[1] - 28})"><circle r="10" fill="rgba(102,209,158,.22)"/><path d="M1.5 -7 L-4.5 1 H-0.5 L-1.5 7 L4.5 -1 H0.5 Z" fill="${C.green}"/></g>` : '';
+    return `<svg class="scene" viewBox="60 0 184 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${floor}${trail}${robot}${bolt}</svg>`;
   }
+
+  // Fiks 26.12: rom i kartbildet (Xiaomi Cloud Map Extractor-formatet: attributes.rooms {id: {x0,y0,x1,y1}} +
+  // calibration_points [{vacuum:{x,y}, map:{x,y}} ×3]) → rektangler i bildets piksler, koblet til rommene (segment/navn).
+  function mapRooms(st, rooms) {
+    const a = (st && st.attributes) || {}, cp = a.calibration_points, R = a.rooms;
+    if (!Array.isArray(cp) || cp.length < 3 || !R || typeof R !== 'object') return [];
+    const P = cp.slice(0, 3).map((p) => p && p.vacuum && p.map ? [Number(p.vacuum.x), Number(p.vacuum.y), Number(p.map.x), Number(p.map.y)] : null);
+    if (P.some((p) => !p || p.some((v) => isNaN(v)))) return [];
+    const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const A = P.map((p) => [p[0], p[1], 1]), D = det(A);
+    if (!D) return [];
+    const solve = (col) => [0, 1, 2].map((i) => det(A.map((row, r) => row.map((v, j) => (j === i ? P[r][col] : v)))) / D);
+    const fx = solve(2), fy = solve(3), tr = (x, y) => [fx[0] * x + fx[1] * y + fx[2], fy[0] * x + fy[1] * y + fy[2]];
+    const list = Array.isArray(R) ? R.map((r) => [r && (r.id != null ? r.id : r.number), r]) : Object.keys(R).map((k) => [k, R[k]]);
+    const out = [];
+    list.forEach(([id, r]) => {
+      if (!r || [r.x0, r.y0, r.x1, r.y1].some((v) => isNaN(Number(v)))) return;
+      const nm = String(r.name || '').toLowerCase();
+      const room = rooms.find((x) => x.segment != null && String(x.segment) === String(id)) || (nm && rooms.find((x) => x.name.toLowerCase() === nm));
+      if (!room) return;
+      const a0 = tr(Number(r.x0), Number(r.y0)), a1 = tr(Number(r.x1), Number(r.y1));
+      out.push({ room, x: Math.min(a0[0], a1[0]), y: Math.min(a0[1], a1[1]), w: Math.abs(a1[0] - a0[0]), h: Math.abs(a1[1] - a0[1]) });
+    });
+    return out;
+  }
+  const MAPWH = new Map(); // bildestørrelse per kart-URL (for rom-lag i bildets piksler)
 
   /* ------------------------------------------------------------ editor (Tilpass + GUI-editoren) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
@@ -41914,7 +43340,7 @@ try {
     // Faner: forhåndsvisning + piller med dra, ikon, navn, «N deler», pil (innhold) og øye
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
-      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels === 'name';
+      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels !== 'icon';
       const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#282828;overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:#2a1720;font-weight:500` : 'color:#afafaf'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a;flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
       return box(prev + tabOrder(cc).map((k) => {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k;
@@ -41958,7 +43384,7 @@ try {
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [faner] },
-          { type: 'select', name: 'tab_labels', label: 'Stil', options: [['icon', 'Symboler'], ['name', 'Navn']], default: 'icon', help: 'Symboler: bare ikon, den aktive fanen viser også navnet. Navn: bare tekst.' },
+          { type: 'select', name: 'tab_labels', label: 'Stil', options: [['name', 'Tekst'], ['icon', 'Symboler']], default: 'name', help: 'Tekst (standard): like brede tekstfaner i full bredde. Symboler: bare ikon, den aktive fanen viser også navnet.' },
           { type: 'select', name: 'startTab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'renhold' },
         ] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:link-variant', focus: ['entiteter', ...groups.map((g) => 'ent-' + M.slug(g))], fields: entFields },
@@ -42009,9 +43435,11 @@ try {
       const rooms = roomsOf(h, c, E.vacuum), vis = rooms.filter((r) => !r.hidden);
       const sel = vis.filter((r) => this._isSel(r));
       const areaMin = minutesOf(this.s(E.time)), areaTot = num(this.s(E.area) && this.s(E.area).state);
-      const rate = areaMin && areaTot ? areaMin / areaTot : 1.2; // min per m²: robotens egen snittfart, ellers 1,2
-      const pick = sel.length ? sel : vis, m2 = pick.reduce((s, r) => s + (r.m2 || 0), 0);
-      return { h, c, E, vs, state, bat, charging, tank: !!(tank && tank.state === 'on'), rooms: vis, sel, m2: m2 || null, est: m2 ? Math.round(m2 * rate) : null, active: ACTIVE.includes(state) };
+      const rate = areaMin && areaTot ? areaMin / areaTot : null; // min per m²: robotens egen snittfart (ingen gjettet standard)
+      // Fiks 26.11: sum for valgte rom (ellers alle); mangler areal/tid for et rom skjules tallet – aldri «– m²»
+      const pick = sel.length ? sel : vis, m2 = pick.length && pick.every((r) => r.m2) ? pick.reduce((s, r) => s + r.m2, 0) : null;
+      const est = pick.length && pick.every((r) => r.min) ? Math.round(pick.reduce((s, r) => s + r.min, 0)) : m2 && rate ? Math.round(m2 * rate) : null;
+      return { h, c, E, vs, state, bat, charging, tank: !!(tank && tank.state === 'on'), rooms: vis, sel, m2, est, active: ACTIVE.includes(state) };
     }
     _isSel(r) { if (r.entity) { const s = this.s(r.entity); return !!(s && M.isOn(s)); } return !!(this.ui.sel || {})[r.key]; }
     _progress(m) {
@@ -42058,6 +43486,7 @@ try {
         case 'fanscript': return this._run(h, E.fan_script);
         case 'opt': return M.call(h, d.id.split('.')[0], 'select_option', { entity_id: d.id, option: d.v });
         case 'reset': return M.call(h, 'button', 'press', { entity_id: d.id });
+        case 'mapreset': return this._mapReset(true);
         default: return super.onAction(name, el, ev);
       }
     }
@@ -42065,10 +43494,11 @@ try {
     /* ---------------------------------------------------------- tegning */
     render() {
       const m = this._model(), c = m.c, t = this.tab;
-      const V = visTabs(c), names = c.tab_labels === 'name';
+      // Fiks 26.11: tekstfaner som standard, like brede i full bredde (grid); den rosa boblen er den aktive fanen selv
+      const V = visTabs(c), names = c.tab_labels !== 'icon';
       const tabs = `<div class="tabs ${names ? 'names' : 'itabs'}" role="tablist" data-glass-drag="x">${V.map((k) => {
         const [, label, icon] = TABL[k];
-        return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
+        return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" aria-label="${esc(label)}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
           : M.iconTabs.btn({ label, icon }, k === t, `data-act="tab" data-v="${k}" data-haptic="selection"`, k === t ? 'on' : '');
       }).join('')}</div>`;
       let body;
@@ -42077,20 +43507,27 @@ try {
     }
     _parts(t) { const hid = partHidden(this.config, t); return PARTS[t].map((p) => p[0]).filter((p) => !hid.has(p)); }
     _missing(text, section) { return `<div class="miss"><span class="mdash">–</span><span>·</span><button class="pick press" data-act="customize" data-section="${esc(section || 'ent-robot_og_status')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
+    // Fiks 26.11: mørk flate med svak radial glød · navn 15 px + status-chip med ikon · batteri 44 px, «batteri» og tynn
+    // grønn stolpe · kartet til høyre (kortets høyde − 12 px) med tregulv, sonen som lilla ellipse og roboten ved dokken.
     _hero(m) {
       const mode = !m.vs ? 'none' : m.state === 'error' ? 'error' : ['cleaning', 'paused', 'returning'].includes(m.state) ? m.state : 'docked';
-      const label = !m.vs ? '–' : m.state === 'docked' && m.charging ? 'Lader' : STATUS[m.state] || m.vs.state;
+      const [label, ic] = !m.vs ? ['–', 'mdi:help-circle-outline'] : m.state === 'docked' ? (m.charging ? ['Lader i dokken', 'mdi:battery-charging'] : ['I dokken', 'mdi:home-outline'])
+        : m.state === 'cleaning' ? ['Rengjør', 'mdi:broom'] : m.state === 'returning' ? ['På vei hjem', 'mdi:home-import-outline'] : m.state === 'paused' ? ['Pauset', 'mdi:pause']
+          : m.state === 'error' ? [m.vs.attributes.error ? 'Feil · ' + m.vs.attributes.error : 'Feil', 'mdi:alert-circle-outline'] : [STATUS[m.state] || m.vs.state, 'mdi:robot-vacuum'];
       const name = this.config.name || (m.vs ? M.name(this.hass, m.E.vacuum) : 'Støvsuger');
-      const sub = !m.vs ? 'Velg støvsuger' : m.state === 'error' && m.vs.attributes.error ? String(m.vs.attributes.error) : m.vs.attributes.fan_speed ? 'Vifte ' + m.vs.attributes.fan_speed : '';
-      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray800,#afafaf)';
+      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray900,#c7c7c7)';
       const animOff = M.animOff ? M.animOff() : false;
       return `<div class="hero ${mode}" data-key="hero">
-        ${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}
+        <div class="scw">${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
         <div class="hl">
-          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}><i></i>${esc(label)}</span>
-          <div class="bat" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span>${m.charging ? M.icon('mdi:lightning-bolt', 20, `color:${C.green}`) : ''}</div>
-          <span class="hn">${esc(name)}${sub ? ` · <span>${esc(sub)}</span>` : ''}</span>
+          <span class="hn">${esc(name)}</span>
+          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
           ${!m.vs ? `<button class="pick press" data-act="customize" data-section="ent-robot_og_status">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
+          <div class="batw" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}>
+            <div class="bat"><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span></div>
+            <span class="bl">batteri</span>
+            <span class="bbar"><i style="width:${m.bat != null ? M.clamp(m.bat, 0, 100) : 0}%"></i></span>
+          </div>
         </div></div>`;
     }
     _tank(m) {
@@ -42105,36 +43542,47 @@ try {
     }
 
     /* ---------------------------------------------------------- Renhold */
+    // Fiks 26.11: rommene i ETT kort (etasjenavn + «Velg alle» som tekstknapp), fargetonede fliser i 2 + 3-rutenett
+    // (1fr 2fr 1fr), sum nederst · grønn «Støvsug alt»-pill med to linjer · Soner som vannrett rad med piller.
+    _roomRows(n) {
+      // Plass i et 4-kolonners rutenett: rad 1 = 2 store (2+2), deretter rader med 3 (1+2+1); rest fyller raden
+      if (n <= 1) return [4];
+      const spans = [2, 2];
+      let left = n - 2;
+      while (left > 0) { if (left >= 3) { spans.push(1, 2, 1); left -= 3; } else if (left === 2) { spans.push(2, 2); left = 0; } else { spans.push(4); left = 0; } }
+      return spans;
+    }
+    _sumText(m) { const p = []; if (m.m2) p.push(M.nf(m.m2) + ' m²'); if (m.est) p.push('ca ' + m.est + ' min'); return p; }
+    _allLbl(m) { const as = this.s(m.E.all); return as ? String(as.state) === 'False' || as.state === 'off' : !m.sel.length || m.sel.length === m.rooms.length; }
     _t_renhold(m) {
       const P = this._parts('renhold'), c = m.c, out = [];
       if (!m.vs) out.push(this._missing('Fant ingen vacuum.*-entitet'));
+      const allLbl = this._allLbl(m), n = m.sel.length, sum = this._sumText(m);
       if (P.includes('rom')) {
         if (!m.rooms.length) out.push(`<div class="miss"><span>Ingen rom</span><span>·</span><button class="pick press" data-act="customize" data-section="rom-liste">${M.icon('mdi:plus', 18)}Legg til rom</button></div>`);
         else {
-          const all = m.sel.length === m.rooms.length;
+          const all = m.sel.length === m.rooms.length, spans = this._roomRows(m.rooms.length);
           const tiles = m.rooms.map((r, i) => {
             const on = this._isSel(r), big = i < 2 && m.rooms.length > 1;
-            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
-              <span class="ri">${M.icon(r.icon, big ? 26 : 20)}</span><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}<span class="rc">${on ? M.icon('mdi:check', 16) : ''}</span></button>`;
+            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
+              <span class="ri">${M.icon(r.icon, 18)}</span><span class="rtx"><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}</span></button>`;
           }).join('');
-          const n = m.sel.length;
-          out.push(`<div class="sh"><span class="st">${esc(c.floor || 'Rom')}</span><button class="lnk press" data-act="selall">${all ? 'Fjern alle' : 'Velg alle'}</button></div>
+          const lead = allLbl || !n ? 'Alle rom' : `${n} rom`;
+          out.push(`<div class="rcard"><div class="rch"><span class="rct">${esc(c.floor || 'Rom')}</span><button class="lnk press" data-act="selall">${all ? 'Fjern alle' : 'Velg alle'}</button></div>
             <div class="rgrid">${tiles}</div>
-            <div class="sum"><span>${n ? `${n} rom valgt` : 'Ingen valgt – hele etasjen'}</span><span class="num">${m.m2 ? M.nf(m.m2) + ' m²' : '– m²'}</span><span class="num">${m.est ? 'ca. ' + m.est + ' min' : '– min'}</span></div>`);
+            <div class="sum num">${esc([lead, ...sum].join(' · '))}</div></div>`);
         }
       }
       if (P.includes('start')) {
         if (m.active) out.push(this._activeBtns(m));
         else {
-          const as = this.s(m.E.all);
-          const allLbl = as ? String(as.state) === 'False' || as.state === 'off' : !m.sel.length || m.sel.length === m.rooms.length;
-          const lbl = this.ui.armed ? 'Trykk igjen for å starte' : allLbl ? 'Støvsug alt' : 'Støvsug valgte rom';
-          out.push(`<button class="gobtn press ${this.ui.armed ? 'armed' : ''}" data-act="start" ${m.vs ? '' : 'disabled'} data-haptic="medium">${M.icon('mdi:robot-vacuum', 26)}<span>${esc(lbl)}</span></button>`);
+          const lbl = this.ui.armed ? 'Trykk igjen for å starte' : allLbl || !n ? 'Støvsug alt' : `Støvsug ${n} rom`;
+          out.push(`<button class="gobtn press ${this.ui.armed ? 'armed' : ''}" data-act="start" ${m.vs ? '' : 'disabled'} data-haptic="medium"><span class="gi">${M.icon('mdi:robot-vacuum', 24)}</span><span class="gt"><b>${esc(lbl)}</b>${sum.length ? `<span class="num">${esc(sum.join(' · '))}</span>` : ''}</span></button>`);
         }
       }
       if (P.includes('soner')) {
         const Z = zonesOf(this.hass, c).filter((z) => !z.hidden);
-        if (Z.length) out.push(`<div class="sh"><span class="st">Soner</span><span class="meta">${Z.length}</span></div><div class="zones" data-gd-skip>${Z.map((z) => `<button class="zc press" data-act="zone" data-id="${esc(z.entity)}" data-ent="${esc(z.entity)}">${M.icon('mdi:selection-marker', 18)}${esc(z.name)}</button>`).join('')}</div>`);
+        if (Z.length) out.push(`<div class="sh"><span class="st">Soner</span></div><div class="zones" data-gd-skip>${Z.map((z) => `<button class="zc press" data-act="zone" data-id="${esc(z.entity)}" data-ent="${esc(z.entity)}">${M.icon('mdi:selection-marker', 20)}<span>${esc(z.name)}</span></button>`).join('')}</div>`);
       }
       return out.join('');
     }
@@ -42196,15 +43644,125 @@ try {
     }
 
     /* ---------------------------------------------------------- Kart */
+    // Fiks 26.12: kartflaten kan panoreres (én finger/mus), pinch-zoomes (to fingre), dobbelttrykkes (zoom inn /
+    // tilbakestill) og hjul-zoomes (PC), 1–4×. Transformen ligger i this._mv og tegnes inn i markupen, så hass-
+    // oppdateringer (morph) aldri nullstiller den. Rom i kartet (rom-lag fra kartets attributter) velges med trykk uten drag.
     _t_kart(m) {
       const P = this._parts('kart'), out = [];
       if (P.includes('kart')) {
         const s = this.s(m.E.map), pic = s && s.attributes.entity_picture;
-        const src = pic ? (this.hass.hassUrl ? this.hass.hassUrl(pic) : pic) : '';
-        out.push(src ? `<div class="map" data-ent="${esc(m.E.map)}"><img src="${esc(src)}" alt="${esc(M.name(this.hass, m.E.map))}" loading="lazy"></div>` : this._missing(m.E.map ? 'Kartet er ikke tilgjengelig' : 'Fant ikke noe kart (image.*)'));
+        const src = pic ? (this.hass.hassUrl && !/^(https?:|data:|blob:)/.test(pic) ? this.hass.hassUrl(pic) : pic) : '';
+        if (!src) out.push(this._missing(m.E.map ? 'Kartet er ikke tilgjengelig' : 'Fant ikke noe kart (image.*)'));
+        else {
+          const ov = mapRooms(s, m.rooms), wh = ov.length ? this._mapWH(src) : null;
+          const T = this._mv || { s: 1, x: 0, y: 0 }, zoomed = T.s > 1.01 || Math.abs(T.x) > 0.5 || Math.abs(T.y) > 0.5;
+          const alt = esc(M.name(this.hass, m.E.map));
+          const inner = wh ? `<svg class="mimg" viewBox="0 0 ${wh[0]} ${wh[1]}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${alt}"><image href="${esc(src)}" width="${wh[0]}" height="${wh[1]}"/>${ov.map((o) => `<rect class="mr ${this._isSel(o.room) ? 'on' : ''}" data-mroom data-k="${esc(o.room.key)}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" width="${o.w.toFixed(1)}" height="${o.h.toFixed(1)}" rx="3" style="--rc:${esc(o.room.color)}"><title>${esc(o.room.name)}</title></rect>`).join('')}</svg>`
+            : `<img src="${esc(src)}" alt="${alt}" draggable="false">`;
+          out.push(`<div class="map" data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
+            <button class="mreset press ${zoomed ? '' : 'hid'}" data-act="mapreset" aria-label="Tilbakestill visning" title="Tilbakestill visning" data-haptic="medium">${M.icon('mdi:fit-to-screen', 22)}</button></div>`);
+        }
       }
       if (P.includes('forklaring') && m.rooms.length) out.push(`<div class="legend">${m.rooms.map((r) => { const on = this._isSel(r); return `<button class="lg press ${on ? 'on' : ''}" style="--rc:${esc(r.color)}" data-act="maproom" data-k="${esc(r.key)}" role="checkbox" aria-checked="${on}" data-haptic="selection"><i></i>${esc(r.name)}</button>`; }).join('')}</div>`);
       return out.join('');
+    }
+    // Bildestørrelsen trengs for rom-laget (bildets piksler). Lastes én gang per URL; tegner på nytt når den er kjent.
+    _mapWH(src) {
+      if (MAPWH.has(src)) return MAPWH.get(src);
+      MAPWH.set(src, null);
+      try { const im = new Image(); im.onload = () => { if (im.naturalWidth) { MAPWH.set(src, [im.naturalWidth, im.naturalHeight]); if (this.isConnected) this.update(); } }; im.src = src; } catch (e) { /* */ }
+      return null;
+    }
+    _mapReset(anim) {
+      this._mv = { s: 1, x: 0, y: 0 };
+      const map = this.shadowRoot.querySelector('.map'), inn = map && map.querySelector('.mapin');
+      if (inn) { if (anim && !(M.animOff && M.animOff())) { inn.style.transition = 'transform .25s cubic-bezier(.3,.8,.3,1)'; setTimeout(() => { inn.style.transition = ''; }, 280); } inn.style.transform = 'translate(0px, 0px) scale(1)'; }
+      const rb = map && map.querySelector('.mreset'); if (rb) rb.classList.add('hid');
+    }
+    // Gester på kartflaten (Pointer Events). Idempotent per element; elementet overlever morph (data-key="map").
+    _mapInit(map) {
+      if (!map || map.__mv) return;
+      map.__mv = true;
+      const P = new Map();
+      let g = null, dragged = false, down0 = null, lastTap = null, tapT = 0, raf = 0;
+      const T = () => this._mv || (this._mv = { s: 1, x: 0, y: 0 });
+      const box = () => { const r = map.getBoundingClientRect(), k = map.offsetWidth ? r.width / map.offsetWidth : 1; return { r, k, W: map.offsetWidth, H: map.offsetHeight }; };
+      const loc = (e, b) => ({ x: (e.clientX - b.r.left) / b.k, y: (e.clientY - b.r.top) / b.k });
+      const clampT = (t, b) => { t.s = M.clamp(t.s, 1, 4); t.x = M.clamp(t.x, b.W - b.W * t.s, 0); t.y = M.clamp(t.y, b.H - b.H * t.s, 0); return t; };
+      const apply = () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const t = T(), inn = map.querySelector('.mapin');
+          if (inn) inn.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.s})`;
+          const rb = map.querySelector('.mreset'); if (rb) rb.classList.toggle('hid', !(t.s > 1.01 || Math.abs(t.x) > 0.5 || Math.abs(t.y) > 0.5));
+        });
+      };
+      const zoomAt = (p, s2, b) => { const t = T(); s2 = M.clamp(s2, 1, 4); t.x = p.x - ((p.x - t.x) * s2) / t.s; t.y = p.y - ((p.y - t.y) * s2) / t.s; t.s = s2; clampT(t, b); apply(); };
+      const begin = () => {
+        const b = box(), pts = [...P.values()], t = T();
+        if (pts.length >= 2) { const a = loc(pts[0], b), c = loc(pts[1], b); dragged = true; g = { pinch: true, d0: Math.hypot(a.x - c.x, a.y - c.y) || 1, m0: { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }, t0: { ...t }, b }; }
+        else if (pts.length === 1) g = { p0: loc(pts[0], b), t0: { ...t }, b };
+        else g = null;
+      };
+      const stop = (e) => e.stopPropagation();
+      map.addEventListener('touchstart', stop, { passive: true });
+      map.addEventListener('touchmove', (e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); }, { passive: false });
+      map.addEventListener('pointerdown', (e) => {
+        if (e.target.closest && e.target.closest('.mreset')) return; // knappen får vanlig klikk
+        e.stopPropagation();
+        if (e.pointerType === 'mouse' && e.button) return;
+        try { map.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        if (!P.size) { dragged = false; down0 = { x: e.clientX, y: e.clientY }; }
+        P.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+        begin();
+      });
+      map.addEventListener('pointermove', (e) => {
+        if (!P.has(e.pointerId)) return;
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        P.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+        if (!g) return;
+        const t = T(), b = g.b;
+        if (g.pinch) {
+          const pts = [...P.values()], a = loc(pts[0], b), c = loc(pts[1], b), d = Math.hypot(a.x - c.x, a.y - c.y), mm = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 };
+          const cx = (g.m0.x - g.t0.x) / g.t0.s, cy = (g.m0.y - g.t0.y) / g.t0.s; // kartpunktet under midtpunktet ved start
+          t.s = M.clamp(g.t0.s * (d / g.d0), 1, 4); t.x = mm.x - cx * t.s; t.y = mm.y - cy * t.s;
+        } else {
+          if (!dragged && Math.hypot(e.clientX - down0.x, e.clientY - down0.y) >= 6) dragged = true;
+          if (!dragged) return;
+          const p = loc(e, b); t.x = g.t0.x + (p.x - g.p0.x); t.y = g.t0.y + (p.y - g.p0.y); t.s = g.t0.s;
+        }
+        clampT(t, b); apply();
+      });
+      const end = (e) => {
+        if (!P.has(e.pointerId)) return;
+        e.stopPropagation();
+        P.delete(e.pointerId);
+        if (P.size) { begin(); return; }
+        g = null;
+        if (e.type === 'pointerup' && !dragged) tap(e);
+      };
+      map.addEventListener('pointerup', end);
+      map.addEventListener('pointercancel', end);
+      map.addEventListener('lostpointercapture', (e) => { if (P.has(e.pointerId)) { P.delete(e.pointerId); if (P.size) begin(); else g = null; } });
+      const tap = (e) => {
+        const now = Date.now();
+        if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+          clearTimeout(tapT); lastTap = null;
+          const b = box();
+          if (T().s > 1.01) this._mapReset(true); else zoomAt(loc(e, b), 2, b);
+          M.haptic('medium');
+          return;
+        }
+        lastTap = { t: now, x: e.clientX, y: e.clientY };
+        const R = this.shadowRoot, el = R.elementFromPoint ? R.elementFromPoint(e.clientX, e.clientY) : null, hit = el && el.closest ? el.closest('[data-mroom]') : null;
+        if (!hit) return;
+        const k = hit.dataset.k;
+        clearTimeout(tapT);
+        tapT = setTimeout(() => { if (!this.isConnected) return; M.haptic('selection'); this.onAction('maproom', { dataset: { k } }); }, 260); // venter på et mulig dobbelttrykk
+      };
+      map.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); const b = box(); zoomAt(loc(e, b), T().s * Math.exp(-e.deltaY * 0.0025), b); }, { passive: false });
+      map.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); });
     }
 
     afterRender() {
@@ -42212,6 +43770,7 @@ try {
       if (M.glassDrag) R.querySelectorAll('.tabs,.seg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
       // Sone-chips: vannrett scroll skal aldri lukke/dra popupen (fallgruve 2)
       const z = R.querySelector('.zones');
+      this._mapInit(R.querySelector('.map'));
       if (z && !z.__vz) { z.__vz = true; const stop = (e) => e.stopPropagation(); ['touchstart', 'touchmove', 'pointerdown', 'pointermove'].forEach((t) => z.addEventListener(t, stop, { passive: true })); }
     }
     get styles() {
@@ -42219,8 +43778,10 @@ try {
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:linear-gradient(160deg,#3a3a3a 0%,#333036 100%);box-shadow:${C.edge}}
-        .scene{position:absolute;right:0;top:0;height:100%;width:62%;max-width:420px}
+        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),#333333;box-shadow:${C.edge}}
+        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+        .scene{display:block;width:100%;height:100%}
+        .zone{fill:${C.purple};fill-opacity:.32;stroke:${C.purple};stroke-opacity:.7;stroke-width:1.2;stroke-dasharray:4 3}
         .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
         .homep{fill:none;stroke:rgba(242,181,115,.55);stroke-width:2;stroke-dasharray:4 5}
         .led{fill:${C.blue}}
@@ -42232,55 +43793,63 @@ try {
         @keyframes vpulse{0%,100%{opacity:1}50%{opacity:.35}}
         @keyframes vblink{0%{opacity:1}100%{opacity:0}}
         @media (prefers-reduced-motion: reduce){.dl.on,.bolt,.err{animation:none}}
-        .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px;height:100%;max-width:60%}
-        .spill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:14px;background:color-mix(in srgb, var(--tc) 18%, transparent);color:var(--tc);font-size:13px;font-weight:600;white-space:nowrap}
-        .spill i{width:8px;height:8px;border-radius:4px;background:var(--tc)}
-        .bat{display:flex;align-items:baseline;gap:2px;margin-top:auto}
+        .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:18px 10px 18px 18px;height:100%;width:calc(100% - min(50%,173px) - 6px);box-sizing:border-box;min-width:0}
+        .hn{font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) 16%, rgba(255,255,255,.06));color:var(--tc);font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
+        .spill span{overflow:hidden;text-overflow:ellipsis}
+        .batw{margin-top:auto;display:flex;flex-direction:column;gap:4px;width:100%}
+        .bat{display:flex;align-items:baseline;gap:2px}
         .bv{font-size:44px;font-weight:300;line-height:1}
-        .bu{font-size:20px;color:var(--gray700,#979797);margin-right:4px}
-        .hn{font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .hn span{color:var(--gray700,#979797)}
+        .bu{font-size:20px;color:var(--gray700,#979797)}
+        .bl{font-size:13px;color:var(--gray700,#979797)}
+        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px}
+        .bbar i{display:block;height:100%;border-radius:2px;background:${C.green}}
         .tank{display:flex;align-items:center;gap:12px;padding:6px 8px 6px 6px;border-radius:32px;background:${C.red};color:#2c1411}
         .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(0,0,0,.1);flex:none;animation:vdrip 1.4s ease-in-out infinite}
         @keyframes vdrip{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
         .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tt b{font-size:15px;font-weight:600}.tt span{font-size:12px;opacity:.8}
         .tb{height:40px;padding:0 14px;border-radius:20px;background:rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
         .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs.names{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
         .tabs .itab{color:var(--gray800,#afafaf);background:transparent}
         .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:#2a1720;font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .ntab{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
+        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
         .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);flex:none;box-shadow:${C.edge}}
         .sh{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
         .meta{font-size:13px;color:var(--gray700,#979797);margin-left:auto}
-        .lnk{height:32px;padding:0 12px;border-radius:16px;background:var(--gray200,#3a3a3a);font-size:13px;color:var(--gray900,#c7c7c7)}
-        .rgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:72px;gap:8px}
-        .rt{grid-column:span 2;position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;padding:10px 12px;border-radius:22px;background:var(--gray200,#3a3a3a);text-align:left;min-width:0;overflow:hidden;box-shadow:${C.edge}}
-        .rt.big{grid-column:span 3;grid-row:span 2;border-radius:28px;padding:14px 16px}
-        .rt .ri{position:absolute;top:10px;left:10px;width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:color-mix(in srgb, var(--rc) 22%, transparent);color:var(--rc)}
-        .rt.big .ri{top:14px;left:14px;width:48px;height:48px;border-radius:24px}
-        .rt:not(.big) .ri{position:static;width:26px;height:26px;border-radius:13px;margin-bottom:auto}
-        .rn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .rt.big .rn{font-size:17px}
-        .rm{font-size:11px;color:var(--gray700,#979797)}
-        .rc{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:11px;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25)}
-        .rt.on{background:var(--rc);color:#232323}
-        .rt.on .ri{background:rgba(0,0,0,.12);color:#232323}
-        .rt.on .rm{color:rgba(0,0,0,.6)}
-        .rt.on .rc{background:#232323;color:#fafafa;box-shadow:none}
-        .sum{display:flex;gap:12px;padding:0 6px;font-size:13px;color:var(--gray800,#afafaf)}
-        .sum span:first-child{flex:1}
-        .gobtn{display:flex;align-items:center;justify-content:center;gap:10px;height:64px;border-radius:32px;background:${C.green};color:#12291d;font-size:17px;font-weight:600}
+        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .rch{display:flex;align-items:center;gap:8px;padding:0 4px;min-height:32px}
+        .rct{flex:1;min-width:0;font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(84px,auto);gap:8px}
+        .rt{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px;border-radius:20px;text-align:left;min-width:0;overflow:hidden;
+          background:color-mix(in srgb, var(--rc) 25%, #3a3a3a);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
+        .rt.big{min-height:104px}
+        .rt .ri{display:grid;place-items:center;color:var(--rc);height:18px}
+        .rtx{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
+        .rn{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .rm{font-size:12px;color:var(--gray800,#afafaf)}
+        .rt.on{background:color-mix(in srgb, var(--rc) 55%, #3a3a3a);box-shadow:inset 0 0 0 2px #fafafa}
+        .rt.on .ri{color:#fafafa}
+        .rt.on .rm{color:var(--gray900,#c7c7c7)}
+        .sum{padding:0 4px;font-size:13px;color:var(--gray800,#afafaf)}
+        .gobtn{display:flex;align-items:center;gap:12px;height:64px;padding:0 20px 0 8px;border-radius:32px;background:${C.green};color:#12291d;text-align:left}
+        .gobtn .gi{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:#1d3a2b;color:${C.green};flex:none}
+        .gobtn .gt{display:flex;flex-direction:column;gap:1px;min-width:0}
+        .gobtn .gt b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .gobtn .gt span{font-size:13px;opacity:.75}
         .gobtn.armed{background:${C.orange};color:#2d1f0c}
+        .gobtn.armed .gi{background:#3d2a10;color:${C.orange}}
         .gobtn[disabled]{opacity:.4}
         .actrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--gray200,#3a3a3a);font-size:16px;font-weight:600}
         .ab.pz{background:${C.orange};color:#2d1f0c}.ab.go{background:${C.green};color:#12291d}
         .zones{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:2px}
         .zones::-webkit-scrollbar{display:none}
-        .zc{flex:none;height:44px;padding:0 16px 0 12px;border-radius:22px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
         .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:14px}
         .miss .mdash{font-size:22px;color:var(--white,#fafafa)}
         .miss .mt{flex-basis:100%;text-align:center;font-size:12px}
@@ -42315,8 +43884,14 @@ try {
         .vrow.low .vi{background:color-mix(in srgb, ${C.orange} 22%, transparent);color:${C.orange}}
         .vrow.low .grow .num{color:${C.orange}}.vrow.low .vb i{background:${C.orange}}
         .rs{height:36px;padding:0 14px;border-radius:18px;background:${C.orange};color:#2d1f0c;font-size:13px;font-weight:600;flex:none}
-        .map{border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;display:grid;place-items:center}
-        .map img{width:100%;height:100%;object-fit:contain;display:block}
+        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+        .map:active{cursor:grabbing}
+        .mapin{position:absolute;inset:0;transform-origin:0 0;will-change:transform;display:grid;place-items:center}
+        .mapin img,.mapin .mimg{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
+        .mapin .mimg .mr{pointer-events:auto;fill:var(--rc);fill-opacity:.18;stroke:var(--rc);stroke-opacity:.6;stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:pointer}
+        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2}
+        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s}
+        .mreset.hid{opacity:0;transform:scale(.8);pointer-events:none}
         .legend{display:flex;flex-wrap:wrap;gap:6px}
         .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px}
         .legend .lg i{width:12px;height:12px;border-radius:6px;background:var(--rc)}
@@ -42360,38 +43935,64 @@ try {
 
 /* ---- 58-server.js ---- */
 try {
-/* msh-server-card · Server-popup #server (fiks 24.10 – promptets «ki-homelab-popup-card»).
- * Fasit «Server v4.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ETT kort, Bubble eier headeren.
- * Innhold (i rekkefølge): toppkort (status-pille «Alt kjører»/«n ting trenger tilsyn», effekt i W, nodekart UniFi → Proxmox/Unraid
- *   med animerte pakkelinjer og LED per node; trykk node = bytt fane) · varselkort (CPU varm = rød + puls, disk full / AP frakoblet =
- *   oransje; trykk = gå til fanen) · faner (én per funnet integrasjon) + tannhjul · per fane: 3 målere, grupper med rader (brytere for
- *   VM/LXC, containere, WLAN; UniFi-enheter åpner enhetsark) · «Konfigurert automatisk» (sammenleggbar liste over funne entiteter).
- *   Ingen integrasjoner → «Fant ingen integrasjoner».
- * Enhetsark (UniFi): portales til ki-overlay-root (MSH.overlay, fallgruve 1): status-piller, handlinger (Start på nytt, Finn enhet,
- *   LED), 4 statistikk-fliser, trafikkgraf 24 t, radioer (AP) / PoE-porter (switch) / WAN (gateway), klienter med blokker-bryter, entitetsliste.
- * Autokonfig: integrasjonene oppdages fra config entries (unifi, proxmoxve, unraid – config_entries/get) og entitetene fra
- *   entitetsregisteret (hass.entities: platform, device_id) + enhetsregisteret (hass.devices: navn, modell). Klassifiseringen er
- *   flyttet fra ki-homelab-card (ki-cards/src/82-ki-homelab-card.js · oppdag()). Ingen hardkodede ID-er, aldri mock: mangler → «–».
- * Config (samme skjema i «Tilpass» og GUI-editoren):
- *   name, tabs: [unifi, proxmox, unraid] (rekkefølge), tabs_hidden: [..], tab_style: icon_name|name|icon, content: { gauges, groups },
- *   start_tab, alerts: { cpu, disk, ap }, limits: { cpu_temp (45–70 °C), disk (80–95 %) }, overrides: { power, unifi_cpu, … },
- *   exclude: [entity_id], lines: true, auto_list: true, gap/pad_top/pad_bottom.
+/* msh-server-card · Server-popup #server (fiks 26.1–26.8, erstatter 24.10 – promptets «ki-homelab-popup-card»).
+ * «Server v5.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ETT kort, Bubble eier headeren.
+ * Rekkefølge: hovedfaner Nettverk · Proxmox · Unraid (data-glass-drag, rosa boble, stil tekst/aktiv/ikon) + tannhjul (48×48)
+ *   → toppkort (184 px, graf 84 px med scrub, 3 målinger per fane, trykk sekundærverdi = bytt graf) → prosalinje (hvite piller)
+ *   → underfaner (segment/piller, huskes per fane) → seksjonene i valgt underfane (kort #3a3a3a r28, indre flater #404040 r22).
+ * Nettverk: Enheter (gateway/AP-fliser som utvides), Kameraer (UniFi Protect, opptak/pause), Switcher (switch-kortet: portgrid
+ *   8 kolonner, PoE-budsjett, portdetalj med «Port aktiv»/«PoE»-brytere og «Strømsyklus PoE» – samme funksjon som 24.10).
+ * Proxmox/Unraid: Oversikt (Ytelse 4 kolonner + Systeminfo), Lagring (Array-rad, lagringsområder, disk-bays med detalj),
+ *   Gjester/Docker (søk, filter, rader med bryter/spinner, utvidet rad) og Kontroller (4 runde knapper, farlige = to trykk).
+ * Autokonfig (behold fra 24.10): integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret.
+ *   Fire kilder: UniFi Network (unifi), UniFi Protect (unifiprotect), Proxmox VE (proxmoxve) og Unraid (unraid, fallback Glances
+ *   med bare målinger). Manuelt valg: integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren
+ *   (portalt ark, MSH.overlay). Ingen hardkodede ID-er, aldri mock: mangler → «–».
+ * Config (samme skjema i «Tilpass Server» og GUI-editoren): tabs { order, hidden, style: text|active|icon, start },
+ *   subtabs { show, style: segment|pills }, sections { order, hidden, map }, hero_metric { net, proxmox, unraid },
+ *   limits { disk_temp (30–70 °C), storage (50–100 %) }, integrations, overrides, exclude, gap/pad_top/pad_bottom.
  */
 (function () {
   const M = window.MSH;
   if (!M || customElements.get('msh-server-card')) return;
   const esc = M.esc, C = M.C;
   const HASH = '#server';
+  // Kilder (INT): nøkkel → domene(r), plattformer, navn. Unraid faller tilbake til Glances (bare målinger).
   const INTEG = [
-    { key: 'unifi', domain: 'unifi', platforms: ['unifi'], name: 'UniFi', icon: 'mdi:router-network', color: C.blue },
-    { key: 'proxmox', domain: 'proxmoxve', platforms: ['proxmoxve', 'proxmox_sensors'], name: 'Proxmox', icon: 'mdi:server', color: C.orange },
-    { key: 'unraid', domain: 'unraid', platforms: ['unraid'], name: 'Unraid', icon: 'mdi:nas', color: C.purple },
+    { key: 'unifi', domain: 'unifi', domains: ['unifi'], platforms: ['unifi'], name: 'UniFi Network', icon: 'mdi:router-network', color: C.blue },
+    { key: 'protect', domain: 'unifiprotect', domains: ['unifiprotect'], platforms: ['unifiprotect'], name: 'UniFi Protect', icon: 'mdi:cctv', color: C.blue },
+    { key: 'proxmox', domain: 'proxmoxve', domains: ['proxmoxve'], platforms: ['proxmoxve', 'proxmox_sensors'], name: 'Proxmox VE', icon: 'mdi:server', color: C.orange },
+    { key: 'unraid', domain: 'unraid', domains: ['unraid', 'glances'], platforms: ['unraid', 'glances'], name: 'Unraid', icon: 'mdi:nas', color: C.purple },
   ];
-  const IK = Object.fromEntries(INTEG.map((i) => [i.key, i]));
+  const INT = Object.fromEntries(INTEG.map((i) => [i.key, i]));
   const PLAT = {}; INTEG.forEach((i) => i.platforms.forEach((p) => { PLAT[p] = i.key; }));
-  const DEF = { tab_style: 'icon_name', lines: true, auto_list: true };
-  const LIM = { cpu_temp: 60, disk: 90 };
+  const DOMS = INTEG.flatMap((i) => i.domains);
+  // Hovedfaner og underfaner
+  const TABS = [['net', 'Nettverk', 'mdi:lan'], ['proxmox', 'Proxmox', 'mdi:server'], ['unraid', 'Unraid', 'mdi:nas']];
+  const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
+  const TAB_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid' };
+  const SUBS = {
+    net: [['enheter', 'Enheter'], ['kameraer', 'Kameraer'], ['switcher', 'Switcher']],
+    proxmox: [['oversikt', 'Oversikt'], ['lagring', 'Lagring'], ['gjester', 'Gjester'], ['kontroller', 'Kontroller']],
+    unraid: [['oversikt', 'Oversikt'], ['lagring', 'Lagring'], ['docker', 'Docker'], ['kontroller', 'Kontroller']],
+  };
+  // Seksjoner (SECDEF): [id, navn i Tilpass, ikon, standard-underfane, tittel i kortet]
+  const SECDEF = {
+    net: [['gw', 'Gateway og AP-er', 'mdi:router-wireless', 'enheter'], ['cams', 'Kameraer', 'mdi:cctv', 'kameraer'], ['sw', 'Switcher', 'mdi:switch', 'switcher']],
+    proxmox: [['perf', 'Nøkkeltall', 'mdi:speedometer', 'oversikt', 'Ytelse'], ['sys', 'Systeminfo', 'mdi:information-outline', 'oversikt'], ['storage', 'Lagring', 'mdi:database', 'lagring', 'Lagringsområder'], ['disks', 'Disker', 'mdi:harddisk', 'lagring'], ['guests', 'Gjester', 'mdi:monitor-multiple', 'gjester'], ['controls', 'Kontroller', 'mdi:tune-vertical', 'kontroller']],
+    unraid: [['perf', 'Nøkkeltall', 'mdi:speedometer', 'oversikt', 'Ytelse'], ['sys', 'Systeminfo', 'mdi:information-outline', 'oversikt'], ['storage', 'Lagring', 'mdi:database', 'lagring', 'Lagringsområder'], ['disks', 'Disker', 'mdi:harddisk', 'lagring'], ['docker', 'Docker', 'mdi:docker', 'docker'], ['controls', 'Kontroller', 'mdi:tune-vertical', 'kontroller']],
+  };
+  const SEC = {}; Object.entries(SECDEF).forEach(([t, L]) => L.forEach(([id, label, icon, sub, title]) => { SEC[t + '.' + id] = { id: t + '.' + id, key: id, tab: t, label, icon, sub, title: title || label }; }));
+  // Toppkortets målinger per fane: [nøkkel, etikett, farge]
+  const HM = {
+    net: [['down', 'Ned', C.blue], ['up', 'Opp', C.green], ['lat', 'Latens', C.orange]],
+    proxmox: [['cpu', 'CPU', C.blue], ['mem', 'Minne', C.green], ['power', 'Strøm', C.orange]],
+    unraid: [['cpu', 'CPU', C.blue], ['mem', 'Minne', C.green], ['temp', 'Temp', C.red]],
+  };
+  const LIM = { disk_temp: 50, storage: 85 };
+  const DEF = {};
   const TTL = 300000;
+  const INK = '#2a1720';
 
   /* ------------------------------------------------------------ hjelpere (fra ki-homelab-card) */
   const DAARLIG = ['unavailable', 'unknown', '', 'none', null, undefined];
@@ -42405,43 +44006,75 @@ try {
     return e ? e.entity_id : undefined;
   };
   const alle = (liste, re, domene) => liste.filter((x) => (!domene || dom(x.entity_id) === domene) && (re.test(obj(x.entity_id)) || (x.translation_key && re.test(x.translation_key)))).map((x) => x.entity_id);
-  const RUN = ['running', 'on', 'online', 'started', 'home', 'connected', 'true'];
+  const RUN = ['running', 'on', 'online', 'started', 'home', 'connected', 'true', 'recording', 'streaming', 'idle'];
   const kjorer = (s) => !!s && RUN.includes(String(s.state).toLowerCase());
 
   /* ------------------------------------------------------------ config entries (config_entries/get) */
-  // undefined = ikke hentet ennå · null = ikke tilgang (ikke admin) → bare entitetsregisteret. Hentes på nytt etter 5 min.
+  // undefined = ikke hentet ennå · null = ikke tilgang (ikke admin) → bare entitets-/enhetsregisteret. Hentes på nytt etter 5 min.
   const CE = { data: undefined, busy: false, t: 0 };
   function entries(hass) {
     if (!hass || !hass.callWS) return CE.data;
     if (!CE.busy && Date.now() - CE.t > TTL) {
       CE.busy = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config_entries/get' }))
-        .then((r) => { CE.data = (Array.isArray(r) ? r : []).filter((e) => e && INTEG.some((i) => i.domain === e.domain)); })
+        .then((r) => { CE.data = (Array.isArray(r) ? r : []).filter((e) => e && DOMS.includes(e.domain)); })
         .catch(() => { CE.data = null; })
         .then(() => { CE.t = Date.now(); CE.busy = false; window.dispatchEvent(new CustomEvent('msh-server-entries')); });
     }
     return CE.data;
   }
+  const regOf = (hass, e) => { const d = e && e.device_id && hass.devices && hass.devices[e.device_id]; return (d && d.config_entries) || (e && e.config_entry_id ? [e.config_entry_id] : []); };
+  // Config entries for en kilde (openPick): fra config_entries/get, ellers utledet fra enhetsregisteret (ikke-admin)
+  function entriesFor(hass, k) {
+    const I = INT[k], E = (hass && hass.entities) || {}, D = (hass && hass.devices) || {};
+    const L = Array.isArray(CE.data) ? CE.data.filter((e) => I.domains.includes(e.domain)).map((e) => ({ entry_id: e.entry_id, title: e.title || e.domain, domain: e.domain, state: e.state })) : [];
+    if (!Array.isArray(CE.data)) {
+      const seen = new Set();
+      Object.values(E).forEach((e) => {
+        if (!e || !I.platforms.includes(e.platform)) return;
+        regOf(hass, e).forEach((id) => { if (seen.has(id)) return; seen.add(id); const d = D[e.device_id]; L.push({ entry_id: id, title: (d && (d.name_by_user || d.name)) || e.platform, domain: e.platform === 'glances' ? 'glances' : I.domain }); });
+      });
+    }
+    L.forEach((x) => { x.count = Object.values(E).filter((e) => e && I.platforms.includes(e.platform) && !e.disabled_by && regOf(hass, e).includes(x.entry_id)).length; });
+    return L.sort((a, b) => (a.domain === I.domain ? 0 : 1) - (b.domain === I.domain ? 0 : 1));
+  }
+  const autoEntry = (hass, k) => { const L = entriesFor(hass, k); return L.find((x) => x.count > 0) || L[0] || null; };
 
   /* ------------------------------------------------------------ oppdagelse */
   let MEMO = null;
   function oppdag(hass, cfg) {
     const E = hass.entities || {}, D = hass.devices || {}, ce = entries(hass);
-    const ex = cfg.exclude || [];
-    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.ce === ce && MEMO.ex === JSON.stringify(ex) && MEMO.S === hass.states) return MEMO.R;
-    const per = { unifi: {}, proxmox: {}, unraid: {} }, ents = { unifi: [], proxmox: [], unraid: [] };
+    const ex = cfg.exclude || [], sel = cfg.integrations || {};
+    const sig = JSON.stringify([ex, sel]);
+    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.ce === ce && MEMO.sig === sig && MEMO.S === hass.states) return MEMO.R;
+    // 1) kandidater per kilde (plattform), 2) valgt config entry / «Ingen» / auto
+    const pool = { unifi: [], protect: [], proxmox: [], unraid: [], glances: [] };
     for (const id in E) {
       const e = E[id]; const key = e && PLAT[e.platform];
       if (!key || e.hidden || e.hidden_by || e.disabled_by || !hass.states[id]) continue;
-      (per[key][e.device_id || '_'] = per[key][e.device_id || '_'] || []).push(e);
-      ents[key].push(id);
+      pool[e.platform === 'glances' ? 'glances' : key].push(e);
     }
+    const chosen = {}, mode = {};
+    INTEG.forEach((i) => {
+      const s = sel[i.key];
+      const cand = i.key === 'unraid' ? [...pool.unraid, ...pool.glances] : pool[i.key];
+      if (s === 'none') { chosen[i.key] = []; mode[i.key] = 'none'; return; }
+      if (s) { chosen[i.key] = cand.filter((e) => regOf(hass, e).includes(s)); mode[i.key] = 'manual'; return; }
+      chosen[i.key] = i.key === 'unraid' ? (pool.unraid.length ? pool.unraid : pool.glances) : cand;
+      mode[i.key] = 'auto';
+    });
+    const per = {}, ents = {};
+    INTEG.forEach((i) => {
+      per[i.key] = {}; ents[i.key] = [];
+      chosen[i.key].forEach((e) => { (per[i.key][e.device_id || '_'] = per[i.key][e.device_id || '_'] || []).push(e); ents[i.key].push(e.entity_id); });
+    });
     const found = {};
-    INTEG.forEach((i) => { found[i.key] = ents[i.key].length > 0 || (Array.isArray(ce) && ce.some((x) => x.domain === i.domain)); });
+    // «funnet» = entiteter plukket opp (en config entry uten entiteter gir «Fant ikke …» + velger)
+    INTEG.forEach((i) => { found[i.key] = mode[i.key] !== 'none' && ents[i.key].length > 0; });
     const devNavn = (id) => { const d = D[id]; return d ? (d.name_by_user || d.name || '') : ''; };
     const devModell = (id) => { const d = D[id]; return d ? `${d.manufacturer || ''} ${d.model || ''}`.toLowerCase() : ''; };
     const nm = cfg.navn_map || {};
-    const R = { found, ents, per, devNavn, loading: ce === undefined, proxmox: { noder: [], gjester: [], lagring: [], varsler: [], diskerMap: {}, disker: [] }, unifi: { enheter: [], wlan: [], klienter: [] }, unraid: null, power: [] };
+    const R = { found, mode, ents, per, devNavn, loading: ce === undefined, proxmox: { noder: [], gjester: [], lagring: [], varsler: [], diskerMap: {}, disker: [] }, unifi: { enheter: [], wlan: [], klienter: [] }, protect: { kameraer: [] }, unraid: null, power: [] };
 
     /* Proxmox (ki-homelab-card, + binary_sensor-status/temperatur/bryter fra kjerne-integrasjonen proxmoxve) */
     for (const [dev, liste] of Object.entries(per.proxmox)) {
@@ -42459,9 +44092,9 @@ try {
       const vmid = (nokkel.match(/_(\d{3,})$/) || [])[1];
       const raa = nokkel.replace(/_\d{3,}$/, '');
       let navn = devNavn(dev).replace(/^(\d+\s*[-_:]?\s*)?(lxc|ct|vm|qemu|node|storage)\s*[-_:]?\s*/i, '').replace(/\s*\(\d+\)\s*$/, '').trim() || tittel(raa || 'Proxmox');
-      navn = nm[vmid] || nm[raa] || nm[navn] || navn.replace(/^./, (c) => c.toUpperCase());
+      navn = nm[vmid] || nm[raa] || nm[navn] || (type === 'ct' || type === 'vm' ? navn.replace(/^./, (c) => c.toUpperCase()) : navn); // node/lagring: Proxmox-navnet uendret (pve, local-lvm)
       const g = {
-        id: 'px-' + dev, dev, kilde: 'proxmox', type, navn, vmid, nokkel: raa,
+        id: 'px-' + dev, dev, kilde: 'proxmox', type, navn, vmid, nokkel: raa, modell: (D[dev] && D[dev].model) || '',
         status: finn(liste, /(node_)?status$/, 'sensor') || finn(liste, /(status|running)$/, 'binary_sensor'),
         cpu: finn(liste, /cpu_usage$/, 'sensor'),
         mem: finn(liste, /(memory|ram)_usage$/, 'sensor'),
@@ -42470,12 +44103,19 @@ try {
         ramBrukt: finn(liste, /(ram|memory)_used$/, 'sensor'), ramTot: finn(liste, /(ram|memory)_total$/, 'sensor'),
         diskBrukt: finn(liste, /disk_used$/, 'sensor'), diskTot: finn(liste, /disk_total$/, 'sensor'),
         oppetid: finn(liste, /uptime$/, 'sensor'),
-        bruk: finn(liste, /_usage$/, 'sensor'), brukt: finn(liste, /_used$/, 'sensor'), total: finn(liste, /_total$/, 'sensor'),
+        bruk: finn(liste, /_usage$/, 'sensor'), brukt: finn(liste, /_used$/, 'sensor'), total: finn(liste, /_(total|size)$/, 'sensor'),
+        // 26.5: Ytelse / Systeminfo
+        last: finn(liste, /(load(_avg(erage)?)?(_1m?)?|cpu_load)$/, 'sensor'), swap: finn(liste, /swap_(usage|used_percent|percent)$/, 'sensor'),
+        iowait: finn(liste, /io_?wait$/, 'sensor'), power: liste.find((e) => dom(e.entity_id) === 'sensor' && hass.states[e.entity_id].attributes.device_class === 'power') ? liste.find((e) => dom(e.entity_id) === 'sensor' && hass.states[e.entity_id].attributes.device_class === 'power').entity_id : undefined,
+        versjon: finn(liste, /(pve_)?version$/, 'sensor'), kernel: finn(liste, /kernel/, 'sensor'),
+        oppd: finn(liste, /updates?(_available|_packages|_count)?$/, 'sensor') || finn(liste, /update/, 'binary_sensor') || finn(liste, /./, 'update'),
+        backup: finn(liste, /backup/, 'sensor') || finn(liste, /backup/, 'binary_sensor'),
         bryter: finn(liste, /./, 'switch'),
         knapper: liste.filter((e) => dom(e.entity_id) === 'button').map((e) => {
           const o = obj(e.entity_id).slice(pre.length);
-          const a = /^start/.test(o) ? 'start' : /^stop/.test(o) ? 'stopp' : /^(reboot|restart)/.test(o) ? 'restart' : /^shutdown/.test(o) ? 'av'
-            : /^pause|suspend/.test(o) ? 'pause' : /^resume/.test(o) ? 'fortsett' : /^hibernate/.test(o) ? 'dvale' : /^reset/.test(o) ? 'reset' : null;
+          const a = /^start(_all)?$|^start/.test(o) ? 'start' : /^stop/.test(o) ? 'stopp' : /^(reboot|restart)/.test(o) ? 'restart' : /^shutdown/.test(o) ? 'av'
+            : /^pause|suspend/.test(o) ? 'pause' : /^resume/.test(o) ? 'fortsett' : /^hibernate/.test(o) ? 'dvale' : /^reset/.test(o) ? 'reset'
+              : /(update|upgrade|refresh)/.test(o) ? 'oppdater' : /(backup|vzdump)/.test(o) ? 'backup' : null;
           return a ? { a, id: e.entity_id } : null;
         }).filter(Boolean),
       };
@@ -42483,22 +44123,24 @@ try {
       else if (type === 'ct' || type === 'vm') R.proxmox.gjester.push(g);
       else if (type === 'storage') R.proxmox.lagring.push(g);
       else if (type === 'disks' || type === 'disk' || type === 'annet') {
-        liste.filter((e) => dom(e.entity_id) === 'sensor').forEach((e) => {
+        liste.filter((e) => ['sensor', 'binary_sensor'].includes(dom(e.entity_id))).forEach((e) => {
           const o = obj(e.entity_id);
-          const m = o.match(/(airflow_temperature|temperature|temp|size|health|smart_status|wearout|life_left|power_on_hours)$/); if (!m) return;
+          const m = o.match(/(airflow_temperature|temperature|temp|size|health|smart_status|smart|wearout|life_left|power_on_hours|usage)$/); if (!m) return;
           const k = o.slice(0, o.length - m[1].length).replace(/_$/, '').replace(/^\d+_disks?_/, '').replace(/^disks?_/, '');
           const d = (R.proxmox.diskerMap[k] = R.proxmox.diskerMap[k] || { id: 'pd-' + k, nokkel: k });
-          const f = /temp/.test(m[1]) ? 'temp' : m[1] === 'size' ? 'storrelse' : /health|smart/.test(m[1]) ? 'helse' : /wearout|life/.test(m[1]) ? 'slitasje' : 'timer';
+          const f = /temp/.test(m[1]) ? 'temp' : m[1] === 'size' ? 'storrelse' : /health|smart/.test(m[1]) ? 'helse' : /wearout|life/.test(m[1]) ? 'slitasje' : m[1] === 'usage' ? 'bruk' : 'timer';
           if (!d[f]) d[f] = e.entity_id;
         });
       }
     }
     R.proxmox.disker = Object.values(R.proxmox.diskerMap).map((d) => { d.navn = nm[d.nokkel] || tittel(d.nokkel); return d; });
-    const rek = { start: 0, restart: 1, stopp: 2, av: 3, pause: 4, fortsett: 5, dvale: 6, reset: 7 };
+    const rek = { start: 0, restart: 1, stopp: 2, av: 3, pause: 4, fortsett: 5, dvale: 6, reset: 7, oppdater: 8, backup: 9 };
     [...R.proxmox.gjester, ...R.proxmox.noder].forEach((g) => g.knapper.sort((a, b) => rek[a.a] - rek[b.a]));
     R.proxmox.gjester.sort((a, b) => String(a.vmid || a.navn).localeCompare(String(b.vmid || b.navn), 'nb', { numeric: true }));
+    const pxPw = ents.proxmox.filter((id) => dom(id) === 'sensor' && hass.states[id].attributes.device_class === 'power');
+    R.proxmox.power = (R.proxmox.noder[0] && R.proxmox.noder[0].power) || pxPw[0];
 
-    /* UniFi (ki-homelab-card, + klienter, trafikk, radioer, WAN og PoE-effekt til enhetsarket) */
+    /* UniFi Network (ki-homelab-card, + klienter, trafikk, kanal, porter med PoE til switch-kortet) */
     for (const [dev, liste] of Object.entries(per.unifi)) {
       const navn = devNavn(dev) || 'UniFi';
       const bilde = finn(liste, /./, 'image');
@@ -42508,11 +44150,22 @@ try {
         continue;
       }
       const cpu = finn(liste, /cpu_utili[sz]ation$/, 'sensor'), mem = finn(liste, /memory_utili[sz]ation$/, 'sensor');
-      const restart = finn(liste, /(restart|omstart)$/, 'button');
-      const portKnapper = liste.filter((e) => /port_(\d+)_power_cycle$/.test(obj(e.entity_id))).map((e) => ({ n: +obj(e.entity_id).match(/port_(\d+)_power_cycle$/)[1], id: e.entity_id, type: 'syklus' }));
-      const portBrytere = liste.filter((e) => dom(e.entity_id) === 'switch' && /port_(\d+)(_poe)?$/.test(obj(e.entity_id))).map((e) => ({ n: +obj(e.entity_id).match(/port_(\d+)(_poe)?$/)[1], id: e.entity_id, type: 'bryter' }));
+      const restart = finn(liste, /(restart|omstart|reboot)$/, 'button');
+      // porter: n → { en (port av/på), poe, cyc (strømsyklus), pw (PoE W), rx/tx, speed }
+      const P = {};
+      const pp = (n) => (P[n] = P[n] || { n });
+      liste.forEach((e) => {
+        const o = obj(e.entity_id), d = dom(e.entity_id); let m;
+        if (d === 'switch' && (m = o.match(/port_(\d+)_poe$/))) pp(+m[1]).poe = e.entity_id;
+        else if (d === 'switch' && (m = o.match(/port_(\d+)$/))) pp(+m[1]).en = e.entity_id;
+        else if (d === 'button' && (m = o.match(/port_(\d+)_power_cycle$/))) pp(+m[1]).cyc = e.entity_id;
+        else if (d === 'sensor' && (m = o.match(/port_(\d+)_poe_power$/))) pp(+m[1]).pw = e.entity_id;
+        else if (d === 'sensor' && (m = o.match(/port_(\d+)_(rx|tx)$/))) pp(+m[1])[m[2]] = e.entity_id;
+        else if (d === 'sensor' && (m = o.match(/port_(\d+)_(link_)?speed$/))) pp(+m[1]).speed = e.entity_id;
+      });
       const led = finn(liste, /./, 'light');
-      if (!cpu && !mem && !restart && !portKnapper.length && !portBrytere.length && !led) {
+      const nPort = Object.keys(P).length;
+      if (!cpu && !mem && !restart && !nPort && !led) {
         // klient: sporer + blokker-bryter
         const tr = finn(liste, /./, 'device_tracker');
         if (tr || finn(liste, /./, 'switch')) R.unifi.klienter.push({ id: 'cl-' + dev, dev, navn, tracker: tr, bryter: finn(liste, /./, 'switch') });
@@ -42521,80 +44174,121 @@ try {
       const latens = alle(liste, /wan_latency$/, 'sensor');
       const m = devModell(dev);
       const type = latens.length || /dream|gateway|udm|udr|ucg|uxg|usg|cloud key/.test(m) ? 'ruter'
-        : portKnapper.length || portBrytere.length || /switch|usw|flex|\bus[- ]?\d/.test(m) ? 'switch'
+        : nPort || /switch|usw|flex|\bus[- ]?\d/.test(m) ? 'switch'
           : /access point|u6|u7|uap|mesh|nanohd|lite|pro ap|in-wall/.test(m) ? 'ap' : 'enhet';
-      const porter = (portBrytere.length ? portBrytere : portKnapper).sort((a, b) => a.n - b.n).map((p) => ({ ...p, effekt: finn(liste, new RegExp(`port_${p.n}_poe_power$`), 'sensor') }));
+      const porter = Object.values(P).sort((a, b) => a.n - b.n);
+      const modell = (D[dev] && D[dev].model) || '';
+      const mN = (modell.match(/\b(5|8|10|16|24|48)\b/) || [])[1];
       R.unifi.enheter.push({
-        id: 'uf-' + dev, dev, navn, type, modell: (D[dev] && D[dev].model) || '',
+        id: 'uf-' + dev, dev, navn, type, modell,
         tracker: finn(liste, /./, 'device_tracker'), cpu, mem,
         temp: finn(liste, /temperat/, 'sensor'), oppetid: finn(liste, /(uptime|oppetid)$/, 'sensor'),
         klienter: finn(liste, /(clients|klienter)$/, 'sensor'), latens, led, restart,
-        finn: finn(liste, /(locate|identify|finn)/, 'button'),
+        finn: finn(liste, /(locate|identify|finn)/, 'button') || finn(liste, /(locate|identify|finn)/, 'switch'),
+        kanal: finn(liste, /channel|kanal/, 'sensor'),
         tilstand: finn(liste, /_state$/, 'sensor'),
         oppdatering: finn(liste, /./, 'update'),
-        rx: finn(liste, /(_rx|rx_rate|download|_rx_bytes|throughput_rx)$/, 'sensor'), tx: finn(liste, /(_tx|tx_rate|upload|_tx_bytes|throughput_tx)$/, 'sensor'),
-        radioer: alle(liste, /(2_4|2g|_ng_|5g|5_ghz|5ghz|_na_|6g|6e|radio)/, 'sensor'),
-        wan: alle(liste, /wan/, 'sensor').filter((x) => !latens.includes(x) && !/(_rx|_tx)$/.test(obj(x))),
-        porter, alle: liste.map((e) => e.entity_id),
+        rx: finn(liste, /(wan_rx|_rx|rx_rate|download|_rx_bytes|throughput_rx)$/, 'sensor'), tx: finn(liste, /(wan_tx|_tx|tx_rate|upload|_tx_bytes|throughput_tx)$/, 'sensor'),
+        budsjett: finn(liste, /(ac_power_budget|poe_budget|power_budget)$/, 'sensor'), forbruk: finn(liste, /(ac_power_consumption|poe_power_consumption|power_consumption)$/, 'sensor'),
+        porter, antall: Math.max(mN ? +mN : 0, porter.length ? porter[porter.length - 1].n : 0), alle: liste.map((e) => e.entity_id),
       });
     }
     const typeRek = { ruter: 0, switch: 1, ap: 2, enhet: 3 };
     R.unifi.enheter.sort((a, b) => typeRek[a.type] - typeRek[b.type] || a.navn.localeCompare(b.navn, 'nb'));
     R.unifi.klienter.sort((a, b) => a.navn.localeCompare(b.navn, 'nb'));
 
-    /* Unraid (ki-homelab-card) */
+    /* UniFi Protect (26.4): én flis per kamera/ringeklokke (enheter med camera.*) */
+    for (const [dev, liste] of Object.entries(per.protect)) {
+      const cams = alle(liste, /./, 'camera').sort((a, b) => (/(package|insecure|_low|_medium)/.test(obj(a)) ? 1 : 0) - (/(package|insecure|_low|_medium)/.test(obj(b)) ? 1 : 0));
+      if (!cams.length) continue;
+      const modell = (D[dev] && D[dev].model) || '';
+      R.protect.kameraer.push({
+        id: 'pc-' + dev, dev, navn: devNavn(dev) || tittel(obj(cams[0])), modell, cam: cams[0],
+        ringeklokke: /doorbell|ringeklokke/i.test(modell) || !!finn(liste, /doorbell/, 'binary_sensor'),
+        modus: finn(liste, /recording_mode$/, 'select'), opptak: finn(liste, /(_recording|record)$/, 'switch'),
+        bevegelse: finn(liste, /motion$/, 'binary_sensor') || finn(liste, /(motion|person|detected)/, 'binary_sensor'),
+        bitrate: finn(liste, /(bitrate|data_rate|received_data)$/, 'sensor'),
+        restart: finn(liste, /(restart|reboot)/, 'button'), oppetid: finn(liste, /uptime$/, 'sensor'),
+      });
+    }
+    R.protect.kameraer.sort((a, b) => (a.ringeklokke ? 1 : 0) - (b.ringeklokke ? 1 : 0) || a.navn.localeCompare(b.navn, 'nb'));
+
+    /* Unraid (ki-homelab-card) – eller Glances (bare målinger) */
     const ur = Object.entries(per.unraid);
     if (ur.length) {
       const liste = ur.flatMap(([, l]) => l);
-      const serverNavn = devNavn(ur[0][0]) || 'Unraid';
+      const glances = liste.every((e) => e.platform === 'glances');
+      const serverNavn = devNavn(ur[0][0]) || (glances ? 'Glances' : 'Unraid');
       const fn = (id) => { const s = hass.states[id]; return (s && s.attributes.friendly_name) || obj(id); };
       const kortNavn = (id) => { let t = fn(id); for (const [d] of ur) { const n = devNavn(d); if (n && t.toLowerCase().startsWith(n.toLowerCase())) t = t.slice(n.length); } return t.replace(/^[\s:–-]+/, '').trim() || tittel(obj(id)); };
       const system = /(array|parity|spin|share|mover|service|notification|flash|ups|plugin|fan|zfs|disk\d|cache)/;
-      const brytere = liste.filter((e) => dom(e.entity_id) === 'switch' && !e.entity_category && !system.test(obj(e.entity_id)));
+      const brytere = glances ? [] : liste.filter((e) => dom(e.entity_id) === 'switch' && !e.entity_category && !system.test(obj(e.entity_id)));
       const disker = {};
-      liste.filter((e) => dom(e.entity_id) === 'sensor').forEach((e) => {
-        const m = obj(e.entity_id).match(/(disk\d+|parity\d*|cache[a-z0-9]*)_(usage|temperature|temp)$/);
-        if (m) { (disker[m[1]] = disker[m[1]] || { navn: m[1] })[m[2] === 'usage' ? 'bruk' : 'temp'] = e.entity_id; }
+      liste.forEach((e) => {
+        const o = obj(e.entity_id), d = dom(e.entity_id);
+        const m = o.match(/(disk\d+|parity\d*|cache[a-z0-9]*)_(usage|temperature|temp|smart(_status)?|spinning|spin(_state)?|standby|status|state|used|size|total)$/);
+        if (!m || (d === 'switch' && !/spin/.test(m[2]))) return;
+        const f = /^(usage)$/.test(m[2]) ? 'bruk' : /temp/.test(m[2]) ? 'temp' : /smart/.test(m[2]) ? 'smart' : /spin|standby/.test(m[2]) ? (d === 'switch' ? 'spinSw' : 'spin') : /status|state/.test(m[2]) ? 'status' : m[2] === 'used' ? 'brukt' : 'total';
+        const x = (disker[m[1]] = disker[m[1]] || { navn: m[1] });
+        if (!x[f]) x[f] = e.entity_id;
       });
+      const upsPw = liste.find((e) => dom(e.entity_id) === 'sensor' && hass.states[e.entity_id].attributes.device_class === 'power');
       R.unraid = {
-        navn: serverNavn,
-        cpu: finn(liste, /cpu_(usage|utili[sz]ation)$/, 'sensor'),
-        ram: finn(liste, /(ram|memory)_(usage|utili[sz]ation|used_percent|percent)$/, 'sensor'),
-        temp: finn(liste, /cpu_temp(erature)?$/, 'sensor'),
+        navn: serverNavn, glances,
+        cpu: finn(liste, /cpu_(usage|utili[sz]ation|use_percent|used)$/, 'sensor') || finn(liste, /cpu_load$/, 'sensor'),
+        ram: finn(liste, /(ram|memory)_(usage|utili[sz]ation|used_percent|use_percent|percent)$/, 'sensor'),
+        temp: finn(liste, /(cpu|package|core|k10temp|coretemp|tctl).*temp(erature)?$/, 'sensor'),
         oppetid: finn(liste, /uptime$/, 'sensor'),
+        last: finn(liste, /(load(_avg(erage)?)?(_1m?)?|processor_load|cpu_load)$/, 'sensor'),
+        strom: upsPw && upsPw.entity_id, ups: finn(liste, /ups_(load|load_percent|battery|charge)$/, 'sensor'),
+        nett: finn(liste, /(network|net|eth\d+|bond\d+|br\d+)_(rx|in|inbound|download|received)$/, 'sensor'),
+        versjon: finn(liste, /(unraid_|os_)?version$/, 'sensor') || finn(liste, /./, 'update'), kernel: finn(liste, /kernel/, 'sensor'),
+        oppd: finn(liste, /updates?(_available|_count)?$/, 'sensor') || finn(liste, /(update|plugin)/, 'binary_sensor'),
+        flash: finn(liste, /flash/, 'sensor') || finn(liste, /flash/, 'binary_sensor'),
         arrayBruk: finn(liste, /array_(usage|utili[sz]ation)$/, 'sensor'),
+        arrayBrukt: finn(liste, /array_used$/, 'sensor'), arrayTot: finn(liste, /array_(total|size)$/, 'sensor'),
         arrayStatus: finn(liste, /array_(state|status)$/, 'sensor') || finn(liste, /array_(started|state)$/, 'binary_sensor'),
-        disker: Object.values(disker).sort((a, b) => a.navn.localeCompare(b.navn, 'nb', { numeric: true })),
+        arraySw: finn(liste, /array$/, 'switch'),
+        arrayStart: finn(liste, /array_start$/, 'button'), arrayStopp: finn(liste, /array_stop$/, 'button'),
+        dockerImg: finn(liste, /docker_(img|image|vdisk)_(usage|utili[sz]ation)$/, 'sensor'),
+        paritet: finn(liste, /parity_check(_start)?$/, 'button'), paritetStopp: finn(liste, /parity_check_(stop|cancel)$/, 'button'),
+        paritetFrem: finn(liste, /parity_(check_)?(progress|percent)$/, 'sensor'),
+        spinNed: finn(liste, /spin_down(_all)?$/, 'button'), mover: finn(liste, /mover(_start)?$/, 'button'),
+        omstart: liste.filter((e) => dom(e.entity_id) === 'button' && /(reboot|restart)$/.test(obj(e.entity_id)) && !/(docker|vm_)/.test(obj(e.entity_id))).map((e) => e.entity_id)[0],
+        avslag: liste.filter((e) => dom(e.entity_id) === 'button' && /shutdown$/.test(obj(e.entity_id)) && !/(docker|vm_)/.test(obj(e.entity_id))).map((e) => e.entity_id)[0],
+        disker: Object.values(disker).sort((a, b) => (/parity/.test(a.navn) ? 0 : /disk/.test(a.navn) ? 1 : 2) - (/parity/.test(b.navn) ? 0 : /disk/.test(b.navn) ? 1 : 2) || a.navn.localeCompare(b.navn, 'nb', { numeric: true })),
         gjester: brytere.map((e) => {
-          const vm = /(^|_)vm(_|$)/.test(obj(e.entity_id)) || /vm/.test(e.translation_key || '');
+          const o = obj(e.entity_id);
+          const vm = /(^|_)vm(_|$)/.test(o) || /vm/.test(e.translation_key || '');
           const n = kortNavn(e.entity_id);
-          const slug = obj(e.entity_id).split('_').pop();
-          const restart = liste.find((x) => dom(x.entity_id) === 'button' && obj(x.entity_id).includes(slug) && /restart/.test(obj(x.entity_id)));
-          const oppd = liste.find((x) => dom(x.entity_id) === 'binary_sensor' && obj(x.entity_id).includes(slug) && /update/.test(obj(x.entity_id)));
-          return { id: 'ur-' + e.entity_id, kilde: 'unraid', type: vm ? 'vm' : 'docker', navn: nm[n] || n.replace(/^./, (c) => c.toUpperCase()), bryter: e.entity_id, restart: restart && restart.entity_id, oppdatering: oppd && oppd.entity_id };
+          const rel = liste.filter((x) => x !== e && obj(x.entity_id).startsWith(o + '_'));
+          const f = (re, d) => { const x = rel.find((y) => dom(y.entity_id) === d && re.test(obj(y.entity_id).slice(o.length))); return x && x.entity_id; };
+          return { id: 'ur-' + e.entity_id, kilde: 'unraid', type: vm ? 'vm' : 'docker', navn: nm[n] || n.replace(/^./, (c) => c.toUpperCase()), bryter: e.entity_id,
+            restart: f(/restart/, 'button'), oppdater: f(/update/, 'button'), oppdatering: f(/update/, 'binary_sensor') || f(/./, 'update'),
+            cpu: f(/cpu/, 'sensor'), mem: f(/(mem|memory|ram)/, 'sensor'), bilde: (hass.states[e.entity_id].attributes || {}).image || null };
         }).sort((a, b) => a.navn.localeCompare(b.navn, 'nb')),
       };
     }
-    // Effekt: effektsensorer (W/kW) på de funne enhetene, uten per-port-PoE (inngår i enhetens totale forbruk)
+    // Effekt: effektsensorer (W/kW) på de funne enhetene, uten per-port-PoE
     INTEG.forEach((i) => ents[i.key].forEach((id) => {
       const s = hass.states[id];
       if (dom(id) === 'sensor' && s && s.attributes.device_class === 'power' && !/port_\d+/.test(obj(id))) R.power.push(id);
     }));
-    MEMO = { E, D, ce, ex: JSON.stringify(ex), S: hass.states, R };
+    MEMO = { E, D, ce, sig, S: hass.states, R };
     return R;
   }
 
   /* ------------------------------------------------------------ tall og tekst */
   const nf = (v, d = 0) => (v == null || isNaN(v) ? '–' : M.nf(v, d));
-  const watt = (s) => { const v = tall(s); if (isNaN(v)) return NaN; return /kw/i.test(s.attributes.unit_of_measurement || '') ? v * 1000 : v; };
   const pctOf = (hass, id, brukt, tot) => {
-    const s = id && hass.states[id];
-    const v = tall(s);
+    const v = tall(id && hass.states[id]);
     if (!isNaN(v)) return v;
     const b = tall(brukt && hass.states[brukt]), t = tall(tot && hass.states[tot]);
     return !isNaN(b) && !isNaN(t) && t > 0 ? (b / t) * 100 : null;
   };
   const numOf = (hass, id) => { const v = tall(id && hass.states[id]); return isNaN(v) ? null : v; };
+  const unitOf = (hass, id) => { const s = id && hass.states[id]; return (s && s.attributes.unit_of_measurement) || ''; };
+  const uShort = (u) => String(u || '').replace(/^Mbit\/s$/i, 'Mbps').replace(/^kbit\/s$/i, 'kbps').replace(/^Gbit\/s$/i, 'Gbps');
   function oppetid(hass, id) {
     const s = id && hass.states[id];
     if (!ok(s)) return '–';
@@ -42607,53 +44301,17 @@ try {
   }
   const fmt = (hass, id) => (id && hass.states[id] ? (ok(hass.states[id]) ? M.fmtState(hass, id) : '–') : '–');
   const ov = (c, k) => ((c.overrides || {})[k]) || null;
-
-  /* ------------------------------------------------------------ status, varsler og målere */
+  const diskNavn = (k) => String(k).replace(/^disk(\d+)$/, 'Disk $1').replace(/^parity(\d*)$/, (a, n) => 'Paritet' + (n ? ' ' + n : '')).replace(/^cache(.*)$/, (a, n) => 'Cache' + (n ? ' ' + n : ''));
+  const TYPE = { ruter: ['Gateway', 'mdi:router-network'], switch: ['Switch', 'mdi:switch'], ap: ['Aksesspunkt', 'mdi:access-point'], enhet: ['Enhet', 'mdi:devices'] };
+  const gateway = (R) => R.unifi.enheter.find((e) => e.type === 'ruter') || null;
   const apOffline = (hass, e) => {
     const t = e.tracker && hass.states[e.tracker], st = e.tilstand && hass.states[e.tilstand];
-    if (st && ok(st)) return /disconnect|offline|frakoblet|pending|adopt/i.test(st.state);
+    if (st && ok(st)) return /disconnect|offline|frakoblet/i.test(st.state);
     if (t) return !ok(t) || t.state === 'not_home';
     const c = e.cpu && hass.states[e.cpu];
     return !!c && !ok(c);
   };
-  function varsler(hass, R, c) {
-    const A = [], on = c.alerts || {}, L = { ...LIM, ...(c.limits || {}) };
-    const tLim = Number(L.cpu_temp), dLim = Number(L.disk), ex = new Set(c.exclude || []);
-    if (on.cpu !== false) {
-      const T = [];
-      if (R.unraid) T.push(['unraid', R.unraid.navn, ov(c, 'unraid_temp') || R.unraid.temp]);
-      R.proxmox.noder.forEach((n, i) => T.push(['proxmox', n.navn, (i === 0 && ov(c, 'proxmox_temp')) || n.temp]));
-      R.unifi.enheter.forEach((e) => { if (e.temp) T.push(['unifi', e.navn, e.temp]); });
-      T.forEach(([tab, navn, id]) => {
-        if (!id || ex.has(id)) return;
-        const v = numOf(hass, id);
-        if (v != null && v >= tLim) A.push({ type: 'cpu', level: 'red', tab, id, icon: 'mdi:thermometer-alert', title: `CPU varm · ${navn}`, sub: `${nf(v, 0)} °C · grense ${tLim} °C` });
-      });
-    }
-    if (on.disk !== false) {
-      const Dk = [];
-      R.proxmox.lagring.forEach((g) => Dk.push(['proxmox', g.navn, g.bruk, g.brukt, g.total]));
-      R.proxmox.noder.forEach((n, i) => Dk.push(['proxmox', n.navn + ' disk', (i === 0 && ov(c, 'proxmox_disk')) || n.disk, n.diskBrukt, n.diskTot]));
-      if (R.unraid) {
-        Dk.push(['unraid', 'Array', ov(c, 'unraid_array') || R.unraid.arrayBruk]);
-        R.unraid.disker.forEach((d) => Dk.push(['unraid', diskNavn(d.navn), d.bruk]));
-      }
-      Dk.forEach(([tab, navn, id, b, t]) => {
-        if (id && ex.has(id)) return;
-        const v = pctOf(hass, id, b, t);
-        if (v != null && v >= dLim) A.push({ type: 'disk', level: 'orange', tab, id: id || b, icon: 'mdi:harddisk', title: `Disk nesten full · ${navn}`, sub: `${nf(v, 0)} % brukt · grense ${dLim} %` });
-      });
-    }
-    if (on.ap !== false) {
-      R.unifi.enheter.filter((e) => e.type === 'ap' && !ex.has(e.tracker) && apOffline(hass, e)).forEach((e) => {
-        const s = hass.states[e.tracker || e.tilstand || e.cpu];
-        const siden = s && s.last_changed ? M.nf((Date.now() - Date.parse(s.last_changed)) / 60000, 0) : null;
-        A.push({ type: 'ap', level: 'orange', tab: 'unifi', id: e.tracker || e.tilstand, dev: e.dev, icon: 'mdi:access-point-off', title: `AP frakoblet · ${e.navn}`, sub: siden != null && siden !== '–' ? `Frakoblet i ${siden} min` : 'Ikke tilkoblet kontrolleren' });
-      });
-    }
-    return A.sort((a, b) => (a.level === 'red' ? 0 : 1) - (b.level === 'red' ? 0 : 1));
-  }
-  const gateway = (R) => R.unifi.enheter.find((e) => e.type === 'ruter') || R.unifi.enheter[0] || null;
+  const apStarter = (hass, e) => { const st = e.tilstand && hass.states[e.tilstand]; return !!st && /(pending|adopt|provision|upgrad|start|restart|getting)/i.test(st.state); };
   function klientTall(hass, R, c) {
     const o = ov(c, 'unifi_clients');
     if (o) return numOf(hass, o);
@@ -42661,150 +44319,272 @@ try {
     const v = R.unifi.enheter.filter((e) => e.type !== 'ruter').map((e) => numOf(hass, e.klienter)).filter((x) => x != null);
     return v.length ? v.reduce((a, b) => a + b, 0) : null;
   }
-  function malere(hass, R, c, key) {
-    if (key === 'unifi') {
-      const g = gateway(R) || {};
-      return [
-        { label: 'CPU', v: pctOf(hass, ov(c, 'unifi_cpu') || g.cpu), unit: '%', id: ov(c, 'unifi_cpu') || g.cpu },
-        { label: 'Minne', v: pctOf(hass, ov(c, 'unifi_mem') || g.mem), unit: '%', id: ov(c, 'unifi_mem') || g.mem },
-        { label: 'Klienter', v: klientTall(hass, R, c), unit: '', full: true, id: ov(c, 'unifi_clients') || null },
-      ];
-    }
-    if (key === 'proxmox') {
-      const n = R.proxmox.noder[0] || {}, st = R.proxmox.lagring[0] || {};
-      const dId = ov(c, 'proxmox_disk') || n.disk || st.bruk;
-      return [
-        { label: 'CPU', v: pctOf(hass, ov(c, 'proxmox_cpu') || n.cpu), unit: '%', id: ov(c, 'proxmox_cpu') || n.cpu },
-        { label: 'Minne', v: pctOf(hass, ov(c, 'proxmox_mem') || n.mem, n.ramBrukt, n.ramTot), unit: '%', id: ov(c, 'proxmox_mem') || n.mem },
-        { label: 'Disk', v: pctOf(hass, dId, dId === n.disk ? n.diskBrukt : st.brukt, dId === n.disk ? n.diskTot : st.total), unit: '%', id: dId },
-      ];
-    }
-    const U = R.unraid || {};
-    return [
-      { label: 'CPU', v: pctOf(hass, ov(c, 'unraid_cpu') || U.cpu), unit: '%', id: ov(c, 'unraid_cpu') || U.cpu },
-      { label: 'RAM', v: pctOf(hass, ov(c, 'unraid_ram') || U.ram), unit: '%', id: ov(c, 'unraid_ram') || U.ram },
-      { label: 'Array', v: pctOf(hass, ov(c, 'unraid_array') || U.arrayBruk), unit: '%', id: ov(c, 'unraid_array') || U.arrayBruk },
-    ];
-  }
-  const diskNavn = (k) => String(k).replace(/^disk(\d+)$/, 'Disk $1').replace(/^parity(\d*)$/, (a, n) => 'Paritet' + (n ? ' ' + n : '')).replace(/^cache(.*)$/, (a, n) => 'Cache' + (n ? ' ' + n : ''));
-  const orderOf = (c) => { const k = INTEG.map((i) => i.key); const o = (Array.isArray(c.tabs) ? c.tabs : []).filter((x) => k.includes(x)); k.forEach((x) => { if (!o.includes(x)) o.push(x); }); return o; };
-  const visTabs = (R, c) => orderOf(c).filter((k) => R.found[k] && !(c.tabs_hidden || []).includes(k));
-  const TYPE = { ruter: ['Gateway', 'mdi:router-network'], switch: ['Switch', 'mdi:switch'], ap: ['Aksesspunkt', 'mdi:access-point'], enhet: ['Enhet', 'mdi:devices'] };
+  const arrayStoppet = (hass, U) => {
+    if (!U || U.glances) return false;
+    const s = U.arrayStatus && hass.states[U.arrayStatus];
+    if (s && ok(s)) return dom(U.arrayStatus) === 'binary_sensor' ? s.state === 'off' : /stop/i.test(s.state);
+    const w = U.arraySw && hass.states[U.arraySw];
+    return !!w && w.state === 'off';
+  };
+  const limitsOf = (c) => ({ ...LIM, ...(c.limits || {}) });
+  const tempCol = (t, lim) => (t == null ? '#696969' : t >= lim ? C.red : t >= lim - 6 ? C.orange : C.green);
 
-  /* ------------------------------------------------------------ editor (Tilpass server) */
+  /* ------------------------------------------------------------ config: faner, underfaner og seksjoner */
+  function tabsCfg(c) {
+    const T = c.tabs && !Array.isArray(c.tabs) ? c.tabs : {};
+    const mapK = (k) => (k === 'unifi' ? 'net' : k);
+    const keys = TABS.map((t) => t[0]);
+    const o = (T.order || (Array.isArray(c.tabs) ? c.tabs : [])).map(mapK).filter((k, i, a) => keys.includes(k) && a.indexOf(k) === i);
+    keys.forEach((k) => { if (!o.includes(k)) o.push(k); });
+    const hidden = (T.hidden || c.tabs_hidden || []).map(mapK);
+    const oldSt = { name: 'text', icon: 'icon', icon_name: 'text' }[c.tab_style];
+    return { order: o, hidden, style: T.style || oldSt || 'text', start: mapK(T.start || c.start_tab || '') };
+  }
+  function visTabs(c) {
+    const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k));
+    return V.length ? V : [T.order[0]];
+  }
+  const subCfg = (c) => ({ show: !(c.subtabs && c.subtabs.show === false), style: (c.subtabs && c.subtabs.style) || 'segment' });
+  // Seksjoner for en fane i rekkefølge: [{ id, key, label, icon, sub, title, hidden }]
+  function secList(c, tab) {
+    const S = c.sections || {}, ord = (S.order || []).filter((id) => SEC[id] && SEC[id].tab === tab);
+    SECDEF[tab].forEach(([k]) => { const id = tab + '.' + k; if (!ord.includes(id)) ord.push(id); });
+    const hid = S.hidden || [], map = S.map || {};
+    return ord.map((id) => ({ ...SEC[id], sub: SUBS[tab].some((s) => s[0] === map[id]) ? map[id] : SEC[id].sub, hidden: hid.includes(id) }));
+  }
+  const visSubs = (c, tab) => { const L = secList(c, tab).filter((s) => !s.hidden); return SUBS[tab].filter(([k]) => L.some((s) => s.sub === k)); };
+
+  /* ------------------------------------------------------------ fanelinjen (kortet + forhåndsvisningen i Tilpass) */
+  function tabBtn(c, k, on, attrs) {
+    const [, label, icon] = TABL[k], st = tabsCfg(c).style;
+    const showIcon = st !== 'text', showLabel = st === 'text' || (st === 'active' && on);
+    return `<button class="tb${on ? ' on' : ''}${!showLabel && st === 'active' ? ' io' : ''}" role="tab" aria-selected="${on}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs || ''}>${showIcon ? M.icon(icon, 20) : ''}${showLabel ? `<span>${esc(label)}</span>` : ''}</button>`;
+  }
+  const subRow = (c, tab, cur, attrs) => {
+    const st = subCfg(c).style;
+    return `<div class="subs ${st === 'pills' ? 'pills' : 'segm'}" role="tablist">${visSubs(c, tab).map(([k, l]) => `<button class="sb${k === cur ? ' on' : ''}" role="tab" aria-selected="${k === cur}" ${attrs ? attrs(k) : ''}>${esc(l)}</button>`).join('')}</div>`;
+  };
+  const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
+    ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden}
+    ${pre} .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;transition:background .2s,color .2s}
+    ${pre} .tb.io{flex:0 0 auto;min-width:48px}
+    ${pre} .tb span{overflow:hidden;text-overflow:ellipsis}
+    ${pre} .tb.on{flex:1 1 0;background:${C.accent};color:${INK}}
+    ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};color:var(--white,#fafafa)}
+    ${pre} .gear:active{transform:scale(.92)}
+    ${pre} .subs{display:flex;gap:2px;min-width:0}
+    ${pre} .subs.segm{padding:3px;border-radius:22px;background:var(--gray200,#3a3a3a)}
+    ${pre} .subs.pills{gap:6px;overflow-x:auto;scrollbar-width:none}
+    ${pre} .sb{flex:1 1 0;min-width:0;height:38px;padding:0 10px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .2s,color .2s}
+    ${pre} .subs.pills .sb{flex:0 0 auto;background:var(--gray200,#3a3a3a);padding:0 16px}
+    ${pre} .sb.on,${pre} .subs.pills .sb.on{background:var(--white,#fafafa);color:#141414}`;
+
+  /* ------------------------------------------------------------ integrasjonsvelger (26.6, portalt ark – fallgruve 1) */
+  function openPick(hass, cfg, k, onApply) {
+    const I = INT[k], L = entriesFor(hass, k), au = autoEntry(hass, k);
+    const cur0 = (cfg.integrations || {})[k];
+    let cur = cur0 === 'none' ? 'none' : cur0 || (au ? au.entry_id : 'none');
+    const api = M.overlay({ maxWidth: 520, guard: 300, css: `
+      .ph{display:flex;align-items:center;gap:12px;padding:4px 0 6px}.ph h2{flex:1;margin:0;font-size:22px;font-weight:600;color:#fafafa}
+      .done{${M.DONE_PILL || `height:40px;padding:0 18px;border-radius:20px;background:${C.accent};color:#2f2f2f;font-size:14px;font-weight:600`}}
+      .sub{margin:0 0 12px;font-size:13px;color:#979797}
+      .lst{display:flex;flex-direction:column;gap:8px}
+      .rr{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 14px;border-radius:22px;background:#3a3a3a;text-align:left;color:#fafafa}
+      .rr b{font-size:14px;font-weight:500}.rr .col>span{font-size:12px;color:#979797}
+      .rd{width:22px;height:22px;border-radius:11px;flex:none;box-shadow:inset 0 0 0 2px #7f7f7f;display:grid;place-items:center}
+      .rr.on .rd{box-shadow:inset 0 0 0 2px ${C.pink}}.rr.on .rd::after{content:'';width:12px;height:12px;border-radius:6px;background:${C.pink}}
+      .auto{height:22px;padding:0 9px;border-radius:11px;background:${M.alpha(C.green, 0.18)};color:${C.green};font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none}
+      .none{padding:14px;border-radius:22px;background:#3a3a3a;color:#979797;font-size:13px}
+      .add{margin-top:12px;height:48px;width:100%;border-radius:24px;background:#404040;color:#fafafa;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}`, html: '' });
+    const draw = () => {
+      api.body.innerHTML = `<div class="ph"><h2>Velg integrasjon</h2><button class="done" data-p="apply">Bruk</button></div>
+        <p class="sub">${esc(I.name)}${k === 'unraid' ? ' · Glances kan brukes som reserve (bare målinger)' : ''}</p>
+        <div class="lst" role="radiogroup">${L.length ? L.map((x) => `<button class="rr${cur === x.entry_id ? ' on' : ''}" role="radio" aria-checked="${cur === x.entry_id}" data-p="sel" data-v="${esc(x.entry_id)}"><span class="rd"></span><span class="grow col"><b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.domain === 'glances' ? 'Glances' : I.name)} · ${x.count} entiteter</span></span>${au && au.entry_id === x.entry_id ? '<span class="auto">Auto</span>' : ''}</button>`).join('') : `<div class="none">Fant ingen ${esc(I.name)}-integrasjon i Home Assistant.</div>`}
+        <button class="rr${cur === 'none' ? ' on' : ''}" role="radio" aria-checked="${cur === 'none'}" data-p="sel" data-v="none"><span class="rd"></span><span class="grow col"><b>Ingen</b><span>Skjul seksjonene for ${esc(I.name)}</span></span></button></div>
+        <button class="add" data-p="add">${M.icon('mdi:plus', 20)}Legg til integrasjon i Home Assistant</button>`;
+    };
+    api.body.addEventListener('click', (ev) => {
+      const b = ev.target.closest && ev.target.closest('[data-p]');
+      if (!b) return;
+      const p = b.dataset.p;
+      if (p === 'sel') { M.haptic('selection'); cur = b.dataset.v; draw(); return; }
+      if (p === 'add') { M.haptic('light'); api.close(); M.navigate('/config/integrations/dashboard/add?domain=' + I.domain); return; }
+      if (p === 'apply') { M.haptic('success'); api.close(); onApply(cur !== 'none' && au && cur === au.entry_id ? undefined : cur); }
+    });
+    draw();
+    return api;
+  }
+  M.serverPick = openPick;
+
+  /* ------------------------------------------------------------ «Tilpass Server»: dra for rekkefølge (fallgruve 2) */
   function installEd(ed) {
     if (!ed || ed.__svInst || !ed.shadowRoot) return;
     ed.__svInst = true;
     window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); });
     const Rt = ed.shadowRoot;
     let d = null;
-    const stop = (e) => { if (e.target.closest && e.target.closest('[data-svdrag]')) e.stopPropagation(); };
-    Rt.addEventListener('touchstart', stop, { passive: true });
-    Rt.addEventListener('touchmove', stop, { passive: true });
+    const hit = (e) => e.target && e.target.closest && e.target.closest('[data-svdrag]');
+    Rt.addEventListener('touchstart', (e) => { if (hit(e)) e.stopPropagation(); }, { passive: true });
+    Rt.addEventListener('touchmove', (e) => { if (d || hit(e)) { e.stopPropagation(); if (d && e.cancelable) e.preventDefault(); } }, { passive: false });
+    const movable = (list) => [...list.children].filter((x) => x.dataset && (x.dataset.svk || x.dataset.svsub));
     Rt.addEventListener('pointerdown', (e) => {
-      const hd = e.target.closest && e.target.closest('[data-svdrag]');
+      const hd = hit(e);
       if (!hd || e.button) return;
       const item = hd.closest('[data-svk]');
       if (!item) return;
       e.stopPropagation(); e.preventDefault();
-      d = { k: item.dataset.svk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      d = { item, list: item.parentElement, id: e.pointerId, y0: e.clientY, ty: 0, start: movable(item.parentElement).map((x) => x.dataset.svk || '#' + x.dataset.svsub).join() };
+      window.__tabReorder = true;
+      Object.assign(item.style, { position: 'relative', zIndex: '3', background: '#404040', boxShadow: '0 10px 24px rgba(0,0,0,.45)', transition: 'none' });
       M.haptic('medium');
     });
     Rt.addEventListener('pointermove', (e) => {
       if (!d || e.pointerId !== d.id) return;
       e.stopPropagation(); e.preventDefault();
-      d.item.style.transform = `translateY(${e.clientY - d.y0}px)`;
-      d.item.style.pointerEvents = 'none';
-      const el = Rt.elementFromPoint ? Rt.elementFromPoint(e.clientX, e.clientY) : null;
-      d.item.style.pointerEvents = '';
-      const o = el && el.closest && el.closest('[data-svk]');
-      const hit = o && o !== d.item ? o : null;
-      if (hit !== d.over) { if (d.over) d.over.style.outline = ''; d.over = hit; if (hit) { hit.style.outline = '2px solid rgba(242,133,201,.6)'; M.haptic('selection'); } }
+      const rows = movable(d.list), i = rows.indexOf(d.item);
+      const r = d.item.getBoundingClientRect(), center = r.top - d.ty + r.height / 2 + (e.clientY - d.y0);
+      const mid = (el) => { const b = el.getBoundingClientRect(); return b.top + b.height / 2; };
+      let swap = null;
+      if (rows[i + 1] && center > mid(rows[i + 1])) { swap = rows[i + 1]; d.list.insertBefore(swap, d.item); }
+      // aldri over første underfane-overskrift
+      else if (rows[i - 1] && center < mid(rows[i - 1]) && !(i - 1 === 0 && rows[0].dataset.svsub)) { swap = rows[i - 1]; d.list.insertBefore(d.item, swap); }
+      if (swap) { const r2 = d.item.getBoundingClientRect(); d.y0 += (r2.top - r.top); M.haptic('selection'); }
+      d.ty = e.clientY - d.y0;
+      d.item.style.transform = `translateY(${d.ty}px)`;
     });
     const end = (e) => {
       if (!d || (e && e.pointerId !== d.id)) return;
       const Dd = d; d = null;
-      Dd.item.style.transform = ''; Dd.item.style.zIndex = ''; Dd.item.style.boxShadow = '';
-      if (Dd.over) Dd.over.style.outline = '';
-      if (!Dd.over) return;
-      const arr = orderOf(ed._config || {}), to = Dd.over.dataset.svk, i = arr.indexOf(Dd.k), j0 = arr.indexOf(to);
-      const o = arr.filter((x) => x !== Dd.k), j = o.indexOf(to);
-      o.splice(i <= j0 ? j + 1 : j, 0, Dd.k);
-      M.haptic('success');
-      ed._set('tabs', o);
+      window.__tabReorder = false;
+      Object.assign(Dd.item.style, { transform: '', position: '', zIndex: '', background: '', boxShadow: '', transition: '' });
+      const rows = movable(Dd.list);
+      M.haptic('light');
+      if (rows.map((x) => x.dataset.svk || '#' + x.dataset.svsub).join() === Dd.start) { ed._render(); return; }
+      const cc = ed._config || {};
+      if (Dd.list.dataset.svlist === 'tabs') { ed._set('tabs', { ...(cc.tabs && !Array.isArray(cc.tabs) ? cc.tabs : {}), order: rows.map((x) => x.dataset.svk) }); return; }
+      // seksjoner: rekkefølge + underfane (overskriften over raden) → sections.order / sections.map
+      const tab = Dd.list.dataset.svtab, S = cc.sections || {}, map = { ...(S.map || {}) }, ord = [];
+      let cur = null;
+      rows.forEach((x) => { if (x.dataset.svsub) cur = x.dataset.svsub; else { ord.push(x.dataset.svk); if (cur === SEC[x.dataset.svk].sub) delete map[x.dataset.svk]; else map[x.dataset.svk] = cur; } });
+      const other = TABS.map((t) => t[0]).filter((t) => t !== tab).flatMap((t) => secList(cc, t).map((s) => s.id));
+      const all = [...TABS.map((t) => t[0])].flatMap((t) => (t === tab ? ord : other.filter((id) => SEC[id].tab === t)));
+      ed._set('sections', { ...S, order: all, map: Object.keys(map).length ? map : undefined });
     };
     Rt.addEventListener('pointerup', end);
     Rt.addEventListener('pointercancel', end);
   }
-  const hdl = () => `<span data-svdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:6px 0">${M.icon('mdi:drag', 20)}</span>`;
+  const hdl = () => `<span data-svdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 6px">${M.icon('mdi:drag', 22)}</span>`;
+  const eye = (key, op, v, hid, label) => `<button data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!hid}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : '#fafafa'}`)}</button>`;
+  const intStatus = (hh, cc, k) => {
+    if (!hh) return ['–', '#979797'];
+    const R = oppdag(hh, cc), s = (cc.integrations || {})[k], n = R.ents[k].length;
+    if (s === 'none') return ['Slått av (Ingen) · trykk for å velge', '#979797'];
+    if (s) return [`Valgt manuelt · ${n} entiteter`, '#fafafa'];
+    if (R.found[k]) return [`Funnet automatisk · ${n} entiteter${k === 'unraid' && R.unraid && R.unraid.glances ? ' (Glances)' : ''}`, C.green];
+    return [R.loading ? 'Leter …' : 'Ikke funnet · trykk for å velge', C.orange];
+  };
   const autoOf = (h, c, fnc) => { if (!h) return null; try { return fnc(oppdag(h, c || {})) || null; } catch (e) { return null; } };
 
   function editorSchema(h, c) {
     c = c || {};
-    const R = h ? oppdag(h, c) : null;
-    const tabStyle = (k, on, st) => {
-      const I = IK[k];
-      return `<span style="flex:1 1 0;min-width:0;height:34px;border-radius:17px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px;${on ? `background:${C.accent};color:#2a1720;font-weight:600` : 'color:#afafaf'}">${st !== 'name' ? M.icon(I.icon, 18) : ''}${st !== 'icon' || on ? `<span>${esc(I.name)}</span>` : ''}</span>`;
-    };
-    const faner = [
-      { type: 'html', html: (hh, cc, key, ed) => {
-        installEd(ed);
-        const RR = hh ? oppdag(hh, cc) : null, V = RR ? visTabs(RR, cc) : [], st = cc.tab_style || DEF.tab_style;
-        return `<div class="f"><label>Forhåndsvisning</label><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:21px;background:#282828">${V.length ? V.map((k, i) => tabStyle(k, i === 0, st)).join('') : '<span style="flex:1;text-align:center;font-size:12px;color:#979797;line-height:34px">Ingen synlige faner</span>'}</div><span style="width:42px;height:42px;border-radius:21px;background:#282828;display:grid;place-items:center;color:#afafaf;flex:none">${M.icon('mdi:cog', 20)}</span></div></div>`;
-      } },
-      { type: 'html', html: (hh, cc, key, ed) => {
-        installEd(ed);
-        const RR = hh ? oppdag(hh, cc) : null, hid = cc.tabs_hidden || [];
-        return `<div class="f" style="gap:6px"><label>Integrasjoner</label>${orderOf(cc).map((k) => {
-          const I = IK[k], fnd = RR && RR.found[k], off = hid.includes(k), n = RR ? RR.ents[k].length : 0;
-          return `<div data-svk="${k}" data-found="${fnd ? 1 : 0}" style="display:flex;align-items:center;height:52px;gap:10px;padding:0 6px;border-radius:16px;background:#2f2f2f;${!fnd ? 'opacity:.4' : off ? 'opacity:.6' : ''}">${hdl()}
-            <span style="width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;background:${I.color};color:#232323">${M.icon(I.icon, 18)}</span>
-            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px">${esc(I.name)}</span><span style="font-size:11px;color:#979797">${fnd ? `${n} entiteter` : 'Ikke funnet'}</span></span>
-            ${fnd ? `<button class="ib" data-a="fn" data-k="${key}" data-v="${k}" aria-label="${off ? 'Vis' : 'Skjul'} ${esc(I.name)}" aria-pressed="${!off}">${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button>` : ''}</div>`;
-        }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Øyet skjuler fanen. Integrasjoner som ikke er funnet vises nedtonet.</span></div>`;
-      }, click: (dd, ed) => { const s = new Set(ed._config.tabs_hidden || []); if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); M.haptic('selection'); ed._set('tabs_hidden', s.size ? [...s] : undefined); } },
-      { type: 'select', name: 'tab_style', label: 'Stil', options: [['icon_name', 'Ikon og navn'], ['name', 'Bare navn'], ['icon', 'Bare ikon']], default: 'icon_name' },
-      { type: 'boolean', name: 'content.gauges', label: 'Innhold: målere', default: true },
-      { type: 'boolean', name: 'content.groups', label: 'Innhold: grupper og rader', default: true },
-      { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Sist brukt'], ...INTEG.map((i) => [i.key, i.name])], default: '' },
-    ];
-    const varselF = [
-      { type: 'boolean', name: 'alerts.cpu', label: 'CPU varm (rød)', default: true },
-      { type: 'range', name: 'limits.cpu_temp', label: 'Grense CPU-temperatur', icon: 'mdi:thermometer', min: 45, max: 70, default: LIM.cpu_temp, unit: '°C', presets: [[50, '50'], [60, '60'], [70, '70']] },
-      { type: 'boolean', name: 'alerts.disk', label: 'Disk nesten full (oransje)', default: true },
-      { type: 'range', name: 'limits.disk', label: 'Grense disk', icon: 'mdi:harddisk', min: 80, max: 95, default: LIM.disk, unit: '%', presets: [[80, '80'], [90, '90'], [95, '95']] },
-      { type: 'boolean', name: 'alerts.ap', label: 'Aksesspunkt frakoblet (oransje)', default: true },
-    ];
-    const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), ...(extra || {}) });
-    const entF = [
-      { type: 'section', id: 'e_felles', label: 'Felles', icon: 'mdi:flash', fields: [ent('power', 'Effekt i toppkortet (tomt = summen av effektsensorene)', (RR) => RR.power[0], { device_class: 'power' })] },
-      { type: 'section', id: 'e_unifi', label: 'UniFi', icon: IK.unifi.icon, fields: [
-        ent('unifi_cpu', 'Gateway CPU', (RR) => (gateway(RR) || {}).cpu), ent('unifi_mem', 'Gateway minne', (RR) => (gateway(RR) || {}).mem), ent('unifi_clients', 'Antall klienter', () => null)] },
-      { type: 'section', id: 'e_proxmox', label: 'Proxmox', icon: IK.proxmox.icon, fields: [
-        ent('proxmox_cpu', 'Node CPU', (RR) => (RR.proxmox.noder[0] || {}).cpu), ent('proxmox_mem', 'Node minne', (RR) => (RR.proxmox.noder[0] || {}).mem),
-        ent('proxmox_disk', 'Disk', (RR) => (RR.proxmox.noder[0] || {}).disk || (RR.proxmox.lagring[0] || {}).bruk), ent('proxmox_temp', 'CPU-temperatur', (RR) => (RR.proxmox.noder[0] || {}).temp)] },
-      { type: 'section', id: 'e_unraid', label: 'Unraid', icon: IK.unraid.icon, fields: [
-        ent('unraid_cpu', 'CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'RAM', (RR) => (RR.unraid || {}).ram),
-        ent('unraid_array', 'Array', (RR) => (RR.unraid || {}).arrayBruk), ent('unraid_temp', 'CPU-temperatur', (RR) => (RR.unraid || {}).temp)] },
-      { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og varsler)', help: 'Søk opp rader eller sensorer som ikke skal vises.' },
-    ];
-    const avansert = [
-      { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: 'Homelab' },
-      { type: 'boolean', name: 'lines', label: 'Nettverkslinjer i nodekartet', default: true },
-      { type: 'boolean', name: 'auto_list', label: 'Vis «Konfigurert automatisk»', default: true },
-      M.spacingSchema(),
-      { type: 'button', label: 'Tilbakestill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } },
-    ];
-    const n = R ? INTEG.filter((i) => R.found[i.key]).length : 0;
+    // Faner: live forhåndsvisning (faktiske faner, rosa boble, tannhjul) + dra-liste med øye
+    const preview = { type: 'html', html: (hh, cc) => {
+      const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
+      return `<style>${TAB_CSS('.svp')}.svp{padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px}.svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px}.svp button{pointer-events:none}</style>
+        <div class="svp" data-key="svp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow"><div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div><span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
+    } };
+    const order = { type: 'html', html: (hh, cc, key, ed) => {
+      installEd(ed);
+      const T = tabsCfg(cc);
+      return `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none"><div data-svlist="tabs" style="display:flex;flex-direction:column;gap:8px">${T.order.map((k) => {
+        const [, label, icon] = TABL[k], hid = T.hidden.includes(k), n = hh ? oppdag(hh, cc).ents[TAB_INT[k]].length : 0;
+        return `<div data-svk="${k}" data-key="svt-${k}" style="height:56px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid ? 'opacity:.5' : ''}">${hdl()}
+          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(icon, 20)}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:#979797">${hh ? (n ? `${n} entiteter` : 'Ikke koblet') : ''}</span></span>${eye(key, 'tab', k, hid, label)}</div>`;
+      }).join('')}</div><span class="help">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
+    }, click: (dd, ed) => {
+      const cc = ed._config || {}, T = tabsCfg(cc), hid = new Set(T.hidden);
+      if (!hid.has(dd.v) && T.order.filter((k) => !hid.has(k)).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+      if (hid.has(dd.v)) hid.delete(dd.v); else hid.add(dd.v);
+      M.haptic('selection');
+      ed._set('tabs', { ...(cc.tabs && !Array.isArray(cc.tabs) ? cc.tabs : {}), order: T.order, hidden: hid.size ? [...hid] : undefined });
+    } };
+    const subPreview = { type: 'html', html: (hh, cc) => {
+      const V = visTabs(cc), T = tabsCfg(cc), t = V.includes(T.start) ? T.start : V[0], S = visSubs(cc, t), on = subCfg(cc).show && S.length > 1;
+      return `<style>${TAB_CSS('.svs')}.svs{padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px}.svs .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px}.svs button{pointer-events:none}</style>
+        <div class="svs" data-key="svs" aria-hidden="true"><div class="tl">Underfaner · ${esc(TABL[t][1])}</div>${on ? subRow(cc, t, S[0][0]) : `<div style="font-size:12px;color:#979797;margin:0 4px">${S.length > 1 ? 'Underfaneraden er skjult – alle seksjonene vises under hverandre' : 'Bare én underfane – raden skjules'}</div>`}</div>`;
+    } };
+    // Seksjoner for valgt fane: underfane-overskrifter + dra-rader (flytt mellom underfaner ved å dra forbi en overskrift)
+    const secs = { type: 'html', html: (hh, cc, key, ed) => {
+      installEd(ed);
+      const V = TABS.map((t) => t[0]), t = V.includes(ed.__svTab) ? ed.__svTab : visTabs(cc)[0];
+      const L = secList(cc, t);
+      const seg = `<div class="chips sg" role="tablist" style="margin-bottom:10px">${TABS.map(([k, l]) => `<button class="chip ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-a="fn" data-k="${key}" data-op="stab" data-v="${k}">${esc(l)}</button>`).join('')}</div>`;
+      const rows = SUBS[t].map(([sk, sl]) => `<div data-svsub="${sk}" data-key="svh-${t}-${sk}" style="padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#979797">${esc(sl)}</div>${L.filter((s) => s.sub === sk).map((s) => `<div data-svk="${s.id}" data-key="svr-${s.id}" style="height:56px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${s.hidden ? 'opacity:.5' : ''}">${hdl()}
+          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(s.icon, 20)}</span>
+          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(s.label)}</span>${eye(key, 'sec', s.id, s.hidden, s.label)}</div>`).join('')}`).join('');
+      return `<div class="f" style="gap:6px;padding:0;background:none;box-shadow:none">${seg}<div data-svlist="secs" data-svtab="${t}" style="display:flex;flex-direction:column;gap:8px">${rows}</div><span class="help">Dra for rekkefølge – dra forbi en overskrift for å flytte seksjonen til en annen underfane. En underfane uten synlige seksjoner skjules.</span></div>`;
+    }, click: (dd, ed) => {
+      const cc = ed._config || {};
+      if (dd.op === 'stab') { M.haptic('selection'); ed.__svTab = dd.v; ed._render(); return; }
+      const S = cc.sections || {}, hid = new Set(S.hidden || []);
+      if (hid.has(dd.v)) hid.delete(dd.v); else hid.add(dd.v);
+      M.haptic('selection');
+      ed._set('sections', { ...S, hidden: hid.size ? [...hid] : undefined });
+    } };
+    const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
+      const [txt, col] = intStatus(hh, cc, I.key);
+      return `<button data-a="fn" data-k="${key}" data-op="int" data-v="${I.key}" data-key="svi-${I.key}" style="min-height:60px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:12px;padding:8px 14px 8px 10px;text-align:left;width:100%">
+        <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:#404040;color:${I.color}">${M.icon(I.icon, 20)}</span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${esc(I.name)}</span><span style="font-size:12px;color:${col}">${esc(txt)}</span></span>${M.icon('mdi:chevron-right', 20, 'color:#7f7f7f')}</button>`;
+    }).join('')}<span class="help">Trykk for å velge en annen config entry, eller «Ingen» for å skjule seksjonene.</span></div>`,
+    click: (dd, ed) => { M.haptic('light'); openPick(ed._hass, ed._config || {}, dd.v, (v) => ed._set('integrations.' + dd.v, v)); } };
+    const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), none_label: '– · Velg entitet', ...(extra || {}) });
+    const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
     return [
-      ...(R && !n ? [{ type: 'info', label: R.loading ? 'Leter etter integrasjoner …' : 'Fant ingen integrasjoner (UniFi, Proxmox VE eller Unraid).' }] : []),
       { type: 'tabs', id: 'server', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs'], fields: faner },
-        { key: 'varsler', label: 'Varsler', icon: 'mdi:bell-alert', focus: ['alerts'], fields: varselF },
-        { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entities', 'overrides'], fields: entF },
-        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['spacing', 'advanced'], fields: avansert },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
+          { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            preview,
+            { type: 'select', name: 'tabs.style', label: 'Stil', options: [['text', 'Tekst'], ['active', 'Aktiv'], ['icon', 'Ikon']], default: 'text', help: 'Aktiv = ikon + navn på aktiv fane, ikon på de andre.' },
+            { type: 'select', name: 'tabs.start', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
+            order,
+          ] },
+          { type: 'section', id: 'underfaner', label: 'Underfaner', icon: 'mdi:tab-minus', fields: [
+            subPreview,
+            { type: 'boolean', name: 'subtabs.show', label: 'Vis underfaneraden', default: true },
+            { type: 'select', name: 'subtabs.style', label: 'Stil', options: [['segment', 'Segment'], ['pills', 'Piller']], default: 'segment' },
+          ] },
+        ] },
+        { key: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda', focus: ['sections', 'seksjoner'], fields: [
+          { type: 'section', id: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda', fields: [secs] },
+        ] },
+        { key: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', focus: ['toppkort', 'varsler', 'limits'], fields: [
+          { type: 'section', id: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', fields: [
+            ...TABS.map(([t, l]) => ({ type: 'select', name: 'hero_metric.' + t, label: `Standard måling · ${l}`, options: HM[t].map(([k, lb]) => [k, lb]), default: HM[t][0][0] })),
+          ] },
+          { type: 'section', id: 'varsler', label: 'Varsler', icon: 'mdi:bell-alert', fields: [
+            { type: 'range', name: 'limits.disk_temp', label: 'Disktemperatur-grense', icon: 'mdi:thermometer', min: 30, max: 70, step: 2, default: LIM.disk_temp, unit: '°C', presets: [[40, '40'], [50, '50'], [60, '60']] },
+            { type: 'range', name: 'limits.storage', label: 'Lagring full', icon: 'mdi:harddisk', min: 50, max: 100, step: 5, default: LIM.storage, unit: '%', presets: [[75, '75'], [85, '85'], [95, '95']] },
+            { type: 'info', label: 'Grensene styrer fargene på disker (LED/temperatur) og stolper (oransje over grensen).' },
+          ] },
+        ] },
+        { key: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', focus: ['integrasjoner', 'integrations'], fields: [
+          { type: 'section', id: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', fields: [ints] },
+        ] },
+        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert'], fields: [
+          { type: 'section', id: 'entities', label: 'Entiteter i toppkortet', icon: 'mdi:format-list-bulleted', fields: [
+            { type: 'info', label: 'Alt er funnet automatisk. Velg en annen entitet bare der det automatiske valget er feil.' },
+            ent('net_down', 'Nettverk · Ned', (RR) => (gateway(RR) || {}).rx), ent('net_up', 'Nettverk · Opp', (RR) => (gateway(RR) || {}).tx), ent('net_lat', 'Nettverk · Latens', (RR) => ((gateway(RR) || {}).latens || [])[0]),
+            ent('unifi_clients', 'Nettverk · Antall klienter', () => null),
+            ent('proxmox_cpu', 'Proxmox · CPU', (RR) => (RR.proxmox.noder[0] || {}).cpu), ent('proxmox_mem', 'Proxmox · Minne', (RR) => (RR.proxmox.noder[0] || {}).mem), ent('proxmox_power', 'Proxmox · Strøm', (RR) => RR.proxmox.power, { device_class: 'power' }),
+            ent('unraid_cpu', 'Unraid · CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'Unraid · Minne', (RR) => (RR.unraid || {}).ram), ent('unraid_temp', 'Unraid · Temp', (RR) => (RR.unraid || {}).temp),
+            { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og fliser)', help: 'Søk opp enheter, gjester eller disker som ikke skal vises.' },
+          ] },
+          M.spacingSchema(),
+          { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
+        ] },
       ] },
     ];
   }
@@ -42815,451 +44595,726 @@ try {
     static get defaults() { return { ...DEF }; }
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
-    static get uiPersist() { return ['tab', 'autoOpen']; }
+    static get uiPersist() { return ['tab', 'sub']; }
     get cardSize() { return 12; }
     constructor() {
       super();
       this._ce = () => { if (this.isConnected) this.update(); };
-      this._mapW = 340;
+      this._hist = {}; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {};
     }
     connectedCallback() { super.connectedCallback(); window.addEventListener('msh-server-entries', this._ce); }
     disconnectedCallback() {
       super.disconnectedCallback(); window.removeEventListener('msh-server-entries', this._ce);
-      if (this._ro) { this._ro.disconnect(); this._ro = null; }
-      if (this._sheet) { this._sheet.api.close(); this._sheet = null; }
+      if (this._pick) { this._pick.close(); this._pick = null; }
     }
     onOpen() {
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
-      const st = this.config.start_tab;
-      if (st && this._R && visTabs(this._R, this.config).includes(st) && this.ui.tab !== st) this.setUI({ tab: st });
+      const st = tabsCfg(this.config).start;
+      if (st && visTabs(this.config).includes(st) && this.ui.tab !== st) this.setUI({ tab: st, sel: null });
+      this._loadHist();
     }
-    onClose() { if (this._sheet) { this._sheet.api.close(); this._sheet = null; } }
-    get tabs() { return this._R ? visTabs(this._R, this.config) : []; }
-    get tab() { const V = this.tabs; const st = this.config.start_tab; return V.includes(this.ui.tab) ? this.ui.tab : V.includes(st) ? st : V[0] || null; }
+    onClose() { if (this._pick) { this._pick.close(); this._pick = null; } }
+    get tabs() { return visTabs(this.config); }
+    get tab() { const V = this.tabs, st = tabsCfg(this.config).start; return V.includes(this.ui.tab) ? this.ui.tab : V.includes(st) ? st : V[0]; }
+    _sub(tab) {
+      const S = visSubs(this.config, tab), u = (this.ui.sub || {})[tab];
+      return S.some((s) => s[0] === u) ? u : S[0] ? S[0][0] : null;
+    }
+
+    /* ---------------------------------------------------------- toppkort: målinger + historikk (fallgruve 8) */
+    _metrics(R, tab) {
+      const h = this.hass, c = this.config;
+      const mk = ([k, label, color], id, v, unit, dec) => ({ k, label, color, id: id || null, v: v == null || isNaN(v) ? null : v, unit, dec });
+      if (tab === 'net') {
+        const g = gateway(R) || {}, [d, u, l] = HM.net;
+        const dn = ov(c, 'net_down') || g.rx, up = ov(c, 'net_up') || g.tx, lt = ov(c, 'net_lat') || (g.latens || [])[0];
+        return [mk(d, dn, numOf(h, dn), uShort(unitOf(h, dn)) || 'Mbps'), mk(u, up, numOf(h, up), uShort(unitOf(h, up)) || 'Mbps'), mk(l, lt, numOf(h, lt), unitOf(h, lt) || 'ms', 0)];
+      }
+      if (tab === 'proxmox') {
+        const n = R.proxmox.noder[0] || {}, [a, b, p] = HM.proxmox;
+        const cp = ov(c, 'proxmox_cpu') || n.cpu, mm = ov(c, 'proxmox_mem') || n.mem, pw = ov(c, 'proxmox_power') || R.proxmox.power;
+        return [mk(a, cp, pctOf(h, cp), '%', 0), mk(b, mm, pctOf(h, mm, n.ramBrukt, n.ramTot), '%', 0), mk(p, pw, numOf(h, pw), unitOf(h, pw) || 'W', 0)];
+      }
+      const U = R.unraid || {}, [a, b, t] = HM.unraid;
+      const cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
+      return [mk(a, cp, pctOf(h, cp), '%', 0), mk(b, mm, pctOf(h, mm), '%', 0), mk(t, tp, numOf(h, tp), '°C', 0)];
+    }
+    async _loadHist() {
+      if (!this.hass || !this.isOpen) return;
+      const R = oppdag(this.hass, this.config), tab = this.tab, ids = this._metrics(R, tab).map((m) => m.id).filter(Boolean);
+      const key = tab + '|' + ids.join();
+      if (this._histKey === key && this._histAt && Date.now() - this._histAt < TTL) return;
+      this._histKey = key; this._histAt = Date.now();
+      if (!ids.length) return;
+      const r = await M.history(this.hass, ids, 24).catch(() => ({}));
+      if (this._histKey !== key) return;
+      ids.forEach((id) => { this._hist[id] = M.sample(r[id] || [], 49, 24); });
+      this.update();
+    }
 
     onAction(name, el, ev) {
       const d = el.dataset, h = this.hass;
       switch (name) {
-        case 'tab': case 'node': case 'alert':
-          if (d.dev && name === 'alert') { this.setUI({ tab: d.v }); return this._openDev(d.dev); }
-          if (d.v && this.tabs.includes(d.v)) return this.setUI({ tab: d.v });
-          return;
-        case 'auto': return this.setUI({ autoOpen: !this.ui.autoOpen });
-        case 'dev': return this._openDev(d.v);
-        case 'gtoggle': return this._toggle(d);
+        case 'tab': if (d.v && this.tabs.includes(d.v) && d.v !== this.tab) { this.setUI({ tab: d.v, sel: null }); setTimeout(() => this._loadHist(), 0); } return;
+        case 'sub': return this.setUI({ sub: { ...(this.ui.sub || {}), [this.tab]: d.v } });
+        case 'hm': return this.setUI({ hm: { ...(this.ui.hm || {}), [this.tab]: d.v }, sel: null });
+        case 'dx': return this.setUI({ dx: this.ui.dx === d.v ? null : d.v });
+        case 'cx': return this.setUI({ cx: this.ui.cx === d.v ? null : d.v });
+        case 'gx': return this.setUI({ gx: this.ui.gx === d.v ? null : d.v });
+        case 'swsel': return this.setUI({ swSel: d.v, port: null });
+        case 'port': return this.setUI({ port: this.ui.port === d.v ? null : d.v });
+        case 'disk': return this.setUI({ disk: { ...(this.ui.disk || {}), [this.tab]: d.v } });
+        case 'flt': this._flt[this.tab] = d.v; return this.update();
+        case 'qclr': this._q[this.tab] = ''; return this.update();
+        case 'pickint': return this._openPick(d.v);
+        case 'addint': return M.navigate('/config/integrations/dashboard/add?domain=' + d.v);
         case 'press': return d.id && M.call(h, 'button', 'press', { entity_id: d.id });
+        case 'arm': return this._arm(d.key, () => this._run(d));
+        case 'run': return this._run(d);
+        case 'tgl': return this._tgl(d);
+        case 'locate': return this._locate(d);
         default: return super.onAction(name, el, ev);
       }
     }
-    // Bryter for VM/LXC (Proxmox: switch eller start/stopp-knapp), Docker/VM (Unraid) og WLAN
-    _toggle(d) {
+    onInput(name, el) { if (name === 'q') { this._q[this.tab] = el.value; this.update(); } }
+    // Farlige handlinger: første trykk = rød «Bekreft · trykk igjen», tilbakestilles etter 3 s
+    _arm(key, run) {
+      if (this._armed === key) { clearTimeout(this._armT); this._armed = null; M.haptic('heavy'); run(); this.update(); return; }
+      this._armed = key; M.haptic('warning');
+      clearTimeout(this._armT); this._armT = setTimeout(() => { this._armed = null; this.update(); }, 3000);
+      this.update();
+    }
+    // Bryter med spinner mens den venter (state endres → spinneren forsvinner, maks 15 s)
+    _tgl(d) {
       const h = this.hass;
-      if (d.sw) return M.toggle(h, d.sw);
+      const mark = (id) => { const s = h.states[id]; this._pend[id] = { s: s && s.state, t: Date.now() }; this.update(); setTimeout(() => this.update(), 15100); };
+      if (d.sw) { mark(d.sw); return M.toggle(h, d.sw); }
+      if (d.sel) { // opptak via select.*_recording_mode
+        const s = h.states[d.sel]; if (!s) return;
+        const opts = s.attributes.options || [], never = opts.find((o) => /never|aldri/i.test(o)) || 'never';
+        const on = s.state !== never;
+        const back = (() => { try { return localStorage.getItem('ki:sv-rec:' + d.sel); } catch (e) { return null; } })();
+        if (on) { try { localStorage.setItem('ki:sv-rec:' + d.sel, s.state); } catch (e) { /* */ } }
+        mark(d.sel);
+        return M.call(h, 'select', 'select_option', { entity_id: d.sel, option: on ? never : (back && opts.includes(back) ? back : opts.find((o) => /always|alltid/i.test(o)) || opts.find((o) => o !== never) || 'always') });
+      }
       const g = this._R && this._R.proxmox.gjester.find((x) => x.id === d.g);
       if (!g) return;
       const on = kjorer(h.states[g.status]);
       const btn = on ? (g.knapper.find((k) => k.a === 'av') || g.knapper.find((k) => k.a === 'stopp')) : g.knapper.find((k) => k.a === 'start' || k.a === 'fortsett');
-      if (btn) M.call(h, 'button', 'press', { entity_id: btn.id });
+      if (btn) { mark(g.status); M.call(h, 'button', 'press', { entity_id: btn.id }); }
       else M.toast('Fant ingen start-/stoppknapp for ' + g.navn);
+    }
+    _pending(id) {
+      const p = id && this._pend[id]; if (!p) return false;
+      const s = this.hass.states[id];
+      if (Date.now() - p.t > 15000 || (s && s.state !== p.s)) { delete this._pend[id]; return false; }
+      return true;
+    }
+    // «Finn»: locate-knapp/-bryter, ellers LED-blink – flisen blinker mens den er aktiv
+    _locate(d) {
+      const h = this.hass, id = d.id; if (!id) return;
+      const until = Date.now() + (dom(id) === 'light' ? 10000 : 30000);
+      if (dom(id) === 'switch') M.toggle(h, id);
+      else if (dom(id) === 'button') M.call(h, 'button', 'press', { entity_id: id });
+      else M.call(h, 'light', 'turn_on', { entity_id: id, flash: 'long' }).then(() => M.toast('LED-en blinker')).catch(() => {});
+      if (dom(id) !== 'switch') { this._blink[d.dev] = until; setTimeout(() => this.update(), until - Date.now() + 50); }
+      this.update();
+    }
+    _openPick(k) {
+      if (this._pick) this._pick.close();
+      this._pick = openPick(this.hass, this._rawConfig || this.config, k, async (v) => {
+        const old = this._rawConfig || this.config, integ = { ...(old.integrations || {}) };
+        if (v === undefined) delete integ[k]; else integ[k] = v;
+        const n = { ...old, integrations: Object.keys(integ).length ? integ : undefined };
+        if (!n.integrations) delete n.integrations;
+        this.setConfig(n);
+        try { const r = await M.saveCardConfig(this.hass, old, n, { card: this }); if (r && r.config) this.setConfig(r.config); } catch (e) { console.warn('[ki-msh] Server', e); }
+      });
+      this._pick.onClosed = () => { this._pick = null; };
     }
 
     /* ---------------------------------------------------------- tegning */
     render() {
       const h = this.hass, c = this.config;
       const R = (this._R = oppdag(h, c));
-      const V = visTabs(R, c), tab = this.tab;
-      const A = varsler(h, R, c);
-      // alle funne entiteter (og overstyringer) er avhengigheter – varsler/LED/effekt følger hver endring
+      const V = this.tabs, tab = this.tab;
       INTEG.forEach((i) => R.ents[i.key].forEach((id) => this._deps.add(id)));
       Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
-      const parts = [this._top(R, A)];
-      if (A.length) parts.push(this._alerts(A));
-      const anyFound = INTEG.some((i) => R.found[i.key]);
-      if (!anyFound) {
-        parts.push(`<div class="empty nf">${M.icon(R.loading ? 'mdi:timer-sand' : 'mdi:server-off', 26)}<b>${R.loading ? 'Leter etter integrasjoner …' : 'Fant ingen integrasjoner'}</b><span>Støtter UniFi Network, Proxmox VE og Unraid. Legg til integrasjonen i Home Assistant, så dukker den opp her automatisk.</span><button class="pick press" data-act="customize">${M.icon('mdi:cog', 18)}Tilpass</button></div>`);
-      } else {
-        parts.push(this._tabRow(V, tab));
-        if (!tab) parts.push(`<div class="empty">${M.icon('mdi:eye-off', 22)}<span>Alle fanene er skjult</span><button class="pick press" data-act="customize" data-section="tabs">${M.icon('mdi:cog', 18)}Tilpass</button></div>`);
-        else parts.push(this._pane(R, tab));
-      }
-      if (this._sheet && !this._sheet.api.closed) queueMicrotask(() => this._sheet && this._sheet.draw());
+      const parts = [this._tabRow(V, tab), this._hero(R, tab), this._prose(R, tab), ...this._body(R, tab)];
       return `<div class="wrap">${parts.join('')}</div>`;
     }
-    _led(R, A, key) {
-      const h = this.hass;
-      if (!R.found[key] || !R.ents[key].length) return 'off';
-      const mine = A.filter((a) => a.tab === key);
-      if (mine.some((a) => a.level === 'red')) return 'red';
-      if (key === 'unifi') { const g = gateway(R); if (g && g.tracker && h.states[g.tracker] && !kjorer(h.states[g.tracker])) return 'off'; }
-      if (key === 'proxmox') { const n = R.proxmox.noder[0]; if (n && n.status && h.states[n.status] && !kjorer(h.states[n.status])) return 'off'; }
-      if (key === 'unraid' && R.unraid) { const s = h.states[R.unraid.cpu]; if (s && !ok(s)) return 'off'; }
-      return mine.length ? 'orange' : 'green';
-    }
-    _nodeSub(R, key) {
-      const h = this.hass;
-      if (key === 'unifi') { const k = klientTall(h, R, this.config); return k == null ? `${R.unifi.enheter.length} enheter` : `${nf(k)} klienter`; }
-      if (key === 'proxmox') { const G = R.proxmox.gjester; return G.length ? `${G.filter((g) => g.bryter ? kjorer(h.states[g.bryter]) : kjorer(h.states[g.status])).length}/${G.length} kjører` : `${R.proxmox.noder.length} noder`; }
-      const G = (R.unraid && R.unraid.gjester) || [];
-      return G.length ? `${G.filter((g) => kjorer(h.states[g.bryter])).length}/${G.length} kjører` : '–';
-    }
-    _top(R, A) {
-      const h = this.hass, c = this.config;
-      const pw = ov(c, 'power') ? [ov(c, 'power')] : R.power;
-      pw.forEach((id) => this.s(id));
-      const ws = pw.map((id) => watt(h.states[id])).filter((v) => !isNaN(v));
-      const W = ws.length ? ws.reduce((a, b) => a + b, 0) : null;
-      const red = A.some((a) => a.level === 'red');
-      const pill = !INTEG.some((i) => R.found[i.key]) ? `<span class="pl none">${M.icon('mdi:help-circle-outline', 14)}${R.loading ? 'Leter …' : 'Ingen integrasjoner'}</span>` : !A.length ? `<span class="pl ok">${M.icon('mdi:check-circle', 14)}Alt kjører</span>`
-        : `<span class="pl ${red ? 'red' : 'warn'}">${M.icon('mdi:alert', 14)}${A.length === 1 ? '1 ting trenger tilsyn' : `${A.length} ting trenger tilsyn`}</span>`;
-      const pwTxt = W == null ? '–' : W >= 10000 ? M.nf(W / 1000, 1) : M.nf(W, 0), pwU = W != null && W >= 10000 ? 'kW' : 'W';
-      return `<section class="top" aria-label="Status">
-        <div class="th"><div class="tl"><span class="tn">${esc(c.name || 'Homelab')}</span>${pill}</div>
-          <div class="tp" ${pw[0] ? `data-act="more" data-id="${esc(pw[0])}" data-ent="${esc(pw[0])}"` : ''}><span class="tv num">${pwTxt}${W == null ? '' : `<small>${pwU}</small>`}</span><span class="tpl">Effekt nå</span></div></div>
-        ${this._map(R, A)}
-      </section>`;
-    }
-    _map(R, A) {
-      const keys = INTEG.map((i) => i.key).filter((k) => R.found[k]);
-      if (!keys.length) return `<div class="map none">${M.icon('mdi:lan-disconnect', 22)}<span>Ingen noder</span></div>`;
-      const W = Math.max(240, this._mapW || 340), hasU = keys.includes('unifi'), right = keys.filter((k) => k !== 'unifi');
-      const Hh = hasU && right.length === 2 ? 176 : 112;
-      const pos = {};
-      if (hasU && right.length) {
-        pos.unifi = [48, Hh / 2 - 8];
-        right.forEach((k, i) => { pos[k] = [W - 48, right.length === 2 ? (i ? Hh - 50 : 34) : Hh / 2 - 8]; });
-      } else keys.forEach((k, i) => { pos[k] = [((i + 1) / (keys.length + 1)) * W, Hh / 2 - 8]; });
-      const tab = this.tab, leds = Object.fromEntries(keys.map((k) => [k, this._led(R, A, k)]));
-      const lines = this.config.lines !== false && hasU ? right.map((k, i) => {
-        const [x1, y1] = pos.unifi, [x2, y2] = pos[k], a = x1 + 30, b = x2 - 30, mx = (a + b) / 2;
-        const d = `M${a} ${y1} C${mx} ${y1} ${mx} ${y2} ${b} ${y2}`, dead = leds[k] === 'off', col = dead ? '#696969' : IK[k].color;
-        const dots = dead ? '' : [0, 1].map((j) => `<circle r="3" fill="${col}"><animateMotion dur="2.4s" begin="-${(j * 1.2 + i * 0.4).toFixed(1)}s" repeatCount="indefinite" path="${d}"/></circle>`).join('')
-          + `<circle r="2.5" fill="#fafafa" opacity=".7"><animateMotion dur="3s" begin="-${(0.6 + i * 0.5).toFixed(1)}s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="${d}"/></circle>`;
-        return `<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${dead ? 0.5 : 0.35}" stroke-width="2" ${dead ? 'stroke-dasharray="4 5"' : ''} stroke-linecap="round"/><g class="pk">${dots}</g>`;
-      }).join('') : '';
-      const nodes = keys.map((k) => {
-        const I = IK[k], [x, y] = pos[k], L = leds[k];
-        const nm = k === 'unifi' ? ((gateway(R) || {}).navn || I.name) : k === 'proxmox' ? ((R.proxmox.noder[0] || {}).navn || I.name) : ((R.unraid || {}).navn || I.name);
-        return `<button class="nd ${k === tab ? 'on' : ''}" style="left:${x}px;top:${y - 24}px" data-act="node" data-v="${k}" data-haptic="selection" aria-label="${esc(I.name)}: ${esc(nm)}" aria-pressed="${k === tab}">
-          <span class="ndc" style="--nc:${I.color}">${M.icon(I.icon, 22)}<i class="led ${L}"></i></span><span class="ndl ell">${esc(nm)}</span><span class="nds ell">${esc(this._nodeSub(R, k))}</span></button>`;
-      }).join('');
-      return `<div class="map" style="height:${Hh}px"><svg viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" aria-hidden="true">${lines}</svg>${nodes}</div>`;
-    }
-    _alerts(A) {
-      return `<section class="card alerts" aria-label="Varsler">${A.map((a) => `<button class="al ${a.level}" data-act="alert" data-v="${a.tab}" ${a.dev ? `data-dev="${esc(a.dev)}"` : ''} ${a.id ? `data-ent="${esc(a.id)}"` : ''}>
-        <span class="ali">${M.icon(a.icon, 20)}</span><span class="grow col"><b class="ell">${esc(a.title)}</b><span class="ell">${esc(a.sub)}</span></span><span class="alt">${esc(IK[a.tab].name)}</span>${M.icon('mdi:chevron-right', 20, 'color:#7f7f7f')}</button>`).join('')}</section>`;
-    }
     _tabRow(V, tab) {
-      const st = this.config.tab_style || DEF.tab_style;
-      const btn = (k) => {
-        const I = IK[k], on = k === tab;
-        if (st === 'icon') return M.iconTabs.btn({ label: I.name, icon: I.icon }, on, `data-act="tab" data-v="${k}" data-haptic="selection"`, on ? 'on' : '');
-        return `<button class="tb ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="tab" data-v="${k}" data-haptic="selection">${st !== 'name' ? M.icon(I.icon, 20) : ''}<span>${esc(I.name)}</span></button>`;
-      };
-      return `<div class="trow"><div class="tabs ${st === 'icon' ? 'itabs' : ''}" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
-        <button class="gear press" data-act="customize" aria-label="Tilpass server">${M.icon('mdi:cog', 22)}</button></div>`;
+      return `<div class="trow"><div class="tabs" role="tablist" data-glass-drag="x">${V.map((k) => tabBtn(this.config, k, k === tab, `data-act="tab" data-v="${k}" data-haptic="selection"`)).join('')}</div>
+        <button class="gear press" data-act="customize" aria-label="Tilpass Server">${M.icon('mdi:cog', 22)}</button></div>`;
     }
-    _pane(R, key) {
-      const c = this.config, ct = c.content || {}, h = this.hass, out = [];
-      if (!R.ents[key].length) {
-        out.push(`<div class="empty">${M.icon('mdi:help-circle-outline', 22)}<span>${esc(IK[key].name)} er lagt til, men fant ingen entiteter ennå.</span><button class="pick press" data-act="customize" data-section="entities">${M.icon('mdi:plus', 18)}Velg entitet</button></div>`);
-        return `<div class="pane">${out.join('')}</div>`;
+    _hero(R, tab) {
+      const h = this.hass, c = this.config, ui = this.ui, ik = TAB_INT[tab], found = R.found[ik];
+      const Ms = this._metrics(R, tab);
+      const want = (ui.hm || {})[tab] || (c.hero_metric || {})[tab];
+      const main = Ms.find((m) => m.k === want) || Ms[0], rest = Ms.filter((m) => m !== main);
+      // serie: historikk (49 punkter, 30 min) + live siste punkt; flat når data mangler
+      const ser = (m) => { const s = (m.id && this._hist[m.id] && this._hist[m.id].length ? this._hist[m.id].slice() : (m.v != null ? Array(49).fill(m.v) : [])); if (s.length && m.v != null) s[48] = m.v; return s; };
+      const S = ser(main), sel = ui.sel != null ? ui.sel : 48;
+      let pts = '0,60 300,60';
+      if (S.length) {
+        let lo = Math.min(...S), hi = Math.max(...S); const pad = (hi - lo) * 0.15 || Math.max(1, Math.abs(hi) * 0.1);
+        lo -= pad; hi += pad;
+        pts = S.map((v, i) => `${((i / 48) * 300).toFixed(1)},${(92 - ((v - lo) / (hi - lo)) * 72).toFixed(1)}`).join(' ');
       }
-      if (ct.gauges !== false) out.push(this._gauges(malere(h, R, c, key), key));
-      if (ct.groups !== false) out.push(...this._groups(R, key));
-      if (c.auto_list !== false) out.push(this._autoList(R, key));
-      return `<div class="pane" data-key="pane-${key}">${out.join('')}</div>`;
-    }
-    _gauges(G, key) {
-      const col = IK[key].color;
-      return `<section class="card gauges">${G.map((g) => {
-        if (g.id) this.s(g.id);
-        const p = g.v == null ? 0 : g.full ? 1 : M.clamp(g.v / 100, 0, 1);
-        const cc = g.v == null ? '#545454' : g.full ? col : g.v >= 90 ? C.red : g.v >= 75 ? C.orange : col;
-        const r = 26, L = 2 * Math.PI * r;
-        return `<button class="ga" ${g.id ? `data-act="more" data-id="${esc(g.id)}" data-ent="${esc(g.id)}"` : 'data-act="customize" data-section="entities"'} aria-label="${esc(g.label)} ${g.v == null ? 'mangler' : nf(g.v)}">
-          <span class="gr"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" fill="none" stroke="#545454" stroke-width="6"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${cc}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(L * p).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 32 32)"/></svg>
-          <span class="gv num">${g.v == null ? '–' : nf(g.v)}${g.v != null && g.unit ? `<small>${g.unit}</small>` : ''}</span></span><span class="gl">${esc(g.label)}</span></button>`;
-      }).join('')}</section>`;
-    }
-    _row({ icon, color, name, sub, right, act, ent, dim }) {
-      return `<div class="rw ${dim ? 'dim' : ''}" ${act || ''} ${ent ? `data-ent="${esc(ent)}"` : ''}><span class="ic" style="--ic:${color || '#afafaf'}">${M.icon(icon, 20)}</span><span class="grow col"><b class="ell">${esc(name)}</b>${sub ? `<span class="ell">${sub}</span>` : ''}</span>${right || ''}</div>`;
-    }
-    _sw(on, attrs, label) { return `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" data-act="gtoggle" ${attrs}><i></i></button>`; }
-    _bar(v) { return v == null ? '<span class="val">–</span>' : `<span class="bar"><i style="width:${M.clamp(v, 0, 100).toFixed(1)}%;background:${v >= Number({ ...LIM, ...(this.config.limits || {}) }.disk) ? C.orange : C.blue}"></i></span><span class="val num">${nf(v)} %</span>`; }
-    _grp(title, rows, count) { return rows.length ? `<section class="grp"><div class="gt"><span>${esc(title)}</span>${count != null ? `<span class="gc">${esc(count)}</span>` : ''}</div><div class="card rows">${rows.join('')}</div></section>` : ''; }
-    _groups(R, key) {
-      const h = this.hass, ex = new Set(this.config.exclude || []), keep = (...ids) => !ids.some((id) => id && ex.has(id));
-      const out = [];
-      if (key === 'unifi') {
-        const E = R.unifi.enheter.filter((e) => keep(e.tracker, e.cpu));
-        out.push(this._grp('Enheter', E.map((e) => {
-          [e.tracker, e.cpu, e.klienter, e.tilstand].forEach((id) => this.s(id));
-          const off = apOffline(h, e), [tl, ic] = TYPE[e.type], k = numOf(h, e.klienter);
-          const sub = off ? `<span style="color:${C.orange}">Frakoblet</span>` : esc([tl, k != null ? `${nf(k)} klienter` : null, e.cpu && ok(h.states[e.cpu]) ? `CPU ${fmt(h, e.cpu)}` : null].filter(Boolean).join(' · '));
-          return this._row({ icon: ic, color: off ? '#7f7f7f' : C.blue, name: e.navn, sub, act: `data-act="dev" data-v="${esc(e.dev)}" role="button" tabindex="0"`, ent: e.tracker, right: `<i class="dot ${off ? 'orange' : 'green'}"></i>${M.icon('mdi:chevron-right', 20, 'color:#7f7f7f')}` });
-        }), E.length));
-        const Wl = R.unifi.wlan.filter((w) => keep(w.bryter));
-        out.push(this._grp('WLAN', Wl.map((w) => {
-          const s = this.s(w.bryter), k = numOf(h, w.klienter); this.s(w.klienter);
-          return this._row({ icon: 'mdi:wifi', color: s && s.state === 'on' ? C.blue : '#7f7f7f', name: w.navn, sub: esc(k != null ? `${nf(k)} klienter` : s && s.state === 'on' ? 'På' : 'Av'), ent: w.bryter, right: w.bryter ? this._sw(s && s.state === 'on', `data-sw="${esc(w.bryter)}"`, w.navn) : '' });
-        })));
-      } else if (key === 'proxmox') {
-        out.push(this._grp('Noder', R.proxmox.noder.filter((n) => keep(n.status, n.cpu)).map((n) => {
-          const s = this.s(n.status), cpu = pctOf(h, n.cpu); this.s(n.cpu);
-          const on = s ? kjorer(s) : cpu != null;
-          return this._row({ icon: 'mdi:server', color: on ? C.orange : '#7f7f7f', name: n.navn, sub: esc([on ? 'Online' : 'Frakoblet', cpu != null ? `CPU ${nf(cpu)} %` : null, n.oppetid ? 'Oppe ' + oppetid(h, n.oppetid) : null].filter(Boolean).join(' · ')), act: `data-act="more" data-id="${esc(n.status || n.cpu)}"`, ent: n.status || n.cpu, right: `<i class="dot ${on ? 'green' : 'gray'}"></i>` });
-        })));
-        const gj = (t) => R.proxmox.gjester.filter((g) => g.type === t && keep(g.status, g.bryter)).map((g) => {
-          const s = this.s(g.bryter || g.status), on = kjorer(s), cpu = pctOf(h, g.cpu); this.s(g.cpu);
-          const can = g.bryter || g.knapper.some((k) => ['start', 'stopp', 'av'].includes(k.a));
-          return this._row({ icon: t === 'vm' ? 'mdi:monitor' : 'mdi:cube-outline', color: on ? C.orange : '#7f7f7f', name: g.navn + (g.vmid ? ` · ${g.vmid}` : ''), sub: esc([on ? 'Kjører' : 'Stoppet', on && cpu != null ? `CPU ${nf(cpu)} %` : null].filter(Boolean).join(' · ')), act: `data-act="more" data-id="${esc(g.status || g.bryter)}"`, ent: g.status || g.bryter, right: can ? this._sw(on, g.bryter ? `data-sw="${esc(g.bryter)}"` : `data-g="${esc(g.id)}"`, g.navn) : '' });
-        });
-        const vm = gj('vm'), ct = gj('ct');
-        out.push(this._grp('Virtuelle maskiner', vm, vm.length), this._grp('Containere (LXC)', ct, ct.length));
-        out.push(this._grp('Lagring', R.proxmox.lagring.filter((g) => keep(g.bruk)).map((g) => { this.s(g.bruk); return this._row({ icon: 'mdi:database', color: C.orange, name: g.navn, act: `data-act="more" data-id="${esc(g.bruk || g.brukt)}"`, ent: g.bruk, right: this._bar(pctOf(h, g.bruk, g.brukt, g.total)) }); })));
-        out.push(this._grp('Disker', R.proxmox.disker.filter((d) => keep(d.temp)).map((d) => { this.s(d.temp); return this._row({ icon: 'mdi:harddisk', color: '#afafaf', name: d.navn, sub: esc(d.helse ? fmt(h, d.helse) : ''), act: `data-act="more" data-id="${esc(d.temp || d.helse)}"`, ent: d.temp, right: `<span class="val num">${esc(fmt(h, d.temp))}</span>` }); })));
-      } else if (key === 'unraid' && R.unraid) {
+      const at = (m) => { if (sel === 48) return m.v; const s = ser(m); return s.length ? s[sel] : null; };
+      const fv = (m, v) => (v == null ? '–' : nf(v, m.dec != null ? m.dec : Math.abs(v) < 10 && v % 1 ? 1 : 0));
+      const hrs = (48 - sel) / 2;
+      const when = sel === 48 ? `${main.label} · nå` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t`;
+      // tittel, status-chip og tekst til høyre
+      let title, chip, right = '';
+      if (tab === 'net') {
+        const g = gateway(R), off = g && apOffline(h, g);
+        title = 'Internett';
+        chip = !found ? ['none', 'Ikke koblet'] : !g ? ['none', '–'] : off ? ['red', 'Frakoblet'] : ['ok', g.oppetid && ok(h.states[g.oppetid]) ? `Online · ${oppetid(h, g.oppetid)}` : 'Online'];
+        const k = found ? klientTall(h, R, c) : null; right = k != null ? `${nf(k)} klienter` : '';
+      } else if (tab === 'proxmox') {
+        const n = R.proxmox.noder[0];
+        title = n ? `${n.navn} · node 1` : 'Proxmox';
+        const st = n && n.status && h.states[n.status];
+        chip = !found ? ['none', 'Ikke koblet'] : !n ? ['none', '–'] : st && !kjorer(st) ? ['red', 'Frakoblet'] : ['ok', n.oppetid && ok(h.states[n.oppetid]) ? `Online · ${oppetid(h, n.oppetid)}` : 'Online'];
+        const G = R.proxmox.gjester; right = found && G.length ? `${G.filter((g) => kjorer(h.states[g.bryter || g.status])).length} kjører` : '';
+      } else {
         const U = R.unraid;
-        const gj = (t) => U.gjester.filter((g) => g.type === t && keep(g.bryter)).map((g) => {
-          const s = this.s(g.bryter), on = s && s.state === 'on', up = g.oppdatering && this.s(g.oppdatering) && h.states[g.oppdatering].state === 'on';
-          return this._row({ icon: t === 'vm' ? 'mdi:monitor' : 'mdi:docker', color: on ? C.purple : '#7f7f7f', name: g.navn, sub: (on ? 'Kjører' : 'Stoppet') + (up ? ` · <span style="color:${C.orange}">Oppdatering tilgjengelig</span>` : ''), ent: g.bryter, right: this._sw(on, `data-sw="${esc(g.bryter)}"`, g.navn) });
-        });
-        const dk = gj('docker'), vm = gj('vm');
-        out.push(this._grp('Containere (Docker)', dk, dk.length), this._grp('Virtuelle maskiner', vm, vm.length));
-        out.push(this._grp('Disker', U.disker.filter((d) => keep(d.bruk, d.temp)).map((d) => {
-          this.s(d.bruk); this.s(d.temp);
-          return this._row({ icon: /parity/.test(d.navn) ? 'mdi:shield-check' : /cache/.test(d.navn) ? 'mdi:flash' : 'mdi:harddisk', color: '#afafaf', name: diskNavn(d.navn), sub: esc(d.temp ? fmt(h, d.temp) : ''), act: `data-act="more" data-id="${esc(d.bruk || d.temp)}"`, ent: d.bruk || d.temp, right: d.bruk ? this._bar(pctOf(h, d.bruk)) : '' });
-        })));
+        title = U ? `${U.navn} · ${U.glances ? 'Glances' : 'Unraid'}` : 'Unraid';
+        chip = !found ? ['none', 'Ikke koblet'] : !U ? ['none', '–'] : arrayStoppet(h, U) ? ['warn', 'Array stoppet'] : ['ok', U.oppetid && ok(h.states[U.oppetid]) ? `Online · ${oppetid(h, U.oppetid)}` : 'Online'];
+        if (U) {
+          const b = numOf(h, U.arrayBrukt), u = unitOf(h, U.arrayBrukt);
+          const tb = b == null ? null : /^t/i.test(u) ? b : /^g/i.test(u) ? b / 1000 : /^m/i.test(u) ? b / 1e6 : null;
+          const p = pctOf(h, ov(c, 'unraid_array') || U.arrayBruk);
+          right = tb != null ? `${nf(tb, 1)} TB brukt` : p != null ? `${nf(p)} % brukt` : '';
+        }
       }
-      return out.filter(Boolean);
+      const gc = main.color;
+      return `<section class="hero" aria-label="Toppkort" data-key="hero-${tab}">
+          <div class="graph"><svg viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,100 ${pts} 300,100" style="fill:${M.alpha(gc, 0.2)};stroke:none"></polyline>
+            <polyline points="${pts}" fill="none" style="stroke:${gc};stroke-width:2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline></svg>
+            ${ui.sel != null ? `<div class="cursor" style="left:${(sel / 48) * 100}%;border-left:1px dashed ${M.alpha(gc, 0.7)}"></div>` : ''}<div class="scrub" aria-label="Scrub grafen"></div></div>
+          <div class="htop"><span class="hn ell">${esc(title)}</span><span class="chip ${chip[0]}">${chip[0] === 'ok' ? M.icon('mdi:check-circle', 13) : chip[0] === 'none' ? '' : M.icon('mdi:alert', 13)}<span class="ell">${esc(chip[1])}</span></span><span class="grow"></span>${right ? `<span class="hr ell">${esc(right)}</span>` : ''}</div>
+          <div class="vals"><div class="line"><span class="big num">${fv(main, at(main))}</span><span class="bu">${esc(main.unit || '')}</span>
+            ${rest.map((m) => `<button class="sv" data-act="hm" data-v="${m.k}" data-haptic="selection" aria-label="Vis ${esc(m.label)}"><span class="svv num">${fv(m, at(m))}</span><span class="svu">${esc(m.unit || '')}</span><span class="svl">${esc(m.label)}</span></button>`).join('')}</div>
+            <span class="when">${esc(when)}</span></div>
+        </section>`;
     }
-    _autoList(R, key) {
-      const h = this.hass, open = !!this.ui.autoOpen, ids = R.ents[key];
-      let body = '';
-      if (open) {
-        const by = {};
-        ids.forEach((id) => { const d = (h.entities[id] || {}).device_id || '_'; (by[d] = by[d] || []).push(id); });
-        body = `<div class="alb">${Object.entries(by).sort((a, b) => R.devNavn(a[0]).localeCompare(R.devNavn(b[0]), 'nb')).map(([d, L]) => `<div class="ald">${esc(R.devNavn(d) || 'Uten enhet')}<span>${L.length}</span></div>${L.sort().map((id) => `<button class="ale" data-act="more" data-id="${esc(id)}"><span class="grow col"><b class="ell">${esc(M.name(h, id))}</b><span class="ell">${esc(id)}</span></span><span class="alv ell">${esc(fmt(h, id))}</span></button>`).join('')}`).join('')}</div>`;
+    _prose(R, tab) {
+      const h = this.hass, c = this.config, ik = TAB_INT[tab], pill = (t, bad) => `<b class="pp${bad ? ' bad' : ''}">${esc(t)}</b>`;
+      let txt;
+      if (!R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
+      else if (tab === 'net') {
+        const g = gateway(R), off = g && apOffline(h, g), k = klientTall(h, R, c);
+        txt = `Internett er ${pill(!g ? '–' : off ? 'frakoblet' : 'online', off)} og ${pill(k == null ? '–' : `${nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
+      } else if (tab === 'proxmox') {
+        const n = R.proxmox.noder[0] || {}, pw = ov(c, 'proxmox_power') || R.proxmox.power, W = numOf(h, pw);
+        const G = R.proxmox.gjester, on = G.filter((g) => kjorer(h.states[g.bryter || g.status])).length;
+        txt = `Oppetiden er ${pill(oppetid(h, n.oppetid))} og ` + (W != null ? `strømforbruket er ${pill(`${nf(W)} ${unitOf(h, pw) || 'W'}`)}.` : `${pill(`${on} av ${G.length}`)} gjester kjører.`);
+      } else {
+        const U = R.unraid || {}, stop = arrayStoppet(h, U), p = pctOf(h, ov(c, 'unraid_array') || U.arrayBruk), L = limitsOf(c);
+        const st = U.glances ? null : U.arrayStatus || U.arraySw ? (stop ? 'stoppet' : 'startet') : '–';
+        txt = st ? `Arrayet er ${pill(st, stop)} og lagringen er ${pill(p == null ? '–' : `${nf(p)} % full`, p != null && p >= L.storage)}.`
+          : `CPU-en er ${pill(`${nf(pctOf(h, U.cpu))} %`)} og minnet er ${pill(`${nf(pctOf(h, U.ram))} % brukt`)}.`;
       }
-      return `<section class="card auto"><button class="alh" data-act="auto" aria-expanded="${open}">${M.icon('mdi:auto-fix', 20, 'color:#afafaf')}<span class="grow col"><b>Konfigurert automatisk</b><span>${ids.length} entiteter fra ${esc(IK[key].name)}</span></span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 22, 'color:#afafaf')}</button>${body}</section>`;
+      return `<p class="prose">${txt}</p>`;
+    }
+    _body(R, tab) {
+      const c = this.config, ik = TAB_INT[tab], out = [];
+      const netCams = tab === 'net' && R.found.protect;
+      if (!R.found[ik]) {
+        out.push(this._notFound(R, ik));
+        // Nettverk uten UniFi Network, men med Protect: bare kameraene
+        const cs = netCams && secList(c, tab).find((s) => s.key === 'cams' && !s.hidden);
+        if (cs) out.push(`<div class="pane" data-key="pane-net-cams">${this._s_cams(R, tab, cs)}</div>`);
+        return out;
+      }
+      const S = visSubs(c, tab);
+      if (!S.length) return [...out, `<div class="empty">${M.icon('mdi:eye-off', 22)}<span>Alle seksjonene er skjult</span><button class="pick press" data-act="customize" data-section="seksjoner">${M.icon('mdi:cog', 18)}Tilpass</button></div>`];
+      const sub = this._sub(tab), row = subCfg(c).show && S.length > 1;
+      if (row) out.push(subRow(c, tab, sub, (k) => `data-act="sub" data-v="${k}" data-haptic="selection"`));
+      const L = secList(c, tab).filter((s) => !s.hidden && (!row || s.sub === sub));
+      const html = L.map((s) => { try { return this['_s_' + s.key](R, tab, s); } catch (e) { return this._failHTML(e); } }).filter(Boolean);
+      out.push(`<div class="pane" data-key="pane-${tab}-${row ? sub : 'alle'}">${html.join('') || `<div class="empty">${M.icon('mdi:information-outline', 22)}<span>Ingenting å vise her</span></div>`}</div>`);
+      return out;
+    }
+    _notFound(R, k) {
+      const I = INT[k], off = R.mode[k] === 'none';
+      if (R.loading && !off) return `<section class="sec nf" data-key="nf-${k}">${M.icon('mdi:timer-sand', 26)}<b>Leter etter ${esc(I.name)} …</b></section>`;
+      return `<section class="sec nf" data-key="nf-${k}"><span class="nfi">${M.icon(off ? 'mdi:eye-off' : 'mdi:puzzle-remove-outline', 26)}</span><b>${off ? `${esc(I.name)} er slått av` : `Fant ikke ${esc(I.name)}`}</b>
+        <span>${off ? 'Integrasjonen er satt til «Ingen» i Tilpass Server.' : `Legg til integrasjonen i Home Assistant, eller velg en annen config entry.${k === 'unraid' ? ' Glances brukes automatisk som reserve.' : ''}`}</span>
+        <div class="nfb"><button class="pick press" data-act="pickint" data-v="${k}">${M.icon('mdi:swap-horizontal', 18)}Velg integrasjon</button><button class="pick press" data-act="addint" data-v="${esc(I.domain)}">${M.icon('mdi:plus', 18)}Legg til i HA</button></div></section>`;
+    }
+    _sec(s, meta, body, cls) {
+      return `<section class="sec ${cls || ''}" data-key="s-${s.id}" aria-label="${esc(s.title)}"><div class="sh">${M.icon(s.icon, 20)}<span class="st">${esc(s.title)}</span>${meta ? `<span class="sm">${esc(meta)}</span>` : ''}</div>${body}</section>`;
+    }
+    _sw(on, attrs, label, dis) {
+      const pend = /data-sw="([^"]+)"/.exec(attrs || ''), p = pend && this._pending(pend[1]);
+      return `<button class="sw ${on ? 'on' : ''} ${p ? 'pend' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" data-act="tgl" ${attrs} ${dis ? 'disabled' : ''}><i>${p ? '<span class="spin"></span>' : ''}</i></button>`;
+    }
+    _kpi(label, v, id) { return `<div class="kp" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><b class="num ell">${esc(v)}</b><span>${esc(label)}</span></div>`; }
+    _dangerBtn(key, label, attrs, icon) {
+      const on = this._armed === key;
+      return `<button class="ab danger ${on ? 'armed' : ''}" data-act="arm" data-key="${esc(key)}" ${attrs} data-haptic="off">${M.icon(icon || 'mdi:restart', 18)}${on ? 'Bekreft · trykk igjen' : esc(label)}</button>`;
     }
 
-    /* ---------------------------------------------------------- enhetsark (UniFi, portalt – fallgruve 1) */
-    _openDev(devId) {
-      const R = this._R, e = R && R.unifi.enheter.find((x) => x.dev === devId);
-      if (!e) return;
-      if (this._sheet) this._sheet.api.close();
-      const api = M.overlay({ maxWidth: 520, guard: 350, css: SHEET_CSS, html: '' });
-      const sh = { api, dev: devId, hist: null, draw: () => {} };
-      sh.draw = () => {
-        if (api.closed) return;
-        const RR = this._R, E = RR && RR.unifi.enheter.find((x) => x.dev === devId);
-        if (!E) return api.close();
-        api.body.innerHTML = this._devHTML(RR, E, sh.hist);
-        const g = api.body.querySelector('.gph');
-        if (g) g.addEventListener('pointerdown', (ev) => ev.stopPropagation());
-      };
-      api.body.addEventListener('click', (ev) => {
-        const b = ev.target.closest && ev.target.closest('[data-d]');
-        if (!b) return;
-        const h = this.hass, dd = b.dataset;
-        M.haptic('light');
-        if (dd.d === 'close') return api.close();
-        if (dd.d === 'restart' && dd.id) return M.call(h, 'button', 'press', { entity_id: dd.id }).then(() => M.toast('Starter på nytt …')).catch(() => {});
-        if (dd.d === 'locate') { if (dd.id && dd.id.startsWith('button.')) return M.call(h, 'button', 'press', { entity_id: dd.id }); if (dd.id) return M.call(h, 'light', 'turn_on', { entity_id: dd.id, flash: 'long' }).then(() => M.toast('LED-en blinker')).catch(() => {}); return; }
-        if (dd.d === 'tgl' && dd.id) return M.toggle(h, dd.id);
-        if (dd.d === 'ent' && dd.id) return M.moreInfo(this, dd.id);
-      });
-      api.onClosed = () => { if (this._sheet === sh) this._sheet = null; };
-      this._sheet = sh;
-      sh.draw();
-      const ids = [e.rx, e.tx].filter(Boolean);
-      if (ids.length) M.history(this.hass, ids, 24).then((r) => { sh.hist = r; sh.draw(); }).catch(() => {});
+    /* ---------------------------------------------------------- Nettverk */
+    _s_gw(R, tab, s) {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      const E = R.unifi.enheter.filter((e) => (e.type === 'ruter' || e.type === 'ap') && !ex.has(e.tracker) && !ex.has(e.cpu));
+      if (!E.length) return this._sec(s, '', `<div class="none">Fant ingen gateway eller aksesspunkt</div>`);
+      const online = E.filter((e) => !apOffline(h, e)).length;
+      const tiles = E.map((e) => {
+        [e.tracker, e.cpu, e.klienter, e.tilstand, e.temp, e.oppetid, e.kanal, e.led, e.finn].forEach((id) => this.s(id));
+        const off = apOffline(h, e), start = !off && apStarter(h, e), open = this.ui.dx === e.dev, [tl, ic] = TYPE[e.type];
+        const [stTxt, stCol] = off ? ['Frakoblet', C.red] : start ? ['Starter …', C.orange] : ['Online', C.green];
+        const blink = this._blink[e.dev] > Date.now() || (e.finn && dom(e.finn) === 'switch' && h.states[e.finn] && h.states[e.finn].state === 'on');
+        let ex2 = '';
+        if (open) {
+          const tr = e.tracker && h.states[e.tracker], upd = e.oppdatering && h.states[e.oppdatering];
+          const meta = [tr && tr.attributes.ip, e.oppetid && ok(h.states[e.oppetid]) ? 'Oppe ' + oppetid(h, e.oppetid) : null, upd && upd.attributes.installed_version ? 'v' + upd.attributes.installed_version : null].filter(Boolean).join(' · ') || tl;
+          const kp = e.type === 'ruter'
+            ? this._kpi('Klienter', nf(klientTall(h, R, this.config)), null) + this._kpi('CPU', fmt(h, e.cpu), e.cpu) + this._kpi('Temp', fmt(h, e.temp), e.temp)
+            : this._kpi('Klienter', nf(numOf(h, e.klienter)), e.klienter) + this._kpi('Kanal', fmt(h, e.kanal), e.kanal) + this._kpi('Last', fmt(h, e.cpu), e.cpu);
+          const loc = e.finn || e.led;
+          ex2 = `<div class="dx"><div class="dxm"><span class="badge">${esc(e.modell || tl)}</span><span class="ell">${esc(meta)}</span></div><div class="kps">${kp}</div>
+            <div class="acts">${e.restart ? this._dangerBtn('rs-' + e.dev, 'Omstart', `data-id="${esc(e.restart)}" data-toast="Starter på nytt …"`) : ''}${e.type === 'ap' && loc ? `<button class="ab" data-act="locate" data-id="${esc(loc)}" data-dev="${esc(e.dev)}">${M.icon('mdi:crosshairs-gps', 18)}Finn</button>` : ''}</div></div>`;
+        }
+        return `<div class="ti ${open ? 'open' : ''} ${blink ? 'blink' : ''}" data-key="ti-${esc(e.dev)}"><button class="tih" data-act="dx" data-v="${esc(e.dev)}" ${e.tracker ? `data-ent="${esc(e.tracker)}"` : ''} aria-expanded="${open}">
+          <span class="tic ${off ? 'off' : ''}">${M.icon(ic, 22)}</span><span class="grow col"><b class="ell">${esc(e.navn)}</b><span class="ell" style="color:${stCol}">${stTxt}</span></span></button>${ex2}</div>`;
+      }).join('');
+      return this._sec(s, `${online} av ${E.length} online`, `<div class="grid2">${tiles}</div>`);
     }
-    _devHTML(R, e, hist) {
-      const h = this.hass, [tl, ic] = TYPE[e.type], off = apOffline(h, e);
-      [e.tracker, e.cpu, e.mem, e.temp, e.oppetid, e.klienter, e.led, e.oppdatering, e.rx, e.tx].forEach((id) => this.s(id));
-      const tr = e.tracker && h.states[e.tracker], upd = e.oppdatering && h.states[e.oppdatering], led = e.led && h.states[e.led];
-      const pills = [`<span class="sp ${off ? 'warn' : 'ok'}">${off ? 'Frakoblet' : 'Online'}</span>`, `<span class="sp">${esc(tl)}</span>`,
-        upd && upd.state === 'on' ? `<span class="sp warn">Oppdatering ${esc(upd.attributes.latest_version || 'tilgjengelig')}</span>` : upd ? `<span class="sp">${esc(upd.attributes.installed_version || 'Oppdatert')}</span>` : '',
-        tr && tr.attributes.ip ? `<span class="sp">${esc(tr.attributes.ip)}</span>` : ''].filter(Boolean).join('');
-      const act = (d, icon, label, id, on) => `<button class="ac ${on ? 'on' : ''}" data-d="${d}" ${id ? `data-id="${esc(id)}"` : 'disabled'}>${M.icon(icon, 22)}<span>${label}</span></button>`;
-      const actions = `<div class="acts">${act('restart', 'mdi:restart', 'Start på nytt', e.restart)}${act('locate', 'mdi:crosshairs-gps', 'Finn enhet', e.finn || e.led)}${act('tgl', led && led.state === 'on' ? 'mdi:led-on' : 'mdi:led-off', 'LED', e.led, led && led.state === 'on')}</div>`;
-      const tile = (label, v, id) => `<button class="st" data-d="ent" ${id ? `data-id="${esc(id)}"` : ''}><span>${label}</span><b class="num">${esc(v)}</b></button>`;
-      const k = numOf(h, e.klienter);
-      const tiles = `<div class="sts">${tile('CPU', fmt(h, e.cpu), e.cpu)}${tile('Minne', fmt(h, e.mem), e.mem)}${e.temp ? tile('Temperatur', fmt(h, e.temp), e.temp) : tile('Klienter', k == null ? '–' : nf(k), e.klienter)}${tile('Oppetid', oppetid(h, e.oppetid), e.oppetid)}</div>`;
-      // trafikkgraf 24 t
-      let graf;
-      if (!e.rx && !e.tx) graf = '<div class="none">Fant ingen trafikksensor for enheten</div>';
-      else {
-        const S = (id) => (hist && id ? M.sample(hist[id] || [], 48, 24) : []);
-        const a = S(e.rx), b = S(e.tx), mx = Math.max(1, ...a, ...b), Wg = 300, Hg = 90;
-        const pts = (arr) => arr.map((v, i) => `${((i / 47) * Wg).toFixed(1)},${(Hg - 4 - (v / mx) * (Hg - 12)).toFixed(1)}`).join(' ');
-        const u = (e.rx && h.states[e.rx] && h.states[e.rx].attributes.unit_of_measurement) || '';
-        graf = `<div class="gph"><div class="gl2"><span><i style="background:${C.blue}"></i>Ned ${esc(fmt(h, e.rx))}</span><span><i style="background:${C.purple}"></i>Opp ${esc(fmt(h, e.tx))}</span></div>
-          <svg viewBox="0 0 ${Wg} ${Hg}" preserveAspectRatio="none" aria-label="Trafikk siste 24 timer">${a.length ? `<polygon points="0,${Hg} ${pts(a)} ${Wg},${Hg}" fill="${C.blue}" fill-opacity=".15"/><polyline points="${pts(a)}" fill="none" stroke="${C.blue}" stroke-width="2" vector-effect="non-scaling-stroke"/>` : ''}${b.length ? `<polyline points="${pts(b)}" fill="none" stroke="${C.purple}" stroke-width="2" vector-effect="non-scaling-stroke"/>` : ''}${!a.length && !b.length ? `<line x1="0" y1="${Hg / 2}" x2="${Wg}" y2="${Hg / 2}" stroke="#545454" stroke-dasharray="4 4"/>` : ''}</svg>
-          <div class="gx"><span>−24 t</span><span>−12 t</span><span>nå</span></div><div class="gmax">${hist ? `maks ${esc(nf(mx, mx < 10 ? 1 : 0))} ${esc(u)}` : 'Henter historikk …'}</div></div>`;
+    _s_cams(R, tab, s) {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      if (!R.found.protect) {
+        return this._sec(s, '', `<button class="missrow" data-act="pickint" data-v="protect">${M.icon('mdi:cctv-off', 20)}<span class="grow ell">${R.mode.protect === 'none' ? 'UniFi Protect slått av' : 'UniFi Protect ikke funnet'} · kameraer skjult</span><span class="mv">Velg</span></button>`);
       }
-      // type-spesifikt
-      let spes = '';
-      if (e.type === 'ap') {
-        const rad = e.radioer.map((id) => `<button class="ln" data-d="ent" data-id="${esc(id)}"><span class="grow ell">${esc(M.name(h, id))}</span><b class="num">${esc(fmt(h, id))}</b></button>`).join('');
-        const wl = R.unifi.wlan.map((w) => { const s = h.states[w.bryter]; return `<div class="ln"><span class="grow col"><span class="ell">${esc(w.navn)}</span><small>${w.klienter ? esc(fmt(h, w.klienter)) + ' klienter' : ''}</small></span>${w.bryter ? `<button class="sw ${s && s.state === 'on' ? 'on' : ''}" role="switch" aria-checked="${!!(s && s.state === 'on')}" aria-label="${esc(w.navn)}" data-d="tgl" data-id="${esc(w.bryter)}"><i></i></button>` : ''}</div>`; }).join('');
-        spes = `<h4>Radioer</h4><div class="lst">${rad || wl || '<div class="none">Ingen radio-sensorer</div>'}</div>`;
-      } else if (e.type === 'switch') {
-        spes = `<h4>PoE-porter</h4><div class="lst">${e.porter.length ? e.porter.map((p) => { const s = h.states[p.id], on = s && s.state === 'on'; return `<div class="ln"><span class="pn num">${p.n}</span><span class="grow col"><span>Port ${p.n}</span><small>${p.effekt ? esc(fmt(h, p.effekt)) : p.type === 'syklus' ? 'Strømsyklus' : ''}</small></span>${p.type === 'bryter' ? `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" aria-label="PoE port ${p.n}" data-d="tgl" data-id="${esc(p.id)}"><i></i></button>` : `<button class="mini" data-d="restart" data-id="${esc(p.id)}">${M.icon('mdi:power-cycle', 18)}Syklus</button>`}</div>`; }).join('') : '<div class="none">Ingen PoE-porter</div>'}</div>`;
-      } else if (e.type === 'ruter') {
-        const wan = [...e.latens, ...e.wan];
-        spes = `<h4>WAN</h4><div class="lst">${wan.length ? wan.map((id) => `<button class="ln" data-d="ent" data-id="${esc(id)}"><span class="grow ell">${esc(M.name(h, id, true))}</span><b class="num">${esc(fmt(h, id))}</b></button>`).join('') : '<div class="none">Ingen WAN-sensorer</div>'}</div>`;
+      const K = R.protect.kameraer.filter((k) => !ex.has(k.cam));
+      if (!K.length) return this._sec(s, '', '<div class="none">Fant ingen kameraer</div>');
+      const st = (k) => {
+        const cs = this.s(k.cam), md = this.s(k.modus), sw = this.s(k.opptak);
+        if (!ok(cs)) return 'off';
+        if (md && ok(md)) return /never|aldri/i.test(md.state) ? 'pause' : 'rec';
+        if (sw) return sw.state === 'on' ? 'rec' : 'pause';
+        return cs.state === 'recording' ? 'rec' : 'pause';
+      };
+      const MOD = { always: 'Alltid', detections: 'Deteksjon', never: 'Aldri', schedule: 'Plan', motion: 'Bevegelse' };
+      const tiles = K.map((k) => {
+        [k.bevegelse, k.bitrate, k.oppetid].forEach((id) => this.s(id));
+        const S = st(k), open = this.ui.cx === k.dev;
+        const [txt, col] = S === 'off' ? ['Frakoblet', C.red] : S === 'rec' ? ['Opptak', C.red] : ['Pause', C.orange];
+        let ex2 = '';
+        if (open) {
+          const md = k.modus && h.states[k.modus], mv = k.bevegelse && h.states[k.bevegelse];
+          const kp = this._kpi('Opptaksmodus', md && ok(md) ? (MOD[md.state] || tittel(md.state)) : S === 'rec' ? 'På' : S === 'pause' ? 'Av' : '–', k.modus)
+            + this._kpi('Siste bevegelse', mv ? (mv.state === 'on' ? 'nå' : M.relTime(mv.last_changed)) : '–', k.bevegelse) + this._kpi('Bitrate', fmt(h, k.bitrate), k.bitrate);
+          const rec = k.modus ? `data-sel="${esc(k.modus)}"` : k.opptak ? `data-sw="${esc(k.opptak)}"` : '';
+          ex2 = `<div class="dx"><div class="dxm"><span class="badge">${esc(k.modell || (k.ringeklokke ? 'Ringeklokke' : 'Kamera'))}</span><span class="ell">${esc([k.ringeklokke ? 'Ringeklokke' : null, k.oppetid && ok(h.states[k.oppetid]) ? 'Oppe ' + oppetid(h, k.oppetid) : null].filter(Boolean).join(' · ') || 'UniFi Protect')}</span></div><div class="kps">${kp}</div>
+            <div class="acts">${k.restart ? this._dangerBtn('rs-' + k.dev, 'Omstart', `data-id="${esc(k.restart)}" data-toast="Starter på nytt …"`) : ''}${rec && S !== 'off' ? `<button class="ab" data-act="tgl" ${rec}>${M.icon(S === 'rec' ? 'mdi:pause' : 'mdi:record-rec', 18)}${S === 'rec' ? 'Pause opptak' : 'Start opptak'}</button>` : ''}</div></div>`;
+        }
+        return `<div class="ti ${open ? 'open' : ''}" data-key="ci-${esc(k.dev)}"><button class="tih" data-act="cx" data-v="${esc(k.dev)}" data-ent="${esc(k.cam)}" aria-expanded="${open}">
+          <span class="tic ${S === 'off' ? 'off' : ''}">${M.icon(k.ringeklokke ? 'mdi:doorbell-video' : 'mdi:cctv', 22)}</span><span class="grow col"><b class="ell">${esc(k.navn)}</b><span class="ell cst" style="color:${col}">${S === 'rec' ? '<i class="rec"></i>' : ''}${txt}</span></span></button>${ex2}</div>`;
+      }).join('');
+      const on = K.filter((k) => st(k) !== 'off').length;
+      return this._sec(s, `${on} av ${K.length} online`, `<div class="grid2">${tiles}</div>`);
+    }
+    // Switch-kortet (24.10-funksjonen: port av/på, PoE-bryter, strømsyklus) – ny plassering og nye mål (26.4)
+    _s_sw(R, tab, s) {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      const SW = R.unifi.enheter.filter((e) => e.type === 'switch' && (/usw|switch/i.test(e.modell) || e.porter.length) && !ex.has(e.tracker));
+      if (!SW.length) return this._sec(s, '', '<div class="none">Fant ingen switcher</div>');
+      const e = SW.find((x) => x.dev === this.ui.swSel) || SW[0];
+      [e.tracker, e.oppetid, e.budsjett, e.forbruk].forEach((id) => this.s(id));
+      const P = {}; e.porter.forEach((p) => { P[p.n] = p; [p.en, p.poe, p.pw, p.rx, p.tx, p.speed].forEach((id) => this.s(id)); });
+      const N = Math.max(e.antall, 1);
+      const isOn = (id) => !!id && h.states[id] && h.states[id].state === 'on';
+      const up = (p) => {
+        if (!p) return false;
+        const sp = numOf(h, p.speed); if (p.speed && ok(h.states[p.speed])) return sp > 0;
+        if (p.rx && ok(h.states[p.rx])) return true;
+        if (p.en) return isOn(p.en);
+        if (p.poe) return isOn(p.poe);
+        return (numOf(h, p.pw) || 0) > 0;
+      };
+      const poeW = (p) => (p && numOf(h, p.pw)) || 0;
+      const nUp = Array.from({ length: N }, (_, i) => up(P[i + 1])).filter(Boolean).length;
+      const sumPoe = e.porter.reduce((a, p) => a + poeW(p), 0), bud = numOf(h, e.budsjett);
+      const seg = SW.length > 1 ? `<div class="subs segm swseg" role="tablist">${SW.map((x) => `<button class="sb${x === e ? ' on' : ''}" role="tab" aria-selected="${x === e}" data-act="swsel" data-v="${esc(x.dev)}" data-haptic="selection">${esc(x.navn)}</button>`).join('')}</div>` : '';
+      const grid = Array.from({ length: N }, (_, i) => {
+        const n = i + 1, p = P[n], u = up(p), poe = p && (isOn(p.poe) || poeW(p) > 0), selp = String(this.ui.port) === String(n);
+        return `<button class="pt ${u ? 'up' : ''} ${p ? '' : 'nop'} ${selp ? 'sel' : ''}" data-act="port" data-v="${n}" data-haptic="selection" aria-label="Port ${n}${u ? ' oppe' : ' nede'}${poe ? ', PoE' : ''}" aria-pressed="${selp}"><i class="pl"></i><span class="pn num">${n}</span><span class="pb">${poe ? M.icon('mdi:lightning-bolt', 12) : ''}</span></button>`;
+      }).join('');
+      let det = '';
+      const sp = this.ui.port != null && +this.ui.port <= N ? +this.ui.port : null;
+      if (sp) {
+        const p = P[sp] || { n: sp }, en = p.en ? isOn(p.en) : up(p), noPoe = !p.poe || (p.en && !isOn(p.en));
+        const spTxt = (q) => { const v = numOf(h, q.speed), u = unitOf(h, q.speed); if (!q.speed || v == null) return up(q) ? '–' : 'Ingen link'; if (!v) return 'Ingen link'; return /^m/i.test(u) || !u ? (v >= 1000 ? `${nf(v / 1000, v % 1000 ? 1 : 0)} Gbps` : `${nf(v)} Mbps`) : fmt(h, q.speed); };
+        const rate = (id) => (id && ok(h.states[id]) ? `${nf(numOf(h, id), numOf(h, id) < 10 ? 1 : 0)}` : '–');
+        det = `<div class="pd" data-key="pd-${esc(e.dev)}-${sp}"><div class="pdh"><b>Port ${sp}</b><span>${up(p) ? 'Oppe' : 'Nede'}</span></div>
+          <div class="kps">${this._kpi('Hastighet', spTxt(p), p.speed)}${this._kpi('PoE', p.pw ? `${nf(poeW(p), 1)} W` : '–', p.pw)}${this._kpi('Mbps ned/opp', `${rate(p.rx)} / ${rate(p.tx)}`, p.rx)}</div>
+          <div class="pdr"><span class="grow">Port aktiv</span>${p.en ? this._sw(isOn(p.en), `data-sw="${esc(p.en)}"`, `Port ${sp} aktiv`) : '<span class="mv">–</span>'}</div>
+          <div class="pdr"><span class="grow col"><span>PoE</span>${noPoe ? '<small>Porten er av eller enheten bruker ikke PoE</small>' : ''}</span>${p.poe ? this._sw(isOn(p.poe), `data-sw="${esc(p.poe)}"`, `PoE port ${sp}`, noPoe && !isOn(p.poe)) : '<span class="mv">–</span>'}</div>
+          ${p.cyc ? `<button class="ab wide" data-act="run" data-id="${esc(p.cyc)}" data-toast="Strømsykler port ${sp} …" ${!p.poe || isOn(p.poe) ? '' : 'disabled'}>${M.icon('mdi:power-cycle', 18)}Strømsyklus PoE</button>` : ''}</div>`;
       }
-      // klienter med blokker-bryter
-      const mac = tr && (tr.attributes.mac || '').toLowerCase();
-      const K = R.unifi.klienter.filter((kl) => {
-        const s = kl.tracker && h.states[kl.tracker]; if (!s) return e.type === 'ruter';
-        const A = s.attributes;
-        if (e.type === 'ap') return !!mac && String(A.ap_mac || '').toLowerCase() === mac;
-        if (e.type === 'switch') return !!mac && String(A.sw_mac || '').toLowerCase() === mac;
-        return true;
-      });
-      const kl = `<h4>Klienter <span class="cnt">${K.length}</span></h4><div class="lst">${K.length ? K.map((x) => {
-        const s = x.tracker && h.states[x.tracker], b = x.bryter && h.states[x.bryter], blokkert = b && b.state === 'off';
-        return `<div class="ln"><span class="kic">${M.icon(s && s.attributes.is_wired ? 'mdi:ethernet' : 'mdi:cellphone', 18)}</span><button class="grow col tl" data-d="ent" data-id="${esc(x.tracker || x.bryter)}"><span class="ell">${esc(x.navn)}</span><small class="ell">${esc([s && s.state === 'home' ? 'Tilkoblet' : 'Borte', s && s.attributes.ip].filter(Boolean).join(' · '))}</small></button>${b ? `<span class="bl">Blokker</span><button class="sw ${blokkert ? 'on' : ''}" role="switch" aria-checked="${!!blokkert}" aria-label="Blokker ${esc(x.navn)}" data-d="tgl" data-id="${esc(x.bryter)}"><i></i></button>` : ''}</div>`;
-      }).join('') : '<div class="none">Ingen klienter</div>'}</div>`;
-      const ents = `<h4>Entiteter <span class="cnt">${e.alle.length}</span></h4><div class="lst">${e.alle.slice().sort().map((id) => `<button class="ln" data-d="ent" data-id="${esc(id)}"><span class="grow col"><span class="ell">${esc(M.name(h, id))}</span><small class="ell">${esc(id)}</small></span><b class="ell num">${esc(fmt(h, id))}</b></button>`).join('')}</div>`;
-      return `<div class="dv" data-dev="${esc(e.dev)}"><div class="dh"><span class="dic">${M.icon(ic, 26)}</span><span class="grow col"><b class="ell">${esc(e.navn)}</b><span class="ell">${esc(e.modell || tl)}</span></span><button class="x" data-d="close" aria-label="Lukk">${M.icon('mdi:close', 22)}</button></div>
-        <div class="sps">${pills}</div>${actions}${tiles}<h4>Trafikk siste 24 t</h4>${graf}${spes}${kl}${ents}</div>`;
+      const hasPoe = e.porter.some((p) => p.poe || p.pw) || bud != null;
+      const card = `<div class="swc"><div class="swl"><b class="ell">${esc(e.modell || e.navn)}</b><span class="ell">${nUp}/${N} oppe · ${esc(oppetid(h, e.oppetid))}</span></div>
+        ${hasPoe ? `<div class="poer"><span class="poep">${M.icon('mdi:lightning-bolt', 12)}PoE ${nf(sumPoe, 1)}${bud != null ? ` / ${nf(bud)}` : ''} W</span>${bud != null ? `<div class="poeb"><i style="width:${M.clamp((sumPoe / Math.max(bud, 1)) * 100, 0, 100).toFixed(1)}%"></i></div>` : ''}</div>` : ''}
+        <div class="pg">${grid}</div>
+        <div class="lg"><span><i class="pl up"></i>Oppe</span><span><i class="pl"></i>Nede</span><span>${M.icon('mdi:lightning-bolt', 12, `color:${C.yellow}`)}PoE</span><span><i class="rg"></i>Valgt</span></div></div>`;
+      return this._sec(s, `${SW.length} ${SW.length === 1 ? 'switch' : 'switcher'}`, seg + card + det);
+    }
+
+    /* ---------------------------------------------------------- Proxmox / Unraid */
+    _node(R, tab) { return tab === 'proxmox' ? (R.proxmox.noder[0] || {}) : (R.unraid || {}); }
+    _s_perf(R, tab, s) {
+      const h = this.hass, n = this._node(R, tab);
+      const col = (label, id, pct, unitTxt) => {
+        this.s(id);
+        const v = numOf(h, id), p = pct != null ? pct : null;
+        const txt = v == null ? '–' : `${nf(v, Math.abs(v) < 10 && v % 1 ? 1 : 0)}${unitTxt != null ? unitTxt : (unitOf(h, id) ? ' ' + uShort(unitOf(h, id)) : '')}`;
+        return `<div class="pc" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><b class="num ell">${esc(txt)}</b><span class="ell">${esc(label)}</span><span class="tb2"><i style="width:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p > 80 ? C.orange : C.blue}"></i></span></div>`;
+      };
+      const pv = (id) => { const u = unitOf(h, id), v = numOf(h, id); return v == null ? null : u === '%' ? v : null; };
+      let cols;
+      if (tab === 'proxmox') {
+        const load = numOf(h, n.last);
+        cols = [col('Last', n.last || n.cpu, n.last ? (load != null ? Math.min(100, load * 25) : null) : pctOf(h, n.cpu), n.last ? '' : ' %'), col('Swap', n.swap, pv(n.swap)), col('IO wait', n.iowait, pv(n.iowait)), col('CPU-temp', n.temp, numOf(h, n.temp) != null ? numOf(h, n.temp) : null)];
+      } else {
+        const load = numOf(h, n.last);
+        cols = [col('Last', n.last || n.cpu, n.last ? (load != null ? Math.min(100, load * 25) : null) : pctOf(h, n.cpu), n.last ? '' : ' %'), col('Strøm', n.strom, null), col('UPS', n.ups, pv(n.ups)), col('Nett', n.nett, null)];
+      }
+      return this._sec(s, '', `<div class="perf">${cols.join('')}</div>`);
+    }
+    _s_sys(R, tab, s) {
+      const h = this.hass, n = this._node(R, tab), rows = [];
+      const row = (icon, label, val, id, col) => rows.push(`<div class="lr" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><span class="lic">${M.icon(icon, 18)}</span><span class="grow ell">${esc(label)}</span><b class="ell" ${col ? `style="color:${col}"` : ''}>${esc(val)}</b></div>`);
+      const ver = (id) => { const st = id && this.s(id); if (!st) return '–'; if (dom(id) === 'update') return st.attributes.installed_version || '–'; return fmt(h, id); };
+      row('mdi:tag-outline', 'Versjon', ver(n.versjon), n.versjon);
+      if (n.kernel) row('mdi:chip', 'Kernel', fmt(h, n.kernel), n.kernel);
+      if (n.oppd) {
+        const st = this.s(n.oppd); let v = '–', col = null;
+        if (st && ok(st)) { if (dom(n.oppd) === 'sensor') { const x = numOf(h, n.oppd); v = x != null ? (x ? `${nf(x)} tilgjengelig` : 'Oppdatert') : st.state; col = x ? C.orange : null; } else { v = st.state === 'on' ? 'Tilgjengelig' : 'Oppdatert'; col = st.state === 'on' ? C.orange : null; } }
+        row('mdi:update', 'Oppdateringer', v, n.oppd, col);
+      }
+      if (tab === 'proxmox' && n.backup) row('mdi:backup-restore', 'Backup', dom(n.backup) === 'binary_sensor' ? (this.s(n.backup) && this.s(n.backup).state === 'on' ? 'Feil' : 'OK') : fmt(h, n.backup), n.backup);
+      if (tab === 'unraid' && n.flash) row('mdi:usb-flash-drive', 'Flash-backup', dom(n.flash) === 'binary_sensor' ? (this.s(n.flash) && this.s(n.flash).state === 'on' ? 'OK' : 'Mangler') : fmt(h, n.flash), n.flash);
+      this.s(n.oppetid);
+      row('mdi:timer-outline', 'Oppetid', oppetid(h, n.oppetid), n.oppetid);
+      return this._sec(s, '', `<div class="lst">${rows.join('')}</div>`);
+    }
+    _s_storage(R, tab, s) {
+      const h = this.hass, c = this.config, L = limitsOf(c), ex = new Set(c.exclude || []), out = [];
+      if (tab === 'unraid' && R.unraid && !R.unraid.glances) {
+        const U = R.unraid; [U.arrayStatus, U.arraySw].forEach((id) => this.s(id));
+        const stop = arrayStoppet(h, U), st = U.arrayStatus && h.states[U.arrayStatus];
+        const canStart = U.arrayStart || U.arraySw, canStop = U.arrayStopp || U.arraySw;
+        const btn = stop ? (canStart ? `<button class="ab" data-act="run" data-id="${esc(U.arrayStart || U.arraySw)}" data-toast="Starter arrayet …">${M.icon('mdi:play', 18)}Start</button>` : '')
+          : (canStop ? `<button class="ab danger ${this._armed === 'arr' ? 'armed' : ''}" data-act="arm" data-key="arr" data-id="${esc(U.arrayStopp || U.arraySw)}" data-toast="Stopper arrayet …" data-haptic="off">${M.icon('mdi:stop', 18)}${this._armed === 'arr' ? 'Bekreft stopp' : 'Stopp'}</button>` : '');
+        out.push(`<div class="arr" data-key="arr"><span class="aic ${stop ? 'warn' : 'ok'}">${M.icon('mdi:harddisk-plus', 20)}</span><span class="grow col"><b>Array</b><span style="color:${stop ? C.orange : C.green}">${stop ? 'Stoppet' : st && ok(st) && dom(U.arrayStatus) === 'sensor' ? tittel(st.state) === 'Started' ? 'Startet' : tittel(st.state) : 'Startet'}</span></span>${btn}</div>`);
+      }
+      const rows = [];
+      const area = (icon, navn, type, id, brukt, tot) => {
+        [id, brukt, tot].forEach((x) => this.s(x));
+        const p = pctOf(h, id, brukt, tot), bt = brukt || tot ? `${fmt(h, brukt)} / ${fmt(h, tot)}` : p != null ? `${nf(p)} %` : '–';
+        rows.push(`<div class="sa" ${id || brukt ? `data-act="more" data-id="${esc(id || brukt)}" data-ent="${esc(id || brukt)}" role="button"` : ''}><span class="lic">${M.icon(icon, 18)}</span><span class="grow col"><span class="sal"><b class="ell">${esc(navn)}</b><span class="ell">${esc(type)}</span><span class="grow"></span><span class="sab num ell">${esc(bt)}</span></span>
+          <span class="tb2"><i style="width:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p >= L.storage ? C.orange : C.blue}"></i></span></span></div>`);
+      };
+      if (tab === 'proxmox') {
+        const typ = (n) => (/zfs/i.test(n) ? 'ZFS' : /nfs/i.test(n) ? 'NFS' : /cifs|smb/i.test(n) ? 'SMB' : /lvm/i.test(n) ? 'LVM-thin' : /ceph|rbd/i.test(n) ? 'Ceph' : /pbs|backup/i.test(n) ? 'PBS' : 'Katalog');
+        const n = R.proxmox.noder[0];
+        if (n && (n.disk || n.diskBrukt) && !R.proxmox.lagring.some((g) => g.navn === 'local')) area('mdi:folder', 'local', 'Katalog', n.disk, n.diskBrukt, n.diskTot);
+        R.proxmox.lagring.filter((g) => !ex.has(g.bruk)).forEach((g) => area(/zfs/i.test(g.navn) ? 'mdi:database' : /nfs|cifs|smb/i.test(g.navn) ? 'mdi:folder-network' : 'mdi:database-outline', g.navn, typ(g.navn), g.bruk, g.brukt, g.total));
+      } else if (R.unraid) {
+        const U = R.unraid;
+        area('mdi:harddisk', 'Array', 'XFS-array', ov(c, 'unraid_array') || U.arrayBruk, U.arrayBrukt, U.arrayTot);
+        U.disker.filter((d) => /^cache/.test(d.navn) && d.bruk).forEach((d) => area('mdi:flash', diskNavn(d.navn), 'Cache-pool', d.bruk, d.brukt, d.total));
+        if (U.dockerImg) area('mdi:docker', 'docker.img', 'Docker', U.dockerImg);
+      }
+      out.push(rows.length ? `<div class="lst">${rows.join('')}</div>` : '<div class="none">Fant ingen lagringsområder</div>');
+      return this._sec(s, rows.length ? `${rows.length} områder` : '', out.join(''));
+    }
+    _s_disks(R, tab, s) {
+      const h = this.hass, c = this.config, L = limitsOf(c), ex = new Set(c.exclude || []);
+      const U = R.unraid, stop = tab === 'unraid' && arrayStoppet(h, U);
+      const D = (tab === 'proxmox' ? R.proxmox.disker.map((d) => ({ key: d.id, navn: d.navn, temp: d.temp, bruk: d.bruk, smart: d.helse, extra: d.slitasje, timer: d.timer, size: d.storrelse }))
+        : ((U && U.disker) || []).map((d) => ({ key: 'ud-' + d.navn, navn: diskNavn(d.navn), raw: d.navn, temp: d.temp, bruk: d.bruk, smart: d.smart, spin: d.spin, spinSw: d.spinSw, status: d.status, brukt: d.brukt, size: d.total }))).filter((d) => !ex.has(d.temp) && !ex.has(d.bruk));
+      if (!D.length) return this._sec(s, '', '<div class="none">Fant ingen disker</div>');
+      const hvile = (d) => { const sp = d.spin && this.s(d.spin), sw = d.spinSw && this.s(d.spinSw), t = d.temp && this.s(d.temp); if (sp && ok(sp)) return sp.state === 'off'; if (sw && ok(sw)) return sw.state === 'off'; return !!t && (t.state === 'standby' || (!ok(t) && t.state !== 'unavailable')); };
+      const cur = (this.ui.disk || {})[tab], selD = D.find((d) => d.key === cur) || D[0];
+      const bays = D.map((d) => {
+        [d.temp, d.bruk].forEach((x) => this.s(x));
+        const t = numOf(h, d.temp), p = pctOf(h, d.bruk), rest = hvile(d), on = d === selD;
+        return `<button class="bay ${rest ? 'rest' : ''} ${on ? 'sel' : ''}" data-act="disk" data-v="${esc(d.key)}" data-haptic="selection" ${d.temp ? `data-ent="${esc(d.temp)}"` : ''} aria-pressed="${on}" aria-label="${esc(d.navn)}">
+          <span class="bf" style="height:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p >= L.storage ? M.alpha(C.orange, 0.35) : 'rgba(255,255,255,0.09)'}"></span>
+          <i class="bl" style="background:${rest ? '#545454' : tempCol(t, L.disk_temp)}"></i><span class="bt num">${rest ? 'Hvile' : t == null ? '–' : `${nf(t)}°`}</span><span class="bn ell">${esc(d.navn)}</span></button>`;
+      }).join('');
+      // detaljkort for valgt disk
+      const d = selD, t = numOf(h, d.temp), p = pctOf(h, d.bruk), rest = hvile(d);
+      [d.smart, d.spin, d.spinSw, d.status, d.extra, d.size].forEach((x) => this.s(x));
+      const sm = d.smart && h.states[d.smart];
+      const smTxt = !sm || !ok(sm) ? '–' : dom(d.smart) === 'binary_sensor' ? (sm.attributes.device_class === 'problem' ? (sm.state === 'on' ? 'Feil' : 'OK') : (sm.state === 'on' ? 'OK' : 'Feil')) : String(sm.state).toUpperCase() === 'PASSED' ? 'OK' : fmt(h, d.smart);
+      const par = /parity/.test(d.raw || '');
+      const status = stop ? 'Array stoppet' : rest ? 'Hvile' : d.status && ok(h.states[d.status]) ? fmt(h, d.status) : 'Aktiv';
+      const model = (d.temp && h.states[d.temp] && (h.states[d.temp].attributes.model || h.states[d.temp].attributes.device_model)) || (d.size ? fmt(h, d.size) : d.navn);
+      const hdd = tab === 'unraid' && !/^cache/.test(d.raw || '') && !!d.spinSw;
+      const detail = `<div class="dd" data-key="dd-${esc(d.key)}"><div class="ddh"><span class="grow col"><b class="ell">${esc(d.navn)}</b><span class="ell">${esc(model)}</span></span><span class="tp" style="color:${tempCol(t, L.disk_temp)};background:${M.alpha(tempCol(t, L.disk_temp), 0.18)}">${rest ? 'Hvile' : t == null ? '–' : `${nf(t)} °C`}</span></div>
+        <div class="kps">${this._kpi(par ? 'Rolle' : 'Brukt', par ? 'Paritet' : p == null ? '–' : `${nf(p)} %`, d.bruk)}${this._kpi('SMART', smTxt, d.smart)}${this._kpi('Status', status, d.status || d.spin)}</div>
+        ${hdd ? `<div class="pdr"><span class="grow col"><span>Aktiv (spinner)</span>${stop ? '<small>Låst mens arrayet er stoppet</small>' : ''}</span>${this._sw(h.states[d.spinSw] && h.states[d.spinSw].state === 'on', `data-sw="${esc(d.spinSw)}"`, `${d.navn} aktiv`, stop)}</div>` : ''}</div>`;
+      const n = Math.min(6, D.length);
+      return this._sec(s, `${D.filter((x) => !hvile(x)).length} av ${D.length} aktive`, `<div class="bays" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${bays}</div>${detail}`);
+    }
+    _s_guests(R, tab, s) { return this._guests(R, tab, s); }
+    _s_docker(R, tab, s) { return this._guests(R, tab, s); }
+    _guests(R, tab, s) {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      const px = tab === 'proxmox', U = R.unraid, lock = !px && arrayStoppet(h, U);
+      const all = (px ? R.proxmox.gjester : ((U && U.gjester) || [])).filter((g) => !ex.has(g.bryter) && !ex.has(g.status));
+      if (!px && U && U.glances) return this._sec(s, '', '<div class="none">Glances gir bare målinger – Docker og VM-er krever Unraid-integrasjonen</div>');
+      const F = px ? [['alle', 'Alle'], ['vm', 'VM'], ['ct', 'CT']] : [['docker', 'Docker'], ['vm', 'VM']];
+      const f = F.some((x) => x[0] === this._flt[tab]) ? this._flt[tab] : F[0][0];
+      const q = (this._q[tab] || '').trim().toLowerCase();
+      const G = all.filter((g) => (f === 'alle' || g.type === f) && (!q || g.navn.toLowerCase().includes(q) || String(g.vmid || '').includes(q)));
+      const search = `<div class="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" type="search" placeholder="Søk i ${px ? 'gjester' : 'containere'}" value="${esc(this._q[tab] || '')}" aria-label="Søk" autocomplete="off" enterkeyhint="search">${q ? `<span class="hits">${G.length} treff</span><button class="clr" data-act="qclr" aria-label="Tøm søk">${M.icon('mdi:close-circle', 18)}</button>` : ''}</div>`;
+      const seg = `<div class="subs segm fseg" role="tablist">${F.map(([k, l]) => `<button class="sb${k === f ? ' on' : ''}" role="tab" aria-selected="${k === f}" data-act="flt" data-v="${k}" data-haptic="selection">${esc(l)} <span class="fc">${all.filter((g) => k === 'alle' || g.type === k).length}</span></button>`).join('')}</div>`;
+      const rows = G.map((g) => {
+        const sid = g.bryter || g.status, st = this.s(sid), on = px ? kjorer(this.s(g.bryter || g.status)) : !!st && st.state === 'on';
+        [g.cpu, g.mem, g.oppdatering].forEach((x) => this.s(x));
+        const upd = g.oppdatering && h.states[g.oppdatering] && h.states[g.oppdatering].state === 'on';
+        const badge = px ? `${g.type === 'vm' ? 'VM' : 'CT'}${g.vmid ? ' ' + g.vmid : ''}` : upd ? 'Oppdatering' : g.type === 'vm' ? 'VM' : '';
+        const cpu = pctOf(h, g.cpu), mem = pctOf(h, g.mem, g.ramBrukt, g.ramTot);
+        const meta = lock ? 'Låst · array stoppet' : [on ? 'Kjører' : 'Stoppet', on && cpu != null ? `CPU ${nf(cpu)} %` : null, on && mem != null ? `RAM ${nf(mem)} %` : null].filter(Boolean).join(' · ');
+        const can = g.bryter || (g.knapper || []).some((k) => ['start', 'stopp', 'av'].includes(k.a));
+        const pend = this._pending(sid);
+        const sw = can ? (pend ? `<span class="spinw" aria-label="Venter"><span class="spin"></span></span>` : this._sw(on, g.bryter ? `data-sw="${esc(g.bryter)}"` : `data-g="${esc(g.id)}"`, g.navn, lock)) : '';
+        const open = this.ui.gx === g.id;
+        let ex2 = '';
+        if (open) {
+          const bar = (l, v) => `<div class="gb"><span>${l}</span><span class="tb2"><i style="width:${v == null ? 0 : M.clamp(v, 0, 100).toFixed(1)}%;background:${v != null && v > 80 ? C.orange : C.blue}"></i></span><b class="num">${v == null ? '–' : nf(v) + ' %'}</b></div>`;
+          const K = (a) => (g.knapper || []).find((k) => k.a === a);
+          const acts = [];
+          if (px) {
+            if (on) { if (K('restart')) acts.push(this._dangerBtn('g-rs-' + g.id, 'Omstart', `data-id="${esc(K('restart').id)}"`)); if (K('av')) acts.push(this._dangerBtn('g-av-' + g.id, 'Slå av', `data-id="${esc(K('av').id)}"`, 'mdi:power')); if (K('stopp')) acts.push(this._dangerBtn('g-st-' + g.id, 'Stopp', `data-id="${esc(K('stopp').id)}"`, 'mdi:stop')); }
+            else if (K('start')) acts.push(`<button class="ab" data-act="run" data-id="${esc(K('start').id)}">${M.icon('mdi:play', 18)}Start</button>`);
+          } else if (!lock) {
+            if (on && g.restart) acts.push(this._dangerBtn('g-rs-' + g.id, 'Omstart', `data-id="${esc(g.restart)}"`));
+            if (g.oppdater) acts.push(`<button class="ab" data-act="run" data-id="${esc(g.oppdater)}">${M.icon('mdi:update', 18)}Oppdater</button>`);
+            acts.push(on ? this._dangerBtn('g-st-' + g.id, 'Stopp', `data-sw="${esc(g.bryter)}"`, 'mdi:stop') : `<button class="ab" data-act="tgl" data-sw="${esc(g.bryter)}">${M.icon('mdi:play', 18)}Start</button>`);
+          }
+          ex2 = `<div class="gex">${bar('CPU', on ? cpu : null)}${bar('Minne', on ? mem : null)}${acts.length ? `<div class="acts">${acts.join('')}</div>` : ''}</div>`;
+        }
+        return `<div class="gr ${open ? 'open' : ''} ${lock ? 'lock' : ''}" data-key="g-${esc(g.id)}"><div class="grh" data-act="gx" data-v="${esc(g.id)}" role="button" tabindex="0" ${sid ? `data-ent="${esc(sid)}"` : ''} aria-expanded="${open}">
+          <span class="gic ${on ? 'on' : ''}">${M.icon(g.type === 'vm' ? 'mdi:monitor' : px ? 'mdi:cube-outline' : 'mdi:docker', 20)}</span>
+          <span class="grow col"><span class="gn"><b class="ell">${esc(g.navn)}</b>${badge ? `<span class="bdg ${upd ? 'upd' : ''}">${esc(badge)}</span>` : ''}</span><span class="ell">${esc(meta)}</span></span>${sw}</div>${ex2}</div>`;
+      }).join('');
+      const nOn = all.filter((g) => (px ? kjorer(h.states[g.bryter || g.status]) : h.states[g.bryter] && h.states[g.bryter].state === 'on')).length;
+      return this._sec(s, `${nOn} av ${all.length} kjører`, `${search}${seg}<div class="lst gl">${rows || `<div class="none">${q ? 'Ingen treff' : 'Ingen her'}</div>`}</div>`);
+    }
+    _s_controls(R, tab, s) {
+      const h = this.hass, n = this._node(R, tab), svc = (d, names) => { const S = h.services && h.services[d]; const x = S && names.find((k) => S[k]); return x ? `${d}.${x}` : null; };
+      const B = [];
+      const add = (key, icon, label, sub, act, danger) => { if (act) B.push({ key, icon, label, sub, act, danger }); };
+      if (tab === 'proxmox') {
+        const K = (a) => ((n.knapper || []).find((k) => k.a === a) || {}).id;
+        add('upd', 'mdi:update', 'Oppdater', n.oppd && h.states[n.oppd] && numOf(h, n.oppd) ? `${nf(numOf(h, n.oppd))} pakker` : 'Pakker', K('oppdater') ? { id: K('oppdater'), toast: 'Oppdaterer …' } : null);
+        add('bak', 'mdi:backup-restore', 'Backup nå', 'Alle gjester', K('backup') ? { id: K('backup'), toast: 'Backup startet' } : null);
+        add('rs', 'mdi:restart', 'Omstart', 'Noden', K('restart') ? { id: K('restart'), toast: 'Starter på nytt …' } : null, true);
+        add('av', 'mdi:power', 'Slå av', 'Noden', K('av') ? { id: K('av'), toast: 'Slår av …' } : null, true);
+      } else if (R.unraid && !R.unraid.glances) {
+        const U = R.unraid, fr = numOf(h, U.paritetFrem); this.s(U.paritetFrem);
+        const running = fr != null && fr > 0 && fr < 100;
+        add('par', running ? 'mdi:stop' : 'mdi:shield-sync', 'Paritetssjekk', running ? `${nf(fr)} % · stopp` : 'Start',
+          running ? (U.paritetStopp ? { id: U.paritetStopp } : svc('unraid', ['stop_parity_check', 'parity_check_stop']) ? { svc: svc('unraid', ['stop_parity_check', 'parity_check_stop']) } : null)
+            : (U.paritet ? { id: U.paritet, toast: 'Paritetssjekk startet' } : svc('unraid', ['start_parity_check', 'parity_check_start', 'parity_check']) ? { svc: svc('unraid', ['start_parity_check', 'parity_check_start', 'parity_check']), toast: 'Paritetssjekk startet' } : null), running);
+        add('spin', 'mdi:sleep', 'Spinn ned', 'Alle disker', U.spinNed ? { id: U.spinNed } : svc('unraid', ['spin_down_all', 'spin_down']) ? { svc: svc('unraid', ['spin_down_all', 'spin_down']) } : null);
+        add('mov', 'mdi:folder-move', 'Mover', 'Cache → array', U.mover ? { id: U.mover, toast: 'Mover startet' } : svc('unraid', ['start_mover', 'mover_start']) ? { svc: svc('unraid', ['start_mover', 'mover_start']), toast: 'Mover startet' } : null);
+        add('rs', 'mdi:restart', 'Omstart', 'Serveren', U.omstart ? { id: U.omstart, toast: 'Starter på nytt …' } : svc('unraid', ['reboot', 'system_reboot']) ? { svc: svc('unraid', ['reboot', 'system_reboot']) } : null, true);
+      }
+      if (!B.length) return this._sec(s, '', `<div class="none">Integrasjonen har ingen kontroller</div>`);
+      const btns = B.map((b) => {
+        const at = `${b.act.id ? `data-id="${esc(b.act.id)}"` : ''} ${b.act.svc ? `data-svc="${esc(b.act.svc)}"` : ''} ${b.act.toast ? `data-toast="${esc(b.act.toast)}"` : ''}`;
+        const k = tab + '-' + b.key, armed = this._armed === k;
+        return `<div class="cb"><button class="cbb ${b.danger ? 'danger' : ''} ${armed ? 'armed' : ''}" ${b.danger ? `data-act="arm" data-key="${esc(k)}" data-haptic="off"` : 'data-act="run"'} ${at} aria-label="${esc(b.label)}">${M.icon(armed ? 'mdi:alert' : b.icon, 24)}</button><span class="cbl ell">${armed ? 'Bekreft' : esc(b.label)}</span><span class="cbs ell">${armed ? 'trykk igjen' : esc(b.sub)}</span></div>`;
+      }).join('');
+      return this._sec(s, '', `<div class="ctl">${btns}</div>`);
     }
 
     afterRender() {
       const Rt = this.shadowRoot;
       if (M.glassDrag) Rt.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
-      const map = Rt.querySelector('.top');
-      if (map && !this._ro && window.ResizeObserver) {
-        this._ro = new ResizeObserver(() => { const m = this.shadowRoot.querySelector('.top'); const w = m ? Math.round(m.clientWidth - 36) : 0; if (w > 0 && Math.abs(w - this._mapW) > 2) { this._mapW = w; this.update(); } });
-        this._ro.observe(map);
+      const sc = Rt.querySelector('.scrub');
+      if (sc && !sc.__b) {
+        sc.__b = true;
+        M.guardDrag(sc, 'none'); // fallgruve 2: touch-action none + stopPropagation
+        const pos = (e) => { const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * 48), 0, 48); };
+        let down = false;
+        sc.addEventListener('pointerdown', (e) => { e.stopPropagation(); down = true; try { sc.setPointerCapture(e.pointerId); } catch (x) { /* */ } const p = pos(e); if (p !== this.ui.sel) { M.haptic('selection'); this.setUI({ sel: p }); } });
+        sc.addEventListener('pointermove', (e) => { if (!down && e.pointerType !== 'mouse') return; e.stopPropagation(); const p = pos(e); if (p !== this.ui.sel) { if (down) M.haptic('selection'); this.setUI({ sel: p }); } });
+        const end = () => { down = false; if (this.ui.sel != null) this.setUI({ sel: null }); };
+        sc.addEventListener('pointerup', end);
+        sc.addEventListener('pointercancel', end);
+        sc.addEventListener('pointerleave', end);
       }
-      const w = map ? Math.round(map.clientWidth - 36) : 0;
-      if (w > 0 && Math.abs(w - this._mapW) > 2) { this._mapW = w; this.update(); }
+    }
+    // Kjør en handling: knapp (button.press), tjeneste (domene.tjeneste) eller bryter (data-sw, armert «Stopp» i Docker)
+    _run(d) {
+      if (d.sw && !d.id && !d.svc) return this._tgl({ sw: d.sw });
+      const h = this.hass;
+      if (d.id) return M.call(h, dom(d.id) === 'button' ? 'button' : dom(d.id), dom(d.id) === 'button' ? 'press' : 'toggle', { entity_id: d.id }).then(() => d.toast && M.toast(d.toast)).catch(() => {});
+      if (d.svc) { const [a, b] = d.svc.split('.'); return M.call(h, a, b, {}).then(() => d.toast && M.toast(d.toast)).catch(() => {}); }
     }
     get styles() {
       return `
         :host{display:block;width:100%}
-        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .top{position:relative;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};overflow:hidden;padding:18px 18px 14px}
-        .th{display:flex;align-items:flex-start;gap:12px}
-        .tl{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
-        .tn{font-size:13px;color:var(--gray800,#afafaf)}
-        .pl{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 11px 0 8px;border-radius:13px;font-size:12px;font-weight:600;white-space:nowrap}
-        .pl.none{background:var(--gray300,#404040);color:var(--gray700,#979797)}
-        .pl.ok{background:${M.alpha(C.green, 0.18)};color:${C.green}}
-        .pl.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-        .pl.red{background:${M.alpha(C.red, 0.22)};color:${C.red}}
-        .tp{display:flex;flex-direction:column;align-items:flex-end;flex:none;cursor:pointer}
-        .tv{font-size:36px;font-weight:300;line-height:1}.tv small{font-size:16px;margin-left:3px;color:var(--gray700,#979797)}
-        .tpl{font-size:12px;color:var(--gray600,#7f7f7f);margin-top:4px}
-        .map{position:relative;margin-top:10px;width:100%}
-        .map svg{position:absolute;left:0;top:0;overflow:visible}
-        .map.none{height:72px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--gray600,#7f7f7f);font-size:13px}
-        .nd{position:absolute;transform:translateX(-50%);width:104px;display:flex;flex-direction:column;align-items:center;gap:2px;-webkit-tap-highlight-color:transparent}
-        .ndc{position:relative;width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--nc);transition:box-shadow .2s,transform .15s}
-        .nd:active .ndc{transform:scale(.94)}
-        .nd.on .ndc{background:color-mix(in srgb, var(--nc) 22%, #404040);box-shadow:inset 0 0 0 2px var(--nc)}
-        .ndl{font-size:12px;font-weight:500;max-width:104px;margin-top:4px}.nds{font-size:11px;color:var(--gray700,#979797);max-width:104px}
-        .led{position:absolute;right:1px;top:1px;width:11px;height:11px;border-radius:6px;background:#696969;box-shadow:0 0 0 2px var(--gray200,#3a3a3a)}
-        .led.green{background:${C.green};box-shadow:0 0 0 2px var(--gray200,#3a3a3a),0 0 8px ${C.green}}
-        .led.orange{background:${C.orange};box-shadow:0 0 0 2px var(--gray200,#3a3a3a),0 0 8px ${C.orange}}
-        .led.red{background:${C.red};box-shadow:0 0 0 2px var(--gray200,#3a3a3a),0 0 10px ${C.red};animation:blink 1.2s ease-in-out infinite}
+        .wrap{display:flex;flex-direction:column;gap:12px}
+        .pane{display:flex;flex-direction:column;gap:12px;min-width:0}
+        ${TAB_CSS('')}
+        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};width:100%}
+        .graph{position:absolute;left:0;right:0;bottom:0;height:84px}
+        .graph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+        .cursor{position:absolute;top:0;bottom:0;pointer-events:none}
+        .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+        .htop{position:absolute;left:18px;right:16px;top:16px;display:flex;align-items:center;gap:8px;min-width:0}
+        .hn{font-size:13px;color:var(--gray800,#afafaf);flex:0 1 auto}
+        .chip{height:24px;padding:0 9px 0 7px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;white-space:nowrap;flex:0 1 auto;min-width:0}
+        .chip.ok{background:${M.alpha(C.green, 0.18)};color:${C.green}}.chip.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
+        .chip.red{background:${M.alpha(C.red, 0.22)};color:${C.red}}.chip.none{background:var(--gray300,#404040);color:var(--gray700,#979797);padding:0 9px}
+        .hr{font-size:12px;color:var(--gray700,#979797);flex:none;max-width:40%}
+        .vals{position:absolute;left:18px;right:16px;top:54px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+        .line{display:flex;align-items:baseline;gap:4px;white-space:nowrap;min-width:0}
+        .big{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1}
+        .bu{font-size:18px;font-weight:300;color:var(--gray800,#afafaf);margin-right:10px}
+        .sv{pointer-events:auto;display:inline-flex;align-items:baseline;gap:2px;height:28px;padding:0 9px;border-radius:14px;color:var(--gray900,#c7c7c7);position:relative;z-index:2}
+        .sv:active{background:rgba(255,255,255,0.08)}
+        .svv{font-size:17px;font-weight:400;color:var(--white,#fafafa)}.svu{font-size:12px;color:var(--gray700,#979797)}.svl{font-size:11px;color:var(--gray600,#7f7f7f);margin-left:4px}
+        .when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .prose{margin:0;padding:0 4px;font-size:16px;line-height:1.9;color:var(--white,#fafafa)}
+        .pp{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:var(--gray1000,#e1e1e1);color:#282828;font-weight:500;line-height:1;vertical-align:baseline}
+        .pp.bad{background:${M.alpha(C.red, 0.25)};color:${C.red}}
+        .sec{display:flex;flex-direction:column;gap:8px;padding:14px 12px 12px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};min-width:0}
+        .sh{display:flex;align-items:center;gap:8px;padding:0 4px 2px;color:var(--gray800,#afafaf)}
+        .st{font-size:15px;font-weight:500;color:var(--white,#fafafa);flex:1;min-width:0}
+        .sm{font-size:12px;color:var(--gray700,#979797);white-space:nowrap}
+        .none{padding:14px;border-radius:22px;background:var(--gray300,#404040);color:var(--gray700,#979797);font-size:13px}
+        .nf{align-items:center;text-align:center;padding:22px 16px;gap:8px;color:var(--gray700,#979797);font-size:13px}
+        .nf b{font-size:15px;color:var(--white,#fafafa);font-weight:500}
+        .nfi{width:52px;height:52px;border-radius:26px;background:var(--gray300,#404040);display:grid;place-items:center;color:${C.orange}}
+        .nfb{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px}
+        .missrow{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:6px 14px;border-radius:22px;background:var(--gray300,#404040);font-size:13px;color:var(--gray900,#c7c7c7);text-align:left}
+        .mv{font-size:13px;font-weight:600;color:${C.pink}}
+        .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .ti{border-radius:26px;background:var(--gray300,#404040);min-width:0;transition:background .2s}
+        .ti.open{grid-column:1/-1}
+        .tih{display:flex;align-items:center;gap:10px;width:100%;min-height:60px;padding:8px 12px 8px 10px;text-align:left}
+        .tih b{font-size:14px;font-weight:500}.tih .col>span{font-size:12px}
+        .tic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--gray1000,#e1e1e1);color:#282828}
+        .tic.off{background:var(--gray400,#545454);color:var(--gray700,#979797)}
+        .ti.blink .tic{animation:blink 1s ease-in-out infinite}
+        .cst{display:inline-flex;align-items:center;gap:6px}
+        .rec{width:8px;height:8px;border-radius:4px;background:${C.red};animation:puls 1.4s ease-out infinite;flex:none}
         @keyframes blink{50%{opacity:.35}}
-        @keyframes puls{0%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0.55)}}70%{box-shadow:0 0 0 10px ${M.alpha(C.red, 0)}}100%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0)}}}
-        @media (prefers-reduced-motion: reduce){.pk{display:none}.led.red,.al.red .ali{animation:none}}
-        .alerts{display:flex;flex-direction:column;padding:4px}
-        .al{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:6px 10px;border-radius:20px;text-align:left}
-        .al+.al{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-        .ali{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none}
-        .al.red .ali{background:${M.alpha(C.red, 0.22)};color:${C.red};animation:puls 1.6s ease-out infinite}
-        .al.orange .ali{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-        .al b{font-size:14px;font-weight:500}.al .col>span{font-size:12px;color:var(--gray700,#979797)}
-        .al.red b{color:${C.red}}
-        .alt{font-size:11px;color:var(--gray600,#7f7f7f);flex:none}
-        .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden}
-        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 6px;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden}
-        .tb span{overflow:hidden;text-overflow:ellipsis}
-        .tabs .tb.on,.tabs .itab.on{background:${C.accent};color:#2a1720;font-weight:500}
-        .tabs .itab{color:var(--gray800,#afafaf)}
-        ${M.iconTabs.css('.tabs.itabs')}
-        .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
-        .gauges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:14px 8px}
-        .ga{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
-        .gr{position:relative;width:72px;height:72px;display:grid;place-items:center}
-        .gr svg{position:absolute;inset:0;width:100%;height:100%}
-        .gv{position:relative;font-size:17px;font-weight:500}.gv small{font-size:11px;color:var(--gray700,#979797);margin-left:1px}
-        .gl{font-size:12px;color:var(--gray700,#979797)}
-        .grp{display:flex;flex-direction:column;gap:6px}
-        .gt{display:flex;align-items:center;gap:8px;padding:6px 8px 0;font-size:13px;color:var(--gray800,#afafaf)}
-        .gc{height:20px;min-width:20px;padding:0 6px;border-radius:10px;background:var(--gray300,#404040);font-size:11px;display:inline-grid;place-items:center}
-        .rows{display:flex;flex-direction:column;padding:4px 0}
-        .rw{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 14px;cursor:pointer}
-        .rw+.rw{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-        .rw .ic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--gray300,#404040);color:var(--ic)}
-        .rw b{font-size:14px;font-weight:500}.rw .col>span{font-size:12px;color:var(--gray700,#979797)}
-        .val{font-size:13px;color:var(--gray900,#c7c7c7);flex:none}
-        .bar{width:64px;height:6px;border-radius:3px;background:var(--gray400,#545454);overflow:hidden;flex:none}.bar i{display:block;height:100%;border-radius:3px}
-        .dot{width:9px;height:9px;border-radius:5px;flex:none;background:#696969}.dot.green{background:${C.green}}.dot.orange{background:${C.orange}}
+        @keyframes puls{0%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0.6)}}70%{box-shadow:0 0 0 7px ${M.alpha(C.red, 0)}}100%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0)}}}
+        @media (prefers-reduced-motion: reduce){.rec,.ti.blink .tic{animation:none}}
+        .dx{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px}
+        .dxm{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray700,#979797);min-width:0}
+        .badge{height:22px;padding:0 9px;border-radius:11px;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7);font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none;max-width:55%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+        .kps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .kp{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:18px;background:var(--gray200,#3a3a3a);min-width:0;cursor:pointer}
+        .kp b{font-size:15px;font-weight:500}.kp span{font-size:11px;color:var(--gray700,#979797)}
+        .acts{display:flex;flex-wrap:wrap;gap:6px}
+        .ab{height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--white,#fafafa);transition:background .2s,color .2s,transform .15s}
+        .ab:active{transform:scale(.96)}.ab[disabled]{opacity:.4;cursor:default}
+        .ab.wide{width:100%;justify-content:center;background:var(--gray200,#3a3a3a)}
+        .ab.danger{background:${M.alpha(C.red, 0.16)};color:${C.red}}
+        .ab.armed,.cbb.armed{background:${C.red} !important;color:#232323 !important}
+        .subs.swseg{margin:0 0 2px}
+        .swc{display:flex;flex-direction:column;gap:10px;padding:14px 12px 12px;border-radius:22px;background:linear-gradient(160deg,#2c2c2c 0%,#1d1d1d 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+        .swl{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;color:var(--gray700,#979797)}
+        .swl b{font-size:14px;font-weight:500;color:var(--white,#fafafa);flex:0 1 auto;min-width:0}
+        .swl>span.ell{flex:0 1 auto;min-width:0}
+        .poer{display:flex;align-items:center;gap:10px}.poer .poeb{flex:1}
+        .poep{height:22px;padding:0 8px;border-radius:11px;background:${M.alpha(C.yellow, 0.16)};color:${C.yellow};font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:3px;flex:none;white-space:nowrap}
+        .poeb{height:4px;border-radius:2px;background:rgba(255,255,255,0.1);overflow:hidden}.poeb i{display:block;height:100%;border-radius:2px;background:${C.yellow}}
+        .pg{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+        .pt{height:56px;min-width:0;border-radius:12px;background:rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 0;color:var(--gray700,#979797)}
+        .pt.up{background:rgba(255,255,255,0.1);color:var(--white,#fafafa)}
+        .pt.nop{opacity:.45}
+        .pt.sel{box-shadow:0 0 0 2px ${C.pink}}
+        .pl{display:block;width:8px;height:8px;border-radius:4px;background:#545454;flex:none}
+        .pt.up .pl,.pl.up{background:${C.green};box-shadow:0 0 6px ${M.alpha(C.green, 0.8)}}
+        .pn{font-size:12px;font-weight:600;line-height:1}
+        .pb{height:12px;display:flex;align-items:center;color:${C.yellow};--mdc-icon-size:12px}
+        .lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--gray700,#979797)}
+        .lg span{display:inline-flex;align-items:center;gap:5px}
+        .rg{display:inline-block;width:10px;height:10px;border-radius:4px;box-shadow:inset 0 0 0 2px ${C.pink}}
+        .pd{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:22px;background:var(--gray300,#404040)}
+        .pdh{display:flex;align-items:center;justify-content:space-between;padding:0 4px}.pdh b{font-size:15px;font-weight:500}.pdh span{font-size:12px;color:var(--gray700,#979797)}
+        .pdr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px 4px 12px;border-radius:18px;background:var(--gray200,#3a3a3a);font-size:14px}
+        .pdr small{font-size:11px;color:var(--gray700,#979797)}
+        .perf{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:22px;background:var(--gray300,#404040);padding:12px 0}
+        .pc{display:flex;flex-direction:column;gap:3px;padding:0 10px;min-width:0;cursor:pointer}
+        .pc+.pc{box-shadow:inset 1px 0 0 rgba(255,255,255,0.08)}
+        .pc b{font-size:20px;font-weight:400}.pc>span.ell{font-size:11px;color:var(--gray700,#979797)}
+        .tb2{display:block;height:4px;border-radius:2px;background:var(--gray400,#545454);overflow:hidden;margin-top:3px}.tb2 i{display:block;height:100%;border-radius:2px}
+        .lst{display:flex;flex-direction:column;border-radius:22px;background:var(--gray300,#404040);padding:4px 0;min-width:0}
+        .lr,.sa{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 14px;cursor:pointer;min-width:0}
+        .lr+.lr,.sa+.sa{box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
+        .lr b{font-size:13px;font-weight:500;color:var(--gray900,#c7c7c7);max-width:55%;flex:none}
+        .lr .grow{font-size:14px}
+        .lic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7)}
+        .sal{display:flex;align-items:baseline;gap:8px;min-width:0}.sal b{font-size:14px;font-weight:500;flex:0 1 auto}.sal>span.ell{font-size:12px;color:var(--gray700,#979797);flex:0 1 auto}
+        .sab{font-size:12px;color:var(--gray900,#c7c7c7);flex:0 1 auto}
+        .arr{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 10px 6px 12px;border-radius:22px;background:var(--gray300,#404040)}
+        .arr b{font-size:14px;font-weight:500}.arr .col>span{font-size:12px}
+        .aic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none}
+        .aic.ok{background:${M.alpha(C.green, 0.18)};color:${C.green}}.aic.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
+        .bays{display:grid;gap:6px}
+        .bay{position:relative;height:96px;border-radius:16px;background:var(--gray300,#404040);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;padding:0 4px 8px;min-width:0}
+        .bay .bf{position:absolute;left:0;right:0;bottom:0;pointer-events:none}
+        .bay .bl{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:14px;height:4px;border-radius:2px}
+        .bt{position:relative;font-size:17px;font-weight:400}.bn{position:relative;font-size:11px;color:var(--gray700,#979797);max-width:100%}
+        .bay.rest .bt{font-size:13px;color:var(--gray600,#7f7f7f)}.bay.rest{opacity:.75}
+        .bay.sel{box-shadow:0 0 0 2px ${C.pink}}
+        .dd{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:22px;background:var(--gray300,#404040)}
+        .ddh{display:flex;align-items:center;gap:10px;padding:0 2px}.ddh b{font-size:15px;font-weight:500}.ddh .col>span{font-size:12px;color:var(--gray700,#979797)}
+        .tp{height:26px;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;flex:none}
+        .srch{display:flex;align-items:center;gap:8px;height:48px;padding:0 8px 0 14px;border-radius:24px;background:var(--gray300,#404040)}
+        .srch input{flex:1;min-width:0;height:100%;font-size:15px;background:none}
+        .srch input::-webkit-search-cancel-button{display:none}
+        .hits{font-size:12px;color:var(--gray700,#979797);flex:none}
+        .clr{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--gray700,#979797);flex:none}
+        .fc{font-size:11px;opacity:.6;margin-left:2px}
+        .gl{padding:4px 0}
+        .gr{min-width:0}.gr+.gr{box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
+        .grh{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 10px 6px 12px;cursor:pointer;min-width:0}
+        .grh .col>span{font-size:12px;color:var(--gray700,#979797)}
+        .gn{display:flex;align-items:center;gap:6px;min-width:0}.gn b{font-size:14px;font-weight:500}
+        .bdg{height:20px;padding:0 7px;border-radius:10px;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7);font-size:10px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap}
+        .bdg.upd{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
+        .gic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray700,#979797)}
+        .gic.on{background:var(--gray1000,#e1e1e1);color:#282828}
+        .gr.lock .grh{opacity:.6}
+        .gex{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px 64px}
+        .gb{display:grid;grid-template-columns:48px 1fr 52px;align-items:center;gap:8px;font-size:12px;color:var(--gray700,#979797)}.gb .tb2{margin:0}.gb b{font-weight:500;color:var(--gray900,#c7c7c7);text-align:right}
         .sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-        .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-        .sw.on{background:${C.pink}}.sw.on i{transform:translateX(18px)}
-        .auto{display:flex;flex-direction:column}
-        .alh{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:6px 14px;text-align:left}
-        .alh b{font-size:14px;font-weight:500}.alh .col>span{font-size:12px;color:var(--gray700,#979797)}
-        .alb{display:flex;flex-direction:column;padding:0 8px 10px}
-        .ald{display:flex;justify-content:space-between;padding:10px 8px 4px;font-size:12px;color:var(--gray700,#979797)}
-        .ale{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:4px 8px;border-radius:14px;text-align:left}
-        .ale b{font-size:13px;font-weight:500}.ale .col>span{font-size:11px;color:var(--gray600,#7f7f7f)}
-        .alv{font-size:12px;color:var(--gray900,#c7c7c7);max-width:40%;flex:none}
-        .nf{padding:28px 18px}.nf b{font-size:15px;color:var(--white,#fafafa);font-weight:500}
+        .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1);display:grid;place-items:center}
+        .sw.on{background:${M.SWITCH_ON || C.pink}}.sw.on i{transform:translateX(18px)}
+        .sw[disabled]{opacity:.4;cursor:default}
+        .spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(0,0,0,0.25);border-top-color:#282828;animation:spn .8s linear infinite;display:block}
+        .spinw{width:44px;height:26px;display:grid;place-items:center;flex:none}.spinw .spin{width:18px;height:18px;border-color:rgba(255,255,255,0.2);border-top-color:${C.pink}}
+        @keyframes spn{to{transform:rotate(360deg)}}
+        .ctl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:6px 0 2px}
+        .cb{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;text-align:center}
+        .cbb{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa);transition:background .2s,color .2s,transform .15s}
+        .cbb:active{transform:scale(.94)}
+        .cbb.danger{background:${M.alpha(C.red, 0.16)};color:${C.red}}
+        .cbl{font-size:12px;font-weight:500;max-width:100%}.cbs{font-size:11px;color:var(--gray700,#979797);max-width:100%}
+        @media (max-width:360px){.kps{grid-template-columns:repeat(3,minmax(0,1fr))}.pc b{font-size:17px}}
       `;
     }
   }
-
-  const SHEET_CSS = `
-    .dv{display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px))}
-    .dh{display:flex;align-items:center;gap:12px}
-    .dic{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:${M.alpha(C.blue, 0.2)};color:${C.blue};flex:none}
-    .dh b{font-size:20px;font-weight:600}.dh .col>span{font-size:13px;color:#979797}
-    .x{width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center;flex:none}
-    .sps{display:flex;flex-wrap:wrap;gap:6px}
-    .sp{height:26px;padding:0 11px;border-radius:13px;background:#404040;font-size:12px;display:inline-flex;align-items:center;color:#c7c7c7}
-    .sp.ok{background:${M.alpha(C.green, 0.18)};color:${C.green};font-weight:600}.sp.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange};font-weight:600}
-    .acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .ac{height:68px;border-radius:22px;background:#3a3a3a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#fafafa}
-    .ac:active{transform:scale(.96)}.ac[disabled]{opacity:.4;cursor:default}
-    .ac.on{background:${M.alpha(C.blue, 0.22)};color:${C.blue}}
-    .sts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-    .st{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px;border-radius:18px;background:#3a3a3a;text-align:left;min-width:0}
-    .st span{font-size:11px;color:#979797}.st b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    h4{margin:6px 4px 0;font-size:13px;font-weight:500;color:#afafaf;display:flex;align-items:center;gap:8px}
-    .cnt{height:20px;min-width:20px;padding:0 6px;border-radius:10px;background:#404040;font-size:11px;display:inline-grid;place-items:center;color:#c7c7c7}
-    .gph{position:relative;padding:12px;border-radius:22px;background:#3a3a3a;touch-action:pan-y}
-    .gph svg{display:block;width:100%;height:90px}
-    .gl2{display:flex;gap:14px;font-size:12px;color:#c7c7c7;margin-bottom:6px}.gl2 i{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px}
-    .gx{display:flex;justify-content:space-between;font-size:11px;color:#7f7f7f;margin-top:4px}
-    .gmax{position:absolute;right:12px;top:12px;font-size:11px;color:#7f7f7f}
-    .lst{display:flex;flex-direction:column;border-radius:22px;background:#3a3a3a;padding:4px 0}
-    .ln{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:4px 14px;text-align:left;color:#fafafa}
-    .ln+.ln{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-    .ln small{font-size:11px;color:#979797}.ln b{font-size:13px;font-weight:500;color:#c7c7c7;max-width:45%}
-    .ln .tl{text-align:left;min-width:0}
-    .pn{width:28px;height:28px;border-radius:8px;background:#404040;display:grid;place-items:center;font-size:12px;flex:none}
-    .kic{width:32px;height:32px;border-radius:16px;background:#404040;display:grid;place-items:center;flex:none;color:#afafaf}
-    .bl{font-size:11px;color:#979797}
-    .mini{height:32px;padding:0 12px;border-radius:16px;background:#404040;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-    .none{padding:14px;color:#979797;font-size:13px}
-    .sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
-    .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-    .sw.on{background:${C.pink}}.sw.on i{transform:translateX(18px)}
-    @media (max-width:380px){.sts{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
 
   M.POPUP_CARDS = M.POPUP_CARDS || [];
   if (!M.POPUP_CARDS.includes('msh-server-card')) M.POPUP_CARDS.push('msh-server-card'); // «Mellomrom» ligger i Avansert-fanen
@@ -43268,9 +45323,9 @@ try {
   M.POPUP_SUPERSEDE[HASH] = { name: 'Server', test: (cfg) => /custom:ki-(homelab|server|pve|unifi|rack)-card/.test(JSON.stringify(cfg || {})) };
   // Vilkår (strategi/allPopups): minst én av integrasjonene – entiteter i registeret eller en config entry
   M.popupNeeds = M.popupNeeds || {};
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && PLAT[e.platform]) || (Array.isArray(CE.data) && CE.data.length > 0);
-  M.server = { oppdag, varsler, malere, entries, INTEG };
-  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): homelab med UniFi, Proxmox VE og Unraid – nodekart, varsler, målere og enhetsark.');
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && PLAT[e.platform] && e.platform !== 'glances') || (Array.isArray(CE.data) && CE.data.some((e) => e.domain !== 'glances'));
+  M.server = { oppdag, entries, entriesFor, openPick, INTEG, SECDEF, tabsCfg, secList };
+  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): Nettverk (UniFi Network + Protect), Proxmox VE og Unraid – toppkort med graf, prosalinje, underfaner og seksjoner.');
 })();
 
 } catch (e) { console.error('[ki-msh] 58-server.js', e); }
@@ -43907,122 +45962,287 @@ try {
 
 /* ---- 60-innstillinger.js ---- */
 try {
-/* KI MSH · Innstillinger (#innstillinger, msh-innstillinger-card) – fiks 25.5, etter prompt-teksten «Innstillinger v2»
- * (designfila finnes ikke i repoet). Étt kort i Bubble-popupen #innstillinger (mal A).
+/* KI MSH · Innstillinger (#settings, msh-innstillinger-card) – fiks 25.5 + 26.15, etter prompt-teksten «Innstillinger v2»
+ * (designfila finnes ikke i repoet). Étt kort i Bubble-popupen #settings (mal A).
  *
- * Forholdet til #settings: #settings (msh-settings-card i 03-editors.js) er dashbordets egne innstillinger – snarveier til
- * Tilpass Hjem/navbar/header, HA-innstillinger, Liquid Glass-tema og Enheter (eget oppsett per enhet for Kamera/Person).
- * Brukerens importerte ki-cards-popup «Innstillinger» (examples/innstillinger-popup.yaml i ki-cards) bruker også
- * hash #settings og vinner der som egen popup. Den nye popupen legges derfor på en EGEN hash, #innstillinger, ved siden
- * av: ingenting i #settings (eller den importerte popupen) endres eller skjules, og lenker/navbar-knapper som peker på
- * #settings virker som før. Brukeren kan peke navbaren/«Mer» på #innstillinger når hun vil.
+ * #settings (fiks 26.15): brukerens importerte ki-cards-popup «Innstillinger» (gap-card + ki-natt-card + ki-tabs-card med
+ * ki-varsling-card) erstattes av DETTE kortet: MSH.POPUP_SUPERSEDE['#settings'] gjør den importerte popupen inaktiv
+ * («Erstattet av Innstillinger», «Bruk egen» i Egne popups gir den tilbake), og MSH.POPUP_EXTRA['#settings'] flytter
+ * oppsettet over (MSH.innstExtra): ki-natt-card natt → natt, helg (privatmodus-bryter) → privat, vekking → vekking;
+ * ki-tabs-card tabs[i] (ki-varsling-card) → tabs[i] { key, title, filter } – fanene som svarer til Automasjoner/Varsler/Strøm
+ * fordeles automatisk (filteret enheter/ikke_enheter/plattform tas ikke med, så ingen enheter:-lister i YAML), andre faner
+ * beholder filteret; ekstra → rows.include (+ rows.move), skjul → rows.exclude, navn/undertekst/ikoner → rows.names/subs/icons.
+ * gap-card fjernes. Strategien (04-strategy) genererer #settings med dette kortet (card_id pop-innstillinger).
+ * Dashbordinnstillingene (msh-settings-card: Tilpass Hjem/navbar/header, HA, Områder, Liquid Glass, Enheter) går ikke tapt:
+ * de ligger nederst i popupen under «Dashbord» (innebygd msh-settings-card; `dashbord: false` skjuler dem), og Tilpass-arkene
+ * nås i tillegg fra Mer → Tilpass. (Ikke en fjerde fane: fire tekstfaner får ikke plass ved 360 px.) #innstillinger (25.5) genereres bare når noe peker dit, med samme card_id.
  *
- * Autokonfig (ingen mock – «–» + «Velg entitet» når noe mangler):
- *   Automasjoner: alle automation.* (unntatt de som hører til Varsler/Strøm), gruppert etter område → etikett
- *   Varsler: input_boolean.* med varsel/notify i id-en eller etiketten «Varsler» · automation.* med push/varsel/notify i
- *     id-en eller etiketten «Varsler» (brukerens automation.push_automation* sto under Varsler i ki-cards-oppsettet)
- *   Strøm: input_boolean.* / automation.* med etiketten «Strøm»/«Energi»
- *   Tittel = friendly_name · undertekst = description (automasjon) eller «–» · ikon = icon-attributt → mdi:robot/bell/flash
- *   Natt/privat: input_boolean.nattmodus / input_boolean.privatmodus (ellers switch.* med samme navn) · vekking:
- *     input_datetime.vekking (ellers skjules linjen). Overstyres i Tilpass → Entiteter (natt, privat, vekking).
- *   Etiketter: hass.entities[id].labels (+ navn fra config/label_registry/list, én gang).
- * Utseende:
- *   Toppkort (utelates aldri): nattmodus av → to kort side om side (164 px, r28): Nattmodus (mørkeblå, stjerner, måne og hus
- *   med lysende vinduer) og Privatmodus (grønn gradient + glød når på, #3a3a3a når av). Trykk = av/på.
- *   Nattmodus på → toppkort 184 px med dag/natt-scene (sol/måne, fugler, røyk, lysende vinduer, rød kamera-prikk når
- *   privatmodus er av), «God natt», «Vekking kl. 07:00» og chipsene Natt/Privat nederst.
- *   `scene`: auto (følg nattmodus) · dag (alltid scene med dag) · natt (alltid scene med natt).
- *   Faner (Liquid Glass) + 56 px tannhjul (#3a3a3a) → «Tilpass Innstillinger». Søkefelt, «N av M på» + «Slå alle av/på».
- *   Hver rad er et eget pillekort (#3a3a3a, r34, min 66, 8 px mellom): 58 px ikonsirkel (#4a4a4a), tittel 15/500,
- *   undertekst 12 og bryter. Av: ikon + undertekst rødt med «Av · …». Trykk = homeassistant.toggle.
+ * Autokonfig (ingen mock – tomtilstand + «Velg entiteter» når noe mangler):
+ *   Kilde: hass.entities med platform ki_notifications (KI Varslinger og sikkerhet), ki_energi (Strøm) og ki_utelys.
+ *   Én enhet = én regel → én rad: hovedbryteren (erMaster-regelen fra ki-varsling-card); uten hovedbryter vises alle
+ *   bryterne. ki_energi: bare varslingsbrytere (varsel|varsler|spor_), ingen master-sammenslåing (sidestilte valg).
+ *   Navn/undertekst/ikon: KI_VARS_TEKST → friendly_name delt på « - » → enhetsnavnet. Fane: ki_energi → Strøm,
+ *   ellers KI_VARS_TEKST-feltet fane ('auto' → Automasjoner, 'push' → Varsler) → enhetens model/entry_type → Varsler.
+ *   Toppkort: natt = switch.nattmodus / input_boolean.nattmodus / input_boolean.*natt* · privat = input_boolean.privatmodus
+ *   / input_boolean.*priva* (også «privace») · vekking = input_datetime.vekking / sensor.*vekking*neste*.
  * Config:
- *   natt · privat · vekking · tab_order · tab_hidden · tab_names: { fane: navn } · tab_labels (name|icon) · start_tab
- *   include: { fane: [id …] } · exclude: { fane: [id …] } · row_order: { fane: [id …] }
- *   sok (true) · av_forst (false) · haptikk (true) · scene (auto|dag|natt) · gap · pad_top · pad_bottom
- * «Tilpass Innstillinger» (kortets ark og GUI-editoren, samme skjema): Faner · Rader · Entiteter · Avansert (fiks 25.6).
+ *   natt · privat · vekking (entitetene i toppkortet)
+ *   tabs: [{ key, title?, hidden?, filter?: { enheter, ikke_enheter, plattform } }]   (automasjoner · varsler · strom ·
+ *     egne faner med filter). Eldre tab_order/tab_hidden/tab_names leses når tabs mangler.
+ *   rows: { exclude: [device_id|entity_id], move: { id: 'auto'|'push'|'strom'|<fane> }, include: [automation.x],
+ *     names: { id: navn }, subs: { id: undertekst }, icons: { id: ikon }, order: { fane: [id …] } }
+ *   tab_labels (ikon|name|icon=begge) · start_tab · sok · av_forst · haptikk · scene (auto|dag|natt) · animasjoner (true) · dashbord (true)
+ *   gap · pad_top · pad_bottom
+ * «Tilpass Innstillinger» (kortets ark og GUI-editoren, samme skjema): Faner · Rader · Entiteter · Avansert (tekstfaner).
+ * Privatmodus-kortet (26.15): overvåkingskamera som sveiper (av) / vipper ned med lukker og grønn prikk (på), lås-klikk
+ * og ring ved bytte – bare transform/opacity, prefers-reduced-motion og «Animasjoner» respekteres.
  */
 (function () {
   const M = window.MSH;
   if (!M) return;
   const esc = M.esc, C = M.C;
 
-  const TABS = [['automasjoner', 'Automasjoner', 'mdi:robot'], ['varsler', 'Varsler', 'mdi:bell'], ['strom', 'Strøm', 'mdi:flash']];
-  const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
+  /* ============================================================ KI Varslinger og sikkerhet (fra ki-cards 83-ki-varsling-card.js) */
+  const KI_VARS_PLATTFORM = ['ki_notifications', 'ki_energi', 'ki_utelys'];
+  /* Navn, beskrivelse, ikon og fane per regel (ki-varsling-card: KI_VARS_TEKST; nytt felt fane: 'auto' | 'push' | 'strom'). */
+  const KI_VARS_TEKST = [
+    [/vekking|vekke/, 'Vekking', 'Lys og lyd på vekketidspunkt', 'mdi:alarm', 'auto'],
+    [/ansikt/, 'Ansiktsgjenkjenning', 'Låser opp ved gjenkjent ansikt', 'mdi:face-recognition', 'auto'],
+    [/autolas|autolås/, 'Autolås', 'Låser døra automatisk etter lukking', 'mdi:lock-clock', 'auto'],
+    [/fastkjort|fastkjørt/, 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', 'mdi:lock-alert', 'auto'],
+    [/blink|dorlys|dørlys/, 'Dørlys', 'Blinker med lyset når døra åpnes', 'mdi:monitor-shimmer', 'auto'],
+    [/familie|hjemme.?borte/, 'Hjemme / borte', 'Varsler når noen kommer eller drar', 'mdi:home-account', 'push'],
+    [/^alarm|alarm_/, 'Alarm', 'Aktiverer alarmsystemet', 'mdi:shield-home', 'push'],
+    [/heimdall|alarmo/, 'Heimdall', 'Synk mellom Heimdall og Alarmo', 'mdi:sync', 'auto'],
+    [/ruter|skolen/, 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', 'mdi:bus-clock', 'push'],
+    [/planter/, 'Planter', 'Varsel når plantene trenger vann', 'mdi:flower-tulip', 'push'],
+    [/stovsug|støvsug/, 'Støvsuger', 'Varsel om feil og fullført runde', 'mdi:robot-vacuum', 'push'],
+    [/home.?assistant|oppstart|startet/, 'Home Assistant', 'Varsel etter omstart av HA', 'mdi:home-assistant', 'push'],
+    [/vaermelding|værmelding|vaer_ai/, 'Værmelding', 'Daglig værvarsel fra AI', 'mdi:weather-partly-cloudy', 'push'],
+    [/stromforbruk|strømforbruk|forbruk.?rapport/, 'Strømforbruk', 'Daglig rapport', 'mdi:chart-bar', 'push'],
+    /* KI Utelys. Tre brytere på samme enhet, som ellers ville hett det samme. */
+    [/ki_utelys_auto/, 'Utelys automatikk', 'Styrer utelysene etter solhøyden', 'mdi:lightbulb-auto', 'auto'],
+    [/ki_utelys_morgen/, 'Utelys morgen', 'Lys om morgenen til det lysner', 'mdi:weather-sunset-up', 'auto'],
+    [/ki_utelys_kveld/, 'Utelys kveld', 'Lys om kvelden når det blir mørkt', 'mdi:weather-sunset-down', 'auto'],
+    /* KI Energi. Hovedbryteren først. */
+    [/\bki_energi_varsler\b/, 'Energivarsler', 'Hovedbryter for alle energivarsler', 'mdi:bell-outline', 'strom'],
+    [/ki_varsel_effekt/, 'Effektgrense', 'Varsel når timen nærmer seg grensen', 'mdi:flash-alert', 'strom'],
+    [/ki_varsel_hjemkomst/, 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', 'mdi:home-import-outline', 'strom'],
+    [/ki_varsel_sommer/, 'Sommermodus', 'Varsel når sommermodus slår inn', 'mdi:white-balance-sunny', 'strom'],
+    [/ki_varsel_vvb/, 'Varmtvann', 'Varsel om berederen og legionella', 'mdi:water-boiler', 'strom'],
+    [/ki_varsel_hanklevarmer/, 'Håndklevarmer', 'Varsel om håndklevarmeren', 'mdi:radiator', 'strom'],
+    [/ki_varsel_helg/, 'Bortemodus', 'Varsel når huset settes i bortemodus', 'mdi:bag-suitcase', 'strom'],
+    [/ki_helg_spor_torsdag/, 'Spør torsdag', 'Spør om dere drar bort i helgen', 'mdi:calendar-question', 'strom'],
+    [/ki_helg_spor_fredag/, 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', 'mdi:calendar-question', 'strom'],
+  ];
+  const KI_VARS_IKON = [
+    [/fastkjort|fastkj/, 'mdi:lock-alert'], [/autolas|autolås/, 'mdi:lock-clock'], [/las|lås|dor|dør/, 'mdi:door-closed-lock'],
+    [/alarm|heimdall|alarmo/, 'mdi:shield-home'], [/ansikt|face/, 'mdi:face-recognition'], [/familie|hjemme|borte|person/, 'mdi:home-account'],
+    [/stovsug|støvsug|vacuum/, 'mdi:robot-vacuum'], [/vaer|vær|weather/, 'mdi:weather-partly-cloudy'], [/ruter|buss|avgang/, 'mdi:bus-clock'],
+    [/strom|strøm|forbruk|energi/, 'mdi:chart-bar'], [/oppstart|restart|startup/, 'mdi:restart'], [/blink|lys|skjerm/, 'mdi:monitor-shimmer'],
+    [/rapport|daglig/, 'mdi:file-document-outline'],
+  ];
+  const kiVarsIkon = (tekst) => { const t = String(tekst || '').toLowerCase(); for (const [m, ikon] of KI_VARS_IKON) if (m.test(t)) return ikon; return 'mdi:bell-outline'; };
+  // Hovedbryteren i en regel (ki-varsling-card, uendret)
+  const erMaster = (b) => /alle[ _-]?varsler|_aktivert$|_varsling$|_aktiv$|_auto$|_automatikk$/.test(b.id)
+    || b.slug === b.enhet.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    || /^(alle varsler|aktivert|varsling|aktiv)$/i.test(b.under || '');
+  M.KI_VARS_TEKST = KI_VARS_TEKST;
+  M.kiVarsErMaster = erMaster;
+
+  /* ============================================================ faner og overstyringer */
+  const BUILTIN = { automasjoner: ['Automasjoner', 'mdi:robot'], varsler: ['Varsler', 'mdi:bell'], strom: ['Strøm', 'mdi:flash'] };
+  const FANE_TAB = { auto: 'automasjoner', push: 'varsler', strom: 'strom', energi: 'strom' };
   const edOrder = (keys, saved) => { const o = (Array.isArray(saved) ? saved : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
-  const tabOrder = (c) => edOrder(TABS.map((t) => t[0]), c.tab_order);
-  const tabHidden = (c) => new Set(Array.isArray(c.tab_hidden) ? c.tab_hidden : []);
-  const visTabs = (c) => { const hid = tabHidden(c); const o = tabOrder(c).filter((k) => !hid.has(k)); return o.length ? o : ['automasjoner']; };
-  const tabName = (c, k) => ((c.tab_names || {})[k] || TABL[k][1]);
-
-  /* ============================================================ etiketter */
-  let LAB = null, labBusy = false;
-  const labWait = new Set();
-  function labelReg(h) {
-    if (h && h.labels && typeof h.labels === 'object') return h.labels;
-    if (!LAB && !labBusy && h && h.callWS) {
-      labBusy = true;
-      h.callWS({ type: 'config/label_registry/list' }).then((r) => { LAB = {}; (Array.isArray(r) ? r : []).forEach((l) => { if (l && l.label_id) LAB[l.label_id] = l; }); })
-        .catch(() => { LAB = {}; }).finally(() => { labBusy = false; labWait.forEach((c) => c.isConnected && c.update()); labWait.clear(); });
+  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').map(String) : []);
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  const hasFilter = (f) => !!f && ['enheter', 'ikke_enheter', 'plattform'].some((k) => arr(f[k]).length);
+  // Fanene: tabs[] (26.15) – ellers 25.5-nøklene tab_order/tab_hidden/tab_names. Innebygde faner som mangler legges bakerst.
+  function tabDefs(c) {
+    let L;
+    if (Array.isArray(c.tabs) && c.tabs.length) L = c.tabs.filter((t) => t && t.key).map((t) => ({ key: String(t.key), title: t.title ? String(t.title) : '', hidden: !!t.hidden, filter: hasFilter(t.filter) ? t.filter : null, icon: t.icon || '' }));
+    else { const N = obj(c.tab_names), H = new Set(arr(c.tab_hidden)); L = edOrder(['automasjoner', 'varsler', 'strom'], c.tab_order).map((k) => ({ key: k, title: N[k] || '', hidden: H.has(k), filter: null, icon: '' })); }
+    const seen = new Set();
+    L = L.filter((t) => (seen.has(t.key) ? false : seen.add(t.key)));
+    Object.keys(BUILTIN).forEach((k) => { if (!seen.has(k)) L.push({ key: k, title: '', hidden: false, filter: null, icon: '' }); });
+    return L.map((t) => ({ ...t, builtin: !!BUILTIN[t.key], name: t.title || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') }));
+  }
+  const tabsOut = (defs) => defs.map((t) => { const o = { key: t.key }; if (t.title) o.title = t.title; if (t.hidden) o.hidden = true; if (hasFilter(t.filter)) o.filter = t.filter; return o; });
+  const visTabs = (c) => { const D = tabDefs(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
+  const tabDef = (c, k) => tabDefs(c).find((t) => t.key === k) || null;
+  // rows (26.15) – ellers 25.5-nøklene include/exclude per fane
+  function rowsCfg(c) {
+    const r = obj(c.rows);
+    const o = { exclude: arr(r.exclude), move: { ...obj(r.move) }, include: arr(r.include), names: obj(r.names), subs: obj(r.subs), icons: obj(r.icons), order: obj(r.order) };
+    if (!c.rows) {
+      Object.entries(obj(c.include)).forEach(([t, L]) => arr(L).forEach((id) => { if (!o.include.includes(id)) o.include.push(id); o.move[id] = t; }));
+      Object.values(obj(c.exclude)).forEach((L) => arr(L).forEach((id) => { if (!o.exclude.includes(id)) o.exclude.push(id); }));
     }
-    return LAB || {};
+    return o;
   }
-  const norm = (s) => String(s || '').toLowerCase().replace(/ø/g, 'o').replace(/æ/g, 'ae').replace(/å/g, 'a');
-  function labelsOf(h, id) {
-    const e = h && h.entities && h.entities[id];
-    const L = (e && Array.isArray(e.labels) ? e.labels : []), R = labelReg(h);
-    return L.map((l) => ({ id: l, name: (R[l] && R[l].name) || l }));
-  }
-  const hasLabel = (h, id, re) => labelsOf(h, id).some((l) => re.test(norm(l.id)) || re.test(norm(l.name)));
-  const RE_VARSEL = /^(varsler|varsel|varslinger|notify|notifications?)$/;
-  const RE_STROM = /^(strom|energi|energy|power)$/;
+  const pick = (O, r) => { for (const k of [r.key, r.id, r.dev, r.slug]) if (k && O[k] != null && O[k] !== '') return O[k]; return undefined; };
+  const inList = (L, r) => [r.key, r.id, r.dev, r.slug].some((k) => k && L.includes(k));
+  const moveTab = (v) => (v == null || v === '' ? null : FANE_TAB[v] || String(v));
 
-  /* ============================================================ autokonfig */
+  /* ============================================================ regler (én rad per regel) */
+  let memo = null;
+  function rules(h, c) {
+    if (!h) return [];
+    if (memo && memo.s === h.states && memo.e === h.entities && memo.d === h.devices && memo.c === c) return memo.r;
+    const R = rowsCfg(c), reg = h.entities || {}, dev = h.devices || {}, ut = [];
+    const legg = (id, kilde) => {
+      const st = h.states[id];
+      if (!st) return;
+      const slug = id.split('.')[1] || id;
+      const e = reg[id] || {}, D = dev[e.device_id] || {};
+      const enhet = D.name_by_user || D.name || '';
+      const a = st.attributes || {};
+      // friendly_name deles på « - »: navnet foran, beskrivelsen bak («Alarm - Alle varsler»)
+      const helt = a.friendly_name || slug, deler = helt.split(' - ');
+      let navn = deler[0].trim() || slug, under = deler.length > 1 ? deler.slice(1).join(' - ').trim() : '';
+      if (!under && enhet && helt.toLowerCase().startsWith(enhet.toLowerCase() + ' ')) { navn = enhet; under = helt.slice(enhet.length + 1).trim(); }
+      let kjentIkon = null, fane = null;
+      if (c.kjente !== false) {
+        const n = `${slug} ${enhet} ${helt}`.toLowerCase();
+        for (const [m, kn, ku, ki, kf] of KI_VARS_TEKST) { if (!m.test(n)) continue; navn = kn; under = ku; kjentIkon = ki; fane = kf; break; }
+      }
+      ut.push({ id, slug, kilde, plattform: e.platform || '', dev: e.device_id || null, enhet: enhet || 'Annet', navn: navn.trim() || enhet || slug, under, ikon: kjentIkon || a.icon || kiVarsIkon(`${slug} ${navn}`), fane, model: `${D.model || ''} ${D.entry_type || ''}` });
+    };
+    for (const [id, e] of Object.entries(reg)) {
+      if (!e || !KI_VARS_PLATTFORM.includes(e.platform)) continue;
+      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
+      if (e.platform === 'ki_energi' && !/varsel|varsler|spor_/.test(id)) continue; // bare varslingsbryterne i KI Energi
+      legg(id, 'integrasjon');
+    }
+    R.include.forEach((id) => { if (!ut.some((b) => b.id === id)) legg(id, 'ekstra'); });
+    // Én bryter per regel: hovedbryteren (ki-varsling-card). KI Energi har sidestilte valg – ingen sammenslåing der.
+    const perEnhet = new Map();
+    if (c.master !== false) {
+      const utenMaster = ['ki_energi'];
+      for (const b of ut) { if (b.kilde === 'ekstra' || utenMaster.includes(b.plattform)) continue; const g = b.dev || b.enhet; if (!perEnhet.has(g)) perEnhet.set(g, []); perEnhet.get(g).push(b); }
+      const behold = new Set(ut.filter((b) => b.kilde === 'ekstra' || utenMaster.includes(b.plattform)).map((b) => b.id));
+      for (const [, liste] of perEnhet) { const m = liste.length > 1 ? liste.filter(erMaster) : liste; (m.length ? m : liste).forEach((b) => behold.add(b.id)); }
+      for (let i = ut.length - 1; i >= 0; i--) if (!behold.has(ut[i].id)) ut.splice(i, 1);
+    }
+    const perDev = new Map();
+    ut.forEach((b) => { if (b.dev && b.kilde !== 'ekstra') perDev.set(b.dev, (perDev.get(b.dev) || 0) + 1); });
+    const out = ut.map((b) => {
+      const r = { ...b, key: b.kilde !== 'ekstra' && b.dev && perDev.get(b.dev) === 1 ? b.dev : b.id, all: b.dev ? Object.keys(reg).filter((x) => reg[x] && reg[x].device_id === b.dev) : [b.id] };
+      const mf = /automasjon|automation|\block\b|lås/i.test(b.model) ? 'automasjoner' : /varsl|notif|push/i.test(b.model) ? 'varsler' : null;
+      r.tab = b.plattform === 'ki_energi' ? 'strom' : (b.fane && FANE_TAB[b.fane]) || mf || (b.kilde === 'ekstra' && /^(automation|script)\./.test(b.id) ? 'automasjoner' : 'varsler');
+      r.name = pick(R.names, r) || r.navn; r.sub = pick(R.subs, r) || r.under; r.icon = pick(R.icons, r) || r.ikon;
+      r.hidden = inList(R.exclude, r);
+      r.move = moveTab(pick(R.move, r));
+      r.master = erMaster(b) || /\bki_energi_varsler\b/.test(b.id);
+      return r;
+    });
+    memo = { s: h.states, e: h.entities, d: h.devices, c, r: out };
+    return out;
+  }
+  M.innstRules = rules;
+  const treff = (navn, liste) => liste.some((m) => String(navn).toLowerCase().includes(String(m).toLowerCase()));
+  function inTab(r, t) {
+    if (r.move) return r.move === t.key;
+    if (hasFilter(t.filter)) {
+      const f = t.filter, P = arr(f.plattform), E = arr(f.enheter), I = arr(f.ikke_enheter);
+      if (P.length && r.kilde !== 'ekstra' && !P.includes(r.plattform)) return false;
+      if (E.length && r.kilde !== 'ekstra' && !treff(r.enhet, E)) return false;
+      if (I.length && treff(r.enhet, I)) return false;
+      return true;
+    }
+    return t.builtin && r.tab === t.key;
+  }
+  // Radene i en fane: autokonfig + include − exclude, i lagret rekkefølge (rows.order) – ellers hovedbryter først og alfabetisk
+  function tabRows(h, c, key, opts) {
+    const t = tabDef(c, key);
+    if (!t) return [];
+    const R = rowsCfg(c);
+    let L = rules(h, c).filter((r) => inTab(r, t));
+    if (!(opts && opts.withHidden)) L = L.filter((r) => !r.hidden);
+    L.sort((a, b) => (b.master && b.plattform === 'ki_energi') - (a.master && a.plattform === 'ki_energi') || a.name.localeCompare(b.name, 'nb'));
+    const O = arr(R.order[key]);
+    if (O.length) { const rank = new Map(O.map((k, i) => [k, i])); const rk = (r) => (rank.has(r.key) ? rank.get(r.key) : rank.has(r.id) ? rank.get(r.id) : 1e6); L = L.slice().sort((a, b) => rk(a) - rk(b)); }
+    return L;
+  }
+  M.innstRows = tabRows;
+  M.innstTabs = tabDefs;
+
+  /* ============================================================ toppkortets entiteter */
   const pickFirst = (h, ids) => ids.find((id) => h && h.states[id]) || null;
   const byName = (h, doms, re) => Object.keys((h && h.states) || {}).filter((id) => doms.includes(id.split('.')[0]) && re.test(id)).sort()[0] || null;
   function ents(h, c) {
-    const natt = c.natt || pickFirst(h, ['input_boolean.nattmodus', 'switch.nattmodus']) || byName(h, ['input_boolean', 'switch'], /\.(ki_)?nattmodus/);
-    const privat = c.privat || pickFirst(h, ['input_boolean.privatmodus', 'switch.privatmodus']) || byName(h, ['input_boolean', 'switch'], /\.(ki_)?privatmodus/);
-    const vekking = c.vekking || pickFirst(h, ['input_datetime.vekking']);
+    const natt = c.natt || pickFirst(h, ['switch.nattmodus', 'input_boolean.nattmodus']) || byName(h, ['input_boolean', 'switch'], /\.(ki_)?nattmodus/) || byName(h, ['input_boolean'], /^input_boolean\.[a-z0-9_]*natt/);
+    const privat = c.privat || pickFirst(h, ['input_boolean.privatmodus', 'switch.privatmodus']) || byName(h, ['input_boolean', 'switch'], /\.(ki_)?privatmodus/) || byName(h, ['input_boolean'], /^input_boolean\.[a-z0-9_]*priva/);
+    const vekking = c.vekking || pickFirst(h, ['input_datetime.vekking']) || byName(h, ['sensor'], /^sensor\.[a-z0-9_]*vekking[a-z0-9_]*neste/);
     return { natt, privat, vekking };
   }
   M.innstEntities = ents;
-  // Automatiske rader per fane
-  function autoRows(h, c) {
-    const E = ents(h, c), skip = new Set([E.natt, E.privat].filter(Boolean));
-    const ids = Object.keys((h && h.states) || {}).filter((id) => !skip.has(id) && M.usable(h, id)).sort();
-    const dom = (id) => id.split('.')[0];
-    const strom = ids.filter((id) => ['input_boolean', 'automation'].includes(dom(id)) && hasLabel(h, id, RE_STROM));
-    const sS = new Set(strom);
-    const varsler = ids.filter((id) => !sS.has(id) && ((dom(id) === 'input_boolean' && (/varsel|notify/.test(id) || hasLabel(h, id, RE_VARSEL))) || (dom(id) === 'automation' && (/push|varsel|notify/.test(id) || hasLabel(h, id, RE_VARSEL)))));
-    const vS = new Set(varsler);
-    const automasjoner = ids.filter((id) => dom(id) === 'automation' && !sS.has(id) && !vS.has(id));
-    return { automasjoner, varsler, strom };
-  }
-  M.innstAutoRows = autoRows;
-  // Radene i en fane: auto + include − exclude, i lagret rekkefølge (row_order) – ellers gruppert og alfabetisk
-  function rowsOf(h, c, tab, opts) {
-    const A = autoRows(h, c)[tab] || [], inc = ((c.include || {})[tab] || []).filter((id) => h && h.states[id]);
-    const exc = new Set((c.exclude || {})[tab] || []);
-    const all = [...new Set([...A, ...inc])];
-    const list = (opts && opts.withHidden) ? all : all.filter((id) => !exc.has(id));
-    const RO = (c.row_order || {})[tab];
-    if (Array.isArray(RO) && RO.length) return { list: edOrder(list, RO), grouped: false, exc };
-    const grp = (id) => { const a = M.areaOf(h, id); if (a) return M.areaName(h, a); const l = labelsOf(h, id)[0]; return l ? l.name : ''; };
-    const nm = (id) => M.name(h, id).toLowerCase();
-    const sorted = list.slice().sort((x, y) => { const gx = grp(x), gy = grp(y); if (gx !== gy) return !gx ? 1 : !gy ? -1 : gx.localeCompare(gy, 'nb'); return nm(x).localeCompare(nm(y), 'nb'); });
-    return { list: sorted, grouped: new Set(sorted.map(grp)).size > 1, grp, exc };
-  }
-  M.innstRows = rowsOf;
-  const DEF_ICON = { automasjoner: 'mdi:robot', varsler: 'mdi:bell', strom: 'mdi:flash' };
   const isOn = (s) => !!s && s.state === 'on';
   const tidOf = (s) => {
     if (!s || M.unavailable(s)) return null;
     const v = String(s.state);
-    let m = /(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(v);
+    const m = /(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(v);
     if (m && !/T/.test(v)) return `${M.pad(m[1])}:${m[2]}`;
     const d = new Date(v);
     return isNaN(d) ? null : `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`;
   };
+
+  /* ============================================================ migrering fra den importerte #settings (ki-cards) */
+  const HASH = '#settings';
+  const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
+  const legacyOf = (cfg) => {
+    if (!cfg || typeof cfg !== 'object' || String(cfg.hash || '').trim().replace(/^#?/, '#') !== HASH) return false;
+    let js = ''; try { js = JSON.stringify(cfg); } catch (e) { return false; }
+    return /custom:ki-(natt|varsling)-card/.test(js);
+  };
+  const tabKeyOf = (title, v) => {
+    const t = String(title || '').toLowerCase();
+    if (/automasjon|automation/.test(t)) return 'automasjoner';
+    if (/varsl|push|notif/.test(t)) return 'varsler';
+    if (/str[øo]m|energi/.test(t) || (v && arr(v.enheter).length && arr(v.enheter).every((x) => /energi/i.test(x)))) return 'strom';
+    return null;
+  };
+  function migrate(cfg) {
+    const out = {}, tabs = [], R = { exclude: [], move: {}, include: [], names: {}, subs: {}, icons: {} };
+    const find = (o, re, d, acc) => { if (!o || typeof o !== 'object' || d > 12) return acc; if (Array.isArray(o)) { o.forEach((x) => find(x, re, d + 1, acc)); return acc; } if (re.test(String(o.type || ''))) acc.push(o); Object.values(o).forEach((x) => { if (x && typeof x === 'object') find(x, re, d + 1, acc); }); return acc; };
+    const natt = find(cfg, /^custom:ki-natt-card$/, 0, [])[0];
+    if (natt) {
+      if (natt.natt) out.natt = natt.natt;
+      const priv = natt.privat === true || /privac|privat|kamera|camera/i.test(String(natt.helg || '') + ' ' + String(natt.navn_helg || ''));
+      if (natt.helg && priv) out.privat = natt.helg;
+      if (natt.vekking) out.vekking = natt.vekking;
+    }
+    const tc = find(cfg, /^custom:ki-tabs-card$/, 0, [])[0];
+    const used = new Set();
+    (tc && Array.isArray(tc.tabs) ? tc.tabs : []).forEach((t, i) => {
+      const v = find(t, /^custom:ki-varsling-card$/, 0, [])[0];
+      if (!v) return;
+      let key = tabKeyOf(t.title, v);
+      if (!key || used.has(key)) key = 'fane_' + (String(t.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || i);
+      used.add(key);
+      const o = { key };
+      if (t.title && (!BUILTIN[key] || t.title !== BUILTIN[key][0])) o.title = String(t.title);
+      if (!BUILTIN[key]) { const f = {}; ['enheter', 'ikke_enheter', 'plattform'].forEach((k) => { const L = arr([].concat(v[k] || [])); if (L.length) f[k] = L; }); if (Object.keys(f).length) o.filter = f; }
+      tabs.push(o);
+      arr(v.ekstra).forEach((id) => { if (!R.include.includes(id)) R.include.push(id); R.move[id] = key; });
+      arr(v.skjul).forEach((s) => { if (!R.exclude.includes(s)) R.exclude.push(s); });
+      Object.assign(R.names, obj(v.navn)); Object.assign(R.subs, obj(v.undertekst)); Object.assign(R.icons, obj(v.ikoner));
+    });
+    if (tabs.length) out.tabs = tabs;
+    const rows = {}; Object.keys(R).forEach((k) => { const x = R[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) rows[k] = x; });
+    if (Object.keys(rows).length) out.rows = rows;
+    return out;
+  }
+  M.innstMigrate = migrate;
+  const lists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
+  M.innstExtra = function (config) {
+    for (const L of lists(config)) for (const e of (Array.isArray(L) ? L : [])) { const cfg = cfgOf(e); if (legacyOf(cfg)) { const r = migrate(cfg); if (Object.keys(r).length) return r; } }
+    return undefined;
+  };
+  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
+  M.POPUP_SUPERSEDE[HASH] = { name: 'Innstillinger', test: (cfg) => legacyOf(cfg) };
+  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
+  M.POPUP_EXTRA[HASH] = (config) => M.innstExtra(config);
 
   /* ============================================================ scenene */
   const stars = (n, w, h, seed) => { let s = seed, out = ''; const r = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; for (let i = 0; i < n; i++) out += `<circle class="st" style="animation-delay:${(r() * 3).toFixed(2)}s" cx="${(r() * w).toFixed(1)}" cy="${(r() * h).toFixed(1)}" r="${(0.6 + r() * 1.1).toFixed(2)}" fill="#fff"/>`; return out; };
@@ -44034,83 +46254,203 @@ try {
       <rect x="30" y="48" width="12" height="20" rx="2" fill="#3a4563"/>
       ${cam ? '<circle class="cam" cx="66" cy="30" r="3" fill="#f28073"/>' : ''}</g>`;
   const birds = () => `<g class="birds" fill="none" stroke="rgba(35,45,70,.7)" stroke-width="2" stroke-linecap="round"><path class="b1" d="M0 0 q5 -5 10 0 q5 -5 10 0"/><path class="b2" d="M26 10 q4 -4 8 0 q4 -4 8 0"/></g>`;
+  // Overvåkingskameraet i Privatmodus-kortet (26.15): feste mot høyre kant, linsen peker mot venstre. Vippe/sveip rundt festet.
+  const camera = () => `<svg class="pcam" viewBox="0 0 64 44" aria-hidden="true">
+      <defs><linearGradient id="pcone" x1="1" x2="0" y1="0" y2="0"><stop offset="0" stop-color="#f2d26f" stop-opacity=".55"/><stop offset="1" stop-color="#f2d26f" stop-opacity="0"/></linearGradient></defs>
+      <g class="cm-tilt"><g class="cm-sweep">
+        <path class="cm-cone" d="M10 22 L-70 0 L-70 44 Z" fill="url(#pcone)"/>
+        <rect class="cm-body" x="12" y="13" width="32" height="18" rx="5"/>
+        <rect class="cm-hood" x="10" y="11" width="30" height="4" rx="2"/>
+        <rect class="cm-lensh" x="6" y="15" width="8" height="14" rx="2.5"/>
+        <circle class="cm-lens" cx="10" cy="22" r="3.6"/><circle class="cm-glint" cx="9" cy="20.8" r="1"/>
+        <rect class="cm-shut" x="5" y="15" width="10" height="14" rx="2.5"/>
+        <circle class="cm-rec" cx="38" cy="18" r="2"/><circle class="cm-ok" cx="38" cy="18" r="2"/>
+      </g></g>
+      <rect class="cm-arm" x="44" y="20" width="12" height="4" rx="1"/>
+      <rect class="cm-wall" x="56" y="12" width="7" height="20" rx="2"/>
+    </svg>`;
 
   /* ============================================================ editoren (Tilpass Innstillinger + GUI) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
-  const EXP = new Map(), RT = new Map(), ADD = new Set();
-  function editorSchema() {
-    const kit = (ed) => { if (M.edKit) M.edKit(ed); ed.__edDrop = ed.__edDrop || {}; ed.__edQ = ed.__edQ || {}; };
-    const handle = () => (M.edHandle ? M.edHandle() : '');
-    const eye = (key, op, v, hid, label) => (M.edEye ? M.edEye(key, op, v, hid, label) : '');
-    const faner = { type: 'html', html: (hh, cc, key, ed) => {
-      kit(ed);
-      ed.__edDrop['inn-tab'] = (o) => ed._set('tab_order', o);
-      if (!ed.__innName) {
-        ed.__innName = true;
-        ed.shadowRoot.addEventListener('change', (e) => { const t = e.target; if (!t.dataset || t.dataset.innname == null) return; e.stopPropagation(); const N = { ...((ed._config || {}).tab_names || {}) }; const v = t.value.trim(); if (v) N[t.dataset.innname] = v; else delete N[t.dataset.innname]; ed._set('tab_names', Object.keys(N).length ? N : undefined); }, true);
+  const RT = new Map(), ADD = new Set(), EXP = new Map();
+  // 26.15: designet for arket – tekstfaner i segmentrad (#3a3a3a, r24, pad 4), én flate per seksjon (ingen kant) med rader
+  // flatt inni og skillelinjer, navnefelt (#282828, r12, 40 px) + rosa bryter i raden. Bare i denne editoren (adoptedStyleSheets).
+  const INN_CSS = `
+    .chips.sg.tabs{background:#3a3a3a;border-radius:24px;padding:4px;gap:2px}
+    .chips.sg.tabs .chip{height:40px;border-radius:20px;font-size:14px;font-weight:500}
+    .chips.sg.tsub{background:#3a3a3a;border-radius:20px;padding:4px}
+    .fsh{font-size:12px}
+    .fsec>.sec{border-radius:24px;background:#3a3a3a;box-shadow:none;border:0}
+    .fsec>.sec>.in{padding:4px 12px}
+    .fsec .sec .f{background:transparent;padding:10px 4px}
+    .fsec .sec .f + .f{border-top:1px solid rgba(255,255,255,.06);border-radius:0}
+    .ilist{display:flex;flex-direction:column}
+    .irow{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 0}
+    .irow + .irow,.irow + .isub,.isub + .irow{border-top:1px solid rgba(255,255,255,.06)}
+    .irow.off .iic,.irow.off .inm{opacity:.45}
+    .iic{width:32px;height:32px;display:grid;place-items:center;flex:none;color:#afafaf;--mdc-icon-size:22px}
+    button.iic{border-radius:16px}
+    .inm{flex:1;min-width:0;height:40px;border-radius:12px;background:#282828;padding:0 12px;font-size:14px;color:#fafafa}
+    .inm::placeholder{color:#979797}
+    .icnt{flex:none;font-size:12px;color:#979797;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .irow .sw{width:44px;height:26px;border-radius:13px;background:#545454}
+    .irow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
+    .irow .sw.on{background:var(--pink,#f285c9)}.irow .sw.on::after{transform:translateX(18px)}
+    .isub{display:flex;flex-direction:column;gap:8px;padding:10px 0 12px 40px}
+    .isub .lb{font-size:12px;color:#afafaf}
+    .ichips{display:flex;flex-wrap:wrap;gap:6px}
+    .ichips button{height:32px;padding:0 12px;border-radius:16px;background:#404040;font-size:13px;white-space:nowrap}
+    .ichips button.on{background:${C.accent};color:#2a1720;font-weight:500}
+    .ifld{display:flex;flex-direction:column;gap:6px;padding:10px 0}
+    .ifld + .ifld{border-top:1px solid rgba(255,255,255,.06)}
+    .ifld .lb{font-size:12px;color:#afafaf}
+    .inm.full{flex:none;width:100%}
+    .iempty{padding:14px 4px;font-size:13px;color:#979797}
+    .ibtn{height:44px;border-radius:22px;background:#404040;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;width:100%;margin:8px 0}
+    .imeta{font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+  let innSheet = null;
+  function innKit(ed) {
+    if (!ed || !ed.shadowRoot) return;
+    if (M.edKit) M.edKit(ed);
+    ed.__edDrop = ed.__edDrop || {}; ed.__edQ = ed.__edQ || {};
+    const R = ed.shadowRoot;
+    try { if (!innSheet) { innSheet = new CSSStyleSheet(); innSheet.replaceSync(INN_CSS); } if (!R.adoptedStyleSheets.includes(innSheet)) R.adoptedStyleSheets = [...R.adoptedStyleSheets, innSheet]; } catch (e) { /* eldre nettleser */ }
+    if (ed.__innKit) return;
+    ed.__innKit = true;
+    // Navnefelt, ikon og filter i radene lagres ved «change» (ikke per tastetrykk – feltet beholder fokus)
+    R.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t.dataset || t.dataset.inn == null) return;
+      e.stopPropagation();
+      const cc = ed._config || {}, v = String(t.value || '').trim(), k = t.dataset.v;
+      if (t.dataset.inn === 'tname') { const D = tabDefs(cc).map((x) => (x.key === k ? { ...x, title: v && !(BUILTIN[k] && v === BUILTIN[k][0]) ? v : (BUILTIN[k] ? '' : x.title) } : x)); return ed._set('tabs', tabsOut(D)); }
+      if (t.dataset.inn === 'rname' || t.dataset.inn === 'ricon') return setRows(ed, (R2) => { const O = t.dataset.inn === 'rname' ? R2.names : R2.icons; if (v) O[k] = v; else delete O[k]; });
+      if (t.dataset.inn === 'fenh' || t.dataset.inn === 'fikke') {
+        const L = v.split(',').map((x) => x.trim()).filter(Boolean), f = t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter';
+        const D = tabDefs(cc).map((x) => { if (x.key !== k) return x; const F = { ...obj(x.filter) }; if (L.length) F[f] = L; else delete F[f]; return { ...x, filter: F }; });
+        return ed._set('tabs', tabsOut(D));
       }
-      const hid = tabHidden(cc), open = EXP.get(cid(ed));
-      return `<div class="edlist">${tabOrder(cc).map((k) => {
-        const [, label, icon] = TABL[k], n = hh ? rowsOf(hh, cc, k).list.length : 0, isO = open === k;
-        return `<div class="edrow ${hid.has(k) ? 'off' : ''}" data-edk="${k}" data-elist="inn-tab" data-key="it-${k}">${handle()}<span class="edic">${M.icon(icon, 20)}</span><span class="nm"><b>${esc(tabName(cc, k))}</b><i>${n} ${n === 1 ? 'rad' : 'rader'}${(cc.tab_names || {})[k] ? ' · ' + esc(label) : ''}</i></span>
-          <button class="ib" data-a="fn" data-k="${key}" data-op="texp" data-v="${k}" aria-expanded="${isO}" aria-label="Gi nytt navn">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:pencil-outline', 20)}</button>${eye(key, 'teye', k, hid.has(k), label)}</div>
-          ${isO ? `<div class="edsub" data-key="its-${k}"><span style="font-size:12px;color:#afafaf">Navn</span><div class="edq"><input data-innname="${k}" value="${esc((cc.tab_names || {})[k] || '')}" placeholder="${esc(label)}" autocapitalize="off" autocorrect="off" spellcheck="false"></div></div>` : ''}`;
-      }).join('')}<span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra for rekkefølge, blyanten gir fanen nytt navn, øyet skjuler. Minst én fane må være synlig.</span></div>`;
+    }, true);
+  }
+  function setRows(ed, fn) {
+    const cc = ed._config || {}, R = rowsCfg(cc);
+    const W = { exclude: [...R.exclude], move: { ...R.move }, include: [...R.include], names: { ...R.names }, subs: { ...R.subs }, icons: { ...R.icons }, order: { ...R.order } };
+    fn(W);
+    const o = {}; Object.keys(W).forEach((k) => { const x = W[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) o[k] = x; });
+    ed._set('rows', Object.keys(o).length ? o : undefined);
+  }
+  const rowTabs = (c) => tabDefs(c);
+  const curTab = (ed, c) => { const T = rowTabs(c), v = RT.get(cid(ed)); return T.some((t) => t.key === v) ? v : (T[0] || {}).key; };
+  const cntTxt = (n) => `${n} ${n === 1 ? 'rad' : 'rader'}`;
+  const sw = (key, op, v, on, label) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}"></button>`;
+  function editorSchema(h0, cfg0) {
+    const handle = () => (M.edHandle ? M.edHandle() : '');
+    // Faner: dra-håndtak, ikon 22 px, navnefelt direkte i raden, antall rader etter filter, bryter = vis/skjul
+    const faner = { type: 'html', html: (hh, cc, key, ed) => {
+      innKit(ed);
+      ed.__edDrop['inn-tab'] = (o) => { const D = tabDefs(cc), by = new Map(D.map((t) => [t.key, t])); ed._set('tabs', tabsOut(o.map((k) => by.get(k)).filter(Boolean))); };
+      return `<div class="ilist">${tabDefs(cc).map((t) => {
+        const n = hh ? tabRows(hh, cc, t.key).length : 0;
+        return `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<span class="iic">${M.icon(t.icon, 22)}</span>
+          <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(t.title)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <span class="icnt">${cntTxt(n)}</span>${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>`;
+      }).join('')}</div>`;
     }, click: (dd, ed) => {
-      const cc = ed._config || {}, id = cid(ed);
-      if (dd.op === 'texp') { M.haptic('selection'); if (EXP.get(id) === dd.v) EXP.delete(id); else EXP.set(id, dd.v); return ed._render(); }
+      const cc = ed._config || {};
       if (dd.op === 'teye') {
-        const hid = tabHidden(cc);
-        if (!hid.has(dd.v) && TABS.filter((t) => !hid.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
-        if (hid.has(dd.v)) hid.delete(dd.v); else hid.add(dd.v);
-        M.haptic('selection'); return ed._set('tab_hidden', hid.size ? [...hid] : undefined);
+        const D = tabDefs(cc), t = D.find((x) => x.key === dd.v);
+        if (!t) return;
+        if (!t.hidden && D.filter((x) => !x.hidden).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+        M.haptic('selection');
+        return ed._set('tabs', tabsOut(D.map((x) => (x.key === dd.v ? { ...x, hidden: !x.hidden } : x))));
       }
     } };
-    // Rader per fane: undersegment (fane), rader med dra + øye (exclude), egne rader (include) med fjern, «Legg til rad» med søk
+    // Rader: undersegment (fane) + rader for valgt fane (dra, ikon → flytt/ikon, navnefelt, bryter = exclude) + «Legg til rad»
+    const radSeg = { type: 'html', html: (hh, cc, key, ed) => {
+      innKit(ed);
+      const tab = curTab(ed, cc);
+      return `<div class="chips sg tsub" role="tablist">${rowTabs(cc).map((t) => `<button class="chip ${t.key === tab ? 'on' : ''}" role="tab" aria-selected="${t.key === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${esc(t.key)}"><span>${esc(t.name)}</span><span class="tc">${hh ? tabRows(hh, cc, t.key).length : 0}</span></button>`).join('')}</div>`;
+    }, click: (dd, ed) => { if (dd.op === 'rtab') { M.haptic('selection'); RT.set(cid(ed), dd.v); EXP.delete(cid(ed)); ADD.delete(cid(ed)); return ed._render(); } } };
     const rader = { type: 'html', html: (hh, cc, key, ed) => {
-      kit(ed);
+      innKit(ed);
       if (!hh) return '';
-      const id = cid(ed), tab = RT.get(id) || visTabs(cc)[0];
-      ed.__edDrop['inn-row'] = (o) => ed._set('row_order', { ...(cc.row_order || {}), [tab]: o });
-      const R = rowsOf(hh, cc, tab, { withHidden: true }), inc = new Set((cc.include || {})[tab] || []), auto = new Set(autoRows(hh, cc)[tab] || []);
-      const seg = `<div class="chips sg tsub" role="tablist">${tabOrder(cc).map((k) => `<button class="chip ${k === tab ? 'on' : ''}" role="tab" aria-selected="${k === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${k}">${esc(tabName(cc, k))}</button>`).join('')}</div>`;
-      const rows = R.list.map((rid) => { const s = hh.states[rid], hid = R.exc.has(rid), own = inc.has(rid) && !auto.has(rid); return `<div class="edrow ${hid ? 'off' : ''}" data-edk="${esc(rid)}" data-elist="inn-row" data-key="ir-${esc(rid)}">${handle()}<span class="edic">${M.icon((s && s.attributes.icon) || DEF_ICON[tab], 20)}</span><span class="nm"><b>${esc(M.name(hh, rid))}</b><i>${esc(rid)}${own ? ' · lagt til' : ''}</i></span>${own ? `<button class="ib" data-a="fn" data-k="${key}" data-op="rrm" data-v="${esc(rid)}" aria-label="Fjern">${M.icon('mdi:minus-circle-outline', 20)}</button>` : eye(key, 'reye', rid, hid, M.name(hh, rid))}</div>`; }).join('');
-      const q = (ed.__edQ['inn-q'] || '').trim().toLowerCase(), have = new Set(R.list);
+      const id = cid(ed), tab = curTab(ed, cc), R = rowsCfg(cc), T = rowTabs(cc);
+      if (!tab) return '<div class="iempty">Ingen faner med rader.</div>';
+      ed.__edDrop['inn-row'] = (o) => setRows(ed, (W) => { W.order = { ...W.order, [tab]: o }; });
+      const L = tabRows(hh, cc, tab, { withHidden: true }), open = EXP.get(id);
+      const rows = L.map((r) => {
+        const own = r.kilde === 'ekstra';
+        const sub = open === r.key ? `<div class="isub" data-key="irs-${esc(r.key)}">
+            <span class="lb">Flytt til</span><div class="ichips">${T.map((t) => `<button class="${t.key === tab ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="rmove" data-v="${esc(r.key)}" data-t="${esc(t.key)}">${esc(t.name)}</button>`).join('')}</div>
+            <span class="lb">Ikon</span><input class="inm full" data-inn="ricon" data-v="${esc(r.key)}" value="${esc(R.icons[r.key] || '')}" placeholder="${esc(r.ikon)}" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <span class="imeta">${esc(r.id)}${r.enhet && r.kilde !== 'ekstra' ? ' · ' + esc(r.enhet) : ''}${r.all.length > 1 ? ` · ${r.all.length} entiteter (hold på raden i popupen for resten)` : ''}</span>
+            ${own ? `<div class="ichips"><button data-a="fn" data-k="${key}" data-op="rrm" data-v="${esc(r.id)}">Fjern raden</button></div>` : ''}</div>` : '';
+        return `<div class="irow ${r.hidden ? 'off' : ''}" data-edk="${esc(r.key)}" data-elist="inn-row" data-key="ir-${esc(r.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="rexp" data-v="${esc(r.key)}" aria-expanded="${open === r.key}" aria-label="Flytt eller bytt ikon">${M.icon(r.icon, 22)}</button>
+          <input class="inm" data-inn="rname" data-v="${esc(r.key)}" value="${esc(R.names[r.key] || '')}" placeholder="${esc(r.navn)}" aria-label="Navn på raden" autocapitalize="off" autocorrect="off" spellcheck="false">
+          ${sw(key, 'reye', r.key, !r.hidden, (r.hidden ? 'Vis ' : 'Skjul ') + r.name)}</div>${sub}`;
+      }).join('');
+      const q = (ed.__edQ['inn-q'] || '').trim().toLowerCase(), have = new Set(L.map((r) => r.id));
       const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['automation', 'input_boolean', 'switch', 'script'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
-      const add = ADD.has(id) ? `<div class="edsub" style="margin-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter automasjon eller bryter" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="small" style="padding:4px 6px">Ingen treff</div>'}</div>` : '';
-      return `<div class="edlist">${seg}${rows || '<div class="small" style="padding:0 6px">Ingen rader i denne fanen ennå.</div>'}${add}
-        <button class="btn" style="height:48px" data-a="fn" data-k="${key}" data-op="radd-open" data-v="">${M.icon(ADD.has(id) ? 'mdi:close' : 'mdi:plus', 20)}${ADD.has(id) ? 'Lukk' : 'Legg til rad'}</button>
-        ${(cc.row_order || {})[tab] ? `<button class="btn" style="height:44px" data-a="fn" data-k="${key}" data-op="rsort" data-v="">${M.icon('mdi:sort-alphabetical-ascending', 18)}Automatisk rekkefølge</button>` : ''}
-        <span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra for rekkefølge, øyet skjuler raden (exclude). Rader du legger til lagres som include.</span></div>`;
+      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter automasjon eller bryter" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>` : '';
+      const none = !rules(hh, cc).some((r) => r.kilde === 'integrasjon') ? 'Fant ingen regler fra KI Varslinger og sikkerhet' : 'Ingen rader i denne fanen ennå.';
+      return `<div class="ilist">${rows || `<div class="iempty">${esc(none)}</div>`}${add}</div>
+        <button class="ibtn" data-a="fn" data-k="${key}" data-op="radd-open" data-v="">${M.icon(ADD.has(id) ? 'mdi:close' : 'mdi:plus', 20)}${ADD.has(id) ? 'Lukk' : 'Legg til rad'}</button>
+        ${arr(R.order[tab]).length ? `<button class="ibtn" data-a="fn" data-k="${key}" data-op="rsort" data-v="">${M.icon('mdi:sort-alphabetical-ascending', 18)}Automatisk rekkefølge</button>` : ''}`;
     }, click: (dd, ed) => {
-      const cc = ed._config || {}, id = cid(ed), tab = RT.get(id) || visTabs(cc)[0];
-      const setL = (k, fn) => { const O = { ...(cc[k] || {}) }; const L = fn(new Set(O[tab] || [])); if (L.size) O[tab] = [...L]; else delete O[tab]; ed._set(k, Object.keys(O).length ? O : undefined); };
-      if (dd.op === 'rtab') { M.haptic('selection'); RT.set(id, dd.v); return ed._render(); }
-      if (dd.op === 'reye') { M.haptic('selection'); return setL('exclude', (s) => { if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); return s; }); }
-      if (dd.op === 'rrm') { M.haptic('selection'); return setL('include', (s) => { s.delete(dd.v); return s; }); }
+      const cc = ed._config || {}, id = cid(ed), tab = curTab(ed, cc);
+      if (dd.op === 'rexp') { M.haptic('selection'); if (EXP.get(id) === dd.v) EXP.delete(id); else EXP.set(id, dd.v); return ed._render(); }
+      if (dd.op === 'reye') { M.haptic('selection'); return setRows(ed, (W) => { const i = W.exclude.indexOf(dd.v); if (i >= 0) W.exclude.splice(i, 1); else { const r = rules(ed._hass, cc).find((x) => x.key === dd.v); W.exclude = W.exclude.filter((x) => !r || ![r.id, r.dev, r.slug].includes(x)); if (!r || !r.hidden) W.exclude.push(dd.v); } }); }
+      if (dd.op === 'rmove') {
+        M.haptic('selection'); EXP.delete(id);
+        const r = rules(ed._hass, cc).find((x) => x.key === dd.v);
+        return setRows(ed, (W) => { [dd.v, r && r.id, r && r.dev, r && r.slug].forEach((k) => { if (k) delete W.move[k]; }); const def = r && r.tab; if (!r || dd.t !== def || r.kilde === 'ekstra' || tabDefs(cc).some((t) => t.key === def && hasFilter(t.filter))) W.move[dd.v] = dd.t; });
+      }
+      if (dd.op === 'rrm') { M.haptic('selection'); EXP.delete(id); return setRows(ed, (W) => { W.include = W.include.filter((x) => x !== dd.v); delete W.move[dd.v]; delete W.names[dd.v]; delete W.icons[dd.v]; }); }
       if (dd.op === 'radd-open') { M.haptic('selection'); ed.__edQ['inn-q'] = ''; if (ADD.has(id)) ADD.delete(id); else ADD.add(id); return ed._render(); }
-      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; return setL('include', (s) => s.add(dd.v)); }
-      if (dd.op === 'rsort') { M.haptic('selection'); const O = { ...(cc.row_order || {}) }; delete O[tab]; return ed._set('row_order', Object.keys(O).length ? O : undefined); }
+      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; ADD.delete(id); return setRows(ed, (W) => { if (!W.include.includes(dd.v)) W.include.push(dd.v); W.move[dd.v] = tab; }); }
+      if (dd.op === 'rsort') { M.haptic('selection'); return setRows(ed, (W) => { const O = { ...W.order }; delete O[tab]; W.order = O; }); }
+    } };
+    // Filter for valgt fane (samme som ki-varsling-card: enheter / ikke_enheter / plattform) – lagres i tabs[i].filter
+    const filter = { type: 'html', html: (hh, cc, key, ed) => {
+      innKit(ed);
+      const tab = curTab(ed, cc), t = tab && tabDef(cc, tab);
+      if (!t) return '';
+      const F = obj(t.filter), P = arr(F.plattform);
+      return `<div class="ifld"><span class="lb">Bare regler med navn som inneholder (kommaseparert)</span><input class="inm full" data-inn="fenh" data-v="${esc(tab)}" value="${esc(arr(F.enheter).join(', '))}" placeholder="Automatisk fordeling" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        <div class="ifld"><span class="lb">Ikke regler med navn som inneholder</span><input class="inm full" data-inn="fikke" data-v="${esc(tab)}" value="${esc(arr(F.ikke_enheter).join(', '))}" placeholder="Ingen" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        <div class="ifld"><span class="lb">Integrasjoner</span><div class="ichips">${KI_VARS_PLATTFORM.map((p) => `<button class="${P.includes(p) ? 'on' : ''}" aria-pressed="${P.includes(p)}" data-a="fn" data-k="${key}" data-op="fplat" data-v="${esc(tab)}" data-p="${p}">${esc({ ki_notifications: 'KI Varslinger', ki_energi: 'KI Energi', ki_utelys: 'KI Utelys' }[p])}</button>`).join('')}</div></div>`;
+    }, click: (dd, ed) => {
+      if (dd.op !== 'fplat') return;
+      M.haptic('selection');
+      const D = tabDefs(ed._config || {}).map((x) => { if (x.key !== dd.v) return x; const F = { ...obj(x.filter) }, P = new Set(arr(F.plattform)); if (P.has(dd.p)) P.delete(dd.p); else P.add(dd.p); if (P.size) F.plattform = [...P]; else delete F.plattform; return { ...x, filter: F }; });
+      return ed._set('tabs', tabsOut(D));
     } };
     const auto = (k) => (hh, cc) => ents(hh, { ...cc, [k]: undefined })[k];
+    const tabMeta = (h, c) => { const tab = RT.get((c && c.card_id) || '_'), T = rowTabs(c || {}), k = T.some((t) => t.key === tab) ? tab : (T[0] || {}).key; return k && h ? cntTxt(tabRows(h, c, k).length) : ''; };
     return [
       { type: 'tabs', id: 'innstillinger', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
-          { type: 'section', id: 'faner', label: 'Faner', fields: [faner] },
+        { key: 'faner', label: 'Faner', focus: ['faner', 'visning'], fields: [
+          { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner] },
           { type: 'section', id: 'visning', label: 'Visning', fields: [
-            { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['name', 'Navn'], ['icon', 'Ikon og navn']], default: 'name' },
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'automasjoner' },
+            { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['ikon', 'Ikon'], ['name', 'Tekst'], ['icon', 'Begge']], default: 'name' },
+            { type: 'select', name: 'start_tab', label: 'Startfane', options: tabDefs(cfg0 || {}).map((t) => [t.key, t.name]), default: 'automasjoner' },
           ] },
         ] },
-        { key: 'rader', label: 'Rader', icon: 'mdi:format-list-bulleted', focus: ['rader'], fields: [{ type: 'section', id: 'rader', label: 'Rader per fane', fields: [rader] }] },
-        { key: 'entiteter', label: 'Entiteter', icon: 'mdi:database-search-outline', focus: ['entiteter'], fields: [{ type: 'section', id: 'entiteter', label: 'Toppkortet', fields: [
+        { key: 'rader', label: 'Rader', focus: ['rader', 'filter'], fields: [
+          radSeg,
+          { type: 'section', id: 'rader', label: 'Rader · dra for rekkefølge', meta: tabMeta, fields: [rader] },
+          { type: 'section', id: 'filter', label: 'Filter for fanen', fields: [filter] },
+        ] },
+        { key: 'entiteter', label: 'Entiteter', focus: ['entiteter'], fields: [{ type: 'section', id: 'entiteter', label: 'Toppkortet', fields: [
           { type: 'entity', name: 'natt', label: 'Nattmodus', domain: ['input_boolean', 'switch'], auto: auto('natt') },
           { type: 'entity', name: 'privat', label: 'Privatmodus', domain: ['input_boolean', 'switch'], auto: auto('privat') },
           { type: 'entity', name: 'vekking', label: 'Vekking (tom = linjen skjules)', domain: ['input_datetime', 'sensor'], auto: auto('vekking') },
         ] }] },
-        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'spacing'], fields: [
+        { key: 'avansert', label: 'Avansert', focus: ['avansert', 'spacing'], fields: [
           { type: 'section', id: 'avansert', label: 'Avansert', fields: [
+            { type: 'boolean', name: 'animasjoner', label: 'Animasjoner', default: true },
+            { type: 'boolean', name: 'dashbord', label: 'Dashbordinnstillinger nederst', help: 'Tilpass Hjem/navbar/header, Home Assistant, Liquid Glass og Enheter', default: true },
             { type: 'boolean', name: 'sok', label: 'Søkefelt', default: true },
             { type: 'boolean', name: 'av_forst', label: 'Avslåtte øverst', default: false },
             { type: 'boolean', name: 'haptikk', label: 'Haptikk', default: true },
@@ -44125,43 +46465,52 @@ try {
   /* ============================================================ kortet */
   class Innstillinger extends M.Card {
     static get cardName() { return 'Innstillinger'; }
+    static get editorTitle() { return 'Tilpass Innstillinger'; }
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
     static get uiPersist() { return ['tab']; }
     get cardSize() { return 9; }
-    connectedCallback() { super.connectedCallback(); labWait.add(this); }
+    get hass() { return super.hass; }
+    set hass(h) { super.hass = h; if (this._dashEl && this._dashEl.hass !== h) this._dashEl.hass = h; }
     onClose() { this._ui = { ...this._ui, q: '' }; }
-    get tab() { const V = visTabs(this.config), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0]; }
+    get tab() { const V = visTabs(this.config).map((t) => t.key), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0]; }
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
+    get _anim() { return this.config.animasjoner !== false; }
 
     render() {
       const c = this.config, h = this.hass, E = ents(h, c);
       const nS = this.s(E.natt), pS = this.s(E.privat), vS = this.s(E.vekking);
-      if (!LAB && h) { labelReg(h); if (!LAB) labWait.add(this); }
+      // Privatmodus byttet (trykk eller hass-oppdatering): lås-klikk (+ ring når den slås på) – samme overgang begge veier
+      const pst = pS ? pS.state : null;
+      if (this._pPrev != null && pst != null && pst !== this._pPrev) { this._pkT = Date.now(); this._pkOn = pst === 'on'; clearTimeout(this._pkTm); this._pkTm = setTimeout(() => this.update(), 760); }
+      this._pPrev = pst;
       const mode = c.scene === 'dag' || c.scene === 'natt' ? c.scene : 'auto';
       const scene = mode !== 'auto' || isOn(nS);
       const top = scene ? this._scene(E, nS, pS, vS, mode === 'dag' ? 'dag' : 'natt') : this._split(E, nS, pS);
-      const V = visTabs(c), t = this.tab, icons = c.tab_labels === 'icon';
-      const tabs = `<div class="bar"><div class="tabs" role="tablist" data-glass-drag="x">${V.map((k) => `<button class="tb ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" ${this._hp('selection')}>${icons ? M.icon(TABL[k][2], 18) : ''}<span>${esc(tabName(c, k))}</span></button>`).join('')}</div>
+      const V = visTabs(c), t = this.tab, lab = c.tab_labels === 'ikon' ? 'i' : c.tab_labels === 'icon' ? 'b' : 't';
+      const tabs = `<div class="bar"><div class="tabs" role="tablist" data-glass-drag="x">${V.map((d) => `<button class="tb ${d.key === t ? 'on' : ''}" role="tab" aria-selected="${d.key === t}" aria-label="${esc(d.name)}" data-act="tab" data-v="${esc(d.key)}" ${this._hp('selection')}>${lab !== 't' ? M.icon(d.icon, 18) : ''}${lab !== 'i' ? `<span>${esc(d.name)}</span>` : ''}</button>`).join('')}</div>
         <button class="gear press" data-act="customize" ${this._hp('light')} aria-label="Tilpass Innstillinger">${M.icon('settings', 24)}</button></div>`;
-      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${t}">${this._list(t)}</div></div>`;
+      // Dashbordets egne innstillinger (msh-settings-card) nederst – #settings mister dem ikke (26.15)
+      const dash = c.dashbord !== false ? '<div class="gh" data-key="dash-h">Dashbord</div><div class="dash" data-key="dash" data-nomorph></div>' : '';
+      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${esc(t)}">${this._list(t)}</div>${dash}</div>`;
     }
     _pickBtn() { return `<button class="pick press" data-act="customize" data-section="entiteter" ${this._hp('light')}>${M.icon('mdi:plus', 16)}Velg entitet</button>`; }
     // Nattmodus av: to kort side om side
     _split(E, nS, pS) {
-      const nOn = isOn(nS), pOn = isOn(pS);
+      const nOn = isOn(nS), pOn = isOn(pS), ua = !pS || M.unavailable(pS), kl = Date.now() - (this._pkT || 0) < 700;
       const natt = `<div class="mk natt press" ${E.natt ? `data-act="tg" data-id="${esc(E.natt)}" data-ent="${esc(E.natt)}" role="switch" aria-checked="${nOn}" ${this._hp('selection')}` : ''}>
         <svg class="sky" viewBox="0 0 170 90" preserveAspectRatio="xMaxYMin slice" aria-hidden="true">${stars(14, 170, 60, 7)}<circle cx="140" cy="22" r="11" fill="#f2e6b8"/><circle cx="145" cy="18" r="10" fill="#1c2644"/>${house(100, 40, true, false)}</svg>
         <span class="mt">Nattmodus</span>
         <span class="mc"><span class="ci">${M.icon('mdi:power-sleep', 24)}</span></span>
         <span class="mv num">${nS ? (nOn ? 'På' : 'Av') : '–'}</span>
         ${nS ? `<span class="sw ${nOn ? 'on' : ''}"></span>` : this._pickBtn()}</div>`;
-      const priv = `<div class="mk priv ${pOn ? 'on' : ''} press" ${E.privat ? `data-act="tg" data-id="${esc(E.privat)}" data-ent="${esc(E.privat)}" role="switch" aria-checked="${pOn}" ${this._hp('selection')}` : ''}>
-        <span class="glw" aria-hidden="true"></span>
+      const cls = ['mk', 'priv', pOn ? 'on' : '', ua ? 'ua' : '', this._anim ? '' : 'na', kl ? 'kl' : '', kl && this._pkOn ? 'rg' : ''].filter(Boolean).join(' ');
+      const priv = `<div class="${cls} press" data-key="priv" ${E.privat ? `data-act="tg" data-id="${esc(E.privat)}" data-ent="${esc(E.privat)}" role="switch" aria-checked="${pOn}" ${this._hp('medium')}` : ''}>
+        <span class="glw" aria-hidden="true"></span>${camera()}
         <span class="mt">Privatmodus</span>
-        <span class="mc"><span class="ci">${M.icon(pOn ? 'mdi:cctv-off' : 'mdi:cctv', 24)}</span><span class="ci sm">${M.icon(pOn ? 'mdi:lock' : 'mdi:lock-open-variant-outline', 18)}</span></span>
-        <span class="ms">${pS ? (pOn ? 'Kameraene er av' : 'Kameraene er på') : '–'}</span>
-        <span class="mv num">${pS ? (pOn ? 'På' : 'Av') : '–'}</span>
+        <span class="mc"><span class="ci sm lk">${M.icon(pOn ? 'mdi:lock' : 'mdi:lock-open-variant-outline', 18)}<span class="ring" aria-hidden="true"></span></span></span>
+        <span class="ms">${pS ? (ua ? 'Utilgjengelig' : pOn ? 'Kameraene er av' : 'Kameraene er på') : '–'}</span>
+        <span class="mv num">${pS && !ua ? (pOn ? 'På' : 'Av') : '–'}</span>
         ${pS ? `<span class="sw ${pOn ? 'on' : ''}"></span>` : this._pickBtn()}</div>`;
       return `<div class="two" data-key="top-split">${natt}${priv}</div>`;
     }
@@ -44171,33 +46520,37 @@ try {
       const art = night
         ? `${stars(26, 400, 110, 3)}<circle cx="300" cy="40" r="17" fill="#f2e6b8"/><circle cx="308" cy="34" r="15" fill="#15203b"/>`
         : `<circle class="sun" cx="300" cy="44" r="20" fill="#f2d26f"/><circle cx="300" cy="44" r="30" fill="rgba(242,210,111,.25)"/><g transform="translate(236 22)">${birds()}</g>`;
-      const chip = (id, s, label, icon) => (id ? `<button class="chip ${isOn(s) ? 'on' : ''} press" data-act="tg" data-id="${esc(id)}" ${this._hp('selection')} role="switch" aria-checked="${isOn(s)}">${M.icon(icon, 16)}${esc(label)} · ${s ? (isOn(s) ? 'på' : 'av') : '–'}</button>`
+      const chip = (id, s, label, icon, hp) => (id ? `<button class="chip ${isOn(s) ? 'on' : ''} press" data-act="tg" data-id="${esc(id)}" ${this._hp(hp || 'selection')} role="switch" aria-checked="${isOn(s)}">${M.icon(icon, 16)}${esc(label)} · ${s ? (isOn(s) ? 'på' : 'av') : '–'}</button>`
         : `<button class="chip miss press" data-act="customize" data-section="entiteter" ${this._hp('light')}>${M.icon(icon, 16)}${esc(label)} · Velg entitet</button>`);
       return `<div class="scene ${night ? 'night' : 'day'}" data-key="top-scene">
         <svg class="art" viewBox="0 0 400 184" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">${art}
           <rect x="0" y="160" width="400" height="24" fill="${night ? '#141c33' : '#6e9f63'}"/>${house(300, 92, night, !pOn)}</svg>
         <div class="stx"><span class="gt">${night ? (nOn ? 'God natt' : 'Natt') : nOn ? 'Nattmodus på' : 'God dag'}</span>${tid ? `<span class="vk">${M.icon('mdi:alarm', 16)}Vekking kl. ${esc(tid)}</span>` : ''}</div>
-        <div class="chips">${chip(E.natt, nS, 'Natt', 'mdi:power-sleep')}${chip(E.privat, pS, 'Privat', 'mdi:cctv-off')}</div></div>`;
+        <div class="chips">${chip(E.natt, nS, 'Natt', 'mdi:power-sleep')}${chip(E.privat, pS, 'Privat', 'mdi:cctv-off', 'medium')}</div></div>`;
+    }
+    _empty(tab) {
+      const h = this.hass, R = rules(h, this.config);
+      const txt = !R.some((r) => r.kilde === 'integrasjon' && r.plattform === 'ki_notifications') && tab !== 'strom' ? 'Fant ingen regler fra KI Varslinger og sikkerhet'
+        : tab === 'strom' && !R.some((r) => r.plattform === 'ki_energi') ? 'Fant ingen varsler fra KI Energi' : 'Ingen rader i denne fanen';
+      return `<div class="empty">${M.icon('mdi:bell-off-outline', 22)}<span>${esc(txt)}</span><button class="pick press" data-act="customize" data-section="rader" ${this._hp('light')}>${M.icon('mdi:plus', 18)}Velg entiteter</button></div>`;
     }
     _list(tab) {
-      const c = this.config, h = this.hass, R = rowsOf(h, c, tab);
-      R.list.forEach((id) => this.s(id));
+      const c = this.config, h = this.hass, all = tabRows(h, c, tab);
+      all.forEach((r) => this.s(r.id));
       const q = (this.ui.q || '').trim().toLowerCase();
-      let L = q ? R.list.filter((id) => (id + ' ' + M.name(h, id)).toLowerCase().includes(q)) : R.list;
-      if (c.av_forst) L = [...L.filter((id) => !isOn(h.states[id])), ...L.filter((id) => isOn(h.states[id]))];
-      const on = L.filter((id) => isOn(h.states[id])).length, allOn = L.length && on === L.length;
-      const search = c.sok !== false ? `<label class="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk i ${esc(tabName(c, tab).toLowerCase())}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
-      if (!R.list.length) return `${search}${M.emptyState(tab === 'automasjoner' ? 'Fant ingen automasjoner' : tab === 'varsler' ? 'Fant ingen varsler (input_boolean med varsel/notify eller etiketten «Varsler»)' : 'Fant ingen brytere med etiketten «Strøm»/«Energi»', 'rader')}`;
+      let L = q ? all.filter((r) => `${r.name} ${r.sub} ${r.enhet} ${r.id}`.toLowerCase().includes(q)) : all;
+      if (c.av_forst) L = [...L.filter((r) => !isOn(h.states[r.id])), ...L.filter((r) => isOn(h.states[r.id]))];
+      const on = L.filter((r) => isOn(h.states[r.id])).length, allOn = L.length && on === L.length;
+      const d = tabDef(c, tab), nm = d ? d.name : tab;
+      const search = c.sok !== false && all.length ? `<label class="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk i ${esc(nm.toLowerCase())}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
+      if (!all.length) return this._empty(tab);
       const head = `<div class="cnt"><span class="num">${on} av ${L.length} på</span><button class="all press" data-act="all" data-v="${allOn ? 'off' : 'on'}" ${this._hp('medium')}>${allOn ? 'Slå alle av' : 'Slå alle på'}</button></div>`;
-      let last = null;
-      const rows = L.map((id) => {
-        let hd = '';
-        if (R.grouped && !q && !c.av_forst) { const g = R.grp(id) || 'Andre'; if (g !== last) { last = g; hd = `<div class="gh">${esc(g)}</div>`; } }
-        const s = h.states[id], o = isOn(s), un = M.unavailable(s);
-        const sub = un ? 'Utilgjengelig' : (id.startsWith('automation.') && s.attributes.description) || '–';
-        return `${hd}<button class="pr press ${o ? '' : 'off'}" data-act="tg" data-id="${esc(id)}" data-ent="${esc(id)}" role="switch" aria-checked="${o}" ${this._hp('selection')} ${un ? 'disabled' : ''}>
-          <span class="pi">${M.icon(s.attributes.icon || DEF_ICON[tab], 26)}</span>
-          <span class="pt"><b>${esc(M.name(h, id))}</b><i>${o ? esc(sub) : 'Av · ' + esc(sub)}</i></span>
+      const rows = L.map((r) => {
+        const s = h.states[r.id], o = isOn(s), un = M.unavailable(s);
+        const sub = un ? 'Svarer ikke' : r.sub || '–';
+        return `<button class="pr press ${o ? '' : 'off'}" data-key="r-${esc(r.key)}" data-act="tg" data-id="${esc(r.id)}" data-ent="${esc(r.id)}" role="switch" aria-checked="${o}" ${this._hp('selection')} ${un ? 'disabled' : ''}>
+          <span class="pi">${M.icon(r.icon, 26)}</span>
+          <span class="pt"><b>${esc(r.name)}</b><i>${o || un ? esc(sub) : 'Av · ' + esc(sub)}</i></span>
           <span class="sw ${o ? 'on' : ''}"></span></button>`;
       }).join('');
       return `${search}${head}<div class="rows">${rows || '<div class="none">Ingen treff</div>'}</div>`;
@@ -44206,23 +46559,33 @@ try {
     onAction(name, el, ev) {
       const d = el.dataset;
       switch (name) {
-        case 'tab': return this.setUI({ tab: d.v });
+        case 'tab': return this.setUI({ tab: d.v, q: '' });
         case 'tg': return d.id ? M.call(this.hass, 'homeassistant', 'toggle', { entity_id: d.id }) : undefined;
         case 'qclr': return this.setUI({ q: '' });
         case 'all': {
           const c = this.config, h = this.hass, q = (this.ui.q || '').trim().toLowerCase();
-          const L = rowsOf(h, c, this.tab).list.filter((id) => !M.unavailable(h.states[id]) && (!q || (id + ' ' + M.name(h, id)).toLowerCase().includes(q)));
+          const L = tabRows(h, c, this.tab).filter((r) => !M.unavailable(h.states[r.id]) && (!q || `${r.name} ${r.sub} ${r.enhet} ${r.id}`.toLowerCase().includes(q))).map((r) => r.id);
           if (L.length) return M.call(h, 'homeassistant', d.v === 'off' ? 'turn_off' : 'turn_on', { entity_id: L });
           return undefined;
         }
         default: return super.onAction(name, el, ev);
       }
     }
-    afterRender() { if (M.glassDrag) this.shadowRoot.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' })); }
+    afterRender() {
+      if (M.glassDrag) this.shadowRoot.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // «Dashbord» nederst: dashbordets innstillinger (msh-settings-card) bygd inn – de forsvinner ikke fra #settings
+      const slot = this.shadowRoot.querySelector('.dash');
+      if (slot) {
+        if (!this._dashEl && customElements.get('msh-settings-card')) { this._dashEl = document.createElement('msh-settings-card'); this._dashEl.setConfig({ type: 'custom:msh-settings-card', embedded: true }); }
+        if (this._dashEl) { if (this._dashEl.parentNode !== slot) slot.appendChild(this._dashEl); if (this._dashEl.hass !== this.hass) this._dashEl.hass = this.hass; }
+      }
+    }
     get styles() {
       return `
         :host{display:block;width:100%}
         .wrap,.pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
+        .dash{display:block;min-width:0}
+        .gh{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:16px 8px 0}
         /* to kort (nattmodus av) */
         .two{display:grid;grid-template-columns:1fr 1fr;gap:var(--msh-gap,8px)}
         .mk{position:relative;height:164px;border-radius:28px;overflow:hidden;isolation:isolate;padding:14px 14px 12px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;cursor:pointer;min-width:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
@@ -44234,12 +46597,42 @@ try {
         .sky{position:absolute;right:0;top:0;width:100%;height:92px;z-index:-1}
         .mt{font-size:13px;color:rgba(255,255,255,.75);white-space:nowrap}
         .mc{display:flex;gap:6px;margin-top:10px}
-        .ci{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,.14);flex:none}
-        .ci.sm{width:32px;height:32px;border-radius:16px;align-self:center}
+        .ci{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,.14);flex:none;position:relative}
+        .ci.sm{width:36px;height:36px;border-radius:18px}
         .ms{font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
         .mv{font-size:28px;font-weight:500;line-height:1;margin-top:auto}
         .mk .sw{position:absolute;right:12px;bottom:12px}
         .mk .pick{position:absolute;right:10px;bottom:10px;height:32px;padding:0 10px;font-size:12px}
+        /* Privatmodus: overvåkingskamera (bare transform/opacity animeres) */
+        .pcam{position:absolute;right:0;top:12px;width:64px;height:44px;overflow:visible;z-index:-1;pointer-events:none}
+        .pcam .cm-body{fill:#e1e1e1}.pcam .cm-hood{fill:#c7c7c7}.pcam .cm-lensh{fill:#545454}.pcam .cm-lens{fill:#232323}.pcam .cm-glint{fill:rgba(255,255,255,.7)}
+        .pcam .cm-arm{fill:#afafaf}.pcam .cm-wall{fill:#979797}
+        .pcam .cm-shut{fill:#696969;transform-origin:10px 15px;transform:scaleY(0);transition:transform .45s cubic-bezier(.2,.8,.2,1) .15s}
+        .pcam .cm-tilt,.pcam .cm-sweep{transform-origin:47px 22px}
+        .pcam .cm-tilt{transition:transform .8s cubic-bezier(.34,1.56,.64,1)}
+        .pcam .cm-sweep{animation:msh-sweep 5s ease-in-out infinite alternate}
+        @keyframes msh-sweep{from{transform:rotate(-15deg)}to{transform:rotate(15deg)}}
+        .pcam .cm-cone{opacity:.9;transition:opacity .4s}
+        .pcam .cm-rec{fill:var(--red,#f28073);animation:msh-rec 1.2s steps(1,end) infinite}
+        @keyframes msh-rec{50%{opacity:.12}}
+        .pcam .cm-ok{fill:var(--green,#66d19e);opacity:0;transition:opacity .3s .3s}
+        .mk.priv.on .cm-tilt{transform:rotate(-32deg)}
+        .mk.priv.on .cm-sweep{animation-play-state:paused}
+        .mk.priv.on .cm-cone{opacity:0}
+        .mk.priv.on .cm-shut{transform:scaleY(1)}
+        .mk.priv.on .cm-rec{opacity:0;animation:none}
+        .mk.priv.on .cm-ok{opacity:1}
+        .mk.priv.ua .cm-sweep,.mk.priv.ua .cm-rec{animation:none}
+        .mk.priv.ua .cm-cone,.mk.priv.ua .cm-rec,.mk.priv.ua .cm-ok{opacity:0}
+        .mk.priv.ua .cm-body,.mk.priv.ua .cm-hood{fill:#7f7f7f}
+        /* lås-klikk ved bytte + ring når privatmodus slås på */
+        .lk .ring{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.8);opacity:0;pointer-events:none}
+        .mk.priv.kl .lk ha-icon{animation:msh-lock .5s cubic-bezier(.34,1.56,.64,1)}
+        @keyframes msh-lock{0%{transform:scale(1)}35%{transform:scale(.72)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+        .mk.priv.rg .lk .ring{animation:msh-ring .7s ease-out 1}
+        @keyframes msh-ring{0%{transform:scale(.8);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+        .mk.priv.na .cm-sweep,.mk.priv.na .cm-rec,.mk.priv.na .lk ha-icon,.mk.priv.na .lk .ring{animation:none !important}
+        .mk.priv.na .cm-tilt,.mk.priv.na .cm-shut,.mk.priv.na .cm-cone,.mk.priv.na .cm-ok{transition:none !important}
         .st{animation:tw 3s ease-in-out infinite}@keyframes tw{50%{opacity:.35}}
         .smoke circle{animation:smoke 4s ease-out infinite}.smoke circle:nth-child(2){animation-delay:1.3s}.smoke circle:nth-child(3){animation-delay:2.6s}
         @keyframes smoke{0%{transform:translateY(6px);opacity:0}30%{opacity:1}100%{transform:translate(4px,-10px);opacity:0}}
@@ -44273,7 +46666,6 @@ try {
         .cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 6px 0;font-size:13px;color:#afafaf;white-space:nowrap}
         .all{height:36px;padding:0 14px;border-radius:18px;background:var(--gray200,#3a3a3a);color:#fafafa;font-size:13px;font-weight:500;white-space:nowrap;flex:none}
         .rows{display:flex;flex-direction:column;gap:8px}
-        .gh{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:8px 8px 0}
         .pr{display:flex;align-items:center;gap:12px;min-height:66px;border-radius:34px;background:var(--gray200,#3a3a3a);padding:4px 16px 4px 4px;text-align:left;width:100%}
         .pr[disabled]{opacity:.5}
         .pi{width:58px;height:58px;border-radius:29px;background:#4a4a4a;display:grid;place-items:center;flex:none}
@@ -44285,14 +46677,835 @@ try {
         .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
         .sw.on{background:var(--pink,#f285c9)}.sw.on::after{transform:translateX(18px)}
         .none{padding:14px;color:#979797;font-size:13px;text-align:center}
-        @media (max-width:380px){.tb{font-size:13px;padding:0 4px}.mv{font-size:24px}}
-        @media (prefers-reduced-motion: reduce){.st,.smoke circle,.cam,.birds .b1,.birds .b2{animation:none !important}}`;
+        @media (max-width:380px){.tb{font-size:13px;padding:0 4px}.mv{font-size:24px}.pcam{width:54px;height:37px}}
+        @media (prefers-reduced-motion: reduce){.st,.smoke circle,.cam,.birds .b1,.birds .b2,.cm-sweep,.cm-rec,.lk ha-icon,.lk .ring{animation:none !important}.cm-tilt,.cm-shut,.cm-cone,.cm-ok{transition:none !important}}`;
     }
   }
-  M.define('msh-innstillinger-card', Innstillinger, 'MSH Innstillinger (automasjoner)', 'Innstillinger-popupen (#innstillinger): natt-/privatmodus, automasjoner, varsler og strøm (fiks 25.5).');
+  M.define('msh-innstillinger-card', Innstillinger, 'MSH Innstillinger', 'Innstillinger-popupen (#settings): natt-/privatmodus, regler fra KI Varslinger og sikkerhet (automasjoner, varsler), strøm fra KI Energi og dashbordets innstillinger (fiks 26.15).');
 })();
 
 } catch (e) { console.error('[ki-msh] 60-innstillinger.js', e); }
+
+/* ---- 61-varmepumpe.js ---- */
+try {
+/* msh-varmepumpe-card · Varmepumpe-popup #varmepumpe (fiks 26.20 – promptets «ki-varmepumpe-card»).
+ * Fasit «Varmepumpe v3.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ÉTT kort, Bubble eier headeren.
+ * Rekkefølge: toppkort 176 px (animert pumpe med vifte, tank-fylling, rør med flyt, Hz-merke, kW og «Ute · kr i dag») · 3 KPI-kort
+ *   (Ute, Kompressor, Varmtvann) · hurtigknapper (Boost, Ventilasjon, Pumpe, Eco, Alarm, Wi-Fi) · faner Info · Varme · Varmtvann · Luft
+ *   + tannhjul (Tilpass varmepumpe) · fane-innhold · «Diagnostikk»-akkordeon nederst.
+ *   Info: prosasetning med piller, rader (energi, kostnad i dag, tur/retur/rom/elkolbe), graf tur/retur 7 døgn og akkordeonene
+ *   Kostnad · Systemdrift · Strøm (samme stil som Diagnostikk: #3d3d3d, radius 24).
+ * Autokonfig (NIBE S/F-serien, integrasjonene nibe_heatpump / myuplink): enheten(e) i hass.devices med produsent «NIBE» (eller
+ *   entiteter fra de to plattformene). Roller matches på parameter-ID-suffikset (_40013 …) først, deretter på navn. Ingen
+ *   hardkodede entitets-ID-er og aldri mock: mangler en rolle → «–» + «Velg entitet». Luft-fanen skjules uten BT20/BT21.
+ * Animasjoner (stopper når entiteten er av): puls på energi, pust/glød på kompressor, dupp på varmtvann ved lading, snurr på vifte
+ *   og ventilasjon, vibrering på GP1, rist på alarm, blink på Wi-Fi av. Av med `anim: false` og prefers-reduced-motion.
+ * Config (samme skjema i «Tilpass varmepumpe» og GUI-editoren, getConfigElement):
+ *   name, device (enhets-id, tomt = automatisk), buttons / buttons_hidden, button_style: icon_text|icon, tabs / tabs_hidden,
+ *   tab_style: icon_name|name|icon, start_tab, overrides: { <rolle>: entity_id }, kpi, diag, anim, gap/pad_top/pad_bottom.
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || customElements.get('msh-varmepumpe-card')) return;
+  const esc = M.esc, C = M.C;
+  const HASH = '#varmepumpe';
+  const PLATS = ['nibe_heatpump', 'myuplink'];
+  const DEF = { tab_style: 'icon_name', button_style: 'icon_text', kpi: true, diag: true, anim: true };
+
+  /* ------------------------------------------------------------ roller
+   * [nøkkel, etikett, gruppe, domener, parameter-ID-er (suffiks), navn-regex, ikon, ikke-regex, device_class] */
+  const S = ['sensor'], SW = ['switch'], SEL = ['select'], NUM = ['number'], BS = ['binary_sensor'];
+  const ROLES = [
+    // toppkort / KPI
+    ['power', 'Effekt nå', 'top', S, [], /(^|_)(current_|actual_|total_)?power$|effekt( na)?$|power_consumption$/, 'mdi:flash', /addition|tilskudd|elkolbe|phase|fase|be\d/, 'power'],
+    ['energy', 'Energi totalt', 'top', S, [], /energy|energi/, 'mdi:lightning-bolt', /cost|kostnad|pris|price/, 'energy'],
+    ['freq', 'Kompressorfrekvens', 'top', S, ['41778', '43136'], /compressor_freq|compr.*freq|kompressorfrekvens/, 'mdi:sine-wave', /min|max|allowed|tillatt/],
+    ['freq_min', 'Kompressor min.', 'top', S, ['43122'], /min.*compr.*freq|compr.*freq.*min/, 'mdi:arrow-collapse-down'],
+    ['freq_max', 'Kompressor maks.', 'top', S, ['43123'], /max.*compr.*freq|compr.*freq.*max/, 'mdi:arrow-collapse-up'],
+    ['status', 'Status', 'top', S, ['50095'], /(^|_)status$|driftsstatus|(^|_)priority$|prioritet/, 'mdi:information-outline', /compressor|kompressor/],
+    ['inne', 'Inne', 'top', S, ['50225', '40033'], /indoor|inne_?temp|innetemp/, 'mdi:home-thermometer'],
+    ['inne_mal', 'Børverdi inne', 'top', S, ['50233'], /(indoor|inne|room).*(setpoint|bor|target)/, 'mdi:target'],
+    ['ute', 'Ute (BT1)', 'top', S, ['40004'], /bt1\b|(^|_)bt1_|outd|outdoor|utetemp/, 'mdi:thermometer', /avg|average|snitt|middel/],
+    ['ute_snitt', 'Ute snitt', 'top', S, ['40067'], /(avg|average|snitt|middel).*(outd|ute)|(outd|ute).*(avg|average|snitt|middel)/, 'mdi:thermometer-lines'],
+    ['vv', 'Varmtvann topp (BT7)', 'top', S, ['40013'], /bt7|hw_top|hot_water_top|varmtvann_topp/, 'mdi:water-boiler'],
+    ['vv_ladetemp', 'Ladetemperatur', 'top', S, [], /hot_water_charging_temp|ladetemp/, 'mdi:thermometer-water'],
+    // hurtigknapper
+    ['boost', 'Midlertidig luksus (Boost)', 'btn', SW, ['50004'], /temporary_lux|midlertidig_luksus|more_hot_water|mer_varmtvann/, 'mdi:rocket-launch'],
+    ['vent', 'Økt ventilasjon', 'btn', SW, ['50005'], /increased_vent|okt_ventilasjon|økt ventilasjon/, 'mdi:fan'],
+    ['pump', 'GP1-pumpe', 'btn', BS, ['49995'], /gp1|pump/, 'mdi:pump'],
+    ['smart', 'Smart Home-modus', 'btn', SEL, [], /smart_home|smarthus/, 'mdi:leaf'],
+    ['alarm', 'Varsler / alarm', 'btn', ['sensor', 'binary_sensor'], [], /varsler|alarm|notification/, 'mdi:bell'],
+    ['wifi', 'Tilkobling', 'btn', BS, [], /tilkoblingstilstand|tilkobling|connectivity|connection_state|connected/, 'mdi:wifi'],
+    // info
+    ['bt2', 'Tur (BT2)', 'info', S, ['40008'], /bt2\b|(^|_)bt2_|supply_line|turledning|tur_?temp/, 'mdi:arrow-right-bold'],
+    ['beregnet', 'Beregnet turtemperatur', 'info', S, ['43009'], /calc.*supply|beregnet.*tur/, 'mdi:calculator-variant'],
+    ['bt3', 'Retur (BT3)', 'info', S, ['40012'], /bt3\b|(^|_)bt3_|return_line|returledning|retur_?temp/, 'mdi:arrow-left-bold'],
+    ['bt50', 'Rom (BT50)', 'info', S, ['40033'], /bt50|room_temp|romtemp/, 'mdi:sofa'],
+    ['elkolbe', 'Elkolbe', 'info', S, ['49993'], /int.*el.*add|elkolbe|immersion/, 'mdi:heating-coil', /power|effekt/],
+    // kostnad
+    ['cost_hour', 'Kostnad denne timen', 'cost', S, [], /hourly_energy_cost|cost_hour|kostnad_time/, 'mdi:clock-outline'],
+    ['cost_day', 'Kostnad i dag', 'cost', S, [], /daily_energy_cost|cost_today|kostnad_i_dag|kostnad_dag/, 'mdi:calendar-today'],
+    ['cost_month', 'Kostnad denne måneden', 'cost', S, [], /monthly_energy_cost|kostnad_maned/, 'mdi:calendar-month'],
+    ['cost_year', 'Kostnad i år', 'cost', S, [], /yearly_energy_cost|kostnad_ar/, 'mdi:calendar'],
+    // systemdrift
+    ['gm', 'Gradminutter', 'sys', S, ['40941'], /degree_min|gradminutt/, 'mdi:counter'],
+    ['drift', 'Driftstid kompressor', 'sys', S, ['43420'], /tot.*op.*time.*compr|driftstid_kompressor/, 'mdi:timer-outline'],
+    ['starter', 'Kompressorstarter', 'sys', S, ['43416'], /compressor_starts|kompressorstart/, 'mdi:restart'],
+    ['avriming', 'Avrimingstid', 'sys', S, ['43066'], /defrost|avriming/, 'mdi:snowflake-melt'],
+    ['tidsfaktor', 'Tidsfaktor tillegg', 'sys', S, ['43081'], /time_factor|tidsfaktor/, 'mdi:timer-sand'],
+    ['komp_status', 'Kompressorstatus', 'sys', S, ['43427'], /compressor_(status|state)|kompressorstatus/, 'mdi:engine'],
+    // strøm
+    ['be1', 'Fase BE1', 'strom', S, ['40083'], /(^|_)be1(_|$)/, 'mdi:current-ac'],
+    ['be2', 'Fase BE2', 'strom', S, ['40081'], /(^|_)be2(_|$)/, 'mdi:current-ac'],
+    ['be3', 'Fase BE3', 'strom', S, ['40079'], /(^|_)be3(_|$)/, 'mdi:current-ac'],
+    ['add_power', 'Elkolbe effekt', 'strom', S, [], /internal_addition_power|tilskudd.*effekt/, 'mdi:heating-coil'],
+    // varme
+    ['driftsstilling', 'Driftsstilling', 'varme', SEL, ['47137'], /op.*mode|driftsstilling|operating_mode/, 'mdi:cog-outline'],
+    ['kurve', 'Varmekurve', 'varme', NUM, ['47007'], /heating_curve|varmekurve/, 'mdi:chart-bell-curve', /offset|forskyv/],
+    ['forskyvning', 'Forskyvning', 'varme', NUM, ['47011'], /offset|forskyvning|parallel/, 'mdi:arrow-up-down'],
+    ['onsket', 'Ønsket temperatur', 'varme', NUM, [], /target_temperature_room|onsket|ønsket|room_setpoint/, 'mdi:home-thermometer-outline'],
+    ['start_gm', 'Start kompressor (GM)', 'varme', NUM, ['47206'], /start.*(compr|gm|dm)|start_gm/, 'mdi:play-circle-outline'],
+    ['stopp', 'Stopp av varme', 'varme', NUM, ['47375'], /stop.*heat|stopp.*varme/, 'mdi:stop-circle-outline'],
+    // varmtvann
+    ['bt6', 'Lading (BT6)', 'vv', S, ['40014'], /bt6\b|(^|_)bt6_|hw_charg|hot_water_charg/, 'mdi:thermometer-water'],
+    ['vv_temp', 'Varmtvann', 'vv', S, ['50325'], /(^|_)hot_water_temp(erature)?$|varmtvannstemp/, 'mdi:water-thermometer'],
+    ['behov', 'Varmtvannsbehov', 'vv', SEL, ['47041'], /hot_water_demand|hw_demand|comfort_mode|varmtvannsbehov/, 'mdi:water-boiler'],
+    ['boost_sel', 'Boost (select)', 'vv', SEL, ['48132'], /temporary_lux|boost|mer_varmtvann/, 'mdi:rocket-launch'],
+    ['ladeverdi', 'Ladeverdi', 'vv', S, ['43116'], /charge.*(value|set)|ladeverdi/, 'mdi:target'],
+    ['mengde', 'Mengde varmtvann', 'vv', S, ['50345'], /hot_water_amount|mengde/, 'mdi:cup-water'],
+    ['andel', 'Andel varmtvann', 'vv', S, ['43239'], /share|andel/, 'mdi:chart-pie'],
+    ['vv_tid', 'Driftstid varmtvann', 'vv', S, ['43424'], /op.*time.*(hot|hw)|driftstid.*varmtvann/, 'mdi:timer-outline'],
+    ['vv_modus', 'Varmtvannsmodus', 'vv', S, ['43109'], /hot_water_mode|hw_mode|varmtvannsmodus/, 'mdi:water-sync'],
+    ['legionella', 'Neste legionellaøkning', 'vv', S, [], /next_periodic_increase|periodisk|legionella/, 'mdi:bacteria-outline'],
+    ['fastvare', 'Fastvare', 'vv', ['update'], [], /fastvare|firmware|./, 'mdi:update'],
+    // luft
+    ['bt20', 'Avtrekk (BT20)', 'luft', S, ['40025'], /bt20|exhaust_air|avtrekk/, 'mdi:home-import-outline'],
+    ['bt21', 'Avkast (BT21)', 'luft', S, ['40026'], /bt21|extract_air|avkast/, 'mdi:home-export-outline'],
+    ['vifte', 'Viftehastighet', 'luft', S, ['50221'], /fan_speed|viftehastighet/, 'mdi:fan'],
+    ['bs1', 'Luftstrøm (BS1)', 'luft', S, ['42782'], /bs1|air_?flow|luftstrom|lufthastighet/, 'mdi:weather-windy'],
+    ['viftemodus', 'Viftemodus', 'luft', S, ['43108'], /fan_mode|viftemodus/, 'mdi:fan-auto'],
+    ['natt', 'Nattkjøling', 'luft', SW, ['47537'], /night_cool|nattkjol/, 'mdi:weather-night'],
+    // diagnostikk
+    ['sug', 'Sugegass', 'diag', S, ['40022'], /suction|sugegass/, 'mdi:thermometer-chevron-down'],
+    ['het', 'Hetgass', 'diag', S, ['40018'], /hot_gas|hetgass/, 'mdi:thermometer-chevron-up'],
+    ['vaeske', 'Væskeledning', 'diag', S, ['40019'], /liquid|vaeske|væske/, 'mdi:water-outline'],
+    ['ford', 'Fordamper', 'diag', S, ['40020'], /evaporator|fordamper/, 'mdi:snowflake'],
+    ['kond', 'Kondensator', 'diag', S, ['40017'], /condenser|kondensator/, 'mdi:radiator'],
+    ['inv', 'Inverter', 'diag', S, ['43140'], /inverter/, 'mdi:chip'],
+    ['olje', 'Olje', 'diag', S, ['40146'], /(^|_)oil|olje/, 'mdi:oil'],
+    ['gp1', 'GP1 hastighet', 'diag', S, ['43437'], /gp1.*speed|pump_speed|gp1_hast/, 'mdi:pump'],
+  ];
+  const RK = Object.fromEntries(ROLES.map((r) => [r[0], r]));
+  const GROUPS = [['top', 'Toppkort og KPI', 'mdi:view-dashboard-outline'], ['btn', 'Hurtigknapper', 'mdi:gesture-tap-button'], ['info', 'Info', 'mdi:information-outline'], ['cost', 'Kostnad', 'mdi:cash'],
+    ['sys', 'Systemdrift', 'mdi:cog-outline'], ['strom', 'Strøm', 'mdi:flash'], ['varme', 'Varme', 'mdi:radiator'], ['vv', 'Varmtvann', 'mdi:water-boiler'], ['luft', 'Luft', 'mdi:weather-windy'], ['diag', 'Diagnostikk', 'mdi:stethoscope']];
+  const BTNS = [['boost', 'Boost', 'mdi:rocket-launch'], ['vent', 'Ventilasjon', 'mdi:fan'], ['pump', 'Pumpe', 'mdi:pump'], ['eco', 'Eco', 'mdi:leaf'], ['alarm', 'Alarm', 'mdi:bell-outline'], ['wifi', 'Wi-Fi', 'mdi:wifi']];
+  const BK = Object.fromEntries(BTNS.map((b) => [b[0], b]));
+  const TABS = [['info', 'Info', 'mdi:information-outline'], ['varme', 'Varme', 'mdi:radiator'], ['vv', 'Varmtvann', 'mdi:water-boiler'], ['luft', 'Luft', 'mdi:weather-windy']];
+  const TK = Object.fromEntries(TABS.map((t) => [t[0], t]));
+
+  /* ------------------------------------------------------------ oppdagelse */
+  const dom = (id) => id.slice(0, id.indexOf('.'));
+  const obj = (id) => id.slice(id.indexOf('.') + 1);
+  const norm = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
+  const isNibeDev = (d) => !!d && /nibe/i.test(`${d.manufacturer || ''}`);
+  // NIBE-enheter: produsent «NIBE», eller enheter som har entiteter fra nibe_heatpump / myuplink
+  function nibeDevices(hass) {
+    const D = (hass && hass.devices) || {}, E = (hass && hass.entities) || {}, out = new Set();
+    Object.keys(D).forEach((id) => { if (isNibeDev(D[id])) out.add(id); });
+    Object.values(E).forEach((e) => { if (e && PLATS.includes(e.platform) && e.device_id && D[e.device_id]) out.add(e.device_id); });
+    return [...out].filter((id) => Object.values(E).some((e) => e && e.device_id === id && hass.states[e.entity_id]));
+  }
+  let MEMO = null;
+  function oppdag(hass, cfg) {
+    cfg = cfg || {};
+    const E = (hass && hass.entities) || {}, D = (hass && hass.devices) || {}, S0 = (hass && hass.states) || {};
+    const n = Object.keys(S0).length, dv = cfg.device || '';
+    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.n === n && MEMO.dv === dv) return MEMO.R;
+    const devs = dv && D[dv] ? [dv] : nibeDevices(hass);
+    const ds = new Set(devs);
+    const ids = Object.keys(E).filter((id) => {
+      const e = E[id];
+      if (!e || e.disabled_by || !S0[id]) return false;
+      return (e.device_id && ds.has(e.device_id)) || (!dv && PLATS.includes(e.platform));
+    }).sort();
+    const txt = (id) => norm(obj(id) + ' ' + ((S0[id] && S0[id].attributes.friendly_name) || ''));
+    const R = { devs, ids, roles: {}, dev: devs[0] ? D[devs[0]] : null };
+    // 1) parameter-ID-suffiks (_40013) – en entitet kan dekke flere roller (inne → BT50)
+    const claimed = new Set();
+    ROLES.forEach(([k, , , doms, pids]) => {
+      for (const p of pids) {
+        const re = new RegExp('(^|_)' + p + '($|_)');
+        const hit = ids.find((id) => doms.includes(dom(id)) && re.test(obj(id)));
+        if (hit) { R.roles[k] = hit; claimed.add(hit); break; }
+      }
+    });
+    // 2) navn (entity_id + friendly_name), bare blant entiteter som ikke er tatt av et suffiks
+    ROLES.forEach(([k, , , doms, , rx, , not, dc]) => {
+      if (R.roles[k]) return;
+      const hit = ids.find((id) => !claimed.has(id) && doms.includes(dom(id)) && rx.test(txt(id)) && !(not && not.test(txt(id))) && (!dc || (S0[id].attributes.device_class === dc)));
+      if (hit) { R.roles[k] = hit; claimed.add(hit); }
+    });
+    // 3) utenfor enheten: utetemperatur («sensor.nibe_utetemperatur») og kostnad (sensor.*_cost / ki_energi) for varmepumpa
+    const glob = (rx, test) => Object.keys(S0).filter((id) => dom(id) === 'sensor' && rx.test(norm(id)) && (!test || test(id))).sort()[0];
+    if (!R.roles.ute && devs.length) R.roles.ute = glob(/nibe.*(ute|outdoor|outd)|(ute|outdoor).*nibe/, (id) => !/avg|snitt|average/.test(id));
+    if (devs.length) {
+      const hp = /(nibe|varmepumpe|heat_?pump)/;
+      [['cost_hour', /hourly_energy_cost|cost_hour/], ['cost_day', /daily_energy_cost|cost_today|kostnad_i_dag/], ['cost_month', /monthly_energy_cost/], ['cost_year', /yearly_energy_cost/]].forEach(([k, rx]) => {
+        if (!R.roles[k]) R.roles[k] = glob(rx, (id) => hp.test(norm(id)) || (E[id] && E[id].platform === 'ki_energi' && hp.test(norm((S0[id].attributes || {}).friendly_name))));
+      });
+    }
+    Object.keys(R.roles).forEach((k) => { if (!R.roles[k]) delete R.roles[k]; });
+    MEMO = { E, D, n, dv, R };
+    return R;
+  }
+  const entOf = (hass, cfg, k) => ((cfg && cfg.overrides) || {})[k] || (hass ? oppdag(hass, cfg).roles[k] : null) || null;
+  M.varmepumpeHas = (hass) => !!hass && nibeDevices(hass).length > 0;
+
+  /* ------------------------------------------------------------ tall og tekst */
+  const BAD = ['unavailable', 'unknown', '', 'none'];
+  const okS = (s) => !!s && !BAD.includes(String(s.state).toLowerCase());
+  const numS = (s) => { if (!okS(s)) return null; const t = String(s.state).trim().replace(',', '.'); const v = Number(t); return t === '' || isNaN(v) ? null : v; };
+  const unitS = (s) => (s && s.attributes.unit_of_measurement) || '';
+  const dec = (v, u) => (/°|c$/i.test(u) ? 1 : Math.abs(v) < 10 && v % 1 ? 1 : v % 1 && Math.abs(v) < 100 ? 1 : 0);
+  function fmtS(s, d) {
+    if (!okS(s)) return '–';
+    const v = numS(s), u = unitS(s);
+    if (v != null && (s.attributes.device_class === 'monetary' || /^(nok|kr)$/i.test(u))) return M.nf(v, 2) + ' kr';
+    if (v == null) {
+      if (s.entity_id && dom(s.entity_id) === 'binary_sensor') return s.state === 'on' ? 'På' : 'Av';
+      if (s.attributes.device_class === 'timestamp') return tidTil(s.state);
+      return String(s.state);
+    }
+    return M.nf(v, d != null ? d : dec(v, u)) + (u ? (u === '°C' ? '°' : ' ' + u) : '');
+  }
+  const tidTil = (iso) => {
+    const t = Date.parse(iso); if (isNaN(t)) return String(iso);
+    const d = Math.round((t - Date.now()) / 86400000);
+    const dato = new Date(t).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
+    return d <= 0 ? `i dag · ${dato}` : d === 1 ? `i morgen · ${dato}` : `om ${d} dager · ${dato}`;
+  };
+  const deg = (v) => (v == null ? '–' : M.nf(v, 1) + '°');
+  const kW = (s) => { const v = numS(s); if (v == null) return null; return /^w$/i.test(unitS(s)) ? v / 1000 : v; };
+  const on = (s) => !!s && ['on', 'true', 'home', 'connected', 'running'].includes(String(s.state).toLowerCase());
+  // select-valg → norsk etikett
+  const OPT_NB = [[/^auto(matic)?$/i, 'Auto'], [/^manu(al|ell)$/i, 'Manuell'], [/add.*heat.*only|kun.*tillegg|addition only/i, 'Kun tillegg'], [/^(default|normal|home|hjemme)$/i, 'Normal'], [/^(away|borte)$/i, 'Borte'],
+    [/^(vacation|holiday|ferie)$/i, 'Ferie'], [/^(small|economy|eco|okonomi|økonomi|low)$/i, 'Økonomi'], [/^(medium|normal)$/i, 'Normal'], [/^(large|luxury|luksus|high)$/i, 'Luksus'], [/^(off|av)$/i, 'Av'], [/one.?time|engang/i, 'Engangsøkning']];
+  const optNb = (o) => { const m = OPT_NB.find(([re]) => re.test(String(o).trim())); return m ? m[1] : String(o); };
+  const isNormal = (o) => /^(default|normal|home|hjemme)$/i.test(String(o || '').trim());
+  const isAway = (o) => /^(away|borte)$/i.test(String(o || '').trim());
+
+  /* ------------------------------------------------------------ rekkefølge / synlighet */
+  const orderOf = (list, keys) => { const o = (Array.isArray(list) ? list : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
+  const btnOrder = (c) => orderOf(c.buttons, BTNS.map((b) => b[0]));
+  const tabOrder = (c) => orderOf(c.tabs, TABS.map((t) => t[0]));
+  const hasLuft = (hass, c) => !!(entOf(hass, c, 'bt20') || entOf(hass, c, 'bt21'));
+  const visTabs = (hass, c) => tabOrder(c).filter((k) => !(c.tabs_hidden || []).includes(k) && (k !== 'luft' || !hass || hasLuft(hass, c)));
+  const visBtns = (hass, c) => btnOrder(c).filter((k) => !(c.buttons_hidden || []).includes(k) && (k !== 'eco' || !hass || !!entOf(hass, c, 'smart')));
+
+  /* ------------------------------------------------------------ editor (Tilpass varmepumpe) */
+  // Dra for rekkefølge i arket: håndtak [data-vpdrag] i rader [data-vpk] med data-vpl = listenavn (buttons | tabs)
+  function installEd(ed) {
+    if (!ed || ed.__vpInst || !ed.shadowRoot) return;
+    ed.__vpInst = true;
+    const Rt = ed.shadowRoot;
+    let d = null;
+    const stop = (e) => { if (e.target.closest && e.target.closest('[data-vpdrag]')) e.stopPropagation(); };
+    Rt.addEventListener('touchstart', stop, { passive: true });
+    Rt.addEventListener('touchmove', stop, { passive: true });
+    Rt.addEventListener('pointerdown', (e) => {
+      const hd = e.target.closest && e.target.closest('[data-vpdrag]');
+      if (!hd || e.button) return;
+      const item = hd.closest('[data-vpk]');
+      if (!item) return;
+      e.stopPropagation(); e.preventDefault();
+      d = { k: item.dataset.vpk, l: item.dataset.vpl, item, y0: e.clientY, id: e.pointerId, over: null };
+      try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      M.haptic('medium');
+    });
+    Rt.addEventListener('pointermove', (e) => {
+      if (!d || e.pointerId !== d.id) return;
+      e.stopPropagation(); e.preventDefault();
+      d.item.style.transform = `translateY(${e.clientY - d.y0}px)`;
+      d.item.style.pointerEvents = 'none';
+      const el = Rt.elementFromPoint ? Rt.elementFromPoint(e.clientX, e.clientY) : null;
+      d.item.style.pointerEvents = '';
+      const o = el && el.closest && el.closest('[data-vpk]');
+      const hit = o && o !== d.item && o.dataset.vpl === d.l ? o : null;
+      if (hit !== d.over) { if (d.over) d.over.style.outline = ''; d.over = hit; if (hit) { hit.style.outline = '2px solid rgba(242,133,201,.6)'; M.haptic('selection'); } }
+    });
+    const end = (e) => {
+      if (!d || (e && e.pointerId !== d.id)) return;
+      const Dd = d; d = null;
+      Dd.item.style.transform = ''; Dd.item.style.zIndex = ''; Dd.item.style.boxShadow = '';
+      if (Dd.over) Dd.over.style.outline = '';
+      if (!Dd.over) return;
+      const cc = ed._config || {}, arr = Dd.l === 'tabs' ? tabOrder(cc) : btnOrder(cc);
+      const to = Dd.over.dataset.vpk, i = arr.indexOf(Dd.k), j0 = arr.indexOf(to);
+      const o = arr.filter((x) => x !== Dd.k), j = o.indexOf(to);
+      o.splice(i <= j0 ? j + 1 : j, 0, Dd.k);
+      M.haptic('success');
+      ed._set(Dd.l, o);
+    };
+    Rt.addEventListener('pointerup', end);
+    Rt.addEventListener('pointercancel', end);
+  }
+  const autoOf = (h, c, k) => { if (!h) return null; try { return oppdag(h, c || {}).roles[k] || null; } catch (e) { return null; } };
+  const dragRow = (list, k, label, icon, off, key, extra) => `<div data-vpk="${k}" data-vpl="${list}" style="height:52px;border-radius:26px;background:#2f2f2f;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${off ? 'opacity:.5' : ''}">
+      <span data-vpdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 6px">${M.icon('mdi:drag', 22)}</span>
+      <span style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(icon, 19)}</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span>${extra ? `<span style="font-size:11px;color:#979797">${esc(extra)}</span>` : ''}</span>
+      <button class="ib" data-a="fn" data-k="${key}" data-v="${k}" aria-label="${off ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!off}">${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`;
+  const PV_CSS = 'padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px';
+  const PV_T = '<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px">Forhåndsvisning</div>';
+
+  function editorSchema(h, c) {
+    c = c || {};
+    const R = h ? oppdag(h, c) : null;
+    const D = (h && h.devices) || {};
+    const devOpts = h ? Object.keys(D).filter((id) => isNibeDev(D[id]) || (R && R.devs.includes(id)) || Object.values(h.entities || {}).some((e) => e && e.device_id === id && PLATS.includes(e.platform)))
+      .map((id) => [id, `${D[id].name_by_user || D[id].name || id}${D[id].model ? ' · ' + D[id].model : ''}`]) : [];
+    // Knapper
+    const btnPrev = { type: 'html', html: (hh, cc) => {
+      const V = visBtns(hh, cc), ic = (cc.button_style || DEF.button_style) === 'icon';
+      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;gap:6px">${V.length ? V.map((k) => `<span style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:44px;height:44px;border-radius:22px;background:#3a3a3a;display:grid;place-items:center">${M.icon(BK[k][2], 20)}</span>${ic ? '' : `<span style="font-size:11px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(BK[k][1])}</span>`}</span>`).join('') : '<span style="flex:1;text-align:center;font-size:12px;color:#979797">Ingen synlige knapper</span>'}</div></div>`;
+    } };
+    const btnList = { type: 'html', html: (hh, cc, key, ed) => {
+      installEd(ed);
+      const hid = new Set(cc.buttons_hidden || []);
+      const src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' };
+      return `<div class="f" style="gap:8px"><label>Knapper · dra for rekkefølge</label>${btnOrder(cc).map((k) => {
+        const id = entOf(hh, cc, src[k]);
+        return dragRow('buttons', k, BK[k][1], BK[k][2], hid.has(k), key, id ? (hh.states[id] ? M.name(hh, id) : id) : k === 'eco' ? 'Vises bare med Smart Home-modus' : '– · Velg entitet');
+      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Øyet skjuler knappen.</span></div>`;
+    }, click: (dd, ed) => { const s = new Set((ed._config || {}).buttons_hidden || []); if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); M.haptic('selection'); ed._set('buttons_hidden', s.size ? [...s] : undefined); } };
+    // Faner
+    const tabPrev = { type: 'html', html: (hh, cc) => {
+      const V = visTabs(hh, cc), st = cc.tab_style || DEF.tab_style, act = V.includes(cc.start_tab) ? cc.start_tab : V[0];
+      const t = (k) => { const x = TK[k], o = k === act; return `<span style="flex:${st === 'icon' && !o ? '0 0 44px' : '1 1 0'};min-width:0;height:34px;border-radius:17px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px;${o ? `background:${C.accent};color:#2a1720;font-weight:600` : 'color:#afafaf'}">${st !== 'name' ? M.icon(x[2], 18) : ''}${st !== 'icon' || o ? `<span>${esc(x[1])}</span>` : ''}</span>`; };
+      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:21px;background:#3a3a3a">${V.length ? V.map(t).join('') : '<span style="flex:1;text-align:center;font-size:12px;color:#979797;line-height:34px">Ingen synlige faner</span>'}</div><span style="width:42px;height:42px;border-radius:21px;background:#3a3a3a;display:grid;place-items:center;color:#afafaf;flex:none">${M.icon('mdi:cog', 20)}</span></div></div>`;
+    } };
+    const tabList = { type: 'html', html: (hh, cc, key, ed) => {
+      installEd(ed);
+      const hid = new Set(cc.tabs_hidden || []);
+      return `<div class="f" style="gap:8px"><label>Faner · dra for rekkefølge</label>${tabOrder(cc).map((k) => dragRow('tabs', k, TK[k][1], TK[k][2], hid.has(k), key, k === 'luft' && hh && !hasLuft(hh, cc) ? 'Skjult automatisk – fant ikke BT20/BT21' : '')).join('')}<span class="help">Dra i håndtaket for rekkefølge. Øyet skjuler fanen. Minst én fane må være synlig.</span></div>`;
+    }, click: (dd, ed) => {
+      const s = new Set((ed._config || {}).tabs_hidden || []);
+      if (!s.has(dd.v) && TABS.filter((t) => !s.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+      if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v);
+      M.haptic('selection'); ed._set('tabs_hidden', s.size ? [...s] : undefined);
+    } };
+    const entSec = ([g, label, icon]) => ({ type: 'section', id: 'vp-' + g, label, icon,
+      meta: (hh, cc) => { const L = ROLES.filter((r) => r[2] === g); return `${L.filter((r) => entOf(hh, cc, r[0])).length} av ${L.length} funnet`; },
+      fields: ROLES.filter((r) => r[2] === g).map(([k, l, , doms, pids, , ic]) => ({ type: 'entity', name: 'overrides.' + k, label: l + (pids.length ? ` · ${pids[0]}` : ''), icon: ic, domain: doms, auto: (hh, cc) => autoOf(hh, cc, k), none_label: '– · Velg entitet' })) });
+    const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
+      M.haptic('warning');
+      const id = (cc && cc.card_id) || M.uid();
+      ed._config = { type: cc.type || 'custom:msh-varmepumpe-card', card_id: id };
+      ed._set('card_id', id);
+    } };
+    const found = R ? R.devs.length : 0;
+    return [
+      ...(R && !found && !c.device ? [{ type: 'info', label: 'Fant ingen NIBE-enhet (integrasjonene nibe_heatpump eller myuplink). Velg entiteter under Entiteter.' }] : []),
+      { type: 'tabs', id: 'varmepumpe', tabs: [
+        { key: 'knapper', label: 'Knapper', icon: 'mdi:gesture-tap-button', focus: ['knapper', 'buttons'], fields: [
+          { type: 'section', id: 'knapper', label: 'Hurtigknapper', icon: 'mdi:gesture-tap-button', fields: [
+            btnPrev, btnList,
+            { type: 'select', name: 'button_style', label: 'Knappene viser', options: [['icon_text', 'Ikon og tekst'], ['icon', 'Bare ikon']], default: DEF.button_style },
+          ] },
+        ] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner', 'tabs'], fields: [
+          { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            tabPrev, tabList,
+            { type: 'select', name: 'tab_style', label: 'Fanene viser', options: [['icon_name', 'Ikon og navn'], ['name', 'Bare navn'], ['icon', 'Bare ikon']], default: DEF.tab_style },
+            { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
+          ] },
+        ] },
+        { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted-type', focus: ['entiteter', 'entities', ...GROUPS.map((g) => 'vp-' + g[0])], fields: [
+          { type: 'info', label: 'Alt er funnet automatisk fra NIBE-enheten (parameter-ID først, så navn). Velg en annen entitet bare der det automatiske valget er feil.' },
+          { type: 'section', id: 'entiteter', label: 'Enhet', icon: 'mdi:heat-pump', fields: [
+            { type: 'select', name: 'device', label: 'NIBE-enhet', options: [['', found ? `Automatisk · ${R.dev ? (R.dev.name_by_user || R.dev.name) : ''}` : 'Automatisk'], ...devOpts], default: '' },
+          ] },
+          ...GROUPS.map(entSec),
+        ] },
+        { key: 'visning', label: 'Visning', icon: 'mdi:eye-outline', focus: ['visning', 'spacing'], fields: [
+          { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
+            { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: R && R.dev ? (R.dev.name_by_user || R.dev.name) : 'Varmepumpe' },
+            { type: 'boolean', name: 'kpi', label: 'KPI-kort (Ute, Kompressor, Varmtvann)', default: true },
+            { type: 'boolean', name: 'diag', label: 'Diagnostikk nederst', default: true },
+            { type: 'boolean', name: 'anim', label: 'Animasjoner', default: true, help: 'Pumpe, vifte, rør og knapper. Stopper uansett når entiteten er av.' },
+          ] },
+          M.spacingSchema(),
+          reset,
+        ] },
+      ] },
+    ];
+  }
+
+  /* ============================================================ kortet */
+  class Varmepumpe extends M.Card {
+    static get cardName() { return 'Varmepumpe'; }
+    static get editorTitle() { return 'Tilpass varmepumpe'; }
+    static get defaults() { return { ...DEF }; }
+    static getStubConfig() { return { card_id: M.uid() }; }
+    static get schema() { return editorSchema; }
+    static get uiPersist() { return ['tab', 'acc']; }
+    get cardSize() { return 12; }
+    _e(k) { return entOf(this.hass, this.config, k); }
+    _S(k) { return this.s(this._e(k)); }
+    _N(k) { return numS(this._S(k)); }
+    get tab() { const V = visTabs(this.hass, this.config), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0] || null; }
+    onOpen() {
+      const st = this.config.start_tab, V = visTabs(this.hass, this.config);
+      if (st && V.includes(st) && this.ui.tab !== st) this.setUI({ tab: st });
+      this._load();
+    }
+    // Historikk kun når popupen er åpen (fallgruve 8): 24 t for varmtvann/luft, 7 døgn for tur/retur
+    async _load() {
+      const h = this.hass;
+      if (!h || !this.isOpen) return;
+      const d24 = ['vv', 'bt6', 'bt20', 'bt21'].map((k) => this._e(k)).filter(Boolean);
+      const d7 = ['bt2', 'bt3'].map((k) => this._e(k)).filter(Boolean);
+      const key = d24.join() + '|' + d7.join();
+      if (this._lk === key && Date.now() - (this._lt || 0) < 300000) return;
+      this._lk = key; this._lt = Date.now();
+      try {
+        const [a, b] = await Promise.all([d24.length ? M.history(h, d24, 24) : {}, d7.length ? M.history(h, d7, 168) : {}]);
+        this._h24 = a; this._h7 = b;
+      } catch (e) { this._h24 = this._h24 || {}; this._h7 = this._h7 || {}; }
+      this.update();
+    }
+
+    onAction(name, el, ev) {
+      const d = el.dataset, h = this.hass;
+      switch (name) {
+        case 'tab': if (d.v) { this._scrub = null; this.setUI({ tab: d.v }); } return;
+        case 'acc': { const a = { ...(this.ui.acc || {}) }; a[d.v] = !a[d.v]; return this.setUI({ acc: a }); }
+        case 'btn': return this._btn(d.v);
+        case 'opt': return d.id && d.o != null && M.call(h, 'select', 'select_option', { entity_id: d.id, option: d.o });
+        case 'step': return this._step(d.id, Number(d.d));
+        case 'boostvv': return this._boostVV();
+        default: return super.onAction(name, el, ev);
+      }
+    }
+    _btn(k) {
+      const h = this.hass;
+      const src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' }[k];
+      const id = this._e(src);
+      if (!id || !h.states[id]) return this.customize('vp-btn');
+      if (k === 'boost' || k === 'vent') return M.toggle(h, id);
+      if (k === 'eco') {
+        const s = h.states[id], O = s.attributes.options || [];
+        const next = isNormal(s.state) ? O.find(isAway) || O.find((o) => !isNormal(o)) : O.find(isNormal) || O[0];
+        return next != null && M.call(h, 'select', 'select_option', { entity_id: id, option: next });
+      }
+      return M.moreInfo(this, id); // Pumpe, Alarm og Wi-Fi: bare visning
+    }
+    _boostVV() {
+      const h = this.hass, sw = this._e('boost'), sel = this._e('boost_sel');
+      if (sw && h.states[sw]) return M.toggle(h, sw);
+      if (sel && h.states[sel]) {
+        const s = h.states[sel], O = s.attributes.options || [];
+        const off = O.find((o) => /^(off|av)$/i.test(o));
+        const next = off != null && s.state !== off ? off : O.find((o) => o !== off) || O[0];
+        return next != null && M.call(h, 'select', 'select_option', { entity_id: sel, option: next });
+      }
+      return this.customize('vp-btn');
+    }
+    _step(id, dir) {
+      const h = this.hass, s = id && h.states[id];
+      if (!s) return;
+      const A = s.attributes, st = Number(A.step) || 1, cur = this._pend && this._pend[id] != null ? this._pend[id] : numS(s);
+      if (cur == null) return;
+      const mn = A.min != null ? Number(A.min) : -Infinity, mx = A.max != null ? Number(A.max) : Infinity;
+      const v = Math.round(M.clamp(cur + dir * st, mn, mx) / st) * st;
+      const val = Number(v.toFixed(3));
+      if (val === cur) { M.haptic('warning'); return; }
+      this._pend = { ...(this._pend || {}), [id]: val };
+      clearTimeout(this._pt);
+      this._pt = setTimeout(() => { const p = this._pend || {}; const x = p[id]; delete p[id]; if (x != null) M.call(this.hass, 'number', 'set_value', { entity_id: id, value: x }).catch(() => {}); }, 450);
+      this.update();
+    }
+
+    /* ---------------------------------------------------------- tegning */
+    render() {
+      const h = this.hass, c = this.config;
+      const R = oppdag(h, c);
+      R.ids.forEach((id) => this._deps.add(id));
+      Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
+      Object.keys(R.roles).forEach((k) => this._deps.add(R.roles[k]));
+      if (this._pend) Object.keys(this._pend).forEach((id) => { const s = h.states[id]; if (s && numS(s) === this._pend[id]) delete this._pend[id]; });
+      const parts = [this._top(R)];
+      if (c.kpi !== false) parts.push(this._kpi());
+      const V = visBtns(h, c);
+      if (V.length) parts.push(this._btns(V));
+      const T = visTabs(h, c), tab = this.tab;
+      parts.push(this._tabRow(T, tab));
+      if (!tab) parts.push(`<div class="empty">${M.icon('mdi:eye-off', 22)}<span>Alle fanene er skjult</span><button class="pick press" data-act="customize" data-section="faner">${M.icon('mdi:cog', 18)}Tilpass</button></div>`);
+      else parts.push(`<div class="pane" data-key="pane-${tab}">${this['_' + tab]()}</div>`);
+      if (c.diag !== false) parts.push(this._acc('diag', 'Diagnostikk', 'mdi:stethoscope', ROLES.filter((r) => r[2] === 'diag').map((r) => r[0])));
+      if (!R.devs.length && !Object.keys(c.overrides || {}).length) parts.splice(1, 0, `<div class="empty nf">${M.icon('mdi:heat-pump-outline', 26)}<b>Fant ingen NIBE-varmepumpe</b><span>Støtter NIBE S- og F-serien via integrasjonene NIBE Heat Pump eller myUplink. Legg til integrasjonen, så dukker den opp her automatisk.</span><button class="pick press" data-act="customize" data-section="entiteter">${M.icon('mdi:plus', 18)}Velg entitet</button></div>`);
+      return `<div class="wrap ${c.anim === false ? 'noanim' : ''}">${parts.join('')}</div>`;
+    }
+    // Rad: ikon · navn · verdi (mangler → «–» + «Velg entitet»)
+    _row(k, opt) {
+      opt = opt || {};
+      const r = RK[k], id = this._e(k), s = id ? this.s(id) : null;
+      const label = opt.label || r[1];
+      if (!id || !s) return `<div class="rw miss"><span class="ri">${M.icon(r[6], 20)}</span><span class="grow ell">${esc(label)}</span><span class="rv">–</span><button class="vs press" data-act="customize" data-section="vp-${r[2]}">Velg entitet</button></div>`;
+      const v = opt.val != null ? opt.val : fmtS(s);
+      return `<button class="rw" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ri ${opt.cls || ''}" ${opt.style ? `style="${opt.style}"` : ''}>${M.icon(opt.icon || r[6], 20)}</span><span class="grow col"><span class="ell">${esc(label)}</span>${opt.sub ? `<small class="ell">${esc(opt.sub)}</small>` : ''}</span><span class="rv num ${opt.vcls || ''}">${esc(v)}</span></button>`;
+    }
+    _running() { const f = this._N('freq'); if (f != null) return f > 0; const cs = this._S('komp_status'); return !!cs && /run|går|on|start/i.test(String(cs.state)); }
+    _charging() {
+      const t = [this._S('status'), this._S('vv_modus'), this._S('komp_status')].filter(okS).map((s) => String(s.state)).join(' ');
+      return this._running() && /hot ?water|varmtvann|hw|lad|charg|dhw/i.test(t) || on(this._S('boost'));
+    }
+    _alarmOn() { const s = this._S('alarm'); if (!okS(s)) return false; if (dom(s.entity_id) === 'binary_sensor') return s.state === 'on'; const v = numS(s); return v != null ? v > 0 : !/^(0|ingen|none|ok|no alarm|off|false)$/i.test(String(s.state).trim()); }
+    _wifiOff() { const s = this._S('wifi'); return !!s && (s.state === 'off' || !okS(s)); }
+    _fanDur() { const v = this._N('vifte'); if (v == null) return this._running() ? 1.6 : 0; if (v <= 0) return 0; return Math.max(0.35, 2.4 - (Math.min(100, v) / 100) * 2); }
+    _vvFill() {
+      const m = this._S('mengde');
+      if (okS(m) && /%/.test(unitS(m)) && numS(m) != null) return { f: M.clamp(numS(m) / 100, 0, 1), calc: false };
+      const t = this._N('vv');
+      return t == null ? null : { f: M.clamp((t - 20) / (55 - 20), 0, 1), calc: true };
+    }
+
+    _top(R) {
+      const c = this.config, run = this._running(), fan = this._fanDur(), fill = this._vvFill(), charging = this._charging();
+      const pw = kW(this._S('power')), freq = this._N('freq'), ute = this._N('ute'), kr = this._S('cost_day');
+      const st = this._S('status'), cs = this._S('komp_status');
+      const chip = okS(st) ? String(st.state) : run ? 'Kompressoren går' : cs || freq != null ? 'Hviler' : '–';
+      const name = c.name || (R.dev ? (R.dev.name_by_user || R.dev.name) : 'Varmepumpe');
+      const fy = fill ? 118 - fill.f * 84 : 118;
+      const blades = [0, 90, 180, 270].map((a) => `<path d="M0 0 C 4 -6, 13 -8, 17 -2 C 12 0, 5 2, 0 0Z" transform="rotate(${a})" fill="#c7c7c7"/>`).join('');
+      const pwId = this._e('power');
+      return `<section class="top ${run ? 'run' : ''}" aria-label="Varmepumpe">
+        <div class="tl"><span class="tn ell">${esc(name)}</span><span class="chip ${run ? 'on' : ''}">${M.icon(run ? 'mdi:heat-pump' : 'mdi:sleep', 14)}<span class="ell">${esc(chip)}</span></span></div>
+        <div class="tv ${pw != null && pw > 0 ? 'puls' : ''}" ${pwId ? `data-act="more" data-id="${esc(pwId)}" data-ent="${esc(pwId)}"` : 'data-act="customize" data-section="vp-top"'}><span class="big num">${pw == null ? '–' : M.nf(pw, pw < 10 ? 2 : 1)}</span><span class="u">kW</span></div>
+        <div class="ts">Ute ${esc(deg(ute))} · ${okS(kr) && numS(kr) != null ? esc(M.nf(numS(kr), 2)) + ' kr i dag' : '– kr i dag'}</div>
+        <svg class="pumpe" viewBox="0 0 170 150" aria-hidden="true">
+          <defs><clipPath id="vp-tank"><rect x="14" y="34" width="40" height="84" rx="16"/></clipPath>
+            <linearGradient id="vp-vann" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f28073"/><stop offset="1" stop-color="#f2b573"/></linearGradient></defs>
+          <g class="${charging ? 'dupp' : ''}"><rect x="14" y="34" width="40" height="84" rx="16" fill="#2f2f2f" stroke="#545454" stroke-width="2"/>
+            ${fill ? `<rect clip-path="url(#vp-tank)" x="14" y="${fy.toFixed(1)}" width="40" height="${(118 - fy + 2).toFixed(1)}" fill="url(#vp-vann)" opacity=".85"/><path clip-path="url(#vp-tank)" class="${charging ? 'bolge' : ''}" d="M8 ${fy.toFixed(1)} q 6 -3 12 0 t 12 0 t 12 0 t 12 0 t 12 0" fill="none" stroke="#fafafa" stroke-opacity=".35" stroke-width="1.5"/>` : ''}
+            <text x="34" y="30" text-anchor="middle" class="svt">${fill ? M.nf(fill.f * 100, 0) + ' %' : '–'}</text></g>
+          <path d="M 54 60 H 84" class="ror varm ${run && c.anim !== false ? 'flow' : ''}"/>
+          <path d="M 84 100 H 54" class="ror kald ${run && c.anim !== false ? 'flow' : ''}"/>
+          <rect x="84" y="12" width="76" height="128" rx="16" fill="#4a4a4a" class="skap"/>
+          <rect x="84" y="12" width="76" height="128" rx="16" fill="none" stroke="rgba(255,255,255,.08)"/>
+          <circle cx="122" cy="54" r="27" fill="#2f2f2f" stroke="#545454" stroke-width="2"/>
+          <g transform="translate(122 54)"><g class="vifte ${fan ? 'spin' : ''}" style="--vp-dur:${fan || 2}s">${blades}<circle r="4" fill="#7f7f7f"/></g></g>
+          <rect x="96" y="96" width="52" height="4" rx="2" fill="#545454"/><rect x="96" y="106" width="52" height="4" rx="2" fill="#545454"/>
+          <g class="hz"><rect x="102" y="116" width="40" height="18" rx="9" fill="${run ? 'var(--orange,#f2b573)' : '#545454'}"/><text x="122" y="129" text-anchor="middle" class="hzt ${run ? 'on' : ''}">${freq == null ? '– Hz' : M.nf(freq, 0) + ' Hz'}</text></g>
+        </svg>
+      </section>`;
+    }
+    _kpi() {
+      const ute = this._S('ute'), snitt = this._N('ute_snitt');
+      const f = this._N('freq'), mn = this._N('freq_min'), mx = this._N('freq_max'), run = this._running();
+      const lo = mn != null ? mn : 0, hi = mx != null && mx > lo ? mx : 120;
+      const pct = f == null ? 0 : M.clamp(((f - lo) / (hi - lo)) * 100, 0, 100);
+      const vv = this._S('vv'), bt6 = this._N('bt6'), ch = this._charging();
+      const card = (k, cls, icon, icls, label, val, sub, extra) => {
+        const id = this._e(k);
+        return `<button class="kp ${cls}" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : `data-act="customize" data-section="vp-top"`}><span class="kh"><span class="ki ${icls}">${M.icon(icon, 18)}</span><span class="ell">${label}</span></span><span class="kv num">${val}</span>${extra || ''}<span class="ks ell">${sub}</span></button>`;
+      };
+      return `<div class="kpis">
+        ${card('ute', '', 'mdi:thermometer', '', 'Ute', okS(ute) ? esc(deg(numS(ute))) : '–', snitt != null ? 'Snitt ' + esc(deg(snitt)) : this._e('ute') ? 'BT1' : 'Velg entitet')}
+        ${card('freq', run ? 'glod' : '', 'mdi:sine-wave', run ? 'pust' : '', 'Kompressor', f == null ? '–' : `${M.nf(f, 0)}<small>Hz</small>`, run ? 'Går' : f == null ? 'Velg entitet' : 'Står', `<span class="bar"><i style="width:${pct.toFixed(0)}%"></i></span>`)}
+        ${card('vv', '', 'mdi:water-boiler', ch ? 'dupp' : '', 'Varmtvann', okS(vv) ? esc(deg(numS(vv))) : '–', ch ? 'Lader' + (bt6 != null ? ' · ' + esc(deg(bt6)) : '') : bt6 != null ? 'BT6 ' + esc(deg(bt6)) : this._e('vv') ? 'BT7' : 'Velg entitet')}
+      </div>`;
+    }
+    _btns(V) {
+      const ic = (this.config.button_style || DEF.button_style) === 'icon';
+      const b = (k) => {
+        const [, label, icon0] = BK[k], src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' }[k];
+        const id = this._e(src), s = id ? this.s(id) : null;
+        let icon = icon0, cls = '', sub = '–', act = false;
+        if (s) {
+          if (k === 'boost') { act = on(s); cls = act ? 'on orange' : ''; sub = act ? 'På' : 'Av'; }
+          if (k === 'vent') { act = on(s); cls = act ? 'on blue spin-i' : ''; sub = act ? 'På' : 'Av'; }
+          if (k === 'pump') { act = on(s); cls = act ? 'on green vib' : ''; sub = act ? 'Går' : 'Står'; }
+          if (k === 'eco') { act = okS(s) && !isNormal(s.state); cls = act ? 'on green' : ''; sub = okS(s) ? optNb(s.state) : '–'; }
+          if (k === 'alarm') { act = this._alarmOn(); cls = act ? 'on red rist' : ''; icon = act ? 'mdi:bell-alert' : 'mdi:bell-outline'; sub = act ? (numS(s) != null ? M.nf(numS(s)) + ' varsel' : String(s.state)) : 'Ingen'; }
+          if (k === 'wifi') { const off = this._wifiOff(); act = off; cls = off ? 'on red blink' : ''; icon = off ? 'mdi:wifi-off' : 'mdi:wifi'; sub = off ? 'Frakoblet' : 'Tilkoblet'; }
+        }
+        const attrs = s ? `data-act="btn" data-v="${k}" data-ent="${esc(id)}"` : `data-act="customize" data-section="vp-btn"`;
+        return `<button class="qb press ${cls} ${s ? '' : 'miss'}" ${attrs} aria-label="${esc(label)}${s ? '' : ' – velg entitet'}" ${['boost', 'vent'].includes(k) && s ? `aria-pressed="${act}"` : ''}><span class="qi">${M.icon(icon, 22)}</span>${ic ? '' : `<span class="ql ell">${esc(label)}</span><span class="qs ell">${esc(s ? sub : 'Velg entitet')}</span>`}</button>`;
+      };
+      return `<div class="qbs ${ic ? 'ic' : ''}">${V.map(b).join('')}</div>`;
+    }
+    _tabRow(V, tab) {
+      const st = this.config.tab_style || DEF.tab_style;
+      const btn = (k) => {
+        const [, label, icon] = TK[k], o = k === tab;
+        if (st === 'icon') return M.iconTabs.btn({ label, icon }, o, `data-act="tab" data-v="${k}" data-haptic="selection"`, o ? 'on' : '');
+        return `<button class="tb ${o ? 'on' : ''}" role="tab" aria-selected="${o}" data-act="tab" data-v="${k}" data-haptic="selection">${st !== 'name' ? M.icon(icon, 20) : ''}<span>${esc(label)}</span></button>`;
+      };
+      return `<div class="trow"><div class="tabs ${st === 'icon' ? 'itabs' : ''}" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
+        <button class="gear press" data-act="customize" aria-label="Tilpass varmepumpe">${M.icon('mdi:cog', 22)}</button></div>`;
+    }
+    _acc(key, title, icon, keys) {
+      const open = !!(this.ui.acc || {})[key], n = keys.filter((k) => this._e(k)).length;
+      return `<section class="acc ${open ? 'open' : ''}" data-key="acc-${key}"><button class="ah" data-act="acc" data-v="${key}" aria-expanded="${open}"><span class="ai">${M.icon(icon, 20)}</span><span class="grow ell">${esc(title)}</span><span class="an">${n} av ${keys.length}</span>${M.icon('mdi:chevron-down', 22, 'color:#979797;transition:transform .2s;' + (open ? 'transform:rotate(180deg)' : ''))}</button>
+        ${open ? `<div class="ab">${keys.map((k) => this._row(k)).join('')}</div>` : ''}</section>`;
+    }
+    // Graf: serier [{k, col, label}], timer, historikk. Scrub med pekeren (touch-action:none + stopPropagation).
+    _graph(g, series, hours, hist) {
+      const Wg = 300, Hg = 96, N = hours > 48 ? 84 : 48;
+      const data = series.map((x) => ({ ...x, id: this._e(x.k) })).filter((x) => x.id);
+      if (!data.length) return `<div class="gr none">${M.icon('mdi:chart-line', 20)}<span>Fant ingen sensorer til grafen</span><button class="vs press" data-act="customize" data-section="vp-${RK[series[0].k][2]}">Velg entitet</button></div>`;
+      const S2 = data.map((x) => ({ ...x, v: hist ? M.sample((hist[x.id] || []), N, hours) : [] }));
+      const all = S2.flatMap((x) => x.v);
+      const mn = all.length ? Math.min(...all) : 0, mx = all.length ? Math.max(...all) : 1, sp = mx - mn || 1;
+      const y = (v) => Hg - 8 - ((v - mn) / sp) * (Hg - 20);
+      const pts = (arr) => arr.map((v, i) => `${((i / (N - 1)) * Wg).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+      const sc = this._scrub && this._scrub.g === g ? this._scrub.i : null;
+      const lines = S2.map((x, j) => (x.v.length ? `${j === 0 ? `<polygon points="0,${Hg} ${pts(x.v)} ${Wg},${Hg}" fill="${x.col}" fill-opacity=".12"/>` : ''}<polyline points="${pts(x.v)}" fill="none" stroke="${x.col}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` : '')).join('')
+        || `<line x1="0" y1="${Hg / 2}" x2="${Wg}" y2="${Hg / 2}" stroke="#545454" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`;
+      const mk = sc != null && all.length ? `<line x1="${((sc / (N - 1)) * Wg).toFixed(1)}" x2="${((sc / (N - 1)) * Wg).toFixed(1)}" y1="0" y2="${Hg}" stroke="#fafafa" stroke-opacity=".6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : '';
+      const tlab = sc == null ? 'nå' : (() => { const t = hours - (sc / (N - 1)) * hours; return t < 0.5 ? 'nå' : hours > 48 ? `−${M.nf(t / 24, t < 24 ? 1 : 0)} d` : `−${M.nf(t, t < 10 ? 1 : 0)} t`; })();
+      const leg = S2.map((x) => { const v = sc != null && x.v.length ? x.v[sc] : numS(this.s(x.id)); return `<span><i style="background:${x.col}"></i>${esc(x.label)} <b class="num">${v == null ? '–' : esc(deg(v))}</b></span>`; }).join('');
+      const xl = hours > 48 ? ['−7 d', '−3,5 d', 'nå'] : ['−24 t', '−12 t', 'nå'];
+      return `<div class="gr" data-g="${g}" data-n="${N}"><div class="gl">${leg}<span class="gt">${esc(tlab)}</span></div>
+        <svg class="gs" viewBox="0 0 ${Wg} ${Hg}" preserveAspectRatio="none" aria-label="Graf siste ${hours > 48 ? '7 døgn' : '24 timer'}">${lines}${mk}</svg>
+        <div class="gx"><span>${xl[0]}</span><span>${xl[1]}</span><span>${xl[2]}</span></div>${hist ? '' : '<div class="gw">Henter historikk …</div>'}</div>`;
+    }
+    _seg(k, label) {
+      const id = this._e(k), s = id ? this.s(id) : null;
+      if (!s) return `<div class="blk"><div class="bt">${esc(label)}</div>${this._row(k)}</div>`;
+      const O = s.attributes.options || [];
+      return `<div class="blk"><div class="bt">${esc(label)}</div><div class="seg" role="radiogroup" aria-label="${esc(label)}">${O.map((o) => `<button class="sg ${o === s.state ? 'on' : ''}" role="radio" aria-checked="${o === s.state}" data-act="opt" data-id="${esc(id)}" data-o="${esc(o)}" data-haptic="selection">${esc(optNb(o))}</button>`).join('') || `<span class="muted">${esc(s.state)}</span>`}</div></div>`;
+    }
+    _stepper(k, label, sub) {
+      const r = RK[k], id = this._e(k), s = id ? this.s(id) : null;
+      if (!s) return this._row(k, { label });
+      const p = this._pend && this._pend[id], v = p != null ? p : numS(s), u = unitS(s);
+      const A = s.attributes, mn = A.min != null ? Number(A.min) : null, mx = A.max != null ? Number(A.max) : null, st = Number(A.step) || 1;
+      const d = st < 1 ? 1 : 0;
+      return `<div class="rw stp" data-key="stp-${k}"><span class="ri">${M.icon(r[6], 20)}</span><button class="grow col tl" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ell">${esc(label)}</span>${sub ? `<small class="ell">${esc(sub)}</small>` : ''}</button>
+        <button class="pm press" data-act="step" data-id="${esc(id)}" data-d="-1" aria-label="${esc(label)} ned" ${v != null && mn != null && v <= mn ? 'disabled' : ''}>${M.icon('mdi:minus', 20)}</button>
+        <span class="sv num ${p != null ? 'pend' : ''}">${v == null ? '–' : M.nf(v, d) + (u ? (u === '°C' ? '°' : ' ' + u) : '')}</span>
+        <button class="pm press" data-act="step" data-id="${esc(id)}" data-d="1" aria-label="${esc(label)} opp" ${v != null && mx != null && v >= mx ? 'disabled' : ''}>${M.icon('mdi:plus', 20)}</button></div>`;
+    }
+
+    /* ---------------------------------------------------------- faner */
+    _info() {
+      const f = this._N('freq'), inne = this._N('inne'), vv = this._N('vv'), run = this._running();
+      const pill = (t, col) => `<span class="pl" style="--pc:${col}">${esc(t)}</span>`;
+      const prosa = `<div class="card prosa">${run ? 'Varmepumpa går på ' : 'Varmepumpa hviler'}${run ? pill(f == null ? '– Hz' : M.nf(f, 0) + ' Hz', C.orange) : ''} og holder ${pill(inne == null ? '–' : deg(inne), C.green)} inne. Varmtvannet er ${pill(vv == null ? '–' : deg(vv), C.red)}${this._charging() ? ' og lades nå' : ''}.</div>`;
+      const t2 = this._N('bt2'), t3 = this._N('bt3'), mal = this._N('beregnet'), ek = this._N('elkolbe');
+      const rows = [
+        this._row('energy'),
+        this._row('cost_day'),
+        this._row('bt2', { sub: mal != null ? 'Mål ' + deg(mal) : '' }),
+        this._row('bt3', { sub: t2 != null && t3 != null ? 'ΔT ' + M.nf(t2 - t3, 1) + '°' : '' }),
+        this._row('bt50'),
+        this._row('elkolbe', { cls: ek != null && ek > 0 ? 'gul' : '', vcls: ek != null && ek > 0 ? 'gul' : '', sub: ek != null && ek > 0 ? 'Tilskudd er på' : '' }),
+      ].join('');
+      return `${prosa}<div class="card list">${rows}</div>
+        <div class="card"><div class="ct">Tur og retur · 7 døgn</div>${this._graph('tr', [{ k: 'bt2', col: C.red, label: 'Tur' }, { k: 'bt3', col: C.blue, label: 'Retur' }], 168, this._h7)}</div>
+        ${this._acc('cost', 'Kostnad', 'mdi:cash', ['cost_hour', 'cost_day', 'cost_month', 'cost_year'])}
+        ${this._acc('sys', 'Systemdrift', 'mdi:cog-outline', ['gm', 'drift', 'starter', 'avriming', 'tidsfaktor', 'komp_status'])}
+        ${this._acc('strom', 'Strøm', 'mdi:flash', ['be1', 'be2', 'be3', 'power', 'add_power'])}`;
+    }
+    _varme() {
+      const mal = this._N('beregnet');
+      return `<div class="card blks">${this._seg('driftsstilling', 'Driftsstilling')}${this._seg('smart', 'Smart Home-modus')}</div>
+        <div class="card list">${this._stepper('kurve', 'Varmekurve')}${this._stepper('forskyvning', 'Forskyvning')}${this._stepper('onsket', 'Ønsket temperatur')}${this._stepper('start_gm', 'Start kompressor', 'Gradminutter')}${this._stepper('stopp', 'Stopp av varme', 'Ved utetemperatur over')}
+          ${this._row('beregnet', { val: mal != null ? deg(mal) : undefined })}</div>`;
+    }
+    _vv() {
+      const fill = this._vvFill(), sw = this._e('boost'), sel = this._e('boost_sel');
+      const bs = sw ? this.s(sw) : sel ? this.s(sel) : null;
+      const bOn = sw ? on(bs) : bs ? okS(bs) && !/^(off|av)$/i.test(bs.state) : false;
+      const leg = this._S('legionella'), upd = this._S('fastvare');
+      const V = [];
+      if (this._alarmOn()) V.push(['red', 'mdi:bell-alert', 'Varsel fra varmepumpa', this._e('alarm')]);
+      if (upd && upd.state === 'on') V.push(['orange', 'mdi:update', `Ny fastvare ${upd.attributes.latest_version || ''}`.trim(), upd.entity_id]);
+      if (this._wifiOff()) V.push(['red', 'mdi:wifi-off', 'Varmepumpa er frakoblet', this._e('wifi')]);
+      if (okS(leg) && Date.parse(leg.state) && Date.parse(leg.state) - Date.now() < 86400000 * 2) V.push(['blue', 'mdi:bacteria-outline', 'Legionellaøkning ' + tidTil(leg.state), leg.entity_id]);
+      return `<div class="card"><div class="ct">Varmtvann · 24 t</div>${this._graph('vv', [{ k: 'vv', col: C.red, label: 'BT7' }, { k: 'bt6', col: C.orange, label: 'BT6' }], 24, this._h24)}</div>
+        <div class="card fyll"><div class="fh"><span>Fyllingsgrad${fill && fill.calc ? ' (beregnet fra BT7)' : ''}</span><b class="num">${fill ? M.nf(fill.f * 100, 0) + ' %' : '–'}</b></div><span class="bar big"><i style="width:${fill ? (fill.f * 100).toFixed(0) : 0}%"></i></span></div>
+        <div class="card blks">${this._seg('behov', 'Behov')}
+          <button class="boost press ${bOn ? 'on' : ''}" data-act="boostvv" ${bs ? `data-ent="${esc(bs.entity_id)}"` : ''} aria-pressed="${bOn}">${M.icon('mdi:rocket-launch', 20)}<span>${bs ? (bOn ? 'Boost er på' + (sel && !sw ? ' · ' + optNb(bs.state) : '') : 'Boost varmtvann') : 'Boost – velg entitet'}</span></button></div>
+        <div class="card list">${this._row('vv')}${this._row('bt6')}${this._row('vv_temp')}${this._row('ladeverdi')}${this._row('mengde')}${this._row('andel')}${this._row('vv_tid')}${this._row('vv_modus')}${this._row('legionella')}</div>
+        ${V.length ? `<div class="varsel">${V.map(([col, ic, t, id]) => `<button class="vl ${col}" ${id ? `data-act="more" data-id="${esc(id)}"` : ''}>${M.icon(ic, 18)}<span class="ell">${esc(t)}</span></button>`).join('')}</div>` : ''}`;
+    }
+    _luft() {
+      const fan = this._fanDur(), v = this._N('vifte');
+      const sw = (k, label) => {
+        const id = this._e(k), s = id ? this.s(id) : null;
+        if (!s) return this._row(k, { label });
+        const o = on(s);
+        return `<div class="rw"><span class="ri ${k === 'vent' && o ? 'spin-i' : ''}">${M.icon(RK[k][6], 20)}</span><button class="grow col tl" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ell">${esc(label)}</span></button><button class="sw ${o ? 'on' : ''}" role="switch" aria-checked="${o}" aria-label="${esc(label)}" data-act="toggle" data-id="${esc(id)}"><i></i></button></div>`;
+      };
+      return `<div class="card"><div class="ct">Avtrekk og avkast · 24 t</div>${this._graph('luft', [{ k: 'bt20', col: C.orange, label: 'BT20' }, { k: 'bt21', col: C.blue, label: 'BT21' }], 24, this._h24)}</div>
+        <div class="card list">${this._row('vifte', { cls: fan ? 'spin-i' : '', style: `--vp-dur:${fan || 2}s`, sub: v != null ? (v >= 70 ? 'Høy' : v >= 35 ? 'Normal' : v > 0 ? 'Lav' : 'Stopp') : '' })}${this._row('bs1')}${this._row('viftemodus')}
+          ${sw('vent', 'Økt ventilasjon')}${sw('natt', 'Nattkjøling')}</div>`;
+    }
+
+    afterRender() {
+      const Rt = this.shadowRoot;
+      if (M.glassDrag) Rt.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // −/+ og graf-scrub: ikke la Bubble Card lukke/scrolle popupen (fallgruve 2)
+      Rt.querySelectorAll('.pm').forEach((b) => {
+        if (b.__vp) return; b.__vp = true;
+        const stop = (e) => e.stopPropagation();
+        b.addEventListener('pointerdown', stop); b.addEventListener('touchstart', stop, { passive: true }); b.addEventListener('touchmove', stop, { passive: true });
+      });
+      Rt.querySelectorAll('.gr[data-g] .gs').forEach((svg) => {
+        if (svg.__vp) return; svg.__vp = true;
+        const gr = svg.closest('.gr');
+        M.guardDrag(svg, 'none');
+        const at = (e) => { const r = svg.getBoundingClientRect(), n = Number(gr.dataset.n) || 48; const f = M.clamp((e.clientX - r.left) / (r.width || 1), 0, 1); return Math.round(f * (n - 1)); };
+        let act = false;
+        svg.addEventListener('pointerdown', (e) => { e.stopPropagation(); act = true; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* */ } this._scrub = { g: gr.dataset.g, i: at(e) }; M.haptic('selection'); this.update(); });
+        svg.addEventListener('pointermove', (e) => { if (!act) return; e.stopPropagation(); const i = at(e); if (!this._scrub || this._scrub.i !== i) { this._scrub = { g: gr.dataset.g, i }; this.update(); } });
+        const end = () => { if (!act) return; act = false; setTimeout(() => { if (!act) { this._scrub = null; this.update(); } }, 1600); };
+        svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+      });
+      if (this.isOpen && !this._h24 && !this._loading) { this._loading = true; Promise.resolve(this._load()).finally(() => { this._loading = false; }); }
+    }
+    get styles() {
+      const a = (x, p) => M.alpha(x, p);
+      return `
+        :host{display:block;width:100%}
+        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px);container-type:inline-size}
+        .top{position:relative;height:176px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};overflow:hidden}
+        .top .tl{position:absolute;left:18px;top:18px;right:190px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+        .tn{font-size:13px;color:var(--gray800,#afafaf);max-width:100%}
+        .chip{height:26px;max-width:100%;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:rgba(255,255,255,.08);color:var(--gray800,#afafaf)}
+        .chip.on{background:${a(C.orange, 0.18)};color:${C.orange}}
+        .tv{position:absolute;left:18px;top:92px;display:flex;align-items:baseline;gap:4px;cursor:pointer}
+        .tv .big{font-size:44px;font-weight:300;line-height:1;letter-spacing:-.02em}
+        .tv .u{font-size:20px;color:var(--gray700,#979797)}
+        .ts{position:absolute;left:18px;bottom:16px;font-size:12px;color:var(--gray600,#7f7f7f)}
+        .pumpe{position:absolute;right:10px;top:13px;width:170px;height:150px}
+        .svt{font-size:10px;fill:#afafaf;font-family:inherit}
+        .hzt{font-size:10px;font-weight:600;fill:#fafafa;font-family:inherit}.hzt.on{fill:#2a1a0a}
+        .ror{fill:none;stroke-width:5;stroke-linecap:round}.ror.varm{stroke:${C.red}}.ror.kald{stroke:${C.blue}}
+        .ror.flow{stroke-dasharray:6 7;animation:vp-flow 1s linear infinite}
+        .top.run .skap{filter:drop-shadow(0 0 10px ${a(C.orange, 0.35)})}
+        .vifte.spin{animation:vp-spin var(--vp-dur,1.6s) linear infinite}
+        .dupp{animation:vp-dupp 2.4s ease-in-out infinite}
+        .bolge{animation:vp-bolge 2s ease-in-out infinite}
+        .puls .big{animation:vp-puls 2.6s ease-in-out infinite}
+        .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--msh-gap,8px)}
+        .kp{min-width:0;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};padding:14px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
+        .kp.glod{animation:vp-glod 3s ease-in-out infinite}
+        .kh{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--gray800,#afafaf);min-width:0;max-width:100%}
+        .ki{display:inline-flex}.ki.pust{color:${C.orange};animation:vp-pust 2.4s ease-in-out infinite}.ki.dupp{color:${C.red}}
+        .kv{font-size:24px;font-weight:400;line-height:1.1}.kv small{font-size:13px;color:var(--gray700,#979797);margin-left:2px}
+        .ks{font-size:11px;color:var(--gray600,#7f7f7f);max-width:100%}
+        .bar{display:block;width:100%;height:4px;border-radius:2px;background:var(--gray400,#545454);overflow:hidden;margin:2px 0}
+        .bar i{display:block;height:100%;border-radius:2px;background:${C.orange};transition:width .4s}
+        .bar.big{height:10px;border-radius:5px}.bar.big i{background:linear-gradient(90deg,${C.orange},${C.red})}
+        .qbs{display:flex;gap:6px}
+        .qb{flex:1 1 0;min-width:0;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px}
+        .qbs.ic .qb{padding:8px 4px}
+        .qi{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--gray300,#404040);transition:background .2s,color .2s}
+        .ql{font-size:12px;max-width:100%}.qs{font-size:10px;color:var(--gray600,#7f7f7f);max-width:100%}
+        .qb.miss{opacity:.55}
+        .qb.on.orange .qi{background:${C.orange};color:#2a1a0a}.qb.on.blue .qi{background:${C.blue};color:#0f2233}
+        .qb.on.green .qi{background:${C.green};color:#12291d}.qb.on.red .qi{background:${C.red};color:#2c1411}
+        .qb.spin-i .qi ha-icon,.ri.spin-i ha-icon{animation:vp-spin var(--vp-dur,1.2s) linear infinite}
+        .qb.vib .qi ha-icon{animation:vp-vib .18s linear infinite}
+        .qb.rist .qi ha-icon{animation:vp-rist 1.1s ease-in-out infinite;transform-origin:50% 10%}
+        .qb.blink .qi{animation:vp-blink 1.2s ease-in-out infinite}
+        .trow{display:flex;align-items:center;gap:8px;min-width:0}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden}
+        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 6px;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden}
+        .tb span{overflow:hidden;text-overflow:ellipsis}
+        .tabs .tb.on,.tabs .itab.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .tabs .itab{color:var(--gray800,#afafaf)}
+        ${M.iconTabs.css('.tabs.itabs')}
+        .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
+        .card{padding:14px 14px}
+        .card.list{padding:6px 6px}
+        .ct{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray600,#7f7f7f);margin:0 2px 10px}
+        .prosa{font-size:17px;line-height:1.6;color:var(--gray900,#c7c7c7)}
+        .pl{display:inline-flex;align-items:center;height:26px;padding:0 10px;margin:0 2px;border-radius:13px;font-size:14px;font-weight:500;background:${a('var(--pc)', 0.18)};color:var(--pc);vertical-align:1px}
+        .rw{width:100%;min-height:52px;display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:18px;text-align:left}
+        .rw+.rw{border-top:1px solid rgba(255,255,255,.06);border-radius:0}
+        .rw .col small{font-size:11px;color:var(--gray600,#7f7f7f)}
+        .ri{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
+        .ri.gul{background:${a(C.yellow, 0.2)};color:${C.yellow}}
+        .rv{font-size:15px;flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rv.gul{color:${C.yellow}}
+        .rw.miss .rv{color:var(--gray600,#7f7f7f)}
+        .vs{height:30px;padding:0 12px;border-radius:15px;background:var(--gray300,#404040);font-size:12px;flex:none}
+        .tl{text-align:left}
+        .pm{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);touch-action:manipulation}
+        .pm[disabled]{opacity:.35;cursor:default}
+        .sv{min-width:58px;text-align:center;font-size:16px;font-weight:500}.sv.pend{color:${C.pink}}
+        .blks{display:flex;flex-direction:column;gap:12px}
+        .bt{font-size:12px;color:var(--gray700,#979797);margin:0 4px 6px}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--gray300,#404040)}
+        .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
+        .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .boost{height:48px;border-radius:24px;background:var(--gray300,#404040);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}
+        .boost.on{background:${C.orange};color:#2a1a0a}
+        .fyll .fh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--gray800,#afafaf);margin-bottom:10px}.fyll b{font-size:18px;color:#fafafa;font-weight:500}
+        .gr{position:relative;display:flex;flex-direction:column;gap:6px}
+        .gr.none{flex-direction:row;align-items:center;gap:10px;color:var(--gray700,#979797);font-size:13px}.gr.none span{flex:1}
+        .gs{width:100%;height:96px;display:block;touch-action:none;cursor:crosshair}
+        .gl{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--gray800,#afafaf);align-items:center}
+        .gl i{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:5px}.gl b{color:#fafafa;font-weight:500}
+        .gt{margin-left:auto;color:var(--gray600,#7f7f7f)}
+        .gx{display:flex;justify-content:space-between;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .gw{position:absolute;right:0;bottom:18px;font-size:11px;color:var(--gray600,#7f7f7f)}
+        .sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+        .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .sw.on{background:${C.pink}}.sw.on i{transform:translateX(18px)}
+        .acc{border-radius:24px;background:#3d3d3d;box-shadow:${C.edge};overflow:hidden}
+        .ah{width:100%;height:56px;display:flex;align-items:center;gap:12px;padding:0 14px 0 10px;text-align:left;font-size:15px;font-weight:500}
+        .ai{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf);flex:none}
+        .an{font-size:12px;color:var(--gray600,#7f7f7f);font-weight:400}
+        .ab{padding:0 6px 6px}
+        .ab .rw:first-child{border-top:1px solid rgba(255,255,255,.06);border-radius:0}
+        .varsel{display:flex;flex-direction:column;gap:6px}
+        .vl{height:44px;border-radius:22px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:13px;text-align:left}
+        .vl.red{background:${a(C.red, 0.16)};color:${C.red}}.vl.orange{background:${a(C.orange, 0.16)};color:${C.orange}}.vl.blue{background:${a(C.blue, 0.16)};color:${C.blue}}
+        .empty.nf b{color:#fafafa;font-size:15px;font-weight:500}
+        @keyframes vp-spin{to{transform:rotate(360deg)}}
+        @keyframes vp-flow{to{stroke-dashoffset:-26}}
+        @keyframes vp-dupp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+        @keyframes vp-bolge{0%,100%{transform:translateX(0)}50%{transform:translateX(-6px)}}
+        @keyframes vp-puls{0%,100%{opacity:1}50%{opacity:.6}}
+        @keyframes vp-pust{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.75}}
+        @keyframes vp-glod{0%,100%{box-shadow:${C.edge},0 0 0 0 ${a(C.orange, 0)}}50%{box-shadow:${C.edge},0 0 16px 1px ${a(C.orange, 0.28)}}}
+        @keyframes vp-vib{0%,100%{transform:translateX(0)}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
+        @keyframes vp-rist{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-14deg)}20%{transform:rotate(12deg)}30%{transform:rotate(-9deg)}40%{transform:rotate(6deg)}}
+        @keyframes vp-blink{50%{opacity:.35}}
+        .ki.dupp{animation:vp-dupp 2.4s ease-in-out infinite}
+        .noanim *,.noanim *::before{animation:none!important}
+        @media (prefers-reduced-motion: reduce){.wrap *{animation:none!important}}
+        @container (max-width:460px){.tabs:not(.itabs) .tb ha-icon{display:none!important}.tb{padding:0 2px}}
+        @container (max-width:400px){.tb{font-size:12px}}
+        @container (max-width:360px){.kh .ki{display:none!important}}
+        @media (max-width:380px){.top .tl{right:150px}.pumpe{width:140px;height:124px;top:26px}.tv .big{font-size:38px}.ql{font-size:11px}.qi{width:40px;height:40px}}
+      `;
+    }
+  }
+
+  M.POPUP_CARDS = M.POPUP_CARDS || [];
+  if (!M.POPUP_CARDS.includes('msh-varmepumpe-card')) M.POPUP_CARDS.push('msh-varmepumpe-card'); // «Mellomrom» ligger i Visning-fanen
+  // Den gamle importerte #varmepumpe (gap-card, button-cards, grids, simple-tabs, mini-graph-card, ki-varmepumpe-card) erstattes
+  // av ETT msh-varmepumpe-card – til brukeren velger «Bruk egen» (04-strategy). Ingen entiteter skrives inn i config.
+  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
+  M.POPUP_SUPERSEDE[HASH] = { name: 'Varmepumpe', test: (cfg) => { const j = JSON.stringify(cfg || {}); return /custom:ki-varmepumpe-card/.test(j) || /nibe|_4001[34]\b|_40004\b/i.test(j); } };
+  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
+  M.POPUP_EXTRA[HASH] = () => ({ card_id: 'varmepumpe' });
+  // Vilkår (strategi/allPopups): en NIBE-enhet (produsent NIBE, eller nibe_heatpump/myuplink-entiteter)
+  M.popupNeeds = M.popupNeeds || {};
+  M.popupNeeds[HASH] = (hass) => M.varmepumpeHas(hass);
+  M.varmepumpe = { oppdag, ROLES, nibeDevices };
+  M.define('msh-varmepumpe-card', Varmepumpe, 'MSH Varmepumpe', 'Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk.');
+})();
+
+} catch (e) { console.error('[ki-msh] 61-varmepumpe.js', e); }
 
 /* ---- 99-ui-persist.js ---- */
 try {

@@ -45,6 +45,26 @@
   const COMMON = { state: null, is_sidebar_hidden: true, margin_top_mobile: '50px', margin_top_desktop: '50px', card_layout: 'large', button_type: 'name', sub_button: { main: [], bottom: [] }, slider_fill_orientation: 'left', slider_value_position: 'right' };
   M.popupTemplateA = ({ name, icon, hash, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: STYLES_A, bg_blur: '5', shadow_opacity: '20', bg_opacity: '98', ...((M.POPUP_LOOK && M.POPUP_LOOK[hash]) || {}), cards: card ? [card] : [] }); // POPUP_LOOK: eget utseende per hash (#kart = fullskjerm, 51-kart.js)
   M.popupTemplateB = ({ name, icon, hash, color, card }) => ({ type: 'custom:bubble-card', card_type: 'pop-up', name, icon, ...COMMON, hash, styles: stylesB(color || 'var(--orange)'), bg_blur: '20', shadow_opacity: '20', bg_opacity: '88', cards: card ? [card] : [] });
+  /* Fiks 26.18 · mellomrom under Bubble-headeren (ÉN metode, bare her): popupens styles får en merket blokk som trekker
+   * innholdet i popup-containeren opp (standard −10 px) og setter --ki-popup-header-gap. MSH.Card._applySpacing (00-base)
+   * leser variabelen og legger den til pad_top, så msh-kort (som måler seg mot headeren) ikke nuller ut – eller dobler –
+   * effekten. En gap-card med height 0 øverst i cards: fjernes (ga ekstra luft). gap: tall (px), ugyldig → −10.
+   * Metode: containerens padding-top (Bubble Cards egen formel + gap; calc klemmes til ≥ 0). Selektorer mot første kort
+   * («.bubble-pop-up-container > :first-child», «#root > :first-child») virker IKKE i Bubble Card v3: første barn er
+   * <style>, og Bubble legger «:not(.bubble-cards-grid-container, .bubble-cards-grid-container *)» på alle styles-selektorer. */
+  M.HEADER_GAP = -10;
+  const GAP_RX = /\n?\/\* ki-header-gap \*\/[\s\S]*?\/\* \/ki-header-gap \*\/\n?/g;
+  M.headerGapOf = (...vals) => { for (const v of vals) { if (v === undefined || v === null || v === '') continue; const n = Number(v); if (Number.isFinite(n)) return Math.max(-60, Math.min(60, Math.round(n))); } return M.HEADER_GAP; };
+  const zeroGap = (c) => c && typeof c === 'object' && String(c.type || '') === 'custom:gap-card' && (c.height === undefined ? false : parseFloat(c.height) === 0);
+  M.applyHeaderGap = function (p, gap) {
+    if (!isPopup(p)) return p;
+    const g = M.headerGapOf(gap);
+    const out = { ...p };
+    if (Array.isArray(out.cards)) { let i = 0; while (i < out.cards.length && zeroGap(out.cards[i])) i++; if (i) out.cards = out.cards.slice(i); }
+    const st = (typeof out.styles === 'string' ? out.styles : '').replace(GAP_RX, '\n').replace(/\n+$/, '');
+    out.styles = `${st}${st ? '\n' : ''}/* ki-header-gap */\n.bubble-pop-up-container {\n  --vertical-stack-card-gap: 0px !important;\n  --ki-popup-header-gap: ${g}px;\n  padding-top: calc(max(18px, calc(18px + var(--bubble-pop-up-gap, 14px) - var(--bubble-pop-up-header-gap-reserve, 8px))) + ${g}px) !important;\n}\n/* /ki-header-gap */\n`;
+    return out;
+  };
   // Maler for «Ny popup» i «Tilpass Hjem» → Popups (egne popups kan ha vilkårlige kort i cards:)
   M.newPopupTemplate = function (kind, { name, hash, area, hass } = {}) {
     if (kind === 'rom') {
@@ -76,7 +96,8 @@
     ['#tesla', 'Tesla Model Y', 'phu:tesla-icon', 'msh-tesla-card'], // fiks 24.8 – bilscene, hurtigknapper, Lading/Kjøring/Sparing (56-tesla.js); bare med Tesla-entiteter (M.popupNeeds)
     ['#rolf', 'Sir Sweeps', 'mdi:robot-vacuum', 'msh-stovsuger-card'], // fiks 24.9 – støvsuger (57-stovsuger.js), bare når vacuum.* finnes (M.popupNeeds); sub_button via M.POPUP_LOOK/M.POPUP_FORCE['#rolf']
     ['#soppel', 'Søppel', 'mdi:trash-can', 'msh-avfall-card'], // fiks 25.4 – avfallsfraksjoner (days_to_pickup), kalender og varsler (59-avfall.js); erstatter den importerte #soppel (ki-avfall-card)
-    ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – natt-/privatmodus, automasjoner, varsler og strøm (60-innstillinger.js); egen hash ved siden av #settings (dashbordets innstillinger)
+    ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
+    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe
   ];
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
@@ -178,23 +199,29 @@
       return target;
     };
     const res = { created: [], updated: [] };
+    const S0 = (M.store && M.store.get()) || {}, gapFor = (hash) => M.headerGapOf(((S0.popups || {})[hash.slice(1)] || {}).header_gap, S0.popup_header_gap);
     const put = (hash, make, mainTag, extra) => {
-      const cur = existing.get(hash);
+      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #badebasseng) tas over av den nye
+      const alias = () => { for (const h of Object.keys(M.POPUP_ALIAS || {})) { const A = M.POPUP_ALIAS[h], p = existing.get(h); if (A.to === hash && (!A.tag || A.tag === mainTag) && p && (!A.test || A.test(p))) { p.hash = hash; existing.delete(h); existing.set(hash, p); return p; } } return null; };
+      const cur = existing.get(hash) || alias();
       if (cur) {
+        const legacy = M.POPUP_LEGACY_CARD && typeof M.POPUP_LEGACY_CARD[hash] === 'function' ? M.POPUP_LEGACY_CARD[hash](cur, mainTag) : null; // gamle ki-kort → innstillinger i det nye kortet
         const merged = mergeCards(cur.cards, mainTag);
+        if (legacy) Object.keys(legacy).forEach((k) => { if (k !== 'type' && k !== 'card_id' && merged[k] == null) merged[k] = legacy[k]; });
         if (extra) Object.assign(merged, extra(merged));
         cur.cards = [merged];
         const fx = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash](cur) : null; // 23.3: #kart-unntaket også på eksisterende popup
         if (fx) { Object.keys(cur).forEach((k) => { if (!(k in fx)) delete cur[k]; }); Object.assign(cur, fx); }
+        Object.assign(cur, M.applyHeaderGap(cur, gapFor(hash))); // 26.18
         res.updated.push(hash);
       } else {
         const card = { type: 'custom:' + mainTag, card_id: M.uid(), ...(extra ? extra({}) : {}) };
-        ensureTarget().cards.push(make(card));
+        ensureTarget().cards.push(M.applyHeaderGap(make(card), gapFor(hash))); // 26.18
         res.created.push(hash);
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id)).forEach((a) => {
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === '#' + a.id && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });

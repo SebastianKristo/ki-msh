@@ -1,0 +1,4 @@
+[
+  { "name": "Varmepumpe", "hash": "#varmepumpe", "cards": [ { "type": "custom:msh-varmepumpe-card", "card_id": "varmepumpe" } ] },
+  { "name": "Varmepumpe · bare ikon, Varmtvann først, uten KPI/diagnostikk/animasjon", "hash": "#varmepumpe", "cards": [ { "type": "custom:msh-varmepumpe-card", "card_id": "varmepumpe-b", "tab_style": "icon", "button_style": "icon", "tabs": ["vv", "info", "varme", "luft"], "tabs_hidden": ["luft"], "buttons_hidden": ["wifi"], "start_tab": "vv", "kpi": false, "diag": false, "anim": false } ] }
+]

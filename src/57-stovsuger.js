@@ -3,16 +3,18 @@
  * støvsugerens state + batteri (M.POPUP_LOOK/M.POPUP_FORCE['#rolf'] under). Erstatter den importerte #rolf-popupen
  * (ki-robot-card + button-card-grid + ki-tabs-card + paper-buttons-row): «Erstattet av Sir Sweeps» (MSH.POPUP_SUPERSEDE).
  *
- * Innhold i rekkefølge: toppkort 200 px (status-pille, batteri 44 px, animert robot på gulvet – rute ved rengjøring,
- *   hjem ved retur, lyn i dokken ved lading) · varsel «Vanntanken er tom» (rød, bare når tank = on, med «Tøm») ·
- *   faner (Renhold · Kontroll · Info · Kart, MSH.iconTabs, Liquid Glass-drag) + tannhjul (→ «Tilpass») ·
- *   Renhold: romgrid (plass 1–2 store 2×2, 3–5 nederst; farge per rom, trykk velger, Velg alle/Fjern alle, sum m² og
- *     estimert tid) → stor grønn «Støvsug alt/valgte rom», pause/fortsett + hjem når aktiv · Soner (vannrette chips,
- *     touch-action pan-x + stopPropagation).
+ * Innhold i rekkefølge (fiks 26.11): toppkort 200 px (navn 15 px, status-chip med ikon, batteri 44 px + «batteri» +
+ *   tynn grønn stolpe; kartflis til høyre med tregulv, lilla sone og animert robot – rute ved rengjøring, hjem ved retur,
+ *   lyn i dokken ved lading) · varsel «Vanntanken er tom» (rød, bare når tank = on, med «Tøm») ·
+ *   faner (Renhold · Kontroll · Info · Kart, tekst og like brede i full bredde som standard, Liquid Glass-drag) + tannhjul ·
+ *   Renhold: ETT romkort (etasje + «Velg alle», fargetonede fliser 2 + 3 (1fr 2fr 1fr), «Alle rom · m² · ca min» – tall
+ *     bare når areal/tid finnes) → grønn «Støvsug alt / Støvsug N rom»-pill, pause/fortsett + hjem når aktiv · Soner
+ *     (vannrette piller 52 px, touch-action pan-x + stopPropagation).
  *   Kontroll: fremdrift %/min igjen, play/pause, «Returner hjem», «Tøm støvsuger», segmenter for vifte/moppmodus/-intensitet.
  *   Info: vasket totalt (m², ÷ 7140 = fotballbaner) / tid brukt (dager + timer) · vedlikehold (timer igjen per del,
  *     oransje + «Nullstill» ≤ 30 t → button.*_nullstill_* / *_reset_*).
- *   Kart: image.*-entiteten (3:4) + romforklaring (trykk velger rom).
+ *   Kart: image.*-entiteten (3:4) med pan/pinch/dobbelttrykk/hjul-zoom 1–4× (Pointer Events, fiks 26.12) + «Tilbakestill
+ *     visning», rom-lag fra kartets attributter (trykk uten drag velger) + romforklaring.
  * «Tilpass» (msh-editor, samme skjema som GUI-editoren, MSH.draftEditor/Ferdig): Rom · Faner · Entiteter · Avansert.
  *
  * Standard-entitetene (DEF_ENT/DEF_ROOMS/DEF_ZONES) er brukerens faktiske oppsett fra dagens #rolf-YAML – brukt i
@@ -109,10 +111,10 @@
   // Robotens egne segmenter: attributtet rooms/segments ({kart: [{id,name}]}, [{id,name}] eller {id: navn})
   function segsOf(st) {
     const a = (st && st.attributes) || {}, out = [];
-    const push = (id, name) => { if (id == null || id === '') return; if (!out.some((x) => String(x.id) === String(id))) out.push({ id, name: String(name || 'Rom ' + id) }); };
+    const push = (id, name, x) => { if (id == null || id === '') return; if (!out.some((o) => String(o.id) === String(id))) out.push({ id, name: String(name || 'Rom ' + id), attrs: x && typeof x === 'object' ? x : null }); };
     const walk = (v) => {
-      if (Array.isArray(v)) v.forEach((x) => { if (x && typeof x === 'object') push(x.id != null ? x.id : x.segment_id, x.name || x.room_name); });
-      else if (v && typeof v === 'object') Object.keys(v).forEach((k) => { const x = v[k]; if (Array.isArray(x)) walk(x); else if (typeof x === 'string') push(k, x); else if (x && typeof x === 'object' && (x.name || x.id != null)) push(x.id != null ? x.id : k, x.name); });
+      if (Array.isArray(v)) v.forEach((x) => { if (x && typeof x === 'object') push(x.id != null ? x.id : x.segment_id, x.name || x.room_name, x); });
+      else if (v && typeof v === 'object') Object.keys(v).forEach((k) => { const x = v[k]; if (Array.isArray(x)) walk(x); else if (typeof x === 'string') push(k, x); else if (x && typeof x === 'object' && (x.name || x.id != null)) push(x.id != null ? x.id : k, x.name, x); });
     };
     walk(a.rooms || a.segments || null);
     return out;
@@ -130,11 +132,17 @@
         const k = id.slice(pre.length), d = DEF_ROOMS.find((r) => r[0] === k);
         out.set(k, { key: k, entity: id, name: d ? d[1] : stripName(h, id, vac), icon: d ? d[2] : 'mdi:floor-plan' });
       });
-      segsOf(h.states[vac]).forEach((s) => { const k = 'seg_' + M.slug(String(s.id)); if (!out.has(k)) out.set(k, { key: k, segment: s.id, name: s.name, icon: 'mdi:floor-plan' }); });
+      segsOf(h.states[vac]).forEach((s) => { const k = 'seg_' + M.slug(String(s.id)); if (!out.has(k)) out.set(k, { key: k, segment: s.id, name: s.name, icon: 'mdi:floor-plan', attrs: s.attrs }); });
     }
     Object.keys(cfg).forEach((k) => { const r = cfg[k]; if (!r || typeof r !== 'object' || out.has(k) || !(r.manual || r.entity || r.segment != null)) return; out.set(k, { key: k, entity: r.entity || null, segment: r.segment != null && r.segment !== '' ? r.segment : null, name: r.name || k, icon: 'mdi:floor-plan', manual: true }); });
     let i = 0;
-    const L = [...out.values()].map((r) => { const x = cfg[r.key] || {}; const col = x.color || PAL[i % PAL.length]; i++; return { ...r, name: x.name || r.name, icon: x.icon || r.icon, color: col, hidden: !!x.hidden, m2: num(x.m2) }; });
+    // Fiks 26.11: areal og tid fra rom-attributtene (rom-entiteten eller robotens segment); config.m2 overstyrer arealet
+    const L = [...out.values()].map((r) => {
+      const x = cfg[r.key] || {}; const col = x.color || PAL[i % PAL.length]; i++;
+      const at = (r.entity && h && h.states[r.entity] ? h.states[r.entity].attributes : r.attrs) || {};
+      const pickA = (keys) => { for (const k of keys) { const v = num(at[k]); if (v != null && v > 0) return v; } return null; };
+      return { ...r, name: x.name || r.name, icon: x.icon || r.icon, color: col, hidden: !!x.hidden, m2: num(x.m2) || pickA(['m2', 'area', 'areal', 'size']), min: pickA(['minutes', 'time', 'duration', 'tid', 'estimated_time']) };
+    });
     return orderBy(L, c.room_order);
   }
   function zonesOf(h, c) {
@@ -168,15 +176,15 @@
   const ACTIVE = ['cleaning', 'paused', 'returning'];
 
   /* ------------------------------------------------------------ robot-scenen (toppkortet) */
-  const ROUTE = 'M92 150 H214 V126 H92 V102 H214 V78 H92 V54 H214 V32 H92';
-  const HOME = 'M180 80 C150 96 110 120 92 162';
-  const DOCK = [92, 168];
+  // Fiks 26.11: gulvet fyller hele kartflaten (viewBox 60 0 184 200), dokken nede til venstre, sonen som lilla ellipse
+  const ROUTE = 'M84 158 H228 V132 H84 V106 H228 V80 H84 V54 H228 V28 H84';
+  const HOME = 'M196 92 C166 112 112 142 84 168';
+  const DOCK = [84, 184];
   function scene(mode, charging, animOff) {
-    const floor = `<defs><pattern id="pl" width="40" height="12" patternUnits="userSpaceOnUse"><rect width="40" height="12" fill="#4a3f36"/><path d="M0 11.5H40M22 0V12" stroke="#3d332b" stroke-width="1"/></pattern>
+    const floor = `<defs><pattern id="pl" width="44" height="12" patternUnits="userSpaceOnUse"><rect width="44" height="12" fill="#5a4636"/><path d="M0 11.5H44M26 0V12" stroke="#4a3a2d" stroke-width="1"/><path d="M0 5H18" stroke="#63503f" stroke-width=".6" opacity=".6"/></pattern>
         <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs>
-      <rect x="72" y="14" width="160" height="176" rx="14" fill="url(#pl)"/>
-      <ellipse cx="170" cy="120" rx="34" ry="22" fill="#5f5a6e" opacity=".55"/>
-      <rect x="72" y="14" width="160" height="176" rx="14" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/>
+      <rect x="60" y="0" width="184" height="200" fill="url(#pl)"/>
+      <ellipse class="zone" cx="176" cy="92" rx="40" ry="26"/>
       <g class="dock"><rect x="${DOCK[0] - 12}" y="${DOCK[1] - 6}" width="24" height="20" rx="5" fill="#2a3038"/><rect x="${DOCK[0] - 7}" y="${DOCK[1] - 2}" width="14" height="3.5" rx="1.75" class="dl ${charging ? 'on' : ''}"/></g>`;
     const bot = (inner) => `<g class="bot ${mode}">${inner}<circle r="11" fill="url(#rg)"/><circle r="11" fill="none" stroke="#b8bec6" stroke-width=".8"/><path d="M6.5 -8.5 A11 11 0 0 1 6.5 8.5" fill="none" stroke="#2a3038" stroke-width="2.4"/><circle cx="-2" r="3.4" fill="#2a3038"/><circle cx="-2" r="1.4" class="led"/>${mode === 'error' ? '<circle r="15" class="err"/>' : ''}</g>`;
     let trail = '', robot = '';
@@ -185,19 +193,45 @@
       robot = bot(`<animateMotion dur="36s" repeatCount="indefinite" rotate="auto" path="${ROUTE}"/>`);
     } else if (mode === 'cleaning' || mode === 'paused') {
       trail = `<path class="trail" d="${ROUTE}" pathLength="100" stroke-dasharray="100" stroke-dashoffset="52"/>`;
-      robot = `<g transform="translate(214 90) rotate(90)">${bot('')}</g>`;
+      robot = `<g transform="translate(228 93) rotate(90)">${bot('')}</g>`;
     } else if (mode === 'returning' && !animOff) {
       trail = `<path class="homep" d="${HOME}"/>`;
       robot = bot(`<animateMotion dur="5s" repeatCount="indefinite" rotate="auto" path="${HOME}"/>`);
     } else if (mode === 'returning') {
       trail = `<path class="homep" d="${HOME}"/>`;
-      robot = `<g transform="translate(130 112)">${bot('')}</g>`;
+      robot = `<g transform="translate(130 126)">${bot('')}</g>`;
     } else {
       robot = `<g transform="translate(${DOCK[0]} ${DOCK[1] - 14}) rotate(-90)">${bot('')}</g>`;
     }
-    const bolt = charging ? `<g class="bolt" transform="translate(${DOCK[0] + 20} ${DOCK[1] - 30})"><circle r="10" fill="rgba(102,209,158,.22)"/><path d="M1.5 -7 L-4.5 1 H-0.5 L-1.5 7 L4.5 -1 H0.5 Z" fill="${C.green}"/></g>` : '';
-    return `<svg class="scene" viewBox="60 0 184 200" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">${floor}${trail}${robot}${bolt}</svg>`;
+    const bolt = charging ? `<g class="bolt" transform="translate(${DOCK[0] + 22} ${DOCK[1] - 28})"><circle r="10" fill="rgba(102,209,158,.22)"/><path d="M1.5 -7 L-4.5 1 H-0.5 L-1.5 7 L4.5 -1 H0.5 Z" fill="${C.green}"/></g>` : '';
+    return `<svg class="scene" viewBox="60 0 184 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${floor}${trail}${robot}${bolt}</svg>`;
   }
+
+  // Fiks 26.12: rom i kartbildet (Xiaomi Cloud Map Extractor-formatet: attributes.rooms {id: {x0,y0,x1,y1}} +
+  // calibration_points [{vacuum:{x,y}, map:{x,y}} ×3]) → rektangler i bildets piksler, koblet til rommene (segment/navn).
+  function mapRooms(st, rooms) {
+    const a = (st && st.attributes) || {}, cp = a.calibration_points, R = a.rooms;
+    if (!Array.isArray(cp) || cp.length < 3 || !R || typeof R !== 'object') return [];
+    const P = cp.slice(0, 3).map((p) => p && p.vacuum && p.map ? [Number(p.vacuum.x), Number(p.vacuum.y), Number(p.map.x), Number(p.map.y)] : null);
+    if (P.some((p) => !p || p.some((v) => isNaN(v)))) return [];
+    const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const A = P.map((p) => [p[0], p[1], 1]), D = det(A);
+    if (!D) return [];
+    const solve = (col) => [0, 1, 2].map((i) => det(A.map((row, r) => row.map((v, j) => (j === i ? P[r][col] : v)))) / D);
+    const fx = solve(2), fy = solve(3), tr = (x, y) => [fx[0] * x + fx[1] * y + fx[2], fy[0] * x + fy[1] * y + fy[2]];
+    const list = Array.isArray(R) ? R.map((r) => [r && (r.id != null ? r.id : r.number), r]) : Object.keys(R).map((k) => [k, R[k]]);
+    const out = [];
+    list.forEach(([id, r]) => {
+      if (!r || [r.x0, r.y0, r.x1, r.y1].some((v) => isNaN(Number(v)))) return;
+      const nm = String(r.name || '').toLowerCase();
+      const room = rooms.find((x) => x.segment != null && String(x.segment) === String(id)) || (nm && rooms.find((x) => x.name.toLowerCase() === nm));
+      if (!room) return;
+      const a0 = tr(Number(r.x0), Number(r.y0)), a1 = tr(Number(r.x1), Number(r.y1));
+      out.push({ room, x: Math.min(a0[0], a1[0]), y: Math.min(a0[1], a1[1]), w: Math.abs(a1[0] - a0[0]), h: Math.abs(a1[1] - a0[1]) });
+    });
+    return out;
+  }
+  const MAPWH = new Map(); // bildestørrelse per kart-URL (for rom-lag i bildets piksler)
 
   /* ------------------------------------------------------------ editor (Tilpass + GUI-editoren) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
@@ -308,7 +342,7 @@
     // Faner: forhåndsvisning + piller med dra, ikon, navn, «N deler», pil (innhold) og øye
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
-      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels === 'name';
+      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels !== 'icon';
       const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#282828;overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:#2a1720;font-weight:500` : 'color:#afafaf'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a;flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
       return box(prev + tabOrder(cc).map((k) => {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k;
@@ -352,7 +386,7 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [faner] },
-          { type: 'select', name: 'tab_labels', label: 'Stil', options: [['icon', 'Symboler'], ['name', 'Navn']], default: 'icon', help: 'Symboler: bare ikon, den aktive fanen viser også navnet. Navn: bare tekst.' },
+          { type: 'select', name: 'tab_labels', label: 'Stil', options: [['name', 'Tekst'], ['icon', 'Symboler']], default: 'name', help: 'Tekst (standard): like brede tekstfaner i full bredde. Symboler: bare ikon, den aktive fanen viser også navnet.' },
           { type: 'select', name: 'startTab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'renhold' },
         ] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:link-variant', focus: ['entiteter', ...groups.map((g) => 'ent-' + M.slug(g))], fields: entFields },
@@ -403,9 +437,11 @@
       const rooms = roomsOf(h, c, E.vacuum), vis = rooms.filter((r) => !r.hidden);
       const sel = vis.filter((r) => this._isSel(r));
       const areaMin = minutesOf(this.s(E.time)), areaTot = num(this.s(E.area) && this.s(E.area).state);
-      const rate = areaMin && areaTot ? areaMin / areaTot : 1.2; // min per m²: robotens egen snittfart, ellers 1,2
-      const pick = sel.length ? sel : vis, m2 = pick.reduce((s, r) => s + (r.m2 || 0), 0);
-      return { h, c, E, vs, state, bat, charging, tank: !!(tank && tank.state === 'on'), rooms: vis, sel, m2: m2 || null, est: m2 ? Math.round(m2 * rate) : null, active: ACTIVE.includes(state) };
+      const rate = areaMin && areaTot ? areaMin / areaTot : null; // min per m²: robotens egen snittfart (ingen gjettet standard)
+      // Fiks 26.11: sum for valgte rom (ellers alle); mangler areal/tid for et rom skjules tallet – aldri «– m²»
+      const pick = sel.length ? sel : vis, m2 = pick.length && pick.every((r) => r.m2) ? pick.reduce((s, r) => s + r.m2, 0) : null;
+      const est = pick.length && pick.every((r) => r.min) ? Math.round(pick.reduce((s, r) => s + r.min, 0)) : m2 && rate ? Math.round(m2 * rate) : null;
+      return { h, c, E, vs, state, bat, charging, tank: !!(tank && tank.state === 'on'), rooms: vis, sel, m2, est, active: ACTIVE.includes(state) };
     }
     _isSel(r) { if (r.entity) { const s = this.s(r.entity); return !!(s && M.isOn(s)); } return !!(this.ui.sel || {})[r.key]; }
     _progress(m) {
@@ -452,6 +488,7 @@
         case 'fanscript': return this._run(h, E.fan_script);
         case 'opt': return M.call(h, d.id.split('.')[0], 'select_option', { entity_id: d.id, option: d.v });
         case 'reset': return M.call(h, 'button', 'press', { entity_id: d.id });
+        case 'mapreset': return this._mapReset(true);
         default: return super.onAction(name, el, ev);
       }
     }
@@ -459,10 +496,11 @@
     /* ---------------------------------------------------------- tegning */
     render() {
       const m = this._model(), c = m.c, t = this.tab;
-      const V = visTabs(c), names = c.tab_labels === 'name';
+      // Fiks 26.11: tekstfaner som standard, like brede i full bredde (grid); den rosa boblen er den aktive fanen selv
+      const V = visTabs(c), names = c.tab_labels !== 'icon';
       const tabs = `<div class="tabs ${names ? 'names' : 'itabs'}" role="tablist" data-glass-drag="x">${V.map((k) => {
         const [, label, icon] = TABL[k];
-        return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
+        return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" aria-label="${esc(label)}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
           : M.iconTabs.btn({ label, icon }, k === t, `data-act="tab" data-v="${k}" data-haptic="selection"`, k === t ? 'on' : '');
       }).join('')}</div>`;
       let body;
@@ -471,20 +509,27 @@
     }
     _parts(t) { const hid = partHidden(this.config, t); return PARTS[t].map((p) => p[0]).filter((p) => !hid.has(p)); }
     _missing(text, section) { return `<div class="miss"><span class="mdash">–</span><span>·</span><button class="pick press" data-act="customize" data-section="${esc(section || 'ent-robot_og_status')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
+    // Fiks 26.11: mørk flate med svak radial glød · navn 15 px + status-chip med ikon · batteri 44 px, «batteri» og tynn
+    // grønn stolpe · kartet til høyre (kortets høyde − 12 px) med tregulv, sonen som lilla ellipse og roboten ved dokken.
     _hero(m) {
       const mode = !m.vs ? 'none' : m.state === 'error' ? 'error' : ['cleaning', 'paused', 'returning'].includes(m.state) ? m.state : 'docked';
-      const label = !m.vs ? '–' : m.state === 'docked' && m.charging ? 'Lader' : STATUS[m.state] || m.vs.state;
+      const [label, ic] = !m.vs ? ['–', 'mdi:help-circle-outline'] : m.state === 'docked' ? (m.charging ? ['Lader i dokken', 'mdi:battery-charging'] : ['I dokken', 'mdi:home-outline'])
+        : m.state === 'cleaning' ? ['Rengjør', 'mdi:broom'] : m.state === 'returning' ? ['På vei hjem', 'mdi:home-import-outline'] : m.state === 'paused' ? ['Pauset', 'mdi:pause']
+          : m.state === 'error' ? [m.vs.attributes.error ? 'Feil · ' + m.vs.attributes.error : 'Feil', 'mdi:alert-circle-outline'] : [STATUS[m.state] || m.vs.state, 'mdi:robot-vacuum'];
       const name = this.config.name || (m.vs ? M.name(this.hass, m.E.vacuum) : 'Støvsuger');
-      const sub = !m.vs ? 'Velg støvsuger' : m.state === 'error' && m.vs.attributes.error ? String(m.vs.attributes.error) : m.vs.attributes.fan_speed ? 'Vifte ' + m.vs.attributes.fan_speed : '';
-      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray800,#afafaf)';
+      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray900,#c7c7c7)';
       const animOff = M.animOff ? M.animOff() : false;
       return `<div class="hero ${mode}" data-key="hero">
-        ${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}
+        <div class="scw">${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
         <div class="hl">
-          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}><i></i>${esc(label)}</span>
-          <div class="bat" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span>${m.charging ? M.icon('mdi:lightning-bolt', 20, `color:${C.green}`) : ''}</div>
-          <span class="hn">${esc(name)}${sub ? ` · <span>${esc(sub)}</span>` : ''}</span>
+          <span class="hn">${esc(name)}</span>
+          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
           ${!m.vs ? `<button class="pick press" data-act="customize" data-section="ent-robot_og_status">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
+          <div class="batw" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}>
+            <div class="bat"><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span></div>
+            <span class="bl">batteri</span>
+            <span class="bbar"><i style="width:${m.bat != null ? M.clamp(m.bat, 0, 100) : 0}%"></i></span>
+          </div>
         </div></div>`;
     }
     _tank(m) {
@@ -499,36 +544,47 @@
     }
 
     /* ---------------------------------------------------------- Renhold */
+    // Fiks 26.11: rommene i ETT kort (etasjenavn + «Velg alle» som tekstknapp), fargetonede fliser i 2 + 3-rutenett
+    // (1fr 2fr 1fr), sum nederst · grønn «Støvsug alt»-pill med to linjer · Soner som vannrett rad med piller.
+    _roomRows(n) {
+      // Plass i et 4-kolonners rutenett: rad 1 = 2 store (2+2), deretter rader med 3 (1+2+1); rest fyller raden
+      if (n <= 1) return [4];
+      const spans = [2, 2];
+      let left = n - 2;
+      while (left > 0) { if (left >= 3) { spans.push(1, 2, 1); left -= 3; } else if (left === 2) { spans.push(2, 2); left = 0; } else { spans.push(4); left = 0; } }
+      return spans;
+    }
+    _sumText(m) { const p = []; if (m.m2) p.push(M.nf(m.m2) + ' m²'); if (m.est) p.push('ca ' + m.est + ' min'); return p; }
+    _allLbl(m) { const as = this.s(m.E.all); return as ? String(as.state) === 'False' || as.state === 'off' : !m.sel.length || m.sel.length === m.rooms.length; }
     _t_renhold(m) {
       const P = this._parts('renhold'), c = m.c, out = [];
       if (!m.vs) out.push(this._missing('Fant ingen vacuum.*-entitet'));
+      const allLbl = this._allLbl(m), n = m.sel.length, sum = this._sumText(m);
       if (P.includes('rom')) {
         if (!m.rooms.length) out.push(`<div class="miss"><span>Ingen rom</span><span>·</span><button class="pick press" data-act="customize" data-section="rom-liste">${M.icon('mdi:plus', 18)}Legg til rom</button></div>`);
         else {
-          const all = m.sel.length === m.rooms.length;
+          const all = m.sel.length === m.rooms.length, spans = this._roomRows(m.rooms.length);
           const tiles = m.rooms.map((r, i) => {
             const on = this._isSel(r), big = i < 2 && m.rooms.length > 1;
-            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
-              <span class="ri">${M.icon(r.icon, big ? 26 : 20)}</span><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}<span class="rc">${on ? M.icon('mdi:check', 16) : ''}</span></button>`;
+            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
+              <span class="ri">${M.icon(r.icon, 18)}</span><span class="rtx"><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}</span></button>`;
           }).join('');
-          const n = m.sel.length;
-          out.push(`<div class="sh"><span class="st">${esc(c.floor || 'Rom')}</span><button class="lnk press" data-act="selall">${all ? 'Fjern alle' : 'Velg alle'}</button></div>
+          const lead = allLbl || !n ? 'Alle rom' : `${n} rom`;
+          out.push(`<div class="rcard"><div class="rch"><span class="rct">${esc(c.floor || 'Rom')}</span><button class="lnk press" data-act="selall">${all ? 'Fjern alle' : 'Velg alle'}</button></div>
             <div class="rgrid">${tiles}</div>
-            <div class="sum"><span>${n ? `${n} rom valgt` : 'Ingen valgt – hele etasjen'}</span><span class="num">${m.m2 ? M.nf(m.m2) + ' m²' : '– m²'}</span><span class="num">${m.est ? 'ca. ' + m.est + ' min' : '– min'}</span></div>`);
+            <div class="sum num">${esc([lead, ...sum].join(' · '))}</div></div>`);
         }
       }
       if (P.includes('start')) {
         if (m.active) out.push(this._activeBtns(m));
         else {
-          const as = this.s(m.E.all);
-          const allLbl = as ? String(as.state) === 'False' || as.state === 'off' : !m.sel.length || m.sel.length === m.rooms.length;
-          const lbl = this.ui.armed ? 'Trykk igjen for å starte' : allLbl ? 'Støvsug alt' : 'Støvsug valgte rom';
-          out.push(`<button class="gobtn press ${this.ui.armed ? 'armed' : ''}" data-act="start" ${m.vs ? '' : 'disabled'} data-haptic="medium">${M.icon('mdi:robot-vacuum', 26)}<span>${esc(lbl)}</span></button>`);
+          const lbl = this.ui.armed ? 'Trykk igjen for å starte' : allLbl || !n ? 'Støvsug alt' : `Støvsug ${n} rom`;
+          out.push(`<button class="gobtn press ${this.ui.armed ? 'armed' : ''}" data-act="start" ${m.vs ? '' : 'disabled'} data-haptic="medium"><span class="gi">${M.icon('mdi:robot-vacuum', 24)}</span><span class="gt"><b>${esc(lbl)}</b>${sum.length ? `<span class="num">${esc(sum.join(' · '))}</span>` : ''}</span></button>`);
         }
       }
       if (P.includes('soner')) {
         const Z = zonesOf(this.hass, c).filter((z) => !z.hidden);
-        if (Z.length) out.push(`<div class="sh"><span class="st">Soner</span><span class="meta">${Z.length}</span></div><div class="zones" data-gd-skip>${Z.map((z) => `<button class="zc press" data-act="zone" data-id="${esc(z.entity)}" data-ent="${esc(z.entity)}">${M.icon('mdi:selection-marker', 18)}${esc(z.name)}</button>`).join('')}</div>`);
+        if (Z.length) out.push(`<div class="sh"><span class="st">Soner</span></div><div class="zones" data-gd-skip>${Z.map((z) => `<button class="zc press" data-act="zone" data-id="${esc(z.entity)}" data-ent="${esc(z.entity)}">${M.icon('mdi:selection-marker', 20)}<span>${esc(z.name)}</span></button>`).join('')}</div>`);
       }
       return out.join('');
     }
@@ -590,15 +646,125 @@
     }
 
     /* ---------------------------------------------------------- Kart */
+    // Fiks 26.12: kartflaten kan panoreres (én finger/mus), pinch-zoomes (to fingre), dobbelttrykkes (zoom inn /
+    // tilbakestill) og hjul-zoomes (PC), 1–4×. Transformen ligger i this._mv og tegnes inn i markupen, så hass-
+    // oppdateringer (morph) aldri nullstiller den. Rom i kartet (rom-lag fra kartets attributter) velges med trykk uten drag.
     _t_kart(m) {
       const P = this._parts('kart'), out = [];
       if (P.includes('kart')) {
         const s = this.s(m.E.map), pic = s && s.attributes.entity_picture;
-        const src = pic ? (this.hass.hassUrl ? this.hass.hassUrl(pic) : pic) : '';
-        out.push(src ? `<div class="map" data-ent="${esc(m.E.map)}"><img src="${esc(src)}" alt="${esc(M.name(this.hass, m.E.map))}" loading="lazy"></div>` : this._missing(m.E.map ? 'Kartet er ikke tilgjengelig' : 'Fant ikke noe kart (image.*)'));
+        const src = pic ? (this.hass.hassUrl && !/^(https?:|data:|blob:)/.test(pic) ? this.hass.hassUrl(pic) : pic) : '';
+        if (!src) out.push(this._missing(m.E.map ? 'Kartet er ikke tilgjengelig' : 'Fant ikke noe kart (image.*)'));
+        else {
+          const ov = mapRooms(s, m.rooms), wh = ov.length ? this._mapWH(src) : null;
+          const T = this._mv || { s: 1, x: 0, y: 0 }, zoomed = T.s > 1.01 || Math.abs(T.x) > 0.5 || Math.abs(T.y) > 0.5;
+          const alt = esc(M.name(this.hass, m.E.map));
+          const inner = wh ? `<svg class="mimg" viewBox="0 0 ${wh[0]} ${wh[1]}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${alt}"><image href="${esc(src)}" width="${wh[0]}" height="${wh[1]}"/>${ov.map((o) => `<rect class="mr ${this._isSel(o.room) ? 'on' : ''}" data-mroom data-k="${esc(o.room.key)}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" width="${o.w.toFixed(1)}" height="${o.h.toFixed(1)}" rx="3" style="--rc:${esc(o.room.color)}"><title>${esc(o.room.name)}</title></rect>`).join('')}</svg>`
+            : `<img src="${esc(src)}" alt="${alt}" draggable="false">`;
+          out.push(`<div class="map" data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
+            <button class="mreset press ${zoomed ? '' : 'hid'}" data-act="mapreset" aria-label="Tilbakestill visning" title="Tilbakestill visning" data-haptic="medium">${M.icon('mdi:fit-to-screen', 22)}</button></div>`);
+        }
       }
       if (P.includes('forklaring') && m.rooms.length) out.push(`<div class="legend">${m.rooms.map((r) => { const on = this._isSel(r); return `<button class="lg press ${on ? 'on' : ''}" style="--rc:${esc(r.color)}" data-act="maproom" data-k="${esc(r.key)}" role="checkbox" aria-checked="${on}" data-haptic="selection"><i></i>${esc(r.name)}</button>`; }).join('')}</div>`);
       return out.join('');
+    }
+    // Bildestørrelsen trengs for rom-laget (bildets piksler). Lastes én gang per URL; tegner på nytt når den er kjent.
+    _mapWH(src) {
+      if (MAPWH.has(src)) return MAPWH.get(src);
+      MAPWH.set(src, null);
+      try { const im = new Image(); im.onload = () => { if (im.naturalWidth) { MAPWH.set(src, [im.naturalWidth, im.naturalHeight]); if (this.isConnected) this.update(); } }; im.src = src; } catch (e) { /* */ }
+      return null;
+    }
+    _mapReset(anim) {
+      this._mv = { s: 1, x: 0, y: 0 };
+      const map = this.shadowRoot.querySelector('.map'), inn = map && map.querySelector('.mapin');
+      if (inn) { if (anim && !(M.animOff && M.animOff())) { inn.style.transition = 'transform .25s cubic-bezier(.3,.8,.3,1)'; setTimeout(() => { inn.style.transition = ''; }, 280); } inn.style.transform = 'translate(0px, 0px) scale(1)'; }
+      const rb = map && map.querySelector('.mreset'); if (rb) rb.classList.add('hid');
+    }
+    // Gester på kartflaten (Pointer Events). Idempotent per element; elementet overlever morph (data-key="map").
+    _mapInit(map) {
+      if (!map || map.__mv) return;
+      map.__mv = true;
+      const P = new Map();
+      let g = null, dragged = false, down0 = null, lastTap = null, tapT = 0, raf = 0;
+      const T = () => this._mv || (this._mv = { s: 1, x: 0, y: 0 });
+      const box = () => { const r = map.getBoundingClientRect(), k = map.offsetWidth ? r.width / map.offsetWidth : 1; return { r, k, W: map.offsetWidth, H: map.offsetHeight }; };
+      const loc = (e, b) => ({ x: (e.clientX - b.r.left) / b.k, y: (e.clientY - b.r.top) / b.k });
+      const clampT = (t, b) => { t.s = M.clamp(t.s, 1, 4); t.x = M.clamp(t.x, b.W - b.W * t.s, 0); t.y = M.clamp(t.y, b.H - b.H * t.s, 0); return t; };
+      const apply = () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const t = T(), inn = map.querySelector('.mapin');
+          if (inn) inn.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.s})`;
+          const rb = map.querySelector('.mreset'); if (rb) rb.classList.toggle('hid', !(t.s > 1.01 || Math.abs(t.x) > 0.5 || Math.abs(t.y) > 0.5));
+        });
+      };
+      const zoomAt = (p, s2, b) => { const t = T(); s2 = M.clamp(s2, 1, 4); t.x = p.x - ((p.x - t.x) * s2) / t.s; t.y = p.y - ((p.y - t.y) * s2) / t.s; t.s = s2; clampT(t, b); apply(); };
+      const begin = () => {
+        const b = box(), pts = [...P.values()], t = T();
+        if (pts.length >= 2) { const a = loc(pts[0], b), c = loc(pts[1], b); dragged = true; g = { pinch: true, d0: Math.hypot(a.x - c.x, a.y - c.y) || 1, m0: { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }, t0: { ...t }, b }; }
+        else if (pts.length === 1) g = { p0: loc(pts[0], b), t0: { ...t }, b };
+        else g = null;
+      };
+      const stop = (e) => e.stopPropagation();
+      map.addEventListener('touchstart', stop, { passive: true });
+      map.addEventListener('touchmove', (e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); }, { passive: false });
+      map.addEventListener('pointerdown', (e) => {
+        if (e.target.closest && e.target.closest('.mreset')) return; // knappen får vanlig klikk
+        e.stopPropagation();
+        if (e.pointerType === 'mouse' && e.button) return;
+        try { map.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        if (!P.size) { dragged = false; down0 = { x: e.clientX, y: e.clientY }; }
+        P.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+        begin();
+      });
+      map.addEventListener('pointermove', (e) => {
+        if (!P.has(e.pointerId)) return;
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        P.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+        if (!g) return;
+        const t = T(), b = g.b;
+        if (g.pinch) {
+          const pts = [...P.values()], a = loc(pts[0], b), c = loc(pts[1], b), d = Math.hypot(a.x - c.x, a.y - c.y), mm = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 };
+          const cx = (g.m0.x - g.t0.x) / g.t0.s, cy = (g.m0.y - g.t0.y) / g.t0.s; // kartpunktet under midtpunktet ved start
+          t.s = M.clamp(g.t0.s * (d / g.d0), 1, 4); t.x = mm.x - cx * t.s; t.y = mm.y - cy * t.s;
+        } else {
+          if (!dragged && Math.hypot(e.clientX - down0.x, e.clientY - down0.y) >= 6) dragged = true;
+          if (!dragged) return;
+          const p = loc(e, b); t.x = g.t0.x + (p.x - g.p0.x); t.y = g.t0.y + (p.y - g.p0.y); t.s = g.t0.s;
+        }
+        clampT(t, b); apply();
+      });
+      const end = (e) => {
+        if (!P.has(e.pointerId)) return;
+        e.stopPropagation();
+        P.delete(e.pointerId);
+        if (P.size) { begin(); return; }
+        g = null;
+        if (e.type === 'pointerup' && !dragged) tap(e);
+      };
+      map.addEventListener('pointerup', end);
+      map.addEventListener('pointercancel', end);
+      map.addEventListener('lostpointercapture', (e) => { if (P.has(e.pointerId)) { P.delete(e.pointerId); if (P.size) begin(); else g = null; } });
+      const tap = (e) => {
+        const now = Date.now();
+        if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+          clearTimeout(tapT); lastTap = null;
+          const b = box();
+          if (T().s > 1.01) this._mapReset(true); else zoomAt(loc(e, b), 2, b);
+          M.haptic('medium');
+          return;
+        }
+        lastTap = { t: now, x: e.clientX, y: e.clientY };
+        const R = this.shadowRoot, el = R.elementFromPoint ? R.elementFromPoint(e.clientX, e.clientY) : null, hit = el && el.closest ? el.closest('[data-mroom]') : null;
+        if (!hit) return;
+        const k = hit.dataset.k;
+        clearTimeout(tapT);
+        tapT = setTimeout(() => { if (!this.isConnected) return; M.haptic('selection'); this.onAction('maproom', { dataset: { k } }); }, 260); // venter på et mulig dobbelttrykk
+      };
+      map.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); const b = box(); zoomAt(loc(e, b), T().s * Math.exp(-e.deltaY * 0.0025), b); }, { passive: false });
+      map.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); });
     }
 
     afterRender() {
@@ -606,6 +772,7 @@
       if (M.glassDrag) R.querySelectorAll('.tabs,.seg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
       // Sone-chips: vannrett scroll skal aldri lukke/dra popupen (fallgruve 2)
       const z = R.querySelector('.zones');
+      this._mapInit(R.querySelector('.map'));
       if (z && !z.__vz) { z.__vz = true; const stop = (e) => e.stopPropagation(); ['touchstart', 'touchmove', 'pointerdown', 'pointermove'].forEach((t) => z.addEventListener(t, stop, { passive: true })); }
     }
     get styles() {
@@ -613,8 +780,10 @@
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:linear-gradient(160deg,#3a3a3a 0%,#333036 100%);box-shadow:${C.edge}}
-        .scene{position:absolute;right:0;top:0;height:100%;width:62%;max-width:420px}
+        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),#333333;box-shadow:${C.edge}}
+        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+        .scene{display:block;width:100%;height:100%}
+        .zone{fill:${C.purple};fill-opacity:.32;stroke:${C.purple};stroke-opacity:.7;stroke-width:1.2;stroke-dasharray:4 3}
         .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
         .homep{fill:none;stroke:rgba(242,181,115,.55);stroke-width:2;stroke-dasharray:4 5}
         .led{fill:${C.blue}}
@@ -626,55 +795,63 @@
         @keyframes vpulse{0%,100%{opacity:1}50%{opacity:.35}}
         @keyframes vblink{0%{opacity:1}100%{opacity:0}}
         @media (prefers-reduced-motion: reduce){.dl.on,.bolt,.err{animation:none}}
-        .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px;height:100%;max-width:60%}
-        .spill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:14px;background:color-mix(in srgb, var(--tc) 18%, transparent);color:var(--tc);font-size:13px;font-weight:600;white-space:nowrap}
-        .spill i{width:8px;height:8px;border-radius:4px;background:var(--tc)}
-        .bat{display:flex;align-items:baseline;gap:2px;margin-top:auto}
+        .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:18px 10px 18px 18px;height:100%;width:calc(100% - min(50%,173px) - 6px);box-sizing:border-box;min-width:0}
+        .hn{font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) 16%, rgba(255,255,255,.06));color:var(--tc);font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
+        .spill span{overflow:hidden;text-overflow:ellipsis}
+        .batw{margin-top:auto;display:flex;flex-direction:column;gap:4px;width:100%}
+        .bat{display:flex;align-items:baseline;gap:2px}
         .bv{font-size:44px;font-weight:300;line-height:1}
-        .bu{font-size:20px;color:var(--gray700,#979797);margin-right:4px}
-        .hn{font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .hn span{color:var(--gray700,#979797)}
+        .bu{font-size:20px;color:var(--gray700,#979797)}
+        .bl{font-size:13px;color:var(--gray700,#979797)}
+        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px}
+        .bbar i{display:block;height:100%;border-radius:2px;background:${C.green}}
         .tank{display:flex;align-items:center;gap:12px;padding:6px 8px 6px 6px;border-radius:32px;background:${C.red};color:#2c1411}
         .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(0,0,0,.1);flex:none;animation:vdrip 1.4s ease-in-out infinite}
         @keyframes vdrip{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
         .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tt b{font-size:15px;font-weight:600}.tt span{font-size:12px;opacity:.8}
         .tb{height:40px;padding:0 14px;border-radius:20px;background:rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
         .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs.names{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
         .tabs .itab{color:var(--gray800,#afafaf);background:transparent}
         .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:#2a1720;font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .ntab{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
+        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
         .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);flex:none;box-shadow:${C.edge}}
         .sh{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
         .meta{font-size:13px;color:var(--gray700,#979797);margin-left:auto}
-        .lnk{height:32px;padding:0 12px;border-radius:16px;background:var(--gray200,#3a3a3a);font-size:13px;color:var(--gray900,#c7c7c7)}
-        .rgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:72px;gap:8px}
-        .rt{grid-column:span 2;position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;padding:10px 12px;border-radius:22px;background:var(--gray200,#3a3a3a);text-align:left;min-width:0;overflow:hidden;box-shadow:${C.edge}}
-        .rt.big{grid-column:span 3;grid-row:span 2;border-radius:28px;padding:14px 16px}
-        .rt .ri{position:absolute;top:10px;left:10px;width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:color-mix(in srgb, var(--rc) 22%, transparent);color:var(--rc)}
-        .rt.big .ri{top:14px;left:14px;width:48px;height:48px;border-radius:24px}
-        .rt:not(.big) .ri{position:static;width:26px;height:26px;border-radius:13px;margin-bottom:auto}
-        .rn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .rt.big .rn{font-size:17px}
-        .rm{font-size:11px;color:var(--gray700,#979797)}
-        .rc{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:11px;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25)}
-        .rt.on{background:var(--rc);color:#232323}
-        .rt.on .ri{background:rgba(0,0,0,.12);color:#232323}
-        .rt.on .rm{color:rgba(0,0,0,.6)}
-        .rt.on .rc{background:#232323;color:#fafafa;box-shadow:none}
-        .sum{display:flex;gap:12px;padding:0 6px;font-size:13px;color:var(--gray800,#afafaf)}
-        .sum span:first-child{flex:1}
-        .gobtn{display:flex;align-items:center;justify-content:center;gap:10px;height:64px;border-radius:32px;background:${C.green};color:#12291d;font-size:17px;font-weight:600}
+        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .rch{display:flex;align-items:center;gap:8px;padding:0 4px;min-height:32px}
+        .rct{flex:1;min-width:0;font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(84px,auto);gap:8px}
+        .rt{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px;border-radius:20px;text-align:left;min-width:0;overflow:hidden;
+          background:color-mix(in srgb, var(--rc) 25%, #3a3a3a);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
+        .rt.big{min-height:104px}
+        .rt .ri{display:grid;place-items:center;color:var(--rc);height:18px}
+        .rtx{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
+        .rn{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .rm{font-size:12px;color:var(--gray800,#afafaf)}
+        .rt.on{background:color-mix(in srgb, var(--rc) 55%, #3a3a3a);box-shadow:inset 0 0 0 2px #fafafa}
+        .rt.on .ri{color:#fafafa}
+        .rt.on .rm{color:var(--gray900,#c7c7c7)}
+        .sum{padding:0 4px;font-size:13px;color:var(--gray800,#afafaf)}
+        .gobtn{display:flex;align-items:center;gap:12px;height:64px;padding:0 20px 0 8px;border-radius:32px;background:${C.green};color:#12291d;text-align:left}
+        .gobtn .gi{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:#1d3a2b;color:${C.green};flex:none}
+        .gobtn .gt{display:flex;flex-direction:column;gap:1px;min-width:0}
+        .gobtn .gt b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .gobtn .gt span{font-size:13px;opacity:.75}
         .gobtn.armed{background:${C.orange};color:#2d1f0c}
+        .gobtn.armed .gi{background:#3d2a10;color:${C.orange}}
         .gobtn[disabled]{opacity:.4}
         .actrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--gray200,#3a3a3a);font-size:16px;font-weight:600}
         .ab.pz{background:${C.orange};color:#2d1f0c}.ab.go{background:${C.green};color:#12291d}
         .zones{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:2px}
         .zones::-webkit-scrollbar{display:none}
-        .zc{flex:none;height:44px;padding:0 16px 0 12px;border-radius:22px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
         .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:14px}
         .miss .mdash{font-size:22px;color:var(--white,#fafafa)}
         .miss .mt{flex-basis:100%;text-align:center;font-size:12px}
@@ -709,8 +886,14 @@
         .vrow.low .vi{background:color-mix(in srgb, ${C.orange} 22%, transparent);color:${C.orange}}
         .vrow.low .grow .num{color:${C.orange}}.vrow.low .vb i{background:${C.orange}}
         .rs{height:36px;padding:0 14px;border-radius:18px;background:${C.orange};color:#2d1f0c;font-size:13px;font-weight:600;flex:none}
-        .map{border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;display:grid;place-items:center}
-        .map img{width:100%;height:100%;object-fit:contain;display:block}
+        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+        .map:active{cursor:grabbing}
+        .mapin{position:absolute;inset:0;transform-origin:0 0;will-change:transform;display:grid;place-items:center}
+        .mapin img,.mapin .mimg{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
+        .mapin .mimg .mr{pointer-events:auto;fill:var(--rc);fill-opacity:.18;stroke:var(--rc);stroke-opacity:.6;stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:pointer}
+        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2}
+        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s}
+        .mreset.hid{opacity:0;transform:scale(.8);pointer-events:none}
         .legend{display:flex;flex-wrap:wrap;gap:6px}
         .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px}
         .legend .lg i{width:12px;height:12px;border-radius:6px;background:var(--rc)}

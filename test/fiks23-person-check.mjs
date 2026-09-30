@@ -1,4 +1,4 @@
-// Fiks 23.1: person-hurtigarket (Hjemme/Borte · Våken/Sover) – avataren (96, top −48, ring) vises alltid helt, arket
+// Fiks 23.1: person-hurtigarket (Hjemme/Borte · Våken/Sover) – fiks 26.22: åpnes med trykk på personbildet – avataren (96, top −48, ring) vises alltid helt, arket
 // ligger i ki-overlay-root (ingen transform/overflow/contain over seg), innenfor dashbordflaten og ledig flate
 // (--ki-nav-occ-*, 23.3), dekkes ikke av navbaren eller HA-sidebaren; lav skjerm → innholdet under navnet scroller.
 // Enheter: telefon, liggende telefon, Pixel Fold lukket/åpen, PC med HA-sidebar.
@@ -44,6 +44,19 @@ for (const [name, vp, touch, sb] of DEV) {
     return Object.keys(h.states).filter((k) => k.startsWith('person.'));
   }, sb);
   ok(`${name}: fant personer`, persons.length > 0, persons);
+  // Fiks 26.22: trykk på et personbilde i headeren = hurtigarket (snur 22.7), langt trykk = person-popup
+  const tap = await p.evaluate(async () => {
+    const H = deepAll('msh-hjem-header-card').find((e) => e.getBoundingClientRect().width > 0) || deepAll('msh-hjem-header-card')[0];
+    const f = H.shadowRoot.querySelector('.faces .face[data-act="person"]'); if (!f) return null;
+    const log = []; const oo = MSH.openPopup; MSH.openPopup = (x) => log.push(x);
+    f.click(); await new Promise((q) => setTimeout(q, 500));
+    const sheets = H._sheets ? [...H._sheets] : [];
+    const out = { sheet: sheets.length, pop: log.slice(), acts: MSH.hjemPersonActions(H.config) };
+    sheets.forEach((sh) => sh.ov.close()); await new Promise((q) => setTimeout(q, 300));
+    MSH.openPopup = oo;
+    return out;
+  });
+  ok(`${name}: 26.22 trykk på personbilde → hurtigark, langt trykk = person-popup`, !!tap && tap.sheet === 1 && !tap.pop.length && tap.acts.tap === 'quick' && tap.acts.hold === 'popup', tap);
   let first = true;
   for (const pid of persons) {
     const m = await p.evaluate(async (pid) => {

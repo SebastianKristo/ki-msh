@@ -83,7 +83,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `title_size` | Tittel · range | Størrelser |
 | `prose_gap` | Avstand til prosa · range | Størrelser |
 | `hFont` | Tekststørrelse (maks) · range | Størrelser |
-| `hAv` | Bildestørrelse (maks) · range | Størrelser |
+| `hAv` | Bildestørrelse · range | Størrelser |
 | `hBadge` | Merke (ikon-sirkel) · range | Størrelser |
 | `hGap` | Mellom bildene · range | Størrelser |
 | `hTGap` | Mellom tekst og bilder · range | Størrelser |
@@ -730,7 +730,7 @@ Romkort for Hjem: temperatur, fukt, lys, termostat og varsler. Trykk åpner Rom-
 
 ## `msh-basseng-hero-card`
 
-Basseng-hero med vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Første kort i #basseng.
+Toppkortet i msh-basseng-card (innebygd via MSH.HEROES, fiks 26.14): vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Legges ikke som eget kort i popupen.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -743,14 +743,15 @@ Basseng-hero med vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Fø
 
 ## `msh-basseng-card`
 
-Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og spreder. Legg under msh-basseng-hero-card i #basseng.
+Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `area` | Område · area |  |
-| `overrides.{water, ute, pump, heat, cover, light, spr, power, heat_power, ph, klor, target, turnover, pumped, savings, cost, mode, night, winter, heat_loss, solar, spr_duration, klor_calendar}` | bytt entitet |  |
-| `exclude · include.{flagg, personer}` | skjul / legg til |  |
-| `controls · hidden_controls` | rekkefølge/synlighet: light, pump, heat, cover, spr |  |
+| `name` | Navn i toppkortet |  |
+| `overrides.{water, ute, pump, heat, quiet, sock, cover, light, spr, power, heat_power, ph, klor, target, turnover, pumped, savings, cost, mode, night, winter, heat_loss, solar, spr_duration, klor_calendar, klor_last}` | bytt entitet |  |
+| `exclude · include.{hurtig, flagg, personer}` | skjul / legg til |  |
+| `controls · hidden_controls` | rekkefølge/synlighet: light, pump, heat, quiet, sock, cover, spr |  |
 | `tabs · hidden_tabs` | rekkefølge/synlighet: ov, heat, klor, spr |  |
 | `vals.profile` | Driftsprofil | Styring og verdier |
 | `vals.turnovers` | Omsetninger per døgn | Styring og verdier |
@@ -776,53 +777,21 @@ Basseng-popup: kontroller, faner (Oversikt, Varme, Klor, Spreder), klorlogg og s
 | `vals.spr_max` | Maks per døgn | Styring og verdier |
 | `vals.spr_durs` | Varigheter (min) | Styring og verdier |
 | `vals.spr_frost` | Frostvakt · boolean | Styring og verdier |
+| `anim` | Animasjoner (bølger, bobler, vifte og varme) · boolean | Animasjon |
+| `chips` | Statusikoner (pumpe, varme, tak og lys i bildet) · boolean | Animasjon |
 | `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `gap` | 4 / 8 / 18 px | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
-
-## `msh-vanning-hero-card`
-
-Hage-scene med spreder, status, neste vanning og dagens forbruk. Første kort i #vanning.
-
-| Nøkkel | Betydning | Gruppe |
-|---|---|---|
-| `area` | Område · area |  |
-| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
-| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
-| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
-| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
-| `water_price` | Vannpris (kr per m³) · number | Vanning |
-| `rain_hours` | Regnpause (timer) · number | Vanning |
-| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
-| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
-| `group_by` | Grupper soner (area \| none) | Vanning |
 
 ## `msh-vanning-card`
 
-Vanning-popup: kontroller, soner, programmer, forbruk og historikk (OpenSprinkler, valve/switch, kalender, vannmåler). Legg under msh-vanning-hero-card i #vanning.
+Vanning-popup (#vanning), ett kort: hagescene, Nå · Soner · Program · Forbruk (KI Vann) · Historikk. Setter seg opp selv fra KI Vanning, OpenSprinkler og KI Vann.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `area` | Område · area |  |
-| `opensprinkler` | Bruk OpenSprinkler-integrasjonen · boolean |  |
-| `exclude · include.{soner, program, innstillinger}` | skjul / legg til |  |
-| `overrides.{system, rain, skip, reset, calendar, water, moisture, current, power, flow}` | bytt entitet |  |
-| `run_min` | Standard kjøretid per sone (min) · number | Vanning |
-| `flow_rate` | Vannmengde per sone (L/min) · number | Vanning |
-| `water_price` | Vannpris (kr per m³) · number | Vanning |
-| `rain_hours` | Regnpause (timer) · number | Vanning |
-| `dry` | Tørr under (% jordfuktighet) · number | Vanning |
-| `codes` | Vis sonekoder (S01 …) · boolean | Vanning |
-| `group_by` | Grupper soner (area \| none) | Vanning |
-| `tabs · hidden_tabs` | rekkefølge/synlighet: now, zones, prog, use, hist |  |
-| `toasts` | Bekreftelsesmeldinger · boolean | Visning |
-| `gap` | 4 / 8 / 18 px | Visning |
-| `gap` | Mellom seksjonene · range | Mellomrom |
-| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
-| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
 
 ## `msh-klima-hero-card`
 
@@ -1272,7 +1241,7 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `events_limit` | Maks antall hendelser · number | Hendelser |
 | `events_columns` | Kolonner · number | Hendelser |
 | `events_height` | Maks høyde | Hendelser |
-| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.garasje, camera.innkjorsel |  |
+| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.garasje, camera.hage_high, camera.innkjorsel_high, camera.ringeklokke_high |  |
 | `exclude · include.{kameraer}` | skjul / legg til |  |
 | `cameras.inngang.name` | Navn | Inngang |
 | `cameras.inngang.icon` | Ikon · icon | Inngang |
@@ -1314,14 +1283,30 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.garasje.privacy` | Personvern-modus · entity | Garasje |
 | `cameras.garasje.motion` | Bevegelse · entity | Garasje |
 | `cameras.garasje.last_motion` | Siste bevegelse · entity | Garasje |
-| `cameras.innkjorsel.name` | Navn | Innkjørsel |
-| `cameras.innkjorsel.icon` | Ikon · icon | Innkjørsel |
-| `cameras.innkjorsel.light` | Lys · entity | Innkjørsel |
-| `cameras.innkjorsel.siren` | Sirene · entity | Innkjørsel |
-| `cameras.innkjorsel.talk` | Snakk (script/button) · entity | Innkjørsel |
-| `cameras.innkjorsel.privacy` | Personvern-modus · entity | Innkjørsel |
-| `cameras.innkjorsel.motion` | Bevegelse · entity | Innkjørsel |
-| `cameras.innkjorsel.last_motion` | Siste bevegelse · entity | Innkjørsel |
+| `cameras.hage_high.name` | Navn | Hage |
+| `cameras.hage_high.icon` | Ikon · icon | Hage |
+| `cameras.hage_high.light` | Lys · entity | Hage |
+| `cameras.hage_high.siren` | Sirene · entity | Hage |
+| `cameras.hage_high.talk` | Snakk (script/button) · entity | Hage |
+| `cameras.hage_high.privacy` | Personvern-modus · entity | Hage |
+| `cameras.hage_high.motion` | Bevegelse · entity | Hage |
+| `cameras.hage_high.last_motion` | Siste bevegelse · entity | Hage |
+| `cameras.innkjorsel_high.name` | Navn | Innkjørsel |
+| `cameras.innkjorsel_high.icon` | Ikon · icon | Innkjørsel |
+| `cameras.innkjorsel_high.light` | Lys · entity | Innkjørsel |
+| `cameras.innkjorsel_high.siren` | Sirene · entity | Innkjørsel |
+| `cameras.innkjorsel_high.talk` | Snakk (script/button) · entity | Innkjørsel |
+| `cameras.innkjorsel_high.privacy` | Personvern-modus · entity | Innkjørsel |
+| `cameras.innkjorsel_high.motion` | Bevegelse · entity | Innkjørsel |
+| `cameras.innkjorsel_high.last_motion` | Siste bevegelse · entity | Innkjørsel |
+| `cameras.ringeklokke_high.name` | Navn | Ringeklokke |
+| `cameras.ringeklokke_high.icon` | Ikon · icon | Ringeklokke |
+| `cameras.ringeklokke_high.light` | Lys · entity | Ringeklokke |
+| `cameras.ringeklokke_high.siren` | Sirene · entity | Ringeklokke |
+| `cameras.ringeklokke_high.talk` | Snakk (script/button) · entity | Ringeklokke |
+| `cameras.ringeklokke_high.privacy` | Personvern-modus · entity | Ringeklokke |
+| `cameras.ringeklokke_high.motion` | Bevegelse · entity | Ringeklokke |
+| `cameras.ringeklokke_high.last_motion` | Siste bevegelse · entity | Ringeklokke |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
 
@@ -1369,12 +1354,24 @@ Toppkort for #sikkerhet: sensorring, alarmmodus og status. Legges først i popup
 | `sensors.binary_sensor.vindu_soverom.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
 | `sensors.binary_sensor.vindu_soverom.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
 | `sensors.binary_sensor.vindu_soverom.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
-| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
 | `show_ring` | Sensorring · stor ring med alle sensorer · boolean | Visning |
 
 ## `msh-sikkerhet-card`
@@ -1384,6 +1381,7 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `overrides.{alarm}` | bytt entitet |  |
+| `state_entity` | Status-entitet · entity | Status og tekst |
 | `code_for` | Krev kode (alle \| av \| aldri) | Kode |
 | `code_length` | Kodelengde (4 \| 6) | Kode |
 | `exclude · include.{sensorer}` | skjul / legg til |  |
@@ -1423,12 +1421,25 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | `sensors.binary_sensor.vindu_soverom.name` | Navn | Sensorer · navn, type og rom › Soverom · 2 |
 | `sensors.binary_sensor.vindu_soverom.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Soverom · 2 |
 | `sensors.binary_sensor.vindu_soverom.room` | Rom | Sensorer · navn, type og rom › Soverom · 2 |
-| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 2 |
-| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 2 |
+| `sensors.binary_sensor.garasjeport.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.garasjeport.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.garasjeport.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.lock.bod.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.hage_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.innkjorsel_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_motion.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.name` | Navn | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
+| `sensors.binary_sensor.ringeklokke_doorbell.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
+| `unlock_sensor` | Hvem låste opp · entity | Siste hendelser · hvem låste opp |
 | `sections · hidden_sections` | rekkefølge/synlighet: modes, alerts, rooms, log, edit |  |
 | `show_alerts` | Varsler · «Krever oppmerksomhet» øverst · boolean | Visning |
 | `show_log` | Siste hendelser · logg nederst · boolean | Visning |
@@ -1506,9 +1517,10 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `stil` | Stil (klassisk \| scene) |  |
+| `tile_order · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain, moon |  |
 | `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
 | `sections · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
-| `tiles · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain |  |
 | `name` | Stedsnavn | Toppkort |
 | `hero_fx` | Bakgrunnsanimasjon · boolean | Toppkort |
 | `show_extras` | Toppkort side 2 · Andre varsler (sol, måne, UV) · boolean | Toppkort |
@@ -1593,6 +1605,54 @@ Energi-popup (#energi): hus med strømflyt, snarveier, strøm, strømpriser, top
 ## `msh-kalender-card`
 
 Kalender-popup (#kalender): kalendere, hyttebesøk, Sonarr/Radarr/Plex, bursdager, Posten og pakker.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-tesla-card`
+
+Tesla-popup (#tesla): bilscenen, hurtigknapper, Lading, Kjøring og Sparing med «Tilpass Tesla».
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-stovsuger-card`
+
+Støvsuger-popup (#rolf): animert robot, rom, soner, kontroll, vedlikehold og kart.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-server-card`
+
+Server-popup (#server): Nettverk (UniFi Network + Protect), Proxmox VE og Unraid – toppkort med graf, prosalinje, underfaner og seksjoner.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-avfall-card`
+
+Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender og varsler (fiks 25.4).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-innstillinger-card`
+
+Innstillinger-popupen (#settings): natt-/privatmodus, regler fra KI Varslinger og sikkerhet (automasjoner, varsler), strøm fra KI Energi og dashbordets innstillinger (fiks 26.15).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-varmepumpe-card`
+
+Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
