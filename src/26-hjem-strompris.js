@@ -207,7 +207,7 @@
           <div class="lg"><span class="li"><i style="background:${TEAL}"></i>${esc(mainLeg)}</span>${showRef ? `<span class="li"><i class="dash"></i>${esc(P.ref.label)}</span>` : ''}<span class="unit">${P.graphUnit}</span></div>
           <div class="gr">
             <div class="ya num">${yax}</div>
-            <div class="plot" role="img" aria-label="${esc(ML)} per time ${dayL} i ${P.graphUnit}">${svg}${marker}
+            <div class="plot" data-scrub role="img" aria-label="${esc(ML)} per time ${dayL} i ${P.graphUnit}">${svg}${marker}
               ${st && !has && !isToday ? '<span class="tmr-note">Prisene for i morgen kommer ca. kl. 13:00</span>' : ''}
               ${st ? '' : `<button class="pick" data-act="customize" data-section="kilde">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
           </div>
@@ -221,7 +221,35 @@
       if (name === 'day') return this.setUI({ day: el.dataset.d, sel: null }); // haptic light kommer fra _onClick
       return super.onAction(name, el, ev);
     }
+    // 24.3: trykk på kortflaten → #energi. Segmentet (data-glass-drag) og grafen (data-scrub) er egne trykksoner, og en
+    // peker som har flyttet seg > 8 px siden pointerdown er aldri et tap (heller ikke på flaten rundt). Lytterne ligger i
+    // capture-fasen på shadow root, så de ser bevegelsen selv om glassDrag/guardDrag stopper hendelsen lenger inne.
+    _tapInit() {
+      if (this.__tapInit) return;
+      this.__tapInit = true;
+      const R = this.shadowRoot, ZONE = '[data-glass-drag],[data-scrub],[data-no-card-tap]';
+      const inZone = (e, sel) => (e.composedPath ? e.composedPath() : [e.target]).some((n) => n === R ? false : n.matches && n.matches(sel));
+      R.addEventListener('pointerdown', (e) => {
+        this._tp = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, zone: inZone(e, ZONE) };
+        if (this._tp.zone) this._cancelHold(); // hold i segmentet/grafen åpner aldri popupen
+      }, true);
+      R.addEventListener('pointermove', (e) => {
+        const t = this._tp;
+        if (!t || t.moved || e.pointerId !== t.id) return;
+        if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 8) { t.moved = true; this._cancelHold(); }
+      }, true);
+      R.addEventListener('click', (e) => {
+        const t = this._tp;
+        this._tp = null;
+        if (e.defaultPrevented || e.button) return;
+        if (t && (t.moved || t.zone)) return;
+        if (inZone(e, ZONE + ',[data-act],button,a,input,select,textarea')) return;
+        M.haptic('light');
+        M.openPopup('#energi');
+      }); // bubbling: glassDrag sin suppress (capture på segmentet) stopper det syntetiske klikket etter drag først
+    }
     afterRender() {
+      this._tapInit();
       // Liquid Glass-drag alltid (Fiks 15.2) – touch-action pan-y + stopPropagation ligger i glassDrag (fallgruve 2)
       const seg = this.shadowRoot.querySelector('.seg');
       if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' });
@@ -243,8 +271,8 @@
         try { p.setPointerCapture(e.pointerId); } catch (x) { /* */ }
         pick(e);
       });
-      p.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e); });
-      p.addEventListener('pointerup', reset);
+      p.addEventListener('pointermove', (e) => { if (down) e.stopPropagation(); if (down || e.pointerType === 'mouse') pick(e); });
+      p.addEventListener('pointerup', (e) => { if (down) e.stopPropagation(); reset(); }); // 24.3: egen trykksone
       p.addEventListener('pointercancel', reset);
       p.addEventListener('pointerleave', reset);
     }

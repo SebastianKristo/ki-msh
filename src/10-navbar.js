@@ -213,7 +213,10 @@
       suppress = true; setTimeout(() => { suppress = false; }, 350);
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon (glassTap) etter et glass-dra
       if (ok) { M.haptic('light'); s0.hit.click(); } // knappens egen haptic faller innenfor 40 ms → én haptic
-      if (L) L.finish(); // ekte pille under (to frames) → linsen tones ut
+      // Fiks 24.2: fanen kan bli bredere etter byttet (ikon → ikon + navn) – mål den nye aktive fanen i neste rAF, la
+      // linsen vokse dit (width .12s) og vis så ekte pille under (finish legger linsen på samme mål) → linsen tones ut
+      if (L && ok) requestAnimationFrame(() => { const a = activeOf(); if (a && !L.dead && !L.fin) { const r = a.getBoundingClientRect(); L.place(r.left, r.top, r.width, r.height); } L.timers.push(setTimeout(() => L.finish(), 130)); });
+      else if (L) L.finish(); // ekte pille under (to frames) → linsen tones ut
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
@@ -638,6 +641,57 @@
       </nav>`;
     }
 
+    // 24.5 · «Tilpass»-arket (Hjem v3 · tilpOpen): bunnark i ki-overlay-root (M.overlay – dashbordflaten, aldri over
+    // HA-sidebaren; rail-utsparing), plassert innenfor ledig flate (--ki-nav-occ-*, 23.3). Ett kort #3a3a3a r24 med rader
+    // (64 px): Tilpass alt · Tilpass Hjem · Tilpass navbar · Tilpass header · Kiosk-modus (På/Av). Trykk lukker arket og
+    // åpner editoren (ki-open-editor / M.kioskSheet). Haptic light (én per trykk).
+    _tilpassSheet() {
+      if (this._tpSheet && !this._tpSheet.closed) return this._tpSheet;
+      const kioskOn = () => { const h = this._hass || M.lastHass || {}, e = M.kioskEntity ? M.kioskEntity() : null, st = e && h.states && h.states[e]; return !!(st && st.state === 'on'); };
+      const ROWS = [
+        ['alt', 'auto_awesome', 'Tilpass alt', 'Veiviser for hele dashbordet', !!M.openTilpassAlt],
+        ['home', 'dashboard_customize', 'Tilpass Hjem', 'Kort, faner, popups og tekst', true],
+        ['navbar', 'tune', 'Tilpass navbar', 'Knapper, plassering og stil', true],
+        ['header', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, vær og personer', true],
+        ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
+      ].filter((r) => r[4]);
+      const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
+        <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:#7f7f7f;flex:none')}</button>`).join('')}</div>`;
+      const css = `:host{--tp-l:max(0px, calc(var(--ki-nav-occ-left,0px) - var(--ki-hx,0px)));--tp-r:var(--ki-nav-occ-right,0px);--tp-b:var(--ki-nav-occ-bottom,0px)}
+        .sh{left:var(--tp-l);right:var(--tp-r);bottom:var(--tp-b);max-width:min(480px, calc(100% - var(--tp-l) - var(--tp-r)));max-height:calc(100% - var(--tp-b) - max(var(--ki-nav-occ-top,0px), env(safe-area-inset-top,0px)) - 24px);
+          background:var(--gray050,#282828);border-radius:38px 38px min(38px, calc(var(--tp-b) * 100)) min(38px, calc(var(--tp-b) * 100));--ki-sh-pb:max(20px, calc(env(safe-area-inset-bottom,0px) + 20px - var(--tp-b)))}
+        .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
+        .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+        .tpd{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2f2f2f;font-size:15px;font-weight:600}
+        .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--gray200,#3a3a3a);overflow:hidden}
+        .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:#fafafa;border-top:1px solid rgba(255,255,255,0.06)}
+        .tpr:first-child{border-top:0}
+        .tpr:active{background:rgba(255,255,255,0.04)}
+        .tpi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:#fafafa}
+        .tpx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .tpx b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .tpx i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+      const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, onClose: () => { ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); this._tpSheet = null; } });
+      ov.host.setAttribute('data-tilpass', '');
+      // vertens venstre-forskyvning mot dashbordflaten (rail-utsparing i M.overlay) trekkes fra --ki-nav-occ-left (som 23.1)
+      const fit = () => { if (!ov.host.isConnected) return; const D = M.dashRect(), hr = ov.host.getBoundingClientRect(); ov.host.style.setProperty('--ki-hx', Math.max(0, Math.round(hr.left - D.left)) + 'px'); };
+      fit(); requestAnimationFrame(fit);
+      ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.addEventListener(t, fit));
+      ov.root.addEventListener('click', (e) => {
+        const el = e.target.closest && e.target.closest('[data-a]');
+        if (!el) return;
+        M.haptic('light');
+        ov.close();
+        if (el.dataset.a !== 'row') return;
+        const k = el.dataset.v;
+        if (k === 'alt') return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } }));
+        if (k === 'kiosk') return M.kioskSheet && M.kioskSheet(this);
+        return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k } }));
+      });
+      this._tpSheet = ov;
+      return ov;
+    }
+
     _menuHtml(N, geo) {
       const c = this.config, ic = c.menu_names === false, at = this.ui.menuAt || {};
       const moreIds = N.more.filter((id) => !N.hidden.has(id));
@@ -645,11 +699,8 @@
       const tools = [];
       if (c.admin_tools !== false) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
-        if (M.openTilpassAlt) tools.push(item('__all', 'tune', 'Tilpass alt', 'var(--gray000,#232323)', 'mtool', M.tilpassAltDot && M.tilpassAltDot())); // 23.7: øverst, prikk = nye rom/funksjoner usjekket
-        tools.push(item('__edit', 'tune', 'Tilpass navbar', 'var(--gray000,#232323)', 'mtool', null));
-        tools.push(item('__home', 'dashboard_customize', 'Tilpass Hjem', 'var(--gray000,#232323)', 'mtool', null));
-        tools.push(item('__hdr', 'mdi:page-layout-header', 'Tilpass header', 'var(--gray000,#232323)', 'mtool', null));
-        tools.push(item('__kiosk', 'mdi:fullscreen', 'Kiosk-modus', 'var(--gray000,#232323)', 'mtool', null)); // Fiks 22.9
+        // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus). Prikk = nye rom/funksjoner usjekket (23.7)
+        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--gray000,#232323)', 'mtool', M.tilpassAltDot && M.tilpassAltDot()));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
       // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye
@@ -1405,6 +1456,7 @@
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
+        if (el.dataset.id === '__tilpass') return this._tilpassSheet(); // 24.5
         if (el.dataset.id === '__all') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } })); } // 23.7
         if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
         if (el.dataset.id === '__kiosk') { this.setUI({ menu: false }); return M.kioskSheet && M.kioskSheet(this); }

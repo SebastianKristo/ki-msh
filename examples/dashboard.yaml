@@ -747,6 +747,237 @@ views:
             cards:
               - type: custom:msh-kalender-card
                 card_id: pop-kalender
+          # Server (fiks 24.10): homelab – UniFi, Proxmox VE og Unraid fra config entries/enhetsregisteret; erstatter den importerte #server
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Server
+            icon: mdi:server
+            state: null
+            hash: '#server'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-server-card
+                card_id: pop-server
+          # Søppel (fiks 25.4): avfallsfraksjonene (days_to_pickup), kalender og varsler – erstatter den importerte #soppel (ki-avfall-card)
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Søppel
+            icon: mdi:trash-can
+            state: null
+            hash: '#soppel'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-avfall-card
+                card_id: pop-soppel
+          # Innstillinger (fiks 25.5): natt-/privatmodus, automasjoner, varsler og strøm – egen hash ved siden av #settings (dashbordets innstillinger)
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Innstillinger
+            icon: mdi:tune-variant
+            state: null
+            hash: '#innstillinger'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-innstillinger-card
+                card_id: pop-innstillinger
+          # Sir Sweeps (fiks 24.9): støvsuger – ett kort; Bubble-headeren beholder sub_button med state + batteri
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Sir Sweeps
+            icon: mdi:robot-vacuum
+            state: null
+            hash: '#rolf'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main:
+                - show_background: false
+                  entity: vacuum.sir_sweeps_a_lot
+                  icon: mdi:none
+                  state_content:
+                    - state
+                    - battery_level
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-stovsuger-card
+                card_id: pop-rolf
+          # Tesla (fiks 24.8): bilscenen som toppkort, hurtigknapper, Lading/Kjøring/Sparing og «Tilpass Tesla» – erstatter den importerte #tesla
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Tesla Model Y
+            icon: phu:tesla-icon
+            state: null
+            hash: '#tesla'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-tesla-card
+                card_id: pop-tesla
           # Kart (fiks 20.22/23.3): fullskjerm fra toppen av dashbordet, Bubble-headeren (ikon, «Kart», ×) ligger transparent over kartet.
           # Strategien legger inn det samme via M.POPUP_FORCE['#kart'] etter overstyringer (margin_top 0, bg_opacity 0, bg_blur 0).
           - type: custom:bubble-card

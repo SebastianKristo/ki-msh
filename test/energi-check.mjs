@@ -113,9 +113,12 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
     const pl = q('[data-plot="power"]'), pr = pl.getBoundingClientRect();
     let leaked = 0; const leak = () => leaked++; document.addEventListener('pointerdown', leak); document.addEventListener('pointermove', leak);
     const ev = (t, x) => pl.dispatchEvent(new PointerEvent(t, { bubbles: true, composed: true, clientX: x, clientY: pr.top + pr.height / 2, pointerId: 7, pointerType: 'touch', isPrimary: true }));
-    ev('pointerdown', pr.left + pr.width * 0.3); await w(80); ev('pointermove', pr.left + pr.width * 0.4); await w(120);
+    // scrub innenfor den delen av døgnet som har passert (fremtidige 15-min-spor har ingen data → tittelen «I dag» vises)
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const slot = Math.max(0, Math.floor((Date.now() - d0.getTime()) / 900000 / 2)), xAt = (i) => pr.left + pr.width * ((i + 0.5) / 96);
+    ev('pointerdown', xAt(Math.max(0, slot - 1))); await w(80); ev('pointermove', xAt(slot)); await w(120);
     out.scrub = q('.card.pc .rd').textContent;
-    ev('pointerup', pr.left + pr.width * 0.4);
+    ev('pointerup', xAt(slot));
     document.removeEventListener('pointerdown', leak); document.removeEventListener('pointermove', leak);
     out.leaked = leaked; out.touchAction = pl.style.touchAction;
     out.stillOpen = location.hash === '#energi' && window.__pop().classList.contains('is-popup-opened');
@@ -240,7 +243,8 @@ for (const vp of [{ n: 'mobil', width: 390, height: 844, sb: 0 }, { n: 'PC', wid
   ok('21.5 fem faner: Kilder · Seksjoner · Snarveier · Hus · Visning', JSON.stringify(r.tabs) === JSON.stringify(['Kilder', 'Seksjoner', 'Snarveier', 'Hus', 'Visning']), r.tabs);
   const T23 = (I, k) => I.every((x, i) => (i === k) === x.on && (i === k) === x.lblVis && !(x.on && x.cut) && x.h === 40 && x.inRow && x.w >= 44) && I.every((x, i) => !i || x.l >= I[i - 1].rt - 0.5) && I[k].flex === '0 0' && I.filter((x, i) => i !== k).every((x) => x.flex === '1 1');
   ok('23.6 faner (390 px): aktiv ikon+navn, andre bare ikon, flex, 40 px, ingen overlapp/kutt, ikoner og title', r.t23.disp === 'flex' && T23(r.t23.i0, 0) && T23(r.t23.i1, 1) && r.t23.i0.map((x) => x.ic).join(',') === 'mdi:meter-electric,mdi:view-agenda,mdi:view-grid,mdi:home,mdi:tune' && r.t23.i0.map((x) => x.title).join(',') === 'Kilder,Seksjoner,Snarveier,Hus,Visning', r.t23);
-  ok('23.6 fanebytte animeres (flex/padding .25s)', /flex/.test(r.t23.tr) && /padding/.test(r.t23.tr) && r.t23.mid > 44 && r.t23.mid < r.t23.i1[1].w - 2, { tr: r.t23.tr, mid: r.t23.mid, end: r.t23.i1[1].w });
+  // Fiks 24.2: fanen endrer bredde umiddelbart (ingen flex/padding/width-overgang) – Liquid Glass-boblen står for bevegelsen
+  ok('24.2 fanebytte: ingen flex/padding/width-overgang, bredden er endelig straks', !/flex|padding|width|all/.test(r.t23.tr) && Math.abs(r.t23.mid - r.t23.i1[1].w) <= 0.5, { tr: r.t23.tr, mid: r.t23.mid, end: r.t23.i1[1].w });
   ok('21.3/21.5 Kilder: Nett import/eksport, Strømpris, Elbillader, Vann fra «Energi», Sol/Batteri «Mangler», Live effekt «Auto», knapp til /config/energy', /Nett import ?Energi/.test(r.kilder[0]) && /Nett eksport ?Energi/.test(r.kilder[1]) && /Strømpris ?Energi/.test(r.kilder[2]) && /Elbillader ?Energi/.test(r.kilder[3]) && /Sol ?Mangler/.test(r.kilder[4]) && /Batteri ?Mangler/.test(r.kilder[5]) && /Vann ?Energi/.test(r.kilder[6]) && /Live effekt ?Auto/.test(r.kilder[7]) && r.openBtn, r.kilder);
   ok('21.5 overstyring → «Overstyrt», «Fra Energi-oppsettet» fjerner den', r.overstyrt && r.fra && r.fraOk, r);
   ok('21.5 Seksjoner: 6 rader, øye skjuler, dra-håndtak flytter (uten lekkasje)', r.secRows === 'house,tiles,power,price,top,water' && r.drag.order.startsWith('top,house') && r.drag.leaked === 0 && r.drag.hidden && r.drag.hidden.water === true, r);

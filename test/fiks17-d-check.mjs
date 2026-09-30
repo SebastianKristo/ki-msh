@@ -164,9 +164,9 @@ await wait(200);
 const pp = await page.evaluate(() => { const r = window.__pp.sheet.root; return { groups: [...r.querySelectorAll('.sc .lb')].map((x) => x.textContent), rows: r.querySelectorAll('.pr').length, on: (r.querySelector('.pr.on .h') || {}).textContent, own: !!r.querySelector('.oh'), test: !!r.querySelector('[data-p="test"]') }; });
 ok('17.8 popup-velger: grupper Rom · Funksjoner, rader med #hash, valgt markert', pp.groups[0] === 'Rom' && pp.groups.includes('Funksjoner') && pp.rows > 5 && pp.on === '#ruter' && pp.own && pp.test, pp);
 if (SHOTS) await page.screenshot({ path: SHOTS + '/popupvelger.png' });
-const warn = await page.evaluate(async () => { const r = window.__pp.sheet.root, i = r.querySelector('.oh'); i.value = 'tesla'; i.dispatchEvent(new Event('input')); await new Promise((q) => setTimeout(q, 30)); const w = r.querySelector('.wr').textContent; r.querySelector('[data-p="own"]').click(); return w; });
+const warn = await page.evaluate(async () => { const r = window.__pp.sheet.root, i = r.querySelector('.oh'); i.value = 'finnesikke-xyz'; i.dispatchEvent(new Event('input')); await new Promise((q) => setTimeout(q, 30)); const w = r.querySelector('.wr').textContent; r.querySelector('[data-p="own"]').click(); return w; });
 await wait(100);
-ok('17.8 popup-velger: egen hash med advarsel, lagres likevel', /finnes ikke i dette dashbordet/.test(warn) && (await page.evaluate(() => window.__pv)) === '#tesla', { warn, v: await page.evaluate(() => window.__pv) });
+ok('17.8 popup-velger: egen hash med advarsel, lagres likevel', /finnes ikke i dette dashbordet/.test(warn) && (await page.evaluate(() => window.__pv)) === '#finnesikke-xyz', { warn, v: await page.evaluate(() => window.__pv) });
 // felt i msh-editor (inline) → msh-popup-field; velg fra listen → config
 const fe = await page.evaluate(async () => {
   const e = document.createElement('msh-editor'); e.cardClass = customElements.get('msh-soppel-card'); e.inline = true; e.hass = H; e.setConfig({ type: 'custom:msh-soppel-card', popup_hash: '#soppel' });

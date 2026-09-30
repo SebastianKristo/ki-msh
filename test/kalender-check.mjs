@@ -60,10 +60,10 @@ await shot(p, '1-kalender-liste');
 // trykk på modusknappen → Måned
 const tapMb = (p) => p.evaluate(async () => { const mb = window.__c.shadowRoot.querySelector('.mb'), r = mb.getBoundingClientRect(), o = { bubbles: true, composed: true, clientX: r.left + 24, clientY: r.top + 24, pointerId: 7, pointerType: 'touch' }; mb.dispatchEvent(new PointerEvent('pointerdown', o)); await new Promise((q) => setTimeout(q, 60)); mb.dispatchEvent(new PointerEvent('pointerup', o)); await new Promise((q) => setTimeout(q, 300)); });
 await tapMb(p);
-const Mo = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { grid: sr.querySelectorAll('.mg .gd').length, badges: [...sr.querySelectorAll('.mg .gd .bd')].map((e) => e.textContent), title: sr.querySelector('.mtl') && sr.querySelector('.mtl').textContent.trim(), sel: sr.querySelector('.gd.sel') && sr.querySelector('.gd.sel').dataset.v, list: [...sr.querySelectorAll('.day .ev,.day .mr')].length }; });
-ok('Trykk → Måned: rutenett, ukenummer og antall-badge', Mo.grid >= 28 && /Uke \d+–\d+/.test(Mo.title) && Mo.badges.length > 3, Mo);
+const Mo = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { grid: sr.querySelectorAll('.mv7 .mvd').length, badges: [...sr.querySelectorAll('.mv7 .mvd .mvn')].map((e) => e.textContent), title: sr.querySelector('.mvt') && sr.querySelector('.mvt').textContent.trim(), sel: sr.querySelector('.mvd.sel') && sr.querySelector('.mvd.sel').dataset.v, list: [...sr.querySelectorAll('.dp .dpr,.dp .mr')].length }; });
+ok('Trykk → Måned: rutenett, månedstittel og antall-merke', Mo.grid >= 28 && /^[A-ZÆØÅ][a-zæøå]+ \d{4}$/.test(Mo.title) && Mo.badges.length > 3, Mo);
 ok('Måned: valgt dag (i dag) viser hendelsene under', Mo.sel && Mo.list >= 1, Mo);
-const selD = await p.evaluate(async () => { const sr = window.__c.shadowRoot; const d = new Date(); d.setDate(d.getDate() + 1); const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; const el = sr.querySelector(`.gd[data-v="${k}"]`); if (!el) return null; el.click(); await new Promise((q) => setTimeout(q, 250)); return [...sr.querySelectorAll('.day .ev,.day .mr')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()); });
+const selD = await p.evaluate(async () => { const sr = window.__c.shadowRoot; const d = new Date(); d.setDate(d.getDate() + 1); const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; const el = sr.querySelector(`.mvd[data-v="${k}"]`); if (!el) return null; el.click(); await new Promise((q) => setTimeout(q, 250)); return [...sr.querySelectorAll('.dp .dpr,.dp .mr')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()); });
 ok('Trykk på dag (i morgen) viser dens hendelser og mediautgivelser', selD && selD.some((x) => /DATA2410/.test(x)) && selD.some((x) => /The Last of Us/.test(x)), selD);
 await shot(p, '2-kalender-maned');
 // hold → «Vis kalendere» (portalt)
@@ -184,7 +184,7 @@ const det = await q.evaluate(async () => { const sr = window.__c.shadowRoot; sr.
 ok('Framover: detaljark portalt (utenfor popupen) med tittel, tid, chips, «Spill av», «Åpne i Sonarr»', !det.inPop && /Slow Horses/.test(det.txt) && det.acts.some((a) => /Spill av/.test(a)) && det.acts.some((a) => /Åpne i Sonarr/.test(a)), det);
 ok('Framover: detaljarket nederst, over navbaren (ki-overlay-root z 9000, bunnluft = navbar)', det.bottom === det.vh && Number(det.z) >= 9000 && parseFloat(det.pad) >= 60, det);
 if (shots) await q.screenshot({ path: `${shots}/kal-10-detalj.png` });
-const play = await q.evaluate(async () => { window.__calls.length = 0; const portal = window.MSH.portals().pop(); portal.shadowRoot.querySelector('[data-d="play"]').click(); await new Promise((q) => setTimeout(q, 300)); return window.__calls.find((c) => c[0] === 'media_player'); });
+const play = await q.evaluate(async () => { window.__calls.length = 0; const portal = window.MSH.portals().pop(); const pb = portal.shadowRoot.querySelector('[data-d="play"]'); if (!pb) { portal.shadowRoot.querySelector('.bg').click(); return 'ingen Spill av (sendes ikke før utgivelsestid)'; } pb.click(); await new Promise((q) => setTimeout(q, 300)); return window.__calls.find((c) => c[0] === 'media_player'); });
 ok('«Spill av» → media_player.play_media på Plex', play && play[1] === 'play_media' && play[2].entity_id === 'media_player.plex_stue', play);
 const flt = await q.evaluate(async () => { const sr = window.__c.shadowRoot; sr.querySelector('[data-act="ff"][data-v="filmer"]').click(); await new Promise((q) => setTimeout(q, 250)); return sr.querySelector('.hero').textContent.replace(/\s+/g, ' ').trim(); });
 ok('Filter Filmer: hero = Radarr-film', /Mission|Superman/.test(flt), flt);
@@ -266,6 +266,64 @@ const lst = await e.evaluate(async () => {
 });
 ok('Rapporten til Egne popups har «by: Kalender»', lst.inactive.length === 1 && lst.inactive[0].by === 'Kalender', lst);
 await e.close();
+
+// ---------------------------------------------------------------- Fiks 24.1 · modusknappen: kun månedskalender + dagspanel
+const v = await page({ width: 390, height: 844 });
+await v.evaluate(() => { try { window.MSH.store.set('kalender.view', undefined, { now: true }); } catch (e) { /* */ } window.__c.setUI({ kview: undefined, fview: undefined }); });
+await wait(v, 300);
+const vs = (p) => p.evaluate(() => { const sr = window.__c.shadowRoot, ic = sr.querySelector('.mb .rail > span:first-child ha-icon, .mb .rail > span:first-child [icon]');
+  return { list: sr.querySelectorAll('.pane .day').length, mv: sr.querySelectorAll('.pane .mv7').length, dp: sr.querySelectorAll('.pane .dp').length, kids: [...sr.querySelector('.pane').children].map((e) => e.className), icon: sr.querySelector('.mb .rail > span:first-child').innerHTML.match(/mdi:[a-z-]+/)?.[0], label: sr.querySelector('.mb').getAttribute('aria-label'), store: window.MSH.store.get('kalender.view') }; });
+const v0 = await vs(v);
+ok('24.1 Liste: dagslisten vises, ikon calendar_month', v0.list > 1 && !v0.mv && v0.icon === 'mdi:calendar-month', v0);
+const r0 = await v.evaluate(() => { const x = window.__c.shadowRoot.querySelector('.mb').getBoundingClientRect(); return [x.left + 24, x.top + 24]; });
+await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
+const v1 = await vs(v);
+ok('24.1 Ekte trykk → KUN månedskalender + dagspanel, ikon view_agenda, lagret per bruker', v1.mv === 1 && v1.dp === 1 && !v1.list && v1.kids.join('|') === 'mvc|card dp' && v1.icon === 'mdi:view-agenda' && v1.store && v1.store.kalender === 'month', v1);
+const G1 = await v.evaluate(() => { const sr = window.__c.shadowRoot, g = sr.querySelector('.mv7'), d = sr.querySelector('.mvd:not(.out)'), o = sr.querySelector('.mvd.out'), s = sr.querySelector('.mvd.sel'), n = sr.querySelector('.mvn'), b = sr.querySelectorAll('.mvh .mvb'), dp = sr.querySelector('.dp'), gr = g.getBoundingClientRect(), pr = sr.querySelector('.pane').getBoundingClientRect(), cs = (e) => getComputedStyle(e);
+  return { wd: [...sr.querySelectorAll('.mvw')].map((e) => e.textContent).join(''), gap: cs(g).columnGap, ta: cs(g).touchAction, cell: [cs(d).borderRadius, cs(d).backgroundColor, cs(d).fontSize, cs(d).fontWeight, Math.round(d.getBoundingClientRect().width) === Math.round(d.getBoundingClientRect().height)], out: o ? [cs(o).backgroundColor, cs(o).color, !o.querySelector('.mvn')] : null, sel: s && cs(s).backgroundImage, badge: n && [cs(n).height, cs(n).fontSize, cs(n).backgroundColor], btns: [...b].map((x) => Math.round(x.getBoundingClientRect().width) + (x.dataset.act || '')), dp: [cs(dp).backgroundColor, cs(dp).borderRadius, dp.querySelector('.dph b').textContent], full: Math.abs(gr.width - pr.width) < 2 }; });
+ok('24.1 Månedsgrid som designet (M T O T F L S, gap 8, runde celler, rosa valgt, merke 18 px, 36 px-knapper, fyller bredden)', G1.wd === 'MTOTFLS' && G1.gap === '8px' && G1.ta === 'pan-y' && G1.cell[0] === '50%' && G1.cell[1] === 'rgb(58, 58, 58)' && G1.cell[2] === '15px' && G1.cell[4] && (!G1.out || (G1.out[0] === 'rgba(0, 0, 0, 0)' && G1.out[1] === 'rgb(84, 84, 84)' && G1.out[2])) && /gradient/.test(G1.sel) && G1.badge[0] === '18px' && G1.btns.join() === '36mstep,36calmenu,36mstep' && G1.dp[0] === 'rgb(58, 58, 58)' && G1.dp[1] === '24px' && /^[A-ZÆØ][a-zæøå]+ \d+\. [a-z]+$/.test(G1.dp[2]) && G1.full, G1);
+await shot(v, '24-1-maned');
+// event-knappen → «Vis kalendere» rett under, høyrejustert, 264 px; av/på oppdaterer grid og panel
+const E = await v.evaluate(async () => { const sr = window.__c.shadowRoot, btn = sr.querySelector('.mvb[data-act="calmenu"]'), br = btn.getBoundingClientRect(); const cnt = () => [...sr.querySelectorAll('.mvn')].reduce((a, e) => a + Number(e.textContent), 0); const n0 = cnt(); btn.click(); await new Promise((q) => setTimeout(q, 400));
+  const portal = window.MSH.portals().pop(), sh = portal && portal.shadowRoot.querySelector('.sh'), r = sh && sh.getBoundingClientRect(), bg = sh && getComputedStyle(sh).backgroundColor, rad = sh && getComputedStyle(sh).borderRadius;
+  const rows = portal ? [...portal.shadowRoot.querySelectorAll('.mr')].map((e) => e.dataset.id) : [];
+  portal.shadowRoot.querySelector('.mr[data-id="calendar.sebastian_kristo_no"]').click(); await new Promise((q) => setTimeout(q, 400));
+  const n1 = cnt(), hid = window.__c.config.calendars_hidden;
+  portal.shadowRoot.querySelector('.mr[data-id="calendar.sebastian_kristo_no"]').click(); await new Promise((q) => setTimeout(q, 400));
+  const n2 = cnt();
+  portal.shadowRoot.querySelector('.bg').click(); await new Promise((q) => setTimeout(q, 400));
+  return { rows: rows.length, w: r && Math.round(r.width), top: r && Math.round(r.top - br.bottom), right: r && Math.round(br.right - r.right), bg, rad, inPopup: !!(portal && portal.closest('.pop')), n0, n1, n2, hid, open: window.MSH.portals().filter((x) => x.isConnected && x.classList.contains('on')).length, hash: location.hash };
+});
+ok('24.1 event-knappen → «Vis kalendere» portalt rett under knappen (264, #404040, r24, høyrejustert)', E.rows >= 3 && E.w === 264 && E.top >= 0 && E.top <= 12 && Math.abs(E.right) <= 1 && E.bg === 'rgb(64, 64, 64)' && E.rad === '24px' && !E.inPopup, E);
+ok('24.1 av/på filtrerer grid umiddelbart, lagres i calendars_hidden, trykk utenfor lukker', E.n1 < E.n0 && E.n2 === E.n0 && Array.isArray(E.hid) && E.open === 0 && E.hash === '#kalender', E);
+// sveip på gridet bytter måned uten å boble
+const SW = await v.evaluate(async () => { const sr = window.__c.shadowRoot, g = sr.querySelector('.mv7'), r = g.getBoundingClientRect(), t0 = sr.querySelector('.mvt').textContent.trim(); let bub = 0; const bl = () => bub++; document.getElementById('dash').addEventListener('pointerup', bl);
+  const o = (x) => ({ bubbles: true, composed: true, clientX: x, clientY: r.top + 100, pointerId: 31, pointerType: 'touch' });
+  const tgt = g.querySelector('.mvd'); tgt.dispatchEvent(new PointerEvent('pointerdown', o(r.left + 300))); tgt.dispatchEvent(new PointerEvent('pointermove', o(r.left + 200))); tgt.dispatchEvent(new PointerEvent('pointerup', o(r.left + 120))); tgt.click();
+  await new Promise((q) => setTimeout(q, 300)); const t1 = sr.querySelector('.mvt').textContent.trim();
+  const g2 = sr.querySelector('.mv7'), t2 = g2.querySelector('.mvd'); t2.dispatchEvent(new PointerEvent('pointerdown', o(r.left + 100))); t2.dispatchEvent(new PointerEvent('pointerup', o(r.left + 300)));
+  await new Promise((q) => setTimeout(q, 300)); document.getElementById('dash').removeEventListener('pointerup', bl);
+  return { t0, t1, t2: sr.querySelector('.mvt').textContent.trim(), bub, hash: location.hash, sel: window.__c.ui.selDay };
+});
+ok('24.1 Sveip venstre → neste måned, høyre → tilbake; bobler ikke, popupen blir', SW.t0 !== SW.t1 && SW.t2 === SW.t0 && SW.bub === 0 && SW.hash === '#kalender' && !SW.sel, SW);
+// trykk igjen → listen tilbake; Framover har egen visning med media-rader
+await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
+const v2 = await vs(v);
+ok('24.1 Trykk igjen → listen tilbake, ikon calendar_month', v2.list > 1 && !v2.mv && v2.icon === 'mdi:calendar-month' && v2.store.kalender === 'list', v2);
+await tab(v, 'framover');
+await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
+const F1 = await v.evaluate(() => { const sr = window.__c.shadowRoot; return { kids: [...sr.querySelector('.pane').children].map((e) => e.className), cal: sr.querySelectorAll('.mvb[data-act="calmenu"]').length, rows: sr.querySelectorAll('.dp .mr').length, badges: sr.querySelectorAll('.mvn').length, store: window.MSH.store.get('kalender.view') }; });
+ok('24.1 Framover: samme månedsvisning (uten filter/hero), media-merker, ingen event-knapp', F1.kids.join('|') === 'mvc|card dp' && F1.cal === 0 && F1.badges > 0 && F1.store.framover === 'month', F1);
+await shot(v, '24-1-framover');
+await tab(v, 'hytta');
+const Hk = await v.evaluate(() => ({ sok: !!window.__c.shadowRoot.querySelector('.srch'), icon: window.__c.shadowRoot.querySelector('.mb .rail > span:first-child').innerHTML.match(/mdi:[a-z-]+/)?.[0] }));
+ok('24.1 Hytta beholder søk, knappen = tilpass', Hk.sok && Hk.icon === 'mdi:tune-variant', Hk);
+await v.close();
+// default_view: month (YAML) → starter i måned når brukeren ikke har valgt
+const w = await page({ width: 1280, height: 900 });
+const DV = await w.evaluate(async () => { try { window.MSH.store.set('kalender.view', undefined, { now: true }); } catch (e) { /* */ } const c = window.__c; c.setUI({ kview: undefined }); c.setConfig({ ...c._rawConfig, default_view: 'month' }); await new Promise((q) => setTimeout(q, 400)); const sr = c.shadowRoot, g = sr.querySelector('.mv7'), pr = sr.querySelector('.pane').getBoundingClientRect(); return { mv: !!g, dv: c.config.defaultView, full: g && Math.abs(g.getBoundingClientRect().width - pr.width) < 2, pw: Math.round(pr.width) }; });
+ok('24.1 default_view: month → starter i måned (defaultView=maned), fyller bredden på PC', DV.mv && DV.dv === 'maned' && DV.full, DV);
+await w.close();
 
 await b.close();
 try { (await import('node:fs')).unlinkSync(bundle); } catch (x) { /* */ }

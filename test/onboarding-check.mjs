@@ -244,9 +244,13 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
     const ids = window.deepAll('.mbox .mi').map((e) => e.dataset.id);
     return ids.filter((x) => x.startsWith('__'));
   });
-  ok(nav && nav[0] === '__all', '«Mer»: «Tilpass alt» øverst blant verktøyene', nav);
+  // 24.5: én «Tilpass»-knapp i «Mer» → arket med «Tilpass alt» øverst
+  ok(nav && nav.length === 1 && nav[0] === '__tilpass', '«Mer»: én «Tilpass»-knapp blant verktøyene', nav);
   if (nav) {
-    await p.evaluate(async () => { window.deep('.mbox .mi[data-id="__all"]').click(); await new Promise((q) => setTimeout(q, 400)); });
+    await p.evaluate(async () => { window.deep('.mbox .mi[data-id="__tilpass"]').click(); await new Promise((q) => setTimeout(q, 400)); });
+    const rows = await p.evaluate(() => { const P = window.MSH.portals(), h = P.find((x) => x.hasAttribute('data-tilpass')); return h ? [...h.shadowRoot.querySelectorAll('.tpr')].map((e) => e.dataset.v) : null; });
+    ok(rows && rows[0] === 'alt', '«Tilpass»-arket: «Tilpass alt» øverst', rows);
+    await p.evaluate(async () => { const h = window.MSH.portals().find((x) => x.hasAttribute('data-tilpass')); h.shadowRoot.querySelector('.tpr[data-v="alt"]').click(); await new Promise((q) => setTimeout(q, 400)); });
     t = await sheet(p);
     ok(/Tilpass alt/.test(t), '«Mer» → Tilpass alt åpner arket', t.slice(0, 40));
     await p.evaluate(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await new Promise((q) => setTimeout(q, 350)); });

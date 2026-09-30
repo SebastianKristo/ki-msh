@@ -52,3 +52,15 @@ window.mockExtend(({ add }) => {
   add('time.vanning_start', '05:30:00', { friendly_name: 'Vanning start' }, { area: 'hage' });
   add('input_datetime.vanning_neste', '2026-10-02 06:00:00', { has_date: true, has_time: true, friendly_name: 'Vanning neste' }, { area: 'hage' });
 });
+// KI Vann (Fiks 25.2): husets vannforbruk i dag per kategori (ki-cards 71-ki-vann-card), prefiks sensor.hjemme_
+window.mockExtend(({ add }) => {
+  const kv = { platform: 'ki_vann' }, A = { integrasjon: 'ki_vann', unit_of_measurement: 'L', state_class: 'total_increasing' };
+  const t = (h, m) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  add('sensor.hjemme_vann_i_dag', 286, { ...A, friendly_name: 'Hjemme Vann i dag', per_person: 143, hendelser: [{ tid: t(7, 5), kategori: 'dusj', liter: 62 }, { tid: t(7, 40), kategori: 'toalett', liter: 6 }, { tid: t(9, 10), kategori: 'oppvaskmaskin', liter: 12 }] }, kv);
+  [['dusj', 118], ['toalett', 54], ['handvask', 9], ['oppvask_og_matlaging', 21], ['vaskemaskin', 44], ['oppvaskmaskin', 12], ['utendors', 0], ['basis_og_udefinert', 28]]
+    .forEach(([k, v]) => add(`sensor.hjemme_${k}_i_dag`, v, { ...A, friendly_name: `Hjemme ${k} i dag` }, kv));
+  add('sensor.hjemme_vannkostnad_i_dag', 11.8, { integrasjon: 'ki_vann', unit_of_measurement: 'kr', friendly_name: 'Hjemme Vannkostnad i dag' }, kv);
+  add('sensor.hjemme_modell', 'Lært', { integrasjon: 'ki_vann', timer_i_vindu: 36, friendly_name: 'Hjemme Modell' }, kv);
+  add('sensor.hjemme_forklart_av_sensorene', 72, { integrasjon: 'ki_vann', unit_of_measurement: '%', friendly_name: 'Hjemme Forklart av sensorene' }, kv);
+  add('sensor.hjemme_storste_forbruker_i_dag', 'Dusj', { integrasjon: 'ki_vann', friendly_name: 'Hjemme Største forbruker i dag' }, kv);
+});

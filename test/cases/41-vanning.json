@@ -1,8 +1,12 @@
 [
-  { "name": "Vanning", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-hero-card", "flow_rate": 8 }, { "type": "custom:msh-vanning-card", "flow_rate": 8, "water_price": 41 } ] },
-  { "name": "Vanning · soner", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "tabs": ["zones"], "flow_rate": 8 } ] },
-  { "name": "Vanning · program", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "tabs": ["prog"] } ] },
-  { "name": "Vanning · forbruk", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "tabs": ["use"], "flow_rate": 8, "water_price": 41 } ] },
-  { "name": "Vanning · historikk", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "tabs": ["hist"], "water_price": 41 } ] },
-  { "name": "Vanning · tomt", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-hero-card", "area": "finnes_ikke", "opensprinkler": false }, { "type": "custom:msh-vanning-card", "area": "finnes_ikke", "opensprinkler": false } ] }
+  { "name": "Vanning", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "flow_rate": 8, "water_price": 41 } ] },
+  { "name": "Vanning · soner", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "faner": ["soner"], "flow_rate": 8 } ] },
+  { "name": "Vanning · program", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "faner": ["programmer"] } ] },
+  { "name": "Vanning · forbruk", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "faner": ["forbruk"], "flow_rate": 8, "water_price": 41 } ] },
+  { "name": "Vanning · historikk", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "faner": ["historikk"], "water_price": 41 } ] },
+  { "name": "Vanning · gammel config", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "tabs": ["zones", "now"], "hidden_tabs": ["now"], "flow_rate": 8 } ] },
+  { "name": "Vanning · demo (KI Vanning)", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "demo": true } ] },
+  { "name": "Vanning · demo soner", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "demo": true, "faner": ["soner", "naa"] } ] },
+  { "name": "Vanning · demo regn", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "demo": "regn", "faner": ["programmer", "naa"] } ] },
+  { "name": "Vanning · tomt", "hash": "#vanning", "cards": [ { "type": "custom:msh-vanning-card", "area": "finnes_ikke", "opensprinkler": false, "vann_prefiks": "sensor.finnes_ikke_" } ] }
 ]
