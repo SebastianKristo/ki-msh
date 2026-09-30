@@ -96,7 +96,7 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 | Basseng | `#basseng` | `msh-basseng-card` | område «Basseng»/`pool` |
 | Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
 | Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
-| Server | `#server` | `msh-server-card` | UniFi, Proxmox VE, Unraid |
+| Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid |
 | Klima | `#klima` | `msh-klima-card` | `climate.*`, `fan.*`, effekt og pris |
 | Lys | `#lys` | `msh-lys-card` | `light.*` per etasje/område |
 | Media | `#media` | `msh-media-card` | `media_player.*` |

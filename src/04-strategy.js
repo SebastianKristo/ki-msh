@@ -131,7 +131,7 @@
       '#rolf': () => has('vacuum'), // fiks 24.9: Sir Sweeps – bare med vacuum.*
       '#soppel': () => (M.avfallIds ? M.avfallIds(hass, {}).length > 0 : false) || !!(M.avfallLegacy && M.avfallLegacy(config)), // fiks 25.4: sensorer med days_to_pickup, eller den gamle importerte #soppel
       '#innstillinger': () => false, // fiks 26.15: innholdet er nå #settings (msh-innstillinger-card) – #innstillinger bare når noe peker dit
-      '#server': () => plat('unifi', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/Proxmox VE/Unraid)
+      '#server': () => plat('unifi', 'unifiprotect', 'proxmoxve', 'proxmox_sensors', 'unraid'), // fiks 24.10: minst én av homelab-integrasjonene (UniFi/UniFi Protect/Proxmox VE/Unraid)
       '#varmepumpe': () => !!(M.varmepumpeHas && M.varmepumpeHas(hass)), // fiks 26.20: en NIBE-enhet (produsent NIBE, nibe_heatpump/myuplink)
     };
     const hide = (config.popups || {});
