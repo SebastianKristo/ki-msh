@@ -726,7 +726,7 @@
         <div class="pane" data-tab="${st.tab}">${tabHTML()}</div>`;
       if (sh) sh.scrollTop = top;
     };
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tall: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tall: true, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const box = document.createElement('div');
     box.className = 'rk-sheet';
     Object.defineProperty(box, '_config', { get: () => ctl.draft });

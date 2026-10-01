@@ -1666,6 +1666,11 @@
       if (running && this.isOpen && !this._tick) this._tick = setInterval(() => this.update(), 1000);
       if ((!running || !this.isOpen) && this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this.isOpen && !this._last) this._load();
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner = synlige i rekkefølge), sideveis dra = Liquid Glass-valg
+      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.tbox>.tabs'), {
+        idOf: (b) => b.dataset.t, active: () => this.__cur, order: () => faneOrden(this.config),
+        save: (full) => { const vis = new Set(fanerCfg(this.config)); return M.mshPatchConfig(this, { faner: full.filter((k) => vis.has(k)) }); },
+      });
     }
     get styles() {
       const PINK = C.accent, INK = '#2a1720';

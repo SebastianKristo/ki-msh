@@ -85,8 +85,8 @@ res.rom = await p.evaluate(async () => {
   const ed = () => ov().shadowRoot.querySelector('msh-editor');
   const S = () => ed().shadowRoot;
   // endre: snarvalg + slider (input under drag, change ved slipp)
-  [...S().querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click();
-  const rg = [...S().querySelectorAll('input[type=range]')][1];
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Luftig 18/.test(x.textContent)).click();
+  const rg = [...S().querySelectorAll('input[type=range]'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('input[type=range]')])][1];
   for (const v of [10, 0, -20]) { rg.value = String(v); rg.dispatchEvent(new Event('input', { bubbles: true })); await W(20); }
   rg.dispatchEvent(new Event('change', { bubbles: true }));
   await W(900);
@@ -119,14 +119,14 @@ res.rom = await p.evaluate(async () => {
   // åpne på nytt → ny verdi; Avbryt forkaster
   rom.customize('spacing'); await W(300);
   r.reopenGap = ed()._config.gap;
-  [...S().querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
   r.cancelPreview = rom._rawConfig.gap;
   S().querySelector('[data-a="cancel"]').click(); await W(300);
   r.afterCancel = { sheets: M.portals().length, cardGap: rom._rawConfig.gap, storeGap: (M.store.get('rooms.stue') || {}).gap, sets: window.__sets.length };
   // lagring feiler → arket står med utkastet, feilmelding; neste Ferdig lagrer
   window.__failSave = true;
   rom.customize('spacing'); await W(300);
-  [...S().querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
   window.__haps.length = 0;
   S().querySelector('[data-a="save"]').click(); await W(500);
   r.fail = { sheets: M.portals().length, status: (S().querySelector('.stat') || {}).textContent, draftGap: ed()._config.gap, storeGap: (M.store.get('rooms.stue') || {}).gap, haptic: window.__haps.includes('failure'), btnEnabled: !S().querySelector('[data-a="save"]').disabled };
@@ -158,20 +158,22 @@ res.andre = await p.evaluate(async () => {
   location.hash = '#vaer'; await W(900);
   const vaer = window.__card('msh-vaer-card');
   if (vaer) {
+    // 28.1: bryterne lagres i sections { k: false } (gamle `hide` telles fortsatt med, i tilfelle alias)
+    const offN = (c) => (Array.isArray(c.hide) ? c.hide.length : 0) + Object.values(c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {}).filter((v) => v === false).length;
     const n0 = window.__sets.length;
     vaer.customize(); await W(300);
     const R = M.portals().pop().shadowRoot;
     R.querySelector('[data-a="sec"]').click(); await W(700); // 26.25: «Tilpass Vær» → Seksjoner av/på (hide)
     r.vaerBefore = window.__sets.length - n0;
-    r.vaerPreview = (vaer._rawConfig.hide || []).length;
+    r.vaerPreview = offN(vaer._rawConfig);
     R.querySelector('[data-a="done"]').click(); R.querySelector('[data-a="done"]').click(); await W(600);
     r.vaerSets = window.__sets.length - n0; r.vaerSheets = M.portals().length;
     // Avbryt forkaster
     vaer.customize(); await W(300);
-    const R2 = M.portals().pop().shadowRoot, hid0 = (vaer._rawConfig.hide || []).length;
+    const R2 = M.portals().pop().shadowRoot, hid0 = offN(vaer._rawConfig);
     R2.querySelectorAll('[data-a="sec"]')[1].click(); await W(50);
     vaer._sheet.ov.close(); await W(300); // utenfor/Esc forkaster
-    r.vaerCancel = { sheets: M.portals().length, same: (vaer._rawConfig.hide || []).length === hid0, sets: window.__sets.length - n0 };
+    r.vaerCancel = { sheets: M.portals().length, same: offN(vaer._rawConfig) === hid0, sets: window.__sets.length - n0 };
   }
   // Tilpass Hjem (utkast i ki-store)
   location.hash = ''; await W(300);

@@ -1434,25 +1434,9 @@
     if (typeof card.selectTab === 'function') return card.selectTab(tab);
     uiSet(card, { tab });
   }
+  // 28.9: Klimas bekreftelser bruker den felles toast-pillen (M.toast) – samme sted, stil og animasjon som overalt
   M.klimaToast = function (card, text) {
-    const R0 = M.dashRect();
-    const root = M.overlayRoot();
-    const old = root.querySelector('#msh-klima-toast');
-    if (old) old.remove();
-    const t = document.createElement('div');
-    t.id = 'msh-klima-toast';
-    t.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" style="flex:none"><circle cx="12" cy="12" r="11" fill="rgb(102 209 158)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#1f3a2d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span></span>`;
-    t.querySelector('span').textContent = text;
-    Object.assign(t.style, {
-      position: 'fixed', left: R0.left + R0.width / 2 + 'px', bottom: 'calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 18px)', transform: 'translate(-50%, 12px)',
-      display: 'flex', alignItems: 'center', gap: '10px', height: '44px', padding: '0 20px 0 14px', borderRadius: '22px', whiteSpace: 'nowrap', maxWidth: 'calc(100vw - 32px)',
-      background: 'rgba(40,40,44,.86)', backdropFilter: 'blur(20px) saturate(180%)', webkitBackdropFilter: 'blur(20px) saturate(180%)', color: '#fafafa', font: `500 14px ${M.FONT}`,
-      boxShadow: 'inset 0 0 0 .5px rgba(255,255,255,.18), 0 12px 30px rgba(0,0,0,.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none', zIndex: '20',
-    });
-    root.appendChild(t);
-    requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translate(-50%, 0)'; });
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2200);
-    return t;
+    return M.toast(text, { type: /ikke|feil/i.test(String(text)) ? 'error' : 'ok', enabled: !(card && card.config && card.config.toasts === false) });
   };
   const svc = (card, dom, s, data, ok) => kall(card.hass || card._hass, dom, s, data).then(() => { M.haptic('success'); if (ok) M.klimaToast(card, ok); }, () => {});
 

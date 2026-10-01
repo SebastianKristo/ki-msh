@@ -56,7 +56,7 @@ const out = await p.evaluate(async () => {
   const first = rom();
   first.customize('spacing'); await wait(300);
   const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
-  [...ed.shadowRoot.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click();
+  [...ed.shadowRoot.querySelectorAll('.pill'), ...[...ed.shadowRoot.querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click();
   await wait(200);
   res.liveGap = getComputedStyle(first).getPropertyValue('--msh-gap').trim();
   res.savesAfter200ms = saves;

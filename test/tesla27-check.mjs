@@ -50,8 +50,8 @@ ok('Hurtigknapper: 5 kvadratiske fliser (1:1), r24, gap 8', Q.b.length === 5 && 
 ok('Hurtigknapper: hvitt ikon 26 px + tekst 11/500 under (gap 4)', Q.b.every((x) => x.is === '26px' && x.lfs === '11px' && x.lfw === '500' && x.gap === '4px') && B.honk.col === 'rgb(250, 250, 250)' && B.honk.bg === 'rgb(58, 58, 58)', Q.b);
 ok('Hurtigknapper: tekster Åpen/Tut/Defrost/Frunk/Bagasje og ikoner lock-open/bullhorn/heat-wave/car/bag-suitcase', Q.b.map((x) => x.l).join('|') === 'Åpen|Tut|Defrost|Frunk|Bagasje' && Q.b.map((x) => x.ic).join('|') === 'mdi:lock-open|mdi:bullhorn|mdi:heat-wave|mdi:car|mdi:bag-suitcase', Q.b);
 ok('Hurtigknapper: ulåst oransje + rist, defrost rosa + pust, bagasje rosa, tekst #282828', B.lock.bg === 'rgb(242, 181, 115)' && B.lock.anim === 'rist' && /gradient/.test(B.defrost.bgi) && B.defrost.anim === 'pust' && /gradient/.test(B.trunk.bgi) && B.trunk.col === 'rgb(40, 40, 40)' && !/gradient/.test(B.frunk.bgi), B);
-const honk = await p.evaluate(async () => { window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"]').click(); await new Promise((q) => setTimeout(q, 60)); return getComputedStyle(window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"] .qi')).animationName; });
-ok('Tut: ikonet rister ved trykk', honk === 'rist', honk);
+const honk = await p.evaluate(async () => { window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"]').click(); await new Promise((q) => setTimeout(q, 300)); const pt = window.MSH.portals().pop(), okb = pt && pt.shadowRoot.querySelector('[data-k="ok"]'); if (okb) okb.click(); await new Promise((q) => setTimeout(q, 60)); return getComputedStyle(window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"] .qi')).animationName; });
+ok('Tut: ikonet rister ved tuting (etter «Tut» i bekreftelsen, designets standard)', honk === 'rist', honk);
 
 // ladekort: lader (64 % → 80 %)
 const lad = () => p.evaluate(() => {
@@ -100,6 +100,16 @@ const T3 = await p3.evaluate(() => { const sr = window.__c.shadowRoot; return { 
 ok('btn_text av → ingen tekst under ikonene; «Ikon + aktiv» → ikon på alle, tekst bare på aktiv', T3.ql === 0 && T3.tabs.every((x) => x[0]) && T3.tabs.filter((x) => x[1]).length === 1, T3);
 await p3.close();
 
+/* ---------------------------------------------------------------- Fiks 28.7: smartlading som designet */
+{
+  const q = await page({ entities: { smart: 'input_boolean.tesla_smartlading' } });
+  await q.evaluate(() => { const h = window.__c.hass, st = { ...h.states, 'input_boolean.tesla_smartlading': { entity_id: 'input_boolean.tesla_smartlading', state: 'on', attributes: { friendly_name: 'Smartlading' } } }; window.__c.hass = { ...h, states: st }; });
+  await wait(q, 400);
+  const SM = await q.evaluate(() => { const sr = window.__c.shadowRoot, cs = (x) => getComputedStyle(x), tg = sr.querySelector('.tg'), i = tg && tg.querySelector('i'), c = sr.querySelector('.pb i.c'); return { tg: tg && [Math.round(tg.getBoundingClientRect().width), Math.round(tg.getBoundingClientRect().height)], knob: i && [Math.round(i.getBoundingClientRect().width), cs(i).top], cheap: c ? cs(c).backgroundImage : null }; });
+  ok('28.7 smartlading: bryter 50×28 (knott 20, 4 px inn) som designet, billigste timer = rosa gradient', SM.tg && SM.tg[0] === 50 && SM.tg[1] === 28 && SM.knob[0] === 20 && SM.knob[1] === '4px' && (SM.cheap == null || /gradient/.test(SM.cheap)), SM);
+  await q.close();
+}
+
 /* ---------------------------------------------------------------- «Tilpass Tesla»-arket */
 const e = await page();
 const S0 = await e.evaluate(async () => {
@@ -130,7 +140,7 @@ ok('Bil: kortene «Bil» og «Hurtigknapper», segment for kapasitet, brytere', 
 ok('Faner: Forhåndsvisning + Faner (brytere, ikke øye) + valg som segmenter (#282828 r22)', H.faner.labs.join('|') === 'Forhåndsvisning|Faner' && H.faner.sw === 3 && H.faner.eye === 0 && H.faner.segs.length === 3 && H.faner.segs.every((s) => s.bg === 'rgb(40, 40, 40)' && s.r === '22px' && s.cols === s.n) && H.faner.segs.map((s) => s.n).join() === '2,4,3', H.faner);
 ok('Faner: ladegrense-knapper bare 50–100 i tiere, ingen hjelpetekst', H.faner.lims.join('|') === '50 %|60 %|70 %|80 %|90 %|100 %' && H.faner.help === 0, H.faner.lims);
 ok('Entiteter: tre gruppekort', H.ents.labs.join('|') === 'Batteri og lading|Kjøring og status|Sparing', H.ents.labs);
-ok('Avansert: brytere (lås omvendt, bekreftelse), segmenter, prefiks, tilbakestill', H.adv.sw === 2 && H.adv.segs.length >= 4 && H.adv.secs.some((s) => s.tag === 'BUTTON'), H.adv);
+ok('Avansert: brytere (lås omvendt, bekreftelse), segmenter, prefiks, tilbakestill', H.adv.sw === 2 && H.adv.segs.length >= 1 && H.adv.labs.includes('Mellomrom') && H.adv.secs.some((s) => s.tag === 'BUTTON'), H.adv);
 const F = await e.evaluate(async () => {
   const portal = window.MSH.portals().pop(), ed = portal.shadowRoot.querySelector('msh-tesla-editor'), R = ed.shadowRoot, cs = (x) => getComputedStyle(x);
   R.querySelector('[data-a="tetab"][data-v="faner"]').click(); await new Promise((q) => setTimeout(q, 250));
@@ -144,6 +154,19 @@ const F = await e.evaluate(async () => {
 });
 ok('Fane-rad 60 px: ikon #afafaf uten sirkel, rosa bryter 44×26', F.h === 60 && F.icCol === 'rgb(175, 175, 175)' && F.icBg === 'rgba(0, 0, 0, 0)' && F.sw[0] === 44 && F.sw[1] === 26 && F.sw[2] === 'rgb(242, 133, 201)', F);
 ok('Segment «Ikoner» → forhåndsvisning og popup live; 90 % → ny ladegrense-knapp', F.prevIcons === 3 && F.cardIcons === 3 && F.lims.join() === '50,60,70,80,90,100' && F.chips.join() === '50,60,70,80,90,100', F);
+// Fiks 28.7: resten av 27.9/27.9b mot designet – drag_indicator-håndtak, bekreftelse-standard (hovedbryter på, Tut avkrysset),
+// arket uten egen høydeoverstyring (felles arkhøyde 28.11)
+const F2 = await e.evaluate(async () => {
+  const portal = window.MSH.portals().pop(), ed = portal.shadowRoot.querySelector('msh-tesla-editor'), R = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms));
+  const drag = R.querySelector('.trw .drg ha-icon').getAttribute('icon');
+  R.querySelector('[data-a="tetab"][data-v="bil"]').click(); await w(250);
+  const conf = Object.fromEntries([...R.querySelectorAll('.cfm')].map((b) => [b.dataset.name.split('.')[1], b.getAttribute('aria-pressed') === 'true']));
+  R.querySelector('[data-a="tetab"][data-v="adv"]').click(); await w(250);
+  const master = R.querySelector('.tsw[data-name="confirm"]').getAttribute('aria-checked') === 'true';
+  const st = portal.shadowRoot.querySelector('style[data-tesla]').textContent;
+  return { drag, conf, master, ownH: /\.sh\{[^}]*\bheight:/.test(st), inline: portal.shadowRoot.querySelector('.sh').style.height || '' };
+});
+ok('28.7 arket: drag_indicator-håndtak (mdi:drag), bekreftelse som designet (hovedbryter på; lås/tut/frunk/bagasje avkrysset, defrost ikke), ingen egen arkhøyde', F2.drag === 'mdi:drag' && F2.master && F2.conf.lock && F2.conf.honk && !F2.conf.defrost && F2.conf.frunk && F2.conf.trunk && !F2.ownH && !F2.inline, F2);
 await e.close();
 
 /* ---------------------------------------------------------------- GUI-editoren: samme valg (ladegrense i tiere) */

@@ -134,11 +134,12 @@ if (shots) await p.screenshot({ path: `${shots}/kal-4-tilpass-kilder.png` });
 const V = await p.evaluate(async () => {
   const portal = window.MSH.portals().pop(), ed = portal.shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
   [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'visning').click(); await new Promise((q) => setTimeout(q, 150));
-  const labels = [...R.querySelectorAll('label, .fsh, .rg .line span')].map((e) => e.textContent.trim()).filter(Boolean);
+  const KS = [...R.querySelectorAll('ki-spacing-editor')].map((k) => k.shadowRoot); // 28.10: felles mellomrom-komponent
+  const labels = [...R.querySelectorAll('label, .fsh, .rg .line span'), ...KS.flatMap((k) => [...k.querySelectorAll('.lt')])].map((e) => e.textContent.trim()).filter(Boolean);
   [...R.querySelectorAll('[data-a="sel"][data-name="tab_labels"]')].find((b) => b.dataset.v === 'name').click(); await new Promise((q) => setTimeout(q, 100));
-  [...R.querySelectorAll('[data-a="sel"][data-name="pad_top"]')].find((b) => b.dataset.v === '44').click(); await new Promise((q) => setTimeout(q, 100));
-  const sl = R.querySelector('.sl[data-name="gap"]');
-  return { labels, cfg: ed._config, slTA: sl && getComputedStyle(sl).touchAction, pres: [...R.querySelectorAll('[data-name="pad_bottom"].pill')].map((b) => b.textContent) };
+  KS.flatMap((k) => [...k.querySelectorAll('.p[data-spn="pad_top"]')]).find((b) => b.dataset.spv === '44').click(); await new Promise((q) => setTimeout(q, 100));
+  const sl = KS.map((k) => k.querySelector('.ks[data-spn="gap"]')).find(Boolean);
+  return { labels, cfg: ed._config, slTA: sl && getComputedStyle(sl).touchAction, pres: KS.flatMap((k) => [...k.querySelectorAll('.p[data-spn="pad_bottom"]')]).map((b) => b.textContent) };
 });
 ok('Visning: Faner viser / Dager fremover / Standardvisning / Vis «Nylig i Plex» / Mellomrom', ['Faner viser', 'Dager fremover', 'Standardvisning'].every((l) => V.labels.some((x) => x.includes(l))) && V.labels.some((x) => /Mellom seksjonene/.test(x)) && V.labels.some((x) => /Luft i bunnen/.test(x)), V.labels);
 ok('Mellomrom: forvalg Ingen 0/Litt 60/Standard 150/Maks 300, slider pan-y (drag tas over)', V.pres.join('|') === 'Ingen 0|Litt 60|Standard 150|Maks 300', V);
@@ -279,7 +280,7 @@ const r0 = await v.evaluate(() => { const x = window.__c.shadowRoot.querySelecto
 await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
 const v1 = await vs(v);
 ok('24.1 Ekte trykk → KUN månedskalender + dagspanel, ikon view_agenda, lagret per bruker', v1.mv === 1 && v1.dp === 1 && !v1.list && v1.kids.join('|') === 'mvc|card dp' && v1.icon === 'mdi:view-agenda' && v1.store && v1.store.kalender === 'month', v1);
-const G1 = await v.evaluate(() => { const sr = window.__c.shadowRoot, g = sr.querySelector('.mv7'), d = sr.querySelector('.mvd:not(.out)'), o = sr.querySelector('.mvd.out'), s = sr.querySelector('.mvd.sel'), n = sr.querySelector('.mvn'), b = sr.querySelectorAll('.mvh .mvb'), dp = sr.querySelector('.dp'), gr = g.getBoundingClientRect(), pr = sr.querySelector('.pane').getBoundingClientRect(), cs = (e) => getComputedStyle(e);
+const G1 = await v.evaluate(() => { const sr = window.__c.shadowRoot, g = sr.querySelector('.mv7'), d = sr.querySelector('.mvd:not(.out):not(.sel):not(.today)'), o = sr.querySelector('.mvd.out'), s = sr.querySelector('.mvd.sel'), n = sr.querySelector('.mvn'), b = sr.querySelectorAll('.mvh .mvb'), dp = sr.querySelector('.dp'), gr = g.getBoundingClientRect(), pr = sr.querySelector('.pane').getBoundingClientRect(), cs = (e) => getComputedStyle(e);
   return { wd: [...sr.querySelectorAll('.mvw')].map((e) => e.textContent).join(''), gap: cs(g).columnGap, ta: cs(g).touchAction, cell: [cs(d).borderRadius, cs(d).backgroundColor, cs(d).fontSize, cs(d).fontWeight, Math.round(d.getBoundingClientRect().width) === Math.round(d.getBoundingClientRect().height)], out: o ? [cs(o).backgroundColor, cs(o).color, !o.querySelector('.mvn')] : null, sel: s && cs(s).backgroundImage, badge: n && [cs(n).height, cs(n).fontSize, cs(n).backgroundColor], btns: [...b].map((x) => Math.round(x.getBoundingClientRect().width) + (x.dataset.act || '')), dp: [cs(dp).backgroundColor, cs(dp).borderRadius, dp.querySelector('.dph b').textContent], full: Math.abs(gr.width - pr.width) < 2 }; });
 ok('24.1 Månedsgrid som designet (M T O T F L S, gap 8, runde celler, rosa valgt, merke 18 px, 36 px-knapper, fyller bredden)', G1.wd === 'MTOTFLS' && G1.gap === '8px' && G1.ta === 'pan-y' && G1.cell[0] === '50%' && G1.cell[1] === 'rgb(58, 58, 58)' && G1.cell[2] === '15px' && G1.cell[4] && (!G1.out || (G1.out[0] === 'rgba(0, 0, 0, 0)' && G1.out[1] === 'rgb(84, 84, 84)' && G1.out[2])) && /gradient/.test(G1.sel) && G1.badge[0] === '18px' && G1.btns.join() === '36mstep,36calmenu,36mstep' && G1.dp[0] === 'rgb(58, 58, 58)' && G1.dp[1] === '24px' && /^[A-ZÆØ][a-zæøå]+ \d+\. [a-z]+$/.test(G1.dp[2]) && G1.full, G1);
 await shot(v, '24-1-maned');

@@ -34,7 +34,7 @@ Bygg alt i én leveranse (se prosjektregler.md punkt 9): først felles hjelpere,
 | Navbar | – | `Hjem v2.dc.html` (`<nav>`) | Eget kort UTENFOR popups. Mobil: bunn, sentrert i dashbordflaten, maks 392 px. PC: vertikal rail ytterst til venstre i dashbordflaten (til høyre for HA-sidebaren). Merker (røde prikker) med betingelser. «Mer»-meny. |
 | Rom | `#<area_id>` | `Rom v4.dc.html` | Klima-toppkort ALLTID først (spesifikasjon i prosjektregler.md). Deretter: gardiner, scener, lys, enheter, klima, media, sensorer – rekkefølge/synlighet i editor. Standard mellomrom 8 px. |
 | Romkort | – | `Romkort.dc.html` | Kortet på Hjem som åpner Rom-popupen |
-| Basseng | `#basseng` | `Basseng v3.dc.html` | Hero + apparat-animasjoner |
+| Basseng | `#basseng`, `#badebasseng` | Basseng v4 popup (variant a) – Basseng v3 er utgått | Toppkort + faner |
 | Ruter | `#ruter` | `Ruter v2.dc.html` | Avganger (`entur`) + avvik (`entur_sx`) |
 | Klima | `#klima` | `Klima v2.dc.html` | Alle `climate.*`/`fan.*` gruppert per rom |
 | Media | `#media` | `Media v4.dc.html` | Alle `media_player.*` |

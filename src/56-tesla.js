@@ -457,9 +457,10 @@
   // Fiks 26.10: riktige ikoner (lås/lås opp, horn, defrost, frunk = car-select, bagasje = bag-suitcase) – ikke to bilikoner
   // Fiks 27.9: designets Material Symbols (lock / campaign / heat / directions_car / luggage, FILL 1) → fylte mdi-ikoner
   const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:heat-wave'], ['frunk', 'Frunk', 'mdi:car'], ['trunk', 'Bagasje', 'mdi:bag-suitcase']];
-  const CONF_DEF = { lock: true, honk: false, defrost: false, frunk: true, trunk: true };
+  // Fiks 28.7: designets standard (Tesla v3 BTNS) – bekreftelse på lås, tut, frunk og bagasje, ikke defrost
+  const CONF_DEF = { lock: true, honk: true, defrost: false, frunk: true, trunk: true };
   const LIMIT_OPTS = [50, 60, 70, 80, 90, 100]; // Fiks 27.9b: bare tiere (designet)
-  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: true, smart_until: 7, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
+  const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: true, smart_until: 7, lock_inverted: true, confirm: true, limits: [50, 60, 70, 80, 100] };
   const TABS_DEF = { style: 'filled', content: 'text', start: 'lading' };
   const GROUPS = [['lading', 'Batteri og lading', 'mdi:battery-charging-high'], ['status', 'Kjøring og status', 'mdi:car-info'], ['sparing', 'Sparing', 'mdi:piggy-bank-outline']];
   /* Entitetsfelt: [nøkkel, navn, gruppe, domener, mønstre (første mønster med treff vinner), familie, ikon]
@@ -770,7 +771,7 @@
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'spacing'], fields: [
           { type: 'section', id: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', fields: [
             { type: 'boolean', name: 'lock_inverted', label: 'Lås: «på» betyr åpen', default: true, help: 'Tesla-brua (switch …_doors_locked) melder «på» når bilen er ÅPEN. Slå av for en ekte lock.-entitet.' },
-            { type: 'boolean', name: 'confirm', label: 'Bekreftelse på alle hurtigknapper', default: false },
+            { type: 'boolean', name: 'confirm', label: 'Bekreftelse på hurtigknapper', help: 'Spør før lås, tut, frunk og bagasje (valget per knapp i Bil)', default: true },
             { type: 'select', name: 'smart_until', label: 'Smartlading: ferdig før', options: [5, 6, 7, 8, 9].map((x) => [x, `kl. ${M.pad(x)}:00`]), default: DEF.smart_until, help: 'Smartlading viser de 12 timene før dette klokkeslettet og velger de billigste.' },
             { type: 'text', name: 'prefix', label: 'Prefiks for autofunn', placeholder: DEF_PREFIX.join(', '), help: 'Kommaseparert. Entiteter som inneholder prefikset (og Tesla-integrasjonens entiteter) brukes.' },
           ] },
@@ -923,7 +924,7 @@
       const c = this._config, V = visTabs(c), T = tabsCfg(c), act = V.includes(T.start) ? T.start : V[0], hid = tabHidden(c);
       const prev = `<section class="sec pad" data-focus="faner"><span class="lab">Forhåndsvisning</span><div class="tsp" aria-hidden="true"><div class="trow">${tabBar(c, `<div class="tabs">${V.map((k) => tabBtn(c, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div></section>`;
       const list = `<section class="sec"><span class="lab lp">Faner</span><div class="tlist">${tabOrder(c).map((k) => { const [, label, icon] = TABL[k], on = !hid.has(k);
-        return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag-vertical', 22)}</span>${M.icon(icon, 22, 'color:#afafaf')}<span class="tn">${esc(label)}</span>${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
+        return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag', 22)}</span>${M.icon(icon, 22, 'color:#afafaf')}<span class="tn">${esc(label)}</span>${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
       const L = limitsOf(c);
       const opts = `<section class="sec pad">${segH('Fanestil', 'tabs.style', [['filled', 'Fylt'], ['outline', 'Kontur']], T.style)}${segH('Faner viser', 'tabs.content', [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], T.content)}${segH('Startfane', 'tabs.start', V.map((k) => [k, TABL[k][1]]), act)}
         <div class="fl" style="gap:8px"><span class="ft">Ladegrense-knapper</span><div class="lims">${LIMIT_OPTS.map((v) => `<button class="${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="tlim" data-v="${v}">${v} %</button>`).join('')}</div></div></section>`;
@@ -948,13 +949,13 @@
       }).join('')}</section>`).join('');
     }
     _p_adv() {
-      const c = this._config, li = c.lock_inverted !== false, cf = c.confirm === true;
+      const c = this._config, li = c.lock_inverted !== false, cf = c.confirm !== false;
       const sp = (k, d) => (c[k] != null ? Number(c[k]) : d);
       return `<section class="sec" data-focus="avansert">
           <div class="row advr"><span class="tx"><b>Lås: «på» betyr åpen</b><i>Tesla-brua (doors_locked). Slå av for ekte lock.-entitet</i></span>${swH(li, `data-a="tbool" data-name="lock_inverted" data-v="${li ? 0 : 1}" aria-label="Lås: på betyr åpen"`)}</div>
           <div class="row advr"><span class="tx"><b>Bekreftelse på hurtigknapper</b><i>Spør før lås, tut, frunk og bagasje</i></span>${swH(cf, `data-a="tbool" data-name="confirm" data-v="${cf ? 0 : 1}" aria-label="Bekreftelse på hurtigknapper"`)}</div></section>
         <section class="sec pad">${segH('Smartlading: ferdig før', 'smart_until', [5, 6, 7, 8, 9].map((x) => [x, `${M.pad(x)}:00`]), sp('smart_until', DEF.smart_until))}</section>
-        <section class="sec pad" data-focus="spacing"><span class="lab">Mellomrom</span>${segH('Mellom seksjonene', 'gap', [[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']], sp('gap', 8))}${segH('Fra popup-headeren', 'pad_top', [[-20, 'Inntil'], [6, 'Tett'], [20, 'Standard'], [44, 'Luftig']], sp('pad_top', 20))}${segH('Luft i bunnen', 'pad_bottom', [[0, 'Ingen'], [24, 'Standard'], [60, 'Litt'], [150, 'Stor']], sp('pad_bottom', 24))}</section>
+        <section class="sec pad" data-focus="spacing"><span class="lab">Mellomrom</span>${M.spacingEditorHTML ? M.spacingEditorHTML(M.spacingSchema({ gap: 8, pad_top: 20, pad_bottom: 24 }).fields, c, 'ksp-tesla') : ''}</section>
         <label class="sec pad fl" style="gap:6px"><span class="ft">Prefiks for autofunn (kommaseparert)</span><input class="inp mono" data-name="prefix" value="${esc(c.prefix != null ? [].concat(c.prefix).join(', ') : DEF_PREFIX.join(', '))}" placeholder="${esc(DEF_PREFIX.join(', '))}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
         <button class="reset" data-a="treset">Tilbakestill til standard</button>`;
     }
@@ -989,8 +990,9 @@
     }
   }
   if (EdBase && !customElements.get('msh-tesla-editor')) customElements.define('msh-tesla-editor', TeslaEditor);
-  // Arket: fast høyde (samme i alle faner), designets maks-bredde 440, header + faner står, bare innholdet scroller
-  const SHEET_CSS = `.sh{height:calc(100% - 24px - env(safe-area-inset-top, 0px));max-width:440px !important;display:flex;flex-direction:column;overflow:hidden;--ki-sh-pt:0px;--ki-sh-px:0px;--ki-sh-pb:0px}
+  // Arket: høyde OG bredde er felles for alle Tilpass-ark (28.11, MSH.overlay: popupens bredde på PC) – header + faner
+  // står, bare innholdet scroller
+  const SHEET_CSS = `.sh{display:flex;flex-direction:column;overflow:hidden;--ki-sh-pt:0px;--ki-sh-px:0px;--ki-sh-pb:0px}
     .sh>.gz{flex:none;position:relative;top:0;margin:0}
     .sh>.body{flex:1;min-height:0;display:flex;flex-direction:column}
     .sh>.body>*{flex:none}.sh>.body>msh-tesla-editor{flex:1;min-height:0}
@@ -1017,7 +1019,8 @@
     _N(k) { return numS(this._S(k)); }
     get tab() { const V = visTabs(this.config), t = this.ui.tab || tabsCfg(this.config).start; return V.includes(t) ? t : V[0]; }
     _bid(k) { return btnCfg(this.config, k).entity || this._e(k); }
-    _conf(k) { const b = btnCfg(this.config, k); return this.config.confirm === true || (b.confirm != null ? !!b.confirm : CONF_DEF[k]); }
+    // Hovedbryteren (Avansert, standard på) + valget per knapp (Bil) – designets «Spør før lås, tut, frunk og bagasje»
+    _conf(k) { const b = btnCfg(this.config, k); return this.config.confirm !== false && (b.confirm != null ? !!b.confirm : CONF_DEF[k]); }
     onOpen() { this._load(); }
 
     /* ---------------------------------------------------------- data */
@@ -1419,10 +1422,10 @@
         .sci{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none;color:var(--white,#fafafa)}
         .stt{font-size:15px;font-weight:500}
         .sst{font-size:12px;color:var(--gray700,#979797);margin-top:2px}
-        .tg{position:relative;width:50px;height:30px;border-radius:15px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-        .tg i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .tg{position:relative;width:50px;height:28px;border-radius:14px;background:var(--gray400,#545454);flex:none;transition:background .2s}
+        .tg i{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
         .tg.on{background:${PINK}}
-        .tg.on i{transform:translateX(20px)}
+        .tg.on i{transform:translateX(22px)}
         .tg.none{opacity:.5}
         .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
         .sum.two{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1435,7 +1438,7 @@
         .pb i{display:block;border-radius:4px;background:var(--gray400,#545454);min-width:0}
         .pb i.p{opacity:.4}
         .pb i.x{background:var(--gray300,#404040)}
-        .pb i.c{background:${PINK};opacity:1}
+        .pb i.c{background:${ACC};opacity:1}
         .pl{position:relative;height:14px;font-size:11px;color:var(--gray600,#7f7f7f)}
         .pl span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
         .pl span:first-child{transform:none;left:0 !important}

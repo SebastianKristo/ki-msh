@@ -162,12 +162,14 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
     const rows = [...r.querySelectorAll('.tpr')], row0 = rows[0] && rows[0].getBoundingClientRect(), ic = r.querySelector('.tpi'), card = r.querySelector('.tpc');
     return { rows: rows.map((e) => e.dataset.v), titles: rows.map((e) => e.querySelector('b').textContent), subs: rows.map((e) => e.querySelector('i').textContent), h0: row0 && Math.round(row0.height),
       title: (r.querySelector('.tpt') || {}).textContent, done: (r.querySelector('.tpd') || {}).textContent, rad: cs.borderTopLeftRadius, bg: cs.backgroundColor, cardBg: card && getComputedStyle(card).backgroundColor, cardR: card && getComputedStyle(card).borderTopLeftRadius,
-      ic: ic && [Math.round(ic.getBoundingClientRect().width), getComputedStyle(ic).backgroundColor], sheetB: sr.bottom, navT: nr && nr.top, occB: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ki-nav-occ-bottom')) || 0, vh: innerHeight, left: sr.left, D: window.MSH.dashRect() };
+      ic: ic && [Math.round(ic.getBoundingClientRect().width), getComputedStyle(ic).backgroundColor], sheetB: sr.bottom, sheetT: sr.top, navT: nr && nr.top, navB: nr && nr.bottom,
+      hostZ: +getComputedStyle(h).zIndex || 0, overNav: !!nr && window.MSH.overlayRoot().getRootNode().elementFromPoint(nr.left + nr.width / 2, nr.top + nr.height / 2) === h, navZ: (() => { let e = nav, z = 0; while (e) { const zz = +getComputedStyle(e).zIndex; if (zz) z = zz; e = e.parentElement || (e.getRootNode() && e.getRootNode().host); } return z; })(), occB: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ki-nav-occ-bottom')) || 0, vh: innerHeight, left: sr.left, D: window.MSH.dashRect() };
   });
   ok(sh && sh.rows.join() === 'alt,home,navbar,header,kiosk', '24.5 arket: Tilpass alt · Hjem · navbar · header · Kiosk-modus', sh && sh.rows);
-  ok(sh && sh.title === 'Tilpass' && /Ferdig/.test(sh.done) && sh.rad === '38px' && sh.cardR === '24px' && sh.cardBg === 'rgb(58, 58, 58)' && sh.h0 === 64 && sh.ic && sh.ic[0] === 40 && sh.ic[1] === 'rgb(64, 64, 64)', '24.5 arket: tittel/Ferdig, radius 38, kort #3a3a3a r24, rader 64 px, ikon-sirkel 40 #404040', sh);
+  ok(sh && sh.title === 'Tilpass' && /Ferdig/.test(sh.done) && sh.rad === '28px' && sh.cardR === '24px' && sh.cardBg === 'rgb(58, 58, 58)' && sh.h0 === 64 && sh.ic && sh.ic[0] === 40 && sh.ic[1] === 'rgb(64, 64, 64)', '24.5 arket: tittel/Ferdig, radius 28 (28.8/28.11), kort #3a3a3a r24, rader 64 px, ikon-sirkel 40 #404040', sh);
   ok(sh && sh.subs[0] === 'Veiviser for hele dashbordet' && /^(På|Av)$/.test(sh.subs[4]), '24.5 underteksten (Kiosk På/Av)', sh && sh.subs);
-  ok(sh && sh.navT != null && sh.sheetB <= sh.navT + 1 && sh.sheetB <= sh.vh - sh.occB + 1, '24.5 arket dekkes ikke av navbaren (--ki-nav-occ-bottom)', sh);
+  // 28.8/28.11: arket går helt til bunnen (top 50 px) og ligger OVER navbaren (dekker den)
+  ok(sh && sh.navT != null && Math.abs(sh.sheetB - sh.vh) <= 1 && Math.abs(sh.sheetT - 50) <= 1 && sh.sheetB >= sh.navB - 1 && sh.hostZ > sh.navZ && sh.overNav, '28.8 arket går til bunnen (top 50) og dekker navbaren', sh && { sheetT: sh.sheetT, sheetB: sh.sheetB, vh: sh.vh, navT: sh.navT, navB: sh.navB, hostZ: sh.hostZ, navZ: sh.navZ, overNav: sh.overNav });
   ok(sh && sh.left >= sh.D.left - 1, '24.5 arket holder seg innenfor dashbordflaten (HA-sidebaren)', sh);
   if (SHOTS) await p.screenshot({ path: SHOTS + '/f25-tilpass.png' });
   // hver rad lukker arket og åpner riktig editor

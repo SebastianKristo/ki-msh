@@ -1206,7 +1206,11 @@
 
     afterRender() {
       const Rt = this.shadowRoot;
-      if (M.glassDrag) Rt.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs.order), sideveis dra = Liquid Glass-valg
+      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), {
+        active: () => this.tab, order: () => tabsCfg(this.config).order,
+        save: (order) => { const raw = this._rawConfig || this.config; return M.mshPatchConfig(this, { tabs: { ...(raw.tabs && !Array.isArray(raw.tabs) ? raw.tabs : {}), order } }); },
+      });
       const sc = Rt.querySelector('.scrub');
       if (sc && !sc.__b) {
         sc.__b = true;

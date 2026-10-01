@@ -769,7 +769,9 @@
 
     afterRender() {
       const R = this.shadowRoot;
-      if (M.glassDrag) R.querySelectorAll('.tabs,.seg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      if (M.glassDrag) R.querySelectorAll('.seg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tab_order), sideveis dra = Liquid Glass-valg
+      if (M.tabRow) M.tabRow(this, R.querySelector('.top>.tabs'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tab_order' });
       // Sone-chips: vannrett scroll skal aldri lukke/dra popupen (fallgruve 2)
       const z = R.querySelector('.zones');
       this._mapInit(R.querySelector('.map'));

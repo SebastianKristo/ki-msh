@@ -9,6 +9,7 @@
  *     card,                            // kortet (settes _busy under dra så render ikke river DOM-en)
  *     glass, onGlassMove(btn, x), onGlassEnd(btn|null, commit)   // egen linse (Hjem) i stedet for standardlinsen
  *     glassTap: false                  // slå av trykk-animasjonen (MSH.glassTap, 00-base.js) – på som standard
+ *     itemStop: false                  // la pointer-/touch-hendelsene boble fra fanen til raden (raden stopper dem)
  *   }) → kontroller { refresh(), scrollActive(smooth), fade() }. Kall igjen etter hver render (idempotent).
  * Raden: klassen .msh-tr (CSS i MSH.TAB_ROW_CSS – legg den i kortets styles). Knappene krymper aldri og kuttes aldri.
  * Touch: touchstart/touchmove {passive:false} direkte på knappen. Under holdet avbryter > 8 px bevegelse (vanlig
@@ -18,6 +19,12 @@
  * er nettleserens). Flyter raden over, blir > 6 px sideveis (mus og touch) fasen «pan»: scrollLeft = start − dx i JS,
  * slipp velger ingenting. Slipp uten bevegelse = vanlig trykk. pointercancel (loddrett scroll) velger aldri.
  * Haptic: medium (dra starter) → selection (fanen passerer en annen) → light (slipp). Ingen haptic ved scroll.
+ * Fiks 28.13 (alle fanelinjer med tannhjul): hold 400 ms → løft (scale 1.06, skygge 0 8px 20px rgba(0,0,0,.4), inline –
+ * virker også i rader uten .msh-tr), raden pulserer (omriss via Web Animations), de andre glir unna (FLIP 180 ms),
+ * fanen holder seg innenfor raden. > 6 px før 400 ms avbryter holdet. Esc avbryter og setter rekkefølgen tilbake.
+ * Fanen som holdes: touch-action none; alle faner: user-select/-webkit-touch-callout none. Tannhjul/«Tilpass»-knapper
+ * (.gear, [data-act=customize], [data-tr-fixed]) er aldri med i items() og kan ikke flyttes.
+ *   MSH.tabMerge(visibleKeys, fullOrder) → full rekkefølge der de synlige plassene får ny rekkefølge (skjulte står).
  */
 (function () {
   const M = window.MSH;
@@ -31,7 +38,7 @@
     .msh-tr>button{flex:0 0 auto;min-width:max-content;scroll-snap-align:start;white-space:nowrap;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
     .msh-tr.tr-drag,.msh-tr.tr-pan{scroll-snap-type:none}
     .msh-tr.tr-drag>button{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,0.45),inset 0 0 0 1.5px var(--pink,#f285c9)}
+    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,.4)}
     .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--gray300,#404040) !important;color:var(--white,#fafafa) !important}
     .msh-tr.tr-settle>button{transition:none !important}
   `;
@@ -80,7 +87,16 @@
     if (n < 40) setTimeout(() => sub(n + 1), 250);
   })(0);
 
-  const SLOP = 8;
+  const SLOP = 6; // Fiks 28.13: > 6 px før 400 ms avbryter holdet
+  const FIXED = '.gear,[data-act="customize"],[data-tr-fixed]';
+  // Ny full rekkefølge: synlige plasser i fullOrder fylles med keys (ny rekkefølge), skjulte/andre står der de var.
+  M.tabMerge = function (keys, full) {
+    keys = (keys || []).slice();
+    const K = new Set(keys), out = [];
+    (full || []).forEach((k) => { if (K.has(k)) { const n = keys.shift(); if (n != null) out.push(n); } else out.push(k); });
+    keys.forEach((k) => { if (!out.includes(k)) out.push(k); });
+    return out;
+  };
   let lastHap = 0;
   const hap = (type) => { lastHap = Date.now(); M.haptic(type); };
   // M.haptic slipper maks én per 40 ms – slipp-haptic skal ikke forsvinne rett etter en «selection».
@@ -105,7 +121,7 @@
       this._bindRow();
     }
     get o() { return { holdMs: 400, styleRow: true, ...this.opts }; }
-    items() { const f = this.o.items; return (f ? Array.from(f() || []) : Array.from(this.row.children).filter((b) => b.tagName === 'BUTTON')).filter((b) => b && b.isConnected); }
+    items() { const f = this.o.items; return (f ? Array.from(f() || []) : Array.from(this.row.children).filter((b) => b.tagName === 'BUTTON')).filter((b) => b && b.isConnected && !(b.matches && b.matches(FIXED))); }
     idOf(b) { return this.o.idOf ? this.o.idOf(b) : (b.dataset.tabId || b.dataset.key); }
     overflow() { return this.row.scrollWidth > this.row.clientWidth + 1; }
     canReorder() { return !!this.o.onReorder && this.items().length > 1; }
@@ -118,8 +134,13 @@
       row.addEventListener('touchstart', stop, { passive: true });
       row.addEventListener('touchmove', stop, { passive: true });
       row.addEventListener('contextmenu', (e) => e.preventDefault());
+      // Raden (eller kortets egen fane-kode) har tatt pekeren (setPointerCapture): følg den herfra også
+      const foreign = (e) => { const st = this.st; return st && e.pointerId === st.pid && !(st.b === e.target || st.b.contains(e.target)) ? st : null; };
+      row.addEventListener('pointermove', (e) => { if (foreign(e)) this._move(e.clientX, e.clientY, e, false); });
+      row.addEventListener('pointerup', (e) => { if (foreign(e)) this._end(true, e.clientX); });
+      row.addEventListener('pointercancel', (e) => { const st = foreign(e); if (st && !st.touchLock) { if (st.phase === 'hold') this._abortHold(); else this._end(false); } });
       // Ingen click / fanebytte etter et drag
-      row.addEventListener('click', (e) => { if (Date.now() < this.eatUntil) { this.eatUntil = 0; e.stopPropagation(); e.preventDefault(); } }, true);
+      row.addEventListener('click', (e) => { if (Date.now() < this.eatUntil || this.eatClick) { this.eatUntil = 0; this.eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
       row.addEventListener('scroll', () => {
         this.fade();
         const st = this.st;
@@ -132,6 +153,8 @@
       if (b.__trB === this) return;
       b.__trB = this;
       b.addEventListener('contextmenu', (e) => e.preventDefault());
+      // Ingen tekstmarkering / iOS-meny ved langt trykk (også i rader uten .msh-tr-CSS)
+      b.style.userSelect = 'none'; b.style.webkitUserSelect = 'none'; b.style.webkitTouchCallout = 'none';
       b.addEventListener('pointerdown', (e) => this._down(e, b));
       b.addEventListener('pointermove', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._move(e.clientX, e.clientY, e, false); });
       b.addEventListener('pointerup', (e) => { const st = this.st; if (st && st.b === b && e.pointerId === st.pid) this._end(true, e.clientX); });
@@ -142,14 +165,14 @@
         if (st.phase === 'hold') this._abortHold(); else this._end(false);
       });
       b.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
+        if (this.o.itemStop !== false) e.stopPropagation();
         const t = e.changedTouches[0];
         if (!t) return;
         if (!this.st || this.st.b !== b) this._begin(b, t.clientX, t.clientY, null, 'touch');
         if (this.st) this.st.tid = t.identifier;
       }, { passive: false });
       b.addEventListener('touchmove', (e) => {
-        e.stopPropagation();
+        if (this.o.itemStop !== false) e.stopPropagation();
         const st = this.st;
         if (!st || st.b !== b) return;
         const t = [...e.touches].find((x) => st.tid == null || x.identifier === st.tid) || e.touches[0];
@@ -190,7 +213,7 @@
       const init = this._shown == null;
       this._shown = id;
       const cw = row.clientWidth, sl = row.scrollLeft, l = b.getBoundingClientRect().left - row.getBoundingClientRect().left + sl, r = l + b.offsetWidth, m = 24;
-      if (!cw || row.scrollWidth <= cw + 1) return;
+      if (!cw || row.scrollWidth <= cw + 1 || !/(auto|scroll)/.test(getComputedStyle(row).overflowX)) return; // overflow: hidden (f.eks. ikonfaner under bredde-animasjon) scrolles ikke
       let left = null;
       if (l - m < sl) left = Math.max(0, l - m);
       else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
@@ -201,12 +224,13 @@
     _begin(b, x, y, pid, type) {
       if (this.st && this.st.phase !== 'hold') return;
       this._clearHold();
+      this.eatClick = false;
       const st = (this.st = { b, pid, type, x0: x, y0: y, x, y, sl0: this.row.scrollLeft, phase: 'hold', edit: !!(this.o.isEdit && this.o.isEdit()), off: !!(M.animOff && M.animOff()) }); // off: Liquid Glass-animasjon av (Fiks 17.18)
       if (this.canReorder()) st.timer = setTimeout(() => { if (this.st === st && st.phase === 'hold') this._startDrag(); }, this.o.holdMs);
     }
     _down(e, b) {
       if (e.button) return;
-      e.stopPropagation();
+      if (this.o.itemStop !== false) e.stopPropagation(); // itemStop: false → kortets egen rad-kode får hendelsen (raden stopper den)
       if (this.st && this.st.b === b && this.st.phase === 'hold' && this.st.pid == null) this.st.pid = e.pointerId; // touchstart kom først
       else this._begin(b, e.clientX, e.clientY, e.pointerId, e.pointerType);
       if (this.st) { this.st.pid = e.pointerId; this.st.type = e.pointerType || this.st.type; }
@@ -221,7 +245,7 @@
       const dx = x - st.x0, dy = y - st.y0;
       if (st.phase === 'hold') {
         const ovf = this.overflow();
-        if (Math.hypot(dx, dy) <= (ovf && !st.edit ? 6 : SLOP)) return;
+        if (Math.hypot(dx, dy) <= SLOP) return;
         this._clearHold();
         const horiz = Math.abs(dx) >= Math.abs(dy);
         if (st.edit && horiz && this.canReorder()) this._startDrag();
@@ -235,6 +259,21 @@
       if (st.phase === 'pan') { this.row.scrollLeft = st.sl0 - dx; return; }
       if (st.phase === 'glass') { this._glassMove(x, y); return; }
       if (st.phase === 'drag') this._layout(st);
+    }
+
+    // Kortet tegnes ikke på nytt under et dra: _busy stopper vanlige render, og kortets update() (som ellers tvinger en
+    // render, f.eks. når data lastes) utsettes til slipp – ellers river morph løftet/klassene midt i draget.
+    _hold(on) {
+      const c = this.o.card;
+      if (!c) return;
+      if (on) {
+        c._busy = true;
+        if (!Object.prototype.hasOwnProperty.call(c, 'update')) { c.update = function () { this.__trUpd = true; }; c.__trOwn = true; }
+        return;
+      }
+      c._busy = false;
+      if (c.__trOwn) { delete c.update; delete c.__trOwn; }
+      if (c.__trUpd) { c.__trUpd = false; if (c.update) c.update(); }
     }
 
     /* ---------------- omorganisering */
@@ -259,12 +298,12 @@
       st.gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || (its[1] ? Math.max(0, st.rects[1].l - st.rects[0].l - st.rects[0].w) : 0);
       st.from = from; st.to = from;
       st.sl0 = row.scrollLeft; st.x0 = st.x;
-      if (this.o.card) this.o.card._busy = true;
+      this._hold(true);
       window.__tabReorder = true;
       this._glassOff(true);
       row.classList.add('tr-drag');
       st.b.classList.add('tr-lift');
-      st.b.style.transform = 'scale(1.06)';
+      this._lift(st, true);
       if (st.pid != null) { try { st.b.setPointerCapture(st.pid); } catch (x) { /* */ } }
       hap('medium');
       const tick = () => {
@@ -278,14 +317,54 @@
       };
       st.raf = requestAnimationFrame(tick);
     }
+    // Løft/slipp (inline, så det virker i alle rader): fanen scale(1.06) + skygge, de andre FLIP 180 ms, raden pulserer,
+    // Esc avbryter. on = false: gjenoppretter alt; changed = true → ingen glid (nodene er allerede flyttet).
+    _lift(st, on, changed) {
+      const row = this.row, b = st.b, E = 'transform 180ms cubic-bezier(.2,.8,.2,1)';
+      if (on) {
+        st.tr0 = new Map();
+        st.its.forEach((x) => { st.tr0.set(x, x.style.transition); if (x !== b) x.style.transition = E; });
+        const cs = getComputedStyle(b), S = b.style;
+        st.l0 = { boxShadow: S.boxShadow, position: S.position, zIndex: S.zIndex, touchAction: S.touchAction, background: S.background };
+        S.transition = 'none'; S.transform = 'scale(1.06)'; S.boxShadow = '0 8px 20px rgba(0,0,0,.4)';
+        if (cs.position === 'static') S.position = 'relative';
+        S.zIndex = '5'; S.touchAction = 'none';
+        if (/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) && !b.classList.contains('on')) S.background = 'var(--gray300,#404040)';
+        st.oo0 = row.style.outlineOffset;
+        row.style.outlineOffset = '-1.5px';
+        const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (row.animate) {
+          const a = 'rgba(242,133,201,0.18)', z = 'rgba(242,133,201,0.62)';
+          st.pulse = reduce ? row.animate([{ outline: `1.5px solid ${z}` }, { outline: `1.5px solid ${z}` }], { duration: 1000, iterations: Infinity })
+            : row.animate([{ outline: `1.5px solid ${a}` }, { outline: `1.5px solid ${z}` }], { duration: 700, direction: 'alternate', iterations: Infinity, easing: 'ease-in-out' });
+        }
+        st.esc = (e) => {
+          if (e.key !== 'Escape' || this.st !== st) return;
+          e.stopPropagation(); e.preventDefault();
+          this.eatClick = true; // musa er fortsatt nede – slippet skal ikke bytte fane
+          this._end(false);
+        };
+        window.addEventListener('keydown', st.esc, true);
+        return;
+      }
+      if (st.esc) window.removeEventListener('keydown', st.esc, true);
+      if (st.pulse) { try { st.pulse.cancel(); } catch (x) { /* */ } }
+      row.style.outlineOffset = st.oo0 || '';
+      Object.assign(b.style, st.l0 || {});
+      if (changed) st.its.forEach((x) => { x.style.transition = 'none'; });
+      else {
+        b.style.transition = E;
+        setTimeout(() => { st.its.forEach((x) => { if (x.isConnected) x.style.transition = st.tr0.get(x) || ''; }); }, 200);
+      }
+    }
     _layout(st) {
       const row = this.row;
       const dx = st.x - st.x0 + (row.scrollLeft - st.sl0);
       const R = st.rects, f = st.from, wf = R[f].w + st.gap;
       const minDx = -R[f].l, maxDx = R[R.length - 1].l + R[R.length - 1].w - (R[f].l + R[f].w);
-      const cdx = Math.max(minDx - 12, Math.min(maxDx + 12, dx));
+      const cdx = Math.max(minDx, Math.min(maxDx, dx)); // holder seg innenfor raden
       st.b.style.transform = `translateX(${cdx}px) scale(1.06)`;
-      const c = R[f].l + R[f].w / 2 + cdx;
+      const c = R[f].l + R[f].w / 2 + Math.max(minDx - R[f].w, Math.min(maxDx + R[f].w, dx)); // målplass fra fingeren (ulike bredder)
       let to = 0;
       R.forEach((r, i) => { if (i !== f && r.l + r.w / 2 < c) to++; });
       if (to === st.to) return;
@@ -321,13 +400,15 @@
         const anchor = st.its[st.its.length - 1].nextSibling;
         order.forEach((b) => row.insertBefore(b, anchor));
       }
+      if (!changed) row.classList.remove('tr-settle'); // avbrutt/uendret: fanene glir tilbake (180 ms)
+      this._lift(st, false, changed);
       st.its.forEach((b) => { b.style.transform = ''; b.classList.remove('tr-lift'); });
       row.classList.remove('tr-drag');
       void row.offsetWidth;
-      requestAnimationFrame(() => row.classList.remove('tr-settle'));
+      requestAnimationFrame(() => { row.classList.remove('tr-settle'); if (changed) st.its.forEach((b) => { b.style.transition = st.tr0.get(b) || ''; }); });
       this._glassOff(false);
       window.__tabReorder = false;
-      if (this.o.card) this.o.card._busy = false;
+      this._hold(false);
       if (commit) hapLater('light');
       if (changed && this.o.onReorder) this.o.onReorder(ids);
       else if (this.o.card && this.o.card.update) this.o.card.update();
@@ -337,7 +418,7 @@
     _startGlass() {
       const st = this.st;
       st.phase = 'glass';
-      if (this.o.card) this.o.card._busy = true;
+      this._hold(true);
       this._glassOff(true);
       // Fiks 17.19: linsen ER den rosa pillen (MSH.glassLens) – aktiv pille skjules, linsen følger fingeren 1:1.
       // Liquid Glass-animasjon av (MSH.animOff, Fiks 17.18) → ingen linse; slipp velger fanen direkte.
@@ -371,12 +452,40 @@
       const r = st.lens && hit && hit.isConnected ? hit.getBoundingClientRect() : null;
       if (r) st.lens.place(r.left, r.top, r.width, r.height);
       this._glassOff(false);
-      if (this.o.card) this.o.card._busy = false;
+      this._hold(false);
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
       if (st.lens) st.lens.finish();
     }
   }
+
+  /* Fiks 28.13: standardkobling for en fanelinje med tannhjul (knappene er direkte barn av row, data-v = fane-id,
+   * trykk = kortets egen click-handler). Liquid Glass-valg ved sideveis dra når alt får plass (erstatter M.glassDrag på raden).
+   *   MSH.tabRow(card, row, { active: () => id, order: () => [alle id-er i lagret rekkefølge, også skjulte],
+   *     field: 'tab_order' | save(fullOrder, visibleKeys), idOf?, items?, onSelect?, glass? }) */
+  M.tabRow = function (card, row, o) {
+    if (!row || !o) return null;
+    const idOf = o.idOf || ((b) => b.dataset.v);
+    const its = () => (o.items ? Array.from(o.items() || []) : Array.from(row.children).filter((b) => b.tagName === 'BUTTON' && !b.matches(FIXED)));
+    const T = M.tabReorder(row, {
+      card, glass: o.glass !== false, styleRow: false, items: its, idOf, active: o.active,
+      onSelect: o.onSelect || ((k) => {
+        if (o.active && k === o.active()) return;
+        const b = its().find((x) => idOf(x) === k);
+        if (b) { T.eatUntil = 0; b.click(); T.eatUntil = Date.now() + 350; } // pekerens eget click på startfanen spises fortsatt
+      }),
+      onReorder: (keys) => {
+        const full = M.tabMerge(keys, o.order ? o.order() : keys);
+        if (o.save) return o.save(full, keys);
+        const patch = { [o.field || 'tab_order']: full };
+        if (M.mshPatchConfig) return M.mshPatchConfig(card, patch);
+        const old = card._rawConfig || card._config || {}, next = { ...old, ...patch };
+        card.setConfig(next);
+        return M.saveCardConfig && M.saveCardConfig(card.hass, old, next, { card });
+      },
+    });
+    return T;
+  };
 
   M.tabReorder = function (row, opts) {
     if (!row) return null;
@@ -384,7 +493,7 @@
     if (T) { T.opts = { ...T.opts, ...(opts || {}) }; T.refresh(); return T; }
     T = row.__tabReorder = new TabReorder(row, opts || {});
     // Liquid glass ved trykk (Fiks 4 · 3): alle fanerader får MSH.glassTap (glassTap: false = av)
-    if (M.glassTap) M.glassTap(row, { items: () => T.items(), active: () => T.activeBtn(), enabled: () => T.o.glassTap !== false && !window.__tabReorder });
+    if (M.glassTap) M.glassTap(row, { axis: 'x', items: () => T.items(), enabled: () => T.o.glassTap !== false && !window.__tabReorder });
     T.refresh();
     return T;
   };

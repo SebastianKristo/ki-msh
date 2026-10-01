@@ -25,9 +25,11 @@
 (function () {
   if (customElements.get('msh-editor')) return;
   const M = window.MSH, esc = M.esc;
-  const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  // Sti-segmenter: «a.b.c»; «\.» = punktum i nøkkelen (f.eks. names.camera\.inngang → names['camera.inngang'], Fiks 28.12)
+  const segs = (p) => String(p).split(/(?<!\\)\./).map((k) => k.replace(/\\\./g, '.'));
+  const get = (o, p) => segs(p).reduce((a, k) => (a == null ? a : a[k]), o);
   const set = (o, p, v) => {
-    const ks = String(p).split('.'), out = { ...o };
+    const ks = segs(p), out = { ...o };
     let cur = out;
     ks.forEach((k, i) => {
       if (i === ks.length - 1) { if (v === undefined || v === '' || v === null) delete cur[k]; else cur[k] = v; }
@@ -410,6 +412,8 @@
     @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
     .ttl .stat.on{opacity:1;transform:none}
+    /* 28.9: lagrestatus vises som den felles toast-pillen (MSH.toast) – ikke som egen pille i headeren */
+    :host([inline]) .ttl .stat{display:none}
     .ttl .stat.ok{background:var(--green,#66d19e);color:#12291d}
     .ttl .stat.err{background:var(--red,#f28073);color:#2c1411}
     .sec{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
@@ -428,10 +432,16 @@
     .chips.sg .tc{font-size:11px;opacity:.7;font-variant-numeric:tabular-nums}
     ${M.iconTabs.css('.chips.sg.tabs.itabs')}
     .tpane{display:flex;flex-direction:column;gap:10px}
+    /* 28.11: i Tilpass-arket står fanelinjen fast rett under den faste headeren (tittel + Ferdig) – bare innholdet scroller */
+    :host([inline]) .wrap>.chips.sg.tabs{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) + 57px);z-index:4;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .fsec{display:flex;flex-direction:column;gap:6px;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
     .fsh{display:flex;align-items:baseline;gap:8px;padding:6px 6px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f}
     .fsh .meta{margin-left:auto;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:#979797;white-space:nowrap}
     .fsec>.sec>.in{padding:12px}
+    /* 28.10: «Mellomrom» (ki-spacing-editor) – flaten #404040 r24 ligger rett under overskriften (Rom v4) */
+    .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
+    .fsec.ksp>.sec>.in{padding:0}
+    .sec>.in>ki-spacing-editor{margin:0}
     .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#404040}
     .f label{font-size:12px;color:#afafaf}
     .f .help{font-size:11px;color:#7f7f7f}
@@ -517,6 +527,131 @@
     :host([glass]) .sw:not(.on),:host([glass]) .sl .tr{background:rgba(255,255,255,0.18)}
   `;
 
+  /* ------------------------------------------------------------ 28.10 · ki-spacing-editor (felles «Mellomrom») */
+  // 1:1 med Rom v4 «Mellomrom»-akkordeonen (ed.spacing): flate #404040 r24, padding 14 16, rader i KOLONNE (gap 8):
+  // toppline (ikon 20 #afafaf + etikett 14/500 på ÉN linje med ellipsis · «24 px» 13 #afafaf tabular-nums), slider i full
+  // bredde (native range, accent rgb(242 133 201), step 2) og forvalg-chips (30 px, r15, 12/500; valgt = rosa gradient).
+  // Eget shadow root → arkenes egne regler (.f/.line-grid i Innstillinger o.l.) kan aldri legge radene side om side.
+  // Slider etter Fiks 11: tar bare over ved bevisst vannrett drag (> 6 px og mer vannrett enn loddrett), relativt drag,
+  // trykk på sporet endrer ingenting, loddrett = arket scroller (touch-action: pan-y); stopPropagation når draget er tatt.
+  // Bruk: M.spacingEditorHTML(fields, cfg) → <ki-spacing-editor rows="…">. Sender 'ki-spacing-change' { name, value,
+  // commit } (bubbles + composed; commit=false under drag, true ved slipp/chip) – msh-editor (og arkene som arver den,
+  // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
+  const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:#fafafa}
+    *{box-sizing:border-box}
+    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--gray300,#404040)}
+    .r{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
+    .t{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-width:0}
+    .l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:500;line-height:1.25}
+    .l ha-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px;color:#afafaf;display:inline-flex}
+    .lt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .v{flex:none;font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .ks{position:relative;width:100%;min-width:0;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+    .ks.drag{cursor:grabbing}
+    .ks input{display:block;width:100%;accent-color:rgb(242 133 201);pointer-events:none;cursor:inherit}
+    .c{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:#545454;color:#fafafa;cursor:pointer;transition:transform .12s}
+    .p:active{transform:scale(.95)}
+    .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
+    .h{font-size:11px;color:#7f7f7f}`;
+  class KiSpacing extends HTMLElement {
+    static get observedAttributes() { return ['rows']; }
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._rows = [];
+      const R = this.shadowRoot;
+      R.addEventListener('click', (e) => {
+        const b = e.composedPath().find((n) => n.dataset && n.dataset.spv != null);
+        if (!b) return;
+        e.stopPropagation();
+        M.haptic('light');
+        this._emit(b.dataset.spn, Number(b.dataset.spv), true);
+      });
+      // tastatur/skjermleser: piltaster på den (usynlig styrte) range-inputen
+      R.addEventListener('input', (e) => { e.stopPropagation(); const t = e.target; if (t.dataset && t.dataset.spn) this._emit(t.dataset.spn, Number(t.value), false); });
+      R.addEventListener('change', (e) => { e.stopPropagation(); const t = e.target; if (t.dataset && t.dataset.spn) this._emit(t.dataset.spn, Number(t.value), true); });
+      const end = (e) => {
+        const g = this._g;
+        if (!g || (e && e.pointerId !== g.id)) return;
+        this._g = null;
+        g.el.classList.remove('drag');
+        if (g.taken) { if (e) e.stopPropagation(); this._emit(g.name, g.v, true); }
+      };
+      R.addEventListener('pointerdown', (e) => {
+        const el = e.composedPath().find((n) => n.classList && n.classList.contains('ks'));
+        if (!el || e.button) return;
+        const row = this._rows.find((x) => x.name === el.dataset.spn);
+        if (!row) return;
+        const v0 = this._cur(row);
+        this._g = { el, id: e.pointerId, x0: e.clientX, y0: e.clientY, v0, v: v0, name: row.name, min: row.min, max: row.max, step: row.step, w: Math.max(40, el.getBoundingClientRect().width - 16), taken: false };
+      });
+      R.addEventListener('pointermove', (e) => {
+        const g = this._g;
+        if (!g || e.pointerId !== g.id) return;
+        const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+        if (!g.taken) {
+          if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+            g.taken = true; g.x0 = e.clientX;
+            try { g.el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+            g.el.classList.add('drag');
+          } else if (Math.abs(dy) > 6) { this._g = null; return; } else return;
+        }
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        const raw = g.v0 + ((e.clientX - g.x0) / g.w) * (g.max - g.min);
+        const v = Number(M.clamp(Math.round((raw - g.min) / g.step) * g.step + g.min, g.min, g.max).toFixed(4));
+        if (v !== g.v) { g.v = v; this._emit(g.name, v, false); }
+      });
+      R.addEventListener('pointerup', end);
+      R.addEventListener('pointercancel', (e) => { const g = this._g; if (g && e.pointerId === g.id && !g.taken) { this._g = null; return; } end(e); });
+      ['touchstart', 'touchmove'].forEach((t) => R.addEventListener(t, (e) => { if (this._g && this._g.taken) e.stopPropagation(); }, { passive: true }));
+    }
+    attributeChangedCallback() { try { this.rows = JSON.parse(this.getAttribute('rows') || '[]'); } catch (e) { /* */ } }
+    set rows(r) { this._rows = (r || []).map((x) => ({ ...x, step: Number(x.step) || 2, min: Number(x.min), max: Number(x.max) })); this._paint(); }
+    get rows() { return this._rows; }
+    _cur(r) { return r.value != null && r.value !== '' ? Number(r.value) : r.default != null ? Number(r.default) : r.min; }
+    _emit(name, value, commit) {
+      const r = this._rows.find((x) => x.name === name);
+      if (r) { r.value = value; this._sync(r); }
+      this.dispatchEvent(new CustomEvent('ki-spacing-change', { detail: { name, value, commit }, bubbles: true, composed: true }));
+    }
+    // Én rad oppdateres på stedet (verdi, slider, valgt chip) – ingen ny tegning midt i et drag.
+    _sync(r) {
+      const el = this.shadowRoot.querySelector(`.r[data-spn="${CSS.escape ? CSS.escape(r.name) : r.name}"]`);
+      if (!el) return;
+      const v = this._cur(r);
+      const vt = el.querySelector('.v'), txt = `${v + (Number(r.offset) || 0)} ${r.unit || 'px'}`;
+      if (vt.textContent !== txt) vt.textContent = txt;
+      const inp = el.querySelector('input');
+      if (Number(inp.value) !== v) inp.value = String(v);
+      el.querySelectorAll('.p').forEach((p) => { const on = Number(p.dataset.spv) === v; p.classList.toggle('on', on); p.setAttribute('aria-pressed', String(on)); });
+    }
+    _sig() { return JSON.stringify(this._rows.map((r) => [r.name, r.label, r.icon, r.min, r.max, r.step, r.help, r.presets])); }
+    _paint() {
+      const sig = this._sig();
+      if (sig === this._sigL && this.shadowRoot.querySelector('.box')) { this._rows.forEach((r) => this._sync(r)); return; }
+      this._sigL = sig;
+      this.shadowRoot.innerHTML = `<style>${SP_CSS}</style><div class="box" part="box">${this._rows.map((r) => {
+        const v = this._cur(r);
+        return `<div class="r" data-spn="${esc(r.name)}"><div class="t"><span class="l">${r.icon ? M.icon(r.icon, 20) : ''}<span class="lt" title="${esc(r.label)}">${esc(r.label)}</span></span><span class="v">${v + (Number(r.offset) || 0)} ${esc(r.unit || 'px')}</span></div>
+          <div class="ks" data-spn="${esc(r.name)}"><input type="range" data-spn="${esc(r.name)}" aria-label="${esc(r.label)}" min="${r.min}" max="${r.max}" step="${r.step}" value="${v}"></div>
+          ${(r.presets || []).length ? `<div class="c">${r.presets.map(([pv, pl]) => `<button type="button" class="p${Number(pv) === v ? ' on' : ''}" aria-pressed="${Number(pv) === v}" data-spn="${esc(r.name)}" data-spv="${Number(pv)}">${esc(pl)}</button>`).join('')}</div>` : ''}
+          ${r.help ? `<span class="h">${esc(r.help)}</span>` : ''}</div>`;
+      }).join('')}</div>`;
+    }
+  }
+  if (!customElements.get('ki-spacing-editor')) customElements.define('ki-spacing-editor', KiSpacing);
+  // Skjemafelt (type 'range') + config → rader → <ki-spacing-editor>. Tom liste → ''.
+  M.spacingRows = (fields, cfg) => (fields || []).filter((f) => f && f.type === 'range' && f.name).map((f) => {
+    const v = get(cfg || {}, f.name);
+    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '' };
+  });
+  M.spacingEditorHTML = (fields, cfg, key) => {
+    const rows = M.spacingRows(fields, cfg);
+    return rows.length ? `<ki-spacing-editor data-key="${esc(key || 'ksp-' + rows.map((r) => r.name).join('-'))}" rows="${esc(JSON.stringify(rows))}"></ki-spacing-editor>` : '';
+  };
+  M.isSpacingSection = (f) => !!(f && f.type === 'section' && (f.id === 'spacing' || f.label === 'Mellomrom'));
+
   class MshEditor extends HTMLElement {
     constructor() {
       super();
@@ -524,6 +659,8 @@
       this._open = {};
       this._q = {};
       this.shadowRoot.addEventListener('click', (e) => this._click(e));
+      // 28.10: felles mellomrom-komponent → utkastet (commit=false under drag, lagres ved slipp)
+      this.shadowRoot.addEventListener('ki-spacing-change', (e) => { e.stopPropagation(); const d = e.detail || {}; if (d.name) this._set(d.name, d.value, d.commit !== false); });
       this.shadowRoot.addEventListener('input', (e) => this._input(e));
       // 26.9: rullelister (områder) eier scroll-gesten – arket/Bubble-popupen fanger den ikke (aldri preventDefault)
       ['touchstart', 'touchmove', 'wheel'].forEach((t) => this.shadowRoot.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('sc'))) e.stopPropagation(); }, { passive: true }));
@@ -677,9 +814,13 @@
       switch (f.type) {
         case 'section': {
           const sk = f.id ? 'id:' + f.id : key; // stabil nøkkel for åpen-tilstanden
-          if (f.flat) return this._flat(f.label, f.meta, (f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join(''), f.id);
+          // 28.10: «Mellomrom» = ÉN felles ki-spacing-editor for alle slider-radene (Rom v4), øvrige felt som før
+          const sp = this._inline && M.isSpacingSection(f), body = sp
+            ? M.spacingEditorHTML(f.fields, c, 'ksp-' + (f.id || key)) + (f.fields || []).map((x, j) => (x && x.type === 'range' ? '' : this._field(x, key + '_' + j))).join('')
+            : (f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('');
+          if (f.flat) return this._flat(f.label, f.meta, body, f.id, sp);
           const open = (!this._focused && this.focusSection && f.id === this.focusSection) || (this._open[sk] != null ? this._open[sk] : !!f.open);
-          return `<details class="sec" data-sec="${esc(sk)}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${(f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('')}</div></details>`;
+          return `<details class="sec" data-sec="${esc(sk)}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${body}</div></details>`;
         }
         case 'tabs': { // 19.20: { type:'tabs', id, sub, tabs:[{ key, label, icon, count, focus:[seksjons-id], fields }] }
           const T = (f.tabs || []).filter(Boolean);
@@ -715,6 +856,7 @@
             const sel = { number: { min: f.min, max: f.max, step: f.step || 1, mode: 'slider', unit_of_measurement: f.unit || 'px' } };
             return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-def="${f.default != null ? f.default : ''}" data-selector="${esc(JSON.stringify(sel))}" data-label="${esc(f.label || '')}" data-helper="${esc(f.help || (f.default != null ? 'Standard ' + f.default + ' ' + (f.unit || 'px') : ''))}"></ha-selector></div>`;
           }
+          if (this._inline && f.presets && !f.fmt) return M.spacingEditorHTML([{ step: 1, ...f }], c, 'ksp-' + key); // 28.10: samme rad som «Mellomrom» overalt
           const pills = (f.presets || []).map(([v, l]) => `<button class="pill ${Number(v) === cur ? 'on' : ''}" data-a="sel" data-num="1" data-name="${esc(f.name)}" data-v="${v}">${esc(l)}</button>`).join('');
           const v = cur != null ? cur : f.min, fr = f.max > f.min ? M.clamp((v - f.min) / (f.max - f.min), 0, 1) : 0;
           const drag = this._sl && this._sl.taken && this._sl.name === f.name;
@@ -894,10 +1036,10 @@
         ${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
     }
     // Flat seksjon (19.20): tittel i versaler + meta, innholdet direkte i en gruppe (ingen akkordeon)
-    _flat(label, meta, inner, focus) {
+    _flat(label, meta, inner, focus, sp) {
       const h = this._hass, c = this._config;
       const m = typeof meta === 'function' ? (() => { try { return meta(h, c); } catch (e) { return ''; } })() : meta;
-      return `<div class="fsec" ${focus ? `data-focus="${esc(focus)}"` : ''}>${label ? `<div class="fsh"><span>${esc(label)}</span>${m ? `<span class="meta">${esc(m)}</span>` : ''}</div>` : ''}<div class="sec"><div class="in">${inner}</div></div></div>`;
+      return `<div class="fsec${sp ? ' ksp' : ''}" ${focus ? `data-focus="${esc(focus)}"` : ''}>${label ? `<div class="fsh"><span>${esc(label)}</span>${m ? `<span class="meta">${esc(m)}</span>` : ''}</div>` : ''}<div class="sec"><div class="in">${inner}</div></div></div>`;
     }
     _lists(f, key) {
       const h = this._hass, c = this._config;

@@ -1038,7 +1038,15 @@
   // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
   // (max-height 100 % − 24 px − safe-area-top, «Tilpass …»-editorene), footer = arket har egen sticky bunnlinje
   // (ingen bunnpadding; bunnlinjen tar safe-area selv). Padding styres med --ki-sh-pt / --ki-sh-px / --ki-sh-pb.
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false } = {}) {
+  // 28.8/28.11 · tilpass: true = «Tilpass …»-ark med popupens geometri: toppkant 50 px (= margin_top_mobile/desktop),
+  // forankret i bunnen av dashbordflaten (dekker navbaren og «Spilles nå»), FAST høyde calc(100% − 50px) i alle faner,
+  // bredde = den åpne Bubble-popupen (width_desktop, sentrert likt) på PC (≥ 768 px), ellers 540 px sentrert i innholdsflaten;
+  // full bredde på mobil. Radius 28 28 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
+  // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
+  MSH.TILPASS_TOP = 50;
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false } = {}) {
+    const tp = !!tilpass && !center;
+    if (tp) sheet = true;
     const host = document.createElement('div');
     host.className = 'msh-portal';
     const gl = glass != null ? !!glass : MSH.glassOn();
@@ -1060,9 +1068,16 @@
       :host{${MSH.sheetVars(false)}--ki-grab-h:25px}
       .bg{position:absolute;inset:0;z-index:0;${MSH.scrimStyle(false)}opacity:0;transition:opacity .2s}
       .sh{position:absolute;z-index:1;left:var(--ki-rail-x,0px);right:0;${center ? 'top:50%;transform:translate3d(0,-40%,0) scale(.96);' : 'bottom:0;transform:translate3d(0,30px,0);'}max-width:${Math.min(maxWidth, center ? 440 : 420)}px;margin:0 auto;box-sizing:border-box;max-height:${mh};overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;contain:layout paint;
-        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(24px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
+        --ki-sh-pt:12px;--ki-sh-px:18px;--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px));padding:var(--ki-sh-pt) var(--ki-sh-px) var(--ki-sh-pb);
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
+      /* 28.8/28.11: Tilpass-ark – popupens toppkant og høyde, bunnforankret, glir inn nedenfra */
+      .sh.tp{top:var(--ki-tp-top,50px);bottom:0;left:var(--ki-tp-l,var(--ki-rail-x,0px));right:auto;width:var(--ki-tp-w,100%);max-width:none;height:calc(100% - var(--ki-tp-top,50px));max-height:none;margin:0;
+        border-radius:28px 28px 0 0;opacity:1;transform:translate3d(0,100%,0);transition:transform 280ms cubic-bezier(.2,.8,.2,1);--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px))}
+      :host(.on) .sh.tp{opacity:1;transform:translate3d(0,var(--ki-tp-dy,0px),0)}
+      :host(.tpdrag) .sh.tp{transition:none}
+      :host(.tpout) .sh.tp{transition:transform 240ms cubic-bezier(.4,0,.7,.2)}
+      .sh.tp>.gz{cursor:grab;touch-action:none}
       /* Fiks 21.7: arkets innhold er en ett-kolonners grid som starter øverst – ingen rad kan krympe (flex-shrink),
          alt vokser, og bare arket (.sh) scroller. Egne ark-CSS kan overstyre .body (ikonvelger, header …). */
       .sh>*{flex-shrink:0}
@@ -1074,7 +1089,8 @@
 </style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
       .bg{${MSH.scrimStyle(true)}}
       .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
-      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
+      .sh.tp{border-radius:28px 28px 0 0}
+      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -1082,6 +1098,7 @@
     const close = () => {
       if (api.closed) return;
       api.closed = true;
+      if (tp) host.classList.add('tpout');
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
@@ -1111,34 +1128,129 @@
     if (glass == null) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
+    // 28.11: Tilpass-arkets bredde/venstrekant = popupens (åpen Bubble-popup) på PC, ellers 540 px sentrert; mobil = full bredde
+    function tpPlace(D, x) {
+      const cw = Math.max(0, D.width - x);
+      let l = x, w = cw;
+      if (window.innerWidth >= 768) {
+        const pop = openPopupEl(), pr = pop && pop.getBoundingClientRect();
+        if (pr && pr.width > 0 && pr.width <= D.width + 1) { l = Math.max(0, pr.left - D.left); w = Math.min(pr.width, D.width - l); } else { w = Math.min(MSH.TILPASS_W || 540, cw); l = x + (cw - w) / 2; }
+      }
+      host.style.setProperty('--ki-tp-top', (MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
+      host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
+      host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
+      host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)
+    }
+    if (tp) place();
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
     const off = () => { window.removeEventListener('resize', place); ro && ro.disconnect(); };
+    // 28.11: dra ned på håndtaket lukker arket (fjær tilbake ved kort drag). Pointer capture på håndtaket.
+    if (tp) {
+      const gz = sr.querySelector('.sh.tp>.gz');
+      let g = null;
+      if (gz) {
+        gz.addEventListener('pointerdown', (e) => { if (e.button) return; g = { id: e.pointerId, y0: e.clientY, t0: e.timeStamp, dy: 0 }; try { gz.setPointerCapture(e.pointerId); } catch (x) { /* */ } host.classList.add('tpdrag'); e.stopPropagation(); });
+        gz.addEventListener('pointermove', (e) => { if (!g || e.pointerId !== g.id) return; g.dy = Math.max(0, e.clientY - g.y0); host.style.setProperty('--ki-tp-dy', g.dy + 'px'); e.stopPropagation(); if (e.cancelable) e.preventDefault(); });
+        const up = (e) => {
+          if (!g || e.pointerId !== g.id) return;
+          const v = g.dy / Math.max(1, e.timeStamp - g.t0), shut = g.dy > 90 || (g.dy > 24 && v > 0.6);
+          g = null; host.classList.remove('tpdrag');
+          if (shut) { MSH.haptic('light'); close(); } else host.style.setProperty('--ki-tp-dy', '0px');
+        };
+        gz.addEventListener('pointerup', up); gz.addEventListener('pointercancel', up);
+        ['touchstart', 'touchmove'].forEach((t) => gz.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+      }
+    }
     requestAnimationFrame(() => host.classList.add('on'));
     MSH.sheetCount(1);
     const api = { host, root: sr, body: sr.querySelector('.body'), close };
     return api;
   };
 
-  // Bekreftelsesmelding: 44 px pill, #e1e1e1 / #232323, top 106 px, sentrert i dashbordflaten, 2,2 s.
+  // 28.9 · Felles toast-pille – ÉN hjelper for alle kort og ark (aldri ha-toast/hass-notification, aldri rå <div>).
+  //   MSH.toast(text, { icon, type, enabled, duration })
+  //   type: 'ok' (mdi:check) · 'busy' (spinner, «Lagrer …») · 'error' (mdi:alert-circle i var(--red), samme lyse pille);
+  //         utelatt → utledes av teksten (Lagret/Lastet inn → ok, Lagrer … → busy, Feil/Kunne ikke/Fikk ikke → error).
+  //   icon: eget ikon (alle prefiks, M.icon) eller false (ingen). enabled: false → ingen toast (toasts: false i config;
+  //         kallerens haptic beholdes). duration: ms (standard 1,8 s, feil 3 s, «Lagrer …» står til den erstattes, maks 20 s).
+  //   Pille 40 px, padding 0 16 (med ikon 0 16 0 12), r20, #e1e1e1 / #232323 13/500, skygge 0 10 30 rgba(0,0,0,.4), gap 6.
+  //   Plassering: sentrert i dashbordflaten, bottom calc(110px + safe-area) over navbaren; mens et ark er åpent: 16 px over
+  //   arkets bunnlinje (bunnlinjen = arkets sticky .foot/[data-sheet-foot] når det har en, ellers arkets bunnkant).
+  //   I ki-overlay-root (portalet ut av popupen), z 60 over ark (42/43) og navbar, pointer-events: none.
+  //   Inn: opacity 0→1 + translateY(8px)→0 + scale(.96)→1 på 180 ms cubic-bezier(.2,.8,.2,1); ut tilsvarende 160 ms.
+  //   Ny toast erstatter den som vises (samme element, ikke stablet), og timeren starter på nytt.
+  MSH.TOAST = { ms: 1800, errMs: 3000, busyMs: 20000, ease: 'cubic-bezier(.2,.8,.2,1)', bottom: 110 };
+  const toastType = (text) => (/^\s*lagrer\b/i.test(text) ? 'busy' : /^\s*(lagret|lastet inn)\b/i.test(text) ? 'ok' : /^\s*(feil|kunne ikke|fikk ikke)\b/i.test(text) ? 'error' : '');
+  // Arket toasten skal stå over (siste åpne ark i ki-overlay-root), og dets bunnlinje i px fra vinduets bunn.
+  MSH.toastAnchor = function () {
+    const P = MSH.portals().filter((h) => h.isConnected && h.classList.contains('on') && h.shadowRoot);
+    for (let k = P.length - 1; k >= 0; k--) {
+      const sr = P[k].shadowRoot, sh = sr.querySelector('.sh');
+      if (!sh) continue;
+      const r = sh.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const foot = sr.querySelector('.sh .foot, .sh [data-sheet-foot]'), fr = foot && foot.getBoundingClientRect();
+      const line = fr && fr.height ? fr.top : r.bottom;
+      return { cx: r.left + r.width / 2, bottom: Math.max(0, innerHeight - line), foot: !!(fr && fr.height) };
+    }
+    return null;
+  };
   MSH.toast = function (text, opts) {
-    if (opts && opts.enabled === false) return;
-    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0; // fiks 18.4: midt på innholdsflaten
-    const old = MSH.overlayRoot().querySelector('#msh-toast');
-    if (old) old.remove();
-    const t = document.createElement('div');
-    t.id = 'msh-toast';
-    t.textContent = text;
+    const o = opts || {};
+    if (o.enabled === false) return null;
+    const T = MSH.TOAST, type = o.type || toastType(String(text || ''));
+    const root = MSH.overlayRoot();
+    let t = root.querySelector('#msh-toast');
+    const fresh = !t || t.__out;
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'msh-toast';
+      t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite');
+      root.appendChild(t);
+    }
+    clearTimeout(t.__hide); clearTimeout(t.__rm); t.__out = false;
+    // innhold (ikon + tekst) – byttes på stedet
+    const ic = o.icon === false ? '' : o.icon ? MSH.icon(o.icon, 18) : type === 'ok' ? MSH.icon('mdi:check', 18) : type === 'error' ? MSH.icon('mdi:alert-circle', 18, 'color:var(--red,#f28073)') : type === 'busy' ? '<span class="msh-toast-spin" aria-hidden="true"></span>' : '';
+    t.innerHTML = `${ic ? `<span class="msh-toast-ic" style="display:inline-flex;flex:none;width:18px;height:18px;align-items:center;justify-content:center;--mdc-icon-size:18px">${ic}</span>` : ''}<span class="msh-toast-tx" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"></span>`;
+    t.querySelector('.msh-toast-tx').textContent = text == null ? '' : String(text);
+    t.dataset.type = type || '';
+    const sp = t.querySelector('.msh-toast-spin');
+    if (sp) {
+      Object.assign(sp.style, { display: 'block', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(35,35,35,0.22)', borderTopColor: 'var(--gray000,#232323)', boxSizing: 'border-box' });
+      if (sp.animate) sp.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity });
+    }
+    // plassering: over navbaren, eller 16 px over bunnlinjen til åpent ark
+    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0, A = MSH.toastAnchor();
+    const cx = A ? A.cx : R.left + rx + (R.width - rx) / 2;
+    const bottom = A ? (A.foot ? `${Math.round(A.bottom + 16)}px` : `calc(${Math.round(A.bottom + 16)}px + env(safe-area-inset-bottom, 0px))`) : `calc(${T.bottom}px + env(safe-area-inset-bottom, 0px))`;
+    t.dataset.anchor = A ? 'sheet' : 'nav';
     Object.assign(t.style, {
-      position: 'fixed', top: '106px', left: R.left + rx + (R.width - rx) / 2 + 'px', transform: 'translate(-50%,-12px)', zIndex: '60', // 26.16: over ark (43) height: '44px', padding: '0 22px', borderRadius: '22px',
-      display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 14px ${MSH.FONT}`,
-      boxShadow: '0 12px 30px rgba(0,0,0,0.45)', opacity: '0', transition: 'opacity .2s, transform .3s cubic-bezier(.34,1.4,.64,1)', pointerEvents: 'none',
+      position: 'fixed', left: cx + 'px', bottom, top: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, (A ? R.width : R.width - rx) - 32)}px`,
+      whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 13px ${MSH.FONT}`, letterSpacing: '0',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 100%', willChange: 'transform, opacity',
     });
-    MSH.overlayRoot().appendChild(t);
-    requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translate(-50%,0)'; });
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2200);
+    const IN = `opacity 180ms ${T.ease}, transform 180ms ${T.ease}`;
+    if (fresh) {
+      t.style.transition = 'none'; t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+      void t.offsetWidth; // start fra inn-tilstanden
+    }
+    t.style.transition = IN; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+    const ms = o.duration != null ? o.duration : type === 'error' ? T.errMs : type === 'busy' ? T.busyMs : T.ms;
+    t.__hide = setTimeout(() => MSH.toastHide(t), ms);
+    return t;
+  };
+  MSH.toastHide = function (t) {
+    t = t || MSH.overlayRoot().querySelector('#msh-toast');
+    if (!t || t.__out) return;
+    clearTimeout(t.__hide);
+    t.__out = true;
+    t.style.transition = `opacity 160ms ${MSH.TOAST.ease}, transform 160ms ${MSH.TOAST.ease}`;
+    t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+    t.__rm = setTimeout(() => { if (t.__out) t.remove(); }, 180);
   };
 
   /* ------------------------------------------------------------ karusell-prikker (Fiks 17.12/17.17/17.30) */
@@ -2173,7 +2285,7 @@
     const open = MSH.draftFor(key || card);
     if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
-    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true }); // Fiks 26: Ferdig/Avbryt i headeren – ingen bunnlinje
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, tilpass: true }); // Fiks 26: Ferdig/Avbryt i headeren · 28.11: popupens høyde
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;
@@ -2197,7 +2309,8 @@
       alive: () => ov.host.isConnected,
       banner: () => ov.body,
       close: () => ov.close(),
-      onBusy: (b) => { if (b) status('Lagrer …'); else if (ed.status === 'Lagrer …') status(''); MSH.draftBusy(ed, b); },
+      // 28.9: «Lagrer …» som felles toast-pille (spinner) – erstattes av «Lagret» / «Kunne ikke lagre» (samme pille)
+      onBusy: (b) => { if (b) { status('Lagrer …'); MSH.toast('Lagrer …', { type: 'busy', enabled: !(ctl.draft && ctl.draft.toasts === false) }); } else { if (ed.status === 'Lagrer …') status(''); setTimeout(() => { const t = MSH.overlayRoot().querySelector('#msh-toast'); if (t && t.dataset.type === 'busy') MSH.toastHide(t); }, 0); } MSH.draftBusy(ed, b); },
       onError: (msg) => status(msg, 'err'),
       onReload: (d) => { status(''); ed.setConfig(d); },
     });

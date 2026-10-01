@@ -82,6 +82,24 @@ adresser eller kameraer).
 Krever Home Assistant **2024.11** eller nyere (kortene bruker `getGridOptions`). Kortene heter `msh-…`, så de kan lastes
 sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards).
 
+### Oppdatering og cache
+
+Viser HA fortsatt en gammel popup (f.eks. den gamle Basseng-popupen med `ki-basseng-card`) etter en oppdatering, er det
+nesten alltid en gammel kopi av `ki-msh.js` i cachen:
+
+1. **Bump versjonen i ressurs-URL-en.** Innstillinger → Dashbord → ⋮ → *Ressurser*: sett `?v=<versjon>` bak filen,
+   f.eks. `/local/ki-msh.js?v=1.3.0` (versjonen står i `package.json` og i konsollen: «KI MSH 1.3.0»). HACS legger selv
+   til `?hacstag=…` ved hver oppdatering – da trengs bare punkt 2.
+2. **Tøm cachen.** Nettleser: hard omlasting (Ctrl/Cmd + Shift + R) eller «Tøm buffer og hard omlasting» i
+   utviklerverktøyet (Application → Service workers → *Unregister* hvis det fortsatt er gammelt). Companion-appen:
+   Innstillinger → Companion-app → *Feilsøking* → **Tilbakestill frontend-hurtigbuffer**, og lukk appen helt.
+3. Sjekk konsollen: står det `[ki-msh] Ressurs-URL-en har ?v=…, men bundelen er …` eller `To versjoner er lastet`,
+   bruker nettleseren/appen fortsatt en gammel kopi, eller den gamle ressursen ligger igjen i listen – fjern den.
+
+Strategien lager `#basseng` og `#badebasseng` med ÉTT `msh-basseng-card`. Gamle kort (`ki-basseng-card`,
+`ki-basseng-hero-card`, `gap-card`) i importerte popups, `custom_popups` og `popup_overrides` migreres automatisk (én gang
+i ki-store). Et eget YAML-dashbord uten strategien må endres for hånd: én `custom:msh-basseng-card` i popupen.
+
 ## Popups
 
 Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Kortnavnene er de som registreres med
@@ -94,7 +112,7 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 | Rom | `#<område>` | `msh-rom-card` | KI Rom / entiteter i området |
 | Person | `#person-<id>` | `msh-person-card` | `person.*`, mobil-sensorer |
 | Innstillinger | `#settings` | `msh-innstillinger-card` | KI Varslinger og sikkerhet, `ki_energi` |
-| Basseng | `#basseng` | `msh-basseng-card` | område «Basseng»/`pool` |
+| Basseng | `#basseng` (+ `#badebasseng`) | `msh-basseng-card` | område «Basseng»/`pool` |
 | Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
 | Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
 | Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid |

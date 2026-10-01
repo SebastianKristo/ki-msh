@@ -146,6 +146,9 @@
     input,textarea{-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:8px;padding:0 4px}
     .hd .t{flex:1;font-size:22px;font-weight:600;letter-spacing:-0.01em} /* Fiks 26: lik header i alle Tilpass-ark */
+    /* 28.11: headeren (tittel + Ferdig) og fanelinjen står fast øverst i arket – bare innholdet under scroller */
+    .ed>.hd{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) - 1px);z-index:6;margin:-6px calc(-1 * var(--ki-sh-px, 16px)) 0;padding:6px calc(4px + var(--ki-sh-px, 16px)) 6px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
+    .ed>.seg.itabs{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) + 51px);z-index:5;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
     @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
     .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
@@ -394,7 +397,7 @@
       const lf = M.liveOf('msh-hjem-faner-card');
       if (lf && lf._cur) this.u.ctx = lf._cur.id;
       this.focus(focus, true);
-      this.ov = M.overlay({ html: '', css: CSS, sheet: false, maxWidth: 440 });
+      this.ov = M.overlay({ html: '', css: CSS, sheet: false, maxWidth: 440, tilpass: true }); // 28.11: popupens høyde, håndtak
       this.root = this.ov.root;
       this.body = this.ov.body;
       this.sheet = this.root.querySelector('.sh');
