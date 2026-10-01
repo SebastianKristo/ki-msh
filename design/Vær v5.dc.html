@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#1e1e1e;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+[data-snap]::-webkit-scrollbar{display:none}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fall{from{top:-60px}to{top:100%}}
+@keyframes fogmove{0%,100%{transform:translateX(-10%)}50%{transform:translateX(10%)}}
+@keyframes streak{from{transform:translateX(-160px);opacity:0}15%{opacity:1}85%{opacity:1}to{transform:translateX(520px);opacity:0}}
+@keyframes glowx{0%,100%{opacity:.35}50%{opacity:.85}}
+@keyframes sway{0%,100%{transform:translateX(-14px) rotate(-20deg)}50%{transform:translateX(14px) rotate(20deg)}}
+@keyframes drift{from{transform:translateX(-60%)}to{transform:translateX(160%)}}
+@keyframes flash{0%,100%{opacity:0}0.6%{opacity:.8}1.2%{opacity:.15}2%{opacity:1}4.5%{opacity:0}}
+@keyframes bolt{0%,100%{opacity:0;stroke-dashoffset:1}0.6%{opacity:1;stroke-dashoffset:0}1.2%{opacity:.3}2%{opacity:1}3.5%{opacity:.6}5%{opacity:0;stroke-dashoffset:0}}
+@keyframes twinkle{0%,100%{opacity:.15}50%{opacity:.9}}
+@keyframes beam{0%,100%{transform:rotate(-4deg);opacity:.5}50%{transform:rotate(4deg);opacity:.9}}
+@keyframes bloom{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.06);opacity:1}}
+@keyframes flare{0%,100%{opacity:.15}50%{opacity:.45}}
+@keyframes mote{0%{transform:translate(0,0);opacity:0}20%{opacity:.8}100%{transform:translate(40px,-60px);opacity:0}}
+@keyframes splash{0%,80%{transform:scaleX(.2);opacity:0}85%{opacity:.6}100%{transform:scaleX(1.4);opacity:0}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./glass-drag.js"></script>
+<script src="./haptic.js"></script>
+</helmet>
+<div style="{{ wrapStyle }}">
+<div style="{{ varsWrap }}"><section data-screen-label="Vær popup" style="{{ secStyle }}">
+
+  <sc-if value="{{ isFull }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden">{{ fxFull }}</div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0 22px;text-align:center">
+    <span style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;letter-spacing:.08em;color:#e6ebf1"><span class="ms" style="font-size:14px">location_on</span>{{ ent.upper }}</span>
+    <span style="font-size:96px;font-weight:300;letter-spacing:-0.04em;line-height:1;padding-left:18px">{{ ent.t }}°</span>
+    <span style="font-size:19px;font-weight:500;color:#e6ebf1">{{ cond.label }}</span>
+    <span style="font-size:15px;color:#d3dae3;white-space:nowrap;display:block">{{ hiLo }}</span>
+  </div>
+  </sc-if>
+  <sc-if value="{{ isCard }}" hint-placeholder-val="{{ true }}">
+  <div style="position:relative;min-height:200px;border-radius:28px;overflow:hidden;background:var(--hero,linear-gradient(170deg,#2c3440 0%,#3a4556 60%,#4a5669 100%));transition:background .6s;padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+    <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">{{ fxCard }}</div>
+    <span style="position:relative;display:flex;align-items:center;gap:6px;font-size:13px;color:#d3dae3"><span class="ms" style="font-size:16px">location_on</span>{{ ent.name }} · oppdatert 19:34</span>
+    <div style="position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
+      <span style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:84px;font-weight:300;letter-spacing:-0.04em;line-height:.9">{{ ent.t }}°</span>
+        <span style="font-size:17px;font-weight:500">{{ cond.label }}</span>
+        <span style="font-size:14px;color:#d3dae3;white-space:nowrap;display:block">{{ hiLoF }}</span>
+      </span>
+      <span class="ms" style="{{ cond.iconStyle }}">{{ cond.icon }}</span>
+    </div>
+  </div>
+
+  </sc-if>
+  <sc-if value="{{ show.alert }}" hint-placeholder-val="{{ true }}"><button onClick="{{ alertTap }}" style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;text-align:left">
+    <span style="display:flex;align-items:center;gap:10px;width:100%">
+      <span style="width:32px;height:32px;border-radius:50%;background:rgb(242 210 111);color:#2b2208;display:flex;align-items:center;justify-content:center;flex:none"><span class="ms" style="font-size:18px">thunderstorm</span></span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:15px;font-weight:500">Gult farevarsel · torden</span><span style="font-size:12px;color:#a8a8a8">Fra 00:00 torsdag 1. oktober</span></span>
+      <span class="ms" style="{{ alertChev }}">expand_more</span>
+    </span>
+    <sc-if value="{{ alertOpen }}" hint-placeholder-val="{{ false }}">
+      <span style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);animation:fade .3s ease">
+        <span style="font-size:14px;line-height:1.5;color:#e1e1e1;text-wrap:pretty">Lokalt kraftige tordenbyger med mye nedbør på kort tid og fare for lynnedslag.</span>
+        <span style="font-size:11px;color:#8a8a8a;letter-spacing:.04em">MET NORGE</span>
+      </span>
+    </sc-if>
+  </button></sc-if>
+
+  <sc-if value="{{ show.hours }}" hint-placeholder-val="{{ true }}"><div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 0 12px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px">
+      <span style="display:flex;flex-direction:column"><span style="font-size:15px;font-weight:500">Neste timer</span><span style="font-size:12px;color:#a8a8a8">{{ metricSub }}</span></span>
+      <span data-glass-drag="x" style="display:flex;gap:2px;padding:2px;border-radius:999px;background:#303030;touch-action:pan-y;user-select:none">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.tap }}" title="{{ m.label }}" style="{{ m.style }}"><span class="ms" style="font-size:18px">{{ m.icon }}</span></button></sc-for>
+      </span>
+    </div>
+    <div data-snap="1" style="overflow-x:auto;scrollbar-width:none;padding:0 8px">
+      <div style="position:relative;width:max-content">
+        <div style="display:flex">
+          <sc-for list="{{ hours }}" as="h" hint-placeholder-count="8">
+            <div style="flex:none;width:56px;display:flex;flex-direction:column;align-items:center;gap:6px">
+              <span style="{{ h.tStyle }}">{{ h.t }}</span>
+              <sc-if value="{{ isTemp }}" hint-placeholder-val="{{ true }}">
+                <span class="ms" style="{{ h.iconStyle }}">{{ h.icon }}</span>
+                <span style="font-size:12px;font-weight:500;color:rgb(115 185 242);height:14px">{{ h.p }}</span>
+                <span style="font-size:17px;font-weight:500;font-variant-numeric:tabular-nums">{{ h.T }}°</span>
+              </sc-if>
+              <sc-if value="{{ isRain }}" hint-placeholder-val="{{ false }}">
+                <span style="position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px">
+                  <span style="position:absolute;left:0;right:0;top:33%;border-top:1px dashed #4a4a4a"></span>
+                  <span style="position:absolute;left:0;right:0;top:66%;border-top:1px dashed #4a4a4a"></span>
+                  <span style="{{ h.rainFill }}"></span>
+                </span>
+                <span style="font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums">{{ h.mm }}</span>
+                <span style="display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums"><span class="ms" style="font-size:14px;color:rgb(115 185 242)">water_drop</span>{{ h.p }}</span>
+              </sc-if>
+              <sc-if value="{{ isWind }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;flex-direction:column;align-items:center;margin-top:6px"><span style="font-size:19px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums">{{ h.w }}</span><span style="font-size:11px;color:#a8a8a8">kast {{ h.g }}</span></span>
+                <span style="height:58px"></span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ isWind }}" hint-placeholder-val="{{ false }}">
+          <svg viewBox="{{ windChart.vb }}" preserveAspectRatio="none" style="position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block">
+            <path d="{{ windChart.gust }}" fill="rgba(95,201,196,.22)"></path>
+            <path d="{{ windChart.line }}" fill="none" stroke="rgb(95 201 196)" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+          </svg>
+          <span onPointerDown="{{ windChart.sc.down }}" onPointerMove="{{ windChart.sc.move }}" onPointerUp="{{ windChart.sc.up }}" onPointerCancel="{{ windChart.sc.up }}" style="position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair"></span>
+          <span style="{{ windChart.sc.mark }}"></span>
+          <span style="{{ windChart.sc.tip }}">{{ windChart.sc.label }}</span>
+        </sc-if>
+      </div>
+    </div>
+  </div></sc-if>
+
+  <sc-if value="{{ show.days }}" hint-placeholder-val="{{ true }}">
+  <sc-if value="{{ isRain }}" hint-placeholder-val="{{ false }}">
+  <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:4px 16px">
+    <sc-for list="{{ rainDays }}" as="d" hint-placeholder-count="7">
+      <div style="{{ d.row }}">
+        <span style="width:44px;font-size:15px;font-weight:500">{{ d.name }}</span>
+        <span onPointerDown="{{ d.sc.down }}" onPointerMove="{{ d.sc.move }}" onPointerUp="{{ d.sc.up }}" onPointerCancel="{{ d.sc.up }}" style="flex:1;display:flex;gap:3px;height:26px;align-items:stretch;min-width:0;touch-action:none;cursor:crosshair">
+          <sc-for list="{{ d.segs }}" as="s" hint-placeholder-count="8"><span style="{{ s.box }}"><span style="{{ s.fill }}"></span></span></sc-for>
+        </span>
+        <span style="{{ d.mmStyle }}">{{ d.mmTxt }}</span>
+        <span style="{{ d.pStyle }}">{{ d.pTxt }}</span>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isWind }}" hint-placeholder-val="{{ false }}">
+  <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:4px 16px">
+    <sc-for list="{{ windDays }}" as="d" hint-placeholder-count="7">
+      <div style="{{ d.row }}">
+        <span style="width:44px;font-size:15px;font-weight:500">{{ d.name }}</span>
+        <span onPointerDown="{{ d.sc.down }}" onPointerMove="{{ d.sc.move }}" onPointerUp="{{ d.sc.up }}" onPointerCancel="{{ d.sc.up }}" style="position:relative;flex:1;min-width:0;height:30px;touch-action:none;cursor:crosshair">
+          <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="width:100%;height:30px;display:block;border-radius:6px;background:#333">
+            <rect x="33" y="0" width="34" height="30" fill="rgba(255,255,255,.04)"></rect>
+            <path d="{{ d.gust }}" fill="rgba(95,201,196,.22)"></path>
+            <path d="{{ d.line }}" fill="none" stroke="rgb(95 201 196)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+          </svg>
+          <span style="{{ d.sc.mark }}"></span>
+        </span>
+        <span style="width:88px;text-align:right;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ d.txt }} <span style="font-weight:400;color:#a8a8a8">{{ d.unit }}</span></span>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isTemp }}" hint-placeholder-val="{{ true }}">
+  <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:4px 16px">
+    <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+      <div style="{{ d.wrap }}">
+      <div onClick="{{ d.tap }}" style="{{ d.row }}">
+        <span style="width:44px;font-size:15px;font-weight:500">{{ d.name }}</span>
+        <span style="width:40px;display:flex;flex-direction:column;align-items:center"><span class="ms" style="{{ d.iconStyle }}">{{ d.icon }}</span><span style="font-size:11px;font-weight:500;color:rgb(115 185 242)">{{ d.p }}</span></span>
+        <span style="width:30px;text-align:right;font-size:15px;color:#a8a8a8;font-variant-numeric:tabular-nums">{{ d.lo }}°</span>
+        <span style="flex:1;position:relative;height:6px;border-radius:3px;background:#2a2a2a;margin:0 4px">
+          <span style="{{ d.bar }}"></span>
+          <sc-if value="{{ d.today }}" hint-placeholder-val="{{ false }}"><span style="{{ d.dot }}"></span></sc-if>
+        </span>
+        <span style="width:30px;text-align:right;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">{{ d.hi }}°</span>
+        <span class="ms" style="{{ d.chev }}">expand_more</span>
+      </div>
+      <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0 16px;animation:fade .25s ease">
+          <span style="font-size:15px;line-height:1.5;color:#e6ebf1;text-wrap:pretty">{{ d.sum }}</span>
+          <div data-snap="1" style="display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:0 4px">
+            <sc-for list="{{ d.hours }}" as="h" hint-placeholder-count="8">
+              <span style="flex:none;width:52px;padding:10px 0;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;gap:6px">
+                <span style="font-size:12px;color:#a8a8a8">{{ h.t }}</span>
+                <span class="ms" style="{{ h.iconStyle }}">{{ h.icon }}</span>
+                <span style="font-size:15px;font-weight:500">{{ h.v }}°</span>
+                <span style="font-size:11px;font-weight:500;color:rgb(115 185 242);min-height:13px">{{ h.p }}</span>
+              </span>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+            <sc-for list="{{ d.stats }}" as="x" hint-placeholder-count="6">
+              <span style="padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:3px;min-width:0">
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#a8a8a8;white-space:nowrap"><span class="ms" style="font-size:14px">{{ x.icon }}</span>{{ x.l }}</span>
+                <span style="font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.v }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  </sc-if>
+  <sc-if value="{{ show.tiles }}" hint-placeholder-val="{{ true }}">
+  <div data-tiles="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">
+    <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8"><span class="ms" style="font-size:15px">air</span>Vind</span>
+      <div style="position:relative;width:112px;height:112px;align-self:center">
+        <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="0"><span style="{{ t }}"></span></sc-for>
+        <span style="position:absolute;left:50%;top:2px;transform:translateX(-50%);font-size:10px;font-weight:600;color:#a8a8a8">N</span>
+        <div style="{{ windNeedle }}"><span style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid rgb(242 133 201)"></span><span style="position:absolute;left:50%;top:10px;bottom:6px;width:2px;transform:translateX(-50%);background:rgb(242 133 201)"></span></div>
+        <span style="position:absolute;inset:30px;border-radius:50%;background:#3d3d3d;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:22px;font-weight:500;line-height:1">3,3</span><span style="font-size:11px;color:#a8a8a8">m/s</span></span>
+      </div>
+      <span style="font-size:12px;color:#d6d6d6">Fra sør · kast 7,8 m/s</span>
+    </div>
+
+    <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8"><span class="ms" style="font-size:15px">wb_twilight</span>Soloppgang</span>
+      <span style="font-size:28px;font-weight:300;line-height:1">07:50</span>
+      <svg viewBox="0 0 140 60" style="display:block;width:calc(100% + 32px);margin:0 -16px;height:62px">
+        <path d="M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50" fill="none" stroke="#555" stroke-width="2"></path>
+        <line x1="0" y1="36" x2="140" y2="36" stroke="#6a6a6a" stroke-width="1"></line>
+        <circle cx="{{ sun.x }}" cy="{{ sun.y }}" r="5" fill="#303030" stroke="rgb(242 210 111)" stroke-width="2"></circle>
+      </svg>
+      <span style="font-size:12px;color:#d6d6d6">Solnedgang 19:30</span>
+    </div>
+
+    <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8"><span class="ms" style="font-size:15px">show_chart</span>Normalen</span>
+      <span style="font-size:32px;font-weight:300;line-height:1.1">+5°</span>
+      <span style="font-size:13px;font-weight:500;line-height:1.3;text-wrap:pretty">over normal makstemperatur</span>
+      <span style="margin-top:auto;display:grid;grid-template-columns:1fr auto;row-gap:2px;font-size:12px;padding-top:6px">
+        <span style="color:#a8a8a8">I dag</span><span style="font-weight:500">H 23°</span>
+        <span style="color:#a8a8a8">Normalt</span><span style="font-weight:500">H 18°</span>
+      </span>
+    </div>
+
+    <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0;align-items:stretch">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8"><span class="ms" style="font-size:15px">clear_night</span>Avtakende måne</span>
+      <div style="position:relative;width:84px;height:84px;border-radius:50%;align-self:center;overflow:hidden;clip-path:circle(50% at 50% 50%);background:radial-gradient(circle at 38% 34%,#e4e6ea 0%,#c3c7cd 55%,#9ea3aa 100%);box-shadow:0 0 18px rgba(220,225,235,.18)">
+        <span style="position:absolute;left:24%;top:30%;width:14px;height:12px;border-radius:50%;background:rgba(120,126,134,.35)"></span>
+        <span style="position:absolute;left:50%;top:52%;width:18px;height:15px;border-radius:50%;background:rgba(120,126,134,.3)"></span>
+        <span style="position:absolute;left:34%;top:66%;width:9px;height:8px;border-radius:50%;background:rgba(120,126,134,.3)"></span>
+        <span style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 108% 50%, rgba(28,30,36,.9) 0, rgba(28,30,36,.9) 56%, rgba(28,30,36,0) 64%)"></span>
+      </div>
+      <span style="margin-top:auto;font-size:12px;color:#d6d6d6;text-align:center">Måneoppgang 20:51</span>
+    </div>
+
+    <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+      <div style="background:var(--card,#3d3d3d);-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:150px;box-sizing:border-box">
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8"><span class="ms" style="font-size:15px">{{ t.icon }}</span>{{ t.l }}</span>
+        <span style="display:flex;align-items:baseline;gap:4px"><span style="font-size:32px;font-weight:300;line-height:1.1">{{ t.v }}</span><span style="font-size:13px;color:#a8a8a8">{{ t.u }}</span></span>
+        <span style="font-size:13px;font-weight:500">{{ t.k }}</span>
+        <sc-if value="{{ t.scale }}" hint-placeholder-val="{{ false }}">
+          <span style="{{ t.track }}"><span style="{{ t.mark }}"></span></span>
+        </sc-if>
+        <span style="margin-top:auto;font-size:12px;color:#d6d6d6;line-height:1.4;text-wrap:pretty">{{ t.sub }}</span>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <span style="font-size:11px;color:#8a8a8a;text-align:center;padding-top:6px">Data fra Yr / MET Norge</span>
+  <div style="{{ pickWrap }}">
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;bottom:56px;width:270px;padding:6px;border-radius:22px;background:rgba(36,38,44,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:2px;animation:fade .2s ease">
+        <sc-for list="{{ ents }}" as="en" hint-placeholder-count="3">
+          <button onClick="{{ en.tap }}" style="{{ en.style }}">
+            <span class="ms" style="{{ en.iconStyle }}">{{ en.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><span style="font-size:15px;font-weight:500">{{ en.name }}</span><span style="{{ en.subStyle }}">{{ en.id }}</span></span>
+            <span style="font-size:17px;font-weight:500;font-variant-numeric:tabular-nums">{{ en.t }}°</span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <button onClick="{{ menuTap }}" title="Bytt sted" style="height:48px;padding:0 14px 0 14px;border-radius:24px;display:flex;align-items:center;gap:8px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35);font-size:15px;font-weight:500" style-hover="background:rgba(28,30,36,.88)">
+      <span class="ms" style="font-size:20px">location_on</span>{{ ent.name }}<span class="ms" style="{{ menuChev }}">expand_less</span>
+    </button>
+  </div>
+  <div style="{{ gearWrap }}">
+    <button onClick="{{ tp.open }}" title="Tilpass Vær" style="width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35)" style-active="transform:scale(.92)"><span class="ms" style="font-size:22px">tune</span></button>
+  </div>
+  <sc-if value="{{ tp.on }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ tp.close }}" style="position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:fade .2s ease"></div>
+    <div style="position:fixed;left:0;right:0;bottom:0;z-index:41;margin:0 auto;max-width:440px;max-height:85%;overflow-y:auto;box-sizing:border-box;padding:10px 14px 28px;border-radius:32px 32px 0 0;background:#282828;box-shadow:0 -20px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:10px;animation:fade .25s ease">
+      <span style="align-self:center;width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.22)"></span>
+      <div style="display:flex;align-items:center;gap:12px;padding:4px 4px 6px">
+        <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#2f2f2f;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:24px">partly_cloudy_day</span></span>
+        <span style="flex:1;font-size:20px;font-weight:500">Tilpass Vær</span>
+        <button onClick="{{ tp.close }}" title="Lukk" style="width:44px;height:44px;border-radius:22px;background:#3a3a3a;display:grid;place-items:center" style-active="transform:scale(.92)"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <span style="font-size:12px;color:#979797;padding:4px 6px 0">Stil</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px;background:#3a3a3a">
+        <sc-for list="{{ tp.stil }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:18px">{{ o.icon }}</span>{{ o.label }}</button></sc-for>
+      </div>
+      <span style="font-size:12px;color:#979797;padding:8px 6px 0">Steder · hold og dra for rekkefølge</span>
+      <div data-plist="1" style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+        <sc-for list="{{ places.list }}" as="p" hint-placeholder-count="4">
+          <div data-prow="1" style="{{ p.row }}">
+            <span onPointerDown="{{ p.dDown }}" onPointerMove="{{ places.dMove }}" onPointerUp="{{ places.dUp }}" onPointerCancel="{{ places.dUp }}" style="width:32px;height:48px;margin-left:-10px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+            <span class="ms" style="font-size:20px;color:#afafaf">location_on</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-size:15px">{{ p.name }}</span><span style="font-size:11px;color:#979797;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.id }}</span></span>
+            <sc-if value="{{ places.canDel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.del }}" title="Fjern" style="width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:#afafaf" style-active="transform:scale(.9)"><span class="ms" style="font-size:20px">delete</span></button></sc-if>
+          </div>
+        </sc-for>
+        <button onClick="{{ places.openAdd }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;color:rgb(242 133 201)"><span class="ms" style="font-size:20px">add_location_alt</span><span style="font-size:15px;font-weight:500">Legg til sted</span></button>
+        <sc-if value="{{ places.adding }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 8px 8px;border-radius:20px;background:#404040;animation:fade .2s ease">
+            <input value="{{ places.name }}" onInput="{{ places.onName }}" placeholder="Navn, f.eks. Hytta" style="height:48px;border-radius:16px;border:0;outline:0;background:#2f2f2f;color:#fafafa;font:inherit;font-size:15px;padding:0 14px"></input>
+            <span style="font-size:12px;color:#979797;padding:2px 4px 0">Vær-entitet</span>
+            <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#2f2f2f"><span class="ms" style="font-size:18px;color:#7f7f7f">search</span><input value="{{ places.q }}" onInput="{{ places.onQ }}" placeholder="Søk etter sted eller weather.* …" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:#fafafa;font:inherit;font-size:14px"></input></div>
+            <div style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto">
+              <sc-for list="{{ places.cands }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.go }}" style="{{ c.style }}"><span class="ms" style="font-size:18px">partly_cloudy_day</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-family:'Space Grotesk',system-ui">{{ c.name }}</span><span style="font-size:11px;color:#979797;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.id }}</span></span><span style="font-size:13px;color:#c7c7c7;font-family:'Space Grotesk',system-ui">{{ c.temp }}</span></button></sc-for>
+              <sc-if value="{{ places.none }}" hint-placeholder-val="{{ false }}"><span style="padding:10px;font-size:12px;color:#7f7f7f">Ingen treff</span></sc-if>
+            </div>
+            <button onClick="{{ places.add }}" style="{{ places.addStyle }}"><span class="ms" style="font-size:18px">add</span>Legg til</button>
+          </div>
+        </sc-if>
+      </div>
+      <span style="font-size:12px;color:#979797;padding:8px 6px 0">Seksjoner</span>
+      <div style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+        <sc-for list="{{ tp.rows }}" as="r" hint-placeholder-count="4">
+          <button onClick="{{ r.tap }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;border-top:1px solid rgba(255,255,255,.05)">
+            <span class="ms" style="font-size:20px;color:#afafaf">{{ r.icon }}</span>
+            <span style="flex:1;font-size:15px">{{ r.label }}</span>
+            <span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span>
+          </button>
+        </sc-for>
+      </div>
+      <span style="font-size:12px;color:#979797;padding:8px 6px 0">Fliser</span>
+      <div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:#3a3a3a">
+        <span style="font-size:14px;color:#c7c7c7;line-height:1.4;text-wrap:pretty">Hold inne en flis og dra for å endre rekkefølgen.</span>
+        <button onClick="{{ tp.resetTiles }}" style="height:44px;border-radius:22px;background:#404040;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px" style-active="transform:scale(.97)"><span class="ms" style="font-size:18px">restart_alt</span>Tilbakestill rekkefølge</button>
+      </div>
+    </div>
+  </sc-if>
+</section></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1600},&quot;stil&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Kort&quot;,&quot;Helbakgrunn&quot;],&quot;default&quot;:&quot;Helbakgrunn&quot;,&quot;tsType&quot;:&quot;'Kort'|'Helbakgrunn'&quot;},&quot;vaer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Fra entitet&quot;,&quot;clear-night&quot;,&quot;cloudy&quot;,&quot;fog&quot;,&quot;hail&quot;,&quot;lightning&quot;,&quot;lightning-rainy&quot;,&quot;partlycloudy&quot;,&quot;pouring&quot;,&quot;rainy&quot;,&quot;snowy&quot;,&quot;snowy-rainy&quot;,&quot;sunny&quot;,&quot;windy&quot;,&quot;windy-variant&quot;,&quot;exceptional&quot;],&quot;default&quot;:&quot;Fra entitet&quot;,&quot;tsType&quot;:&quot;string&quot;}}">class Component extends DCLogic {
+  componentDidMount() {
+    const KEY = 'ki-vaer-v5-tile-order';
+    const grid = () => document.querySelector('[data-tiles]');
+    const kids = () => { const g = grid(); return g ? [...g.children] : []; };
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (_) { return []; } };
+    const apply = (ord) => { const k = kids(); const o = ord.filter(i => i < k.length); k.forEach((_, i) => { if (!o.includes(i)) o.push(i); }); o.forEach((idx, pos) => { k[idx].style.order = pos; }); return o; };
+    this._tileOrder = apply(load());
+    this._resetTiles = () => { try { localStorage.removeItem(KEY); } catch (_) {} this._tileOrder = apply([]); };
+    this._reapply = setInterval(() => { const k = kids(); if (k.some(c => c.style.order === '')) this._tileOrder = apply(this._tileOrder); }, 500);
+    let t = null, drag = null, sx = 0, sy = 0;
+    const buzz = (ty) => { try { window.dispatchEvent(new CustomEvent('haptic', { detail: ty })); } catch (_) {} };
+    const natural = (el) => { const p = el.style.transform; el.style.transform = 'none'; const r = el.getBoundingClientRect(); el.style.transform = p; return r; };
+    const place = (x, y) => { const r = natural(drag.el); drag.el.style.transform = `translate(${x - drag.ox - r.left}px,${y - drag.oy - r.top}px) scale(1.05)`; };
+    const down = (ev) => {
+      const g = grid(); if (!g) return; const el = ev.target.closest('[data-tiles] > *'); if (!el || el.parentElement !== g) return;
+      sx = ev.clientX; sy = ev.clientY; clearTimeout(t);
+      t = setTimeout(() => {
+        const r = el.getBoundingClientRect(); const k = kids();
+        drag = { el, idx: k.indexOf(el), ox: sx - r.left, oy: sy - r.top };
+        el.style.transition = 'box-shadow .2s'; el.style.zIndex = 30; el.style.position = 'relative'; el.style.boxShadow = '0 18px 40px rgba(0,0,0,.45)';
+        k.forEach(c => { if (c !== el) { c.style.transition = 'opacity .2s'; c.style.opacity = '.7'; } });
+        place(sx, sy); buzz('medium');
+      }, 420);
+    };
+    const move = (ev) => {
+      if (!drag) { if (t && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8) { clearTimeout(t); t = null; } return; }
+      ev.stopPropagation(); if (ev.cancelable) ev.preventDefault();
+      const p = ev.touches ? ev.touches[0] : ev; if (!p) return;
+      place(p.clientX, p.clientY);
+      const k = kids();
+      const over = k.find(c => { if (c === drag.el) return false; const r = c.getBoundingClientRect(); return p.clientX > r.left && p.clientX < r.right && p.clientY > r.top && p.clientY < r.bottom; });
+      if (over) {
+        const o = this._tileOrder.slice(); const from = o.indexOf(drag.idx), to = o.indexOf(k.indexOf(over));
+        o.splice(from, 1); o.splice(to, 0, drag.idx); this._tileOrder = apply(o); place(p.clientX, p.clientY); buzz('selection');
+      }
+    };
+    const up = () => {
+      clearTimeout(t); t = null; if (!drag) return;
+      const el = drag.el; drag = null;
+      el.style.transition = 'transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s'; el.style.transform = ''; el.style.boxShadow = '';
+      setTimeout(() => { el.style.zIndex = ''; }, 260);
+      kids().forEach(c => { c.style.opacity = ''; });
+      localStorage.setItem(KEY, JSON.stringify(this._tileOrder)); buzz('light');
+      const block = (e) => { e.stopPropagation(); e.preventDefault(); }; window.addEventListener('click', block, { capture: true, once: true }); setTimeout(() => window.removeEventListener('click', block, true), 50);
+    };
+    const tm = (ev) => { if (drag) { ev.stopPropagation(); ev.preventDefault(); move(ev); } };
+    const ctx = (ev) => { if (ev.target.closest && ev.target.closest('[data-tiles]')) ev.preventDefault(); };
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('pointermove', move, true);
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('pointercancel', () => { if (!drag) { clearTimeout(t); t = null; } }, true);
+    document.addEventListener('touchmove', tm, { capture: true, passive: false });
+    document.addEventListener('touchend', up, true);
+    document.addEventListener('contextmenu', ctx, true);
+    this._tileOff = () => { clearInterval(this._reapply); document.removeEventListener('pointerdown', down, true); document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', up, true); document.removeEventListener('touchmove', tm, true); document.removeEventListener('touchend', up, true); document.removeEventListener('contextmenu', ctx, true); };
+  }
+  cfg() { if (!this._cfg) { try { this._cfg = JSON.parse(localStorage.getItem('ki-vaer-v5-cfg')) || {}; } catch (_) { this._cfg = {}; } } return this._cfg; }
+  setCfg(p) { this._cfg = { ...this.cfg(), ...p }; try { localStorage.setItem('ki-vaer-v5-cfg', JSON.stringify(this._cfg)); } catch (_) {} this.forceUpdate(); }
+  stilV() { return this.cfg().stil || this.props.stil || 'Helbakgrunn'; }
+  componentWillUnmount() { this._tileOff && this._tileOff(); }
+  fx(kind, full) {
+    const HA = { 'clear-night': ['Natt'], cloudy: ['Skyet'], fog: ['Skyet'], hail: [], lightning: [], 'lightning-rainy': ['Torden'], partlycloudy: ['Sol'], pouring: ['Regn'], rainy: ['Regn'], snowy: ['Snø'], 'snowy-rainy': ['Snø'], sunny: ['Sol'], windy: [], 'windy-variant': ['Skyet'], exceptional: [] };
+    const key = 'ha' + kind + full; if (this._fxh && this._fxh.key === key) return this._fxh.el;
+    const e = React.createElement, F = React.Fragment, bases = HA[kind] || [kind], out = bases.map((b, i) => e(F, { key: 'b' + i }, this.fxBase(b, full)));
+    let seed = 23; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280, k = full ? 1 : 0.45, ab = o => ({ position: 'absolute', pointerEvents: 'none', ...o });
+    const clouds = (n, col, op) => { for (let i = 0; i < n; i++) { const w = (full ? 280 : 180) + r() * 200, d = 70 + r() * 60; out.push(e('span', { key: 'xc' + i + col, style: ab({ top: `${r() * (full ? 30 : 60) - 10}%`, left: 0, width: w, height: w * .42, borderRadius: '50%', filter: 'blur(24px)', background: `radial-gradient(closest-side, rgba(${col},${op}), transparent)`, animation: `drift ${d}s linear ${-r() * d}s infinite` }) })); } };
+    const streaks = n => { for (let i = 0; i < n * k; i++) { const d = 1.1 + r() * 1.4, w = 60 + r() * 110; out.push(e('span', { key: 'ws' + i, style: ab({ left: 0, top: `${5 + r() * 90}%`, width: w, height: 1.5, borderRadius: 1, background: 'linear-gradient(90deg, transparent, rgba(235,240,248,.55), transparent)', animation: `streak ${d.toFixed(2)}s linear ${(-r() * d).toFixed(2)}s infinite` }) })); } };
+    const drops = (n, len, op, dur, rot) => { for (let i = 0; i < n * k; i++) { const dd = dur * (full ? 3.2 : 1) * (.85 + r() * .3); out.push(e('span', { key: 'xr' + i + len, style: ab({ left: `${r() * 110 - 5}%`, width: 1.4, height: len, borderRadius: 1, background: `linear-gradient(transparent, rgba(215,228,242,${op}))`, transform: `rotate(${rot}deg)`, animation: `fall ${dd.toFixed(2)}s linear ${(-r() * dd).toFixed(2)}s infinite` }) })); } };
+    const pellets = n => { for (let i = 0; i < n * k; i++) { const s = 3 + r() * 3, dd = (full ? 2.2 : .9) * (.8 + r() * .4); out.push(e('span', { key: 'hp' + i, style: ab({ left: `${r() * 100}%`, width: s, height: s, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #fff, rgba(210,225,240,.85))', boxShadow: '0 0 3px rgba(255,255,255,.6)', animation: `fall ${dd.toFixed(2)}s cubic-bezier(.5,0,1,1) ${(-r() * dd).toFixed(2)}s infinite` }) })); } };
+    const fog = () => { for (let i = 0; i < 5; i++) { const d = 26 + r() * 20; out.push(e('span', { key: 'fg' + i, style: ab({ left: '-20%', width: '140%', top: `${18 + i * 16}%`, height: full ? 140 : 70, background: 'linear-gradient(180deg, transparent, rgba(222,228,236,.34), transparent)', filter: 'blur(16px)', animation: `fogmove ${d.toFixed(1)}s ease-in-out ${(-r() * d).toFixed(1)}s infinite` }) })); } };
+    const bolt = (x, dur, delay) => { out.push(e('svg', { key: 'lb' + x, viewBox: '0 0 40 120', style: ab({ left: x, top: 0, width: full ? 70 : 40, height: full ? 300 : 150, overflow: 'visible', filter: 'drop-shadow(0 0 6px #c9d2ff)' }) }, e('path', { d: 'M22 0 L12 48 L22 50 L8 120 L30 44 L20 42 L28 0 Z', fill: '#eef1ff', style: { animation: `flash ${dur}s linear ${delay}s infinite`, opacity: 0 } })));
+      out.push(e('span', { key: 'lf' + x, style: ab({ inset: 0, background: `radial-gradient(ellipse 70% 45% at ${x} 0%, rgba(215,222,255,.7), transparent 70%)`, mixBlendMode: 'screen', opacity: 0, animation: `flash ${dur}s linear ${delay}s infinite` }) })); };
+    if (kind === 'fog') fog();
+    if (kind === 'hail') { clouds(6, '26,30,40', .7); pellets(40); }
+    if (kind === 'lightning') { clouds(7, '22,25,34', .8); bolt('64%', 8, 1); bolt('22%', 11, 4.5); }
+    if (kind === 'partlycloudy') clouds(4, '225,232,242', .55);
+    if (kind === 'pouring') { clouds(5, '22,25,34', .7); drops(34, 34, .7, .7, 14); }
+    if (kind === 'snowy-rainy') drops(14, 20, .5, 1, 8);
+    if (kind === 'windy') { clouds(3, '210,218,230', .25); streaks(26); }
+    if (kind === 'windy-variant') streaks(22);
+    if (kind === 'exceptional') { out.push(e('span', { key: 'ex', style: ab({ inset: 0, background: 'radial-gradient(ellipse 90% 60% at 50% 0%, rgba(242,128,115,.45), transparent 70%)', animation: 'glowx 3s ease-in-out infinite' }) })); clouds(6, '30,20,24', .7); streaks(18); bolt('70%', 9, 2); }
+    const el = e(F, null, out); this._fxh = { key, el }; return el;
+  }
+  fxBase(kind, full) {
+    const key = kind + full + 'v2';
+    if (this._fx && this._fx.key === key) return this._fx.el;
+    const e = React.createElement, F = React.Fragment;
+    let seed = 11; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const k = full ? 1 : 0.45, sp = full ? 3.2 : 1, out = [];
+    const cloud = (n, dark, op, top = 30) => { for (let i = 0; i < n; i++) { const w = (full ? 260 : 180) + r() * 220, d = 90 + r() * 90;
+      out.push(e('span', { key: 'c' + i + dark + op, style: { position: 'absolute', top: `${r() * (full ? top : 60) - 10}%`, left: 0, width: w, height: w * .42, borderRadius: '50%', filter: 'blur(24px)',
+        background: `radial-gradient(closest-side, ${dark ? 'rgba(22,25,34,' : 'rgba(210,218,230,'}${op}), transparent)`, animation: `drift ${d}s linear ${-r() * d}s infinite` } })); } };
+    const rain = (n, heavy) => [[.25, 12, 1, 1.6], [.4, 18, 1.2, 1.25], [.6, 26, 1.5, 1]].forEach(([op, len, wd, dur], L) => {
+      for (let i = 0; i < n * (L + 1) * k; i++) { const dd = dur * sp * (heavy ? .8 : 1) * (.85 + r() * .3);
+        out.push(e('span', { key: `r${L}-${i}`, style: { position: 'absolute', left: `${r() * 110 - 5}%`, width: wd, height: len * (heavy ? 1.3 : 1), borderRadius: wd,
+          background: `linear-gradient(transparent, rgba(215,228,242,${op}))`, transform: `rotate(${heavy ? 16 : 8}deg)`, animation: `fall ${dd.toFixed(2)}s linear ${(-r() * dd).toFixed(2)}s infinite` } })); } });
+    const splashes = n => { for (let i = 0; i < n * k; i++) { const d = 1.4 + r() * 1.2;
+      out.push(e('span', { key: 's' + i, style: { position: 'absolute', bottom: `${r() * (full ? 90 : 18)}%`, left: `${r() * 100}%`, width: 10, height: 3, borderRadius: '50%', border: '1px solid rgba(215,228,242,.45)', animation: `splash ${d}s ease-out ${-r() * d}s infinite` } })); } };
+    const bolt = (id, x, w, dur, delay) => {
+      const pts = [[50, 0]]; let cx = 50;
+      for (let y = 8; y <= 100; y += 6 + r() * 6) { cx += (r() - .5) * 18; pts.push([cx, y]); }
+      const main = 'M' + pts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' L');
+      const bi = 3 + Math.floor(r() * 3), b0 = pts[bi]; let bx = b0[0];
+      const br = 'M' + [b0, ...[1, 2, 3, 4].map(j => [bx += (r() < .5 ? -1 : 1) * (4 + r() * 6), b0[1] + j * 7])].map(p => p.map(v => v.toFixed(1)).join(',')).join(' L');
+      const a = { animation: `bolt ${dur}s linear ${delay}s infinite`, strokeDasharray: 1, strokeDashoffset: 1 };
+      out.push(e('svg', { key: 'b' + id, viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { position: 'absolute', left: x, top: 0, width: w, height: full ? 420 : 180, overflow: 'visible', filter: 'drop-shadow(0 0 4px #c9d2ff) drop-shadow(0 0 14px rgba(160,175,255,.8))' } },
+        e('path', { d: main, pathLength: 1, fill: 'none', stroke: '#f4f6ff', strokeWidth: 2.2, strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke', style: a }),
+        e('path', { d: br, pathLength: 1, fill: 'none', stroke: '#e6eaff', strokeWidth: 1.2, strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke', style: a })));
+      out.push(e('span', { key: 'fl' + id, style: { position: 'absolute', inset: 0, background: `radial-gradient(ellipse 70% 45% at ${x} 0%, rgba(215,222,255,.75), rgba(170,180,255,.18) 60%, transparent)`, mixBlendMode: 'screen', animation: `flash ${dur}s linear ${delay}s infinite` } }));
+    };
+    if (kind === 'Regn') { cloud(4, false, .2); rain(12, false); splashes(8); }
+    if (kind === 'Torden') { cloud(6, true, .75); rain(18, true); bolt(1, '62%', full ? 110 : 60, 9, 1.2); bolt(2, '18%', full ? 90 : 50, 13, 5.5); }
+    if (kind === 'Sol') {
+      const sx = full ? '82%' : '86%', sy = full ? 90 : 40;
+      for (let i = 0; i < 6; i++) out.push(e('span', { key: 'bm' + i, style: { position: 'absolute', left: sx, top: sy, width: full ? 900 : 420, height: 26 + r() * 40, marginTop: -20, transformOrigin: '0 50%',
+        rotate: `${100 + i * 16 + r() * 6}deg`, background: 'linear-gradient(90deg, rgba(255,244,205,.35), rgba(255,244,205,0) 80%)', filter: 'blur(8px)', animation: `beam ${14 + r() * 8}s ease-in-out ${-r() * 10}s infinite` } }));
+      out.push(e('span', { key: 'sun', style: { position: 'absolute', left: sx, top: sy, width: 260, height: 260, margin: '-130px 0 0 -130px', borderRadius: '50%', background: 'radial-gradient(closest-side, #fffdf2 0%, rgba(255,241,190,.9) 16%, rgba(255,214,120,.35) 42%, transparent)', animation: 'bloom 8s ease-in-out infinite' } }));
+      [[.28, 38, .5], [.5, 18, .35], [.72, 64, .22]].forEach(([t, s, o], i) => out.push(e('span', { key: 'lf' + i, style: { position: 'absolute', left: `calc(${sx} - ${t * (full ? 300 : 220)}px)`, top: sy + t * (full ? 360 : 150), width: s, height: s, marginLeft: -s / 2, borderRadius: '50%',
+        background: `radial-gradient(closest-side, rgba(255,236,190,${o}), rgba(170,210,255,${o / 2}) 70%, transparent)`, animation: `flare ${6 + i * 2}s ease-in-out ${-i}s infinite` } })));
+      for (let i = 0; i < 14 * k; i++) { const d = 7 + r() * 6; out.push(e('span', { key: 'm' + i, style: { position: 'absolute', left: `${r() * 100}%`, top: `${r() * (full ? 40 : 90)}%`, width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,248,220,.9)', filter: 'blur(.5px)', animation: `mote ${d}s ease-in-out ${-r() * d}s infinite` } })); }
+      cloud(2, false, .28, 20);
+    }
+    if (kind === 'Skyet') { cloud(7, false, .4); cloud(3, true, .3); }
+    if (kind === 'Snø') { cloud(3, false, .28);
+      [[.45, 1.5, 3, 22, 1], [.75, 3, 5, 15, 0], [.95, 5, 8, 10, 0]].forEach(([op, s0, s1, dur, blur], L) => {
+        for (let i = 0; i < [40, 26, 10][L] * k; i++) { const s = s0 + r() * (s1 - s0), d = dur * sp * (.8 + r() * .4), sw = 3 + r() * 3;
+          const flake = L === 2 && r() < .6
+            ? e('span', { className: 'ms', style: { display: 'block', fontSize: 12 + r() * 6, color: `rgba(255,255,255,${op})`, animation: `sway ${sw}s ease-in-out ${-r() * sw}s infinite`, filter: 'drop-shadow(0 0 3px rgba(255,255,255,.5))' } }, 'ac_unit')
+            : e('span', { style: { display: 'block', width: s, height: s, borderRadius: '50%', background: `radial-gradient(circle, rgba(255,255,255,${op}) 40%, rgba(255,255,255,0))`, filter: blur ? 'blur(1px)' : 'none', animation: `sway ${sw}s ease-in-out ${-r() * sw}s infinite` } });
+          out.push(e('span', { key: `f${L}-${i}`, style: { position: 'absolute', left: `${r() * 100}%`, animation: `fall ${d.toFixed(1)}s linear ${(-r() * d).toFixed(1)}s infinite` } }, flake)); } }); }
+    if (kind === 'Natt') {
+      for (let i = 0; i < 70 * k; i++) { const s = r() < .15 ? 2.5 : 1.5;
+        out.push(e('span', { key: 'st' + i, style: { position: 'absolute', left: `${r() * 100}%`, top: `${r() * (full ? 45 : 100)}%`, width: s, height: s, borderRadius: '50%', background: '#fff', animation: `twinkle ${3 + r() * 5}s ease-in-out ${-r() * 5}s infinite` } })); }
+      out.push(e('span', { key: 'glow', style: { position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(200,215,255,.28), transparent)' } }));
+      cloud(1, false, .12);
+    }
+    const el = e(F, null, out);
+    this._fx = { key, el };
+    return el;
+  }
+  fxOld(kind, full) {
+    const key = kind + full;
+    if (this._fx && this._fx.key === key) return this._fx.el;
+    const e = React.createElement, F = React.Fragment;
+    let seed = 7; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const k = full ? 1 : 0.5, out = [];
+    const cloud = (n, dark, op) => { for (let i = 0; i < n; i++) { const w = 180 + r() * 220, d = 60 + r() * 60;
+      out.push(e('span', { key: 'c' + i + dark, style: { position: 'absolute', top: `${(full ? r() * 30 : r() * 50) - 8}%`, left: 0, width: w, height: w * .45, borderRadius: '50%', filter: 'blur(22px)',
+        background: `radial-gradient(closest-side, ${dark ? 'rgba(30,34,44,' : 'rgba(210,218,230,'}${op}), transparent)`, animation: `drift ${d}s linear ${-r() * d}s infinite` } })); } };
+    const rain = (n, heavy) => [[.35, 10, 1, .9], [.5, 16, 1.2, .65], [.7, 24, 1.6, .45]].forEach(([op, len, wd, dur], L) => {
+      for (let i = 0; i < n * (L + 1) * k; i++) { const dd = (dur / (heavy ? 1.4 : 1)) * (.85 + r() * .3);
+        out.push(e('span', { key: `r${L}-${i}`, style: { position: 'absolute', left: `${r() * 110 - 5}%`, width: wd, height: len * (heavy ? 1.4 : 1), borderRadius: wd,
+          background: `linear-gradient(transparent, rgba(215,228,242,${op}))`, transform: 'rotate(12deg)', animation: `fall ${dd}s linear ${-r() * dd}s infinite` } })); } });
+    const splashes = n => { for (let i = 0; i < n * k; i++) { const d = .8 + r() * .8;
+      out.push(e('span', { key: 's' + i, style: { position: 'absolute', bottom: `${r() * (full ? 90 : 20)}%`, left: `${r() * 100}%`, width: 10, height: 3, borderRadius: '50%', border: '1px solid rgba(215,228,242,.5)', animation: `splash ${d}s ease-out ${-r() * d}s infinite` } })); } };
+    if (kind === 'Regn') { cloud(4, false, .22); rain(14, false); splashes(10); }
+    if (kind === 'Torden') {
+      cloud(5, true, .7); rain(22, true);
+      out.push(e('span', { key: 'fl', style: { position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 70% 10%, rgba(220,225,255,.9), rgba(180,190,255,.25) 60%, transparent)', mixBlendMode: 'screen', animation: 'flash 7s linear 1s infinite' } }));
+      out.push(e('svg', { key: 'bo', viewBox: '0 0 40 120', style: { position: 'absolute', right: '18%', top: 0, width: full ? 60 : 34, height: full ? 180 : 100, animation: 'bolt 7s linear 1s infinite', filter: 'drop-shadow(0 0 6px rgba(200,210,255,.9))' } },
+        e('path', { d: 'M22 0 L12 48 L22 50 L8 120 L30 44 L20 42 L28 0 Z', fill: '#eef1ff' })));
+    }
+    if (kind === 'Sol') {
+      out.push(e('span', { key: 'rays', style: { position: 'absolute', right: full ? -140 : -110, top: full ? -140 : -120, width: 360, height: 360, borderRadius: '50%', opacity: .35,
+        background: 'repeating-conic-gradient(rgba(255,240,190,.5) 0 6deg, transparent 6deg 18deg)', WebkitMaskImage: 'radial-gradient(closest-side, #000 20%, transparent)', maskImage: 'radial-gradient(closest-side, #000 20%, transparent)', animation: 'spin 60s linear infinite' } }));
+      out.push(e('span', { key: 'sun', style: { position: 'absolute', right: full ? -40 : -30, top: full ? -40 : -30, width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(255,246,210,.95), rgba(255,220,130,.45) 45%, transparent)', animation: 'pulse 6s ease-in-out infinite' } }));
+      cloud(2, false, .35);
+    }
+    if (kind === 'Skyet') { cloud(7, false, .4); cloud(3, true, .3); }
+    if (kind === 'Snø') { cloud(3, false, .3);
+      for (let i = 0; i < 60 * k; i++) { const s = 2 + r() * 4, d = 6 + r() * 8;
+        out.push(e('span', { key: 'f' + i, style: { position: 'absolute', left: `${r() * 100}%`, animation: `fall ${d}s linear ${-r() * d}s infinite` } },
+          e('span', { style: { display: 'block', width: s, height: s, borderRadius: '50%', background: 'rgba(255,255,255,.85)', filter: s > 4 ? 'blur(1px)' : 'none', animation: `sway ${2 + r() * 2}s ease-in-out ${-r() * 2}s infinite` } }))); } }
+    if (kind === 'Natt') {
+      for (let i = 0; i < 70 * k; i++) { const s = r() < .15 ? 2.5 : 1.5;
+        out.push(e('span', { key: 'st' + i, style: { position: 'absolute', left: `${r() * 100}%`, top: `${r() * (full ? 45 : 100)}%`, width: s, height: s, borderRadius: '50%', background: '#fff', animation: `twinkle ${2 + r() * 4}s ease-in-out ${-r() * 4}s infinite` } })); }
+      out.push(e('span', { key: 'glow', style: { position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(200,215,255,.28), transparent)' } }));
+      cloud(1, false, .12);
+    }
+    const el = e(F, null, out);
+    this._fx = { key, el };
+    return el;
+  }
+  state = { metric: 'temp', alert: false };
+  renderVals() {
+    const s = this.state, set = o => this.setState(o);
+    const pink = 'linear-gradient(160deg,#f28ac9,#f6c9c4)', ink = 'rgba(70,58,64,.95)', blue = 'rgb(115 185 242)';
+    const ic = (i, sz = 26) => ({ fontSize: sz, color: i === 'sunny' ? 'rgb(242 210 111)' : '#e6ebf1' });
+    const fmt = n => String(n).replace('.', ',');
+    const H = [['Nå', 'rainy', 50, 21, 3.3], ['20', 'rainy', 50, 21, 3.1], ['21', 'rainy', 50, 21, 3.4], ['22', 'rainy', 45, 20, 3.9], ['23', 'rainy', 45, 20, 4.2], ['00', 'thunderstorm', 60, 20, 5.1], ['01', 'thunderstorm', 55, 19, 5.6], ['02', 'rainy', 40, 19, 4.8], ['03', 'cloud', 20, 18, 4.0], ['04', 'cloud', 10, 18, 3.6]];
+    const M = { temp: ['device_thermostat', 'Temperatur (°C)'], rain: ['water_drop', 'Nedbør · mengde og sannsynlighet'], wind: ['air', 'Vind (m/s) · kast'] };
+    const MM = [0.4, 0.3, 0.1, 0, 0, 1.2, 0.8, 0.2, 0, 0];
+    const G = [7.8, 7.2, 7.5, 8.4, 9.0, 11.2, 12.1, 10.3, 8.6, 7.9];
+    const hours = H.map(([t, icon, p, T, w], i) => ({ t, icon, iconStyle: ic(icon), T, p: `${p}%`,
+      mm: MM[i] ? `${fmt(MM[i])} mm` : '0 mm', w: fmt(w), g: fmt(G[i]),
+      rainFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: MM[i] ? `${Math.max(6, MM[i] / 1.5 * 100)}%` : 0, background: blue, borderRadius: '6px 6px 0 0' },
+      tStyle: { fontSize: 13, fontWeight: i ? 400 : 600, color: i ? '#a8a8a8' : '#fafafa' } }));
+    const cw = 56, n = H.length, WX = 14, wy = v => 56 - v / WX * 50;
+    const pts = a => a.map((v, i) => `${i * cw + cw / 2},${wy(v).toFixed(1)}`);
+    const ext = a => [`0,${wy(a[0]).toFixed(1)}`, ...pts(a), `${n * cw},${wy(a[n - 1]).toFixed(1)}`];
+    const smooth = P => { const p = P.map(q => q.split(',').map(Number)); let d = `M${p[0][0]},${p[0][1]}`;
+      for (let k = 0; k < p.length - 1; k++) { const p0 = p[k - 1] || p[k], p1 = p[k], p2 = p[k + 1], p3 = p[k + 2] || p2;
+        d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`; }
+      return d; };
+    this._smooth = smooth;
+    const scrub = (id, labelOf) => { const cur = s.sc && s.sc.id === id ? s.sc.f : null, fOf = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+      return { f: cur, down: e => { e.stopPropagation(); e.currentTarget.setPointerCapture?.(e.pointerId); this.setState({ sc: { id, f: fOf(e) } }); window.haptic && window.haptic('selection'); },
+        move: e => { if (!this.state.sc || this.state.sc.id !== id) return; e.stopPropagation(); this.setState({ sc: { id, f: fOf(e) } }); },
+        up: () => { if (this.state.sc && this.state.sc.id === id) this.setState({ sc: null }); },
+        mark: { position: 'absolute', top: 0, bottom: 0, left: `${(cur ?? 0) * 100}%`, width: 0, borderLeft: '1.5px dashed rgba(255,255,255,.7)', pointerEvents: 'none', opacity: cur == null ? 0 : 1, transition: 'opacity .15s' },
+        label: cur == null ? '' : labelOf(cur) }; };
+    const wsc = scrub('wh', f => { const k = Math.max(0, Math.min(n - 1, Math.round(f * n - .5))); return `${H[k][0]} · ${fmt(H[k][4])} m/s · kast ${fmt(G[k])}`; });
+    wsc.mark = { ...wsc.mark, top: 'auto', height: 58, bottom: 0 };
+    wsc.tip = { position: 'absolute', bottom: 62, left: `clamp(0px, calc(${(wsc.f ?? 0) * 100}% - 70px), calc(100% - 140px))`, width: 140, textAlign: 'center', padding: '4px 8px', borderRadius: 10, background: 'rgba(20,22,28,.85)', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', pointerEvents: 'none', boxSizing: 'border-box', opacity: wsc.f == null ? 0 : 1, transition: 'opacity .15s' };
+    const windChart = { vb: `0 0 ${n * cw} 58`, line: smooth(ext(H.map(h => h[4]))), gust: smooth(ext(G)) + ` L${n * cw},58 L0,58 Z`, sc: wsc };
+    const RD = [['I dag', [0, 0, 0, 0, 1, 2, 2, 3], 8, 70], ['Tor', [3, 2, 2, 0, 0, 0, 0, 0], 4, 80], ['Fre', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0], ['Lør', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0], ['Søn', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0], ['Man', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0], ['Tir', [0, 0, 0, 0, 0, 0, 1, 1], 1, 30], ['Ons', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0], ['Tor', [0, 0, 0, 0, 0, 0, 0, 0], 0, 0]];
+    const rowS = i => ({ display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, borderTop: i ? '1px solid rgba(255,255,255,.07)' : 'none' });
+    const rainDays = RD.map(([name, seg, mm, p], i) => { const sc = scrub('rd' + i, () => ''), k = sc.f == null ? -1 : Math.max(0, Math.min(7, Math.floor(sc.f * 8))), on = k >= 0;
+      const segMm = v => v ? (v * 0.6).toFixed(1).replace('.', ',') : '0', segP = v => v ? Math.min(95, Math.round(p * (0.6 + v * 0.15))) : 0;
+      return { name, mm, p, row: rowS(i), sc,
+      mmTxt: on ? `${String(k * 3).padStart(2, '0')}: ${segMm(seg[k])} mm` : `${mm} mm`, pTxt: on ? `${segP(seg[k])}%` : `${p}%`,
+      mmStyle: { width: on ? 96 : 52, textAlign: 'right', fontSize: 15, fontWeight: 500, color: (on ? seg[k] : mm) ? '#fafafa' : '#6a6a6a', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', transition: 'width .15s' },
+      pStyle: { width: 40, textAlign: 'right', fontSize: 15, fontWeight: 500, color: (on ? seg[k] : p) ? blue : '#6a6a6a', fontVariantNumeric: 'tabular-nums' },
+      segs: seg.map((v, j) => ({ box: { flex: 1, position: 'relative', borderRadius: 3, overflow: 'hidden', background: j >= 2 && j < 6 ? '#4a4a4a' : '#353535', outline: (on ? j === k : i === 0 && j === 6) ? '1.5px solid #fafafa' : 'none', transform: on && j === k ? 'scaleY(1.12)' : 'none', transition: 'transform .12s' },
+        fill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: v ? `${v * 25 + 10}%` : 0, background: blue } })) }; });
+    const WD = [['I dag', [2, 2.5, 3, 4, 3.5, 3, 3.3, 3.8], [4, 5, 6, 7, 6.5, 6, 7, 8]], ['Tor', [3, 3.4, 3.2, 3, 3.1, 2.9, 2.6, 2.2], [5, 5.5, 6, 6.2, 6.4, 6.1, 5.4, 4.8]], ['Fre', [1.2, 0.8, 1, 1.4, 1.8, 2, 1.9, 1.6], [2.5, 2, 2.4, 3.2, 3.8, 4, 3.9, 3.6]], ['Lør', [1.4, 1.3, 1.1, 1.4, 1.7, 2, 2.2, 2], [2.4, 2.1, 2, 2.6, 3, 3.3, 3.8, 3.4]], ['Søn', [1.8, 1.6, 1.4, 1.5, 1.6, 1.8, 1.7, 1.5], [3, 2.6, 2.4, 2.4, 2.5, 2.6, 2.4, 2.2]], ['Man', [1.3, 1.2, 1.3, 1.4, 1.5, 1.4, 1.2, 1], [2.6, 2.2, 2, 2.2, 2.4, 2.3, 1.8, 1.4]], ['Tir', [1, 1, 1.1, 1.3, 1.7, 1.6, 1.3, 1.2], [1.8, 1.6, 1.8, 2.6, 3.2, 3, 2.2, 1.8]], ['Ons', [1, 1, 1.2, 1.6, 2, 2.4, 2.8, 3], [2, 2, 2.4, 3, 3.6, 4, 4.4, 4.8]], ['Tor', [3, 3.4, 3.6, 3.8, 4, 4.2, 3.9, 3.4], [5.4, 5.8, 6, 6.4, 7, 7.4, 6.8, 6]]];
+    const sy = v => (28 - v / 9 * 24).toFixed(1), sx = j => (j / 7 * 100).toFixed(1);
+    const windDays = WD.map(([name, a, g], i) => { const lo = Math.round(Math.min(...a)), hi = Math.round(Math.max(...g));
+      const sc = scrub('wd' + i, f => { const k = Math.round(f * 7); return `${fmt(a[k])}`; }), k = sc.f == null ? 0 : Math.round(sc.f * 7);
+      return { name, row: rowS(i), lo, hi, sc,
+        txt: sc.f == null ? `${lo}–${hi}` : `${String(k * 3).padStart(2, '0')}: ${fmt(a[k])}`, unit: sc.f == null ? 'm/s' : `/${fmt(g[k])}`,
+        line: smooth(a.map((v, j) => `${sx(j)},${sy(v)}`)),
+        gust: smooth(g.map((v, j) => `${sx(j)},${sy(v)}`)) + ' L100,30 L0,30 Z' }; });
+    const metrics = Object.entries(M).map(([k, [icon, label]]) => ({ icon, label, tap: () => set({ metric: k }),
+      style: { width: 40, height: 32, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: s.metric === k ? pink : 'transparent', color: s.metric === k ? ink : '#bdbdbd', transition: 'background .3s,color .3s' } }));
+
+    const D = [['I dag', 'rainy', 70, 20, 23], ['Tor', 'thunderstorm', 80, 15, 21], ['Fre', 'cloud', 0, 12, 21], ['Lør', 'cloud', 0, 11, 21], ['Søn', 'sunny', 0, 11, 22], ['Man', 'partly_cloudy_day', 0, 11, 21], ['Tir', 'rainy', 30, 12, 21], ['Ons', 'cloud', 0, 12, 19], ['Tor', 'sunny', 0, 9, 15]];
+    const pos = v => (v - 6) / 18 * 100;
+    const col = v => v < 10 ? '#6fd0d0' : v < 15 ? '#8fd6a8' : v < 20 ? '#c9d97a' : '#f2c94c';
+    const FULL = { 'I dag': 'I dag', Man: 'Mandag', Tir: 'Tirsdag', Ons: 'Onsdag', Tor: 'Torsdag', Fre: 'Fredag', Lør: 'Lørdag', Søn: 'Søndag' };
+    const CTXT = { rainy: 'regn', thunderstorm: 'torden og regnbyger', cloud: 'skyet', sunny: 'sol', partly_cloudy_day: 'delvis skyet' };
+    const days = D.map(([name, icon, p, lo, hi], i) => { const open = s.dayOpen === i, wet = p > 0;
+      const HS = ['00', '03', '06', '09', '12', '15', '18', '21'], curve = [0, -0.1, 0.05, 0.45, 0.85, 1, 0.75, 0.35];
+      const hours = HS.map((t, j) => { const hic = wet && j >= 3 && j <= 6 ? icon : j < 2 || j === 7 ? (icon === 'sunny' ? 'bedtime' : 'cloud') : icon === 'thunderstorm' ? 'rainy' : icon;
+        return { t, icon: hic, iconStyle: ic(hic, 20), v: Math.round(lo + (hi - lo) * Math.max(0, curve[j])), p: wet && j >= 3 && j <= 6 ? `${Math.max(10, p - Math.abs(j - 5) * 15)}%` : '' }; });
+      const mm = wet ? (p / 10).toFixed(1).replace('.', ',') : '0', wind = (2 + (i * 7 % 5) + (icon === 'thunderstorm' ? 4 : 0)).toFixed(1).replace('.', ',');
+      const sum = `${FULL[name] || name}: ${CTXT[icon] || 'skyet'}${wet ? `, ${mm} mm nedbør` : ''}. Fra ${lo}° om natta til ${hi}° på ettermiddagen, vind ${wind} m/s.`;
+      return { name, icon, iconStyle: ic(icon, 22), p: p ? `${p}%` : '', lo, hi, today: i === 0, open, sum, hours,
+        stats: [['water_drop', 'Nedbør', `${mm} mm`], ['air', 'Vind', `${wind} m/s`], ['wb_sunny', 'UV', icon === 'sunny' ? '4 moderat' : '1 lav'], ['humidity_percentage', 'Fukt', `${wet ? 88 : 72} %`], ['wb_twilight', 'Sol opp', `07:${String(50 + i).padStart(2, '0')}`], ['bedtime', 'Sol ned', `19:${String(30 - i * 3).padStart(2, '0')}`]].map(([ic2, l, v]) => ({ icon: ic2, l, v })),
+        tap: () => { set({ dayOpen: open ? null : i }); window.haptic && window.haptic('light'); },
+        wrap: { display: 'flex', flexDirection: 'column', borderTop: i ? '1px solid rgba(255,255,255,.07)' : 'none' },
+        chev: { fontSize: 18, color: '#8a8a8a', width: 18, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
+      row: { display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, cursor: 'pointer' },
+      bar: { position: 'absolute', top: 0, bottom: 0, left: `${pos(lo)}%`, right: `${100 - pos(hi)}%`, borderRadius: 3, background: `linear-gradient(90deg,${col(lo)},${col(hi)})` },
+      dot: { position: 'absolute', top: -2, left: `calc(${pos(21)}% - 5px)`, width: 10, height: 10, borderRadius: '50%', background: '#fafafa', boxShadow: '0 0 0 2px #3d3d3d' } }; });
+
+    const ticks = Array.from({ length: 48 }, (_, i) => ({ position: 'absolute', left: 55, top: 4, width: 2, height: i % 12 ? 6 : 10, borderRadius: 1, background: i % 12 ? '#5a5a5a' : '#8a8a8a', transformOrigin: '1px 52px', transform: `rotate(${i * 7.5}deg)` }));
+    const windNeedle = { position: 'absolute', inset: 8, transform: 'rotate(0deg)' };
+    const dot = { position: 'absolute', top: -2, left: -1, width: 10, height: 10, borderRadius: '50%', background: '#fafafa', boxShadow: '0 0 0 2px #3d3d3d' };
+    const track = g => ({ position: 'relative', height: 6, borderRadius: 3, marginTop: 4, background: g });
+    const tiles = [
+      { icon: 'wb_sunny', l: 'UV-indeks', v: '0', u: '', k: 'Lav', sub: 'Lav resten av dagen.', scale: true, track: track('linear-gradient(90deg,#6fd29a,#f2c94c,#f0a36b,#f07070,#c97ae0)'), mark: dot },
+      { icon: 'device_thermostat', l: 'Føles som', v: '21°', u: '', k: '', sub: 'Samme som faktisk temperatur.' },
+      { icon: 'water_drop', l: 'Nedbør', v: '3', u: 'mm', k: 'siste 6 t', sub: '8 mm ventet neste døgn.' },
+      { icon: 'visibility', l: 'Sikt', v: '19', u: 'km', k: '', sub: 'God sikt.' },
+      { icon: 'humidity_percentage', l: 'Luftfuktighet', v: '85', u: '%', k: '', sub: 'Duggpunkt 19° nå.' },
+      { icon: 'compress', l: 'Lufttrykk', v: '1016', u: 'hPa', k: 'Stabilt', sub: 'Lavt ← → Høyt', scale: true, track: track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)'), mark: { position: 'absolute', top: -3, left: 'calc(52% - 2px)', width: 4, height: 12, borderRadius: 2, background: '#fafafa' } },
+    ];
+    const drops = Array.from({ length: 18 }, (_, i) => ({ position: 'absolute', top: 0, left: `${(i * 37) % 100}%`, width: 1.5, height: 14, borderRadius: 1, background: 'rgba(220,230,240,.5)', animation: `drop ${1.1 + (i % 4) * .25}s linear ${((i * .17) % 1.4).toFixed(2)}s infinite` }));
+
+    const isFull = this.stilV() === 'Helbakgrunn';
+    const ENT = [
+      { name: 'Hjem', id: 'weather.forecast_hjem', c: 'Regn', t: 21, hi: 23, lo: 20, f: 21 },
+      { name: 'Hytta', id: 'weather.hytta_hemsedal', c: 'Snø', t: -2, hi: 0, lo: -6, f: -6 },
+      { name: 'Jobb', id: 'weather.oslo_sentrum', c: 'Torden', t: 18, hi: 20, lo: 14, f: 18 },
+      { name: 'Båten', id: 'weather.tjome', c: 'Sol', t: 17, hi: 19, lo: 12, f: 16 },
+    ];
+    const AVAIL = [...ENT, { name: 'Bergen', id: 'weather.bergen', c: 'Regn', t: 12, hi: 13, lo: 9, f: 10 }, { name: 'Trondheim', id: 'weather.trondheim', c: 'Skyet', t: 10, hi: 12, lo: 6, f: 8 }, { name: 'Tromsø', id: 'weather.tromso', c: 'Natt', t: 4, hi: 6, lo: 1, f: 1 }, { name: 'Kristiansand', id: 'weather.kristiansand', c: 'Sol', t: 16, hi: 18, lo: 11, f: 15 }, { name: 'Forecast Home (timer)', id: 'weather.forecast_home_hourly', c: 'Regn', t: 21, hi: 23, lo: 20, f: 21 }, { name: 'Stavanger', id: 'weather.stavanger', c: 'Skyet', t: 13, hi: 14, lo: 9, f: 11 }, { name: 'Lillehammer', id: 'weather.lillehammer', c: 'Sol', t: 9, hi: 12, lo: 3, f: 7 }];
+    const PC = this.cfg(), rem = PC.removed || [];
+    ENT.splice(0, ENT.length, ...ENT.filter(x => !rem.includes(x.id)), ...(PC.places || []).map(p => ({ ...(AVAIL.find(a => a.id === p.id) || { c: 'Skyet', t: 12, hi: 14, lo: 8, f: 11 }), name: p.name, id: p.id })));
+    if (!ENT.length) ENT.push({ name: 'Hjem', id: 'weather.forecast_hjem', c: 'Regn', t: 21, hi: 23, lo: 20, f: 21 });
+    const pOrd = (s.pDrag ? s.pOrder : PC.order) || []; if (pOrd.length) ENT.sort((a, b) => { const ia = pOrd.indexOf(a.id), ib = pOrd.indexOf(b.id); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); });
+    const ei = Math.min(s.ent ?? 0, ENT.length - 1), en0 = ENT[ei];
+    const used = ENT.map(x => x.id), np = s.np || { name: '', id: '' }, pq = (s.pq || '').toLowerCase().trim();
+    const match = a => !used.includes(a.id) && (!pq || a.id.includes(pq.replace(/ /g, '_')) || (a.name || '').toLowerCase().includes(pq));
+    const pMove = e => { if (!s.pDrag) return; e.stopPropagation(); const rs = [...e.currentTarget.closest('[data-plist]').querySelectorAll('[data-prow]')], y = e.clientY;
+      let to = rs.findIndex(x => { const b = x.getBoundingClientRect(); return y < b.top + b.height / 2; }); if (to < 0) to = rs.length - 1;
+      const o = [...s.pOrder], from = o.indexOf(s.pDrag); if (to === from) return; o.splice(from, 1); o.splice(to, 0, s.pDrag); window.haptic && window.haptic('selection'); set({ pOrder: o }); };
+    const pUp = () => { if (!s.pDrag) return; const curId = (ENT[ei] || {}).id; this.setCfg({ order: s.pOrder }); const ni = s.pOrder.indexOf(curId); set({ pDrag: null, ent: ni < 0 ? 0 : ni }); window.haptic && window.haptic('light'); };
+    const places = { dMove: pMove, dUp: pUp, q: s.pq || '', onQ: e => set({ pq: e.target.value }), none: !AVAIL.some(match), list: ENT.map((x, i) => ({ name: x.name, id: x.id,
+        dDown: e => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} window.haptic && window.haptic('medium'); set({ pDrag: x.id, pOrder: ENT.map(z => z.id) }); },
+        row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 8px 0 16px', borderBottom: '1px solid rgba(255,255,255,.05)', position: 'relative', zIndex: s.pDrag === x.id ? 2 : 0, background: s.pDrag === x.id ? '#404040' : 'transparent', borderRadius: s.pDrag === x.id ? 18 : 0, boxShadow: s.pDrag === x.id ? '0 8px 24px rgba(0,0,0,.4)' : 'none', transform: s.pDrag === x.id ? 'scale(1.02)' : 'none', transition: 'transform .15s, background .15s' }, del: () => { window.haptic && window.haptic('medium'); if (ENT.length < 2) return; const own = (PC.places || []).some(p => p.id === x.id);
+        this.setCfg(own ? { places: PC.places.filter(p => p.id !== x.id) } : { removed: [...rem, x.id] }); if ((s.ent ?? 0) >= ENT.length - 1) set({ ent: 0 }); } })),
+      canDel: ENT.length > 1, adding: !!s.npOpen, name: np.name,
+      openAdd: () => { window.haptic && window.haptic('light'); set({ npOpen: !s.npOpen, np: { name: '', id: '' } }); },
+      onName: e => set({ np: { ...np, name: e.target.value } }),
+      cands: AVAIL.filter(match).map(a => ({ id: a.id, name: a.name || a.id, temp: a.t + '°', go: () => { window.haptic && window.haptic('selection'); set({ np: { ...np, id: a.id, name: np.name || a.name || '' } }); },
+        style: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '0 14px', borderRadius: 16, textAlign: 'left', fontSize: 13, fontFamily: 'ui-monospace,monospace', background: np.id === a.id ? '#545454' : 'transparent', color: '#e1e1e1' } })),
+      addStyle: { height: 48, borderRadius: 24, fontSize: 15, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: np.id && np.name.trim() ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#404040', color: np.id && np.name.trim() ? '#3a3a3a' : '#7f7f7f', pointerEvents: np.id && np.name.trim() ? 'auto' : 'none' },
+      add: () => { if (!np.id || !np.name.trim()) return; window.haptic && window.haptic('success'); const r = rem.filter(x => x !== np.id), base = ENT.length;
+        this.setCfg(AVAIL.slice(0, 4).some(a => a.id === np.id) && rem.includes(np.id) ? { removed: r } : { places: [...(PC.places || []), { name: np.name.trim(), id: np.id }] }); set({ npOpen: false, np: { name: '', id: '' }, ent: base }); } };
+    const ent = { ...en0, upper: en0.name.toUpperCase() };
+    const icoOf = { Regn: 'rainy', Torden: 'thunderstorm', Sol: 'sunny', Skyet: 'cloud', Snø: 'weather_snowy', Natt: 'clear_night' };
+    const ents = ENT.map((x, i) => { const on = i === ei; return { name: x.name, id: x.id, t: x.t, icon: icoOf[x.c], tap: () => set({ ent: i, menu: false }),
+      iconStyle: { fontSize: 22, color: on ? ink : x.c === 'Sol' ? 'rgb(242 210 111)' : '#e6ebf1' },
+      subStyle: { fontSize: 10, color: on ? 'rgba(70,58,64,.75)' : '#a8a8a8', fontFamily: 'ui-monospace,monospace', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' },
+      style: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '0 14px 0 12px', borderRadius: 16, textAlign: 'left', background: on ? pink : 'transparent', color: on ? ink : '#fafafa' } }; });
+    const isFullP = this.stilV() === 'Helbakgrunn';
+    const pickPos = { position: 'absolute', zIndex: 5, top: isFullP ? 18 : 32, right: isFullP ? 18 : 28 };
+    const menuOpen = !!s.menu, menuTap = () => set({ menu: !s.menu });
+    const menuChev = { fontSize: 18, opacity: .8, transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' };
+    const LEG = { Regn: 'rainy', Torden: 'lightning-rainy', Sol: 'sunny', Skyet: 'cloudy', Snø: 'snowy', Natt: 'clear-night' };
+    const vk0 = (this.props.vaer ?? 'Fra entitet') === 'Fra entitet' ? en0.c : this.props.vaer, vk = LEG[vk0] || vk0;
+    const C = {
+      'clear-night': { label: 'Klart', icon: 'clear_night', bg: ['#0b1224', '#141f3a', '#22305a'], card: 'rgba(12,18,36,.5)' },
+      cloudy: { label: 'Skyet', icon: 'cloud', bg: ['#4a525e', '#59626f', '#687280'], card: 'rgba(40,46,56,.38)' },
+      fog: { label: 'Tåke', icon: 'foggy', bg: ['#5d646c', '#6e757d', '#7f868e'], card: 'rgba(46,50,56,.38)' },
+      hail: { label: 'Hagl', icon: 'weather_hail', bg: ['#2c3340', '#3a4252', '#4b5466'], card: 'rgba(26,30,40,.45)' },
+      lightning: { label: 'Lyn', icon: 'thunderstorm', bg: ['#1a1d28', '#262a38', '#343a4c'], card: 'rgba(18,20,30,.5)' },
+      'lightning-rainy': { label: 'Tordenbyger', icon: 'thunderstorm', bg: ['#1f2330', '#2b3040', '#3a3f52'], card: 'rgba(20,22,32,.48)' },
+      partlycloudy: { label: 'Delvis skyet', icon: 'partly_cloudy_day', bg: ['#3d6e9c', '#5889b5', '#7ea6c9'], card: 'rgba(26,52,84,.34)' },
+      pouring: { label: 'Kraftig regn', icon: 'rainy_heavy', bg: ['#262d38', '#323b48', '#3e4858'], card: 'rgba(22,26,34,.48)' },
+      rainy: { label: 'Regn', icon: 'rainy', bg: ['#323a46', '#3f4957', '#4a5565'], card: 'rgba(30,36,46,.42)' },
+      snowy: { label: 'Snø', icon: 'weather_snowy', bg: ['#56627a', '#6c7892', '#8591aa'], card: 'rgba(40,48,66,.36)' },
+      'snowy-rainy': { label: 'Sludd', icon: 'weather_mix', bg: ['#46505f', '#566172', '#677285'], card: 'rgba(36,42,54,.4)' },
+      sunny: { label: 'Sol', icon: 'sunny', bg: ['#2f6fb0', '#4d8fcc', '#79b1de'], card: 'rgba(20,50,90,.32)' },
+      windy: { label: 'Vind', icon: 'air', bg: ['#4f6a86', '#6583a0', '#7e9bb6'], card: 'rgba(34,48,64,.36)' },
+      'windy-variant': { label: 'Vind og skyer', icon: 'air', bg: ['#4a5563', '#5a6574', '#6b7686'], card: 'rgba(38,44,54,.4)' },
+      exceptional: { label: 'Ekstremvær', icon: 'warning', bg: ['#2a1c20', '#3a2429', '#4a2d33'], card: 'rgba(30,18,22,.5)' },
+    }[vk] || {};
+    const grad = a => `linear-gradient(180deg,${a[0]} 0%,${a[1]} 40%,${a[2]} 100%)`;
+    const vars = { display: 'contents', '--hero': `linear-gradient(170deg,${C.bg[0]} 0%,${C.bg[1]} 60%,${C.bg[2]} 100%)`,
+      ...(isFull ? { '--bg': grad(C.bg), '--card': C.card, '--blur': 'blur(18px)' } : {}) };
+    const cond = { label: C.label, icon: C.icon, iconStyle: { position: 'absolute', right: 0, top: 4, fontSize: 64, color: vk === 'sunny' || vk === 'partlycloudy' ? 'rgb(242 210 111)' : vk === 'exceptional' ? 'rgb(242 128 115)' : '#e6ebf1' } };
+    const fxFull = this.fx(vk, true), fxCard = this.fx(vk, false);
+    const emb = !!this.props.embedded;
+    const wrapStyle = emb ? { display: 'block', width: '100%' } : { minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '24px 0', boxSizing: 'border-box' };
+    const secStyle = { width: '100%', maxWidth: emb ? 'none' : 420, background: 'var(--bg,#303030)', position: 'relative', overflow: 'clip', isolation: 'isolate', borderRadius: emb ? 0 : 32, padding: emb ? '104px 14px 110px' : '20px 14px 32px', margin: emb ? '-84px 0 -110px' : 0, minHeight: emb ? 'calc(100vh - 52px)' : 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10, alignSelf: 'flex-start' };
+    const pickWrap = emb ? { position: 'fixed', left: 16, bottom: 16, zIndex: 20 } : { position: 'sticky', bottom: 16, zIndex: 20, alignSelf: 'flex-start', marginTop: -4 };
+    const CF = this.cfg(), hid = CF.hide || {}, hap = t => window.haptic && window.haptic(t);
+    const show = { alert: !hid.alert, hours: !hid.hours, days: !hid.days, tiles: !hid.tiles };
+    const PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+    const tp = { on: !!s.tp, open: () => { hap('light'); set({ tp: true, menu: false }); }, close: () => { hap('light'); set({ tp: false }); },
+      resetTiles: () => { hap('medium'); this._resetTiles && this._resetTiles(); },
+      stil: [['Kort', 'Klassisk', 'view_agenda'], ['Helbakgrunn', 'Scene', 'landscape']].map(([k, label, icon]) => { const on = this.stilV() === k;
+        return { label, icon, go: () => { hap('selection'); try { localStorage.setItem('hjem-vaer-stil', k === 'Kort' ? 'klassisk' : 'scene'); } catch (_) {} this.setCfg({ stil: k }); },
+          style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, background: on ? PK : 'transparent', color: on ? '#3a3a3a' : '#fafafa' } }; }),
+      rows: [['alert', 'warning', 'Farevarsel'], ['hours', 'schedule', 'Neste timer'], ['days', 'calendar_view_week', 'Døgnvarsel'], ['tiles', 'grid_view', 'Fliser']].map(([k, icon, label]) => { const on = !hid[k];
+        return { icon, label, tap: () => { hap('selection'); this.setCfg({ hide: { ...hid, [k]: on } }); },
+          track: { width: 50, height: 30, borderRadius: 15, flex: 'none', position: 'relative', background: on ? PK : '#545454', transition: 'background .2s' },
+          knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 24, height: 24, borderRadius: 12, background: '#fafafa', boxShadow: '0 1px 3px rgba(0,0,0,.3)', transition: 'left .2s' } }; }) };
+    const gearWrap = emb ? { position: 'fixed', right: 16, bottom: 16, zIndex: 20 } : { position: 'sticky', bottom: 16, zIndex: 20, alignSelf: 'flex-end', marginTop: -58 };
+    return { places, show, tp, gearWrap, wrapStyle, secStyle, pickWrap, varsWrap: emb ? { ...vars, width: '100%' } : vars, hiLo: `H ${ent.hi}° · L ${ent.lo}°`, hiLoF: `H ${ent.hi}° · L ${ent.lo}° · føles som ${ent.f}°`, vars, isFull, cond, ent, ents, pickPos, menuOpen, menuTap, menuChev, fxFull, fxCard, isCard: !isFull, hours, metrics, windChart, rainDays, windDays, isTemp: s.metric === 'temp', isRain: s.metric === 'rain', isWind: s.metric === 'wind', metricSub: M[s.metric][1], days, ticks, windNeedle, sun: { x: 124, y: 40 }, tiles, drops,
+      alertOpen: s.alert, alertTap: () => set({ alert: !s.alert }),
+      alertChev: { fontSize: 22, color: '#a8a8a8', transform: s.alert ? 'rotate(180deg)' : 'none', transition: 'transform .25s' } };
+  }
+}</script>
+</body>
+</html>

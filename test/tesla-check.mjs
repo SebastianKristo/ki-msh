@@ -68,7 +68,7 @@ await shot(p, '1-lading');
 
 // ---------------------------------------------------------------- hurtigknapper
 const Q = await p.evaluate(() => { const sr = window.__c.shadowRoot; return [...sr.querySelectorAll('.qbtn')].map((b) => { const r = b.getBoundingClientRect(); return { k: b.dataset.v, cls: b.className, w: Math.round(r.width), h: Math.round(r.height), rad: getComputedStyle(b).borderRadius, ent: b.dataset.ent || '' }; }); });
-ok('Hurtigknapper: 5 like brede, 76 px høye, r22 (26.10)', Q.length === 5 && Q.every((x) => x.h === 76 && Math.abs(x.w - Q[0].w) <= 1 && x.rad === '22px'), Q);
+ok('Hurtigknapper: 5 like brede kvadratiske fliser, r24 (27.9)', Q.length === 5 && Q.every((x) => Math.abs(x.h - x.w) <= 1 && Math.abs(x.w - Q[0].w) <= 1 && x.rad === '24px'), Q);
 ok('Lås oransje + rist (ulåst, lås omvendt), Defrost og Bagasje lys flis (aktiv), Frunk normal', /warn/.test(Q[0].cls) && /shake/.test(Q[0].cls) && /act/.test(Q[2].cls) && /act/.test(Q[4].cls) && !/act/.test(Q[3].cls), Q);
 // Lås: bekreftelse (standard på) → Lås → switch toggle
 const lk = await p.evaluate(async () => {
@@ -97,7 +97,7 @@ ok('Faner Lading/Kjøring/Sparing + 48 px tannhjul i samme rad', F.tabs.join('|'
 
 // ---------------------------------------------------------------- Lading
 const L = await p.evaluate(() => { const sr = window.__c.shadowRoot, lim = sr.querySelector('.lim'); return { st: sr.querySelector('.lc .lhead').textContent.replace(/\s+/g, ' ').trim(), ss: sr.querySelector('.ss') && sr.querySelector('.ss').textContent.trim(), lv: sr.querySelector('.lv').textContent, ta: getComputedStyle(lim).touchAction, chips: [...sr.querySelectorAll('.lchip')].map((c) => c.textContent + (c.classList.contains('on') ? '*' : '')), sum: [...sr.querySelectorAll('.kpi .kc')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), bars: sr.querySelectorAll('.pb i').length, cheap: sr.querySelectorAll('.pb i.c').length }; });
-ok('Lading: status «Tilkoblet · lader» + 7,4 kW + Stopp', /Tilkoblet · lader/.test(L.st) && /7,4\s*kW/.test(L.st) && L.ss === 'Stopp', L);
+ok('Lading: status «Lader» + 7,4 kW + Stopp', /^Lader/.test(L.st) && /7,4\s*kW/.test(L.st) && L.ss === 'Stopp', L);
 ok('Ladegrense: 80 %, touch-action none, knapper 50/60/70/80/100 med 80 aktiv', L.lv === '80 %' && L.ta === 'none' && L.chips.join() === '50,60,70,80*,100', L);
 ok('Oppsummering: tid til grense · pris · sist lading', /1 t 35 m/.test(L.sum[0]) && /38 kr/.test(L.sum[1]) && /112 kr/.test(L.sum[2]), L.sum);
 ok('Smartlading: 12 timer med billigste time(r) uthevet', L.bars === 12 && L.cheap >= 1 && L.cheap < L.bars, L);
@@ -127,19 +127,19 @@ ok('Start/Stopp → switch.turn_off på laderen', stop.some((c) => c[0] === 'swi
 await tab(p, 'kjoring');
 await wait(p, 300);
 const K = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { rc: sr.querySelector('.rc').textContent.replace(/\s+/g, ' ').trim(), marker: !!sr.querySelector('.rb b'), bars: [...sr.querySelectorAll('.dbar')].map((b) => b.getAttribute('aria-label')), sel: sr.querySelector('.dc .smt').textContent.replace(/\s+/g, ' ').trim(), tiles: [...sr.querySelectorAll('.sum .st')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), ws: window.__calls.filter((c) => c[1] === 'recorder/statistics_during_period').length }; });
-ok('Kjøring: rekkevidde 312 km med grensemarkør og «ved ladegrensen»', /312\s*km/.test(K.rc) && K.marker && /Ved ladegrensen/.test(K.rc), K);
-ok('Kjøring: 7 søyler fra statistikk, i dag = live 23 km', K.bars.length === 7 && K.bars.some((x) => /54 km/.test(x)) && /23 km/.test(K.sel), K);
+ok('Kjøring: rekkevidde 312 km med grensemarkør og «N km ved L %»', /312\s*km/.test(K.rc) && K.marker && /390 km ved 80 %/.test(K.rc), K);
+ok('Kjøring: 7 søyler fra statistikk, i dag = live 23 km', K.bars.length === 7 && K.bars.some((x) => /54 km/.test(x)) && /^I dag\s*23\s*km/.test(K.sel), K);
 const dsel = await p.evaluate(async () => { window.__c.shadowRoot.querySelectorAll('.dbar')[3].click(); await new Promise((q) => setTimeout(q, 250)); return window.__c.shadowRoot.querySelector('.dc .smt').textContent.replace(/\s+/g, ' ').trim(); });
-ok('Trykk på søyle velger dagen', /54 km/.test(dsel), dsel);
+ok('Trykk på søyle velger dagen', /^Mandag\s*54\s*km/.test(dsel), dsel);
 ok('Kilometerstand + snitt per dag', /48\s?213 km/.test(K.tiles[0].replace(/ /g, ' ')) && /km/.test(K.tiles[1]), K.tiles);
 await shot(p, '2-kjoring');
 
 // ---------------------------------------------------------------- Sparing
 await tab(p, 'sparing');
 await wait(p, 400);
-const S = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pump: sr.querySelector('.pump') && sr.querySelector('.pump').textContent.replace(/\s+/g, ' ').trim(), head: sr.querySelector('.sv0').textContent.replace(/\s+/g, ' ').trim(), tiles: [...sr.querySelectorAll('.sum .st')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), scrub: sr.querySelectorAll('.scrub i').length, ta: sr.querySelector('.scrub') && getComputedStyle(sr.querySelector('.scrub')).touchAction, line: sr.querySelector('.line2').textContent.replace(/\s+/g, ' ').trim() }; });
+const S = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pump: sr.querySelector('.pump') && sr.querySelector('.pump').textContent.replace(/\s+/g, ' ').trim(), head: sr.querySelector('.sv0').textContent.replace(/\s+/g, ' ').trim(), tiles: [...sr.querySelectorAll('.sum .st')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), pm: [...sr.querySelectorAll('.pm .mr')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), scrub: sr.querySelectorAll('.scrub i').length, ta: sr.querySelector('.scrub') && getComputedStyle(sr.querySelector('.scrub')).touchAction, line: sr.querySelector('.line2').textContent.replace(/\s+/g, ' ').trim() }; });
 ok('Sparing: spart måned 612 kr, diesel vs strøm, 59 % billigere', /612\s*kr/.test(S.head) && /Diesel/.test(S.head) && /Strøm/.test(S.head) && /59 %/.test(S.head), S);
-ok('Sparing: kr/mil Tesla vs Audi, liter og CO₂', /5,04/.test(S.tiles[0]) && /Tesla Model Y/.test(S.tiles[0]) && /12,60/.test(S.tiles[1]) && /695/.test(S.tiles[2]) && /1\s?840/.test(S.tiles[3].replace(/ /g, ' ')), S.tiles);
+ok('Sparing: kostnad per mil Tesla vs Audi (stolper), liter og CO₂', /^Tesla\s*5,04 kr/.test(S.pm[0]) && /^Audi A6\s*12,60 kr/.test(S.pm[1]) && /695 L/.test(S.tiles[0]) && /1\s?840 kg/.test(S.tiles[1].replace(/\s/g, ' ')), S);
 ok('Sparing: 30 dager scrub (touch-action none) + prislinje', S.scrub === 30 && S.ta === 'none' && /Diesel – · Strøm 1,12 kr\/kWh/.test(S.line), S);
 ok('Dieselpris mangler → oransje «Pumpepris mangler»', /Pumpepris mangler/.test(S.pump || ''), S.pump);
 const fuel = await p.evaluate(async () => { window.__calls.length = 0; window.__c.shadowRoot.querySelector('.pump').click(); await new Promise((q) => setTimeout(q, 200)); return window.__calls.slice(); });
@@ -158,34 +158,32 @@ const scr = await p.evaluate(async () => {
 ok('Scrub i «spart per dag» velger dag uten å slippe til popupen', scr.sd >= 13 && scr.sd <= 16 && scr.leaked === 0, scr);
 await shot(p, '3-sparing');
 
-// ---------------------------------------------------------------- «Tilpass Tesla» (tannhjul)
+// ---------------------------------------------------------------- «Tilpass Tesla» (tannhjul) – eget ark (27.9b)
 await tab(p, 'lading');
+const ED = "window.MSH.portals().pop().shadowRoot.querySelector('msh-tesla-editor')";
 const E1 = await p.evaluate(async () => {
   window.__c.shadowRoot.querySelector('.trow .gear').click(); await new Promise((q) => setTimeout(q, 500));
-  const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-editor');
-  return ed ? { title: ed.shadowRoot.querySelector('.ttl .tt').textContent, tabs: [...ed.shadowRoot.querySelectorAll('.chips.tabs [role="tab"]')].map((t) => t.getAttribute('aria-label') || t.textContent.trim()), inPop: !!portal.closest('.pop') } : null;
+  const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-tesla-editor');
+  return ed ? { title: ed.shadowRoot.querySelector('.th .tt').textContent, tabs: [...ed.shadowRoot.querySelectorAll('[data-a="tetab"]')].map((t) => t.textContent.trim()), x: !!ed.shadowRoot.querySelector('[data-a="cancel"]'), inPop: !!portal.closest('.pop') } : null;
 });
-ok('Tannhjul → «Tilpass · Tesla» (portalt) med Bil/Faner/Entiteter/Avansert', E1 && E1.title === 'Tilpass · Tesla' && E1.tabs.join('|') === 'Bil|Faner|Entiteter|Avansert' && !E1.inPop, E1);
-// Bil: lakk-swatch + skjul Tut → kortet oppdateres straks
-const E2 = await p.evaluate(async () => {
-  const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
-  R.querySelector('[data-op="paint"][data-v="#a3161f"]').click(); await new Promise((q) => setTimeout(q, 250));
+ok('Tannhjul → «Tilpass Tesla» (portalt) med tekstfanene Bil/Faner/Entiteter/Avansert, ingen ×', E1 && E1.title === 'Tilpass Tesla' && E1.tabs.join('|') === 'Bil|Faner|Entiteter|Avansert' && !E1.x && !E1.inPop, E1);
+const E2 = await p.evaluate(async (ED) => {
+  const ed = eval(ED), R = ed.shadowRoot;
+  R.querySelector('[data-a="tpaint"][data-v="#a3161f"]').click(); await new Promise((q) => setTimeout(q, 250));
   const names = [...R.querySelectorAll('[data-name]')].map((x) => x.dataset.name);
-  // Hurtigknapper → Tut → «Vis knappen»
-  const sw = R.querySelector('[data-a="bool"][data-name="buttons.honk.show"]'); sw.click(); await new Promise((q) => setTimeout(q, 300));
+  R.querySelector('[data-a="tbool"][data-name="buttons.honk.show"]').click(); await new Promise((q) => setTimeout(q, 300));
   const sc = window.__c.shadowRoot.querySelector('msh-tesla-scene').shadowRoot.querySelector('.tc');
   return { names, lakk: sc.style.getPropertyValue('--lakk'), btns: [...window.__c.shadowRoot.querySelectorAll('.qbtn')].map((b) => b.dataset.v), draft: ed._config };
-});
-ok('Bil: navn, lakk-swatcher, egen hex, kapasitet + per knapp vis/entitet/bekreftelse', ['name', 'paint', 'capacity', 'button_text', 'buttons.lock.entity', 'buttons.honk.confirm'].every((n) => E2.names.includes(n)), E2.names);
+}, ED);
+ok('Bil: navn, lakk-swatcher, kapasitet + per knapp vis/entitet/bekreftelse', ['name', 'capacity', 'button_text', 'buttons.lock.entity', 'buttons.honk.confirm', 'buttons.trunk.show'].every((n) => E2.names.includes(n)), E2.names);
 ok('Lakk og skjult Tut oppdateres straks i popupen (live utkast)', E2.lakk === '#a3161f' && E2.btns.join() === 'lock,defrost,frunk,trunk', E2);
-// Faner: forhåndsvisning + dra Sparing øverst + skjul Kjøring + Kontur
-const E3 = await p.evaluate(async () => {
-  const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
-  [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'faner').click(); await new Promise((q) => setTimeout(q, 200));
+const E3 = await p.evaluate(async (ED) => {
+  const ed = eval(ED), R = ed.shadowRoot;
+  R.querySelector('[data-a="tetab"][data-v="faner"]').click(); await new Promise((q) => setTimeout(q, 200));
   const prev0 = [...R.querySelectorAll('.tsp .tab')].map((t) => t.textContent.trim());
   const gear = !!R.querySelector('.tsp .gear');
   const row = (k) => R.querySelector(`[data-tdk="${k}"]`), hd = row('sparing').querySelector('[data-tdrag]');
-  const r = hd.getBoundingClientRect(), x = r.left + r.width / 2; let y = r.top + r.height / 2;
+  const r = hd.getBoundingClientRect(), x = r.left + r.width / 2; const y = r.top + r.height / 2;
   const hp = []; const on = (e) => hp.push(e.detail); window.addEventListener('haptic', on);
   const o = (yy) => ({ bubbles: true, composed: true, clientX: x, clientY: yy, pointerId: 21, pointerType: 'touch' });
   hd.dispatchEvent(new PointerEvent('pointerdown', o(y)));
@@ -195,26 +193,33 @@ const E3 = await p.evaluate(async () => {
   hd.dispatchEvent(new PointerEvent('pointerup', o(y - 140))); await new Promise((q) => setTimeout(q, 250));
   window.removeEventListener('haptic', on);
   const order = ed._config.tabs && ed._config.tabs.order;
-  R.querySelector('[data-tdk="kjoring"] [data-op="eye"]').click(); await new Promise((q) => setTimeout(q, 200));
-  [...R.querySelectorAll('[data-a="sel"][data-name="tabs.style"]')].find((b) => b.dataset.v === 'outline').click(); await new Promise((q) => setTimeout(q, 200));
+  R.querySelector('[data-tdk="kjoring"] [data-a="ttog"]').click(); await new Promise((q) => setTimeout(q, 200));
+  R.querySelector('[data-a="tsel"][data-name="tabs.style"][data-v="outline"]').click(); await new Promise((q) => setTimeout(q, 200));
   const prev1 = [...R.querySelectorAll('.tsp .tab')].map((t) => t.textContent.trim());
   const card = [...window.__c.shadowRoot.querySelectorAll('.tabs .tab')].map((t) => t.textContent.trim());
-  const onTab = window.__c.shadowRoot.querySelector('.tabs .tab.on');
-  return { prev0, gear, flag, flagAfter: window.__tabReorder, lifted, hp, order, prev1, card, outline: onTab && onTab.getAttribute('style') };
-});
+  return { prev0, gear, flag, flagAfter: window.__tabReorder, lifted, hp, order, prev1, card, outline: window.__c.shadowRoot.querySelector('.tbox').className, eye: !!R.querySelector('[data-op="eye"]') };
+}, ED);
 ok('Faner: live forhåndsvisning (med tannhjul) øverst', E3.prev0.join('|') === 'Lading|Kjøring|Sparing' && E3.gear, E3);
 ok('Faner: dra-og-slipp (håndtak, løftet #404040, medium + selection, __tabReorder) → Sparing først', E3.flag === true && E3.flagAfter === false && E3.lifted === 'rgb(64, 64, 64)' && E3.hp[0] === 'medium' && E3.hp.includes('selection') && E3.order && E3.order[0] === 'sparing', E3);
-ok('Faner: skjul Kjøring + Kontur → forhåndsvisning og popup oppdateres straks', E3.prev1.join('|') === 'Sparing|Lading' && E3.card.join('|') === 'Sparing|Lading' && /inset/.test(E3.outline || ''), E3);
-// Entiteter: gruppert, felles søkevelger
-const E4 = await p.evaluate(async () => {
-  const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
-  [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'entiteter').click(); await new Promise((q) => setTimeout(q, 250));
-  const pk = [...R.querySelectorAll('msh-entity-picker')];
-  return { n: pk.length, names: pk.map((x) => x.dataset.name), autoBat: (pk.find((x) => x.dataset.name === 'entities.battery') || {}).getAttribute && pk.find((x) => x.dataset.name === 'entities.battery').getAttribute('auto'), secs: R.textContent.match(/Batteri og lading|Kjøring og status|Sparing/g) };
-});
-ok('Entiteter: tre grupper med søkevelger per felt, autoutfylt', E4.n >= 30 && E4.names.includes('entities.lock') && E4.names.includes('entities.diesel_price') && E4.autoBat === 'sensor.tesla_model_y_batteri_batteriniva' && E4.secs && E4.secs.includes('Kjøring og status'), E4);
-// Ferdig → lagret
-const done = await p.evaluate(async () => { const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor'); ed.shadowRoot.querySelector('[data-a="save"]').click(); await new Promise((q) => setTimeout(q, 900)); const c = window.__c.config; return { paint: c.paint, hid: c.tabs && c.tabs.hidden, order: c.tabs && c.tabs.order, honk: c.buttons && c.buttons.honk }; });
+ok('Faner: bryter (ikke øye) skjuler Kjøring + Kontur → forhåndsvisning og popup oppdateres straks', !E3.eye && E3.prev1.join('|') === 'Sparing|Lading' && E3.card.join('|') === 'Sparing|Lading' && /\bol\b/.test(E3.outline), E3);
+const E4 = await p.evaluate(async (ED) => {
+  const ed = eval(ED), R = ed.shadowRoot;
+  R.querySelector('[data-a="tetab"][data-v="ents"]').click(); await new Promise((q) => setTimeout(q, 250));
+  const rows = [...R.querySelectorAll('[data-a="tent"]')];
+  const bat = rows.find((x) => x.dataset.v === 'battery');
+  bat.click(); await new Promise((q) => setTimeout(q, 250));
+  const inp = R.querySelector('.es input'); inp.value = 'rekkevidde'; inp.dispatchEvent(new Event('input', { bubbles: true, composed: true })); await new Promise((q) => setTimeout(q, 200));
+  const sug = [...R.querySelectorAll('.sug')].map((b) => b.dataset.v);
+  const focus = R.activeElement === R.querySelector('.es input');
+  R.querySelector('.sug').click(); await new Promise((q) => setTimeout(q, 200));
+  const ov = ed._config.entities && ed._config.entities.battery;
+  rows.length && R.querySelector('[data-a="tent"][data-v="battery"]').click(); await new Promise((q) => setTimeout(q, 200));
+  R.querySelector('[data-a="tclr"]').click(); await new Promise((q) => setTimeout(q, 200));
+  return { n: rows.length, ids: rows.map((x) => x.dataset.v), autoBat: bat.querySelector('.ei').textContent, secs: R.textContent.match(/Batteri og lading|Kjøring og status|Sparing/gi), sug, focus, ov, cleared: !(ed._config.entities || {}).battery };
+}, ED);
+ok('Entiteter: tre grupper, rad per felt med autofunnet entitet', E4.n >= 30 && E4.ids.includes('lock') && E4.ids.includes('diesel_price') && E4.autoBat === 'sensor.tesla_model_y_batteri_batteriniva' && E4.secs && E4.secs.length >= 3, E4);
+ok('Entiteter: åpne rad → søk (fokus) → velg → overstyring; «Bruk automatisk» fjerner', E4.sug.length >= 1 && E4.sug.every((x) => /rekkevidde/.test(x)) && E4.focus && /rekkevidde/.test(E4.ov) && E4.cleared, E4);
+const done = await p.evaluate(async (ED) => { const ed = eval(ED); ed.shadowRoot.querySelector('[data-a="save"]').click(); await new Promise((q) => setTimeout(q, 900)); const c = window.__c.config; return { paint: c.paint, hid: c.tabs && c.tabs.hidden, order: c.tabs && c.tabs.order, honk: c.buttons && c.buttons.honk }; }, ED);
 ok('Ferdig: config har lakk, skjult fane, rekkefølge og skjult Tut', done.paint === '#a3161f' && (done.hid || []).includes('kjoring') && done.order[0] === 'sparing' && done.honk && done.honk.show === false, done);
 await shot(p, '4-etter-tilpass');
 await p.close();
@@ -291,7 +296,7 @@ const A = await p.evaluate(() => {
     chip: pille && { icon: !!pille.querySelector('ha-icon'), fs: cs(pille).fontSize, bg: cs(pille).backgroundColor, txt: pille.textContent.trim() },
     name: n && { fs: cs(n).fontSize, col: cs(n).color, op: cs(n).opacity, txt: n.textContent },
     sceneH: tc && R(tc).h,
-    qb: qa('.qbtn').map((e) => ({ ...R(e), r: cs(e).borderRadius, bg: cs(e).backgroundColor, ic: e.querySelector('ha-icon').getAttribute('icon'), l: (e.querySelector('.ql') || {}).textContent, lfs: e.querySelector('.ql') && cs(e.querySelector('.ql')).fontSize, cls: e.className })),
+    qb: qa('.qbtn').map((e) => ({ ...R(e), r: cs(e).borderRadius, bg: cs(e).backgroundColor, bgi: cs(e).backgroundImage, ic: e.querySelector('ha-icon').getAttribute('icon'), l: (e.querySelector('.ql') || {}).textContent, lfs: e.querySelector('.ql') && cs(e.querySelector('.ql')).fontSize, cls: e.className })),
     qgap: cs(q('.qb')).columnGap,
     tbox: tbox && R(tbox), row: row && R(row), gear: R(q('.gear')),
     tabs: tabs.map((t) => ({ ...R(t), txt: t.textContent.trim(), icon: !!t.querySelector('ha-icon'), on: t.classList.contains('on'), bg: cs(t).backgroundColor })),
@@ -312,20 +317,20 @@ const A = await p.evaluate(() => {
 ok('26.10 · toppkort: chip uten ikon, 13–15 px, rgba(255,255,255,.1)', A.chip && !A.chip.icon && /^1[345]px$/.test(A.chip.fs) && A.chip.bg === 'rgba(255, 255, 255, 0.1)', A.chip);
 ok('26.10 · toppkort: «Tesla Model Y» 15 px #afafaf, høyde 180', A.name && A.name.fs === '15px' && A.name.col === 'rgb(175, 175, 175)' && A.name.op === '1' && A.sceneH === 180, { n: A.name, h: A.sceneH });
 const qw = A.qb.map((x) => x.w);
-ok('26.10 · hurtigknapper: 5 like brede, 76 px, r22, #3a3a3a, gap 8', A.qb.length === 5 && Math.max(...qw) - Math.min(...qw) <= 1 && A.qb.every((x) => x.h === 76 && x.r === '22px') && A.qgap === '8px' && A.qb.filter((x) => !/act|warn/.test(x.cls)).every((x) => x.bg === 'rgb(58, 58, 58)'), { qb: A.qb, gap: A.qgap });
-ok('26.10 · hurtigknapper: etiketter 15 px', /^(Låst|Ulåst)\|Tut\|Defrost\|Frunk\|Bagasje$/.test(A.qb.map((x) => x.l).join('|')) && A.qb.every((x) => x.lfs === '15px'), A.qb.map((x) => [x.l, x.lfs]));
-ok('26.10 · hurtigknapper: riktige ikoner (ikke to bilikoner)', /^mdi:lock(-open)?$/.test(A.qb[0].ic) && A.qb.slice(1).map((x) => x.ic).join('|') === 'mdi:bullhorn|mdi:car-defrost-front|mdi:car-select|mdi:bag-suitcase', A.qb.map((x) => x.ic));
+ok('27.9 · hurtigknapper: 5 like brede kvadratiske, r24, #3a3a3a, gap 8', A.qb.length === 5 && Math.max(...qw) - Math.min(...qw) <= 1 && A.qb.every((x) => Math.abs(x.h - x.w) <= 1 && x.r === '24px') && A.qgap === '8px' && A.qb.filter((x) => !/act|warn/.test(x.cls)).every((x) => x.bg === 'rgb(58, 58, 58)'), { qb: A.qb, gap: A.qgap });
+ok('27.9 · hurtigknapper: etiketter 11 px under ikonet', /^(Låst|Åpen)\|Tut\|Defrost\|Frunk\|Bagasje$/.test(A.qb.map((x) => x.l).join('|')) && A.qb.every((x) => x.lfs === '11px'), A.qb.map((x) => [x.l, x.lfs]));
+ok('26.10 · hurtigknapper: riktige ikoner (ikke to bilikoner)', /^mdi:lock(-open)?$/.test(A.qb[0].ic) && A.qb.slice(1).map((x) => x.ic).join('|') === 'mdi:bullhorn|mdi:heat-wave|mdi:car|mdi:bag-suitcase', A.qb.map((x) => x.ic));
 const defr = A.qb[2], bag = A.qb[4];
-ok('26.10 · hurtigknapper: aktiv (defrost på / bagasje åpen) = lys flis #e1e1e1', /act/.test(defr.cls) && defr.bg === 'rgb(225, 225, 225)' && /act/.test(bag.cls), [defr, bag]);
+ok('27.9 · hurtigknapper: aktiv (defrost på / bagasje åpen) = rosa flis, defrost pust', /act/.test(defr.cls) && /breathe/.test(defr.cls) && /gradient/.test(defr.bgi) && /act/.test(bag.cls), [defr, bag]);
 const tw = A.tabs.map((t) => t.w), sumW = tw.reduce((s, x) => s + x, 0);
 ok('26.10 · faner: høyde 48, fyller bredden ved siden av tannhjulet', A.tbox.h === 48 && A.tbox.x + A.tbox.w + 8 === A.gear.x && Math.abs(sumW + 2 * (A.tabs.length - 1) - A.row.w) <= 2, { tbox: A.tbox, row: A.row, gear: A.gear, tw });
 ok('26.10 · faner: like brede tekstfaner uten ikoner, boble 40', Math.max(...tw) - Math.min(...tw) <= 1 && A.tabs.every((t) => !t.icon && t.h === 40) && A.tabs.map((t) => t.txt).join('|') === 'Lading|Kjøring|Sparing', A.tabs);
 ok('26.10 · Lading: ett samlet kort, ingen plugg-sirkel', A.lc === 1 && A.ci === 0, { lc: A.lc, ci: A.ci, cards: A.cards });
-ok('26.10 · Lading: status 14 px #afafaf + effekt 36/300', A.lt2 && A.lt2.fs === '14px' && /^Tilkoblet/.test(A.lt2.t) && A.big.fs === '36px' && A.big.fw === '300', { lt2: A.lt2, big: A.big });
-ok('26.10 · Lading: Start/Stopp er mørk pill #4a4a4a (ikke rosa)', A.ss && A.ss.bg === 'rgb(74, 74, 74)', A.ss);
+ok('27.9 · Lading: status 13 px #afafaf + effekt 40/300', A.lt2 && A.lt2.fs === '13px' && /^Lader/.test(A.lt2.t) && A.big.fs === '40px' && A.big.fw === '300', { lt2: A.lt2, big: A.big });
+ok('27.9 · Lading: Stopp (lader) er hvit pill #fafafa', A.ss && A.ss.bg === 'rgb(250, 250, 250)' && A.ss.t === 'Stopp', A.ss);
 ok('26.10 · Lading: batteristolpe 56 px, r18, touch-action none, % inni + grensemarkør', A.lim && A.lim.h === 56 && A.lim.r === '18px' && A.lim.ta === 'none' && A.lim.pct === '64%' && A.lim.mk, A.lim);
 ok('26.10 · Lading: «Ladegrense 80 %» + chips 50/60/70/80/100 (valgt rosa)', A.ll.startsWith('Ladegrense 80 %') && A.chips.join('|') === '50|60|70|80*|100' && A.onChipBg !== 'rgb(64, 64, 64)', { ll: A.ll, chips: A.chips, bg: A.onChipBg });
-ok('26.10 · Nøkkeltall: ett kort, 3 kolonner, 14/15 px 600, ingen ikoner', A.kpi === 1 && A.kc.length === 3 && A.kc[0][0] === 'Tid til 80 %' && A.kc[1][0] === 'Pris' && A.kc[2][0] === 'Sist lading' && A.kc.every((k) => k[2] === '14px' && k[3] === '15px' && k[4] === '600') && A.kpiIcons === 0 && A.sumCards === 0, A.kc);
+ok('27.9 · Nøkkeltall: ett kort, 3 kolonner, 12 px / 18 px 500, ingen ikoner', A.kpi === 1 && A.kc.length === 3 && A.kc[0][0] === 'Tid til 80 %' && A.kc[1][0] === 'Pris' && A.kc[2][0] === 'Sist lading' && A.kc.every((k) => k[2] === '12px' && k[3] === '18px' && k[4] === '500') && A.kpiIcons === 0 && A.sumCards === 0, A.kc);
 ok('26.10 · Smartlading: tittel, tekst, bryter, 12 søyler med akse', A.smart && A.smart.stt === 'Smartlading' && /^Lader i .*billigste.* før 07:00$/.test(A.smart.sst) && A.smart.tg && A.smart.bars === 12 && A.smart.labels.length === 4 && A.smart.big2 === 0, A.smart);
 
 if (shots) await p.screenshot({ path: resolve(shots, 'tesla-390-lading.png'), fullPage: true });
@@ -366,10 +371,10 @@ const E = await p.evaluate(async () => {
   const w = (ms) => new Promise((q) => setTimeout(q, ms));
   window.__c.shadowRoot.querySelector('.gear').click();
   await w(700);
-  const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-editor');
+  const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-tesla-editor');
   if (!ed) return { ed: false };
   const R = ed.shadowRoot, save = R.querySelector('[data-a="save"]');
-  const sw = R.querySelector('.sw.on');
+  const sw = R.querySelector('.tsw.on');
   return { ed: true, save: save && { t: save.textContent.trim(), bg: getComputedStyle(save).backgroundImage + ' ' + getComputedStyle(save).backgroundColor, top: Math.round(save.getBoundingClientRect().top) }, sw: sw && getComputedStyle(sw).backgroundColor };
 });
 console.log('info · Tilpass Tesla (felles editor):', JSON.stringify(E));

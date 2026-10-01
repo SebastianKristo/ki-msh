@@ -1,5 +1,6 @@
 [
   { "name": "Innstillinger", "hash": "#settings", "cards": [ { "type": "custom:msh-innstillinger-card", "card_id": "pop-innstillinger" } ] },
-  { "name": "Innstillinger · alltid natt, Varsler først", "hash": "#settings", "cards": [ { "type": "custom:msh-innstillinger-card", "scene": "natt", "start_tab": "varsler", "av_forst": true, "tab_labels": "icon" } ] },
+  { "name": "Innstillinger · alltid natt, Hjem først", "hash": "#settings", "cards": [ { "type": "custom:msh-innstillinger-card", "scene": "natt", "start_tab": "hjem", "av_forst": true, "tab_labels": "name" } ] },
+  { "name": "Innstillinger · God morgen, egen fane (Kamera), uten teller", "hash": "#settings", "cards": [ { "type": "custom:msh-innstillinger-card", "scene": "morgen", "show_summary": false, "custom_tabs": [ { "key": "v_kamera", "name": "Kamera", "icon": "mdi:video", "source": "kamera" } ], "tabs": [ { "key": "v_kamera" }, { "key": "sikkerhet" }, { "key": "hjem" }, { "key": "strom" } ] } ] },
   { "name": "Innstillinger · uten entiteter", "hash": "#settings", "cards": [ { "type": "custom:msh-innstillinger-card", "natt": "input_boolean.finnes_ikke", "privat": "input_boolean.finnes_ikke_heller", "sok": false, "animasjoner": false, "dashbord": false } ] }
 ]
