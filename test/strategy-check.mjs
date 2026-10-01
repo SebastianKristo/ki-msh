@@ -111,7 +111,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     location.hash = '#stue'; await wait(900);
     window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'room', area: 'stue' } })); await wait(400);
     const edEl = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
-    [...edEl.shadowRoot.querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click();
+    [...edEl.shadowRoot.querySelectorAll('.pill'), ...[...edEl.shadowRoot.querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Luftig 18/.test(x.textContent)).click();
     await wait(1200);
     // utkast-flyt (fiks 15.13): ingen lagring før Ferdig, deretter nøyaktig én, og arket lukkes
     res.noSaveBefore = !window.__calls.some((c) => c[0] === 'ws' && /lovelace\/config\/save|frontend\/set_user_data/.test(c[1]));

@@ -77,7 +77,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
   ok(`${vpName} 26.16 ki-overlay-root over navbaren (treff på navbarens plass = arkets lag)`, cov.hitRoot === 'ki-overlay-root' && /bg|sh|body|gz/.test(String(cov.hitInner)) || cov.hitRoot === 'ki-overlay-root', cov);
   ok(`${vpName} 26.16 bakteppet dekker navbaren (dimming over navbaren)`, cov.bgCovers && Number(cov.bgOpacity) > 0.9, cov);
   ok(`${vpName} 26.16 navbaren pointer-events: none mens arket er åpent`, cov.navPE === 'none' && cov.dataSheet && cov.htmlSheet, cov);
-  ok(`${vpName} 26.16 arket går helt ned (bottom = dashbordflatens bunn), padding 24 + safe-area`, Math.abs(cov.sheetBottom - cov.vh) <= 1 && cov.padB === '24px', cov);
+  ok(`${vpName} 26.16 arket går helt ned (bottom = dashbordflatens bunn), padding 16 + safe-area (28.8)`, Math.abs(cov.sheetBottom - cov.vh) <= 1 && cov.padB === '16px', cov);
   ok(`${vpName} 26.16 lag: ark-vert z 42 i ki-overlay-root (z 9000)`, cov.zHost === '42' && cov.zRoot === '9000', cov);
   ok(`${vpName} 26.16 lukking gir navbaren tilbake uten hopp`, cov.after.navPE !== 'none' && !cov.after.dataSheet && !cov.after.htmlSheet && Math.abs(cov.after.navRect.l - cov.nav.l) < 1 && Math.abs(cov.after.navRect.t - cov.nav.t) < 1, cov.after);
 

@@ -80,8 +80,15 @@ const lk = await p.evaluate(async () => {
   return { txt, before, calls: window.__calls.slice(), inPop: !!(portal && portal.closest('.pop')) };
 });
 ok('Lås: bekreftelsesdialog (portalt) «Låse bilen?» → først etter OK kalles tjenesten', /Låse bilen\?/.test(lk.txt) && lk.before === 0 && lk.calls.some((c) => c[0] === 'homeassistant' && c[2].entity_id === 'switch.tesla_model_y_car_doors_locked') && !lk.inPop, lk);
-const honk = await p.evaluate(async () => { window.__calls.length = 0; window.__hp.length = 0; window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"]').click(); await new Promise((q) => setTimeout(q, 200)); return { calls: window.__calls.slice(), hp: window.__hp.slice() }; });
-ok('Tut: button.press uten bekreftelse, én haptic', honk.calls.some((c) => c[0] === 'button' && c[1] === 'press' && c[2].entity_id === 'button.folkevogn_honk_horn') && honk.hp.length === 1, honk);
+const honk = await p.evaluate(async () => {
+  window.__calls.length = 0; window.__hp.length = 0;
+  window.__c.shadowRoot.querySelector('.qbtn[data-v="honk"]').click(); await new Promise((q) => setTimeout(q, 300));
+  const portal = window.MSH.portals().pop(), cf = portal && portal.shadowRoot.querySelector('.cf'), before = window.__calls.length, hp = window.__hp.length;
+  if (cf) { portal.shadowRoot.querySelector('[data-k="ok"]').click(); await new Promise((q) => setTimeout(q, 300)); }
+  return { dlg: !!cf, before, hp, calls: window.__calls.slice() };
+});
+// Fiks 28.7: designets standard (Tesla v3) – «Be om bekreftelse» er på for Tut (lås, tut, frunk, bagasje; ikke defrost)
+ok('Tut: bekreftelse (designets standard) → button.press først etter OK, én haptic ved trykk', honk.dlg && honk.before === 0 && honk.hp === 1 && honk.calls.some((c) => c[0] === 'button' && c[1] === 'press' && c[2].entity_id === 'button.folkevogn_honk_horn'), honk);
 // hold → more-info
 const hold = await p.evaluate(async () => {
   let mi = null; window.addEventListener('hass-more-info', (e) => { mi = e.detail.entityId; });

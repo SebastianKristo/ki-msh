@@ -1043,7 +1043,7 @@
         <div class="grp">${blkRows || `<div class="r"><span class="rl rs">${M.klimaBlockList ? 'Ingen blokker i denne fanen' : 'Blokkene lastes …'}</span></div>`}</div>
         <p class="note">Faste toppblokker kan skjules, men ikke flyttes. Skjulte blokker kan vises igjen her.</p>
         <span class="cap">Mellomrom</span>
-        <div class="grp">${spRows}</div>
+        ${M.spacingEditorHTML ? M.spacingEditorHTML(SPACING_FIELDS, d, 'ksp-klima') : `<div class="grp">${spRows}</div>`}
         <p class="note">Endringene vises live bak arket. Luften i bunnen kommer i tillegg til navbaren.</p>`;
       const bs = box.querySelector('.bseg'), on = bs && bs.querySelector('.on');
       if (bs && M.glassTap) { M.glassTap(bs); M.glassTap(box.querySelector('.seg')); }
@@ -1055,7 +1055,7 @@
     // Ferdig: én lagring (dobbelttrykk ignoreres mens den pågår); feil → arket står med utkastet
     const done = () => ctl.done();
 
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'klima-sheet';
@@ -1083,6 +1083,14 @@
       const k = el.value;
       upd((d) => { lay(d).default_tab = k; }, 'selection');
       goTab(k);
+    });
+    // 28.10: felles mellomrom-komponent (ki-spacing-editor) – live under drag, ny tegning ved slipp/forvalg
+    ov.root.addEventListener('ki-spacing-change', (e) => {
+      const { name, value, commit } = e.detail || {}, f = SPACING_FIELDS.find((x) => x.name === name);
+      if (!f || !isFinite(value)) return;
+      if (value === f.default) delete st.draft[name]; else st.draft[name] = value;
+      preview();
+      if (commit) draw();
     });
     ov.root.addEventListener('input', (e) => spInput(e, false));
     ov.root.addEventListener('change', (e) => spInput(e, true));

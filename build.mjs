@@ -7,7 +7,17 @@ const vendor = readdirSync('src/vendor').filter((f) => f.endsWith('-no.js')).sor
 const files = [...vendor, ...readdirSync('src').filter((f) => f.endsWith('.js')).sort()];
 let out = `/*! KI MSH ${pkg.version} – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */\n`;
 // Pakkeversjonen tilgjengelig for kortene (f.eks. console.info i 48-vaer.js)
-out += `window.KI_MSH_VERSION = ${JSON.stringify(pkg.version)};\n`;
+// Fiks 28.14 · gammel bundel i cachen: to ulike versjoner lastet, eller ?v=<versjon> i ressurs-URL-en som ikke stemmer
+// med bundelen → én advarsel i konsollen (ingen melding i UI-et).
+const V = JSON.stringify(pkg.version);
+out += `(function () { try {
+  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== ${V}) console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + ${V} + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
+  var cs = document.currentScript && document.currentScript.src; // klassisk <script>; som modul (HA-ressurs): ressurslisten
+  var urls = cs ? [cs] : (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(function (e) { return e.name; }).filter(function (u) { return /ki-msh(\\.min)?\\.js/.test(u); });
+  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\\d+\\.\\d+/.test(v) && v !== ${V}; });
+  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + ${V} + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + ${V} + ' på ressursen og tøm cachen (se README).');
+} catch (e) { /* */ } })();\n`;
+out += `window.KI_MSH_VERSION = ${V};\n`;
 for (const f of files) {
   const src = readFileSync('src/' + f, 'utf8');
   out += `\n/* ---- ${f} ---- */\ntry {\n${src}\n} catch (e) { console.error('[ki-msh] ${f}', e); }\n`;

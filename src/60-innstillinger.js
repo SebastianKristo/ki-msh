@@ -216,6 +216,7 @@
     return out;
   }
   M.innstRules = rules;
+  const ruleSig = (h, c) => rules(h, c).map((r) => r.id + ':' + r.cat).join(',');
   // Kategoriene i KI Varslinger (autooppdaget) med antall regler – til «Legg til fane»
   function kategorier(h, c) {
     const n = new Map();
@@ -357,7 +358,6 @@
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
   const RT = new Map(), ADD = new Set(), EXP = new Map(), NT = new Map(), ENTO = new Map();
   const ENT_DEF = [['natt', 'mdi:moon-waning-crescent', 'Nattmodus', ['input_boolean', 'switch']], ['privat', 'mdi:video-off', 'Privatmodus', ['input_boolean', 'switch']], ['vekking', 'mdi:alarm', 'Vekketid', ['input_datetime', 'sensor']]];
-  const SHEET_H = 'min(660px, calc(100% - 52px))'; // 27.5: samme faste høyde i alle fire faner
   // «Legg til fane»: ikoner (designets TICONS → mdi), alle prefiks via ikonvelgeren («…»)
   const TICONS = ['mdi:bell', 'mdi:video', 'mdi:thermostat', 'mdi:washing-machine', 'mdi:battery-alert', 'mdi:paw', 'mdi:garage', 'mdi:water'];
   const INN_CSS = `
@@ -741,6 +741,7 @@
   const CAMERA = `<div class="pfx" aria-hidden="true"><span class="pmount"></span><div class="ptilt"><div class="pscan">
       <span class="pcone"></span><span class="pbody"></span><span class="plens"><span class="plid"></span></span><span class="prec"></span>
     </div></div></div>`;
+  const RISE_MS = 3000; // soloppgangen: sola 2,6 s, himmelen 3 s
   const SYNC = '<span class="sync" data-key="sync"><span class="spin"></span>Synker …</span>';
 
   /* ============================================================ kortet */
@@ -752,17 +753,30 @@
     static get uiPersist() { return ['tab']; }
     get cardSize() { return 9; }
     get hass() { return super.hass; }
-    set hass(h) { super.hass = h; if (this._dashEl && this._dashEl.hass !== h) this._dashEl.hass = h; }
-    onClose() { this._ui = { ...this._ui, q: '' }; }
+    set hass(h) { super.hass = h; if (this._dashEl && this._dashEl.hass !== h) this._dashEl.hass = h; this._edLive(h); }
+    // Soloppgangen (28.6) spilles bare én gang per åpning: neste åpning starter den på nytt
+    onClose() { this._ui = { ...this._ui, q: '' }; this._riseAt = 0; clearTimeout(this._riseT); const sc = this.shadowRoot && this.shadowRoot.querySelector('.sc.rise'); if (sc) sc.classList.remove('rise'); }
+    onOpen() { this._riseAt = 0; this.update(); }
     get tab() { const V = visTabs(this.config).map((t) => t.key), t = keyOf(this.ui.tab || this.config.start_tab); return V.includes(t) ? t : V[0]; }
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
     get _anim() { return this.config.animasjoner !== false; }
-    // «Tilpass Innstillinger»: samme faste høyde i alle fire faner (27.5) – arket hopper ikke ved fanebytte
+    // «Tilpass Innstillinger»: arkhøyden er felles for alle Tilpass-ark (28.11, MSH.overlay) – ingen egen overstyring her
     customize(focus, opts) {
       const ui = super.customize(focus, opts);
-      const sh = ui && ui.overlay && ui.overlay.root && ui.overlay.root.querySelector('.sh');
-      if (sh) { sh.style.height = SHEET_H; sh.dataset.innH = '1'; }
+      this._edUi = ui || null;
+      if (ui && ui.editor && this.hass) ui.editor.__innSig = ruleSig(this.hass, ui.editor._config || this.config);
       return ui;
+    }
+    // 28.5: åpent Tilpass-ark får fersk hass – nye regler/kategorier i KI Varslinger dukker opp i «Legg til fane» og Rader
+    // uten reload. Ny tegning bare når regelsettet (id + kategori) faktisk endres.
+    _edLive(h) {
+      const ui = this._edUi, ed = ui && ui.editor;
+      if (!ed || !h) return;
+      if (!ed.isConnected || (ui.overlay && ui.overlay.closed)) { this._edUi = null; return; }
+      ed.hass = h;
+      const sig = ruleSig(h, ed._config || this.config);
+      if (ed.__innSig != null && sig !== ed.__innSig && ed._render) ed._render();
+      ed.__innSig = sig;
     }
 
     /* ---------- optimistisk UI (27.6): kortet byttes straks, hass bekrefter, ellers tilbakerulling */
@@ -850,7 +864,15 @@
     // «God natt» (nattmodus på / alltid natt) eller «God morgen» (soloppgang) – 184 px, trykk på hele kortet = nattmodus av/på
     _scene(E, nS, pS, vS, night, morning, nOn, pOn) {
       const tid = tidOf(vS), pend = this._pend(E.natt) || this._pend(E.privat), nua = !nS || M.unavailable(nS), pua = !pS || M.unavailable(pS);
-      const cls = ['sc', night ? 'night' : 'day', morning ? 'morning' : '', this._anim ? '' : 'na'].filter(Boolean).join(' ');
+      // Soloppgang (2,6 s + himmel 3 s) kun første gang morgenkortet vises i denne åpningen – senere tegninger (Synker,
+      // natt av/på igjen, ny hass) viser sola stående uten å spille den på nytt
+      let rise = false;
+      if (morning && this._anim) {
+        const now = Date.now();
+        if (!this._riseAt) { this._riseAt = now; clearTimeout(this._riseT); this._riseT = setTimeout(() => { if (this.isConnected) this.update(); }, RISE_MS + 50); }
+        rise = now - this._riseAt < RISE_MS;
+      }
+      const cls = ['sc', night ? 'night' : 'day', morning ? 'morning' : '', rise ? 'rise' : '', this._anim ? '' : 'na'].filter(Boolean).join(' ');
       const kicker = nua ? 'Nattmodus –' : nOn ? 'Nattmodus på' : 'Nattmodus av';
       const sub = night ? (tid ? `Vekking kl. ${tid}` : '') : 'Ha en fin dag';
       const chip = (id, s, ua, on, kind, icon, label, hp) => (id && s && !ua
@@ -908,7 +930,11 @@
       }
     }
     afterRender() {
-      if (M.glassDrag) this.shadowRoot.querySelectorAll('.bar .tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs[]), sideveis dra = Liquid Glass-valg; tannhjulet står fast
+      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.bar:not(.pv)>.tabs[role="tablist"]'), {
+        active: () => this.tab, order: () => tabDefs(this.config).map((t) => t.key),
+        save: (full) => { const D = tabDefs(this.config); return M.mshPatchConfig(this, { tabs: tabsOut(full.map((k) => D.find((t) => t.key === k)).filter(Boolean)) }); },
+      });
       // «Dashbord» nederst: dashbordets innstillinger (msh-settings-card) bygd inn – de forsvinner ikke fra #settings
       const slot = this.shadowRoot.querySelector('.dash');
       if (slot) {
@@ -996,12 +1022,12 @@
         .sc .nsk{background:linear-gradient(180deg,#0f1433 0%,#1c2250 55%,#2d2f62 100%);opacity:0;transition:opacity ${T}}
         .sc.night .nsk{opacity:1}
         .sc .dawn{background:linear-gradient(180deg,#2a2c5c 0%,#5a4778 55%,#b0727a 100%);opacity:0}
-        .sc.morning .dawn{animation:dawnsky 3s ease-out both}
+        .sc.morning.rise .dawn{animation:dawnsky 3s ease-out both}
         .sc .art{position:absolute;right:0;bottom:0;height:100%;width:100%;overflow:visible;pointer-events:none}
         .sc .stars{opacity:0;transition:opacity ${T}}.sc.night .stars{opacity:1}
         .sc .moon{transform:translateY(70px);opacity:0;transition:transform ${T},opacity ${T}}.sc.night .moon{transform:none;opacity:1}
         .sc .sun{transform:none;opacity:1;transition:transform ${T},opacity ${T}}.sc.night .sun{transform:translateY(70px);opacity:0}
-        .sc.morning .sunw{animation:sunrise 2.6s cubic-bezier(.2,.7,.2,1) both}
+        .sc.morning.rise .sunw{animation:sunrise 2.6s cubic-bezier(.2,.7,.2,1) both}
         .sc .rays{transform-box:fill-box;transform-origin:center;animation:spin 40s linear infinite}
         .sc .smk{transform-box:fill-box;animation:smoke 3.2s ease-out infinite}
         .sc .win{fill:#f5cf78}.sc.night .win{fill:#ffd572;filter:drop-shadow(0 0 4px rgba(255,210,110,.9));animation:glow 3s ease-in-out infinite}

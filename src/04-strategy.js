@@ -305,6 +305,9 @@
         overrideFrom = from;
       });
       let repaired = false;
+      // Fiks 28.14 · gamle kort i en importert/overstyrt popup (MSH.POPUP_MIGRATE, f.eks. ki-basseng-card/gap-card i #basseng) → ÉTT kort
+      const MIG = !hidden && M.POPUP_MIGRATE && M.POPUP_MIGRATE[hash];
+      if (typeof MIG === 'function') { try { const fx = MIG(cfg, gen && gen.config); if (fx) { console.info('[ki-msh] popup', hash, 'gamle kort migrert til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } } catch (e) { console.warn('[ki-msh] popup', hash, e); } }
       if (gen && w.source === 'auto' && !hidden) { const fx = repairCards(cfg, gen.config); if (fx) { console.warn('[ki-msh] popup', hash, 'hadde tom/ugyldig kortliste – rettet til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } }
       // Fiks 23.3 · popup-unntak som må overleve overstyringer/egne popups (#kart: margin_top 0, bg 0, fullskjerm – 51-kart.js)
       const force = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash] : null;
@@ -509,6 +512,15 @@
       const { header_gap: hg, ...rest } = p || {};
       return M.applyHeaderGap(rest, M.headerGapOf((uo(p.hash) || {}).header_gap, hg, S.popup_header_gap, config.popup_header_gap));
     });
+    // Fiks 28.14 · tvilling-hasher (MSH.POPUP_TWINS, f.eks. #badebasseng = samme ene msh-basseng-card som #basseng, samme card_id)
+    const twins = [];
+    Object.keys(M.POPUP_TWINS || {}).forEach((h) => {
+      const src = res.popups.find((p) => p && p.hash === h);
+      if (!src) return;
+      (M.POPUP_TWINS[h] || []).forEach((t) => { if ((config.popups || {})[t.slice(1)] !== false && !res.popups.some((p) => p && p.hash === t)) { twins.push(t); res.popups.push({ ...clone(src), hash: t }); } });
+    });
+    if (res.report) res.report.twins = twins;
+    if (M.bassengMigrateStore) M.bassengMigrateStore(); // én gang: gamle basseng-kort i ki-store popup_overrides skrives om
     if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => f.hash.slice(1));

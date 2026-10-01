@@ -658,7 +658,8 @@
 
     afterRender() {
       const Rt = this.shadowRoot;
-      if (M.glassDrag) Rt.querySelectorAll('.tabs').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs), sideveis dra = Liquid Glass-valg
+      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tabs' });
       // −/+ og graf-scrub: ikke la Bubble Card lukke/scrolle popupen (fallgruve 2)
       Rt.querySelectorAll('.pm').forEach((b) => {
         if (b.__vp) return; b.__vp = true;

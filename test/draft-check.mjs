@@ -85,8 +85,8 @@ res.rom = await p.evaluate(async () => {
   const ed = () => ov().shadowRoot.querySelector('msh-editor');
   const S = () => ed().shadowRoot;
   // endre: snarvalg + slider (input under drag, change ved slipp)
-  [...S().querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click();
-  const rg = [...S().querySelectorAll('input[type=range]')][1];
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Luftig 18/.test(x.textContent)).click();
+  const rg = [...S().querySelectorAll('input[type=range]'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('input[type=range]')])][1];
   for (const v of [10, 0, -20]) { rg.value = String(v); rg.dispatchEvent(new Event('input', { bubbles: true })); await W(20); }
   rg.dispatchEvent(new Event('change', { bubbles: true }));
   await W(900);
@@ -119,14 +119,14 @@ res.rom = await p.evaluate(async () => {
   // åpne på nytt → ny verdi; Avbryt forkaster
   rom.customize('spacing'); await W(300);
   r.reopenGap = ed()._config.gap;
-  [...S().querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
   r.cancelPreview = rom._rawConfig.gap;
   S().querySelector('[data-a="cancel"]').click(); await W(300);
   r.afterCancel = { sheets: M.portals().length, cardGap: rom._rawConfig.gap, storeGap: (M.store.get('rooms.stue') || {}).gap, sets: window.__sets.length };
   // lagring feiler → arket står med utkastet, feilmelding; neste Ferdig lagrer
   window.__failSave = true;
   rom.customize('spacing'); await W(300);
-  [...S().querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
+  [...S().querySelectorAll('.pill'), ...[...S().querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click(); await W(50);
   window.__haps.length = 0;
   S().querySelector('[data-a="save"]').click(); await W(500);
   r.fail = { sheets: M.portals().length, status: (S().querySelector('.stat') || {}).textContent, draftGap: ed()._config.gap, storeGap: (M.store.get('rooms.stue') || {}).gap, haptic: window.__haps.includes('failure'), btnEnabled: !S().querySelector('[data-a="save"]').disabled };

@@ -48,11 +48,12 @@ let res = {};
     const ed = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor');
     const S = ed.shadowRoot;
     // slider (pad_top) → -20: input-events (ingen haptic) + change (commit)
-    const rg = [...S.querySelectorAll('input[type=range]')][1];
+    const KS = [...S.querySelectorAll('ki-spacing-editor')].map((k) => k.shadowRoot); // 28.10: felles mellomrom-komponent
+    const rg = [...S.querySelectorAll('input[type=range]'), ...KS.flatMap((k) => [...k.querySelectorAll('input[type=range]')])][1];
     for (const v of [10, 0, -10, -20]) { rg.value = String(v); rg.dispatchEvent(new Event('input', { bubbles: true })); await wait(20); }
     rg.dispatchEvent(new Event('change', { bubbles: true }));
     const hapsAfterSlider = haps.length;
-    [...S.querySelectorAll('.pill')].find((x) => /Luftig 18/.test(x.textContent)).click(); // snarvalg → light
+    [...S.querySelectorAll('.pill'), ...KS.flatMap((k) => [...k.querySelectorAll('.p')])].find((x) => /Luftig 18/.test(x.textContent)).click(); // snarvalg → light
     await wait(50);
     const hapsAfterPill = haps.slice();
     await wait(900);
@@ -89,7 +90,8 @@ let res = {};
     const haps = []; window.addEventListener('haptic', (e) => haps.push(e.detail));
     window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'room', area: 'stue' } })); await wait(400);
     const S = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot;
-    [...S.querySelectorAll('.pill')].find((x) => /Tett 4/.test(x.textContent)).click();
+    [...S.querySelectorAll('.pill'), ...[...S.querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('.p')])].find((x) => /Tett 4/.test(x.textContent)).click();
+    await wait(60); // to trykk (snarvalg, så Ferdig) – ikke i samme tick (maks én haptic per 40 ms)
     S.querySelector('[data-a="save"]').click(); await wait(900);
     return { status: (S.querySelector('.stat') || {}).textContent, haps, editorOpen: window.MSH.portals().length };
   });

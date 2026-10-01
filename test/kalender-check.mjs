@@ -134,11 +134,12 @@ if (shots) await p.screenshot({ path: `${shots}/kal-4-tilpass-kilder.png` });
 const V = await p.evaluate(async () => {
   const portal = window.MSH.portals().pop(), ed = portal.shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
   [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'visning').click(); await new Promise((q) => setTimeout(q, 150));
-  const labels = [...R.querySelectorAll('label, .fsh, .rg .line span')].map((e) => e.textContent.trim()).filter(Boolean);
+  const KS = [...R.querySelectorAll('ki-spacing-editor')].map((k) => k.shadowRoot); // 28.10: felles mellomrom-komponent
+  const labels = [...R.querySelectorAll('label, .fsh, .rg .line span'), ...KS.flatMap((k) => [...k.querySelectorAll('.lt')])].map((e) => e.textContent.trim()).filter(Boolean);
   [...R.querySelectorAll('[data-a="sel"][data-name="tab_labels"]')].find((b) => b.dataset.v === 'name').click(); await new Promise((q) => setTimeout(q, 100));
-  [...R.querySelectorAll('[data-a="sel"][data-name="pad_top"]')].find((b) => b.dataset.v === '44').click(); await new Promise((q) => setTimeout(q, 100));
-  const sl = R.querySelector('.sl[data-name="gap"]');
-  return { labels, cfg: ed._config, slTA: sl && getComputedStyle(sl).touchAction, pres: [...R.querySelectorAll('[data-name="pad_bottom"].pill')].map((b) => b.textContent) };
+  KS.flatMap((k) => [...k.querySelectorAll('.p[data-spn="pad_top"]')]).find((b) => b.dataset.spv === '44').click(); await new Promise((q) => setTimeout(q, 100));
+  const sl = KS.map((k) => k.querySelector('.ks[data-spn="gap"]')).find(Boolean);
+  return { labels, cfg: ed._config, slTA: sl && getComputedStyle(sl).touchAction, pres: KS.flatMap((k) => [...k.querySelectorAll('.p[data-spn="pad_bottom"]')]).map((b) => b.textContent) };
 });
 ok('Visning: Faner viser / Dager fremover / Standardvisning / Vis «Nylig i Plex» / Mellomrom', ['Faner viser', 'Dager fremover', 'Standardvisning'].every((l) => V.labels.some((x) => x.includes(l))) && V.labels.some((x) => /Mellom seksjonene/.test(x)) && V.labels.some((x) => /Luft i bunnen/.test(x)), V.labels);
 ok('Mellomrom: forvalg Ingen 0/Litt 60/Standard 150/Maks 300, slider pan-y (drag tas over)', V.pres.join('|') === 'Ingen 0|Litt 60|Standard 150|Maks 300', V);

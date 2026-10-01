@@ -2,6 +2,15 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 28 – Kamera-navn og Basseng-cache (1.3.0)
+- Kamera: eget navn per kamera (`names: { camera.x: Navn }`) i «Tilpass kameraer» og GUI-editoren – brukt på fliser, chips,
+  enkeltvisning, hendelser og Frigate. Standardnavn fra enheten → området → navnet uten «High resolution channel»;
+  like navn får kanal/modell («Ringeklokke · Pakke»). Ny `padT` (Fra popup-headeren, standard −10) på Direkte/Frigate-raden.
+- Basseng: strategien lager `#basseng` og `#badebasseng` med ÉTT `msh-basseng-card`; gamle kort i importerte/overstyrte
+  popups migreres (ki-store `popup_overrides` skrives om én gang). Basseng v3 er utgått.
+- Versjon 1.3.0. **Etter oppdatering: sett `?v=1.3.0` på ressursen og tøm cachen** (hard omlasting / «Tilbakestill
+  frontend-hurtigbuffer» i Companion-appen) – se README → Oppdatering og cache. Konsollen advarer når en gammel kopi kjører.
+
 ## 26 – Server v5, Basseng 4a, Varmepumpe, Hjem-header og GitHub-dokumentasjon
 - Server (`#server`) bygget om: toppkort alltid synlig, underfaner, Nettverk/Proxmox/Unraid, autokonfig med manuelt valg;
   popupen lages også når bare UniFi Protect finnes.

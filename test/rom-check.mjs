@@ -50,7 +50,7 @@ const out = await p.evaluate(async () => {
   const kt = ed.shadowRoot.querySelector('.chips.sg.tabs .chip[data-v="klima"]'); if (kt) { kt.click(); await wait(200); }
   const secs = [...ed.shadowRoot.querySelectorAll('details.sec > summary')].map((s) => s.textContent.trim().replace(/\s+/g, ' '));
   res.firstAccordion = secs[0];
-  res.ranges = ed.shadowRoot.querySelectorAll('input[type=range]').length;
+  res.ranges = [...ed.shadowRoot.querySelectorAll('input[type=range]'), ...[...ed.shadowRoot.querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('input[type=range]')])].length; // 28.10: ki-spacing-editor
   // bytt temperatursensor via velgeren
   // felles entitetsvelger (<msh-entity-picker>, egen shadow root)
   const pkEls = () => [...ed.shadowRoot.querySelectorAll('msh-entity-picker')];
@@ -68,7 +68,7 @@ const out = await p.evaluate(async () => {
   res.autoTemp = k.shadowRoot.querySelector('.big').textContent;
   // slider live (Mellomrom ligger under Oppsett)
   const ot = ed.shadowRoot.querySelector('.chips.sg.tabs .chip[data-v="oppsett"]'); if (ot) { ot.click(); await wait(200); }
-  const rg = ed.shadowRoot.querySelectorAll('input[type=range]')[1];
+  const rg = [...ed.shadowRoot.querySelectorAll('input[type=range]'), ...[...ed.shadowRoot.querySelectorAll('ki-spacing-editor')].flatMap((k) => [...k.shadowRoot.querySelectorAll('input[type=range]')])][1];
   rg.value = '44'; rg.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
   res.sliderLiveTop = dist();
   res.hashBeforeCancel = location.hash;

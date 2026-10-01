@@ -1037,7 +1037,7 @@
     // Ferdig: én lagring (dobbelttrykk ignoreres mens den pågår); feil → arket står med utkastet
     const done = () => ctl.done();
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const R = ov.root;
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)

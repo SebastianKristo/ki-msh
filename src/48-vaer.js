@@ -3,9 +3,11 @@
  * stil «klassisk» = Vær v4 (spesifisert i Fiks 10), ellers Vær v3.dc.html.
  * Rekkefølge (standard, endres i «Tilpass været»): Toppkort (karusell: Været nå med heroFx · Andre varsler · Pollen, prikker)
  * · Farevarsler (utvidbare, skjult uten varsler) · Time for time · Dagskort (utvidbare, én åpen) · Detaljkort (2×N) · Månefase
- * · knappen «Tilpass været» (alltid nederst).
- * Config: sections [hero, alerts, hours, days, tiles, moon] · hidden_sections [] · tiles [sky, wind, gust, sun, hum, uv, press, rain]
- *   · hidden_tiles [] · hours (24) · days (7) · show_extras · show_pollen · show_graph (valgfri temperaturgraf etter timene)
+ * · stedsvelger + «Tilpass Vær» (sticky nederst etter siste seksjon, 28.1).
+ * Config (28.1): style (scene | klassisk) · places [{ name, entity }] · sections { alerts, hours, days, tiles: true/false }
+ *   · tile_order [...] · section_order [hero, alerts, hours, days, tiles, moon] (Klassisk) · hidden_sections [] · hidden_tiles []
+ *   · hours (24) · days (7) · show_extras · show_pollen · show_graph (valgfri temperaturgraf etter timene)
+ *   Gamle nøkler (stil, hide, sections som liste, tiles) leses som alias og migreres (normCfg).
  *   · hero_fx (true = bakgrunnsanimasjon i toppkortet, Fiks 17.30).
  *   Lagres i kortets config (MSH.saveCardConfig) fra «Tilpass været» og er de samme feltene som i GUI-editoren.
  * Prognose: weather/subscribe_forecast (hourly + daily) KUN mens popupen er åpen; faller tilbake til weather.get_forecasts.
@@ -507,16 +509,16 @@
     :host{position:absolute;left:0;right:0;bottom:0;height:0;z-index:6;pointer-events:none;display:block;font-family:${M.FONT};color:#fafafa;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .b{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom, 0px));pointer-events:auto;height:48px;border-radius:24px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s}
+    .b{position:absolute;bottom:var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px)));pointer-events:auto;height:48px;border-radius:24px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s}
     .b:hover{background:rgba(28,30,36,.88)}
     .b:active{transform:scale(.92)}
-    .pl{left:16px;max-width:calc(100% - 100px)}
+    .pl{left:var(--ctl-x, 16px);max-width:calc(100% - 100px)}
     .pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cv{opacity:.8;transition:transform .2s}
     .cv.up{transform:rotate(180deg)}
-    .tn{right:16px;width:48px;padding:0;justify-content:center}
+    .tn{right:var(--ctl-x, 16px);width:48px;padding:0;justify-content:center}
     .mbg{position:absolute;left:0;right:0;bottom:0;height:100vh;pointer-events:auto}
-    .mn{position:absolute;left:16px;bottom:calc(72px + env(safe-area-inset-bottom, 0px));pointer-events:auto;width:270px;max-width:calc(100% - 32px);max-height:60vh;overflow:auto;border-radius:22px;background:rgba(36,38,44,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade .2s ease}
+    .mn{position:absolute;left:var(--ctl-x, 16px);bottom:calc(var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px))) + 56px);pointer-events:auto;width:270px;max-width:calc(100% - 32px);max-height:60vh;overflow:auto;border-radius:22px;background:rgba(36,38,44,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade .2s ease}
     .mi{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 12px;border-radius:16px;text-align:left;color:#fafafa}
     .mi.on{background:${PINK160};color:${INK}}
     .mc{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
@@ -553,8 +555,43 @@
   M.vaerPlaces = placesOf;
   const STIL = [['klassisk', 'Klassisk'], ['scene', 'Scene']];
   const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'mdi:view-week'], ['tiles', 'Fliser', 'grid_view']];
-  const stilOf = (c) => (c && c.stil === 'klassisk' ? 'klassisk' : 'scene'); // standard scene (26.24)
-  const hiddenOf = (c) => new Set([...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])]);
+  // 28.1 · config: style ('scene' | 'klassisk') · places · sections { alerts, hours, days, tiles: true/false } · tile_order.
+  // Gamle nøkler leses fortsatt (alias) og migreres i normCfg: stil → style, hide / hidden_sections (bryterne) → sections,
+  // sections som liste (Klassisk-rekkefølgen) → section_order, tiles → tile_order. Ny nøkkel vinner alltid over gammel.
+  const SW = HIDE.map((x) => x[0]);
+  const secMap = (c) => (c && c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {});
+  const stilOf = (c) => { const v = c ? (c.style !== undefined ? c.style : c.stil) : null; return v === 'klassisk' ? 'klassisk' : 'scene'; }; // standard scene (26.24)
+  const hiddenOf = (c) => {
+    const out = new Set([...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])]), S = secMap(c);
+    Object.keys(S).forEach((k) => { if (S[k] === false) out.add(k); }); // true = på (bryteren fjerner samtidig nøkkelen fra hidden_sections)
+    return out;
+  };
+  const secOrderOf = (c) => (Array.isArray(c.section_order) ? c.section_order : Array.isArray(c.sections) ? c.sections : null);
+  const normCfg = (c) => {
+    if (!c || typeof c !== 'object') return c;
+    const hs0 = Array.isArray(c.hidden_sections) ? c.hidden_sections : [];
+    if (c.stil === undefined && c.hide === undefined && !Array.isArray(c.sections) && c.tiles === undefined && !hs0.some((k) => SW.includes(k))) return c;
+    const n = { ...c }, old = hiddenOf({ hide: c.hide, hidden_sections: hs0 }), S = { ...secMap(c) };
+    if (n.style === undefined && n.stil !== undefined) n.style = stilOf({ stil: n.stil });
+    delete n.stil;
+    if (Array.isArray(n.sections)) { if (!Array.isArray(n.section_order)) n.section_order = n.sections; delete n.sections; }
+    SW.forEach((k) => { if (S[k] === undefined && old.has(k)) S[k] = false; });
+    if (Object.keys(S).length) n.sections = S;
+    delete n.hide;
+    const hs = hs0.filter((k) => !SW.includes(k));
+    if (hs.length) n.hidden_sections = hs; else delete n.hidden_sections;
+    if (n.tiles !== undefined) { if (n.tile_order === undefined && Array.isArray(n.tiles)) n.tile_order = n.tiles; delete n.tiles; }
+    return n;
+  };
+  M.vaerNormCfg = normCfg;
+  // Bryter per seksjon → { sections, hidden_sections } (av = false i sections; på = true og fjernet fra hidden_sections/hide)
+  const secPatch = (c, k, on) => {
+    const S = { ...secMap(c) }, all = [...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])];
+    all.forEach((x) => { if (SW.includes(x) && S[x] === undefined) S[x] = false; }); // gamle skjulte brytere flyttes inn i sections
+    S[k] = !!on;
+    const hs = all.filter((x, i) => all.indexOf(x) === i && !SW.includes(x));
+    return { sections: S, hidden_sections: hs.length ? hs : undefined };
+  };
   M.vaerStilOf = stilOf;
 
   // GUI-editoren (getConfigElement): Steder – én rad per sted (navn + ha-selector {entity: {domain: 'weather'}} med HAs
@@ -609,13 +646,13 @@
     static get schema() {
       return () => [
         // 26.24/26.25: samme valg som «Tilpass Vær» (Stil · Steder · Seksjoner · Fliser) – config er sannheten
-        { type: 'select', name: 'stil', label: 'Stil', default: 'scene', options: STIL, help: 'Scene = fullskjerms værscene bak hele popupen · Klassisk = Vær v4' },
+        { type: 'select', name: 'style', label: 'Stil', default: 'scene', options: STIL, help: 'Scene = fullskjerms værscene bak hele popupen · Klassisk = Vær v4' },
         { type: 'html', html: (hh, cc, key, ed) => placesGui(hh, cc, key, ed), click: (d, ed) => placesClick(d, ed) },
-        ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { const s = new Set(Array.isArray(cc.hide) ? cc.hide : []); if (v) s.delete(k); else s.add(k); const hs = (cc.hidden_sections || []).filter((x) => x !== k || !v); if (ed && ed._set) { if (hs.length !== (cc.hidden_sections || []).length) ed._config = { ...ed._config, hidden_sections: hs.length ? hs : undefined }; ed._set('hide', HIDE.map((x) => x[0]).filter((x) => s.has(x))); } } })),
+        ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { if (!ed || !ed._set) return; const p = secPatch(ed._config || cc, k, v); ed._config = { ...ed._config, hidden_sections: p.hidden_sections, hide: undefined }; ed._set('sections', p.sections); } })),
         { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)'], ['feels', 'Føles som (Scene)'], ['vis', 'Sikt (Scene)']] },
-        { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); } } },
+        { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
-        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner (Klassisk)', options: SECS.map((s) => [s[0], s[1]]) },
+        { type: 'order', name: 'section_order', hiddenName: 'hidden_sections', label: 'Rekkefølge seksjoner (Klassisk)', options: SECS.map((s) => [s[0], s[1]]) },
         { type: 'section', label: 'Toppkort', icon: 'mdi:view-carousel-outline', id: 'view', fields: [{ type: 'text', name: 'name', label: 'Stedsnavn', auto: (hh) => (hh.config && hh.config.location_name) || null, placeholder: 'Fra HA / værentiteten' }, ...VIEW_FIELDS] },
         { type: 'section', label: 'Prognose', icon: 'mdi:calendar-clock', id: 'forecast', fields: [
           { type: 'number', name: 'hours', label: 'Timer i «Time for time»', min: 12, max: 48, placeholder: '24' },
@@ -628,6 +665,18 @@
     }
     get cardSize() { return 12; }
     static get uiPersist() { return ['place', 'seg']; }
+    // 28.1: gamle nøkler (stil, hide, sections-liste, tiles) migreres til style/sections/section_order/tile_order – både i kortet
+    // og i GUI-editoren (getConfigElement); neste lagring skriver de nye nøklene.
+    static getConfigElement() {
+      const e = super.getConfigElement(), sc = e.setConfig.bind(e);
+      e.setConfig = (c) => { sc(c); const n = normCfg(e._config); if (n && n !== e._config) { e._config = n; if (e._render) e._render(); } };
+      return e;
+    }
+    setConfig(config) {
+      super.setConfig(config);
+      const n = normCfg(this._rawConfig);
+      if (n !== this._rawConfig) { this._rawConfig = n; this._config = { ...this.constructor.defaults, ...n }; }
+    }
     // Valgt sted (stedsvelgeren) overstyrer værentiteten – config er uendret (bare UI-tilstand i localStorage)
     get config() {
       const c = super.config, p = this._place(c);
@@ -648,19 +697,23 @@
       if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this)) M.haptic('light'); // én haptic ved åpning (26.24)
       this._pause(false);
     }
-    onClose() { super.onClose(); this._pause(true); this._ctlMenu = false; this._drawCtl(); }
+    onClose() { super.onClose(); this._pause(true); this._ctlMenu = false; this._drawCtl(); this._tileMode(false); }
     _pause(p) { const sc = this._layer && this._layer.shadowRoot.querySelector('.sc'); if (sc) sc.classList.toggle('paused', !!p); }
     disconnectedCallback() {
       super.disconnectedCallback();
       this._pause(true);
+      this._tileMode(false);
       // Kortet er tatt ut (popup lukket / ombygd): ta lagene ut av popupen hvis ingen ny instans bruker dem
       setTimeout(() => { if (this.isConnected) return; [this._layer, this._ctl].forEach((el) => { if (el && el.parentNode) el.remove(); }); if (this._popRef && this._popRef.getAttribute('data-ki-vaer-owner') === this._uid) this._popRef.removeAttribute('data-ki-vaer'); }, 0);
     }
-    // Bunnluft: stedsvelgeren og tune-knappen ligger fast i bunnen (navbaren er skjult mens #vaer er åpen) → 80 px
+    // Bunnluft: navbaren er skjult mens #vaer er åpen; stedsvelgeren og «Tilpass Vær» ligger sticky nederst i innholdet (28.1) → 16 px
     _applySpacing() {
       super._applySpacing();
       if (this._config.embedded || !M.popupContainer(this)) return;
-      this.style.paddingBottom = 'calc(80px + env(safe-area-inset-bottom, 0px))';
+      this.style.paddingBottom = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+      // sticky regnes fra innsiden av Bubble-containerens padding → trekk den fra, så knappene står 16 px over bunnen (Vær v5)
+      const C = M.popupContainer(this), pb = C ? parseFloat(getComputedStyle(C).paddingBottom) || 0 : 0;
+      this.style.setProperty('--vaer-ctl-b', `calc(16px + env(safe-area-inset-bottom, 0px) - ${pb}px)`);
     }
     // Scenelag (bak hele popupen, også bak headeren) + faste kontroller (stedsvelger · tune) i popup-laget
     _mountLayers() {
@@ -670,6 +723,10 @@
       if (pop) {
         pop.querySelectorAll(':scope > .msh-vaer-scene, :scope > .msh-vaer-ctl').forEach((el) => { if (el !== this._layer && el !== this._ctl) el.remove(); }); // gammel instans
         pop.setAttribute('data-ki-vaer', scene ? 'scene' : 'klassisk');
+        // 28.3: værstilen legges også inn av kortet selv (Bubble-roten), så headeren er transparent over scenen og ingen mørk
+        // topplinje (headerens egen bakgrunn, scroll-skygge) vises selv om popupens styles ikke er generert av strategien
+        const rn = pop.getRootNode && pop.getRootNode(), host = rn && rn !== document ? rn : document.head;
+        if (host && !host.querySelector('style[data-ki-vaer-skin]')) { const stl = document.createElement('style'); stl.setAttribute('data-ki-vaer-skin', ''); stl.textContent = VAER_BLOCK; host.appendChild(stl); }
         pop.setAttribute('data-ki-vaer-owner', this._uid);
       }
       this.toggleAttribute('data-scene', scene);
@@ -678,9 +735,11 @@
         this._ctl.shadowRoot.addEventListener('click', (e) => this._ctlClick(e));
         ['pointerdown', 'touchstart'].forEach((t) => this._ctl.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
       }
-      const cp = pop || R.querySelector('.ctl-slot');
+      // 28.1: stedsvelger + «Tilpass Vær» ligger nederst i innholdet, etter siste seksjon («Data fra …»), og følger med som
+      // sticky (Vær v5 pickWrap/gearWrap) – aldri i headeren, uavhengig av hvilket element i Bubble som scroller.
+      const cp = R.querySelector('.ctl-slot');
       if (cp && this._ctl.parentNode !== cp) cp.appendChild(this._ctl);
-      this._ctl.style.cssText = pop ? '' : 'position:sticky;bottom:0;display:block;height:0;z-index:6';
+      this._ctl.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:48px;--ctl-b:0px;--ctl-x:0px';
       this._drawCtl();
       if (scene) {
         if (!this._layer) this._layer = mkLayer('msh-vaer-scene');
@@ -763,41 +822,62 @@
         el.addEventListener('pointerleave', (e) => { if (!down && e.pointerType === 'mouse') end(e); });
       });
     }
-    // Fliser: hold ~420 ms → løft (scale 1.05 + skygge), dra for å bytte plass, slipp lagrer tile_order (26.25)
+    // 28.2 · Fliser: hold 400 ms → flyttemodus: flisen løftes (scale 1.04 + skygge, haptic medium) og de andre vugger lett.
+    // Dra → flisene bytter plass live (FLIP 200 ms, haptic selection), slipp → haptic light + ny tile_order lagres. Flyttemodus
+    // varer til Esc / trykk utenfor flisene (i flyttemodus løftes en flis straks). Kort trykk (< 400 ms) = vanlig trykk.
+    // Fallgruve 2: touch-action none + stopPropagation på pointerdown/touchstart/touchmove → popupen lukkes/scroller ikke.
     _bindTiles() {
       const box = this.shadowRoot.querySelector('[data-tiles]');
       if (!box || box.__td) return;
       box.__td = true;
       let st = null;
-      const R = this.shadowRoot;
+      const kids = () => [...box.querySelectorAll(':scope > .tw')];
       const cancel = () => { if (st && st.timer) clearTimeout(st.timer); };
+      const natural = (el) => { const p = el.style.transform; el.style.transform = 'none'; const r = el.getBoundingClientRect(); el.style.transform = p; return r; };
+      const place = (x, y) => { const r = natural(st.it); st.it.style.transform = `translate(${(x - st.ox - r.left).toFixed(1)}px, ${(y - st.oy - r.top).toFixed(1)}px) scale(1.04)`; };
+      const lift = () => {
+        if (!st) return;
+        st.on = true; st.timer = null;
+        st.start = kids().map((x) => x.dataset.tile).join();
+        this._busy = true;
+        this._cancelHold();
+        if (!this._tmode) this._tileMode(true);
+        const r = st.it.getBoundingClientRect();
+        st.ox = st.x0 - r.left; st.oy = st.y0 - r.top;
+        st.it.classList.add('lift');
+        box.classList.add('tdrag');
+        try { st.it.setPointerCapture(st.id); } catch (x) { /* */ }
+        place(st.x0, st.y0);
+        M.haptic('medium');
+      };
       box.addEventListener('pointerdown', (e) => {
         const it = e.target.closest && e.target.closest('.tw');
-        if (!it || e.button || (e.target.closest && e.target.closest('[data-scrub],button'))) return;
-        st = { it, k: it.dataset.tile, x0: e.clientX, y0: e.clientY, id: e.pointerId, on: false, over: null };
-        st.timer = setTimeout(() => {
-          if (!st) return;
-          st.on = true; st.timer = null;
-          this._busy = true;
-          this._cancelHold();
-          it.classList.add('lift');
-          box.classList.add('tdrag');
-          it.style.touchAction = 'none';
-          try { it.setPointerCapture(st.id); } catch (x) { /* */ }
-          M.haptic('medium');
-        }, 420);
+        if (!it || e.button || st) return;
+        e.stopPropagation();
+        if (!this._tmode && e.target.closest && e.target.closest('[data-scrub],button')) return;
+        st = { it, k: it.dataset.tile, x0: e.clientX, y0: e.clientY, id: e.pointerId, on: false, moved: false };
+        if (this._tmode) { if (e.cancelable) e.preventDefault(); lift(); } else st.timer = setTimeout(lift, 400);
       });
       box.addEventListener('pointermove', (e) => {
         if (!st || e.pointerId !== st.id) return;
-        const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-        if (!st.on) { if (Math.abs(dx) + Math.abs(dy) > 8) { cancel(); st = null; } return; }
-        e.stopPropagation(); e.preventDefault();
-        st.it.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
-        st.it.style.pointerEvents = 'none';
-        const hit = R.elementFromPoint ? R.elementFromPoint(e.clientX, e.clientY) : null;
-        st.it.style.pointerEvents = '';
-        const ov = hit && hit.closest ? hit.closest('.tw') : null, ok = ov && ov !== st.it && box.contains(ov) ? ov : null;
-        if (ok !== st.over) { if (st.over) st.over.classList.remove('over'); st.over = ok; if (ok) { ok.classList.add('over'); M.haptic('selection'); } }
+        if (!st.on) { if (Math.abs(e.clientX - st.x0) + Math.abs(e.clientY - st.y0) > 8) { cancel(); st = null; } return; }
+        e.stopPropagation(); if (e.cancelable) e.preventDefault();
+        st.moved = true;
+        place(e.clientX, e.clientY);
+        const K = kids(), over = K.find((c) => { if (c === st.it) return false; const r = c.getBoundingClientRect(); return e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom; });
+        if (!over) return;
+        // FLIP: mål før/etter flyttingen og la de andre flisene gli 200 ms til ny plass
+        const before = new Map(K.filter((c) => c !== st.it).map((c) => [c, c.getBoundingClientRect()]));
+        if (K.indexOf(st.it) < K.indexOf(over)) over.after(st.it); else over.before(st.it);
+        before.forEach((r0, c) => {
+          const r1 = c.getBoundingClientRect(), dx = r0.left - r1.left, dy = r0.top - r1.top;
+          if (!dx && !dy) return;
+          c.style.transition = 'none'; c.style.transform = `translate(${dx}px, ${dy}px)`;
+          void c.offsetWidth;
+          c.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)'; c.style.transform = '';
+        });
+        place(e.clientX, e.clientY);
+        M.haptic('selection');
       });
       const end = (e) => {
         if (!st || (e && e.pointerId !== st.id)) return;
@@ -807,24 +887,44 @@
         if (!s.on) return;
         this._busy = false;
         this._swallow = true; setTimeout(() => { this._swallow = false; }, 400); // klikket etter slipp ignoreres
-        s.it.classList.remove('lift'); s.it.style.transform = ''; s.it.style.touchAction = '';
+        const it = s.it;
+        it.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)'; it.style.transform = '';
+        setTimeout(() => { it.classList.remove('lift'); it.style.transition = ''; }, 210);
         box.classList.remove('tdrag');
-        if (s.over) s.over.classList.remove('over');
-        if (!s.over) { M.haptic('light'); return this.update(); }
-        const all = [...box.querySelectorAll('.tw')].map((x) => x.dataset.tile), to = s.over.dataset.tile;
-        const o = all.filter((x) => x !== s.k), j = o.indexOf(to);
-        o.splice(all.indexOf(s.k) < all.indexOf(to) ? j + 1 : j, 0, s.k);
-        const ALLK = [...new Set([...TK, ...STK])], full = orderOf(ALLK, [...o, ...orderOf(ALLK, this._rawConfig.tile_order || this._rawConfig.tiles).filter((x) => !o.includes(x))]);
-        M.haptic('success');
-        return this._saveCfg({ tile_order: full });
+        M.haptic('light');
+        const o = kids().map((x) => x.dataset.tile), raw = this._rawConfig || {}, ALLK = [...new Set([...TK, ...STK])];
+        if (o.join() === s.start) return this._skipped ? this.update() : undefined;
+        const full = orderOf(ALLK, [...o, ...orderOf(ALLK, raw.tile_order || raw.tiles).filter((x) => !o.includes(x))]);
+        return this._saveCfg({ tile_order: full, tiles: undefined });
       };
       box.addEventListener('pointerup', end);
       box.addEventListener('pointercancel', (e) => { if (st && !st.on) { cancel(); st = null; } else end(e); });
-      box.addEventListener('touchmove', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
-      // Fallgruve 2: hold-og-dra på flisene skal aldri nå Bubble (swipe-to-close) – pointerdown/touchstart/touchmove stoppes her
-      box.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); });
+      box.addEventListener('lostpointercapture', (e) => { if (st && st.on && e.pointerId === st.id) end(e); });
       box.addEventListener('touchstart', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); }, { passive: true });
+      box.addEventListener('touchmove', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
       box.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    // Flyttemodus av/på: vugging (klassen tmode, også i render), Esc og trykk utenfor flisene avslutter
+    _tileMode(on) {
+      on = !!on;
+      if (!!this._tmode === on) return;
+      this._tmode = on;
+      const box = this.shadowRoot.querySelector('[data-tiles]');
+      if (box) box.classList.toggle('tmode', on);
+      if (on) {
+        this._tmKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); M.haptic('light'); this._tileMode(false); } };
+        this._tmDown = (e) => {
+          if (e.composedPath().some((n) => n.classList && n.classList.contains('tw') && n.getRootNode() === this.shadowRoot)) return;
+          this._tileMode(false);
+          if (e.composedPath().includes(this)) { this._swallow = true; setTimeout(() => { this._swallow = false; }, 400); } // trykket avslutter bare flyttemodus
+        };
+        document.addEventListener('keydown', this._tmKey, true);
+        document.addEventListener('pointerdown', this._tmDown, true);
+      } else {
+        document.removeEventListener('keydown', this._tmKey, true);
+        document.removeEventListener('pointerdown', this._tmDown, true);
+        this._schedule();
+      }
     }
     async _saveCfg(patch) {
       const old = this._rawConfig || {}, n = { ...old, ...patch };
@@ -842,7 +942,7 @@
       const raw = this._rawConfig || {}, pl = this._place(), pe = pl && !pl.auto ? pl.entity : null;
       if (this._heroSrc !== raw || this._heroPl !== pe) {
         this._heroSrc = raw; this._heroPl = pe;
-        const { type, card_id, hero, sections, hidden_sections, tiles, hidden_tiles, tile_order, hide, places, stil, ...rest } = raw;
+        const { type, card_id, hero, sections, section_order, hidden_sections, tiles, hidden_tiles, tile_order, hide, places, stil, style, ...rest } = raw;
         if (pe) rest.overrides = { ...(rest.overrides || {}), weather: pe }; // valgt sted (stedsvelgeren)
         this._heroEl.setConfig({ type: 'custom:' + tag, ...rest, ...(hero || {}), embedded: true, card_id: card_id ? card_id + '_hero' : undefined });
       }
@@ -984,12 +1084,12 @@
       const tord = orderOf(scene ? [...TK, 'moon'] : TK, c.tile_order || c.tiles), thid = new Set(c.hidden_tiles || []);
       const tl = tord.filter((k) => !thid.has(k));
       // Fliser: hold inne ~420 ms og dra for å bytte plass (26.25) – lagres i tile_order
-      sec.tiles = tl.length ? `<div class="tiles" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T[k]}</div>`).join('')}</div>` : '';
+      sec.tiles = tl.length ? `<div class="tiles${this._tmode ? ' tmode' : ''}" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T[k]}</div>`).join('')}</div>` : '';
       sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? '<svg class="moon" style="width:56px;height:56px"><circle cx="28" cy="28" r="28" fill="#404040"/></svg>' : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--gray700,#979797)">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
       const hid = hiddenOf(c);
       const empty = !st ? M.emptyState(a.weather ? `Fant ikke ${a.weather}` : 'Fant ingen weather.*', 'overrides') : '';
       if (scene) return this._scene({ c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty, X: { ws, gust, bear, hum, dew, uv, pr, prU, trend, rain24, moon } });
-      const order = orderOf(SK, c.sections);
+      const order = orderOf(SK, secOrderOf(c));
       const blocks = order.filter((k) => !hid.has(k) && sec[k]).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${sec[k]}</div>`);
       // Stedsvelger + «Tilpass Vær» (tune) ligger fast i bunnen av popupen (portalet, 26.25) – ingen knapp nederst i innholdet
       return `<div class="wrap klassisk">${empty}${blocks.join('')}<div class="ctl-slot" data-nomorph></div></div>`;
@@ -1157,7 +1257,7 @@
         press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')),
       };
       const tord = orderOf(STK, raw.tile_order || raw.tiles), thid = new Set(raw.hidden_tiles || []), tl = tord.filter((k) => !thid.has(k));
-      if (tl.length) S.tiles = `<div class="tiles stiles" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T2[k]}</div>`).join('')}</div>`;
+      if (tl.length) S.tiles = `<div class="tiles stiles${this._tmode ? ' tmode' : ''}" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T2[k]}</div>`).join('')}</div>`;
       const plat = (M.regEntry(h, a.weather) || {}).platform || '', attr = String(A.attribution || '');
       const src = plat === 'met' || /met\.no|yr\b|norwegian meteorological/i.test(attr) ? 'Yr / MET Norge' : attr;
       const blocks = ['now', 'alerts', 'hours', 'days', 'tiles'].filter((k) => S[k] && !hid.has(k)).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${S[k]}</div>`);
@@ -1233,11 +1333,16 @@
         .rb .gc{border-left-color:${M.alpha(C.blue, 0.8)}}
         .tiles{position:relative}
         .tw{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-        .tw.lift{z-index:5;transition:none;box-shadow:0 14px 30px rgba(0,0,0,.45);border-radius:28px}
-        .tw.over>.tl{box-shadow:inset 0 0 0 2px var(--pink,#f285c9)}
-        .tdrag .tw:not(.lift){transform:scale(.98)}
+        .tw.lift{z-index:5;transition:none}
+        .tw.lift>*{box-shadow:0 18px 40px rgba(0,0,0,.45)}
+        .tmode .tw{touch-action:none;cursor:grab}
+        .tmode .tw.lift{cursor:grabbing}
+        .tmode .tw:not(.lift)>*{animation:vwig .32s ease-in-out infinite alternate;transform-origin:50% 50%}
+        .tmode .tw:nth-child(2n):not(.lift)>*{animation-delay:-.16s;animation-direction:alternate-reverse}
+        @keyframes vwig{from{transform:rotate(-.9deg)}to{transform:rotate(.9deg)}}
+        @media (prefers-reduced-motion: reduce){.tmode .tw:not(.lift)>*{animation:none}}
         .mnt .moon{margin:6px 0 0}
-        .ctl-slot{display:block;height:0}
+        .ctl-slot{display:block;position:sticky;bottom:var(--vaer-ctl-b, calc(16px + env(safe-area-inset-bottom, 0px)));z-index:6;height:48px;margin-top:-4px;flex:none;pointer-events:none}
         /* ---- stil «scene» (26.24/26.25 + 27, Vær v5): scenen ligger i popup-laget; kortene er var(--card) + blur(18px) */
         :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)}
         .scene{position:relative;gap:10px;color:#fafafa}
@@ -1387,6 +1492,8 @@
 .bubble-pop-up[data-ki-vaer="scene"] .bubble-name{color:#fff!important;text-shadow:0 1px 6px rgba(0,0,0,.3)}
 .bubble-pop-up[data-ki-vaer="scene"] .bubble-close-button{background-color:rgba(28,30,36,.55)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:#fff!important}
 .bubble-pop-up[data-ki-vaer="scene"] > .bubble-pop-up-container{background:transparent!important}
+.bubble-pop-up[data-ki-vaer="scene"] > .bubble-header-container::after{display:none!important}
+.bubble-pop-up[data-ki-vaer] > .bubble-pop-up-container{-webkit-mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important;mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important}
 ${VE}`;
   const vaerStyles = (prev) => {
     let s0 = typeof prev === 'string' ? prev : '';
@@ -1406,8 +1513,8 @@ ${VE}`;
     v = v === 'klassisk' ? 'klassisk' : 'scene';
     const els = liveVaer(), el = els.find((x) => x.isConnected) || els[0];
     M.haptic('selection');
-    if (el && el._rawConfig) return el._saveCfg({ stil: v });
-    if (M.store) return M.store.set('cards.pop-vaer', { ...(M.store.get('cards.pop-vaer') || {}), stil: v }, { immediate: true });
+    if (el && el._rawConfig) return el._saveCfg({ style: v, stil: undefined });
+    if (M.store) { const { stil, ...o } = M.store.get('cards.pop-vaer') || {}; return M.store.set('cards.pop-vaer', { ...o, style: v }, { immediate: true }); }
     return undefined;
   };
 
@@ -1510,7 +1617,7 @@ ${VE}`;
       if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' });
       if (sh) sh.scrollTop = top;
     };
-    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const box = document.createElement('div');
     box.className = 'vaer-sheet';
     Object.defineProperty(box, '_config', { get: () => ctl.draft });
@@ -1557,7 +1664,7 @@ ${VE}`;
       const a = el.dataset.a, k = el.dataset.k, D = ctl.draft, L = listOf(D);
       switch (a) {
         case 'done': return ctl.done();
-        case 'stil': return stilOf(D) === k ? undefined : apply({ stil: k }, 'selection');
+        case 'stil': return stilOf(D) === k ? undefined : apply({ style: k, stil: undefined }, 'selection');
         case 'rm': { if (L.length < 2) return undefined; const N = L.filter((_, i) => i !== Number(k)); st.adding = false; st.edit = null; return setPlaces(L, N, 'medium'); }
         case 'openadd': { st.adding = !st.adding || st.edit != null; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = ''; M.haptic('light'); draw(); const i = st.adding && box.querySelector('[data-in="name"]'); if (i) i.focus({ preventScroll: true }); return undefined; }
         case 'edit': { const p = L[Number(k)]; if (!p) return undefined; st.adding = true; st.edit = Number(k); st.name = p.name || ''; st.named = true; st.ent = p.entity; st.q = ''; M.haptic('light'); return draw(); }
@@ -1574,10 +1681,8 @@ ${VE}`;
           return setPlaces(L, N, 'success');
         }
         case 'sec': {
-          const s = new Set(Array.isArray(D.hide) ? D.hide : []), was = hiddenOf(D).has(k);
-          if (was) s.delete(k); else s.add(k);
-          const hs = (D.hidden_sections || []).filter((x) => !(was && x === k));
-          return apply({ hide: HIDE.map((x) => x[0]).filter((x) => s.has(x)), hidden_sections: hs }, 'selection');
+          const was = hiddenOf(D).has(k); // 28.1: bryteren lagres i sections { k: true/false }
+          return apply({ ...secPatch(D, k, was), hide: undefined }, 'selection');
         }
         case 'fx': return apply({ hero_fx: D.hero_fx === false }, 'selection');
         case 'treset': return apply({ tile_order: undefined, tiles: undefined }, 'medium');

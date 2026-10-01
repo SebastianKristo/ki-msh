@@ -131,7 +131,21 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   await p.evaluate(() => window.__c.shadowRoot.querySelector('.sc').click()); await wait(p, 200);
   const M1 = await top(p), C = await calls(p);
   ok('trykk på God morgen-kortet: turn_on nattmodus → God natt straks i samme kort', C.join() === `homeassistant.turn_on:${NATT}` && M1.kind === 'scene' && /night/.test(M1.cls) && M1.t === 'God natt' && M1.sync, { M1, C });
+  // 28.6: soloppgangen spilles bare én gang per åpning – natt på og av igjen viser sola stående (ingen ny soloppgang)
   await setState(p, NATT, 'on'); await wait(p, 100); await setState(p, NATT, 'off'); await wait(p, 100);
+  const anim = () => p.evaluate(() => { const sc = window.__c.shadowRoot.querySelector('.sc'); return sc ? { rise: sc.classList.contains('rise'), sun: getComputedStyle(sc.querySelector('.sunw')).animationName, dawn: getComputedStyle(sc.querySelector('.dawn')).animationName, t: sc.querySelector('.gt').textContent.trim() } : null; });
+  const R0 = await anim();
+  await wait(p, 3200);
+  const R1 = await anim();
+  await p.evaluate(() => window.__c.shadowRoot.querySelector('.sc').click()); await wait(p, 150); await setState(p, NATT, 'on'); await wait(p, 150);
+  await p.evaluate(() => window.__c.shadowRoot.querySelector('.sc').click()); await wait(p, 150);
+  const R2 = await anim(); await setState(p, NATT, 'off'); await wait(p, 150);
+  const R3 = await anim();
+  ok('28.6 soloppgang kun én gang per åpning: spilles første gang (≤ 3 s), deretter står sola – også etter natt på → av i samme åpning', R0.rise && R0.sun === 'sunrise' && R0.dawn === 'dawnsky' && !R1.rise && R1.sun === 'none' && R1.t === 'God morgen' && R2.t === 'God morgen' && !R2.rise && R2.sun === 'none' && !R3.rise && R3.sun === 'none', { R0, R1, R2, R3 });
+  // ny åpning (popupen lukkes og åpnes) → soloppgangen spilles igjen
+  await p.evaluate(async () => { location.hash = ''; window.dispatchEvent(new Event('location-changed')); await new Promise((q) => setTimeout(q, 200)); location.hash = '#settings'; window.dispatchEvent(new Event('location-changed')); await new Promise((q) => setTimeout(q, 300)); });
+  const R4 = await anim();
+  ok('28.6 ny åpning av popupen → soloppgangen spilles på nytt (én gang)', R4 && R4.rise && R4.sun === 'sunrise', R4);
   await p.evaluate(() => { window.__now = new Date(2026, 0, 15, 11, 0); window.__c.update(); }); await wait(p, 150);
   const M2 = await top(p);
   ok('etter kl. 11 → vanlig todelt kort', M2.kind === 'split', M2);
@@ -154,12 +168,14 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   const H = await p.evaluate(async () => {
     const sr = window.__ed.shadowRoot, sh = window.__ed.getRootNode().querySelector('.sh'), w = (ms) => new Promise((q) => setTimeout(q, ms)), out = {};
     for (const t of ['faner', 'rader', 'entiteter', 'avansert']) { sr.querySelector(`[data-a="tab"][data-v="${t}"]`).click(); await w(250); out[t] = Math.round(sh.getBoundingClientRect().height); }
+    out.inline = sh.style.height || '';
     sr.querySelector('[data-a="tab"][data-v="faner"]').click(); await w(200);
     out.stickyTabs = getComputedStyle(sr.querySelector('.wrap>.chips.sg.tabs')).position;
     out.cancel = getComputedStyle(sr.querySelector('.ttl .hb[data-a="cancel"]')).display;
     return out;
   });
-  ok('27.5 Tilpass-arket: samme faste høyde i alle 4 faner = min(660 px, 100 % − 52 px) → 660 ved 900 px', ['faner', 'rader', 'entiteter', 'avansert'].every((k) => H[k] === 660) && H.stickyTabs === 'sticky' && H.cancel === 'none', H);
+  // 28.11: høyden er felles for alle Tilpass-ark (MSH.overlay) – Innstillinger har ingen egen høydeoverstyring lenger
+  ok('28.5 Tilpass-arket: samme høyde i alle 4 faner, felles arkhøyde (ingen egen min(660px, …)-overstyring)', H.faner > 300 && ['rader', 'entiteter', 'avansert'].every((k) => Math.abs(H[k] - H.faner) <= 1) && !H.inline && H.stickyTabs === 'sticky' && H.cancel === 'none', H);
   // forhåndsvisning
   const pv = () => p.evaluate(() => { const v = window.__ed.shadowRoot.querySelector('.pvw'); return { tabs: [...v.querySelectorAll('.tb')].map((t) => (t.querySelector('ha-icon') ? 'i:' : '') + (t.querySelector('.tl') ? t.querySelector('.tl').textContent.trim() : '')), gear: !!v.querySelector('.gear ha-icon'), pe: getComputedStyle(v.querySelector('.pvb')).pointerEvents, on: (v.querySelector('.tb.on .tl') || {}).textContent, hdr: v.closest('.fsec').querySelector('.fsh').textContent.trim() }; });
   const V0 = await pv();
@@ -247,6 +263,35 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   // 4 faner ved 390 px: alt får plass (ellipsis ved behov), ingen side-scroll
   const F4 = await p.evaluate(() => { const t = window.__c.shadowRoot.querySelector('.bar .tabs'); return { many: t.classList.contains('many'), fit: t.scrollWidth <= t.clientWidth + 1, page: document.documentElement.scrollWidth <= window.innerWidth }; });
   ok('27.7 4 faner: fanelinjen får plass uten scroll (teksten krymper), ingen side-scroll', !F4.many && F4.fit && F4.page, F4);
+  // 28.5: egen fane kan omorganiseres (dra) og skjules (bryter) som de andre – reglene går tilbake til Sikkerhet når den er skjult
+  const OH = await p.evaluate(async () => {
+    const ed = window.__ed, sr = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms)), bar = () => [...window.__c.shadowRoot.querySelectorAll('.bar .tb')].map((t) => t.dataset.v);
+    ed.__edDrop['inn-tab'](['v_kamera', 'strom', 'sikkerhet', 'hjem']); await w(300);
+    const o1 = { cfg: ed._config.tabs.map((t) => t.key), card: bar(), rows: [...sr.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk), pv: [...sr.querySelectorAll('.pvw .tb')].length };
+    sr.querySelector('[data-op="teye"][data-v="v_kamera"]').click(); await w(300);
+    const o2 = { hid: (ed._config.tabs.find((t) => t.key === 'v_kamera') || {}).hidden, card: bar(), pv: [...sr.querySelectorAll('.pvw .tb')].length, sik: window.MSH.innstRows(window.__h, window.__c.config, 'sikkerhet').length };
+    sr.querySelector('[data-op="teye"][data-v="v_kamera"]').click(); await w(300);
+    const o3 = { card: bar() };
+    ed.__edDrop['inn-tab'](['strom', 'sikkerhet', 'hjem', 'v_kamera']); await w(300);
+    return { o1, o2, o3 };
+  });
+  ok('28.5 egen fane: dra → først i fanelinjen (config + kort + forhåndsvisning), bryter skjuler den (reglene tilbake i Sikkerhet), bryter viser den igjen', OH.o1.cfg[0] === 'v_kamera' && OH.o1.card[0] === 'v_kamera' && OH.o1.rows[0] === 'v_kamera' && OH.o1.pv === 4 && OH.o2.hid === true && !OH.o2.card.includes('v_kamera') && OH.o2.pv === 3 && OH.o2.sik === 6 && OH.o3.card[0] === 'v_kamera', OH);
+  // 28.5: ny kategori i integrasjonen dukker opp i «Legg til fane» uten reload (med antall)
+  const NK = await p.evaluate(async () => {
+    const ed = window.__ed, sr = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms));
+    sr.querySelector('[data-op="ntopen"]').click(); await w(250);
+    const before = [...sr.querySelectorAll('[data-op="ntsrc"]')].map((x) => x.dataset.v);
+    const h = window.__h, S = { ...h.states }, E = { ...h.entities };
+    S['switch.ki_varsel_vaskemaskin_ferdig'] = { entity_id: 'switch.ki_varsel_vaskemaskin_ferdig', state: 'on', attributes: { friendly_name: 'Vaskemaskin ferdig - Varsling' } };
+    E['switch.ki_varsel_vaskemaskin_ferdig'] = { entity_id: 'switch.ki_varsel_vaskemaskin_ferdig', platform: 'ki_notifications' };
+    S['switch.ki_varsel_hage_vanning'] = { entity_id: 'switch.ki_varsel_hage_vanning', state: 'on', attributes: { friendly_name: 'Vanning - Varsling', kategori: 'Hage' } };
+    E['switch.ki_varsel_hage_vanning'] = { entity_id: 'switch.ki_varsel_hage_vanning', platform: 'ki_notifications' };
+    window.__h = { ...h, states: S, entities: E }; window.__c.hass = window.__h; ed.hass = window.__h; await w(400);
+    const after = [...sr.querySelectorAll('[data-op="ntsrc"]')].map((x) => x.dataset.v + ':' + x.querySelector('.nm i').textContent.trim());
+    sr.querySelector('[data-op="ntopen"]').click(); await w(200);
+    return { before, after };
+  });
+  ok('28.5 «Legg til fane»: nye kategorier fra integrasjonen (attributtet kategori = «Hage», Hvitevarer) vises live med antall regler', !NK.before.includes('hage') && NK.after.includes('hage:1 regel') && NK.after.some((x) => /^hvitevarer:\d+ regl?e?r?/.test(x)), NK);
   // slett egen fane
   const DL = await p.evaluate(async () => { const sr = window.__ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms)); sr.querySelector('[data-op="tdel"][data-v="v_kamera"]').click(); await w(300); const c = window.__ed._config; return { ct: c.custom_tabs, tabs: c.tabs.map((t) => t.key), card: [...window.__c.shadowRoot.querySelectorAll('.bar .tb')].map((t) => t.getAttribute('aria-label')), sik: window.MSH.innstRows(window.__h, window.__c.config, 'sikkerhet').length }; });
   ok('27.7 søppelkassen sletter egen fane (custom_tabs + tabs), reglene går tilbake til Sikkerhet', DL.ct === undefined && !DL.tabs.includes('v_kamera') && DL.card.join() === 'Strøm,Sikkerhet,Huset' && DL.sik === 6, DL);
@@ -260,6 +305,9 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   const F6 = await p.evaluate(() => { const t = window.__c.shadowRoot.querySelector('.bar .tabs'), tb = [...t.querySelectorAll('.tb')]; return { n: tb.length, many: t.classList.contains('many'), scroll: t.scrollWidth > t.clientWidth, ox: getComputedStyle(t).overflowX, minW: Math.min(...tb.map((x) => Math.round(x.getBoundingClientRect().width))), page: document.documentElement.scrollWidth <= window.innerWidth, cnt: !!window.__c.shadowRoot.querySelector('.cnt') }; });
   ok('27.7 6 faner ved 360 px: vannrett scroll i fanelinjen (min 60 px per fane), ingen side-scroll; show_summary: false skjuler telleren', F6.n === 6 && F6.many && F6.scroll && F6.ox === 'auto' && F6.minW >= 60 && F6.page && !F6.cnt, F6);
   await shot(p, '5-seks-faner');
+  // 28.5: show_summary av skjuler «X av X på · Slå alle» i ALLE faner – også egne
+  const SA = await p.evaluate(async () => { const sr = window.__c.shadowRoot, out = {}; for (const t of [...sr.querySelectorAll('.bar .tb')].map((x) => x.dataset.v)) { sr.querySelector(`.bar .tb[data-v="${t}"]`).click(); await new Promise((q) => setTimeout(q, 200)); out[t] = { cnt: !!sr.querySelector('.cnt'), all: !!sr.querySelector('.all'), rows: sr.querySelectorAll('.lst .pr').length }; } return out; });
+  ok('28.5 show_summary: false → ingen «X av X på · Slå alle» i noen av de 6 fanene (også egne med rader)', Object.keys(SA).length === 6 && Object.values(SA).every((x) => !x.cnt && !x.all) && SA.v_kamera.rows === 2 && SA.v_klima.rows === 1, SA);
   const GU = await p.evaluate(async () => {
     const g = customElements.get('msh-innstillinger-card').getConfigElement(); g.hass = window.__h; g.setConfig(window.__c._rawConfig || window.__c.config); document.body.appendChild(g); await new Promise((q) => setTimeout(q, 300));
     const gs = g.shadowRoot, rows = [...gs.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk + (r.querySelector('.idel') ? ':slett' : ''));

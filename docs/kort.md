@@ -1228,12 +1228,14 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `fill_breakpoint` | Bredde for flere kolonner (px) · number | Profil |
 | `layout` | Oppsett (mosaic \| main \| grid \| list \| masonry \| overview \| focus \| 2x2 \| 3col) | Visning |
 | `mode` | Startmodus (live \| frigate) | Visning |
+| `tab_order · tab_hidden` | rekkefølge/synlighet: live, frigate | Visning |
 | `view` | Startvisning (alle \| events) | Visning |
 | `refresh` | Oppdater stillbilder (sekunder) · number | Visning |
 | `frigate_instance` | Frigate-instans | Visning |
 | `area` | Begrens til område · area | Visning |
 | `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `cam_gap` | Mellomrom mellom kameraer · range | Utseende |
+| `padT` | Fra popup-headeren til første kort · range | Utseende |
 | `show_name` | Vis navn på kameraene · boolean | Utseende |
 | `show_badge` | Vis «OPPTAK»-merke · boolean | Utseende |
 | `text_size` | Tekststørrelse (xs \| s \| m \| l) | Utseende |
@@ -1242,32 +1244,40 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `events_columns` | Kolonner · number | Hendelser |
 | `events_height` | Maks høyde | Hendelser |
 | `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.garasje, camera.hage_high, camera.innkjorsel_high, camera.ringeklokke_high |  |
+| `names.camera\.inngang` | camera.inngang | Navn på kameraene |
+| `names.camera\.inngang_package_camera` | camera.inngang_package_camera | Navn på kameraene |
+| `names.camera\.pakke` | camera.pakke | Navn på kameraene |
+| `names.camera\.veranda` | camera.veranda | Navn på kameraene |
+| `names.camera\.garasje` | camera.garasje | Navn på kameraene |
+| `names.camera\.hage_high` | camera.hage_high | Navn på kameraene |
+| `names.camera\.innkjorsel_high` | camera.innkjorsel_high | Navn på kameraene |
+| `names.camera\.ringeklokke_high` | camera.ringeklokke_high | Navn på kameraene |
 | `exclude · include.{kameraer}` | skjul / legg til |  |
-| `cameras.inngang.name` | Navn | Inngang |
-| `cameras.inngang.icon` | Ikon · icon | Inngang |
-| `cameras.inngang.light` | Lys · entity | Inngang |
-| `cameras.inngang.siren` | Sirene · entity | Inngang |
-| `cameras.inngang.talk` | Snakk (script/button) · entity | Inngang |
-| `cameras.inngang.privacy` | Personvern-modus · entity | Inngang |
-| `cameras.inngang.motion` | Bevegelse · entity | Inngang |
-| `cameras.inngang.last_motion` | Siste bevegelse · entity | Inngang |
-| `cameras.inngang_package_camera.name` | Navn | Inngang Package camera |
-| `cameras.inngang_package_camera.icon` | Ikon · icon | Inngang Package camera |
-| `cameras.inngang_package_camera.light` | Lys · entity | Inngang Package camera |
-| `cameras.inngang_package_camera.siren` | Sirene · entity | Inngang Package camera |
-| `cameras.inngang_package_camera.talk` | Snakk (script/button) · entity | Inngang Package camera |
-| `cameras.inngang_package_camera.privacy` | Personvern-modus · entity | Inngang Package camera |
-| `cameras.inngang_package_camera.motion` | Bevegelse · entity | Inngang Package camera |
-| `cameras.inngang_package_camera.last_motion` | Siste bevegelse · entity | Inngang Package camera |
-| `cameras.pakke.name` | Navn | Pakke |
-| `cameras.pakke.icon` | Ikon · icon | Pakke |
-| `cameras.pakke.light` | Lys · entity | Pakke |
-| `cameras.pakke.siren` | Sirene · entity | Pakke |
-| `cameras.pakke.talk` | Snakk (script/button) · entity | Pakke |
-| `cameras.pakke.privacy` | Personvern-modus · entity | Pakke |
-| `cameras.pakke.motion` | Bevegelse · entity | Pakke |
-| `cameras.pakke.last_motion` | Siste bevegelse · entity | Pakke |
-| `cameras.veranda.name` | Navn | Veranda |
+| `names.camera\.inngang` | Navn | Ringeklokke · G6 Entry |
+| `cameras.inngang.icon` | Ikon · icon | Ringeklokke · G6 Entry |
+| `cameras.inngang.light` | Lys · entity | Ringeklokke · G6 Entry |
+| `cameras.inngang.siren` | Sirene · entity | Ringeklokke · G6 Entry |
+| `cameras.inngang.talk` | Snakk (script/button) · entity | Ringeklokke · G6 Entry |
+| `cameras.inngang.privacy` | Personvern-modus · entity | Ringeklokke · G6 Entry |
+| `cameras.inngang.motion` | Bevegelse · entity | Ringeklokke · G6 Entry |
+| `cameras.inngang.last_motion` | Siste bevegelse · entity | Ringeklokke · G6 Entry |
+| `names.camera\.inngang_package_camera` | Navn | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.icon` | Ikon · icon | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.light` | Lys · entity | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.siren` | Sirene · entity | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.talk` | Snakk (script/button) · entity | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.privacy` | Personvern-modus · entity | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.motion` | Bevegelse · entity | Ringeklokke · Pakke · inngang package camera |
+| `cameras.inngang_package_camera.last_motion` | Siste bevegelse · entity | Ringeklokke · Pakke · inngang package camera |
+| `names.camera\.pakke` | Navn | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.icon` | Ikon · icon | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.light` | Lys · entity | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.siren` | Sirene · entity | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.talk` | Snakk (script/button) · entity | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.privacy` | Personvern-modus · entity | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.motion` | Bevegelse · entity | Ringeklokke · Pakke · pakke |
+| `cameras.pakke.last_motion` | Siste bevegelse · entity | Ringeklokke · Pakke · pakke |
+| `names.camera\.veranda` | Navn | Veranda |
 | `cameras.veranda.icon` | Ikon · icon | Veranda |
 | `cameras.veranda.light` | Lys · entity | Veranda |
 | `cameras.veranda.siren` | Sirene · entity | Veranda |
@@ -1275,7 +1285,7 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.veranda.privacy` | Personvern-modus · entity | Veranda |
 | `cameras.veranda.motion` | Bevegelse · entity | Veranda |
 | `cameras.veranda.last_motion` | Siste bevegelse · entity | Veranda |
-| `cameras.garasje.name` | Navn | Garasje |
+| `names.camera\.garasje` | Navn | Garasje |
 | `cameras.garasje.icon` | Ikon · icon | Garasje |
 | `cameras.garasje.light` | Lys · entity | Garasje |
 | `cameras.garasje.siren` | Sirene · entity | Garasje |
@@ -1283,7 +1293,7 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.garasje.privacy` | Personvern-modus · entity | Garasje |
 | `cameras.garasje.motion` | Bevegelse · entity | Garasje |
 | `cameras.garasje.last_motion` | Siste bevegelse · entity | Garasje |
-| `cameras.hage_high.name` | Navn | Hage |
+| `names.camera\.hage_high` | Navn | Hage |
 | `cameras.hage_high.icon` | Ikon · icon | Hage |
 | `cameras.hage_high.light` | Lys · entity | Hage |
 | `cameras.hage_high.siren` | Sirene · entity | Hage |
@@ -1291,7 +1301,7 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.hage_high.privacy` | Personvern-modus · entity | Hage |
 | `cameras.hage_high.motion` | Bevegelse · entity | Hage |
 | `cameras.hage_high.last_motion` | Siste bevegelse · entity | Hage |
-| `cameras.innkjorsel_high.name` | Navn | Innkjørsel |
+| `names.camera\.innkjorsel_high` | Navn | Innkjørsel |
 | `cameras.innkjorsel_high.icon` | Ikon · icon | Innkjørsel |
 | `cameras.innkjorsel_high.light` | Lys · entity | Innkjørsel |
 | `cameras.innkjorsel_high.siren` | Sirene · entity | Innkjørsel |
@@ -1299,15 +1309,14 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.innkjorsel_high.privacy` | Personvern-modus · entity | Innkjørsel |
 | `cameras.innkjorsel_high.motion` | Bevegelse · entity | Innkjørsel |
 | `cameras.innkjorsel_high.last_motion` | Siste bevegelse · entity | Innkjørsel |
-| `cameras.ringeklokke_high.name` | Navn | Ringeklokke |
-| `cameras.ringeklokke_high.icon` | Ikon · icon | Ringeklokke |
-| `cameras.ringeklokke_high.light` | Lys · entity | Ringeklokke |
-| `cameras.ringeklokke_high.siren` | Sirene · entity | Ringeklokke |
-| `cameras.ringeklokke_high.talk` | Snakk (script/button) · entity | Ringeklokke |
-| `cameras.ringeklokke_high.privacy` | Personvern-modus · entity | Ringeklokke |
-| `cameras.ringeklokke_high.motion` | Bevegelse · entity | Ringeklokke |
-| `cameras.ringeklokke_high.last_motion` | Siste bevegelse · entity | Ringeklokke |
-| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `names.camera\.ringeklokke_high` | Navn | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.icon` | Ikon · icon | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.light` | Lys · entity | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.siren` | Sirene · entity | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.talk` | Snakk (script/button) · entity | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.privacy` | Personvern-modus · entity | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.motion` | Bevegelse · entity | Ringeklokke · G4 Doorbell Pro |
+| `cameras.ringeklokke_high.last_motion` | Siste bevegelse · entity | Ringeklokke · G4 Doorbell Pro |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
 
 ## `msh-sikkerhet-hero-card`
@@ -1518,7 +1527,7 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `stil` | Stil (klassisk \| scene) |  |
-| `tile_order · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain, moon |  |
+| `tile_order · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain, moon, feels, vis |  |
 | `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
 | `sections · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
 | `name` | Stedsnavn | Toppkort |
@@ -1644,7 +1653,7 @@ Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender o
 
 ## `msh-innstillinger-card`
 
-Innstillinger-popupen (#settings): natt-/privatmodus, regler fra KI Varslinger og sikkerhet (automasjoner, varsler), strøm fra KI Energi og dashbordets innstillinger (fiks 26.15).
+Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi, og dashbordets innstillinger (fiks 27).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|

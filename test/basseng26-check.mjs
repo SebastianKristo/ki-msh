@@ -154,7 +154,8 @@ S = await p.evaluate(() => {
   const r2 = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: [own] });
   return { pref: r.popups.filter((x) => x.hash === '#basseng').map((x) => x.cards[0].type), own: r2.popups.map((x) => x.hash).filter((h) => /basseng/.test(h)) };
 });
-ok('F · «Bruk egen» beholder den gamle; en helt annen #badebasseng røres ikke', S.pref.join() === 'custom:ki-basseng-card' && S.own.join() === '#basseng,#badebasseng', S);
+// Fiks 28.14: også «Bruk egen» får de gamle kortene (ki-basseng-card/hero/gap-card) migrert til ÉTT msh-basseng-card
+ok('F · «Bruk egen» beholder egen popup (gamle kort migrert til msh-basseng-card); en helt annen #badebasseng røres ikke', S.pref.join() === 'custom:msh-basseng-card' && S.own.join() === '#basseng,#badebasseng', S);
 // manuelt dashbord (M.buildPopups): #badebasseng tas over som #basseng med ett kort
 S = await p.evaluate(async () => {
   const M = window.MSH, h = window.__h;

@@ -45,7 +45,7 @@ const mk = async (cfg) => p.evaluate(async (cfg) => {
 await mk({});
 const A = await p.evaluate(() => {
   const c = window.__c, sr = c.shadowRoot, q = (s) => sr.querySelector(s), qa = (s) => [...sr.querySelectorAll(s)], pop = window.__pop;
-  const layer = pop.querySelector(':scope > .msh-vaer-scene'), ctl = pop.querySelector(':scope > .msh-vaer-ctl');
+  const layer = pop.querySelector(':scope > .msh-vaer-scene'), ctl = sr.querySelector('.ctl-slot > .msh-vaer-ctl'), cr = c.getBoundingClientRect();
   const lr = layer && layer.getBoundingClientRect(), pr = pop.getBoundingClientRect(), hr = pop.querySelector('.hdr').getBoundingClientRect();
   const hl = q('.shl'), hlr = hl && hl.getBoundingClientRect();
   const cb = ctl && ctl.shadowRoot.querySelector('.pl'), tb = ctl && ctl.shadowRoot.querySelector('.tn');
@@ -56,7 +56,7 @@ const A = await p.evaluate(() => {
     hl: hl && hl.textContent, hlH: hlr && Math.round(hlr.height), hlWs: hl && getComputedStyle(hl).whiteSpace, hlKids: hl && hl.childNodes.length,
     seg: qa('.mpill .mb').map((e) => e.getAttribute('aria-label') + (e.classList.contains('on') ? '*' : '')), segGd: q('.mpill') && q('.mpill').__gd === true, segTA: q('.mpill') && getComputedStyle(q('.mpill')).touchAction,
     days: qa('.dr').length, tiles: qa('.tw').map((e) => e.dataset.tile), glass: q('.g') && getComputedStyle(q('.g')).backdropFilter,
-    ctl: !!ctl, cb: cb && cb.getBoundingClientRect().left - pr.left, cbB: cb && pr.bottom - cb.getBoundingClientRect().bottom, tb: tb && pr.right - tb.getBoundingClientRect().right,
+    ctl: !!ctl, cb: cb && cb.getBoundingClientRect().left - cr.left, cbB: cb && pr.bottom - cb.getBoundingClientRect().bottom, tb: tb && cr.right - tb.getBoundingClientRect().right, last: q('.wrap').lastElementChild.className, prev: q('.ctl-slot').previousElementSibling.className, sticky: getComputedStyle(q('.ctl-slot')).position,
     cbTxt: cb && cb.textContent.trim(), pad: c.style.paddingBottom, moon: !!sr.querySelector('.mnt svg.moon[style*="clip-path"] path.lit'),
     host: Math.round(c.getBoundingClientRect().width), inner: Math.round(pop.querySelector('.inner').clientWidth - 36),
   };
@@ -68,8 +68,8 @@ ok('26.24 H/L på én linje som én streng', /^H \d+° · L \d+°$/.test(A.hl ||
 ok('26.24/27.1 Liquid Glass-pille Temperatur · Nedbør · Vind', A.seg.join('|') === 'Temperatur*|Nedbør|Vind' && A.segGd && A.segTA === 'pan-y', A.seg);
 ok('26.24 døgnvarsel-rader', A.days >= 7, A.days);
 ok('26.24/27.0 halvtransparente glasskort (blur 18px)', /blur\(18px\)/.test(A.glass || ''), A.glass);
-ok('26.25 stedsvelger nede til venstre + tune nede til høyre (fast i popupen)', A.ctl && Math.round(A.cb) === 16 && Math.round(A.cbB) === 16 && Math.round(A.tb) === 16 && /Hjem/.test(A.cbTxt), A);
-ok('26.24 innholdet har 80 px bunnluft', /80px/.test(A.pad || ''), A.pad);
+ok('28.1 stedsvelger + «Tilpass Vær» nederst etter siste seksjon (sticky, 16 px over bunnen, kortets kanter)', A.ctl && A.last === 'ctl-slot' && A.prev === 'attr' && A.sticky === 'sticky' && Math.round(A.cb) === 0 && Math.round(A.cbB) === 16 && Math.round(A.tb) === 0 && /Hjem/.test(A.cbTxt), A);
+ok('28.1 innholdet har 16 px bunnluft (navbaren er skjult)', /16px/.test(A.pad || ''), A.pad);
 ok('26.24 månen tegnes inni sirkelen (clip-path) i Scene', A.moon, A.moon);
 ok('fyller bredden', Math.abs(A.host - A.inner) <= 1, [A.host, A.inner]);
 if (shots) await p.screenshot({ path: shots + '/vaer26-scene.png' });
@@ -145,17 +145,17 @@ const T = await p.evaluate(async () => {
   const o = (x, y) => ({ bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 11, pointerType: 'touch', isPrimary: true });
   const before = tw.map((e) => e.dataset.tile);
   a.dispatchEvent(new PointerEvent('pointerdown', o(ra.left + 20, ra.top + 60)));
-  await w(480);
+  await w(460);
   const lifted = a.classList.contains('lift');
   a.dispatchEvent(new PointerEvent('pointermove', o(rb.left + 20, rb.top + 60)));
   await w(40);
-  const over = bb.classList.contains('over');
+  const over = [...sr.querySelectorAll('.tw')].map((e) => e.dataset.tile)[0] === before[1]; // live omorganisering
   a.dispatchEvent(new PointerEvent('pointerup', o(rb.left + 20, rb.top + 60)));
   await w(250);
   const after = [...sr.querySelectorAll('.tw')].map((e) => e.dataset.tile);
   return { before, after, lifted, over, cfg: c._rawConfig.tile_order, swallow: c._swallow };
 });
-ok('26.25 hold-og-dra: løft (420 ms), bytt, slipp lagrer tile_order', T.lifted && T.over && T.after[0] === T.before[1] && T.after[1] === T.before[0] && Array.isArray(T.cfg) && T.cfg[0] === T.before[1] && T.swallow === true, T);
+ok('26.25/28.2 hold-og-dra: løft (400 ms), bytt live, slipp lagrer tile_order', T.lifted && T.over && T.after[0] === T.before[1] && T.after[1] === T.before[0] && Array.isArray(T.cfg) && T.cfg[0] === T.before[1] && T.swallow === true, T);
 
 // Stedsvelger: meny åpner oppover, bytte sted endrer værentiteten
 const P = await p.evaluate(async () => {
@@ -163,7 +163,8 @@ const P = await p.evaluate(async () => {
   const c = window.__c;
   c.setConfig({ ...c._rawConfig, places: [{ name: 'Hjem', entity: 'weather.home' }, { name: 'Hytta', entity: 'weather.hytta' }] });
   await w(150);
-  const ctl = window.__pop.querySelector(':scope > .msh-vaer-ctl').shadowRoot;
+  c._tileMode(false); await w(60);
+  const ctl = c.shadowRoot.querySelector('.ctl-slot > .msh-vaer-ctl').shadowRoot;
   ctl.querySelector('.pl').click(); await w(60);
   const mn = ctl.querySelector('.mn'), mr = mn && mn.getBoundingClientRect(), br = ctl.querySelector('.pl').getBoundingClientRect();
   const items = [...ctl.querySelectorAll('.mi .mnm')].map((e) => e.textContent.trim());
@@ -176,7 +177,7 @@ await p.evaluate(async () => { const c = window.__c; c.setUI({ place: 0 }); c.se
 // Tilpass Vær (tune-knappen): Ferdig rosa pille øverst, Stil/Steder/Seksjoner/Fliser, rosa brytere
 const Sh = await p.evaluate(async () => {
   const w = (ms) => new Promise((q) => setTimeout(q, ms));
-  window.__pop.querySelector(':scope > .msh-vaer-ctl').shadowRoot.querySelector('.tn').click();
+  window.__c.shadowRoot.querySelector('.ctl-slot > .msh-vaer-ctl').shadowRoot.querySelector('.tn').click();
   await w(400);
   const R = window.__c._sheet.ov.root, box = R.querySelector('.vaer-sheet');
   const hd = box.querySelector('.hd'), okb = hd.querySelector('.ok'), tt = hd.querySelector('.tt');
@@ -196,12 +197,12 @@ const Sh = await p.evaluate(async () => {
   await w(900);
   const c = window.__c;
   return { caps, tt: tt.textContent, okTop: Math.abs(okR.top - ttR.top) < 20 && okR.right > ttR.right && okR.top - hdR.top < 30, okBg, swBg, liveK, places,
-    cfg: { stil: c._rawConfig.stil, hide: c._rawConfig.hide, places: c._rawConfig.places }, attr: window.__pop.getAttribute('data-ki-vaer'), layer: !!window.__pop.querySelector(':scope > .msh-vaer-scene'), closed: !c._sheet };
+    cfg: { style: c._rawConfig.style, stil: c._rawConfig.stil, sections: c._rawConfig.sections, places: c._rawConfig.places }, attr: window.__pop.getAttribute('data-ki-vaer'), layer: !!window.__pop.querySelector(':scope > .msh-vaer-scene'), closed: !c._sheet };
 });
 ok('26.25 Tilpass Vær: Stil · Steder · Seksjoner · Fliser', Sh.tt === 'Tilpass Vær' && ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.places.join('|') === 'Hjem|Hytta', Sh);
 ok('Ferdig = rosa pille øverst til høyre, rosa brytere', Sh.okTop && /gradient/.test(Sh.okBg) && /gradient/.test(Sh.swBg || ''), Sh);
 ok('26.24 stilbytte live (utkast) → Klassisk', /klassisk/.test(Sh.liveK), Sh.liveK);
-ok('26.25 Ferdig lagrer stil/hide/places i kortets config', Sh.closed && Sh.cfg.stil === 'klassisk' && (Sh.cfg.hide || []).includes('days') && Sh.cfg.places && Sh.cfg.places.some((x) => x.entity === 'weather.hytta'), Sh);
+ok('28.1 Ferdig lagrer style/sections/places i kortets config', Sh.closed && Sh.cfg.style === 'klassisk' && Sh.cfg.stil === undefined && Sh.cfg.sections && Sh.cfg.sections.days === false && Sh.cfg.places && Sh.cfg.places.some((x) => x.entity === 'weather.hytta'), Sh);
 ok('26.24 Klassisk: popupen uten scene (data-ki-vaer=klassisk, ingen scenelag)', Sh.attr === 'klassisk' && !Sh.layer, Sh);
 if (shots) await p.screenshot({ path: shots + '/vaer26-klassisk.png' });
 
@@ -214,9 +215,9 @@ const G = await p.evaluate(async () => {
   let last = null; ed.addEventListener('config-changed', (e) => { last = e.detail.config; });
   await w(200);
   const R = ed.shadowRoot, txt = R.textContent;
-  const chip = [...R.querySelectorAll('[data-a="sel"][data-name="stil"]')];
+  const chip = [...R.querySelectorAll('[data-a="sel"][data-name="style"]')];
   const k = chip.find((x) => x.dataset.v === 'klassisk'); k && k.click(); await w(80);
-  const st1 = last && last.stil;
+  const st1 = last && last.style;
   const add = R.querySelector('[data-op="add"]'); const nm = R.querySelector('[data-vp="name"]'); if (nm) nm.value = 'Hytta'; const se = R.querySelector('[data-vp="ent"]'); if (se) se.value = 'weather.hytta';
   add && add.click(); await w(80);
   const pl = last && last.places;
@@ -231,7 +232,7 @@ const H = await p.evaluate(async () => {
   const html = window.MSH.vaerStilHTML('ppvaer');
   const cur = window.MSH.vaerStil();
   await window.MSH.setVaerStil('scene'); await w(200);
-  return { html: /data-a="ppvaer"/.test(html) && /Klassisk/.test(html) && /Scene/.test(html), cur, after: window.MSH.vaerStil(), cfg: window.__c._rawConfig.stil, attr: window.__pop.getAttribute('data-ki-vaer') };
+  return { html: /data-a="ppvaer"/.test(html) && /Klassisk/.test(html) && /Scene/.test(html), cur, after: window.MSH.vaerStil(), cfg: window.__c._rawConfig.style, attr: window.__pop.getAttribute('data-ki-vaer') };
 });
 ok('26.24 Tilpass Hjem → Popups → Vær: segment Klassisk · Scene, samme verdi, live', H.html && H.cur === 'klassisk' && H.after === 'scene' && H.cfg === 'scene' && H.attr === 'scene', H);
 
@@ -250,17 +251,17 @@ const N = await p.evaluate(async () => {
   nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb' }); nb.hass = window.__h; document.getElementById('dash').appendChild(nb);
   location.hash = '#vaer'; window.dispatchEvent(new HashChangeEvent('hashchange')); await w(400);
   const find = () => { const all = [nb, document.body]; for (const r of all) { const x = (r.shadowRoot || r).querySelector ? [...(r.querySelectorAll ? r.querySelectorAll('*') : [])].find((e) => e.shadowRoot && e.shadowRoot.querySelector('[data-nav]')) : null; if (x) return x; } return null; };
-  const portal = find(), on = portal && portal.hasAttribute('data-ring'), nav = portal && portal.shadowRoot.querySelector('nav.nb'), op = nav && getComputedStyle(nav).opacity, pe = nav && getComputedStyle(nav).pointerEvents;
+  const portal = find(), on = portal && portal.hasAttribute('data-vaer'), nav = portal && portal.shadowRoot.querySelector('nav.nb'), op = nav && getComputedStyle(nav).opacity, pe = nav && getComputedStyle(nav).pointerEvents;
   location.hash = ''; window.dispatchEvent(new HashChangeEvent('hashchange')); await w(400);
-  return { on, op, pe, off: portal && !portal.hasAttribute('data-ring') };
+  return { on, op, pe, off: portal && !portal.hasAttribute('data-vaer') };
 });
 ok('26.24 navbar/mini-spiller skjult mens #vaer er åpen, tilbake når lukket', N.on && N.op === '0' && N.pe === 'none' && N.off, N);
 
 /* ---------------------------------------------------------------- klassisk via YAML */
-await mk({ stil: 'klassisk', show_graph: true, card_id: 'vaer-klassisk' });
+await mk({ stil: 'klassisk', show_graph: true, card_id: 'vaer-klassisk' }); // gammel nøkkel (alias) → style
 const K = await p.evaluate(() => {
   const sr = window.__c.shadowRoot;
-  return { hero: !!sr.querySelector('.vh-slot msh-vaer-hero-card'), smooth: / C/.test((sr.querySelector('.gr path.sm') || { getAttribute: () => '' }).getAttribute('d')), rain: !!sr.querySelector('.rb svg path.sm'), own: !!sr.querySelector('.own'), ctl: !!window.__pop.querySelector(':scope > .msh-vaer-ctl'), attr: window.__pop.getAttribute('data-ki-vaer'), moon: !!sr.querySelector('.mn svg.moon path.lit') };
+  return { hero: !!sr.querySelector('.vh-slot msh-vaer-hero-card'), smooth: / C/.test((sr.querySelector('.gr path.sm') || { getAttribute: () => '' }).getAttribute('d')), rain: !!sr.querySelector('.rb svg path.sm'), own: !!sr.querySelector('.own'), ctl: !!sr.querySelector('.ctl-slot > .msh-vaer-ctl'), attr: window.__pop.getAttribute('data-ki-vaer'), moon: !!sr.querySelector('.mn svg.moon path.lit') };
 });
 ok('Klassisk: toppkort, glatte kurver (graf + nedbørsflis), måne i sirkel, faste kontroller', K.hero && K.smooth && K.rain && !K.own && K.ctl && K.attr === 'klassisk' && K.moon, K);
 

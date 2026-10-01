@@ -203,7 +203,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     window.__pop.removeEventListener('pointerdown', spy);
     const draft = c._sheet.box._config.places.map((x) => x.name), sel = c.ui.place;
     R.querySelector('[data-a="done"]').click(); await w(900);
-    const ctl = window.__pop.querySelector(':scope > .msh-vaer-ctl').shadowRoot;
+    const ctl = window.__c.shadowRoot.querySelector('.ctl-slot > .msh-vaer-ctl').shadowRoot;
     ctl.querySelector('.pl').click(); await w(60);
     const menu = [...ctl.querySelectorAll('.mi .mnm')].map((e) => e.textContent), on = ctl.querySelector('.mi.on .mnm').textContent, lab = ctl.querySelector('.pl .pn').textContent;
     ctl.querySelector('[data-a="close"]').click();

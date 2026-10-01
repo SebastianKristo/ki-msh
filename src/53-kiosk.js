@@ -177,7 +177,7 @@
         <div class="grp" data-key="gy"><pre data-key="yaml">${esc(M.kioskYaml())}</pre></div>
         ${st.dirty ? `<div class="rl" data-key="rl"><span style="flex:1">Last inn på nytt for å bruke</span><button class="btn" data-a="reload">Last inn på nytt</button></div>` : ''}`;
     };
-    const ov = M.overlay({ html: render(), css: CSS, maxWidth: 480, onClose: () => { unsub && unsub(); } });
+    const ov = M.overlay({ html: render(), css: CSS, maxWidth: 480, tilpass: true, onClose: () => { unsub && unsub(); } });
     // Entitetsvelgeren (data-nomorph): hass/verdi settes etter hver tegning, valg lagres straks i ki-store kiosk.entity
     const bindSel = () => {
       const el = ov.root.querySelector('.entsel');

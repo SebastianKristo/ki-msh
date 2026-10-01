@@ -403,6 +403,8 @@
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
     :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
+    :host([data-vaer]) nav.nb,:host([data-vaer]) .mini{opacity:0 !important;pointer-events:none !important} /* 28.4: skjult mens #vaer er åpen */
+    :host([data-vfade]) nav.nb,:host([data-vfade]) .mini{transition:opacity .2s ease !important} /* 28.4: fade 200 ms begge veier */
     :host([data-kart]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 20.22: mini-spilleren skjult mens #kart er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -462,7 +464,7 @@
 
     connectedCallback() {
       super.connectedCallback();
-      this._onHashNav = () => { this.setUI({ menu: false }); this._schedule(true); };
+      this._onHashNav = () => { this._syncVaer(); this.setUI({ menu: false }); this._schedule(true); };
       this._onResize = () => this._schedule(true);
       this._onScroll = () => {
         if (M.portals && M.portals().length) return; // Fiks 20.8: ingen setState mens et Tilpass-ark er åpent
@@ -676,7 +678,7 @@
         .tpx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .tpx b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .tpx i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
-      const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, onClose: () => { ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); this._tpSheet = null; } });
+      const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); this._tpSheet = null; } });
       ov.host.setAttribute('data-tilpass', '');
       // vertens venstre-forskyvning mot dashbordflaten (rail-utsparing i M.overlay) trekkes fra --ki-nav-occ-left (som 23.1)
       const fit = () => { if (!ov.host.isConnected) return; const D = M.dashRect(), hr = ov.host.getBoundingClientRect(); ov.host.style.setProperty('--ki-hx', Math.max(0, Math.round(hr.left - D.left)) + 'px'); };
@@ -769,7 +771,8 @@
       this._railVars(geo.rail, geo);
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
-      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke' || location.hash === '#vaer'); // 19.17 / 26.24: navbar og mini-spiller skjules (#ringeklokke, #vaer)
+      this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules (#ringeklokke)
+      this._syncVaer(); // 26.24 / 28.4: … og fades ut 200 ms mens #vaer er åpen
       this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
@@ -817,6 +820,17 @@
       });
     }
 
+    // Fiks 28.4: #vaer åpen → navbar + «Spilles nå» fades ut (200 ms), og inn igjen når popupen lukkes. Kalles fra hashchange
+    // (straks, ingen polling) og fra tegningen. data-vfade gir opacity-overgangen bare mens byttet pågår.
+    _syncVaer() {
+      const P = this._portal, v = location.hash === '#vaer';
+      if (!P || P.hasAttribute('data-vaer') === v) return;
+      P.setAttribute('data-vfade', '');
+      void P.offsetWidth;
+      P.toggleAttribute('data-vaer', v);
+      clearTimeout(this._vfT);
+      this._vfT = setTimeout(() => { if (this._portal) this._portal.removeAttribute('data-vfade'); }, 260);
+    }
     // Fiks 23.3: navbaren måler seg selv (ResizeObserver på <nav> + resize/orientering via _schedule) → MSH.setNavOcc
     _measureOcc() {
       const sr = this._portal && this._portal.shadowRoot, nav = sr && sr.querySelector('[data-nav]');
@@ -828,7 +842,7 @@
       }
       const D = M.rectOf(this._dEl), n = nav.getBoundingClientRect();
       let r = { left: n.left, top: n.top, right: n.right, bottom: n.bottom, width: n.width, height: n.height };
-      const hid = this._portal && (this._portal.hasAttribute('data-kart') || this._portal.hasAttribute('data-ring')); // mini-spilleren er skjult i #kart/#ringeklokke
+      const hid = this._portal && (this._portal.hasAttribute('data-kart') || this._portal.hasAttribute('data-ring') || this._portal.hasAttribute('data-vaer')); // mini-spilleren er skjult i #kart/#ringeklokke
       const mEl = this._mShow && !hid && sr.querySelector('[data-mini]');
       if (mEl && n.width >= n.height) { const m = mEl.getBoundingClientRect(); if (m.height && m.top < r.top) { r.top = m.top; r.height = r.bottom - r.top; } }
       M.setNavOcc(M.navOccFrom(r, D), this._dEl);

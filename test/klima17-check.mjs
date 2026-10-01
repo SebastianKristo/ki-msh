@@ -47,12 +47,13 @@ const res = await p.evaluate(async () => {
   k.customize(); await wait(300);
   const ov = window.MSH.portals().pop(), sh = ov.shadowRoot || ov;
   const box = sh.querySelector('.klima-sheet');
-  r.sheet = { sliders: box.querySelectorAll('input[data-sp]').length, heroOpts: [...box.querySelectorAll('.hso')].map((x) => x.textContent.trim()) };
-  const slide = (name, v) => { const i = box.querySelector(`input[data-sp="${name}"]`); i.value = String(v); i.dispatchEvent(new Event('input', { bubbles: true })); };
+  const KS = () => box.querySelector('ki-spacing-editor').shadowRoot; // 28.10: felles mellomrom-komponent
+  r.sheet = { sliders: KS().querySelectorAll('input[data-spn]').length, heroOpts: [...box.querySelectorAll('.hso')].map((x) => x.textContent.trim()) };
+  const slide = (name, v) => { const i = KS().querySelector(`input[data-spn="${name}"]`); i.value = String(v); i.dispatchEvent(new Event('input', { bubbles: true })); };
   slide('pad_top', -4); await wait(200); r.liveTop = top();
   slide('pad_top', 44); await wait(200); r.liveTop44 = top();
   slide('gap', 24); await wait(200); r.liveGap = gap();
-  box.querySelector('[data-a="sp"][data-k="pad_bottom"][data-v="96"]').click(); await wait(200);
+  KS().querySelector('.p[data-spn="pad_bottom"][data-spv="96"]').click(); await wait(200);
   r.livePadBottom = getComputedStyle(k).paddingBottom;
   // 17.29: bytt stil live
   r.styles = {};
@@ -62,7 +63,7 @@ const res = await p.evaluate(async () => {
     r.styles[s] = { style: kh && (kh.dataset.style || 'ring'), h: Math.round(kh.getBoundingClientRect().height), anims: hs.getAnimations().filter((a) => a.playState === 'running').length, txt: kh.textContent.replace(/\s+/g, ' ').trim().slice(0, 140) };
     if (window.__SHOT) { ov.style.visibility = 'hidden'; k.scrollIntoView(); await wait(900); await window.__SHOT(s); ov.style.visibility = ''; }
   }
-  if (window.__SHOT) { box.querySelector('input[data-sp]').scrollIntoView(); await wait(200); await window.__SHOT('ark'); }
+  if (window.__SHOT) { box.querySelector('ki-spacing-editor').scrollIntoView(); await wait(200); await window.__SHOT('ark'); }
   box.querySelector(`.hso[data-v="maaler"]`).click(); await wait(200);
   r.draft = { ...box._config };
   box.querySelector('[data-a="done"]').click(); await wait(1200);
