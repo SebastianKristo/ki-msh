@@ -2065,7 +2065,7 @@
         MSH.haptic('medium');
         if (this.onHold && this.onHold(el.dataset.ent, el) !== undefined) return;
         MSH.moreInfo(this, el.dataset.ent);
-      }, 520);
+      }, this.holdMs || 520); // kort kan sette egen holdetid (Innstillinger: 500 ms, fiks 29.2)
     }
     _cancelHold() { if (this._hold) { clearTimeout(this._hold); this._hold = null; } }
     onAction(name, el, e) {

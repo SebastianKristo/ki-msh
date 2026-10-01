@@ -37,3 +37,7 @@ rekkefølge men viser ekte data eller tom-tilstand («–» + «Velg entitet»).
 - **Gjøremål:** prioritet lagres som prefiks `[h]`/`[m]`/`[l]` i beskrivelsen (HA har ikke prioritet); lister uten
   beskrivelse viser «Medium». Tjenesten er `todo.remove_item`.
 - **Person:** søvnfaser tegnes som proporsjonale blokker (HA har ikke hypnogram).
+- **Innstillinger (fiks 29):** radene bruker designets utseende (Innstillinger v2), ikke `template_toggle_card_small` som
+  `ki-varsling-card`. GUI-editorens ha-form per fane har `plattform`, `enheter`, `ikke_enheter`, `ekstra`, `master`,
+  `kjente` og `sok` – `grupper`/`teller` fra `KiVarslingEditor` er utelatt (designet har egen «X av X på»-linje,
+  `show_summary`). Designfilen er ikke oppdatert til v3; Integrasjoner-seksjonen bruker eksisterende arkstil.

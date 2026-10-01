@@ -3266,7 +3266,7 @@ try {
         MSH.haptic('medium');
         if (this.onHold && this.onHold(el.dataset.ent, el) !== undefined) return;
         MSH.moreInfo(this, el.dataset.ent);
-      }, 520);
+      }, this.holdMs || 520); // kort kan sette egen holdetid (Innstillinger: 500 ms, fiks 29.2)
     }
     _cancelHold() { if (this._hold) { clearTimeout(this._hold); this._hold = null; } }
     onAction(name, el, e) {
@@ -7669,6 +7669,262 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 06-appliance-icons.js', e); }
+
+/* ---- 06-varsling-kilde.js ---- */
+try {
+/* KI MSH · varslingskilden (fiks 29.1) – bryterne fra KI Varslinger og sikkerhet + KI Energi, funnet i entitetsregisteret.
+ *
+ * Datalogikken er flyttet UENDRET fra brukerens kort ki-cards/src/83-ki-varsling-card.js (KiVarslingCard._brytere,
+ * KI_VARS_TEKST, KI_VARS_IKON, erMaster, KiVarslingEditor._plattformer) og er den eneste kopien i ki-msh:
+ * msh-innstillinger-card (60-innstillinger.js) bruker bare denne modulen. ki-cards selv endres ikke (brukerens valg);
+ * test/innstillinger29-check.mjs laster ki-varsling-card ved siden av og sjekker at resultatet er identisk.
+ *
+ *   MSH.finnBrytere(hass, cfg) → [{ id, slug, kilde, plattform, enhet, navn, under, ikon, pa, borte }]
+ *     cfg = én ki-varsling-card-config: plattform, ekstra, master, ikke_master, kjente, enheter, ikke_enheter, bare,
+ *     skjul, navn, undertekst, ikoner, skille. Kilde = hass.entities/hass.devices (plattformen står bare der).
+ *   MSH.varslingPlattformer(hass) → [{ value, label, n, varsler }] – alle plattformer med switch/input_boolean, flest først
+ *   MSH.varslingSig(liste) → signatur av [id, pa] (tegn bare på endring)
+ *   MSH.KI_VARS_TEKST · MSH.KI_VARS_IKON · MSH.kiVarsIkon · MSH.kiVarsErMaster · MSH.KI_VARS_PLATTFORM
+ */
+(function () {
+  const M = window.MSH;
+  if (!M) return;
+
+  /* Flere integrasjoner kan ha varslingsbrytere. `ki_energi` legger alle sine på ÉN
+     enhet, i motsetning til `ki_notifications` som har én enhet per regel. */
+  const KI_VARS_PLATTFORM = ['ki_notifications', 'ki_energi'];
+
+  /* Navn og beskrivelse per regel, slik de sto i det håndskrevne oppsettet.
+     Integrasjonens egne navn er tekniske («Alarm - Alle varsler»), og disse er de som
+     faktisk forklarer hva bryteren gjør. `navn:` og `undertekst:` overstyrer. */
+  const KI_VARS_TEKST = [
+    [/vekking|vekke/, 'Vekking', 'Lys og lyd på vekketidspunkt', 'mdi:alarm'],
+    [/ansikt/, 'Ansiktsgjenkjenning', 'Låser opp ved gjenkjent ansikt', 'mdi:face-recognition'],
+    [/autolas|autolås/, 'Autolås', 'Låser døra automatisk etter lukking', 'mdi:lock-clock'],
+    [/fastkjort|fastkjørt/, 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', 'mdi:lock-alert'],
+    [/blink|dorlys|dørlys/, 'Dørlys', 'Blinker med lyset når døra åpnes', 'mdi:monitor-shimmer'],
+    [/familie|hjemme.?borte/, 'Hjemme / borte', 'Varsler når noen kommer eller drar', 'mdi:home-account'],
+    [/^alarm|alarm_/, 'Alarm', 'Aktiverer alarmsystemet', 'mdi:shield-home'],
+    [/heimdall|alarmo/, 'Heimdall', 'Synk mellom Heimdall og Alarmo', 'mdi:sync'],
+    [/ruter|skolen/, 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', 'mdi:bus-clock'],
+    [/planter/, 'Planter', 'Varsel når plantene trenger vann', 'mdi:flower-tulip'],
+    [/stovsug|støvsug/, 'Støvsuger', 'Varsel om feil og fullført runde', 'mdi:robot-vacuum'],
+    [/home.?assistant|oppstart|startet/, 'Home Assistant', 'Varsel etter omstart av HA', 'mdi:home-assistant'],
+    [/vaermelding|værmelding|vaer_ai/, 'Værmelding', 'Daglig værvarsel fra AI', 'mdi:weather-partly-cloudy'],
+    [/stromforbruk|strømforbruk|forbruk.?rapport/, 'Strømforbruk', 'Daglig rapport', 'mdi:chart-bar'],
+
+    /* KI Utelys. Tre brytere på samme enhet, som ellers ville hett det samme. */
+    [/ki_utelys_auto/, 'Utelys automatikk', 'Styrer utelysene etter solhøyden', 'mdi:lightbulb-auto'],
+    [/ki_utelys_morgen/, 'Utelys morgen', 'Lys om morgenen til det lysner', 'mdi:weather-sunset-up'],
+    [/ki_utelys_kveld/, 'Utelys kveld', 'Lys om kvelden når det blir mørkt', 'mdi:weather-sunset-down'],
+
+    /* KI Energi. Hovedbryteren først: den slår av alle de andre, og må ikke forveksles
+       med `ki_varsel_effekt`, som bare gjelder effektgrensen. */
+    [/\bki_energi_varsler\b/, 'Energivarsler', 'Hovedbryter for alle energivarsler', 'mdi:bell-outline'],
+    [/ki_varsel_effekt/, 'Effektgrense', 'Varsel når timen nærmer seg grensen', 'mdi:flash-alert'],
+    [/ki_varsel_hjemkomst/, 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', 'mdi:home-import-outline'],
+    [/ki_varsel_sommer/, 'Sommermodus', 'Varsel når sommermodus slår inn', 'mdi:white-balance-sunny'],
+    [/ki_varsel_vvb/, 'Varmtvann', 'Varsel om berederen og legionella', 'mdi:water-boiler'],
+    [/ki_varsel_hanklevarmer/, 'Håndklevarmer', 'Varsel om håndklevarmeren', 'mdi:radiator'],
+    [/ki_varsel_helg/, 'Bortemodus', 'Varsel når huset settes i bortemodus', 'mdi:bag-suitcase'],
+    [/ki_helg_spor_torsdag/, 'Spør torsdag', 'Spør om dere drar bort i helgen', 'mdi:calendar-question'],
+    [/ki_helg_spor_fredag/, 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', 'mdi:calendar-question'],
+  ];
+
+  /* Ikon gjettes fra navnet når integrasjonen ikke gir et. Rekkefølgen betyr noe:
+     «dorlas_fastkjort» skal treffe låsen, ikke varselet, så de mest spesifikke først. */
+  const KI_VARS_IKON = [
+    [/fastkjort|fastkj/, 'mdi:lock-alert'],
+    [/autolas|autolås/, 'mdi:lock-clock'],
+    [/las|lås|dor|dør/, 'mdi:door-closed-lock'],
+    [/alarm|heimdall|alarmo/, 'mdi:shield-home'],
+    [/ansikt|face/, 'mdi:face-recognition'],
+    [/familie|hjemme|borte|person/, 'mdi:home-account'],
+    [/stovsug|støvsug|vacuum/, 'mdi:robot-vacuum'],
+    [/vaer|vær|weather/, 'mdi:weather-partly-cloudy'],
+    [/ruter|buss|avgang/, 'mdi:bus-clock'],
+    [/strom|strøm|forbruk|energi/, 'mdi:chart-bar'],
+    [/oppstart|restart|startup/, 'mdi:restart'],
+    [/blink|lys|skjerm/, 'mdi:monitor-shimmer'],
+    [/rapport|daglig/, 'mdi:file-document-outline'],
+  ];
+
+  const kiVarsIkon = (tekst) => {
+    const t = String(tekst || '').toLowerCase();
+    for (const [m, ikon] of KI_VARS_IKON) if (m.test(t)) return ikon;
+    return 'mdi:bell-outline';
+  };
+
+  /* Hovedbryteren kjennes på navnet: «alle varsler», «aktivert», «varsling», eller
+     at den heter det samme som regelen. */
+  const erMaster = (b) => /alle[ _-]?varsler|_aktivert$|_varsling$|_aktiv$|_auto$|_automatikk$/.test(b.id)
+    || b.slug === b.enhet.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    || /^(alle varsler|aktivert|varsling|aktiv)$/i.test(b.under || '');
+
+  /* Bryterne fra integrasjonen, pluss det som er lagt til manuelt i `ekstra`.
+   *
+   * Vi går gjennom entitetsregisteret og ikke gjennom tilstandene, fordi registeret er
+   * det eneste stedet plattformen står. To brytere kan hete det samme og komme fra
+   * ulike integrasjoner.
+   *
+   * = KiVarslingCard._brytere() (setConfig: plattform-standard, this._plattformer = [].concat(c.plattform)). */
+  function finnBrytere(h, cfg) {
+    if (!h) return [];
+    const c = { plattform: KI_VARS_PLATTFORM, ...(cfg || {}) };
+    const plattformer = [].concat(c.plattform);
+    const reg = h.entities || {};
+    const dev = h.devices || {};
+    const skjul = new Set((c.skjul || []).map(String));
+    const ut = [];
+
+    const legg = (id, kilde) => {
+      const st = h.states[id];
+      if (!st) return;
+      const slug = id.split('.')[1] || id;
+      if (skjul.has(slug) || skjul.has(id)) return;
+      const e = reg[id] || {};
+      const enhet = (dev[e.device_id] || {}).name_by_user
+        || (dev[e.device_id] || {}).name || '';
+      const a = st.attributes || {};
+      const eget = (c.navn || {})[slug] || (c.navn || {})[id];
+      const egenUnder = (c.undertekst || {})[slug] || (c.undertekst || {})[id];
+
+      /* Navn og undertekst hentes som i template_toggle_card_small: `friendly_name`
+         deles på et skilletegn, navnet foran og beskrivelsen bak.
+         «Vekking - Lys og lyd på vekketidspunkt» blir to linjer. */
+      const skille = c.skille || '-';
+      const helt = a.friendly_name || slug;
+      const deler = helt.split(skille);
+      let navn = deler[0].trim() || slug;
+      let under = deler.length > 1 ? deler.slice(1).join(skille).trim() : '';
+
+      /* Uten skilletegn i navnet faller vi tilbake til enhetsnavnet som overskrift og
+         resten som beskrivelse — «Autolås Autolås» skal ikke stå to ganger. */
+      if (!under && enhet && helt.toLowerCase().startsWith(enhet.toLowerCase() + ' ')) {
+        navn = enhet;
+        under = helt.slice(enhet.length + 1).trim();
+      }
+      /* Kjente regler får navnet og forklaringen fra tabellen over. */
+      let kjentIkon = null;
+      if (c.kjente !== false) {
+        const n = `${slug} ${enhet} ${helt}`.toLowerCase();
+        for (const [m, kn, ku, ki] of KI_VARS_TEKST) {
+          if (!m.test(n)) continue;
+          navn = kn; under = ku; kjentIkon = ki; break;
+        }
+      }
+      if (eget) navn = eget;
+      if (egenUnder) under = egenUnder;
+      ut.push({
+        id, slug, kilde, plattform: (reg[id] || {}).platform || '',
+        enhet: enhet || 'Annet',
+        navn: navn.trim() || slug,
+        under,
+        ikon: (c.ikoner || {})[slug] || (c.ikoner || {})[id]
+          || kjentIkon || a.icon || kiVarsIkon(`${slug} ${navn}`),
+        pa: st.state === 'on',
+        borte: ['unavailable', 'unknown'].includes(st.state),
+      });
+    };
+
+    for (const [id, e] of Object.entries(reg)) {
+      if (!plattformer.includes(e.platform)) continue;
+      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
+      /* KI Energi har 206 entiteter på én enhet, og bare noen få er varslingsbrytere.
+         Resten er styring, og hører hjemme i klimakortet. */
+      if (e.platform === 'ki_energi' && !/varsel|varsler|spor_/.test(id)) continue;
+      legg(id, 'integrasjon');
+    }
+    for (const id of (c.ekstra || [])) legg(id, 'ekstra');
+
+    /* Én bryter per regel: hovedbryteren. Finner vi ingen, viser vi alle bryterne for
+     * den regelen. KI Energi (`ikke_master:`) har sidestilte brytere – alle beholdes. */
+    if (c.master !== false) {
+      const utenMaster = [].concat(c.ikke_master || ['ki_energi']);
+      const perEnhet = new Map();
+      for (const b of ut) {
+        if (b.kilde === 'ekstra' || utenMaster.includes(b.plattform)) continue;
+        if (!perEnhet.has(b.enhet)) perEnhet.set(b.enhet, []);
+        perEnhet.get(b.enhet).push(b);
+      }
+
+      const behold = new Set();
+      /* Brytere fra unntatte integrasjoner beholdes alltid. */
+      for (const b of ut) if (utenMaster.includes(b.plattform)) behold.add(b.id);
+      for (const [, liste] of perEnhet) {
+        if (liste.length <= 1) { liste.forEach((b) => behold.add(b.id)); continue; }
+        const m = liste.filter(erMaster);
+        (m.length ? m : liste).forEach((b) => behold.add(b.id));
+      }
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (ut[i].kilde !== 'ekstra' && !behold.has(ut[i].id)) ut.splice(i, 1);
+      }
+    }
+
+    /* Filtrering på ENHETSNAVN, ikke entitets-ID: delvis treff, uten hensyn til store bokstaver. */
+    const treff = (navn, liste) => liste.some((m) =>
+      String(navn).toLowerCase().includes(String(m).toLowerCase()));
+    if (c.enheter && c.enheter.length) {
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (!treff(ut[i].enhet, c.enheter) && ut[i].kilde !== 'ekstra') ut.splice(i, 1);
+      }
+    }
+    if (c.ikke_enheter && c.ikke_enheter.length) {
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (treff(ut[i].enhet, c.ikke_enheter)) ut.splice(i, 1);
+      }
+    }
+
+    /* `bare:` er motsatt av `skjul:` og styrer også rekkefølgen. */
+    const bare = (c.bare || []).map(String);
+    if (bare.length) {
+      const rang = new Map(bare.map((x, i) => [x, i]));
+      return ut
+        .filter((b) => rang.has(b.slug) || rang.has(b.id))
+        .sort((a, b) => (rang.get(a.slug) ?? rang.get(a.id))
+                      - (rang.get(b.slug) ?? rang.get(b.id)));
+    }
+    return ut.sort((a, b) => a.enhet.localeCompare(b.enhet, 'nb')
+      || a.navn.localeCompare(b.navn, 'nb'));
+  }
+
+  /* Alle plattformer som har brytere hos deg, med antall (= KiVarslingEditor._plattformer).
+     `varsler` = hvor mange som faktisk tas med (KI Energi: bare varslingsbryterne). */
+  const VENNLIG = { ki_notifications: 'KI Varslinger', ki_energi: 'KI Energi', ki_utelys: 'KI Utelys' };
+  function plattformNavn(h, p) {
+    if (VENNLIG[p]) return VENNLIG[p];
+    try { const t = h && h.localize && h.localize(`component.${p}.title`); if (t && t !== `component.${p}.title`) return t; } catch (e) { /* */ }
+    return p;
+  }
+  function varslingPlattformer(h) {
+    const reg = (h && h.entities) || {};
+    const teller = {}, varsler = {};
+    for (const [id, e] of Object.entries(reg)) {
+      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
+      if (!e || !e.platform) continue;
+      teller[e.platform] = (teller[e.platform] || 0) + 1;
+      if (e.platform !== 'ki_energi' || /varsel|varsler|spor_/.test(id)) varsler[e.platform] = (varsler[e.platform] || 0) + 1;
+    }
+    return Object.entries(teller)
+      .sort((a, b) => b[1] - a[1])
+      .map(([p, n]) => {
+        const v = varsler[p] || 0, navn = plattformNavn(h, p);
+        return { value: p, n, varsler: v, navn, label: `${navn} (${n}${v !== n ? ` · ${v} varsler` : ''})` };
+      });
+  }
+
+  M.KI_VARS_PLATTFORM = KI_VARS_PLATTFORM;
+  M.KI_VARS_TEKST = KI_VARS_TEKST;
+  M.KI_VARS_IKON = KI_VARS_IKON;
+  M.kiVarsIkon = kiVarsIkon;
+  M.kiVarsErMaster = erMaster;
+  M.finnBrytere = finnBrytere;
+  M.varslingPlattformer = varslingPlattformer;
+  M.varslingPlattformNavn = plattformNavn;
+  M.varslingSig = (L) => JSON.stringify((L || []).map((b) => [b.id, b.pa]));
+})();
+
+} catch (e) { console.error('[ki-msh] 06-varsling-kilde.js', e); }
 
 /* ---- 07-universal.js ---- */
 try {
@@ -47219,40 +47475,38 @@ try {
 
 /* ---- 60-innstillinger.js ---- */
 try {
-/* KI MSH · Innstillinger (#settings, msh-innstillinger-card) – fiks 25.5 + 26.15 + 27.5–27.7, fasit design/Innstillinger v2.dc.html.
+/* KI MSH · Innstillinger (#settings, msh-innstillinger-card) – fiks 25.5 + 26.15 + 27.5–27.7 + 29, fasit design/Innstillinger v2.dc.html.
  * Étt kort i Bubble-popupen #settings (mal A).
  *
  * #settings (fiks 26.15): brukerens importerte ki-cards-popup «Innstillinger» (gap-card + ki-natt-card + ki-tabs-card med
  * ki-varsling-card) erstattes av DETTE kortet: MSH.POPUP_SUPERSEDE['#settings'] gjør den importerte popupen inaktiv
  * («Erstattet av Innstillinger», «Bruk egen» i Egne popups gir den tilbake), og MSH.POPUP_EXTRA['#settings'] flytter
  * oppsettet over (MSH.innstExtra): ki-natt-card natt → natt, helg (privatmodus-bryter) → privat, vekking → vekking;
- * ki-tabs-card tabs[i] (ki-varsling-card) → tabs[i] { key, title, filter }; ekstra → rows.include (+ rows.move),
- * skjul → rows.exclude, navn/undertekst/ikoner → rows.names/subs/icons. Strategien (04-strategy) genererer #settings med
- * dette kortet (card_id pop-innstillinger). Dashbordinnstillingene (msh-settings-card) ligger nederst under «Dashbord».
+ * ki-tabs-card tabs[i] (ki-varsling-card) → faner[i] med ki-varsling-card-configen 1:1 (fiks 29). Strategien
+ * (04-strategy) genererer #settings med dette kortet (card_id pop-innstillinger). Dashbordinnstillingene
+ * (msh-settings-card) ligger nederst under «Dashbord».
  *
- * 27.5 · KUN VARSLER: listen viser bare varsel-brytere fra KI Varslinger og sikkerhet (ki_notifications, én rad per regel =
- *   hovedbryteren, erMaster), varslingsbryterne i KI Energi og input_boolean.varsel_*. Automasjoner (vekking, ansikt,
- *   autolås, dørlys, utelys), alarm-/synk-brytere (Heimdall/Alarmo) og andre entiteter vises IKKE.
- *   Fanene er varsel-KATEGORIER: Sikkerhet · Hjem · Strøm (standard). Kategori per regel: attributtet kategori/category →
- *   KI_VARS_TEKST → nøkkelord (KI_VARS_KAT: kamera, klima, hvitevarer, batteri, sikkerhet, strøm) → Hjem.
- *   Kategorier uten egen fane vises i standardfanen (Kamera → Sikkerhet, resten → Hjem).
- * 27.7 · EGNE FANER: custom_tabs: [{ key, name, icon, source }] – source = kategori i KI Varslinger (autooppdaget, med
- *   antall regler); fanen viser kategoriens varsel-brytere live, nye regler dukker opp av seg selv. Slettes/omorganiseres
- *   som de andre (rekkefølge/skjult i tabs[]). Fanelinjen tåler 4+ faner (teksten krymper, > 4 → vannrett scroll).
+ * 29 · RADENE KOMMER FRA KILDEN: MSH.finnBrytere() (src/06-varsling-kilde.js = datalogikken fra ki-varsling-card, uendret).
+ *   Én fane = én ki-varsling-card-config: faner: [{ key, name, icon, hidden?, plattform, enheter, ikke_enheter, bare, ekstra,
+ *   skjul?, master?, kjente?, sok? }]. Standard (som designet): Sikkerhet = ki_notifications med enheter autolås, fastkjørt,
+ *   dørlys, alarm, Heimdall, ansikt · Hjem = ki_notifications unntatt de samme (ukjente regler havner her) · Strøm = alt fra
+ *   ki_energi (bare varslingsbryterne, sidestilte = alle vises). Ingen mock, ingen faste entitets-ID-er.
+ *   Tilpass → Faner: per fane Integrasjoner (alle plattformer med switch/input_boolean, flest først), Bare disse / Ikke disse
+ *   (enhetsnavn, «Viser N brytere» live), Ekstra brytere (switch/input_boolean/automation, søk), Visning (hovedbryter,
+ *   kjente navn, søkefelt) – også i «Legg til fane». GUI-editoren: ett ha-form med ett expandable per fane (samme felt som
+ *   KiVarslingEditor) + ekko-vakt. Tomt: «Fant ingen brytere fra valgte integrasjoner» + «Velg integrasjoner».
+ *   Trykk på rad = toggle (optimistisk + tilbakerulling som 27.6), hold 500 ms = more-info.
  * 27.6 · TOPPKORTET: nattmodus av → to kort (Nattmodus · Privatmodus). Nattmodus på → «God natt»-kortet (184 px), og om
- *   morgenen (nattmodus av, kl. 05–11 eller etter vekketid) → «God morgen» med soloppgang (himmel natt-lilla → morgen,
- *   sola stiger 2,6 s, fugler). Trykk på HELE kortet slår nattmodus av/på; chipsene har egen handling. Optimistisk UI:
- *   kortet byttes straks, «Synker …» til hass bekrefter, ellers tilbakerulling etter 10 s (MSH.innstSyncMs) + melding –
- *   også for privatmodus. Privatmodus-kortet: kamera på veggfeste (top 74 px) – av: camscan + lyskjegle + blinkende REC;
- *   på: vipper ned 38° (spring), lokket glir over linsen, REC slukker, lås «lockpop» + ring (bare transform/opacity).
+ *   morgenen (nattmodus av, kl. 05–11 eller etter vekketid) → «God morgen» med soloppgang. Trykk på HELE kortet slår
+ *   nattmodus av/på; chipsene har egen handling. Optimistisk UI: «Synker …» til hass bekrefter, ellers tilbakerulling etter
+ *   10 s (MSH.innstSyncMs) + melding – også for privatmodus og radene.
  * Config:
  *   natt · privat · vekking (entitetene i toppkortet)
- *   tabs: [{ key, title?, hidden?, filter?: { enheter, ikke_enheter, plattform } }]  (sikkerhet · hjem · strom · egne)
- *   custom_tabs: [{ key, name, icon, source }]
- *   rows: { exclude: [device_id|entity_id], move: { id: fane }, include: [entity_id], names, subs, icons, order: { fane: [id] } }
+ *   faner (over) – eldre nøkler leses og migreres ved første lagring: tabs [{ key, title, hidden, filter }],
+ *   custom_tabs [{ key, name, icon, source }], tab_order/tab_hidden/tab_names, rows.include/include (→ faner[].ekstra)
+ *   rows: { exclude: [device_id|entity_id], move: { id: fane }, names, subs, icons, order: { fane: [id] } }  (rowHid/rowOrder)
  *   tab_labels (icon = ikon + tekst (standard) | name = tekst | ikon = ikoner) · start_tab · sok · show_summary (true) ·
  *   av_forst · haptikk · scene (auto | morgen | dag = kun kort | natt) · animasjoner (true) · dashbord (true) · gap · pad_*
- * Eldre nøkler leses fortsatt: tab_order/tab_hidden/tab_names, faner automasjoner → sikkerhet og varsler → hjem.
  */
 (function () {
   const M = window.MSH;
@@ -47261,87 +47515,61 @@ try {
   M.innstNow = M.innstNow || (() => new Date()); // klokka (testene kan sette den)
   if (M.innstSyncMs == null) M.innstSyncMs = 10000; // tilbakerulling når hass ikke bekrefter
 
-  /* ============================================================ KI Varslinger og sikkerhet (fra ki-cards 83-ki-varsling-card.js) */
-  const KI_VARS_PLATTFORM = ['ki_notifications', 'ki_energi'];
-  /* Navn, beskrivelse, ikon og kategori per regel (ki-varsling-card: KI_VARS_TEKST). Kategori 'auto' = automasjon eller
-     synk (ikke et varsel) → vises ikke (27.5). */
-  const KI_VARS_TEKST = [
-    [/vekking|vekke/, 'Vekking', 'Lys og lyd på vekketidspunkt', 'mdi:alarm', 'auto'],
-    [/ansikt/, 'Ansiktsgjenkjenning', 'Låser opp ved gjenkjent ansikt', 'mdi:face-recognition', 'auto'],
-    [/autolas|autolås/, 'Autolås', 'Låser døra automatisk etter lukking', 'mdi:lock-clock', 'auto'],
-    [/fastkjort|fastkjørt/, 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', 'mdi:lock-alert', 'sikkerhet'],
-    [/blink|dorlys|dørlys/, 'Dørlys', 'Blinker med lyset når døra åpnes', 'mdi:monitor-shimmer', 'auto'],
-    [/dor_?last|dør_?låst|dor_?apnet|dør låst|dørlås|dorlas/, 'Dør låst/åpnet', 'Varsel med kamerabilde', 'mdi:door-closed-lock', 'sikkerhet'],
-    [/ringeklokke|doorbell/, 'Ringeklokke', 'Varsel med bilde når noen ringer', 'mdi:doorbell', 'sikkerhet'],
-    [/familie|hjemme.?borte/, 'Hjemme / borte', 'Varsler når noen kommer eller drar', 'mdi:home-account', 'hjem'],
-    [/^alarm|alarm_/, 'Alarm', 'Varsel når alarmen går eller endres', 'mdi:shield-home', 'sikkerhet'],
-    [/heimdall|alarmo/, 'Heimdall', 'Synk mellom Heimdall og Alarmo', 'mdi:sync', 'auto'],
-    [/ruter|skolen/, 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', 'mdi:bus-clock', 'hjem'],
-    [/planter/, 'Planter', 'Varsel når plantene trenger vann', 'mdi:flower-tulip', 'hjem'],
-    [/stovsug|støvsug/, 'Støvsuger', 'Varsel om feil og fullført runde', 'mdi:robot-vacuum', 'hjem'],
-    [/home.?assistant|oppstart|startet/, 'Home Assistant', 'Varsel etter omstart av HA', 'mdi:home-assistant', 'hjem'],
-    [/vaermelding|værmelding|vaer_ai/, 'Værmelding', 'Daglig værvarsel fra AI', 'mdi:weather-partly-cloudy', 'hjem'],
-    [/stromforbruk|strømforbruk|forbruk.?rapport/, 'Strømforbruk', 'Daglig rapport', 'mdi:chart-bar', 'strom'],
-    /* KI Utelys – automatikk, ikke varsler */
-    [/ki_utelys/, 'Utelys', 'Styrer utelysene etter solhøyden', 'mdi:lightbulb-auto', 'auto'],
-    /* KI Energi. Hovedbryteren først. */
-    [/\bki_energi_varsler\b/, 'Energivarsler', 'Hovedbryter for alle energivarsler', 'mdi:bell-outline', 'strom'],
-    [/ki_varsel_effekt/, 'Effektgrense', 'Varsel når timen nærmer seg grensen', 'mdi:flash-alert', 'strom'],
-    [/ki_varsel_hjemkomst/, 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', 'mdi:home-import-outline', 'strom'],
-    [/ki_varsel_sommer/, 'Sommermodus', 'Varsel når sommermodus slår inn', 'mdi:white-balance-sunny', 'strom'],
-    [/ki_varsel_vvb/, 'Varmtvann', 'Varsel om berederen og legionella', 'mdi:water-boiler', 'strom'],
-    [/ki_varsel_hanklevarmer/, 'Håndklevarmer', 'Varsel om håndklevarmeren', 'mdi:radiator', 'strom'],
-    [/ki_varsel_helg/, 'Bortemodus', 'Varsel når huset settes i bortemodus', 'mdi:bag-suitcase', 'strom'],
-    [/ki_helg_spor_torsdag/, 'Spør torsdag', 'Spør om dere drar bort i helgen', 'mdi:calendar-question', 'strom'],
-    [/ki_helg_spor_fredag/, 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', 'mdi:calendar-question', 'strom'],
-  ];
-  // Kategori fra nøkkelord når regelen er ukjent (rekkefølgen betyr noe: kamera før sikkerhet)
-  const KI_VARS_KAT = [
-    [/kamera|camera|bevegelse|motion|pakke|ukjent.?person|person.?alert/, 'kamera'],
-    [/fukt|humid|vindu|frost|temperatur|klima|ventilasjon/, 'klima'],
-    [/vaskemaskin|torketrommel|tørketrommel|oppvask|hvitevare/, 'hvitevarer'],
-    [/batteri|battery|offline|svarer.?ikke/, 'batteri'],
-    [/alarm|lås|_las|dor|dør|ringeklokke|innbrudd|royk|røyk|lekk|sikkerhet/, 'sikkerhet'],
-    [/strom|strøm|energi|effekt/, 'strom'],
-  ];
-  const KI_VARS_IKON = [
-    [/fastkjort|fastkj/, 'mdi:lock-alert'], [/autolas|autolås/, 'mdi:lock-clock'], [/las|lås|dor|dør/, 'mdi:door-closed-lock'],
-    [/alarm|heimdall|alarmo/, 'mdi:shield-home'], [/ansikt|face/, 'mdi:face-recognition'], [/familie|hjemme|borte|person/, 'mdi:home-account'],
-    [/stovsug|støvsug|vacuum/, 'mdi:robot-vacuum'], [/vaer|vær|weather/, 'mdi:weather-partly-cloudy'], [/ruter|buss|avgang/, 'mdi:bus-clock'],
-    [/strom|strøm|forbruk|energi/, 'mdi:chart-bar'], [/oppstart|restart|startup/, 'mdi:restart'], [/bevegelse|motion/, 'mdi:walk'],
-    [/pakke/, 'mdi:package-variant-closed'], [/fukt|humid/, 'mdi:water-percent'], [/vindu/, 'mdi:window-open-variant'], [/frost/, 'mdi:snowflake'],
-    [/vaskemaskin/, 'mdi:washing-machine'], [/torketrommel|tørketrommel/, 'mdi:tumble-dryer'], [/oppvask/, 'mdi:dishwasher'], [/batteri|battery/, 'mdi:battery-alert'],
-    [/kamera|camera/, 'mdi:cctv'], [/rapport|daglig/, 'mdi:file-document-outline'],
-  ];
-  const kiVarsIkon = (tekst) => { const t = String(tekst || '').toLowerCase(); for (const [m, ikon] of KI_VARS_IKON) if (m.test(t)) return ikon; return 'mdi:bell-outline'; };
-  // Hovedbryteren i en regel (ki-varsling-card, uendret)
-  const erMaster = (b) => /alle[ _-]?varsler|_aktivert$|_varsling$|_aktiv$|_auto$|_automatikk$/.test(b.id)
-    || b.slug === b.enhet.toLowerCase().replace(/[^a-z0-9]+/g, '_')
-    || /^(alle varsler|aktivert|varsling|aktiv)$/i.test(b.under || '');
-  M.KI_VARS_TEKST = KI_VARS_TEKST;
-  M.kiVarsErMaster = erMaster;
-
-  /* ============================================================ kategorier og faner */
+  /* ============================================================ faner (29.2: én fane = én ki-varsling-card-config) */
+  const finn = (h, c) => (M.finnBrytere ? M.finnBrytere(h, c) : []);
+  const erMaster = (b) => (M.kiVarsErMaster ? M.kiVarsErMaster(b) : false);
   const slugOf = (t) => String(t || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').map(String) : v != null && v !== '' && typeof v !== 'object' ? [String(v)] : []);
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const BUILTIN = { sikkerhet: ['Sikkerhet', 'mdi:shield'], hjem: ['Hjem', 'mdi:home'], strom: ['Strøm', 'mdi:lightning-bolt'] };
-  const KAT = { ...BUILTIN, kamera: ['Kamera', 'mdi:video'], klima: ['Klima', 'mdi:thermostat'], hvitevarer: ['Hvitevarer', 'mdi:washing-machine'], batteri: ['Batteri', 'mdi:battery-alert'] };
-  const KAT_TAB = { kamera: 'sikkerhet' }; // kategorier uten egen fane: Kamera → Sikkerhet, resten → Hjem
-  const katName = (k) => (KAT[k] ? KAT[k][0] : String(k || '').replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase()));
-  const katIcon = (k) => (KAT[k] ? KAT[k][1] : 'mdi:bell-outline');
-  const katTab = (k) => (BUILTIN[k] ? k : KAT_TAB[k] || 'hjem');
+  // Kjente regler i Sikkerhet (enhetsnavn, delvis treff som ki-varsling-card); Hjem = resten av KI Varslinger
+  const DEF_SIK = ['Autolås', 'Fastkjørt', 'Dørlys', 'Alarm', 'Heimdall', 'Ansikt'];
+  const DEF_FILTER = { sikkerhet: { plattform: ['ki_notifications'], enheter: DEF_SIK }, hjem: { plattform: ['ki_notifications'], ikke_enheter: DEF_SIK }, strom: { plattform: ['ki_energi'] } };
+  const LIST_KEYS = ['plattform', 'enheter', 'ikke_enheter', 'bare', 'ekstra', 'skjul'];
+  const BOOL_KEYS = ['master', 'kjente', 'sok'];
+  const plattformNavn = (h, p) => (M.varslingPlattformNavn ? M.varslingPlattformNavn(h, p) : p);
+  // 27.7-kategorier (custom_tabs.source) → enhetsnavn-ord (migrering)
+  const SRC_ORD = { kamera: ['Kamera', 'Bevegelse', 'Pakke'], klima: ['Fukt', 'Vindu', 'Frost', 'Temperatur', 'Klima'], hvitevarer: ['Vaskemaskin', 'Tørketrommel', 'Oppvask'], batteri: ['Batteri'], sikkerhet: DEF_SIK };
+  const KAT_NAVN = { kamera: ['Kamera', 'mdi:video'], klima: ['Klima', 'mdi:thermostat'], hvitevarer: ['Hvitevarer', 'mdi:washing-machine'], batteri: ['Batteri', 'mdi:battery-alert'] };
+  const katName = (k) => (KAT_NAVN[k] ? KAT_NAVN[k][0] : String(k || '').replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase()));
   // Eldre fane-nøkler (25.5/26.15): automasjoner → sikkerhet, varsler → hjem
   const LEGACY = { automasjoner: 'sikkerhet', varsler: 'hjem', auto: 'sikkerhet', push: 'hjem', energi: 'strom' };
   const LEGACY_TITLE = /^(automasjoner|varsler)$/i;
   const keyOf = (k) => (k == null ? k : LEGACY[k] || String(k));
   const edOrder = (keys, saved) => { const o = (Array.isArray(saved) ? saved : []).map(keyOf).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return [...new Set(o)]; };
-  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').map(String) : []);
-  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const hasFilter = (f) => !!f && ['enheter', 'ikke_enheter', 'plattform'].some((k) => arr(f[k]).length);
-  // Egne faner (27.7): custom_tabs [{ key, name, icon, source }]
-  const customTabs = (c) => (Array.isArray(c.custom_tabs) ? c.custom_tabs : []).filter((t) => t && t.key && t.source).map((t) => ({ key: String(t.key), name: String(t.name || katName(t.source)), icon: String(t.icon || katIcon(t.source)), source: String(t.source) }));
-  // Fanene: tabs[] (rekkefølge/skjult/tittel) + custom_tabs – ellers 25.5-nøklene tab_order/tab_hidden/tab_names.
-  function tabDefs(c) {
-    const CT = customTabs(c), cmap = new Map(CT.map((t) => [t.key, t]));
+  const hasSrc = (t) => ['plattform', 'enheter', 'ikke_enheter', 'bare'].some((k) => t[k] !== undefined);
+  // Én fane, renset: lister som arrays, brytere som true/false/undefined, navn/ikon fra standardfanen
+  function normFane(t) {
+    const k = String(t.key), o = { key: k, name: String(t.name || t.title || ''), icon: String(t.icon || ''), hidden: !!t.hidden };
+    LIST_KEYS.forEach((x) => { if (t[x] !== undefined && t[x] !== null) o[x] = arr(t[x]); });
+    BOOL_KEYS.forEach((x) => { if (t[x] === false) o[x] = false; });
+    if (BUILTIN[k] && !hasSrc(o)) Object.assign(o, JSON.parse(JSON.stringify(DEF_FILTER[k])));
+    return o;
+  }
+  // Catch-all-faner (uten enheter/bare) gir fra seg enhetene en egen fane tar (ikke_enheter) – ingen dobbeltrader
+  function claim(F, t) {
+    const E = arr(t.enheter);
+    if (!E.length) return F;
+    const P = arr(t.plattform).length ? arr(t.plattform) : M.KI_VARS_PLATTFORM || [];
+    return F.map((x) => {
+      if (x.key === t.key || arr(x.enheter).length || arr(x.bare).length) return x;
+      const XP = x.plattform !== undefined ? arr(x.plattform) : M.KI_VARS_PLATTFORM || [];
+      if (!XP.some((p) => P.includes(p))) return x;
+      const I = arr(x.ikke_enheter);
+      E.forEach((e) => { if (!I.some((y) => y.toLowerCase() === e.toLowerCase())) I.push(e); });
+      return { ...x, ikke_enheter: I };
+    });
+  }
+  function release(F, t) {
+    const E = arr(t.enheter).map((e) => e.toLowerCase());
+    if (!E.length) return F;
+    const keep = new Set(F.filter((x) => x.key !== t.key).flatMap((x) => arr(x.enheter).map((e) => e.toLowerCase())));
+    return F.map((x) => (x.key === t.key || x.ikke_enheter === undefined ? x : { ...x, ikke_enheter: arr(x.ikke_enheter).filter((e) => !E.includes(e.toLowerCase()) || keep.has(e.toLowerCase())) }));
+  }
+  // Eldre oppsett (25.5–28): tabs[] + custom_tabs (+ filter) → faner
+  function legacyFaner(c) {
+    const CT = (Array.isArray(c.custom_tabs) ? c.custom_tabs : []).filter((t) => t && t.key && t.source), cmap = new Map(CT.map((t) => [String(t.key), t]));
     let L;
     if (Array.isArray(c.tabs) && c.tabs.length) {
       L = c.tabs.filter((t) => t && t.key).map((t) => { const k = keyOf(t.key), legacy = k !== String(t.key); let title = t.title ? String(t.title) : ''; if (legacy && LEGACY_TITLE.test(title)) title = ''; return { key: k, title, hidden: !!t.hidden, filter: hasFilter(t.filter) ? t.filter : null, icon: t.icon || '' }; });
@@ -47349,131 +47577,126 @@ try {
     const seen = new Set();
     L = L.filter((t) => (seen.has(t.key) || !(BUILTIN[t.key] || cmap.has(t.key) || t.filter) ? false : seen.add(t.key)));
     Object.keys(BUILTIN).forEach((k) => { if (!seen.has(k)) { seen.add(k); L.push({ key: k, title: '', hidden: false, filter: null, icon: '' }); } });
-    CT.forEach((t) => { if (!seen.has(t.key)) { seen.add(t.key); L.push({ key: t.key, title: '', hidden: false, filter: null, icon: '' }); } });
-    return L.map((t) => { const ct = cmap.get(t.key) || null; return { ...t, builtin: !!BUILTIN[t.key], custom: !!ct, source: ct ? ct.source : null, name: t.title || (ct ? ct.name : BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: ct ? ct.icon : t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') }; });
+    CT.forEach((t) => { if (!seen.has(String(t.key))) { seen.add(String(t.key)); L.push({ key: String(t.key), title: '', hidden: false, filter: null, icon: '' }); } });
+    let F = L.map((t) => {
+      const ct = cmap.get(t.key), f = t.filter || {};
+      if (ct) { const src = String(ct.source); return { key: t.key, name: String(ct.name || katName(src)), icon: String(ct.icon || (KAT_NAVN[src] ? KAT_NAVN[src][1] : 'mdi:bell-outline')), hidden: t.hidden, plattform: ['ki_notifications'], enheter: [...(SRC_ORD[src] || [katName(src)])] }; }
+      const o = { key: t.key, name: t.title || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab'), hidden: t.hidden };
+      if (BUILTIN[t.key]) Object.assign(o, JSON.parse(JSON.stringify(DEF_FILTER[t.key])));
+      if (arr(f.plattform).length) o.plattform = arr(f.plattform);
+      if (arr(f.enheter).length || arr(f.ikke_enheter).length) { delete o.enheter; delete o.ikke_enheter; if (arr(f.enheter).length) o.enheter = arr(f.enheter); if (arr(f.ikke_enheter).length) o.ikke_enheter = arr(f.ikke_enheter); }
+      return o;
+    });
+    CT.forEach((t) => { const x = F.find((y) => y.key === String(t.key)); if (x && !x.hidden) F = claim(F, x); });
+    return F;
   }
-  const tabsOut = (defs) => defs.map((t) => { const o = { key: t.key }; if (t.title) o.title = t.title; if (t.hidden) o.hidden = true; if (hasFilter(t.filter)) o.filter = t.filter; return o; });
-  const visTabs = (c) => { const D = tabDefs(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
-  const tabDef = (c, k) => tabDefs(c).find((t) => t.key === keyOf(k)) || null;
-  // rows (26.15) – ellers 25.5-nøklene include/exclude per fane
+  // Fanene (29.2): faner[] – ellers migrert fra de eldre nøklene. Ekstra rader fra 26.15 (rows.include + move) → ekstra.
+  const fmemo = new WeakMap();
+  function fanerOf(c) {
+    c = c || {};
+    if (fmemo.has(c)) return fmemo.get(c);
+    let F;
+    if (Array.isArray(c.faner) && c.faner.some((t) => t && t.key != null)) { const seen = new Set(); F = c.faner.filter((t) => t && t.key != null && !seen.has(String(t.key)) && seen.add(String(t.key))).map(normFane); }
+    else F = legacyFaner(c);
+    const r = obj(c.rows), inc = [...arr(r.include)], mv = { ...obj(r.move) };
+    if (!c.rows) Object.entries(obj(c.include)).forEach(([t, L]) => arr(L).forEach((id) => { if (!inc.includes(id)) inc.push(id); mv[id] = t; }));
+    inc.forEach((id) => { const k = keyOf(mv[id]), t = F.find((x) => x.key === k) || F[0]; if (t && !arr(t.ekstra).includes(id)) t.ekstra = [...arr(t.ekstra), id]; });
+    F = F.map((t) => ({ ...t, builtin: !!BUILTIN[t.key], custom: !BUILTIN[t.key], name: t.name || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') }));
+    fmemo.set(c, F);
+    return F;
+  }
+  // Til config: samme nøkler som ki-varsling-card (plattform alltid med, standardverdier ut)
+  const fanerOut = (F) => F.map((t) => {
+    const o = { key: t.key, name: t.name || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') };
+    if (t.hidden) o.hidden = true;
+    o.plattform = t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])];
+    ['enheter', 'ikke_enheter', 'bare', 'ekstra', 'skjul'].forEach((x) => { if (arr(t[x]).length) o[x] = arr(t[x]); });
+    BOOL_KEYS.forEach((x) => { if (t[x] === false) o[x] = false; });
+    return o;
+  });
+  M.innstFaner = fanerOf;
+  M.innstFanerOut = fanerOut;
+  const visTabs = (c) => { const D = fanerOf(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
+  const tabDef = (c, k) => fanerOf(c).find((t) => t.key === keyOf(k)) || null;
+  // Kortnivå-valg som gjelder alle faner + fanens egne nøkler → én ki-varsling-card-config
+  const CARD_KEYS = ['skille', 'kjente', 'master', 'ikke_master', 'navn', 'undertekst', 'ikoner', 'skjul'];
+  function faneCfg(c, t) {
+    const o = {};
+    CARD_KEYS.forEach((k) => { if (c[k] != null) o[k] = c[k]; });
+    LIST_KEYS.forEach((k) => { if (t[k] !== undefined) o[k] = k === 'skjul' ? [...arr(o.skjul), ...arr(t.skjul)] : arr(t[k]); });
+    BOOL_KEYS.forEach((k) => { if (t[k] === false) o[k] = false; });
+    return o;
+  }
+  M.innstFaneCfg = faneCfg;
+  // rows (26.15) – rad-overstyringer oppå kilden (rowHid/rowOrder/navn/ikon/flytt); 25.5-nøklene exclude per fane leses
   function rowsCfg(c) {
     const r = obj(c.rows), order = {};
     Object.entries(obj(r.order)).forEach(([k, v]) => { const kk = keyOf(k); if (!order[kk]) order[kk] = v; });
     const o = { exclude: arr(r.exclude), move: { ...obj(r.move) }, include: arr(r.include), names: obj(r.names), subs: obj(r.subs), icons: obj(r.icons), order };
-    if (!c.rows) {
-      Object.entries(obj(c.include)).forEach(([t, L]) => arr(L).forEach((id) => { if (!o.include.includes(id)) o.include.push(id); o.move[id] = t; }));
-      Object.values(obj(c.exclude)).forEach((L) => arr(L).forEach((id) => { if (!o.exclude.includes(id)) o.exclude.push(id); }));
-    }
+    if (!c.rows) Object.values(obj(c.exclude)).forEach((L) => arr(L).forEach((id) => { if (!o.exclude.includes(id)) o.exclude.push(id); }));
     return o;
   }
-  const rowsOut = (W) => { const o = {}; Object.keys(W).forEach((k) => { const x = W[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) o[k] = x; }); return Object.keys(o).length ? o : undefined; };
+  const rowsOut = (W) => { const o = {}; Object.keys(W).forEach((k) => { if (k === 'include') return; const x = W[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) o[k] = x; }); return Object.keys(o).length ? o : undefined; };
   const pick = (O, r) => { for (const k of [r.key, r.id, r.dev, r.slug]) if (k && O[k] != null && O[k] !== '') return O[k]; return undefined; };
   const inList = (L, r) => [r.key, r.id, r.dev, r.slug].some((k) => k && L.includes(k));
   const moveTab = (v) => (v == null || v === '' ? null : keyOf(String(v)));
 
-  /* ============================================================ regler (én rad per regel, bare varsler) */
+  /* ============================================================ radene (kilde: MSH.finnBrytere per fane) */
   let memo = null;
-  function rules(h, c) {
-    if (!h) return [];
-    if (memo && memo.s === h.states && memo.e === h.entities && memo.d === h.devices && memo.c === c) return memo.r;
-    const R = rowsCfg(c), reg = h.entities || {}, dev = h.devices || {}, ut = [];
-    const legg = (id, kilde) => {
-      const st = h.states[id];
-      if (!st || ut.some((b) => b.id === id)) return;
-      const slug = id.split('.')[1] || id;
-      const e = reg[id] || {}, D = dev[e.device_id] || {};
-      const enhet = D.name_by_user || D.name || '';
-      const a = st.attributes || {};
-      // friendly_name deles på « - »: navnet foran, beskrivelsen bak («Alarm - Alle varsler»)
-      const helt = a.friendly_name || slug, deler = helt.split(' - ');
-      let navn = deler[0].trim() || slug, under = deler.length > 1 ? deler.slice(1).join(' - ').trim() : '';
-      if (!under && enhet && helt.toLowerCase().startsWith(enhet.toLowerCase() + ' ')) { navn = enhet; under = helt.slice(enhet.length + 1).trim(); }
-      const n = `${slug} ${enhet} ${helt}`.toLowerCase();
-      let kjentIkon = null, kat = null;
-      for (const [m, kn, ku, ki, kk] of KI_VARS_TEKST) {
-        if (!m.test(n)) continue;
-        kat = kk;
-        if (c.kjente !== false) { navn = kn; under = ku; kjentIkon = ki; }
-        break;
-      }
-      if (kat === 'auto' && kilde !== 'ekstra') return; // automasjon / synk – ikke et varsel (27.5)
-      if (kat === 'auto') kat = null;
-      const ak = a.kategori || a.category || a.gruppe;
-      if (ak) kat = slugOf(ak) || kat;
-      if (e.platform === 'ki_energi') kat = 'strom';
-      if (!kat) for (const [m, kk] of KI_VARS_KAT) if (m.test(n)) { kat = kk; break; }
-      ut.push({ id, slug, kilde, plattform: e.platform || '', dev: e.device_id || null, enhet: enhet || 'Annet', navn: navn.trim() || enhet || slug, under, ikon: kjentIkon || a.icon || kiVarsIkon(`${slug} ${navn}`), cat: kat || 'hjem' });
-    };
-    for (const [id, e] of Object.entries(reg)) {
-      if (!e || !KI_VARS_PLATTFORM.includes(e.platform)) continue;
-      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
-      if (e.platform === 'ki_energi' && !/varsel|varsler|spor_/.test(id)) continue; // bare varslingsbryterne i KI Energi
-      legg(id, 'integrasjon');
-    }
-    // input_boolean.varsel_* (varsel-regler som hjelpere, uansett integrasjon)
-    Object.keys(h.states).filter((id) => /^input_boolean\.varsel_/.test(id)).sort().forEach((id) => legg(id, 'integrasjon'));
-    R.include.forEach((id) => legg(id, 'ekstra'));
-    // Én bryter per regel: hovedbryteren (ki-varsling-card). KI Energi og regler uten enhet: ingen sammenslåing.
-    const perEnhet = new Map();
-    if (c.master !== false) {
-      const fri = (b) => b.kilde === 'ekstra' || b.plattform === 'ki_energi' || !b.dev;
-      for (const b of ut) { if (fri(b)) continue; if (!perEnhet.has(b.dev)) perEnhet.set(b.dev, []); perEnhet.get(b.dev).push(b); }
-      const behold = new Set(ut.filter(fri).map((b) => b.id));
-      for (const [, liste] of perEnhet) { const m = liste.length > 1 ? liste.filter(erMaster) : liste; (m.length ? m : liste).forEach((b) => behold.add(b.id)); }
-      for (let i = ut.length - 1; i >= 0; i--) if (!behold.has(ut[i].id)) ut.splice(i, 1);
-    }
+  function compute(h, c) {
+    if (!h) return { F: fanerOf(c), per: new Map(), rows: [], byId: new Map() };
+    if (memo && memo.s === h.states && memo.e === h.entities && memo.d === h.devices && memo.c === c) return memo.x;
+    const F = fanerOf(c), R = rowsCfg(c), reg = h.entities || {}, per = new Map(), byId = new Map();
+    F.forEach((t) => {
+      const L = finn(h, faneCfg(c, t));
+      per.set(t.key, L.map((b) => b.id));
+      L.forEach((b) => { if (!byId.has(b.id)) byId.set(b.id, { ...b, tabs: [] }); byId.get(b.id).tabs.push(t.key); });
+    });
     const perDev = new Map();
-    ut.forEach((b) => { if (b.dev && b.kilde !== 'ekstra') perDev.set(b.dev, (perDev.get(b.dev) || 0) + 1); });
-    const out = ut.map((b) => {
-      const r = { ...b, key: b.kilde !== 'ekstra' && b.dev && perDev.get(b.dev) === 1 ? b.dev : b.id, all: b.dev ? Object.keys(reg).filter((x) => reg[x] && reg[x].device_id === b.dev) : [b.id] };
-      r.tab = katTab(b.cat);
-      r.name = pick(R.names, r) || r.navn; r.sub = pick(R.subs, r) || r.under; r.icon = pick(R.icons, r) || r.ikon;
+    byId.forEach((b) => { const d = (reg[b.id] && reg[b.id].device_id) || null; b.dev = d; if (d && b.kilde !== 'ekstra') perDev.set(d, (perDev.get(d) || 0) + 1); });
+    byId.forEach((b, id) => {
+      const r = b;
+      r.key = b.kilde !== 'ekstra' && b.dev && perDev.get(b.dev) === 1 ? b.dev : b.id;
+      r.all = b.dev ? Object.keys(reg).filter((x) => reg[x] && reg[x].device_id === b.dev) : [b.id];
+      r.name = pick(R.names, r) || b.navn; r.sub = pick(R.subs, r) || b.under; r.icon = pick(R.icons, r) || b.ikon;
       r.hidden = inList(R.exclude, r);
       r.move = moveTab(pick(R.move, r));
       r.master = erMaster(b) || /\bki_energi_varsler\b/.test(b.id);
-      return r;
+      byId.set(id, r);
     });
-    memo = { s: h.states, e: h.entities, d: h.devices, c, r: out };
-    return out;
+    const x = { F, per, rows: [...byId.values()], byId };
+    memo = { s: h.states, e: h.entities, d: h.devices, c, x };
+    return x;
   }
+  const rules = (h, c) => compute(h, c).rows;
   M.innstRules = rules;
-  const ruleSig = (h, c) => rules(h, c).map((r) => r.id + ':' + r.cat).join(',');
-  // Kategoriene i KI Varslinger (autooppdaget) med antall regler – til «Legg til fane»
-  function kategorier(h, c) {
-    const n = new Map();
-    const seen = new Set();
-    rules(h, c).filter((r) => r.kilde === 'integrasjon').forEach((r) => { const g = r.cat + '|' + (r.dev || r.id); if (seen.has(g)) return; seen.add(g); n.set(r.cat, (n.get(r.cat) || 0) + 1); });
-    return [...n.entries()].map(([key, count]) => ({ key, count, name: katName(key), icon: katIcon(key) })).sort((a, b) => a.name.localeCompare(b.name, 'nb'));
-  }
-  M.innstKategorier = kategorier;
-  const treff = (navn, liste) => liste.some((m) => String(navn).toLowerCase().includes(String(m).toLowerCase()));
-  function inTab(r, t, own) {
-    if (r.move) return r.move === t.key;
-    if (t.source) return r.cat === t.source;
-    if (hasFilter(t.filter)) {
-      const f = t.filter, P = arr(f.plattform), E = arr(f.enheter), I = arr(f.ikke_enheter);
-      if (P.length && r.kilde !== 'ekstra' && !P.includes(r.plattform)) return false;
-      if (E.length && r.kilde !== 'ekstra' && !treff(r.enhet, E)) return false;
-      if (I.length && treff(r.enhet, I)) return false;
-      return true;
-    }
-    if (!t.builtin || own.has(r.cat)) return false; // kategorien har egen (synlig) fane
-    return r.tab === t.key;
-  }
-  // Radene i en fane: autokonfig + include − exclude, i lagret rekkefølge (rows.order) – ellers hovedbryter først og alfabetisk
+  // Signaturen til det åpne Tilpass-arket: brytersettet (id) per fane + plattformene i registeret
+  const ruleSig = (h, c) => { const X = compute(h, c); return [...X.per.entries()].map(([k, L]) => k + ':' + L.join('+')).join('|') + '#' + (M.varslingPlattformer ? M.varslingPlattformer(h).map((p) => p.label).join(',') : ''); };
+  // Kortets signatur: [id, pa] (+ borte) for alle rader – registerendringer tegner bare når denne endres
+  const cardSig = (h, c) => JSON.stringify(rules(h, c).map((r) => [r.id, r.pa, r.borte, r.tabs.join()]));
+  // Radene i en fane: kilden (+ flyttet hit) − skjult, i lagret rekkefølge (rows.order) – ellers kildens rekkefølge,
+  // KI Energis hovedbryter øverst
   function tabRows(h, c, key, opts) {
-    const D = tabDefs(c), t = D.find((x) => x.key === keyOf(key));
+    const X = compute(h, c), t = X.F.find((x) => x.key === keyOf(key));
     if (!t) return [];
-    const R = rowsCfg(c), own = new Set(D.filter((x) => x.custom && !x.hidden).map((x) => x.source));
-    let L = rules(h, c).filter((r) => inTab(r, t, own));
+    const moved = (r) => (r.move && X.F.some((x) => x.key === r.move) ? r.move : null);
+    let L = (X.per.get(t.key) || []).map((id) => X.byId.get(id)).filter((r) => r && (!moved(r) || moved(r) === t.key));
+    X.rows.forEach((r) => { if (moved(r) === t.key && !L.includes(r)) L.push(r); });
     if (!(opts && opts.withHidden)) L = L.filter((r) => !r.hidden);
-    L.sort((a, b) => (b.master && b.plattform === 'ki_energi') - (a.master && a.plattform === 'ki_energi') || a.name.localeCompare(b.name, 'nb'));
-    const O = arr(R.order[t.key]);
+    if (!arr(t.bare).length) L = L.map((r, i) => [r, i]).sort((a, b) => (b[0].master && b[0].plattform === 'ki_energi') - (a[0].master && a[0].plattform === 'ki_energi') || a[1] - b[1]).map((x) => x[0]);
+    const O = arr(rowsCfg(c).order[t.key]);
     if (O.length) { const rank = new Map(O.map((k, i) => [k, i])); const rk = (r) => (rank.has(r.key) ? rank.get(r.key) : rank.has(r.id) ? rank.get(r.id) : 1e6); L = L.slice().sort((a, b) => rk(a) - rk(b)); }
     return L;
   }
   M.innstRows = tabRows;
-  M.innstTabs = tabDefs;
+  M.innstTabs = fanerOf;
+  // Enhetene (= regler) fra valgte integrasjoner, med antall brytere – «Legg til fane» (29.3)
+  function enheterOf(h, cfg) {
+    const n = new Map();
+    finn(h, { plattform: cfg.plattform, master: cfg.master, ikke_master: cfg.ikke_master, kjente: cfg.kjente }).forEach((b) => { if (b.kilde !== 'integrasjon') return; const e = n.get(b.enhet) || { enhet: b.enhet, n: 0, ikon: b.ikon }; e.n++; n.set(b.enhet, e); });
+    return [...n.values()].sort((a, b) => b.n - a.n || a.enhet.localeCompare(b.enhet, 'nb'));
+  }
+  M.innstEnheter = enheterOf;
 
   /* ============================================================ toppkortets entiteter */
   const pickFirst = (h, ids) => ids.find((id) => h && h.states[id]) || null;
@@ -47512,7 +47735,7 @@ try {
     return null;
   };
   function migrate(cfg) {
-    const out = {}, tabs = [], R = { exclude: [], move: {}, include: [], names: {}, subs: {}, icons: {} };
+    const out = {}, faner = [];
     const find = (o, re, d, acc) => { if (!o || typeof o !== 'object' || d > 12) return acc; if (Array.isArray(o)) { o.forEach((x) => find(x, re, d + 1, acc)); return acc; } if (re.test(String(o.type || ''))) acc.push(o); Object.values(o).forEach((x) => { if (x && typeof x === 'object') find(x, re, d + 1, acc); }); return acc; };
     const natt = find(cfg, /^custom:ki-natt-card$/, 0, [])[0];
     if (natt) {
@@ -47522,22 +47745,22 @@ try {
       if (natt.vekking) out.vekking = natt.vekking;
     }
     const tc = find(cfg, /^custom:ki-tabs-card$/, 0, [])[0];
-    const used = new Set();
+    const used = new Set(), R = { names: {}, subs: {}, icons: {} };
+    // Fiks 29: hver ki-varsling-card blir én fane med samme nøkler (plattform, enheter, ikke_enheter, bare, ekstra, skjul …)
     (tc && Array.isArray(tc.tabs) ? tc.tabs : []).forEach((t, i) => {
       const v = find(t, /^custom:ki-varsling-card$/, 0, [])[0];
       if (!v) return;
       let key = tabKeyOf(t.title, v);
       if (!key || used.has(key)) key = 'fane_' + (String(t.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || i);
       used.add(key);
-      const o = { key };
-      if (t.title && (!BUILTIN[key] || (t.title !== BUILTIN[key][0] && !LEGACY_TITLE.test(String(t.title))))) o.title = String(t.title);
-      if (!BUILTIN[key]) { const f = {}; ['enheter', 'ikke_enheter', 'plattform'].forEach((k) => { const L = arr([].concat(v[k] || [])); if (L.length) f[k] = L; }); if (Object.keys(f).length) o.filter = f; }
-      tabs.push(o);
-      arr(v.ekstra).forEach((id) => { if (!R.include.includes(id)) R.include.push(id); R.move[id] = key; });
-      arr(v.skjul).forEach((s) => { if (!R.exclude.includes(s)) R.exclude.push(s); });
+      const o = { key, name: t.title && !LEGACY_TITLE.test(String(t.title)) ? String(t.title) : BUILTIN[key] ? BUILTIN[key][0] : String(t.title || key), icon: t.icon || (BUILTIN[key] ? BUILTIN[key][1] : 'mdi:tab') };
+      LIST_KEYS.forEach((k) => { if (v[k] != null && arr([].concat(v[k])).length) o[k] = arr([].concat(v[k])); });
+      if (!o.plattform) o.plattform = [...(M.KI_VARS_PLATTFORM || [])];
+      BOOL_KEYS.forEach((k) => { if (v[k] === false) o[k] = false; });
+      faner.push(o);
       Object.assign(R.names, obj(v.navn)); Object.assign(R.subs, obj(v.undertekst)); Object.assign(R.icons, obj(v.ikoner));
     });
-    if (tabs.length) out.tabs = tabs;
+    if (faner.length) out.faner = faner;
     const rows = rowsOut(R);
     if (rows) out.rows = rows;
     return out;
@@ -47665,10 +47888,42 @@ try {
     .ientp .edq{height:40px;border-radius:12px;background:#3a3a3a}
     .ihit{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%;box-sizing:border-box}
     .ihit.on{background:#3a3a3a}
-    .ihit .nm b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+    .ihit .nm b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* 29.3 · per fane: Integrasjoner · Bare/Ikke disse · Ekstra brytere · Visning (arkstil: indre flate #282828, rader med bryter) */
+    .ifp{display:flex;flex-direction:column;gap:8px;padding:2px 0 14px}
+    .ifs{display:flex;flex-direction:column;padding:4px 14px 8px;border-radius:18px;background:#282828}
+    .ifs>.lb{font-size:12px;color:#979797;padding:8px 0 6px}
+    .iprow{display:flex;align-items:center;gap:12px;min-height:52px}
+    .iprow + .iprow{border-top:1px solid rgba(255,255,255,.06)}
+    .iprow .ipn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+    .iprow .ipn b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iprow .ipn i{font-style:normal;font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iprow .sw{width:44px;height:26px;border-radius:13px;background:#545454;flex:none}
+    .iprow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
+    .iprow .sw.on{background:var(--pink,#f285c9)}.iprow .sw.on::after{transform:translateX(18px)}
+    .ifs .inm{background:#3a3a3a}
+    .icount{font-size:12px;color:rgb(242 133 201);padding:8px 0 2px}
+    .ixch{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px}
+    .ixch:empty{display:none}
+    .ixch button{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;font-size:12px;display:flex;align-items:center;gap:4px;max-width:100%}
+    .ixch button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ifs .edq{background:#3a3a3a}
+    .ifs .nts{margin:0 -10px}
+    .ifs .nti{padding:2px 0 6px}
+    .ntp .ifp{padding:0}
+    .ntp .ifs{background:#3a3a3a}
+    .ntp .ifs .inm,.ntp .ifs .edq{background:#282828}
+    .ntp .ifs .ntsrc.on{background:#545454}`;
   let innSheet = null;
-  const ntOf = (ed) => { const id = cid(ed); if (!NT.has(id)) NT.set(id, { open: false, src: '', name: '', icon: TICONS[0] }); return NT.get(id); };
-  const ntOk = (N) => !!(N.src && String(N.name || '').trim());
+  const NY = '__ny'; // «Legg til fane»-utkastet (29.3) bruker samme panel som en fane
+  const EXPF = new Map(); // åpent fanepanel per kort
+  const ntOf = (ed) => { const id = cid(ed); if (!NT.has(id)) NT.set(id, { open: false, key: NY, name: '', icon: TICONS[0], plattform: ['ki_notifications'], enheter: [], ikke_enheter: [], ekstra: [] }); return NT.get(id); };
+  const ntOk = (N) => !!String(N.name || '').trim();
+  const liste = (t) => String(t || '').split(',').map((x) => x.trim()).filter(Boolean);
+  // Fanen et felt gjelder: utkastet eller en fane i config
+  const faneAv = (ed, k) => (k === NY ? ntOf(ed) : fanerOf(ed._config || {}).find((t) => t.key === k));
+  const telle = (ed, t) => (ed._hass ? finn(ed._hass, faneCfg(ed._config || {}, t)).length : 0);
+  const visesTxt = (n) => `Viser ${n} ${n === 1 ? 'bryter' : 'brytere'}`;
   function innKit(ed) {
     if (!ed || !ed.shadowRoot) return;
     if (M.edKit) M.edKit(ed);
@@ -47677,32 +47932,38 @@ try {
     try { if (!innSheet) { innSheet = new CSSStyleSheet(); innSheet.replaceSync(INN_CSS); } if (!R.adoptedStyleSheets.includes(innSheet)) R.adoptedStyleSheets = [...R.adoptedStyleSheets, innSheet]; } catch (e) { /* eldre nettleser */ }
     if (ed.__innKit) return;
     ed.__innKit = true;
-    // Navn på ny fane: per tastetrykk i tilstanden (ingen ny tegning – feltet beholder fokus), knappen følger med
+    // Per tastetrykk (ingen ny tegning – feltet beholder fokus): navn på ny fane, og «Viser N brytere» for Bare/Ikke disse
     R.addEventListener('input', (e) => {
       const t = e.target;
-      if (!t.dataset || t.dataset.inn !== 'ntname') return;
-      e.stopPropagation();
-      const N = ntOf(ed); N.name = t.value;
-      const b = R.querySelector('.ntgo'); if (b) { b.classList.toggle('on', ntOk(N)); b.toggleAttribute('disabled', !ntOk(N)); }
+      if (!t.dataset || t.dataset.inn == null) return;
+      if (t.dataset.inn === 'ntname') {
+        e.stopPropagation();
+        const N = ntOf(ed); N.name = t.value;
+        const b = R.querySelector('.ntgo'); if (b) { b.classList.toggle('on', ntOk(N)); b.toggleAttribute('disabled', !ntOk(N)); }
+        return;
+      }
+      if (t.dataset.inn === 'fenh' || t.dataset.inn === 'fikke') {
+        e.stopPropagation();
+        const k = t.dataset.v, f = faneAv(ed, k);
+        if (!f) return;
+        const d = { ...f, [t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter']: liste(t.value) };
+        const el = R.querySelector(`.icount[data-v="${CSS.escape ? CSS.escape(k) : k}"]`);
+        if (el) el.textContent = visesTxt(telle(ed, d));
+      }
     }, true);
-    // Navnefelt, ikon og filter i radene lagres ved «change» (ikke per tastetrykk – feltet beholder fokus)
+    // Navnefelt, ikon og filter lagres ved «change» (ikke per tastetrykk – feltet beholder fokus)
     R.addEventListener('change', (e) => {
       const t = e.target;
       if (!t.dataset || t.dataset.inn == null) return;
       e.stopPropagation();
       const cc = ed._config || {}, v = String(t.value || '').trim(), k = t.dataset.v;
       if (t.dataset.inn === 'ntname') { ntOf(ed).name = t.value; return; }
-      if (t.dataset.inn === 'tname') {
-        const CT = customTabs(cc);
-        if (CT.some((x) => x.key === k)) return setCfg(ed, { custom_tabs: CT.map((x) => (x.key === k ? { ...x, name: v || katName(x.source) } : x)) });
-        const D = tabDefs(cc).map((x) => (x.key === k ? { ...x, title: v && !(BUILTIN[k] && v === BUILTIN[k][0]) ? v : '' } : x));
-        return ed._set('tabs', tabsOut(D));
-      }
+      if (t.dataset.inn === 'tname') return saveFaner(ed, fanerOf(cc).map((x) => (x.key === k ? { ...x, name: v || (BUILTIN[k] ? BUILTIN[k][0] : x.name) } : x)));
       if (t.dataset.inn === 'rname' || t.dataset.inn === 'ricon') return setRows(ed, (R2) => { const O = t.dataset.inn === 'rname' ? R2.names : R2.icons; if (v) O[k] = v; else delete O[k]; });
       if (t.dataset.inn === 'fenh' || t.dataset.inn === 'fikke') {
-        const L = v.split(',').map((x) => x.trim()).filter(Boolean), f = t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter';
-        const D = tabDefs(cc).map((x) => { if (x.key !== k) return x; const F = { ...obj(x.filter) }; if (L.length) F[f] = L; else delete F[f]; return { ...x, filter: F }; });
-        return ed._set('tabs', tabsOut(D));
+        const f = t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter', L = liste(v);
+        if (k === NY) { ntOf(ed)[f] = L; return ed._render(); }
+        return editFane(ed, k, (x) => { const o = { ...x }; if (L.length) o[f] = L; else delete o[f]; return o; });
       }
     }, true);
   }
@@ -47715,9 +47976,111 @@ try {
     ed._set(last, o[last]);
   }
   function rowsWork(cc) { const R = rowsCfg(cc); return { exclude: [...R.exclude], move: { ...R.move }, include: [...R.include], names: { ...R.names }, subs: { ...R.subs }, icons: { ...R.icons }, order: { ...R.order } }; }
-  function setRows(ed, fn) { const W = rowsWork(ed._config || {}); fn(W); ed._set('rows', rowsOut(W)); }
-  const curTab = (ed, c) => { const T = tabDefs(c), v = RT.get(cid(ed)); return T.some((t) => t.key === v) ? v : (T[0] || {}).key; };
-  const sw = (key, op, v, on, label) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}"></button>`;
+  // Fanene lagres alltid som faner[] – første lagring migrerer de eldre nøklene (tabs/custom_tabs/tab_*/rows.include) én gang
+  function saveFaner(ed, F, extra) {
+    const cc = ed._config || {}, o = { faner: fanerOut(F) };
+    ['tabs', 'custom_tabs', 'tab_order', 'tab_hidden', 'tab_names', 'include'].forEach((k) => { if (cc[k] !== undefined) o[k] = undefined; });
+    const R = obj(cc.rows);
+    if (arr(R.include).length) { const W = rowsWork(cc); W.include.forEach((id) => { delete W.move[id]; }); o.rows = rowsOut(W); }
+    Object.assign(o, extra || {});
+    setCfg(ed, o);
+  }
+  // Én fane endres: enheter den gir fra seg/tar fra catch-all-fanene (Hjem) følger med
+  function editFane(ed, k, fn) {
+    let F = fanerOf(ed._config || {});
+    const old = F.find((x) => x.key === k);
+    if (!old) return undefined;
+    const nu = fn(old);
+    if (JSON.stringify(arr(old.enheter)) !== JSON.stringify(arr(nu.enheter)) || JSON.stringify(arr(old.plattform)) !== JSON.stringify(arr(nu.plattform))) { F = release(F, old); F = F.map((x) => (x.key === k ? nu : x)); F = claim(F, nu); }
+    else F = F.map((x) => (x.key === k ? nu : x));
+    return saveFaner(ed, F);
+  }
+  // Rad-overstyringer (rows). Står det eldre rows.include/include igjen, migreres fanene samtidig (→ faner[].ekstra).
+  function setRows(ed, fn) {
+    const cc = ed._config || {}, W = rowsWork(cc); fn(W);
+    if (arr(obj(cc.rows).include).length || cc.include) { W.include.forEach((id) => { delete W.move[id]; }); return saveFaner(ed, fanerOf(cc), { rows: rowsOut(W) }); }
+    return ed._set('rows', rowsOut(W));
+  }
+  const curTab = (ed, c) => { const T = fanerOf(c), v = RT.get(cid(ed)); return T.some((t) => t.key === v) ? v : (T[0] || {}).key; };
+  const sw = (key, op, v, on, label, p) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}"${p != null ? ` data-p="${esc(p)}"` : ''}></button>`;
+  const iconChips = (key, op, v, cur) => { const icons = TICONS.includes(cur) || !cur ? TICONS : [...TICONS, cur]; return `<div class="nti">${icons.map((ic) => `<button class="${cur === ic ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" data-ic="${esc(ic)}" aria-label="${esc(ic)}">${M.icon(ic, 20)}</button>`).join('')}${M.iconPicker ? `<button data-a="fn" data-k="${key}" data-op="${op}pick" data-v="${esc(v)}" aria-label="Velg et annet ikon">${M.icon('mdi:dots-horizontal', 20)}</button>` : ''}</div>`; };
+  // 29.3 · panelet for én fane (eller «Legg til fane»-utkastet): Integrasjoner · Bare/Ikke disse · Ekstra brytere · Visning
+  function fanePanel(hh, cc, key, ed, t) {
+    const k = t.key, ny = k === NY, ek = esc(k);
+    const P = t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])];
+    const PL = hh && M.varslingPlattformer ? M.varslingPlattformer(hh) : [];
+    P.forEach((p) => { if (!PL.some((x) => x.value === p)) PL.push({ value: p, label: `${plattformNavn(hh, p)} (0)` }); });
+    const plat = PL.map((p) => `<div class="iprow" data-key="ip-${ek}-${esc(p.value)}"><span class="ipn"><b>${esc(p.label)}</b><i>${esc(p.value)}</i></span>${sw(key, 'fplat', k, P.includes(p.value), p.label, p.value)}</div>`).join('') || '<div class="iempty">Fant ingen integrasjoner med brytere</div>';
+    let enh = '';
+    if (ny && hh) {
+      const K = enheterOf(hh, t), sel = arr(t.enheter);
+      enh = `<div class="ifs" data-key="ifs-enh"><span class="lb">Regler og enheter fra valgte integrasjoner</span><div class="nts">${K.length ? K.map((x) => { const on = sel.includes(x.enhet); return `<button class="ntsrc ${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nenh" data-v="${NY}" data-x="${esc(x.enhet)}" aria-pressed="${on}">${M.icon(x.ikon, 20, 'color:#afafaf')}<span class="nm"><b>${esc(x.enhet)}</b><i>${x.n} ${x.n === 1 ? 'bryter' : 'brytere'}</i></span>${M.icon('mdi:check', 20, `color:rgb(102 209 158);opacity:${on ? 1 : 0}`)}</button>`; }).join('') : '<div class="iempty">Fant ingen brytere fra valgte integrasjoner</div>'}</div></div>`;
+    }
+    const X = arr(t.ekstra), qk = 'inn-x-' + k, q = String(ed.__edQ[qk] || '').trim().toLowerCase(), qs = q.replace(/ /g, '_');
+    const hits = q && hh ? Object.keys(hh.states).filter((id) => ['switch', 'input_boolean', 'automation'].includes(id.split('.')[0]) && !X.includes(id) && (id.includes(qs) || String(hh.states[id].attributes.friendly_name || '').toLowerCase().includes(q))).sort().slice(0, 6) : [];
+    const vis = [['master', 'Bare hovedbryter per regel', 'Én bryter per regel i KI Varslinger'], ['kjente', 'Kjente navn', 'Forklarende navn og ikoner for kjente regler'], ['sok', 'Søkefelt', 'Søk over listen i fanen']];
+    return `<div class="ifp" data-key="ifp-${ek}">
+      <div class="ifs" data-key="ifs-plat"><span class="lb">Integrasjoner</span>${plat}</div>
+      ${enh}
+      <div class="ifs" data-key="ifs-filter"><span class="lb">Bare disse (enhetsnavn, skilt med komma)</span><input class="inm full" data-inn="fenh" data-v="${ek}" value="${esc(arr(t.enheter).join(', '))}" placeholder="Alle" aria-label="Bare disse" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="lb">Ikke disse</span><input class="inm full" data-inn="fikke" data-v="${ek}" value="${esc(arr(t.ikke_enheter).join(', '))}" placeholder="Ingen" aria-label="Ikke disse" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="icount" data-v="${ek}" data-key="icount-${ek}" aria-live="polite">${esc(visesTxt(hh ? finn(hh, faneCfg(cc, t)).length : 0))}</span></div>
+      <div class="ifs" data-key="ifs-ekstra"><span class="lb">Ekstra brytere</span><div class="ixch">${X.map((id) => `<button data-a="fn" data-k="${key}" data-op="xrm" data-v="${ek}" data-x="${esc(id)}" aria-label="Fjern ${esc(id)}"><span>${esc(hh && hh.states[id] ? M.name(hh, id) : id)}</span>${M.icon('mdi:close', 16)}</button>`).join('')}</div>
+        <div class="edq">${M.icon('mdi:magnify', 18, 'color:#979797')}<input data-edq="${esc(qk)}" value="${esc(ed.__edQ[qk] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits.map((id) => `<button class="ihit" data-a="fn" data-k="${key}" data-op="xadd" data-v="${ek}" data-x="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 18, 'color:#979797')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span></button>`).join('') || (q ? '<div class="iempty">Ingen treff</div>' : '')}</div>
+      <div class="ifs" data-key="ifs-vis"><span class="lb">Visning</span>${vis.map(([p, l, hl]) => `<div class="iprow"><span class="ipn"><b>${esc(l)}</b><i style="font-family:inherit">${esc(hl)}</i></span>${sw(key, 'fvis', k, t[p] !== false, l, p)}</div>`).join('')}</div>
+      ${ny ? '' : `<div class="ifs" data-key="ifs-ikon"><span class="lb">Ikon</span>${iconChips(key, 'ticon', k, t.icon)}</div>`}
+    </div>`;
+  }
+  // GUI-editoren (29.3): ett ha-form med ett expandable per fane – samme felt som KiVarslingEditor. Ekko-vakt: f.data settes
+  // tilbake etter value-changed, og når HA sender samme config tilbake bygges ingenting om (avkrysning/markør står).
+  const hafData = (F) => Object.fromEntries(F.map((t) => ['f_' + t.key, { plattform: t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])], enheter: arr(t.enheter).join(', '), ikke_enheter: arr(t.ikke_enheter).join(', '), ekstra: arr(t.ekstra), master: t.master !== false, kjente: t.kjente !== false, sok: t.sok !== false }]));
+  const HAF_LABEL = { plattform: 'Integrasjoner', enheter: 'Bare disse (skilt med komma)', ikke_enheter: 'Ikke disse (skilt med komma)', ekstra: 'Ekstra brytere', master: 'Bare hovedbryteren per regel', kjente: 'Kjente navn', sok: 'Søkefelt' };
+  function mountForm(ed) {
+    const slot = ed.shadowRoot && ed.shadowRoot.querySelector('.ihaf');
+    if (!slot || !ed._hass) return;
+    const F = fanerOf(ed._config || {}), h = ed._hass;
+    const opts = (M.varslingPlattformer ? M.varslingPlattformer(h) : []).map((p) => ({ value: p.value, label: p.label }));
+    F.forEach((t) => arr(t.plattform).forEach((p) => { if (!opts.some((o) => o.value === p)) opts.push({ value: p, label: `${plattformNavn(h, p)} (0)` }); }));
+    const schema = F.map((t) => ({ name: 'f_' + t.key, type: 'expandable', title: t.name, icon: t.icon, schema: [
+      { name: 'plattform', selector: { select: { multiple: true, mode: 'list', options: opts } } },
+      { name: 'enheter', selector: { text: {} } },
+      { name: 'ikke_enheter', selector: { text: {} } },
+      { name: 'ekstra', selector: { entity: { multiple: true, domain: ['switch', 'input_boolean', 'automation'] } } },
+      { name: 'master', selector: { boolean: {} } },
+      { name: 'kjente', selector: { boolean: {} } },
+      { name: 'sok', selector: { boolean: {} } },
+    ] }));
+    let f = slot.querySelector('ha-form');
+    if (!f) {
+      f = document.createElement('ha-form');
+      f.computeLabel = (x) => HAF_LABEL[x.name] || x.title || x.name;
+      f.addEventListener('value-changed', (e) => {
+        e.stopPropagation();
+        const v = (e.detail && e.detail.value) || {}, cur = fanerOf(ed._config || {});
+        let F2 = cur.map((t) => {
+          const d = v['f_' + t.key];
+          if (!d) return t;
+          const o = { ...t, plattform: arr(d.plattform), ekstra: arr(d.ekstra) }, E = liste(d.enheter), I = liste(d.ikke_enheter);
+          if (E.length) o.enheter = E; else delete o.enheter;
+          if (I.length) o.ikke_enheter = I; else delete o.ikke_enheter;
+          ['master', 'kjente', 'sok'].forEach((k) => { if (d[k] === false) o[k] = false; else delete o[k]; });
+          return o;
+        });
+        F2 = F2.map((t) => ({ ...t }));
+        // Skjemaet MÅ få verdiene tilbake (ha-form styres av data) – som skrevet, så tekstfeltet ikke mister komma/markør
+        f.data = { ...hafData(F2), ...v };
+        ed.__hafOut = JSON.stringify(hafData(F2));
+        saveFaner(ed, F2);
+      });
+      slot.appendChild(f);
+    }
+    f.hass = h;
+    const sj = JSON.stringify(schema);
+    if (f.__sj !== sj) { f.__sj = sj; f.schema = schema; }
+    const data = hafData(F), dj = JSON.stringify(data);
+    if (ed.__hafOut !== dj) { ed.__hafOut = dj; f.data = data; } // samme config tilbake fra HA → ingen ombygging
+  }
   function editorSchema(h0, cfg0) {
     const handle = () => (M.edHandle ? M.edHandle() : '');
     // Forhåndsvisning (27.5): fanelinjen + tannhjul live, ikke trykkbar
@@ -47726,70 +48089,107 @@ try {
       const V = visTabs(cc), st = keyOf(cc.start_tab), cur = V.some((t) => t.key === st) ? st : V[0].key;
       return `<div class="pvw" data-key="pvw"><div class="pvb">${tabBar(cc, V, cur, { preview: true })}</div></div>`;
     } };
-    // Faner: dra-håndtak, ikon, navnefelt i raden, søppelkasse (egne faner), bryter = vis/skjul; «Legg til fane» nederst
+    // Faner: dra-håndtak, ikon (→ fanepanelet), navnefelt, søppelkasse (egne faner), bryter = vis/skjul; «Legg til fane» nederst
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
-      ed.__edDrop['inn-tab'] = (o) => { const D = tabDefs(ed._config || cc), by = new Map(D.map((t) => [t.key, t])); ed._set('tabs', tabsOut(o.map((k) => by.get(k)).filter(Boolean))); };
-      const D = tabDefs(cc), N = ntOf(ed);
-      const rows = D.map((t) => `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<span class="iic">${M.icon(t.icon, 22)}</span>
-          <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(t.custom ? t.name : t.title)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.name)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
-          ${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>`).join('');
+      ed.__edDrop['inn-tab'] = (o) => { const D = fanerOf(ed._config || cc), by = new Map(D.map((t) => [t.key, t])); saveFaner(ed, o.map((k) => by.get(k)).filter(Boolean)); };
+      const D = fanerOf(cc), N = ntOf(ed), open = EXPF.get(cid(ed));
+      const rows = D.map((t) => `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="texp" data-v="${esc(t.key)}" aria-expanded="${open === t.key}" aria-label="Integrasjoner og filter for ${esc(t.name)}">${M.icon(t.icon, 22)}</button>
+          <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(BUILTIN[t.key] && t.name === BUILTIN[t.key][0] ? '' : t.name)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.name)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
+          ${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>${open === t.key ? fanePanel(hh, cc, key, ed, t) : ''}`).join('');
       let panel = '';
       if (N.open) {
-        const have = new Set(D.map((t) => (t.custom ? t.source : t.key)));
-        const K = hh ? kategorier(hh, cc).filter((k) => !have.has(k.key)) : [];
-        const ok = ntOk(N), icons = TICONS.includes(N.icon) || !N.icon ? TICONS : [...TICONS, N.icon];
-        panel = `<div class="ntp" data-key="ntp"><span class="ntl">Varsler fra KI Varslinger</span>
-          <div class="nts">${K.length ? K.map((k) => `<button class="ntsrc ${N.src === k.key ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="ntsrc" data-v="${esc(k.key)}" aria-pressed="${N.src === k.key}">${M.icon(k.icon, 20, 'color:#afafaf')}<span class="nm"><b>${esc(k.name)}</b><i>${k.count} ${k.count === 1 ? 'regel' : 'regler'}</i></span>${M.icon('mdi:check', 20, `color:rgb(102 209 158);opacity:${N.src === k.key ? 1 : 0}`)}</button>`).join('') : '<div class="iempty">Fant ingen flere kategorier i KI Varslinger</div>'}</div>
+        const ok = ntOk(N);
+        panel = `<div class="ntp" data-key="ntp"><span class="ntl">Ny fane</span>
           <input class="ntn" data-inn="ntname" value="${esc(N.name)}" placeholder="Navn på fanen" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <div class="nti">${icons.map((ic) => `<button class="${N.icon === ic ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nticon" data-v="${esc(ic)}" aria-label="${esc(ic)}">${M.icon(ic, 20)}</button>`).join('')}${M.iconPicker ? `<button data-a="fn" data-k="${key}" data-op="ntpick" data-v="" aria-label="Velg et annet ikon">${M.icon('mdi:dots-horizontal', 20)}</button>` : ''}</div>
+          ${iconChips(key, 'nticon', NY, N.icon)}
+          ${fanePanel(hh, cc, key, ed, N)}
           <button class="ntgo ${ok ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="ntadd" data-v="" ${ok ? '' : 'disabled'}>Legg til fane</button></div>`;
       }
       return `<div class="ilist">${rows}</div><button class="iadd" data-a="fn" data-k="${key}" data-op="ntopen" data-v="" aria-expanded="${N.open}">${M.icon('mdi:plus-circle', 22)}<span>Legg til fane</span></button>${panel}`;
     }, click: (dd, ed) => {
-      const cc = ed._config || {}, N = ntOf(ed);
+      const cc = ed._config || {}, N = ntOf(ed), k = dd.v, id = cid(ed);
+      const draft = (fn) => { fn(N); return ed._render(); };
+      if (dd.op === 'texp') { M.haptic('selection'); if (EXPF.get(id) === k) EXPF.delete(id); else EXPF.set(id, k); return ed._render(); }
       if (dd.op === 'teye') {
-        const D = tabDefs(cc), t = D.find((x) => x.key === dd.v);
-        if (!t) return;
-        if (!t.hidden && D.filter((x) => !x.hidden).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+        const D = fanerOf(cc), t = D.find((x) => x.key === k);
+        if (!t) return undefined;
+        if (!t.hidden && D.filter((x) => !x.hidden).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return undefined; }
         M.haptic('selection');
-        return ed._set('tabs', tabsOut(D.map((x) => (x.key === dd.v ? { ...x, hidden: !x.hidden } : x))));
+        return saveFaner(ed, D.map((x) => (x.key === k ? { ...x, hidden: !x.hidden } : x)));
       }
       if (dd.op === 'tdel') {
         M.haptic('medium');
-        const CT = customTabs(cc).filter((x) => x.key !== dd.v), W = rowsWork(cc);
-        delete W.order[dd.v]; Object.keys(W.move).forEach((k) => { if (W.move[k] === dd.v) delete W.move[k]; });
-        return setCfg(ed, { rows: rowsOut(W), tabs: tabsOut(tabDefs(cc).filter((x) => x.key !== dd.v)), custom_tabs: CT.length ? CT : undefined });
+        let F = fanerOf(cc); const t = F.find((x) => x.key === k);
+        if (!t) return undefined;
+        F = release(F, t).filter((x) => x.key !== k);
+        const W = rowsWork(cc); delete W.order[k]; Object.keys(W.move).forEach((x) => { if (W.move[x] === k) delete W.move[x]; }); W.include = [];
+        if (EXPF.get(id) === k) EXPF.delete(id);
+        return saveFaner(ed, F, { rows: rowsOut(W) });
       }
-      if (dd.op === 'ntopen') { M.haptic('light'); NT.set(cid(ed), { open: !N.open, src: '', name: '', icon: TICONS[0] }); return ed._render(); }
-      if (dd.op === 'ntsrc') {
+      if (dd.op === 'fplat') {
         M.haptic('selection');
-        const named = String(N.name || '').trim() && N.name !== katName(N.src);
-        N.src = dd.v; if (!named) { N.name = katName(dd.v); N.icon = katIcon(dd.v); }
-        return ed._render();
+        const tog = (L) => { const S = new Set(L); if (S.has(dd.p)) S.delete(dd.p); else S.add(dd.p); return [...S]; };
+        if (k === NY) return draft((x) => { x.plattform = tog(arr(x.plattform)); x.enheter = arr(x.enheter).filter((e) => enheterOf(ed._hass, x).some((y) => y.enhet === e)); });
+        return editFane(ed, k, (x) => ({ ...x, plattform: tog(x.plattform !== undefined ? arr(x.plattform) : [...(M.KI_VARS_PLATTFORM || [])]) }));
       }
-      if (dd.op === 'nticon') { M.haptic('selection'); N.icon = dd.v; return ed._render(); }
-      if (dd.op === 'ntpick' && M.iconPicker) { M.iconPicker.open({ value: N.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) { N.icon = v; ed._render(); } } }); return; }
+      if (dd.op === 'fvis') {
+        M.haptic('selection');
+        const flip = (x) => { const o = { ...x }; if (o[dd.p] === false) delete o[dd.p]; else o[dd.p] = false; return o; };
+        if (k === NY) return draft((x) => { Object.assign(x, flip(x)); if (x[dd.p] !== false) delete x[dd.p]; });
+        return editFane(ed, k, flip);
+      }
+      if (dd.op === 'xadd' || dd.op === 'xrm') {
+        M.haptic(dd.op === 'xadd' ? 'success' : 'selection');
+        ed.__edQ['inn-x-' + k] = '';
+        const upd = (L) => (dd.op === 'xadd' ? [...L.filter((x) => x !== dd.x), dd.x] : L.filter((x) => x !== dd.x));
+        if (k === NY) return draft((x) => { x.ekstra = upd(arr(x.ekstra)); });
+        return editFane(ed, k, (x) => { const o = { ...x, ekstra: upd(arr(x.ekstra)) }; if (!o.ekstra.length) delete o.ekstra; return o; });
+      }
+      if (dd.op === 'ticon') { M.haptic('selection'); return editFane(ed, k, (x) => ({ ...x, icon: dd.ic })); }
+      if (dd.op === 'ticonpick' && M.iconPicker) { const t = faneAv(ed, k); M.iconPicker.open({ value: t && t.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) editFane(ed, k, (x) => ({ ...x, icon: v })); } }); return undefined; }
+      if (dd.op === 'ntopen') { M.haptic('light'); NT.delete(id); const n = ntOf(ed); n.open = !N.open; return ed._render(); }
+      if (dd.op === 'nticon') { M.haptic('selection'); return draft((x) => { x.icon = dd.ic; }); }
+      if (dd.op === 'nticonpick' && M.iconPicker) { M.iconPicker.open({ value: N.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) { N.icon = v; ed._render(); } } }); return undefined; }
+      if (dd.op === 'nenh') {
+        M.haptic('selection');
+        return draft((x) => {
+          const E = arr(x.enheter), on = E.includes(dd.x);
+          x.enheter = on ? E.filter((e) => e !== dd.x) : [...E, dd.x];
+          if (!on && !String(x.name || '').trim()) { x.name = dd.x; const hit = enheterOf(ed._hass, x).find((y) => y.enhet === dd.x); if (hit && hit.ikon) x.icon = hit.ikon; }
+        });
+      }
       if (dd.op === 'ntadd') {
-        if (!ntOk(N)) return;
+        if (!ntOk(N)) return undefined;
         M.haptic('success');
-        const D = tabDefs(cc), base = 'v_' + (slugOf(N.src) || 'fane');
-        let k = base, i = 2; while (D.some((t) => t.key === k)) k = base + '_' + i++;
-        const CT = [...customTabs(cc), { key: k, name: String(N.name).trim(), icon: N.icon || katIcon(N.src), source: N.src }];
-        NT.delete(cid(ed));
-        return setCfg(ed, { custom_tabs: CT, tabs: [...tabsOut(D), { key: k }] });
+        let F = fanerOf(cc);
+        const base = 'f_' + (slugOf(N.name) || 'fane');
+        let nk = base, i = 2; while (F.some((t) => t.key === nk)) nk = base + '_' + i++;
+        const t = { key: nk, name: String(N.name).trim(), icon: N.icon || 'mdi:bell', plattform: arr(N.plattform) };
+        ['enheter', 'ikke_enheter', 'ekstra'].forEach((x) => { if (arr(N[x]).length) t[x] = arr(N[x]); });
+        BOOL_KEYS.forEach((x) => { if (N[x] === false) t[x] = false; });
+        F = claim([...F, t], t);
+        NT.delete(id);
+        return saveFaner(ed, F);
       }
+      return undefined;
     } };
-    // Rader: undersegment (fane) + rader for valgt fane (dra, ikon → flytt/ikon, navnefelt, bryter = exclude) + «Legg til rad»
+    // GUI-editoren: ha-form per fane (bare i HAs visuelle editor – arket har panelet over)
+    const gui = { type: 'html', html: (hh, cc, key, ed) => {
+      if (ed._inline || !customElements.get('ha-form')) return '';
+      Promise.resolve().then(() => mountForm(ed));
+      return '<div class="ihaf" data-key="ihaf" data-nomorph></div>';
+    } };
+    // Rader: undersegment (fane) + rader for valgt fane (dra, ikon → flytt/ikon, navnefelt, bryter = skjul) + «Legg til rad»
     const radSeg = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
       const tab = curTab(ed, cc);
-      return `<div class="chips sg tsub" role="tablist">${tabDefs(cc).map((t) => `<button class="chip ${t.key === tab ? 'on' : ''}" role="tab" aria-selected="${t.key === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${esc(t.key)}"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
-    }, click: (dd, ed) => { if (dd.op === 'rtab') { M.haptic('selection'); RT.set(cid(ed), dd.v); EXP.delete(cid(ed)); ADD.delete(cid(ed)); return ed._render(); } } };
+      return `<div class="chips sg tsub" role="tablist">${fanerOf(cc).map((t) => `<button class="chip ${t.key === tab ? 'on' : ''}" role="tab" aria-selected="${t.key === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${esc(t.key)}"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
+    }, click: (dd, ed) => { if (dd.op === 'rtab') { M.haptic('selection'); RT.set(cid(ed), dd.v); EXP.delete(cid(ed)); ADD.delete(cid(ed)); return ed._render(); } return undefined; } };
     const rader = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
       if (!hh) return '';
-      const id = cid(ed), tab = curTab(ed, cc), R = rowsCfg(cc), T = tabDefs(cc);
+      const id = cid(ed), tab = curTab(ed, cc), R = rowsCfg(cc), T = fanerOf(cc);
       if (!tab) return '<div class="iempty">Ingen faner med rader.</div>';
       ed.__edDrop['inn-row'] = (o) => setRows(ed, (W) => { W.order = { ...W.order, [tab]: o }; });
       const L = tabRows(hh, cc, tab, { withHidden: true }), open = EXP.get(id);
@@ -47799,18 +48199,18 @@ try {
             <span class="lb">Navn</span><input class="inm full" data-inn="rname" data-v="${esc(r.key)}" value="${esc(R.names[r.key] || '')}" placeholder="${esc(r.navn)}" aria-label="Navn på raden" autocapitalize="off" autocorrect="off" spellcheck="false">
             <span class="lb">Flytt til</span><div class="ichips">${T.map((t) => `<button class="${t.key === tab ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="rmove" data-v="${esc(r.key)}" data-t="${esc(t.key)}">${esc(t.name)}</button>`).join('')}</div>
             <span class="lb">Ikon</span><input class="inm full" data-inn="ricon" data-v="${esc(r.key)}" value="${esc(R.icons[r.key] || '')}" placeholder="${esc(r.ikon)}" autocapitalize="off" autocorrect="off" spellcheck="false">
-            <span class="imeta">${esc(r.id)}${r.enhet && r.kilde !== 'ekstra' ? ' · ' + esc(r.enhet) : ''} · ${esc(katName(r.cat))}${r.all.length > 1 ? ` · ${r.all.length} entiteter (hold på raden i popupen for resten)` : ''}</span>
+            <span class="imeta">${esc(r.id)}${r.kilde !== 'ekstra' ? ' · ' + esc(r.enhet) + ' · ' + esc(plattformNavn(hh, r.plattform)) : ' · ekstra'}${r.all.length > 1 ? ` · ${r.all.length} entiteter (hold på raden i popupen for resten)` : ''}</span>
             ${own ? `<div class="ichips"><button data-a="fn" data-k="${key}" data-op="rrm" data-v="${esc(r.id)}">Fjern raden</button></div>` : ''}</div>` : '';
         return `<div class="irow ${r.hidden ? 'off' : ''}" data-edk="${esc(r.key)}" data-elist="inn-row" data-key="ir-${esc(r.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="rexp" data-v="${esc(r.key)}" aria-expanded="${open === r.key}" aria-label="Navn, fane og ikon">${M.icon(r.icon, 20)}</button>
           <button class="itx" data-a="fn" data-k="${key}" data-op="rexp" data-v="${esc(r.key)}"><b>${esc(r.name)}</b><i>${esc(r.id)}</i></button>
           ${sw(key, 'reye', r.key, !r.hidden, (r.hidden ? 'Vis ' : 'Skjul ') + r.name)}</div>${sub}`;
       }).join('');
-      // «Legg til rad»: bare brytere (input_boolean/switch) – automasjoner og skript hører ikke hjemme blant varslene
+      // «Legg til rad» = fanens Ekstra brytere (switch/input_boolean/automation, som ki-varsling-card)
       const q = (ed.__edQ['inn-q'] || '').trim().toLowerCase(), have = new Set(L.map((r) => r.id));
-      const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['input_boolean', 'switch'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
-      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter varsel-bryter" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['input_boolean', 'switch', 'automation'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
+      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
         ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>` : '';
-      const none = !rules(hh, cc).some((r) => r.kilde === 'integrasjon') ? 'Fant ingen varsler fra KI Varslinger og sikkerhet' : 'Ingen rader i denne fanen ennå.';
+      const none = !rules(hh, cc).length ? 'Fant ingen brytere fra valgte integrasjoner' : 'Ingen rader i denne fanen ennå.';
       return `<div class="ilist">${rows || `<div class="iempty">${esc(none)}</div>`}${add}</div>
         <button class="ibtn" data-a="fn" data-k="${key}" data-op="radd-open" data-v="">${M.icon(ADD.has(id) ? 'mdi:close' : 'mdi:plus', 20)}${ADD.has(id) ? 'Lukk' : 'Legg til rad'}</button>
         ${arr(R.order[tab]).length ? `<button class="ibtn" data-a="fn" data-k="${key}" data-op="rsort" data-v="">${M.icon('mdi:sort-alphabetical-ascending', 18)}Automatisk rekkefølge</button>` : ''}`;
@@ -47821,30 +48221,16 @@ try {
       if (dd.op === 'rmove') {
         M.haptic('selection'); EXP.delete(id);
         const r = rules(ed._hass, cc).find((x) => x.key === dd.v);
-        return setRows(ed, (W) => { [dd.v, r && r.id, r && r.dev, r && r.slug].forEach((k) => { if (k) delete W.move[k]; }); const def = r && r.tab; if (!r || dd.t !== def || r.kilde === 'ekstra' || tabDefs(cc).some((t) => (t.key === def && hasFilter(t.filter)) || (t.custom && r.cat === t.source))) W.move[dd.v] = dd.t; });
+        return setRows(ed, (W) => { [dd.v, r && r.id, r && r.dev, r && r.slug].forEach((k) => { if (k) delete W.move[k]; }); if (!r || !r.tabs.includes(dd.t)) W.move[dd.v] = dd.t; });
       }
-      if (dd.op === 'rrm') { M.haptic('selection'); EXP.delete(id); return setRows(ed, (W) => { W.include = W.include.filter((x) => x !== dd.v); delete W.move[dd.v]; delete W.names[dd.v]; delete W.icons[dd.v]; }); }
+      if (dd.op === 'rrm') { M.haptic('selection'); EXP.delete(id); return editFane(ed, tab, (x) => { const o = { ...x, ekstra: arr(x.ekstra).filter((e) => e !== dd.v) }; if (!o.ekstra.length) delete o.ekstra; return o; }); }
       if (dd.op === 'radd-open') { M.haptic('selection'); ed.__edQ['inn-q'] = ''; if (ADD.has(id)) ADD.delete(id); else ADD.add(id); return ed._render(); }
-      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; ADD.delete(id); return setRows(ed, (W) => { if (!W.include.includes(dd.v)) W.include.push(dd.v); W.move[dd.v] = tab; }); }
+      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; ADD.delete(id); return editFane(ed, tab, (x) => ({ ...x, ekstra: [...arr(x.ekstra).filter((e) => e !== dd.v), dd.v] })); }
       if (dd.op === 'rsort') { M.haptic('selection'); return setRows(ed, (W) => { const O = { ...W.order }; delete O[tab]; W.order = O; }); }
-    } };
-    // Filter for valgt fane (samme som ki-varsling-card: enheter / ikke_enheter / plattform) – lagres i tabs[i].filter
-    const filter = { type: 'html', html: (hh, cc, key, ed) => {
-      innKit(ed);
-      const tab = curTab(ed, cc), t = tab && tabDef(cc, tab);
-      if (!t) return '';
-      const F = obj(t.filter), P = arr(F.plattform);
-      return `<div class="ifld"><span class="lb">Bare regler med navn som inneholder (kommaseparert)</span><input class="inm full" data-inn="fenh" data-v="${esc(tab)}" value="${esc(arr(F.enheter).join(', '))}" placeholder="Automatisk fordeling" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        <div class="ifld"><span class="lb">Ikke regler med navn som inneholder</span><input class="inm full" data-inn="fikke" data-v="${esc(tab)}" value="${esc(arr(F.ikke_enheter).join(', '))}" placeholder="Ingen" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        <div class="ifld"><span class="lb">Integrasjoner</span><div class="ichips">${KI_VARS_PLATTFORM.map((p) => `<button class="${P.includes(p) ? 'on' : ''}" aria-pressed="${P.includes(p)}" data-a="fn" data-k="${key}" data-op="fplat" data-v="${esc(tab)}" data-p="${p}">${esc({ ki_notifications: 'KI Varslinger', ki_energi: 'KI Energi' }[p])}</button>`).join('')}</div></div>`;
-    }, click: (dd, ed) => {
-      if (dd.op !== 'fplat') return;
-      M.haptic('selection');
-      const D = tabDefs(ed._config || {}).map((x) => { if (x.key !== dd.v) return x; const F = { ...obj(x.filter) }, P = new Set(arr(F.plattform)); if (P.has(dd.p)) P.delete(dd.p); else P.add(dd.p); if (P.size) F.plattform = [...P]; else delete F.plattform; return { ...x, filter: F }; });
-      return ed._set('tabs', tabsOut(D));
+      return undefined;
     } };
     const reset = { type: 'html', html: (hh, cc, key) => `<button class="ireset" data-a="fn" data-k="${key}" data-op="reset" data-v="">Tilbakestill til standard</button>`,
-      click: (dd, ed) => { if (dd.op !== 'reset') return; M.haptic('medium'); const cc = ed._config || {}, id = cc.card_id || M.uid(); NT.delete(cid(ed)); RT.delete(cid(ed)); ed._config = { type: cc.type || 'custom:msh-innstillinger-card', card_id: id }; ed._set('card_id', id); } };
+      click: (dd, ed) => { if (dd.op !== 'reset') return; M.haptic('medium'); const cc = ed._config || {}, id = cc.card_id || M.uid(); NT.delete(cid(ed)); RT.delete(cid(ed)); EXPF.delete(cid(ed)); ed._config = { type: cc.type || 'custom:msh-innstillinger-card', card_id: id }; ed._set('card_id', id); } };
     // Entiteter (designet): ikon, navn, entitet (mono) / «Velg entitet» (rosa), chevron → søk med forslag (✓ = valgt).
     // Autokonfig vises som «… · automatisk»; «Automatisk» i lista fjerner overstyringen.
     const entiteter = { type: 'html', html: (hh, cc, key, ed) => {
@@ -47875,17 +48261,16 @@ try {
       { type: 'tabs', id: 'innstillinger', tabs: [
         { key: 'faner', label: 'Faner', focus: ['faner', 'visning', 'forhandsvisning'], fields: [
           { type: 'section', id: 'forhandsvisning', label: 'Forhåndsvisning', fields: [preview] },
-          { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner] },
+          { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner, gui] },
           { type: 'section', id: 'visning', label: '', fields: [
             { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Ikon + tekst'], ['name', 'Tekst'], ['ikon', 'Ikoner']], default: 'icon' },
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: tabDefs(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
+            { type: 'select', name: 'start_tab', label: 'Startfane', options: fanerOf(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
           ] },
         ] },
-        { key: 'rader', label: 'Rader', focus: ['rader', 'filter'], fields: [
+        { key: 'rader', label: 'Rader', focus: ['rader'], fields: [
           radSeg,
           { type: 'section', id: 'oppsummering', label: '', fields: [summary] },
           { type: 'section', id: 'rader', label: 'Rader · dra for rekkefølge', fields: [rader] },
-          { type: 'section', id: 'filter', label: 'Filter for fanen', fields: [filter] },
         ] },
         { key: 'entiteter', label: 'Entiteter', focus: ['entiteter'], fields: [{ type: 'section', id: 'entiteter', label: 'Toppkort', fields: [entiteter] }] },
         { key: 'avansert', label: 'Avansert', focus: ['avansert', 'spacing'], fields: [
@@ -47978,6 +48363,14 @@ try {
     // Soloppgangen (28.6) spilles bare én gang per åpning: neste åpning starter den på nytt
     onClose() { this._ui = { ...this._ui, q: '' }; this._riseAt = 0; clearTimeout(this._riseT); const sc = this.shadowRoot && this.shadowRoot.querySelector('.sc.rise'); if (sc) sc.classList.remove('rise'); }
     onOpen() { this._riseAt = 0; this.update(); }
+    get holdMs() { return 500; } // 29.2: hold 500 ms = more-info (som ki-varsling-card)
+    // Registeret endres ofte i HA: tegn bare når bryterne ([id, på] per fane) faktisk endres (29.1 «Live»)
+    _changed(o, n) {
+      if (o.areas === n.areas && o.states === n.states && (o.entities !== n.entities || o.devices !== n.devices) && this._vsig != null) {
+        try { if (cardSig(n, this.config) === this._vsig) return false; } catch (e) { /* tegn */ }
+      }
+      return super._changed(o, n);
+    }
     get tab() { const V = visTabs(this.config).map((t) => t.key), t = keyOf(this.ui.tab || this.config.start_tab); return V.includes(t) ? t : V[0]; }
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
     get _anim() { return this.config.animasjoner !== false; }
@@ -47988,8 +48381,8 @@ try {
       if (ui && ui.editor && this.hass) ui.editor.__innSig = ruleSig(this.hass, ui.editor._config || this.config);
       return ui;
     }
-    // 28.5: åpent Tilpass-ark får fersk hass – nye regler/kategorier i KI Varslinger dukker opp i «Legg til fane» og Rader
-    // uten reload. Ny tegning bare når regelsettet (id + kategori) faktisk endres.
+    // 28.5/29: åpent Tilpass-ark får fersk hass – nye regler/brytere/integrasjoner dukker opp i fanepanelet, «Legg til fane»
+    // og Rader uten reload. Ny tegning bare når brytersettet per fane (eller plattformlisten) faktisk endres.
     _edLive(h) {
       const ui = this._edUi, ed = ui && ui.editor;
       if (!ed || !h) return;
@@ -48007,7 +48400,8 @@ try {
       if (!this._opt || !h) return;
       Object.keys(this._opt).forEach((id) => { const o = this._opt[id], s = h.states[id]; if (s && (s.state === 'on') === o.want) { clearTimeout(o.tm); delete this._opt[id]; } });
     }
-    _flip(id) {
+    // svc = 'toggle' for radene (29.2: trykk = toggle), ellers turn_on/turn_off (toppkortet)
+    _flip(id, svc) {
       const h = this.hass, s = h && id && h.states[id];
       if (!s || M.unavailable(s)) return;
       this._opt = this._opt || {};
@@ -48025,7 +48419,7 @@ try {
         }, M.innstSyncMs);
         this._opt[id] = o;
       }
-      const p = M.call(h, 'homeassistant', want ? 'turn_on' : 'turn_off', { entity_id: id });
+      const p = M.call(h, 'homeassistant', svc || (want ? 'turn_on' : 'turn_off'), { entity_id: id });
       if (p && p.catch) p.catch(() => { const o = this._opt && this._opt[id]; if (o) { clearTimeout(o.tm); delete this._opt[id]; this.update(); } });
       this.update();
     }
@@ -48105,32 +48499,34 @@ try {
         <div class="stx"><span class="k">${esc(kicker)}</span><span class="gt">${night ? 'God natt' : 'God morgen'}</span>${sub ? `<span class="k">${esc(sub)}</span>` : ''}${pend ? SYNC : ''}</div>
         <div class="chips">${chip(E.natt, nS, nua, nOn, 'n', 'mdi:moon-waning-crescent', nOn ? 'Natt på' : 'Natt av', 'medium')}${chip(E.privat, pS, pua, pOk, 'p', pOk ? 'mdi:video-off' : 'mdi:video', pOk ? 'Privat på' : 'Kamera på', 'medium')}</div></div>`;
     }
+    // 29.2: tom kilde → aldri mock; «Velg integrasjoner» åpner fanepanelet (29.3) for denne fanen
     _empty(tab) {
-      const h = this.hass, R = rules(h, this.config), d = tabDef(this.config, tab);
-      const txt = !R.some((r) => r.kilde === 'integrasjon' && r.plattform !== 'ki_energi') && tab !== 'strom' ? 'Fant ingen varsler fra KI Varslinger og sikkerhet'
-        : tab === 'strom' && !R.some((r) => r.plattform === 'ki_energi') ? 'Fant ingen varsler fra KI Energi'
-          : d && d.custom ? `Ingen varsler i kategorien ${katName(d.source)}` : 'Ingen varsler i denne fanen';
-      return `<div class="empty">${M.icon('mdi:bell-off-outline', 22)}<span>${esc(txt)}</span><button class="pick press" data-act="customize" data-section="rader" ${this._hp('light')}>${M.icon('mdi:plus', 18)}Velg entiteter</button></div>`;
+      const d = tabDef(this.config, tab), src = this.hass ? finn(this.hass, faneCfg(this.config, d || {})).length : 0;
+      const txt = !src ? 'Fant ingen brytere fra valgte integrasjoner' : 'Alle bryterne i fanen er skjult';
+      return `<div class="empty" data-key="empty">${M.icon('mdi:bell-off-outline', 22)}<span>${esc(txt)}</span><button class="pick press" data-act="pickint" data-v="${esc(tab)}" ${this._hp('light')}>${M.icon('mdi:tune-variant', 18)}Velg integrasjoner</button></div>`;
     }
     _list(tab) {
-      const c = this.config, h = this.hass, all = tabRows(h, c, tab);
+      const c = this.config, h = this.hass, all = tabRows(h, c, tab), d = tabDef(c, tab) || {};
       all.forEach((r) => this.s(r.id));
       if (!all.length) return this._empty(tab);
+      const pa = (r) => this._on(r.id, h.states[r.id]);
       const q = (this.ui.q || '').trim().toLowerCase();
       let L = q ? all.filter((r) => `${r.name} ${r.sub} ${r.enhet} ${r.id}`.toLowerCase().includes(q)) : all;
-      if (c.av_forst) L = [...L.filter((r) => !isOn(h.states[r.id])), ...L.filter((r) => isOn(h.states[r.id]))];
-      const on = all.filter((r) => isOn(h.states[r.id])).length, allOn = on === all.length;
-      const search = c.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
+      if (c.av_forst) L = [...L.filter((r) => !pa(r)), ...L.filter((r) => pa(r))];
+      const on = all.filter(pa).length, allOn = on === all.length;
+      const search = c.sok !== false && d.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
       const head = c.show_summary !== false ? `<div class="cnt" data-key="cnt"><span class="num">${on} av ${all.length} på</span><button class="all press" data-act="all" data-v="${allOn ? 'off' : 'on'}" ${this._hp('medium')}>${allOn ? 'Slå alle av' : 'Slå alle på'}</button></div>` : '';
       const rows = L.map((r, k) => {
-        const s = h.states[r.id], o = isOn(s), un = M.unavailable(s);
+        const s = h.states[r.id], o = pa(r), un = !s || M.unavailable(s);
         const sub = un ? 'Svarer ikke' : r.sub || '–';
-        return `<button class="pr press ${o ? '' : 'off'}" style="animation-delay:${k * 25}ms" data-key="r-${esc(r.key)}" data-act="tg" data-id="${esc(r.id)}" data-ent="${esc(r.id)}" role="switch" aria-checked="${o}" ${this._hp('selection')} ${un ? 'disabled' : ''}>
+        // trykk = toggle (optimistisk), hold 500 ms = more-info (data-ent), borte = dempet + «Svarer ikke»
+        return `<button class="pr press ${o ? '' : 'off'} ${un ? 'borte' : ''} ${this._pend(r.id) ? 'pend' : ''}" style="animation-delay:${k * 25}ms" data-key="r-${esc(r.key)}" data-act="tg" data-id="${esc(r.id)}" data-ent="${esc(r.id)}" role="switch" aria-checked="${o}" ${un ? 'aria-disabled="true"' : ''} ${this._hp('selection')}>
           <span class="pi">${M.icon(r.icon, 22)}</span>
           <span class="pt"><b>${esc(r.name)}</b><i>${o || un ? esc(sub) : 'Av · ' + esc(sub)}</i></span>
           <span class="sw ${o ? 'on' : ''}"></span></button>`;
       }).join('');
-      return `${search}<div class="lst">${head}${rows || '<div class="none">Ingen treff</div>'}</div>`;
+      this._vsig = cardSig(h, c);
+      return `${search}<div class="lst" data-key="lst">${head}${rows || '<div class="none">Ingen treff</div>'}</div>`;
     }
     onInput(name, el) { if (name === 'q') this.setUI({ q: el.value }); }
     onAction(name, el, ev) {
@@ -48139,11 +48535,12 @@ try {
         case 'tab': return this.setUI({ tab: d.v, q: '' });
         case 'night': return this._flip(ents(this.hass, this.config).natt);
         case 'priv': return this._flip(ents(this.hass, this.config).privat);
-        case 'tg': return d.id ? M.call(this.hass, 'homeassistant', 'toggle', { entity_id: d.id }) : undefined;
+        case 'tg': return d.id ? this._flip(d.id, 'toggle') : undefined; // 29.2: optimistisk + tilbakerulling (27.6)
+        case 'pickint': { const ui = this.customize('faner'); if (ui && ui.editor) { EXPF.set(cid(ui.editor), keyOf(d.v)); if (ui.editor._render) ui.editor._render(); } return undefined; }
         case 'qclr': return this.setUI({ q: '' });
         case 'all': {
           const c = this.config, h = this.hass;
-          const L = tabRows(h, c, this.tab).filter((r) => !M.unavailable(h.states[r.id])).map((r) => r.id);
+          const L = tabRows(h, c, this.tab).filter((r) => h.states[r.id] && !M.unavailable(h.states[r.id])).map((r) => r.id);
           if (L.length) return M.call(h, 'homeassistant', d.v === 'off' ? 'turn_off' : 'turn_on', { entity_id: L });
           return undefined;
         }
@@ -48151,11 +48548,14 @@ try {
       }
     }
     afterRender() {
-      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs[]), sideveis dra = Liquid Glass-valg; tannhjulet står fast
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner[]), sideveis dra = Liquid Glass-valg; tannhjulet står fast
       if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.bar:not(.pv)>.tabs[role="tablist"]'), {
-        active: () => this.tab, order: () => tabDefs(this.config).map((t) => t.key),
-        save: (full) => { const D = tabDefs(this.config); return M.mshPatchConfig(this, { tabs: tabsOut(full.map((k) => D.find((t) => t.key === k)).filter(Boolean)) }); },
+        active: () => this.tab, order: () => fanerOf(this.config).map((t) => t.key),
+        save: (full) => { const D = fanerOf(this.config); return M.mshPatchConfig(this, { faner: fanerOut(full.map((k) => D.find((t) => t.key === k)).filter(Boolean)), tabs: undefined, custom_tabs: undefined, tab_order: undefined, tab_hidden: undefined, tab_names: undefined }); },
       });
+      // Fallgruve 2: trykk/hold på radene skal ikke nå Bubble Cards swipe-to-close (scroll i listen virker som før)
+      const lst = this.shadowRoot.querySelector('.lst');
+      if (lst && !lst.__mshStop) { lst.__mshStop = true; ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => lst.addEventListener(t, (e) => e.stopPropagation(), { passive: true })); }
       // «Dashbord» nederst: dashbordets innstillinger (msh-settings-card) bygd inn – de forsvinner ikke fra #settings
       const slot = this.shadowRoot.querySelector('.dash');
       if (slot) {
@@ -48276,8 +48676,9 @@ try {
         .lst{display:flex;flex-direction:column;gap:8px}
         .cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 0;font-size:13px;color:#afafaf;white-space:nowrap}
         .all{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);color:#fafafa;font-size:12px;font-weight:500;white-space:nowrap;flex:none}
-        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--gray200,#3a3a3a);text-align:left;animation:fade .3s ease both}
-        .pr[disabled]{opacity:.5}
+        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--gray200,#3a3a3a);text-align:left;animation:fade .3s ease backwards}
+        .pr{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .pr.borte{opacity:.45}
         .pi{width:58px;height:58px;border-radius:29px;flex:none;display:grid;place-items:center;background:#4a4a4a;color:#e1e1e1;transition:background .25s,color .25s}
         .pr.off .pi{background:rgb(242 128 115 / .16);color:var(--red,#f28073)}
         .pt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}

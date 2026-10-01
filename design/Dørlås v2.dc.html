@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+body{margin:0;background:#161616;font-family:'Space Grotesk',sans-serif;color:#fafafa;-webkit-font-smoothing:antialiased}
+button{border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input{font:inherit}
+a{color:#f285c9}a:hover{color:#f5cdc6}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;font-feature-settings:'liga'}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes nudge{0%,70%,100%{transform:translateX(0)}80%{transform:translateX(6px)}90%{transform:translateX(0)}95%{transform:translateX(3px)}}
+@keyframes shimmer{0%{background-position:-160px 0}100%{background-position:260px 0}}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;justify-content:center;padding:24px 0;box-sizing:border-box">
+<section data-screen-label="Dørlås popup v2" style="position:relative;overflow:hidden;width:100%;max-width:420px;min-height:900px;box-sizing:border-box;background:#282828;border-radius:32px;padding:20px 14px 32px;display:flex;flex-direction:column;gap:8px">
+
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px 8px">
+    <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">lock</span></span>
+    <span style="flex:1;font-size:30px;font-weight:500;letter-spacing:-0.02em">Dørlås</span>
+    <span style="width:40px;height:40px;border-radius:20px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></span>
+  </header>
+
+  <div style="display:flex;align-items:stretch;gap:8px">
+    <div data-glass-drag="x" style="{{ pickRow }}">
+      <sc-for list="{{ picks }}" as="p" hint-placeholder-count="2">
+        <button onClick="{{ p.go }}" style="{{ p.style }}">
+          <span style="{{ p.circle }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ p.icon }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span><span style="{{ p.stateS }}">{{ p.state }}</span></span>
+        </button>
+      </sc-for>
+    </div>
+    <button onClick="{{ openCfg }}" title="Tilpass dørlås" style="width:56px;height:56px;border-radius:28px;flex:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">settings</span></button>
+  </div>
+
+  <div style="{{ hero.box }}">
+    <span style="{{ hero.glow }}"></span>
+    <div style="position:relative;display:flex;align-items:flex-start;gap:10px">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#afafaf">{{ hero.name }}</span><span style="{{ hero.chip }}"><span class="ms" style="font-size:14px;font-variation-settings:'FILL' 1">{{ hero.chipIcon }}</span>{{ hero.chipText }}</span></div>
+        <span style="font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1">{{ hero.state }}</span>
+        <span style="font-size:13px;color:#979797">{{ hero.sub }}</span>
+      </div>
+      <span style="{{ hero.badge }}"><span class="ms" style="{{ hero.badgeIcon }}">{{ hero.icon }}</span></span>
+    </div>
+    <div onPointerDown="{{ sl.down }}" onPointerMove="{{ sl.move }}" onPointerUp="{{ sl.up }}" onPointerCancel="{{ sl.up }}" onClick="{{ sl.tap }}" ref="{{ trackRef }}" style="{{ sl.track }}">
+      <span style="{{ sl.fill }}"></span>
+      <span style="{{ sl.label }}">{{ sl.text }}</span>
+      <span style="{{ sl.knob }}"><span class="ms" style="{{ sl.knobIcon }}">{{ sl.icon }}</span></span>
+    </div>
+  </div>
+
+  <sc-if value="{{ show.kpi }}" hint-placeholder-val="{{ true }}">
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);min-width:0">
+        <span class="ms" style="{{ k.iconS }}">{{ k.icon }}</span>
+        <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums">{{ k.val }}</span><span style="font-size:12px;color:#979797">{{ k.label }}</span></span>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ show.auto }}" hint-placeholder-val="{{ true }}">
+  <section style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+    <div style="display:flex;align-items:center;gap:12px;padding:0 16px 0 12px">
+      <button onClick="{{ am.toggleOpen }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:72px;text-align:left">
+        <span style="{{ am.circle }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">auto_mode</span></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Automatikk</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ am.sub }}</span></span>
+        <span class="ms" style="{{ am.chev }}">expand_more</span>
+      </button>
+      <button onClick="{{ am.master }}" title="Automatikk av/på" style="{{ am.track }}"><span style="{{ am.knob }}"></span></button>
+    </div>
+    <sc-if value="{{ am.open }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ am.list }}">
+      <sc-for list="{{ autos }}" as="r" hint-placeholder-count="4">
+        <div style="{{ r.wrap }}">
+          <button onClick="{{ r.tap }}" style="display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left">
+            <span class="ms" style="font-size:22px;width:24px;flex:none;color:#afafaf">{{ r.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#979797">{{ r.sub }}</span></span>
+            <span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span>
+          </button>
+          <sc-if value="{{ r.hasMins }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;margin:0 0 12px 36px;border-radius:18px;background:#2f2f2f">
+              <sc-for list="{{ r.mins }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.go }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+  </section>
+  </sc-if>
+
+  <sc-if value="{{ show.hist }}" hint-placeholder-val="{{ true }}">
+  <section style="display:flex;flex-direction:column;gap:12px;padding:14px 0 10px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 16px">
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Historikk</span>
+      <span style="font-size:12px;color:#979797">{{ histSum }}</span>
+    </div>
+    <div data-glass-drag="x" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 16px;touch-action:pan-x">
+      <sc-for list="{{ hf }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.style }}"><span class="ms" style="font-size:16px;font-variation-settings:'FILL' 1">{{ f.icon }}</span>{{ f.label }}<span style="{{ f.nS }}">{{ f.n }}</span></button></sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;padding:0 16px">
+      <sc-for list="{{ days }}" as="d" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column">
+          <span style="padding:6px 0 6px 60px;font-size:12px;font-weight:500;color:#afafaf">{{ d.label }}</span>
+          <sc-for list="{{ d.rows }}" as="h" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:44px 16px minmax(0,1fr);column-gap:8px;align-items:stretch">
+              <span style="padding-top:12px;font-size:13px;color:#979797;font-variant-numeric:tabular-nums;text-align:right">{{ h.time }}</span>
+              <span style="position:relative;display:flex;justify-content:center">
+                <span style="{{ h.lineTop }}"></span><span style="{{ h.lineBot }}"></span>
+                <span style="{{ h.dot }}"></span>
+              </span>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;min-height:44px;min-width:0">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                  <span style="font-size:14px;font-weight:500">{{ h.title }}</span>
+                  <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                    <sc-if value="{{ h.hasWho }}" hint-placeholder-val="{{ false }}"><span style="{{ h.av }}">{{ h.ini }}</span></sc-if>
+                    <span style="{{ h.method }}"><span class="ms" style="font-size:13px">{{ h.mIcon }}</span>{{ h.mLabel }}</span>
+                    <sc-if value="{{ h.hasDoor }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#7f7f7f;white-space:nowrap">{{ h.door }}</span></sc-if>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <sc-if value="{{ noHist }}" hint-placeholder-val="{{ false }}"><span style="padding:16px 0;text-align:center;font-size:13px;color:#979797">Ingen hendelser i dette filteret</span></sc-if>
+    </div>
+    <sc-if value="{{ canMore }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ more }}" style="margin:0 16px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14)">{{ moreLabel }}<span class="ms" style="font-size:18px">{{ moreIcon }}</span></button>
+    </sc-if>
+  </section>
+  </sc-if>
+
+  <sc-if value="{{ cfgOpen }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Tilpass dørlås" style="position:absolute;inset:0;z-index:50;display:flex;align-items:flex-end">
+    <div onClick="{{ closeCfg }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fade .2s ease both"></div>
+    <div style="position:relative;width:100%;height:calc(100% - 40px);box-sizing:border-box;background:#282828;border-radius:38px 38px 0 0;display:flex;flex-direction:column;box-shadow:0 -20px 50px rgba(0,0,0,0.5);animation:up .32s cubic-bezier(.2,.8,.2,1) both">
+      <div style="display:flex;justify-content:center;padding-top:10px"><span style="width:40px;height:5px;border-radius:3px;background:#545454"></span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 20px 14px">
+        <span style="flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Tilpass dørlås</span>
+        <button onClick="{{ closeCfg }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2f2f2f;font-size:14px;font-weight:600">Ferdig</button>
+      </div>
+      <div style="padding:0 14px 10px">
+        <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <sc-for list="{{ ed.tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;padding:0 14px 40px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+
+        <sc-if value="{{ ed.isLocks }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ ed.locks }}" as="l" hint-placeholder-count="2">
+            <section style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="ms" style="font-size:22px;color:#afafaf;font-variation-settings:'FILL' 1">lock</span>
+                <input value="{{ l.name }}" onChange="{{ l.setName }}" style="flex:1;min-width:0;height:44px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#282828;color:#fafafa;font-size:15px"></input>
+                <button onClick="{{ l.toggle }}" title="Vis / skjul" style="{{ l.track }}"><span style="{{ l.knob }}"></span></button>
+              </div>
+              <sc-for list="{{ l.ents }}" as="e" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;min-height:48px;padding:0 4px;border-top:1px solid rgba(255,255,255,0.06)">
+                  <span class="ms" style="font-size:18px;color:#979797">{{ e.icon }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;color:#979797">{{ e.label }}</span><span style="font-size:13px;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.id }}</span></span>
+                  <span style="{{ e.chipS }}">{{ e.chip }}</span>
+                  <span style="height:32px;padding:0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;font-size:12px;font-weight:500">Bytt</span>
+                </div>
+              </sc-for>
+            </section>
+          </sc-for>
+          <span style="font-size:12px;color:#7f7f7f;line-height:1.45;padding:2px 8px 0">Låsene finnes selv fra <code>lock.*</code> og dørsensoren i samme område. Skjulte låser vises ikke i velgeren.</span>
+        </sc-if>
+
+        <sc-if value="{{ ed.isSecs }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 4px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Seksjoner</span>
+            <div style="padding:0 16px 4px">
+              <sc-for list="{{ ed.secs }}" as="r" hint-placeholder-count="3">
+                <button onClick="{{ r.tap }}" style="{{ r.row }}"><span class="ms" style="font-size:22px;width:24px;color:#afafaf">{{ r.icon }}</span><span style="flex:1;text-align:left;font-size:15px;font-weight:500">{{ r.label }}</span><span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span></button>
+              </sc-for>
+            </div>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Opplåsing</span>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:3px;border-radius:20px;background:#282828"><sc-for list="{{ ed.unl }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.go }}" style="{{ m.style }}">{{ m.label }}</button></sc-for></div>
+            <span style="font-size:12px;color:#7f7f7f;line-height:1.45">{{ ed.unlNote }}</span>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ ed.isHist }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Antall hendelser</span>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;border-radius:20px;background:#282828"><sc-for list="{{ ed.counts }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.go }}" style="{{ m.style }}">{{ m.label }}</button></sc-for></div>
+          </section>
+          <section style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 4px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Vis i historikken</span>
+            <div style="padding:0 16px 4px">
+              <sc-for list="{{ ed.hopts }}" as="r" hint-placeholder-count="4">
+                <button onClick="{{ r.tap }}" style="{{ r.row }}"><span class="ms" style="font-size:22px;width:24px;color:#afafaf">{{ r.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#979797">{{ r.sub }}</span></span><span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span></button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;laser&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[1,2,3,4],&quot;default&quot;:4,&quot;tsType&quot;:&quot;1|2|3|4&quot;}}">
+const G = 'rgb(102 209 158)', O = 'rgb(242 181 115)', R = 'rgb(242 128 115)', B = 'rgb(115 185 242)', PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
+const a = (c, x) => c.replace(')', ` / ${x})`);
+const LOCKS = [
+  { id: 'inngang', name: 'Inngangsdør', ent: 'lock.inngang', door: 'binary_sensor.inngang_dor', locked: true, doorSt: 'Lukket', bat: 78, by: 'Autolås', at: '21:04' },
+  { id: 'bakdor', name: 'Bakdør', ent: 'lock.bakdor', door: '', locked: false, doorSt: 'Lukket', bat: 41, by: 'Sebastian', at: '20:47' },
+  { id: 'terrasse', name: 'Terrassedør', ent: 'lock.terrasse', door: 'binary_sensor.terrasse_dor', locked: true, doorSt: 'Lukket', bat: 92, by: 'Nattlås', at: '23:00' },
+  { id: 'bod', name: 'Bod', ent: 'lock.bod', door: '', locked: true, doorSt: 'Lukket', bat: 18, by: 'Rune', at: '17:45' }
+];
+const PEOPLE = { sebastian: ['Sebastian', 'S', 'rgb(242 133 201)'], cybele: ['Cybele', 'C', 'rgb(182 155 242)'], rune: ['Rune', 'R', 'rgb(115 185 242)'] };
+const M = { code: ['pin', 'Kode'], app: ['smartphone', 'Appen'], auto: ['lock_clock', 'Autolås'], key: ['key', 'Nøkkel'], away: ['directions_walk', 'Alle dro'], night: ['bedtime', 'Nattlås'], face: ['face', 'Ansikt'], sensor: ['sensors', 'Sensor'] };
+const EV = [
+  [0, 'lock', '21:04', null, 'auto', 'inngang'], [0, 'door', '20:58', null, 'sensor', 'inngang'], [0, 'unlock', '20:58', 'sebastian', 'code', 'inngang'],
+  [0, 'unlock', '20:47', 'sebastian', 'app', 'bakdor'], [0, 'unlock', '16:20', 'cybele', 'face', 'inngang'], [0, 'lock', '08:12', null, 'away', 'inngang'],
+  [1, 'jam', '23:01', null, 'night', 'inngang'], [1, 'lock', '23:00', null, 'night', 'inngang'], [1, 'unlock', '17:45', 'rune', 'key', 'inngang'], [1, 'lock', '07:58', 'cybele', 'app', 'bakdor']
+];
+const T = { lock: ['Låst', G, 'lock'], unlock: ['Låst opp', O, 'lock_open'], door: ['Døra åpnet', '#979797', 'door_open'], jam: ['Fastkjørt', R, 'warning'] };
+const DAYS = ['I dag', 'I går'];
+class Component extends DCLogic {
+  state = { sel: 0, locks: LOCKS.map(l => ({ ...l })), busy: null, drag: null, auto: true, mins: 2, away: true, night: true, jam: true, left: 118,
+    hf: 'alle', hn: 6, cfgOpen: false, et: 'locks', hid: {}, sec: { kpi: true, auto: true, hist: true }, unl: 'dra', cnt: 6, hAll: true, hDoor: true, hMethod: true, hWho: true };
+  componentDidMount() { this._t = setInterval(() => { const L = this.vis()[this.state.sel]; if (L && !L.locked && this.state.auto && !this.state.busy) this.setState(s => ({ left: Math.max(0, s.left - 1) })); }, 1000); }
+  componentWillUnmount() { clearInterval(this._t); clearTimeout(this._b); }
+  vis() { const n = Math.max(1, Math.min(4, Number(this.props.laser ?? 4))), v = this.state.locks.slice(0, n).filter(l => !this.state.hid[l.id]); return v.length ? v : this.state.locks.slice(0, 1); }
+  setLock(locked) { const id = this.vis()[this.state.sel].id; this.setState({ busy: locked ? 'locking' : 'unlocking', drag: null }); clearTimeout(this._b);
+    this._b = setTimeout(() => { hp(locked ? 'success' : 'medium'); this.setState(s => ({ busy: null, left: s.mins * 60, locks: s.locks.map(l => l.id === id ? { ...l, locked, by: 'Appen', at: new Date().toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' }) } : l) })); }, 1300); }
+  renderVals() {
+    const s = this.state, V = this.vis(), sel = Math.min(s.sel, V.length - 1), L = V[sel], busy = s.busy, lk = L.locked;
+    const col = busy ? '#afafaf' : lk ? G : O;
+    const mmss = n => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+    const f = s.drag == null ? (lk ? 0 : 1) : s.drag;
+    const sw = on => ({ track: { position: 'relative', width: 50, height: 30, borderRadius: 15, flex: 'none', background: on ? PK : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 24, height: 24, borderRadius: 12, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.3)', transition: 'left .2s' } });
+    const tog = k => () => { hp('selection'); this.setState({ [k]: !s[k] }); };
+    const seg = (on, h) => ({ height: h || 36, borderRadius: 17, fontSize: 13, fontWeight: 500, minWidth: 0, background: on ? PK : 'transparent', color: on ? '#2f2f2f' : '#c7c7c7', transition: 'background .2s' });
+    const geo = () => { const el = this._tr; if (!el) return null; const b = el.getBoundingClientRect(); return { w: b.width - 64 }; };
+    const unl = s.unl;
+    // history
+    const evs = EV.filter(e => (s.hAll || e[5] === L.id) && (s.hDoor || e[1] !== 'door'));
+    const FIL = [['alle', 'Alle', 'list', () => true], ['lock', 'Låst', 'lock', e => e[1] === 'lock'], ['unlock', 'Opplåst', 'lock_open', e => e[1] === 'unlock'], ['jam', 'Varsler', 'warning', e => e[1] === 'jam']];
+    const fx = (FIL.find(x => x[0] === s.hf) || FIL[0])[3], shown = evs.filter(fx).slice(0, s.hn);
+    const days = DAYS.map((label, di) => { const rows = shown.filter(e => e[0] === di); return { label, rows }; }).filter(d => d.rows.length).map(d => ({ label: d.label, rows: d.rows.map((e, i) => { const [ttl, c, ic] = T[e[1]], who = e[3] && s.hWho ? PEOPLE[e[3]] : null, [mi, ml] = M[e[4]], last = i === d.rows.length - 1, first = i === 0;
+      const door = (s.locks.find(l => l.id === e[5]) || {}).name;
+      return { time: e[2], title: ttl, hasWho: !!who, ini: who ? who[1] : '', mIcon: mi, mLabel: who ? `${who[0]} · ${ml}` : ml, hasDoor: s.hAll && V.length > 1, door: '· ' + door,
+        av: { width: 18, height: 18, borderRadius: 9, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600, background: who ? who[2] : '#545454', color: '#232323' },
+        method: { display: s.hMethod || who ? 'inline-flex' : 'none', alignItems: 'center', gap: 4, height: 20, padding: '0 8px 0 6px', borderRadius: 10, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', background: '#2f2f2f', color: '#c7c7c7' },
+        dot: { position: 'relative', zIndex: 1, marginTop: 13, width: 12, height: 12, borderRadius: 6, boxSizing: 'border-box', background: e[1] === 'door' ? '#3a3a3a' : c, border: e[1] === 'door' ? '2px solid #7f7f7f' : 'none', boxShadow: `0 0 0 4px #3a3a3a${e[1] === 'jam' ? `, 0 0 0 6px ${a(R, 0.3)}` : ''}` },
+        lineTop: { position: 'absolute', left: 7, top: 0, height: 14, width: 2, background: first ? 'transparent' : '#4a4a4a' },
+        lineBot: { position: 'absolute', left: 7, top: 14, bottom: 0, width: 2, background: last ? 'transparent' : '#4a4a4a' } }; }) }));
+    const total = evs.filter(fx).length;
+    return {
+      pickRow: { flex: 1, minWidth: 0, display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', touchAction: 'pan-x', scrollSnapType: 'x mandatory', ...(V.length > 2 ? { WebkitMaskImage: 'linear-gradient(90deg, #000 85%, transparent)', maskImage: 'linear-gradient(90deg, #000 85%, transparent)', paddingRight: 24 } : {}) },
+      picks: V.map((l, i) => { const on = i === sel, c = l.locked ? G : O; return { name: l.name, icon: l.locked ? 'lock' : 'lock_open', state: l.locked ? 'Låst' : 'Ulåst', go: () => { hp('selection'); this.setState({ sel: i, drag: null, busy: null }); },
+        style: { flex: V.length > 2 ? '0 0 164px' : '1 1 0', scrollSnapAlign: 'start', minWidth: 0, height: 56, padding: '0 12px 0 8px', borderRadius: 28, display: 'flex', alignItems: 'center', gap: 8, background: on ? '#404040' : '#3a3a3a', boxShadow: on ? 'inset 0 0 0 1.5px rgb(242 133 201)' : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s, box-shadow .2s' },
+        circle: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? c : a(c, 0.16), color: on ? '#232323' : c, transition: 'background .2s' },
+        stateS: { fontSize: 12, color: c, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }; }),
+      openCfg: () => { hp('light'); this.setState({ cfgOpen: true }); }, closeCfg: () => { hp('light'); this.setState({ cfgOpen: false }); }, cfgOpen: s.cfgOpen,
+      show: s.sec,
+      hero: { name: L.name, state: busy === 'unlocking' ? 'Låser opp …' : busy === 'locking' ? 'Låser …' : lk ? 'Låst' : 'Ulåst',
+        sub: busy ? 'Venter på låsen' : `${lk ? 'Låst' : 'Låst opp'} av ${L.by} · ${L.at}`,
+        chipText: busy ? 'Jobber' : lk ? 'Sikret' : L.doorSt === 'Åpen' ? 'Døra står åpen' : 'Døra er lukket', chipIcon: busy ? 'sync' : lk ? 'verified_user' : 'door_front',
+        chip: { display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 10px 0 7px', borderRadius: 12, fontSize: 12, fontWeight: 500, background: a(col, 0.16), color: col },
+        icon: busy ? 'progress_activity' : lk ? 'lock' : 'lock_open',
+        badge: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: a(col, 0.16), color: col, transition: 'background .3s, color .3s', animation: busy ? 'none' : 'pop .4s ease' },
+        badgeIcon: { fontSize: 28, fontVariationSettings: "'FILL' 1", animation: busy ? 'spin 1s linear infinite' : 'none' },
+        box: { position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 18, padding: 18, borderRadius: 28, background: '#3a3a3a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        glow: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: '50%', background: `radial-gradient(circle, ${a(col, 0.18)} 0%, transparent 70%)`, pointerEvents: 'none', transition: 'background .4s' } },
+      trackRef: el => { this._tr = el; },
+      sl: { text: busy ? (busy === 'unlocking' ? 'Låser opp …' : 'Låser …') : lk ? (unl === 'dra' ? 'Dra for å låse opp' : unl === 'hold' ? 'Hold for å låse opp' : 'Trykk for å låse opp') : 'Trykk for å låse',
+        icon: busy ? 'progress_activity' : lk ? 'lock' : 'lock_open',
+        down: e => { if (busy || !lk) return; e.stopPropagation(); if (unl === 'trykk') return; if (unl === 'hold') { hp('selection'); this.setState({ drag: 0 }); const t0 = Date.now(); clearInterval(this._h); this._h = setInterval(() => { const v = Math.min(1, (Date.now() - t0) / 900); this.setState({ drag: v }); if (v >= 1) { clearInterval(this._h); this.setLock(false); } }, 30); return; }
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} this._g = geo(); this._sx = e.clientX; this.setState({ drag: 0 }); hp('selection'); },
+        move: e => { if (unl !== 'dra' || s.drag == null || !this._g) return; e.stopPropagation(); const v = Math.max(0, Math.min(1, (e.clientX - this._sx) / this._g.w)); if (v >= 0.92 && s.drag < 0.92) hp('medium'); this.setState({ drag: v }); },
+        up: e => { if (unl === 'hold') { clearInterval(this._h); if (!this.state.busy) this.setState({ drag: null }); return; } if (s.drag == null) return; e.stopPropagation(); if (s.drag >= 0.92) this.setLock(false); else this.setState({ drag: null }); },
+        tap: () => { if (busy) return; if (!lk) { hp('light'); this.setLock(true); } else if (unl === 'trykk') { hp('medium'); this.setLock(false); } },
+        track: { position: 'relative', height: 64, borderRadius: 32, overflow: 'hidden', background: '#2f2f2f', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', touchAction: 'none', userSelect: 'none', cursor: busy ? 'default' : lk && unl === 'dra' ? 'grab' : 'pointer' },
+        fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `calc(64px + (100% - 64px) * ${f})`, borderRadius: 32, background: lk && !busy ? a(O, 0.22) : a(col, 0.18), transition: s.drag == null ? 'width .35s cubic-bezier(.2,.8,.2,1), background .3s' : 'none' },
+        label: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: lk ? 48 : 0, paddingRight: lk ? 0 : 48, fontSize: 15, fontWeight: 500, color: 'transparent', backgroundImage: lk && !busy ? 'linear-gradient(90deg, #7f7f7f 0%, #7f7f7f 40%, #fafafa 50%, #7f7f7f 60%, #7f7f7f 100%)' : 'none', backgroundSize: '260px 100%', WebkitBackgroundClip: lk && !busy ? 'text' : 'border-box', backgroundClip: lk && !busy ? 'text' : 'border-box', ...(lk && !busy ? { animation: 'shimmer 2.4s linear infinite' } : { color: '#e1e1e1' }), opacity: s.drag != null ? Math.max(0, 1 - s.drag * 1.6) : 1 },
+        knob: { position: 'absolute', top: 4, left: `calc(4px + (100% - 64px) * ${f})`, width: 56, height: 56, borderRadius: 28, display: 'grid', placeItems: 'center', background: busy ? '#545454' : lk ? (s.drag != null && s.drag >= 0.92 ? O : G) : O, color: '#232323', boxShadow: '0 6px 16px rgba(0,0,0,0.35)', transition: s.drag == null || unl === 'hold' ? 'left .35s cubic-bezier(.2,.8,.2,1), background .2s' : 'background .2s', animation: lk && !busy && s.drag == null && unl === 'dra' ? 'nudge 3.2s ease-in-out 1s infinite' : 'none' },
+        knobIcon: { fontSize: 26, fontVariationSettings: "'FILL' 1", animation: busy ? 'spin 1s linear infinite' : 'none' } },
+      kpis: [
+        { icon: 'door_front', val: L.door || L.id === 'inngang' ? L.doorSt : '–', label: 'Dør', c: L.doorSt === 'Åpen' ? O : '#afafaf' },
+        { icon: L.bat < 50 ? 'battery_3_bar' : 'battery_5_bar', val: L.bat + ' %', label: 'Batteri', c: L.bat < 30 ? R : L.bat < 50 ? O : '#afafaf' },
+        { icon: 'timer', val: !s.auto ? 'Av' : lk ? s.mins + ' min' : mmss(s.left), label: !s.auto ? 'Autolås' : lk ? 'Autolås' : 'Låses om', c: !lk && s.auto ? O : '#afafaf' }
+      ].map(k => ({ ...k, iconS: { fontSize: 22, color: k.c, fontVariationSettings: "'FILL' 1" } })),
+      am: (() => { const keys = ['auto', 'away', 'night', 'jam'], on = keys.filter(k => s[k]).length, M = s.aOn !== false, op = !!s.aOpen;
+        return { open: op, toggleOpen: () => { hp('selection'); this.setState({ aOpen: !op }); }, master: e => { e && e.stopPropagation(); hp('medium'); this.setState({ aOn: !M }); },
+          sub: !M ? 'Av · ingen automatikk kjører' : `${on} av ${keys.length} på${s.auto ? ' · autolås ' + s.mins + ' min' : ''}`,
+          ...sw(M), circle: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: M ? a('rgb(242 133 201)', 0.18) : '#2f2f2f', color: M ? 'rgb(242 133 201)' : '#7f7f7f', transition: 'background .2s' },
+          chev: { fontSize: 22, color: '#979797', transform: op ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
+          list: { padding: '0 16px 6px', display: 'flex', flexDirection: 'column', borderTop: '1px solid rgba(255,255,255,0.06)', opacity: M ? 1 : 0.4, pointerEvents: M ? 'auto' : 'none', transition: 'opacity .2s', animation: 'fade .2s ease both' } }; })(),
+      autos: [
+        ['auto', 'lock_clock', 'Autolås', s.auto ? `Låser ${s.mins} min etter at døra lukkes` : 'Av'],
+        ['away', 'directions_walk', 'Lås når alle drar', 'Når siste person forlater hjemmet'],
+        ['night', 'bedtime', 'Nattlås', 'Låser kl. 23:00 hvis ulåst'],
+        ['jam', 'notification_important', 'Varsle ved fastkjørt lås', 'Push med bilde fra inngangskamera']
+      ].map(([k, icon, label, sub], i) => ({ icon, label, sub, tap: tog(k), ...sw(s[k]), hasMins: k === 'auto' && s.auto,
+        wrap: { display: 'flex', flexDirection: 'column', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' },
+        mins: [1, 2, 5, 10].map(m => ({ label: m + ' min', go: () => { hp('selection'); this.setState({ mins: m, left: m * 60 }); }, style: { height: 34, borderRadius: 15, fontSize: 13, fontWeight: 500, background: s.mins === m ? '#404040' : 'transparent', boxShadow: s.mins === m ? 'inset 0 0 0 1.5px rgb(242 133 201)' : 'none', color: s.mins === m ? '#fafafa' : '#afafaf' } })) })),
+      histSum: `${evs.filter(e => e[0] === 0 && e[1] === 'unlock').length} opplåsinger i dag`,
+      hf: FIL.map(([k, label, icon, fn]) => { const on = s.hf === k, n = evs.filter(fn).length; return { label, icon, n: String(n), go: () => { hp('selection'); this.setState({ hf: k, hn: s.cnt }); },
+        style: { flex: 'none', height: 34, padding: '0 6px 0 10px', borderRadius: 17, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PK : '#2f2f2f', color: on ? '#2f2f2f' : k === 'jam' && n ? R : '#c7c7c7' },
+        nS: { minWidth: 22, height: 22, padding: '0 6px', boxSizing: 'border-box', borderRadius: 11, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600, background: on ? 'rgba(47,47,47,0.14)' : '#404040' } }; }),
+      days, noHist: !shown.length,
+      canMore: total > s.cnt, moreLabel: s.hn < total ? `Vis ${total - s.hn} til` : 'Vis færre', moreIcon: s.hn < total ? 'expand_more' : 'expand_less',
+      more: () => { hp('light'); this.setState({ hn: s.hn < total ? total : s.cnt }); },
+      ed: { isLocks: s.et === 'locks', isSecs: s.et === 'secs', isHist: s.et === 'hist',
+        tabs: [['locks', 'Låser'], ['secs', 'Seksjoner'], ['hist', 'Historikk']].map(([k, label]) => ({ label, go: () => { hp('selection'); this.setState({ et: k }); }, style: { ...seg(s.et === k, 40), borderRadius: 20 } })),
+        locks: s.locks.slice(0, Math.max(1, Math.min(4, Number(this.props.laser ?? 4)))).map(l => { const on = !s.hid[l.id], t = sw(on), vis = s.locks.filter(x => !s.hid[x.id]).length;
+          return { name: l.name, setName: e => { const v = e.target.value; this.setState(st => ({ locks: st.locks.map(x => x.id === l.id ? { ...x, name: v } : x) })); }, toggle: () => { if (on && vis < 2) return; hp('selection'); this.setState({ hid: { ...s.hid, [l.id]: on }, sel: 0 }); }, ...t,
+            ents: [['lock', 'Lås', l.ent], ['sensor_door', 'Dørsensor', l.door]].map(([icon, label, id]) => ({ icon, label, id: id || 'Velg entitet', chip: id ? 'Auto' : 'Mangler', chipS: { height: 20, padding: '0 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', background: id ? a(G, 0.18) : a(O, 0.18), color: id ? G : O } })) }; }),
+        secs: [['kpi', 'grid_view', 'Status · dør, batteri, autolås'], ['auto', 'tune', 'Automatikk'], ['hist', 'history', 'Historikk']].map(([k, icon, label], i) => ({ icon, label, ...sw(s.sec[k]), tap: () => { hp('selection'); this.setState({ sec: { ...s.sec, [k]: !s.sec[k] } }); }, row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, width: '100%', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' } })),
+        unl: [['dra', 'Dra'], ['hold', 'Hold'], ['trykk', 'Trykk']].map(([k, label]) => ({ label, go: () => { hp('selection'); this.setState({ unl: k, drag: null }); }, style: seg(unl === k) })),
+        unlNote: unl === 'dra' ? 'Dra knotten helt til høyre for å låse opp. Hindrer opplåsing ved et uhell.' : unl === 'hold' ? 'Hold inne i 0,9 s. Ringen fylles mens du holder.' : 'Ett trykk låser opp. Raskest, men uten bekreftelse.',
+        counts: [4, 6, 10, 20].map(n => ({ label: String(n), go: () => { hp('selection'); this.setState({ cnt: n, hn: n }); }, style: seg(s.cnt === n) })),
+        hopts: [['hAll', 'lock', 'Alle låser', 'Ellers bare valgt lås'], ['hDoor', 'door_open', 'Dør åpnet/lukket', 'Fra dørsensoren'], ['hWho', 'person', 'Hvem', 'Navn og bilde når det er kjent'], ['hMethod', 'pin', 'Metode', 'Kode, app, nøkkel, autolås …']].map(([k, icon, label, sub], i) => ({ icon, label, sub, ...sw(s[k]), tap: tog(k), row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, width: '100%', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' } })) }
+    };
+  }
+}
+</script>
+</body>
+</html>

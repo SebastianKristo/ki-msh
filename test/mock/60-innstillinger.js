@@ -3,6 +3,8 @@
 // (ki_notifications: 12 regler = 12 enheter, flere brytere per regel der hovedbryteren velges med erMaster). KI Energi
 // (varslingsbryterne) kommer fra 42-klimaz-blokker; KI Utelys (43-utelys) får plattform og enhet her. Fiks 27: kategoriene
 // Kamera (to regler) og Klima (én) + input_boolean.varsel_dor_last. Bare test.
+// Fiks 29: registerdata som i HA – ki_notifications (én enhet per regel), ki_energi (ALLE entitetene på én enhet «KI Energi»,
+// både varslingsbryterne og styringsbryterne som IKKE skal vises) og en tredje plattform (ki_utelys, én enhet, tre brytere).
 (function () {
   window.mockExtend(({ add, E, D }) => {
     const next = new Date(Date.now() + 8 * 3600e3); next.setHours(6, 45, 0, 0);
@@ -31,5 +33,8 @@
     // KI Utelys (én enhet, tre brytere – hovedbryteren er _auto) og KI Energi (varslingsbryterne, én enhet)
     dev('dev_utelys', 'KI Utelys', 'Utelys');
     ['switch.ki_utelys_auto', 'switch.ki_utelys_kveld', 'switch.ki_utelys_morgen'].forEach((id) => { if (E[id]) { E[id].platform = 'ki_utelys'; E[id].device_id = 'dev_utelys'; } });
+    // KI Energi: én enhet for hele integrasjonen (switch.ki_varsel_* + switch.ki_styr_*/ki_skyggemodus … = styring)
+    D.dev_ki_energi = { id: 'dev_ki_energi', name: 'KI Energi', name_by_user: null, model: 'KI Energi', manufacturer: 'KI', entry_type: 'service', config_entries: ['ce_ki_energi'], area_id: null };
+    Object.values(E).forEach((e) => { if (e.platform === 'ki_energi' && !e.device_id) e.device_id = 'dev_ki_energi'; });
   });
 })();
