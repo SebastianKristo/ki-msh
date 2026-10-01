@@ -103,8 +103,8 @@
   // 17.28 · Mellomrom (samme komponent og felter som Rom: gap, pad_top, pad_bottom; MSH._applySpacing + MSH.popupBottomPad)
   const SPACING = { gap: 16, pad_top: 20, pad_bottom: 40 };
   const SPACING_FIELDS = [
-    { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: SPACING.gap, presets: [[8, 'Tett 8'], [16, 'Standard 16'], [24, 'Luftig 24']] },
-    { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: SPACING.pad_top, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']], help: 'Negativ verdi trekker innholdet opp mot popup-headeren' },
+    { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: SPACING.gap, presets: [[8, 'Tett 8'], [16, 'Standard 16'], [24, 'Luftig 24']] },
+    { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 60, default: SPACING.pad_top, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']], help: 'Negativ verdi trekker innholdet opp mot popup-headeren' },
     { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']], help: 'Kommer i tillegg til navbaren og safe area' },
   ];
   M.KLIMA_SPACING = SPACING;

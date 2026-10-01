@@ -2096,8 +2096,8 @@
   MSH.spacingSchema = (D) => {
     D = { ...MSH.SPACING, ...(D || {}) };
     return { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.pad_bottom != null ? cc.pad_bottom : D.pad_bottom} px i bunnen`, fields: [
-      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
       { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: D.pad_bottom, presets: [[0, 'Ingen 0'], [24, 'Standard 24'], [60, 'Litt 60'], [150, 'Stor 150']] },
     ] };
   };
