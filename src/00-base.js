@@ -1140,7 +1140,7 @@
       host.style.setProperty('--ki-tp-top', (MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
       host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
       host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
-      host.dataset.tilpass = '1';
+      host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)
     }
     if (tp) place();
     window.addEventListener('resize', place);

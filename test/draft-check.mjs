@@ -158,20 +158,22 @@ res.andre = await p.evaluate(async () => {
   location.hash = '#vaer'; await W(900);
   const vaer = window.__card('msh-vaer-card');
   if (vaer) {
+    // 28.1: bryterne lagres i sections { k: false } (gamle `hide` telles fortsatt med, i tilfelle alias)
+    const offN = (c) => (Array.isArray(c.hide) ? c.hide.length : 0) + Object.values(c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {}).filter((v) => v === false).length;
     const n0 = window.__sets.length;
     vaer.customize(); await W(300);
     const R = M.portals().pop().shadowRoot;
     R.querySelector('[data-a="sec"]').click(); await W(700); // 26.25: «Tilpass Vær» → Seksjoner av/på (hide)
     r.vaerBefore = window.__sets.length - n0;
-    r.vaerPreview = (vaer._rawConfig.hide || []).length;
+    r.vaerPreview = offN(vaer._rawConfig);
     R.querySelector('[data-a="done"]').click(); R.querySelector('[data-a="done"]').click(); await W(600);
     r.vaerSets = window.__sets.length - n0; r.vaerSheets = M.portals().length;
     // Avbryt forkaster
     vaer.customize(); await W(300);
-    const R2 = M.portals().pop().shadowRoot, hid0 = (vaer._rawConfig.hide || []).length;
+    const R2 = M.portals().pop().shadowRoot, hid0 = offN(vaer._rawConfig);
     R2.querySelectorAll('[data-a="sec"]')[1].click(); await W(50);
     vaer._sheet.ov.close(); await W(300); // utenfor/Esc forkaster
-    r.vaerCancel = { sheets: M.portals().length, same: (vaer._rawConfig.hide || []).length === hid0, sets: window.__sets.length - n0 };
+    r.vaerCancel = { sheets: M.portals().length, same: offN(vaer._rawConfig) === hid0, sets: window.__sets.length - n0 };
   }
   // Tilpass Hjem (utkast i ki-store)
   location.hash = ''; await W(300);

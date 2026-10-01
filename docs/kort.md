@@ -1261,14 +1261,14 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.inngang.privacy` | Personvern-modus · entity | Ringeklokke · G6 Entry |
 | `cameras.inngang.motion` | Bevegelse · entity | Ringeklokke · G6 Entry |
 | `cameras.inngang.last_motion` | Siste bevegelse · entity | Ringeklokke · G6 Entry |
-| `names.camera\.inngang_package_camera` | Navn | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.icon` | Ikon · icon | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.light` | Lys · entity | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.siren` | Sirene · entity | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.talk` | Snakk (script/button) · entity | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.privacy` | Personvern-modus · entity | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.motion` | Bevegelse · entity | Ringeklokke · Pakke · inngang package camera |
-| `cameras.inngang_package_camera.last_motion` | Siste bevegelse · entity | Ringeklokke · Pakke · inngang package camera |
+| `names.camera\.inngang_package_camera` | Navn | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.icon` | Ikon · icon | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.light` | Lys · entity | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.siren` | Sirene · entity | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.talk` | Snakk (script/button) · entity | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.privacy` | Personvern-modus · entity | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.motion` | Bevegelse · entity | Ringeklokke · Pakke · inngang |
+| `cameras.inngang_package_camera.last_motion` | Siste bevegelse · entity | Ringeklokke · Pakke · inngang |
 | `names.camera\.pakke` | Navn | Ringeklokke · Pakke · pakke |
 | `cameras.pakke.icon` | Ikon · icon | Ringeklokke · Pakke · pakke |
 | `cameras.pakke.light` | Lys · entity | Ringeklokke · Pakke · pakke |
@@ -1526,10 +1526,10 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `stil` | Stil (klassisk \| scene) |  |
+| `style` | Stil (klassisk \| scene) |  |
 | `tile_order · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain, moon, feels, vis |  |
 | `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
-| `sections · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
+| `section_order · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
 | `name` | Stedsnavn | Toppkort |
 | `hero_fx` | Bakgrunnsanimasjon · boolean | Toppkort |
 | `show_extras` | Toppkort side 2 · Andre varsler (sol, måne, UV) · boolean | Toppkort |

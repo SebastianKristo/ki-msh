@@ -273,7 +273,8 @@ if (shots) await p.screenshot({ path: `${shots}/rolf-8-tilpass-entiteter.png` })
 const Av = await p.evaluate(async () => {
   const portal = window.MSH.portals().pop(), ed = portal.shadowRoot.querySelector('msh-editor'), R = ed.shadowRoot;
   [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'avansert').click(); await new Promise((q) => setTimeout(q, 150));
-  const labels = R.textContent;
+  // 28.10: «Mellomrom»-radene tegnes i ki-spacing-editor (egen shadow root)
+  const labels = R.textContent + [...R.querySelectorAll('ki-spacing-editor')].map((e) => (e.shadowRoot ? e.shadowRoot.textContent : '')).join(' ');
   R.querySelector('[data-a="bool"][data-name="confirm_start"]').click(); await new Promise((q) => setTimeout(q, 150));
   R.querySelector('[data-a="save"]').click(); await new Promise((q) => setTimeout(q, 900));
   return { labels: ['Bekreft før start', 'Tøm automatisk', 'Tilbakestill til standard', 'Mellom seksjonene'].filter((l) => labels.includes(l)).length, cfg: window.__c.config };

@@ -16,6 +16,18 @@ const res = {}, fail = [];
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if (!cond) fail.push(name); };
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));
 const errs = [];
+// Datouavhengig: kalendrene (Historikk/Forbruk) viser inneværende måned, mens mock-dataene dekker de siste 20 dagene.
+// Tidlig i måneden havner de fleste dagene i forrige måned. Testens «nå» flyttes derfor (i Node OG i nettleseren, samme
+// forskyvning, klokken går ellers som normalt) til siste dag i forrige måned når dagens dato er før den 22.
+const SHIFT = (() => { const d = new Date(); return d.getDate() < 22 ? -d.getDate() * 86400000 : 0; })();
+const DATE_SHIFT = (shift) => {
+  const R = Date;
+  if (!shift || R.__kiShift) return;
+  const D = class extends R { constructor(...a) { if (a.length) super(...a); else super(R.now() + shift); } static now() { return R.now() + shift; } };
+  D.__kiShift = shift;
+  globalThis.Date = D;
+};
+DATE_SHIFT(SHIFT);
 
 // ---------------------------------------------------------------- mock: OpenSprinkler (prefiks os_hage) og KI Vanning
 const MOCK = {
@@ -60,6 +72,7 @@ const MOCK = {
 async function page(cfg, extra, vp) {
   const p = await b.newPage({ viewport: vp || { width: 400, height: 900 }, hasTouch: true });
   p.on('pageerror', (e) => errs.push(e.message));
+  await p.addInitScript(DATE_SHIFT, SHIFT);
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of mocks) await p.addScriptTag({ path: m });
   await p.addScriptTag({ path: bundle });

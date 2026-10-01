@@ -649,7 +649,7 @@
     }
 
     // 24.5 · «Tilpass»-arket (Hjem v3 · tilpOpen): bunnark i ki-overlay-root (M.overlay – dashbordflaten, aldri over
-    // HA-sidebaren; rail-utsparing), plassert innenfor ledig flate (--ki-nav-occ-*, 23.3). Ett kort #3a3a3a r24 med rader
+    // HA-sidebaren; rail-utsparing). 28.8/28.11: toppkant 50 px, går til bunnen og dekker navbaren (tilpass: true). Ett kort #3a3a3a r24 med rader
     // (64 px): Tilpass alt · Tilpass Hjem · Tilpass navbar · Tilpass header · Kiosk-modus (På/Av). Trykk lukker arket og
     // åpner editoren (ki-open-editor / M.kioskSheet). Haptic light (én per trykk).
     _tilpassSheet() {
@@ -664,9 +664,8 @@
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:#7f7f7f;flex:none')}</button>`).join('')}</div>`;
-      const css = `:host{--tp-l:max(0px, calc(var(--ki-nav-occ-left,0px) - var(--ki-hx,0px)));--tp-r:var(--ki-nav-occ-right,0px);--tp-b:var(--ki-nav-occ-bottom,0px)}
-        .sh{left:var(--tp-l);right:var(--tp-r);bottom:var(--tp-b);max-width:min(480px, calc(100% - var(--tp-l) - var(--tp-r)));max-height:calc(100% - var(--tp-b) - max(var(--ki-nav-occ-top,0px), env(safe-area-inset-top,0px)) - 24px);
-          background:var(--gray050,#282828);border-radius:38px 38px min(38px, calc(var(--tp-b) * 100)) min(38px, calc(var(--tp-b) * 100));--ki-sh-pb:max(20px, calc(env(safe-area-inset-bottom,0px) + 20px - var(--tp-b)))}
+      // 28.8/28.11: geometrien (top 50 px, bunnforankret over navbaren, radius 28 28 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
+      const css = `.sh{background:var(--gray050,#282828)}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
         .tpd{${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille */
@@ -678,12 +677,8 @@
         .tpx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .tpx b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .tpx i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
-      const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); this._tpSheet = null; } });
+      const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { this._tpSheet = null; } });
       ov.host.setAttribute('data-tilpass', '');
-      // vertens venstre-forskyvning mot dashbordflaten (rail-utsparing i M.overlay) trekkes fra --ki-nav-occ-left (som 23.1)
-      const fit = () => { if (!ov.host.isConnected) return; const D = M.dashRect(), hr = ov.host.getBoundingClientRect(); ov.host.style.setProperty('--ki-hx', Math.max(0, Math.round(hr.left - D.left)) + 'px'); };
-      fit(); requestAnimationFrame(fit);
-      ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.addEventListener(t, fit));
       ov.root.addEventListener('click', (e) => {
         const el = e.target.closest && e.target.closest('[data-a]');
         if (!el) return;

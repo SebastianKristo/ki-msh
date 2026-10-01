@@ -517,7 +517,9 @@
     Object.keys(M.POPUP_TWINS || {}).forEach((h) => {
       const src = res.popups.find((p) => p && p.hash === h);
       if (!src) return;
-      (M.POPUP_TWINS[h] || []).forEach((t) => { if ((config.popups || {})[t.slice(1)] !== false && !res.popups.some((p) => p && p.hash === t)) { twins.push(t); res.popups.push({ ...clone(src), hash: t }); } });
+      // tvillingen settes rett etter kilden (ikke bakerst – egne/importerte popups skal fortsatt ligge sist i stacken)
+      let at = res.popups.indexOf(src);
+      (M.POPUP_TWINS[h] || []).forEach((t) => { if ((config.popups || {})[t.slice(1)] !== false && !res.popups.some((p) => p && p.hash === t)) { twins.push(t); res.popups.splice(++at, 0, { ...clone(src), hash: t }); } });
     });
     if (res.report) res.report.twins = twins;
     if (M.bassengMigrateStore) M.bassengMigrateStore(); // én gang: gamle basseng-kort i ki-store popup_overrides skrives om

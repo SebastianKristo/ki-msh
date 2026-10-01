@@ -154,9 +154,15 @@ for (const [navn, mut] of Object.entries(SETS)) {
     };
     const anims = (el) => (el && el.shadowRoot.getAnimations ? el.shadowRoot.getAnimations().length : 0);
     location.hash = '#klima'; await wait(1200);
+    const anim1 = anims(look().hero); // animasjonene måles som før, rett etter åpning
+    // Tallene i heroen telles opp (tween 1,1 s via rAF) – under last er den ikke ferdig etter 1,2 s. Vent til kW-teksten
+    // har stått stille i 400 ms (maks 4 s ekstra) før sluttverdien sammenlignes med opptaket.
+    for (let t0 = Date.now(), prev = null, since = Date.now(); Date.now() - t0 < 4000; await wait(50)) {
+      const k = look().o.kw; if (k !== prev) { prev = k; since = Date.now(); } else if (Date.now() - since >= 400) break;
+    }
     let L = look();
     res.forste = L.o;
-    res.anim1 = anims(L.hero);
+    res.anim1 = anim1;
     // Alle fanene tegnes uten feil
     const fan = [];
     for (const t of [...L.card.shadowRoot.querySelectorAll('.tabs .tab')].map((x) => x.dataset.key)) {
@@ -304,20 +310,25 @@ for (const [navn, mut] of Object.entries(SETS)) {
     for (const c of [stack.cards[1], pop]) { const el = document.createElement(c.type.replace('custom:', '')); el.setConfig(c); el.hass = hass; document.getElementById('dash').appendChild(el); els.push(el); }
     for (let i = 0; i < 5; i++) { await wait(800); const h2 = { ...hass, states: { ...hass.states } }; els.forEach((e) => (e.hass = h2)); }
     const card = () => { const pe = all().find((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened')); return pe && [...pe.querySelectorAll('*')].find((e) => e.localName === 'msh-klima-card'); };
+    // Bubble legger på is-popup-opened asynkront (tregt under last): vent på at popupen faktisk er åpen (maks ms)
+    const vent = async (fn, ms) => { const t0 = Date.now(); let v; while (!(v = fn()) && Date.now() - t0 < ms) await wait(20); return v; };
     // Åpnes mens fanen er «skjult» (rAF stoppet), vises 500 ms senere
     window.__hidden = true; location.hash = '#klima'; await wait(500); window.__show(); await wait(2600);
-    res.lukketVedOppstart = syn(card());
+    res.lukketVedOppstart = syn(await vent(card, 3000));
     res.diag = await eval(DIAG);
     // 5 · Gjenåpning (Bubble kobler innholdet fra/til), også rask lukk/åpne
     const lukk = () => { history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); };
     lukk(); await wait(1500); location.hash = '#klima'; await wait(2600);
-    res.gjenapnet = syn(card());
+    res.gjenapnet = syn(await vent(card, 3000));
     for (let k = 0; k < 3; k++) { lukk(); await wait(40); location.hash = '#klima'; await wait(60); }
     await wait(2600);
-    res.raskGjenapning = syn(card());
+    res.raskGjenapning = syn(await vent(card, 3000));
     // 6 · Vakten: gjør kortet usynlig (opacity 0 på verten), åpne på nytt → feilkort med diagnosen etter 3 s; synlig igjen → borte
-    lukk(); await wait(700); location.hash = '#klima'; await wait(80);
-    const c1 = card(); c1.style.opacity = '0'; await wait(3500);
+    // vent på åpen popup (maks 5 s) i stedet for en fast pause på 80 ms – ellers kan card() være undefined («reading 'style'»)
+    lukk(); await wait(700); location.hash = '#klima';
+    const c1 = await vent(card, 5000);
+    if (!c1) throw new Error('vakt: popupen #klima åpnet ikke (fant ikke msh-klima-card i is-popup-opened)');
+    c1.style.opacity = '0'; await wait(3500);
     const fk = c1.shadowRoot.querySelector('[data-blank]');
     res.vakt = !!fk && /"synlig": false/.test(fk.textContent) && /"host"/.test(fk.textContent);
     c1.style.opacity = ''; await wait(3400);
