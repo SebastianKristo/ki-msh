@@ -241,9 +241,12 @@
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
   // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
   // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
-  const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : '#' + id; h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
+  // Fiks 30.1: innebygd mål = standard-hashen (basseng → #badebasseng); gamle alias-hasher (#basseng) peker dit (M.canonHash)
+  const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
+  const defHash = (id) => canon('#' + id);
+  const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
   const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
-  const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? p : ''; };
+  const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? canon(p) : ''; };
   const ruleHit = (x, st) => {
     if (!x || !x.entity || !st) return false;
     const s = String(st.state), op = x.op || '=';
@@ -1670,7 +1673,7 @@
         if (t.dataset.nbicon) return this._btn(t.dataset.nbicon, { icon: v || undefined });
         const id = t.dataset.nbtap, isC = !!(norm(this._config).B[id] || {}).custom, tp = M.tap.norm(v);
         // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap i HA-format, gammel hash fjernes
-        const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && tp.navigation_path === '#' + id);
+        const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && canon(tp.navigation_path) === defHash(id));
         return this._btn(id, { tap: std ? undefined : tp, hash: undefined });
       });
     }
@@ -1775,7 +1778,7 @@
             <input class="i36" data-nbf="rtext" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.text || '')}" placeholder="Tekst i varselet">
           </div>`;
         }).join('');
-        const tgt = [['', 'Ingen'], ...POPS.map(([k, , l]) => ['#' + k, l]), ...M.areas(h).map((a) => ['#' + a.id, a.name]), ...M.all(h, 'person').map((p) => ['#person-' + p.split('.')[1], 'Person · ' + M.name(h, p)])];
+        const tgt = [['', 'Ingen'], ...POPS.map(([k, , l]) => [defHash(k), l]), ...M.areas(h).map((a) => ['#' + a.id, a.name]), ...M.all(h, 'person').map((p) => ['#person-' + p.split('.')[1], 'Person · ' + M.name(h, p)])];
         (M.popupOptions ? M.popupOptions(h) : []).forEach((o) => { if (!tgt.some((t) => t[0] === o[0])) tgt.push(o); }); // egne popups
         const curH = hashOf(N, id);
         if (curH && !tgt.some((t) => t[0] === curH)) tgt.push([curH, curH]);
@@ -1971,7 +1974,7 @@
         }
         if (f === 'hash') {
           const isC = !!(norm(this._config).B[id] || {}).custom;
-          return this._btn(id, { hash: !isC && v === '#' + id ? undefined : (v || (isC ? undefined : '')) });
+          return this._btn(id, { hash: !isC && canon(v) === defHash(id) ? undefined : (v || (isC ? undefined : '')) });
         }
         if (f === 'icon') return this._btn(id, { icon: v.trim() || undefined });
         if (f === 'label') return this._btn(id, { label: v.trim() || undefined });

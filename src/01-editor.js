@@ -393,6 +393,8 @@
     fits: (T) => (T || []).length >= 4 && T.every((t) => t && t.icon),
   };
 
+  // Debug-modus (31.1): localStorage «ki:debug» = '1' eller ?ki_debug i adressen
+  M.debugOn = M.debugOn || (() => { try { return localStorage.getItem('ki:debug') === '1' || /[?&]ki_debug\b/.test(location.search); } catch (e) { return false; } });
   const ED_CSS = `
     :host{display:block;font-family:${M.FONT};color:#fafafa;--ed-bg:#2f2f2f}
     *{box-sizing:border-box}
@@ -672,6 +674,8 @@
         if (!d.dataset || d.dataset.sec == null || this._open[d.dataset.sec] === d.open) return;
         this._open[d.dataset.sec] = d.open;
         if (this._uiKey) M.uiStore(this._uiKey + ':ed', { open: this._open });
+        // 31.1: lat seksjon (f.lazy) – innholdet tegnes først når den åpnes
+        if (d.open && d.querySelector && d.querySelector(':scope > .in > [data-lazy]')) this._render();
       }, true);
       this._bindSliders();
       this.shadowRoot.addEventListener('value-changed', (e) => {
@@ -762,7 +766,11 @@
     }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
-    setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
+    setConfig(c) {
+      // 31.1: vakt mot løkken config-changed → HA setConfig → ny tegning: er configen den vi nettopp sendte ut, tegnes ikke arket på nytt
+      if (!this._inline && this._sisteUt && this._config) { let j = null; try { j = JSON.stringify(c); } catch (e) { /* */ } if (j === this._sisteUt) return; }
+      this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render();
+    } // GUI-editoren: felles oppsett (uten enhetslaget)
     get schema() {
       const cls = this.cardClass;
       let s = cls && cls.schema;
@@ -774,7 +782,7 @@
       if (!c.card_id) c.card_id = M.uid();
       c = clean(c);
       this._config = c;
-      if (!this._inline) { this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true })); if (M.store && c.card_id && M.store.card(c.card_id)) M.store.setCard(c.card_id, c); } // GUI ↔ egen editor
+      if (!this._inline) { try { this._sisteUt = JSON.stringify(c); } catch (e) { this._sisteUt = null; } this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true })); if (M.store && c.card_id && M.store.card(c.card_id)) M.store.setCard(c.card_id, c); } // GUI ↔ egen editor
       else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit } })); // live; commit=false under slider-drag
       this._render();
     }
@@ -782,7 +790,14 @@
       if (!this._config || !this._hass) return;
       if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return; // native velger har fokus (09-pickers) – tegnes ved blur
       const cls = this.cardClass || {};
-      const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
+      // 31.1: teller tegninger (ed.renders, MSH.renderStats) – logges i debug-modus (localStorage ki:debug = 1)
+      this.renders = (this.renders || 0) + 1;
+      const rk = 'msh-editor:' + (cls.cardName || this.localName);
+      (M.renderStats = M.renderStats || {})[rk] = (M.renderStats[rk] || 0) + 1;
+      if (M.debugOn && M.debugOn()) try { console.debug('[ki-msh] tegning', rk, this.renders); } catch (e) { /* */ }
+      let schema = [];
+      try { schema = this.schema; } catch (e) { console.error('[ki-msh] editor-skjema', e); schema = [{ type: 'info', label: 'Kunne ikke laste denne delen' }]; }
+      const body = schema.map((f, i) => this._safeField(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
         ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
@@ -805,6 +820,13 @@
         if (el) { el.open = true; if (el.dataset.sec) this._open[el.dataset.sec] = true; el.scrollIntoView({ block: 'start' }); }
       }
     }
+    // 31.1: én seksjon/ett felt som kaster, stopper ikke hele arket
+    _safeField(f, key) {
+      try { return this._field(f, key); } catch (e) {
+        try { console.error('[ki-msh] editor-felt', f && (f.id || f.name || f.label), e); } catch (x) { /* */ }
+        return `<div class="small" data-key="err-${esc(key)}" style="padding:8px 6px;color:#f28073">Kunne ikke laste denne delen</div>`;
+      }
+    }
     _field(f, key) {
       const h = this._hass, c = this._config;
       const val = f.name ? get(c, f.name) : undefined;
@@ -815,11 +837,12 @@
         case 'section': {
           const sk = f.id ? 'id:' + f.id : key; // stabil nøkkel for åpen-tilstanden
           // 28.10: «Mellomrom» = ÉN felles ki-spacing-editor for alle slider-radene (Rom v4), øvrige felt som før
-          const sp = this._inline && M.isSpacingSection(f), body = sp
-            ? M.spacingEditorHTML(f.fields, c, 'ksp-' + (f.id || key)) + (f.fields || []).map((x, j) => (x && x.type === 'range' ? '' : this._field(x, key + '_' + j))).join('')
-            : (f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('');
-          if (f.flat) return this._flat(f.label, f.meta, body, f.id, sp);
           const open = (!this._focused && this.focusSection && f.id === this.focusSection) || (this._open[sk] != null ? this._open[sk] : !!f.open);
+          const lazy = f.lazy && !f.flat && !open; // 31.1: lukket lat seksjon – feltene bygges ikke før den åpnes
+          const sp = this._inline && M.isSpacingSection(f), body = lazy ? '<div class="small" data-lazy="1" style="padding:4px 6px">Laster …</div>' : sp
+            ? M.spacingEditorHTML(f.fields, c, 'ksp-' + (f.id || key)) + (f.fields || []).map((x, j) => (x && x.type === 'range' ? '' : this._safeField(x, key + '_' + j))).join('')
+            : (f.fields || []).map((x, j) => this._safeField(x, key + '_' + j)).join('');
+          if (f.flat) return this._flat(f.label, f.meta, body, f.id, sp);
           return `<details class="sec" data-sec="${esc(sk)}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${body}</div></details>`;
         }
         case 'tabs': { // 19.20: { type:'tabs', id, sub, tabs:[{ key, label, icon, count, focus:[seksjons-id], fields }] }
@@ -924,7 +947,7 @@
           return `<div class="small" style="padding:0 6px">${esc(f.label)}</div>`;
         case 'html': // egen HTML fra kortet (Fiks 17.22): f.html(hass, cfg, key, editor); knapper med data-a="fn" data-k=key → f.click(dataset, editor)
           (this._htmlF = this._htmlF || {})[key] = f;
-          try { return f.html(h, c, key, this) || ''; } catch (e) { return ''; }
+          try { return f.html(h, c, key, this) || ''; } catch (e) { try { console.error('[ki-msh] editor-html', e); } catch (x) { /* */ } return '<div class="small" style="padding:8px 6px;color:#f28073">Kunne ikke laste denne delen</div>'; }
         default:
           return '';
       }

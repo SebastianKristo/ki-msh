@@ -31,32 +31,45 @@
     return v === '' || v == null || !isFinite(n) ? G.def : Math.max(G.min, Math.min(G.max, n));
   };
 
-  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3) */
-  // servers: [{ name, icon, color, url_path, fallback_url, encode }]. Eldre { url: 'https://…' } → fallback_url.
+  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3 / 31.7) */
+  // servers: [{ name, icon, color, navigation_path, url }] (31.7, som HA-handlingene: navigation_path = lenken appen åpner,
+  // url = valgfri adresse i nettleser). Eldre nøkler leses fortsatt: url_path → navigation_path, fallback_url → url,
+  // url: 'homeassistant://…' → navigation_path.
+  const OLD_ICON = { oslo: 'mdi:city', toten: 'mdi:barn' };
   M.hjemServerNorm = function (r) {
     if (!r || typeof r !== 'object') return r;
-    const { url, ...o } = r;
-    if (url) {
-      if (/^homeassistant:\/\//i.test(url)) { if (!o.url_path) o.url_path = url; }
-      else if (!o.fallback_url) o.fallback_url = url;
-    }
+    const { url_path: up, fallback_url: fb, url, ...o } = r;
+    if (!o.navigation_path && up) o.navigation_path = up;
+    if (url && /^homeassistant:\/\//i.test(url)) { if (!o.navigation_path) o.navigation_path = url; }
+    else if (url) o.url = url;
+    if (!o.url && fb) o.url = fb;
+    // 31.7: standardstedene fra 21.4 (seedet med gamle ikoner) får de nye ikonene
+    const k = M.hjemPlaceKey ? M.hjemPlaceKey(o.name) : '';
+    if (OLD_ICON[k] && o.icon === OLD_ICON[k]) o.icon = (DEFAULT_SERVERS.find((x) => M.hjemPlaceKey(x.name) === k) || {}).icon || o.icon;
     return o;
   };
-  // Lenken HA-appen åpner: egen url_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet som standard)
+  // Lenken HA-appen åpner: navigation_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet: Strømstad → Str%C3%B8mstad)
+  M.hjemServerNav = (n, enc) => 'homeassistant://navigate/lovelace?server=' + (enc === false ? n : encodeURIComponent(n));
   M.hjemServerUrl = function (r) {
     r = M.hjemServerNorm(r) || {};
-    if (r.url_path) return String(r.url_path).trim();
+    if (r.navigation_path) return String(r.navigation_path).trim();
     const n = String(r.name || '').trim();
-    if (!n) return '';
-    return 'homeassistant://navigate/lovelace?server=' + (r.encode === false ? n : encodeURIComponent(n));
+    return n ? M.hjemServerNav(n, r.encode) : '';
   };
-  // Fiks 21.4 · standard steder (Hjem v3 SERVERS), rekkefølge Oslo, Toten, Strømstad. Skrives til config ÉN gang
-  // (servers + servers_init) ved første lasting – etter det er config sannheten (slettede kommer ikke tilbake).
-  // Tomme url_path/fallback_url → raden vises, trykk gir melding (ingen gjettede URL-er).
+  // «server=<navn>» som vises under navnet (fra lenken, dekodet; ellers navnet)
+  M.hjemServerParam = function (r) {
+    const u = M.hjemServerUrl(r), m = /[?&]server=([^&#]*)/.exec(u);
+    let v = m ? m[1] : String((r && r.name) || '');
+    try { v = decodeURIComponent(v); } catch (e) { /* */ }
+    return 'server=' + v;
+  };
+  // 31.7 · standard steder (Oslo, Toten, Strømstad – samme navn som i HA Companion-appens serverliste). Virker uten oppsett:
+  // navigation_path bytter server i appen og åpner samme dashbord. Skrives til config ÉN gang (servers + servers_init) ved
+  // første lasting – etter det er config sannheten (slettede kommer ikke tilbake); «Tilbakestill» gir de tre igjen.
   const DEFAULT_SERVERS = [
-    { name: 'Oslo', icon: 'mdi:city', color: 'var(--green, #66d19e)', url_path: '', fallback_url: '' },
-    { name: 'Toten', icon: 'mdi:barn', color: 'var(--yellow, #f2d26f)', url_path: '', fallback_url: '' },
-    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue, #73b9f2)', url_path: '', fallback_url: '' },
+    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)', navigation_path: M.hjemServerNav('Oslo') },
+    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', navigation_path: M.hjemServerNav('Toten') },
+    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)', navigation_path: M.hjemServerNav('Strømstad') },
   ];
   M.HJEM_DEFAULT_SERVERS = DEFAULT_SERVERS;
   M.hjemDefaultServers = () => DEFAULT_SERVERS.map((x) => ({ ...x }));
@@ -66,9 +79,11 @@
     const l = Array.isArray(c.servers) ? c.servers : [];
     return !l.length && !c.servers_init ? M.hjemDefaultServers() : l;
   };
+  // Navigering (egen hjelper så testene kan fange den): window.location.href = lenken
+  M.hjemNavigate = M.hjemNavigate || ((u) => { window.location.href = u; });
   // Navn-sammenligning uten store/små bokstaver og uten aksenter (Strømstad = stromstad)
   M.hjemPlaceKey = (v) => String(v || '').trim().toLowerCase().replace(/ø/g, 'o').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  M.hjemServerHasUrl = (r) => { r = M.hjemServerNorm(r) || {}; return !!(String(r.url_path || '').trim() || String(r.fallback_url || '').trim()); };
+  M.hjemServerHasUrl = (r) => !!M.hjemServerUrl(r);
   // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
   M.hjemIsApp = function () {
     try {
@@ -726,7 +741,7 @@
             return this._render();
           }
           case 'x-tok': { const cur = String(this._val(d.name) || ''); const v = d.pre === '1' ? d.v + cur : `${cur} ${d.v}`.trim(); return this._set(d.name, v); }
-          case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
+          case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config, this); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
           default:
         }
       }
@@ -1329,20 +1344,20 @@
             { type: 'text', name: 'this_server.name', label: 'Navn på dette stedet', auto: (h, cc) => (cc && cc.place_name) || (h && h.config && h.config.location_name) || 'Hjem', help: 'Vises øverst i «Bytt sted» som «Du er her», og som tittel i «Sted»-oppsettet. Står samme navn i listen under, skjules det der.' },
             { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
             { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
-            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
-              help: 'Trykk bytter server i Home Assistant-appen (homeassistant://navigate/lovelace?server=<navn>, samme navn som i appens serverliste). I nettleser brukes «Adresse i nettleser» hvis den er satt, ellers vises en melding.',
+            { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
+              help: 'Trykk bytter server i Home Assistant-appen (navigation_path, standard homeassistant://navigate/lovelace?server=<navn> – samme navn som i appens serverliste, URL-kodet). I nettleser brukes «Adresse i nettleser» (url) hvis den er satt, ellers vises en melding. Stedet som matcher Home Assistant-navnet (location_name) vises øverst som «Du er her».',
               norm: (list, cc) => (list.length ? list : M.hjemServers(cc)).map((r) => M.hjemServerNorm(r)),
-              title: (r) => r.name || 'Nytt sted', sub: (r) => (M.hjemServerHasUrl(r) ? M.hjemServerUrl(r) : 'Mangler adresse'),
+              title: (r) => r.name || 'Nytt sted', sub: (r) => (r.name ? M.hjemServerParam(r) : 'Mangler navn'),
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
               fields: [
                 { type: 'text', name: 'name', label: 'Navn (som i appens serverliste)' },
                 { type: 'icon', name: 'icon', label: 'Ikon' },
                 { type: 'color', name: 'color', label: 'Farge' },
-                { type: 'text', name: 'url_path', label: 'Lenke (url_path)', auto: (r) => M.hjemServerUrl({ ...r, url_path: '' }) || 'homeassistant://navigate/lovelace?server=…', help: 'Lenken HA-appen åpner, f.eks. homeassistant://navigate/lovelace?server=<navn>. Er både denne og «Adresse i nettleser» tomme, gir trykk en melding om å legge inn adresse.' },
-                { type: 'boolean', name: 'encode', label: 'URL-kod navnet (Strømstad → Str%C3%B8mstad)', default: true, help: 'Av: navnet brukes slik det er skrevet. Prøv av hvis appen ikke finner serveren.', rowWhen: (r) => !r.url_path },
-                { type: 'text', name: 'fallback_url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
+                { type: 'text', name: 'navigation_path', label: 'Lenke i appen (navigation_path)', auto: (r) => (r.name ? M.hjemServerNav(String(r.name).trim(), r.encode) : 'homeassistant://navigate/lovelace?server=…'), help: 'Tom = homeassistant://navigate/lovelace?server=<navn> (navnet URL-kodes: Strømstad → Str%C3%B8mstad).' },
+                { type: 'text', name: 'url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
               ] },
+            { type: 'button', icon: 'mdi:restore', label: 'Tilbakestill steder (Oslo, Toten, Strømstad)', run: (h, cc, ed) => { if (ed && ed._set) { M.haptic('light'); ed._set('servers', M.hjemDefaultServers()); } } },
           ] },
           // «Bytt entiteter»: vær + per person «· hjemme», «· søvn» og «Sone når borte» (samme people[]-felt som Personer).
           { type: 'section', id: 'overrides', label: 'Bytt entiteter', icon: 'mdi:swap-horizontal', fields: [
@@ -1363,7 +1378,7 @@
     get cardSize() { return 2; }
     customize(focus) { return M.hjemCustomize(this, focus); }
     // Dette stedet (fiks 16.3): this_server { name, icon, color } (eldre place_name) → ellers stedet i listen med samme
-    // navn eller samme adresse (fallback_url-origin = location.origin / hassUrl) → ellers hass.config.location_name.
+    // navn → hass.config.location_name (31.7) → samme adresse (url-origin = location.origin / hassUrl, ?server=).
     // cur = indeksen til dette stedet i listen (skjules i menyen), -1 = ikke i listen.
     _server() {
       const c = this.config, h = this.hass;
@@ -1375,9 +1390,11 @@
       const same = (x, y) => M.hjemPlaceKey(x) === M.hjemPlaceKey(y);
       let name = String(ts.name || c.place_name || '').trim();
       let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
-      if (cur < 0) cur = list.findIndex((x) => x.fallback_url && mine.includes(org(x.fallback_url)));
-      // Fiks 21.4: ingen this_server → stedet som matcher hass.config.location_name (uten case/aksenter); ingen treff → ingen markering
+      // 31.7: «Du er her» automatisk – hass.config.location_name (uten case, æ/ø/å normalisert), ellers URL-en
+      // (url-origin = location.origin / hassUrl, eller ?server=<navn> i adressen); ingen treff → ingen markering
       if (cur < 0 && !name && h && h.config && h.config.location_name) cur = list.findIndex((x) => same(x.name, h.config.location_name));
+      if (cur < 0 && !name) cur = list.findIndex((x) => x.url && mine.includes(org(x.url)));
+      if (cur < 0 && !name) { const m = /[?&]server=([^&#]*)/.exec(location.search || ''); if (m) { let v = m[1]; try { v = decodeURIComponent(v); } catch (e) { /* */ } cur = list.findIndex((x) => same(x.name, v)); } }
       if (!name) name = cur >= 0 ? list[cur].name : (h && h.config && h.config.location_name) || 'Hjem';
       const cs = cur >= 0 ? list[cur] : {};
       let host = location.hostname || '';
@@ -1597,11 +1614,13 @@
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
       const hc = M.color(S.color, C.green);
-      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i>Denne serveren · ${esc(S.host)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:#232323')}</span></div>`;
+      const herePar = S.cur >= 0 ? M.hjemServerParam(S.list[S.cur]) : 'server=' + S.name;
+      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i class="srv">Du er her · ${esc(herePar)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:#232323')}</span></div>`;
+      // 31.7: hver rad = navn + «server=<navn>» under (monospace 11 px #7f7f7f, som Hjem v3)
       const rows = S.list.map((v, i) => {
         if (i === S.cur) return '';
         const col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm">${esc(v.name)}</span>${M.icon('chevron_right', 20, 'color:#979797')}</button>`;
+        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm"><b>${esc(v.name)}</b><i class="srv">${esc(M.hjemServerParam(v))}</i></span>${M.icon('chevron_right', 20, 'color:#979797')}</button>`;
       }).join('');
       const css = `.bg{background:transparent}
         .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);
@@ -1619,7 +1638,10 @@
         .sv:hover{background:rgba(255,255,255,0.06)}
         .sv:active{transform:scale(.98)}
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
-        .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .srv{font-style:normal;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sv{height:58px}
         .none{padding:8px 10px 6px;font-size:12px;color:#7f7f7f}`;
       const html = `<span class="hd">Bytt sted</span>${top}${rows ? `<span class="sep"></span>${rows}` : '<span class="none">Legg til steder i Tilpass header → Steder</span>'}`;
       const ov = M.overlay({ html, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
@@ -1633,25 +1655,15 @@
         if (v) this._goServer(v);
       });
     }
-    // Bytt server: i HA-appen via HAs url-handling (hass-action → tap_action: url, som brukerens eget oppsett),
-    // i nettleser: fallback_url hvis satt, ellers melding. Aldri location.href til en http-adresse.
+    // 31.7 · Bytt server: i HA-appen window.location.href = navigation_path (appen bytter server og åpner samme dashbord).
+    // I nettleser (ikke appen): serverens url hvis den er satt, ellers toast. En vanlig http(s)-lenke i navigation_path virker overalt.
     _goServer(v) {
-      // Fiks 21.4: stedet mangler adresse (url_path og fallback_url tomme) → melding, ingen gjettet URL
-      if (!M.hjemServerHasUrl(v)) { M.hjemToast(this, 'Legg inn adresse i Tilpass header → Steder'); return 'missing'; }
-      const url = M.hjemServerUrl(v), fb = String((M.hjemServerNorm(v) || {}).fallback_url || '').trim();
-      const deep = /^homeassistant:\/\//i.test(url);
-      if (!url || (deep && !M.hjemIsApp())) {
-        if (fb) { window.open(fb, '_self'); return 'fallback'; }
-        M.hjemToast(this, 'Bytte sted virker i Home Assistant-appen');
-        return 'toast';
-      }
-      const config = { tap_action: { action: 'url', url_path: url } };
-      if (this.isConnected && document.querySelector('home-assistant')) {
-        this.dispatchEvent(new CustomEvent('hass-action', { bubbles: true, composed: true, detail: { config, action: 'tap' } }));
-        return 'hass-action';
-      }
-      window.open(url, '_self');
-      return 'open';
+      const n = M.hjemServerNorm(v) || {}, nav = M.hjemServerUrl(n), web = String(n.url || '').trim();
+      const deep = /^homeassistant:\/\//i.test(nav);
+      if (nav && (M.hjemIsApp() || !deep)) { M.hjemNavigate(nav); return 'app'; }
+      if (web) { M.hjemNavigate(web); return 'url'; }
+      M.hjemToast(this, 'Bytte av server virker bare i Home Assistant-appen');
+      return 'toast';
     }
     // Person-hurtigarket (fiks 16.14): Hjemme/Borte styrer people[].home, Våken/Sover styrer people[].sleep (toveis).
     // Aktivt segment = entitetens faktiske tilstand (live). Trykk/dra → optimistisk bytte + tjenestekall; har entiteten

@@ -2,6 +2,14 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 30.1 / 31.3 – Basseng: én popup · Vær: fast høyde i «Neste timer»
+- Basseng: nøyaktig ÉN popup `#badebasseng` (card_id `pop-basseng` beholdes); `#basseng`/`#pool`/`#svommebasseng` er alias
+  (`MSH.HASH_ALIAS`, `history.replaceState`). 28.14-tvillingen er fjernet. Engangsmigrering av ki-store (custom_popups,
+  popup_overrides, popups, lenker i kortconfigene) med logg; gamle Lovelace-ressurser og service worker-cache ryddes;
+  alias-elementer for `ki-basseng-card`/`ki-basseng-hero-card`. Se README → Oppdatering og cache.
+- Vær «Neste timer»: kolonnene er 152 px (border-box) i alle tre fanene, faste px-høyder, vindgrafen absolutt nederst –
+  ingen høydeendring ved fanebytte (iOS WebKit og Chrome).
+
 ## 29 – Innstillinger: brytere fra KI Varslinger + KI Energi
 - Ny felles modul `src/06-varsling-kilde.js` (`MSH.finnBrytere`, `KI_VARS_TEKST`, `KI_VARS_IKON`, `kiVarsErMaster`):
   datalogikken fra `ki-varsling-card` flyttet uendret – kilden er entitetsregisteret (`switch`/`input_boolean`, standard

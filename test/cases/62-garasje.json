@@ -1,0 +1,5 @@
+[
+  { "name": "Garasje", "hash": "#garasje", "cards": [ { "type": "custom:msh-garasje-card" } ] },
+  { "name": "Garasje · To trykk, uten automatikk", "hash": "#garasje", "cards": [ { "type": "custom:msh-garasje-card", "open_confirm": "to", "show_auto": false } ] },
+  { "name": "Garasje · tom", "hash": "#garasje", "cards": [ { "type": "custom:msh-garasje-card", "exclude": ["cover.garasjeport"] } ] }
+]

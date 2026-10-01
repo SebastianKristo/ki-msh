@@ -1,6 +1,6 @@
 {
   "name": "ki-msh",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "My SmartHome v3-dashbord for Home Assistant: custom cards i Bubble Card-popups",
   "type": "module",

@@ -116,8 +116,8 @@ const menu = await p.evaluate(async () => {
   if (c._srv) c._srv.close();
   return { rows, me: me && me.textContent, r, toasts };
 });
-ok('21.4 menyen: Oslo markert (Du er her), Toten og Strømstad i listen', /Oslo/.test(menu.me || '') && menu.rows.join() === 'Toten,Strømstad', menu);
-ok('21.4 sted uten adresse → melding', menu.r === 'missing' && /Legg inn adresse i Tilpass header → Steder/.test(menu.toasts.join()), menu);
+ok('21.4 menyen: Oslo markert (Du er her), Toten og Strømstad i listen', /Oslo/.test(menu.me || '') && menu.rows.map((x) => x.replace(/server=.*/, '')).join() === 'Toten,Strømstad', menu);
+ok('21.4/31.7 nettleser uten url → melding «Bytte av server virker bare i Home Assistant-appen»', menu.r === 'toast' && /Bytte av server virker bare i Home Assistant-appen/.test(menu.toasts.join()), menu);
 
 // Skrives én gang til ki-store (servers + servers_init)
 const seed = await p.evaluate(async () => {

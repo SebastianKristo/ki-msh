@@ -96,9 +96,24 @@ nesten alltid en gammel kopi av `ki-msh.js` i cachen:
 3. Sjekk konsollen: står det `[ki-msh] Ressurs-URL-en har ?v=…, men bundelen er …` eller `To versjoner er lastet`,
    bruker nettleseren/appen fortsatt en gammel kopi, eller den gamle ressursen ligger igjen i listen – fjern den.
 
-Strategien lager `#basseng` og `#badebasseng` med ÉTT `msh-basseng-card`. Gamle kort (`ki-basseng-card`,
-`ki-basseng-hero-card`, `gap-card`) i importerte popups, `custom_popups` og `popup_overrides` migreres automatisk (én gang
-i ki-store). Et eget YAML-dashbord uten strategien må endres for hånd: én `custom:msh-basseng-card` i popupen.
+**Basseng (fiks 30.1):** det finnes nøyaktig ÉN bassengpopup, `#badebasseng`, med ÉTT `msh-basseng-card`. `#basseng`
+(og `#pool`/`#svommebasseng`) er bare alias: lenker, navbar-config og varsler dit blir til `#badebasseng` med
+`history.replaceState`. Ved første generering etter oppdateringen kjører en engangsmigrering av ki-store (logges i
+konsollen som «Basseng-migrering (fiks 30.1) kjørt én gang», merket `migrations.basseng30`): gamle bassengpopups i
+`custom_popups` fjernes (innstillingene flyttes til kortet), `popup_overrides`/`popups` flyttes fra `basseng` til
+`badebasseng`, og lenker til `#basseng` i kortconfigene skrives om. For en admin fjernes Lovelace-ressursene
+`ki-basseng-card.js` og `ki-basseng-hero-card.js` automatisk, og filene slettes fra service worker-cachen (Cache Storage)
+ved oppstart. Står `custom:ki-basseng-card`/`custom:ki-basseng-hero-card` fortsatt i en config, rendres de som
+`msh-basseng-card` (hero-kortet rendrer ingenting ved siden av et bassengkort) med en advarsel i konsollen.
+
+Det kortkoden **ikke** kan gjøre selv, og som må gjøres for hånd etter oppdateringen:
+- Sett `?v=<ny versjon>` på `ki-msh.js`-ressursen (punkt 1 over) – URL-en ligger i HA, ikke i bundelen.
+- Er dashbordet i YAML-modus, eller er brukeren ikke admin: fjern `ki-basseng-card.js`/`ki-basseng-hero-card.js` fra
+  ressurslisten (`resources:` i YAML) selv.
+- iOS-appen (WKWebView) holder på den gamle `ki-msh.js` til appen er tvunget til å lukke: tilbakestill frontend-hurtigbufferen
+  (punkt 2), sveip appen helt bort og åpne den igjen. Sjekk så at konsollen viser riktig versjon.
+- Et eget YAML-dashbord uten strategien: bruk «Opprett / oppdater popups» i GUI-editoren til `msh-hjem-card`, som tar over den gamle popupen og
+  fjerner kopien, eller endre for hånd til én popup `#badebasseng` med én `custom:msh-basseng-card`.
 
 ## Popups
 
@@ -112,7 +127,7 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 | Rom | `#<område>` | `msh-rom-card` | KI Rom / entiteter i området |
 | Person | `#person-<id>` | `msh-person-card` | `person.*`, mobil-sensorer |
 | Innstillinger | `#settings` | `msh-innstillinger-card` | KI Varslinger og sikkerhet, `ki_energi` |
-| Basseng | `#basseng` (+ `#badebasseng`) | `msh-basseng-card` | område «Basseng»/`pool` |
+| Basseng | `#badebasseng` (alias `#basseng`) | `msh-basseng-card` | område «Basseng»/`pool` |
 | Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
 | Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
 | Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid |

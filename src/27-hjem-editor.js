@@ -899,8 +899,9 @@
         <div class="g2"><div class="fld"><span class="fl">Navn</span><input class="in" data-in="tename" data-k="${esc(k)}" value="${esc(cfg.name || '')}" placeholder="${esc(K[1])}"></div>
           <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="tesub" data-k="${esc(k)}" value="${esc(cfg.sub || '')}" placeholder="${esc(kd === 'lock' ? 'Dørlås / Inngang' : K[1])}"></div></div>
         <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${icf}</div>
+        ${kd === 'lock' || kd === 'garage' ? `<div class="fld"><span class="fl">Popup (popup_hash) · trykk på kortet</span><input class="in" data-in="tepop" data-k="${esc(k)}" value="${esc(cfg.popup_hash || '')}" placeholder="${kd === 'lock' ? '#dorlas' : '#garasje'}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>` : ''}
         ${taps}
-        ${cfg.entity || cfg.name || cfg.icon || cfg.sub || H.TAP_FIELDS.some(([w]) => cur(w)) ? `<button class="o34 press" style="align-self:flex-start" data-a="tereset" data-k="${esc(k)}">${ic('mdi:restore', 16)} Standard for flisen</button>` : ''}`;
+        ${cfg.entity || cfg.name || cfg.icon || cfg.sub || cfg.popup_hash || H.TAP_FIELDS.some(([w]) => cur(w)) ? `<button class="o34 press" style="align-self:flex-start" data-a="tereset" data-k="${esc(k)}">${ic('mdi:restore', 16)} Standard for flisen</button>` : ''}`;
     }
     // «+ Legg til» → velg type → velg entitet («Automatisk» = autokonfig). Flere av samme type er lov (lock_2 …).
     _tileAdd(m) {
@@ -1847,7 +1848,7 @@
         case 'teactf': return this._actSet(d.k, d.f, trim || undefined);
         case 'teactnum': return this._actSet(d.k, d.f, Number(v) === 2 ? undefined : Number(v));
         case 'teacttf': return this._trigSet(d.k, (L) => { if (L[+d.i]) L[+d.i][d.f] = trim || undefined; });
-        case 'tename': case 'tesub': case 'teiconraw': return this._teSet(d.k, { tename: 'name', tesub: 'sub', teiconraw: 'icon' }[k], trim);
+        case 'tename': case 'tesub': case 'teiconraw': case 'tepop': return this._teSet(d.k, { tename: 'name', tesub: 'sub', teiconraw: 'icon', tepop: 'popup_hash' }[k], trim);
         case 'tfra': case 'ttil': {
           if (!u.sel) return;
           const m = this._model();
