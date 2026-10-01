@@ -451,12 +451,14 @@
   const PLATFORMS = ['tesla', 'tesla_custom', 'tesla_fleet', 'teslemetry', 'tessie'];
   const CHARGER_RX = /elbillader|easee|zaptec|wallbox|go_?e_?charger|ctek|charge_?amps|garo/;
   const PAINTS = [['#7b92ac', 'Blågrå'], ['#e9e9e7', 'Perlehvit'], ['#1c1d20', 'Svart'], ['#7d8084', 'Stealth-grå'], ['#a3161f', 'Ultrarød'], ['#233f8c', 'Dyphavsblå']];
-  const TABS = [['lading', 'Lading', 'mdi:ev-station'], ['kjoring', 'Kjøring', 'mdi:steering'], ['sparing', 'Sparing', 'mdi:piggy-bank']];
+  // Fiks 27.9: ikoner som designet (ev_station / route / savings)
+  const TABS = [['lading', 'Lading', 'mdi:ev-station'], ['kjoring', 'Kjøring', 'mdi:map-marker-path'], ['sparing', 'Sparing', 'mdi:piggy-bank']];
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
   // Fiks 26.10: riktige ikoner (lås/lås opp, horn, defrost, frunk = car-select, bagasje = bag-suitcase) – ikke to bilikoner
-  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:car-defrost-front'], ['frunk', 'Frunk', 'mdi:car-select'], ['trunk', 'Bagasje', 'mdi:bag-suitcase']];
+  // Fiks 27.9: designets Material Symbols (lock / campaign / heat / directions_car / luggage, FILL 1) → fylte mdi-ikoner
+  const BTNS = [['lock', 'Lås', 'mdi:lock'], ['honk', 'Tut', 'mdi:bullhorn'], ['defrost', 'Defrost', 'mdi:heat-wave'], ['frunk', 'Frunk', 'mdi:car'], ['trunk', 'Bagasje', 'mdi:bag-suitcase']];
   const CONF_DEF = { lock: true, honk: false, defrost: false, frunk: true, trunk: true };
-  const LIMIT_OPTS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
+  const LIMIT_OPTS = [50, 60, 70, 80, 90, 100]; // Fiks 27.9b: bare tiere (designet)
   const DEF = { name: 'Tesla Model Y', paint: '#7b92ac', capacity: 75, button_text: true, smart_until: 7, lock_inverted: true, confirm: false, limits: [50, 60, 70, 80, 100] };
   const TABS_DEF = { style: 'filled', content: 'text', start: 'lading' };
   const GROUPS = [['lading', 'Batteri og lading', 'mdi:battery-charging-high'], ['status', 'Kjøring og status', 'mdi:car-info'], ['sparing', 'Sparing', 'mdi:piggy-bank-outline']];
@@ -511,7 +513,9 @@
 
   /* ------------------------------------------------------------ config-hjelpere */
   const prefixes = (c) => { const p = c && c.prefix; const L = (Array.isArray(p) ? p : String(p || '').split(',')).map((x) => String(x).trim().toLowerCase()).filter(Boolean); return L.length ? L : DEF_PREFIX; };
-  const tabsCfg = (c) => ({ ...TABS_DEF, ...((c && c.tabs) || {}) });
+  // Fiks 27.9: designets verdier (tekst/ikon/aktiv/begge, Fylt/Kontur) godtas og normaliseres
+  const NORM = { tekst: 'text', ikon: 'icons', ikoner: 'icons', icon: 'icons', aktiv: 'icon_active', begge: 'both', fylt: 'filled', kontur: 'outline' };
+  const tabsCfg = (c) => { const T = { ...TABS_DEF, ...((c && c.tabs) || {}) }; ['content', 'style'].forEach((k) => { const v = NORM[String(T[k] || '').toLowerCase()]; if (v) T[k] = v; }); if (!['text', 'icons', 'icon_active', 'both'].includes(T.content)) T.content = 'text'; if (T.style !== 'outline') T.style = 'filled'; return T; };
   const tabOrder = (c) => { const k = TABS.map((t) => t[0]); const o = (Array.isArray(tabsCfg(c).order) ? tabsCfg(c).order : []).filter((x) => k.includes(x)); k.forEach((x) => { if (!o.includes(x)) o.push(x); }); return o; };
   const tabHidden = (c) => new Set(Array.isArray(tabsCfg(c).hidden) ? tabsCfg(c).hidden : []);
   const visTabs = (c) => { const hid = tabHidden(c); const o = tabOrder(c).filter((k) => !hid.has(k)); return o.length ? o : [tabOrder(c)[0]]; };
@@ -614,23 +618,30 @@
   }
 
   /* ------------------------------------------------------------ fanelinjen (kortet + live forhåndsvisning i «Tilpass Tesla») */
+  // Fiks 27.9 (Tesla v3): Fylt = beholder #3a3a3a (r24, padding 4, gap 2, inset .05), fane 40 px r20 14/500, inaktiv #afafaf,
+  // aktiv rosa gradient + #3a3a3a. Kontur = sentrert, kant rgba(255,255,255,.28), r22, padding 3, fane 36 px r18 15 px, aktiv rosa
+  // + #282828, inaktiv #fafafa. Ikon vises bare med «Ikoner / Ikon + aktiv / Begge» (standard Tekst).
   function tabBtn(c, k, on, attrs) {
     const [, label, icon] = TABL[k], T = tabsCfg(c), mode = T.content;
     const showIcon = mode !== 'text', showLabel = mode === 'text' || mode === 'both' || (mode === 'icon_active' && on);
-    const fill = T.style !== 'outline';
-    const st = on ? (fill ? `background:${ACC};color:${INK}` : `background:transparent;color:${PINK};box-shadow:inset 0 0 0 1.5px ${PINK}`) : 'background:transparent;color:var(--gray800,#afafaf)';
+    const st = on ? `background:${ACC};color:${T.style === 'outline' ? '#282828' : '#3a3a3a'}` : `background:transparent;color:${T.style === 'outline' ? 'var(--white,#fafafa)' : 'var(--gray800,#afafaf)'}`;
     return `<button class="tab${on ? ' on' : ''}${showLabel ? '' : ' io'}" role="tab" aria-selected="${on}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs || ''} style="${st}">${showIcon ? M.icon(icon, 20) : ''}${showLabel ? `<span>${esc(label)}</span>` : ''}</button>`;
   }
-  // Fiks 26.10: fanelinjen fyller hele bredden ved siden av tannhjulet – like brede faner (grid, minmax(0,1fr)),
-  // høyde 48 (padding 4 + boble 40), så den rosa boblen (aktiv fane + MSH.glassMorph) har fanens bredde og posisjon.
+  const tabBar = (c, inner) => `<div class="tbox ${tabsCfg(c).style === 'outline' ? 'ol' : 'fl'}">${inner}</div>`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tbox{flex:1;min-width:0;box-sizing:border-box;height:48px;padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}overflow:hidden}
-    ${pre} .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:20px;overflow:hidden;-webkit-mask-image:none;mask-image:none}
-    ${pre} .tabs>.tab{min-width:0;width:100%}
-    ${pre} .tab{height:40px;padding:0 8px;overflow:hidden;text-overflow:ellipsis;border-radius:20px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
-    ${pre} .tab.io{padding:0 10px}
-    ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);'}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
-    ${pre} .gear:active{transform:scale(.92)}`;
+    ${pre} .tbox{flex:1;min-width:0;box-sizing:border-box}
+    ${pre} .tbox.fl{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)', 'inset 0 0 0 1px rgba(255,255,255,0.05)') : 'background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);'}overflow:hidden}
+    ${pre} .tbox.fl .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:20px;overflow:hidden;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tbox.fl .tabs>.tab{min-width:0;width:100%}
+    ${pre} .tbox.fl .tab{height:40px;padding:0 8px;border-radius:20px;font-size:14px;font-weight:500}
+    ${pre} .tbox.fl .tab.io{padding:0 10px}
+    ${pre} .tbox.ol{display:flex;justify-content:center}
+    ${pre} .tbox.ol .tabs{display:flex;gap:2px;padding:3px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.28);max-width:100%;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tbox.ol .tab{height:36px;min-width:44px;padding:0 20px;border-radius:18px;font-size:15px;font-weight:400}
+    ${pre} .tbox.ol .tab.io{padding:0 14px}
+    ${pre} .tab{overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
+    ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)', 'inset 0 0 0 1px rgba(255,255,255,0.05)') : 'background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);'}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    ${pre} .gear:active{transform:scale(.94)}`;
 
   /* ------------------------------------------------------------ «Tilpass Tesla»: dra-og-slipp for fanene (fallgruve 2) */
   function installEd(ed) {
@@ -650,7 +661,7 @@
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
       d = { item, list: item.parentElement, id: e.pointerId, y0: e.clientY, ty: 0, start: [...item.parentElement.querySelectorAll(':scope > [data-tdk]')].map((x) => x.dataset.tdk) };
       window.__tabReorder = true;
-      Object.assign(item.style, { position: 'relative', zIndex: '3', background: '#404040', boxShadow: '0 10px 24px rgba(0,0,0,.45)', transition: 'none' });
+      Object.assign(item.style, { position: 'relative', zIndex: '3', background: '#404040', borderRadius: '18px', boxShadow: '0 10px 24px rgba(0,0,0,.35)', transition: 'none' });
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -670,7 +681,7 @@
       if (!d || (e && e.pointerId !== d.id)) return;
       const D = d; d = null;
       window.__tabReorder = false;
-      Object.assign(D.item.style, { transform: '', position: '', zIndex: '', background: '', boxShadow: '', transition: '' });
+      Object.assign(D.item.style, { transform: '', position: '', zIndex: '', background: '', borderRadius: '', boxShadow: '', transition: '' });
       const order = [...D.list.querySelectorAll(':scope > [data-tdk]')].map((x) => x.dataset.tdk);
       M.haptic('light');
       if (order.join() !== D.start.join()) ed._set('tabs.order', order); else ed._render();
@@ -696,7 +707,7 @@
     const preview = { type: 'html', html: (hh, cc) => {
       const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
       return `<style>${TAB_CSS('.tsp')}.tsp{padding:14px 12px;border-radius:24px;background:#282828}.tsp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px 10px}.tsp .tab,.tsp .gear{pointer-events:none}</style>
-        <div class="tsp" data-key="tsp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow"><div class="tbox"><div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div></div><span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
+        <div class="tsp" data-key="tsp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow">${tabBar(cc, `<div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
     } };
     const order = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
@@ -716,7 +727,7 @@
     } };
     const limits = { type: 'html', html: (hh, cc, key) => {
       const L = limitsOf(cc);
-      return `<div class="f"><label>Ladegrense-knapper</label><div class="chips">${LIMIT_OPTS.map((v) => `<button class="chip ${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="fn" data-k="${key}" data-op="lim" data-v="${v}">${v} %</button>`).join('')}</div><span class="help">Knappene under ladegrense-baren. Dra-baren går alltid fra 50 til 100 %.</span></div>`;
+      return `<div class="f"><label>Ladegrense-knapper</label><div class="chips">${LIMIT_OPTS.map((v) => `<button class="chip ${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="fn" data-k="${key}" data-op="lim" data-v="${v}">${v} %</button>`).join('')}</div></div>`;
     }, click: (dd, ed) => {
       const L = new Set(limitsOf(ed._config || {})), v = Number(dd.v);
       if (L.has(v)) L.delete(v); else L.add(v);
@@ -770,6 +781,221 @@
     ];
   }
 
+  /* ============================================================ «Tilpass Tesla»-arket (Fiks 27.9b, 1:1 med Tesla v3)
+   * Eget ark-element (msh-tesla-editor) som arver den felles editoren (msh-editor: utkast, _set, Ferdig/lagring, status),
+   * men tegner designets ark: tittel «Tilpass Tesla» 22/600 + rosa «Ferdig» (ingen ×), tekstfaner Bil · Faner · Entiteter ·
+   * Avansert (4 kolonner, Liquid Glass-drag), seksjoner som egne kort #3a3a3a r24 rett på arket, brytere (rosa), segmenterte
+   * valg, og fast høyde (bare innholdet scroller). GUI-editoren (getConfigElement) bruker fortsatt skjemaet over. */
+  const ED_TABS = [['bil', 'Bil'], ['faner', 'Faner'], ['ents', 'Entiteter'], ['adv', 'Avansert']];
+  const focusTab = (f) => (!f ? null : /^(bil|buttons)$/.test(f) ? 'bil' : f === 'faner' ? 'faner' : /^(ent|entiteter)/.test(f) ? 'ents' : /^(avansert|spacing)$/.test(f) ? 'adv' : null);
+  const niceId = (id) => { const n = obj(id).replace(/_/g, ' '); return n.charAt(0).toUpperCase() + n.slice(1); };
+  const swH = (on, attrs) => `<button class="tsw${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" ${attrs}><i></i></button>`;
+  const segH = (title, name, opts, cur, extra) => `<div class="sgw"${extra || ''}><span class="ft">${esc(title)}</span><div class="tseg" role="radiogroup" data-glass-drag="x" style="grid-template-columns:repeat(${opts.length},minmax(0,1fr))">${opts.map(([v, l]) => { const on = String(v) === String(cur); return `<button class="${on ? 'on' : ''}" role="radio" aria-checked="${on}" aria-selected="${on}" data-a="tsel" data-name="${esc(name)}" data-v="${esc(v)}" data-num="${typeof v === 'number' ? 1 : 0}">${esc(l)}</button>`; }).join('')}</div></div>`;
+  const TED_CSS = `
+    :host{display:flex;flex-direction:column;height:100%;min-height:0;font-family:${M.FONT};color:#fafafa}
+    *{box-sizing:border-box}
+    button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    input{cursor:text;outline:none}
+    .ted{flex:1;min-height:0;display:flex;flex-direction:column}
+    .th{flex:none;display:flex;align-items:center;gap:8px;padding:2px 20px 14px}
+    .tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .done{flex:none;${M.DONE_PILL}color:#3a3a3a}
+    .done[disabled]{opacity:.7;cursor:progress}
+    .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(42,23,32,0.25);border-top-color:#2a1720;animation:edspin .8s linear infinite;flex:none}
+    @keyframes edspin{to{transform:rotate(360deg)}}
+    .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:#e1e1e1;color:#232323;opacity:0;transition:opacity .2s;pointer-events:none}
+    .stat.on{opacity:1}.stat.ok{background:${GREEN};color:#12291d}.stat.err{background:var(--red,#f28073);color:#2c1411}
+    .tbw{flex:none;padding:0 14px 12px}
+    .etabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+    .etabs button{height:40px;border-radius:20px;font-size:13px;font-weight:500;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .2s,color .2s}
+    .etabs button.on{background:${ACC};color:#3a3a3a}
+    .tsc{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;padding:0 14px calc(40px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:8px}
+    .tsc::-webkit-scrollbar{display:none}
+    .tsc>*{flex:none}
+    .sec{display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;scroll-margin-top:8px}
+    .sec.pad{gap:12px;padding:14px}
+    .lab{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f}
+    .lab.lp{padding:14px 16px 6px}
+    .ft{font-size:13px;color:#afafaf}
+    .fl{display:flex;flex-direction:column;gap:6px}
+    .inp{height:44px;border-radius:14px;padding:0 14px;background:#282828;color:#fafafa;font-size:15px;width:100%}
+    .inp.mono{height:40px;border-radius:12px;padding:0 12px;color:#c7c7c7;font-size:13px;font-family:ui-monospace,monospace}
+    .inp.mono.sm{font-size:12px}
+    .inp::placeholder{color:#7f7f7f}
+    .paints{display:flex;gap:10px;flex-wrap:wrap}
+    .paints button{width:40px;height:40px;border-radius:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
+    .paints button.on{box-shadow:0 0 0 2px #3a3a3a,0 0 0 4px #fafafa}
+    .sgw{display:flex;flex-direction:column;gap:6px}
+    .tseg{display:grid;gap:2px;padding:4px;border-radius:22px;background:#282828}
+    .tseg button{height:36px;border-radius:18px;font-size:13px;font-weight:500;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;transition:background .2s,color .2s}
+    .tseg button.on{background:${ACC};color:#3a3a3a}
+    .tsw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
+    .tsw.on{background:${M.SWITCH_ON || C.pink}}
+    .tsw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}
+    .tsw.on i{left:21px}
+    .row{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px}
+    .row+.row,.row+.brow,.brow+.brow{border-top:1px solid rgba(255,255,255,0.06)}
+    .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .tx b{font-size:15px;font-weight:500}.tx i{font-style:normal;font-size:12px;color:#979797}
+    .brow{display:flex;flex-direction:column;gap:8px;padding:12px 16px}
+    .bl{display:flex;align-items:center;gap:12px}
+    .bic{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#404040}
+    .bn{flex:1;min-width:0;font-size:15px;font-weight:500}
+    .cfm{display:flex;align-items:center;gap:8px;font-size:12px;color:#afafaf;align-self:flex-start}
+    .tsp{padding:14px 10px;border-radius:18px;background:#282828}
+    .tsp .tab,.tsp .gear{pointer-events:none}
+    ${TAB_CSS('.tsp')}
+    .tlist{display:flex;flex-direction:column}
+    .trw{position:relative;display:flex;align-items:center;gap:12px;min-height:60px;padding:0 16px;border-top:1px solid transparent}
+    .trw+.trw{border-top-color:rgba(255,255,255,0.06)}
+    .drg{width:36px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f}
+    .tn{flex:1;min-width:0;font-size:15px;font-weight:500}
+    .lims{display:flex;gap:6px;flex-wrap:wrap}
+    .lims button{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;background:#282828;color:#afafaf}
+    .lims button.on{background:${ACC};color:#3a3a3a}
+    .erow{display:flex;flex-direction:column;gap:8px;padding:12px 16px}
+    .erow+.erow{border-top:1px solid rgba(255,255,255,0.06)}
+    .eb{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:44px}
+    .eic{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:#404040}
+    .en{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .el{font-size:14px;font-weight:500}
+    .ei{font-size:11px;font-family:ui-monospace,monospace;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ei.none{font-family:inherit;color:${PINK}}
+    .ep{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828}
+    .es{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:#3a3a3a}
+    .es input{flex:1;min-width:0;height:100%;background:transparent;color:#fafafa;font-size:13px}
+    .es input::placeholder{color:#7f7f7f}
+    .sug{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
+    .sug:hover,.sug.on{background:#3a3a3a}
+    .sug .sn{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .sug .sn b{font-weight:400;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sug .sn i{font-style:normal;font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nohit{padding:10px;font-size:12px;color:#7f7f7f}
+    .eclr{height:36px;border-radius:12px;font-size:12px;font-weight:500;color:var(--red,#f28073)}
+    .advr{min-height:64px}
+    .reset{height:48px;border-radius:24px;background:#3a3a3a;font-size:14px;font-weight:500;color:var(--red,#f28073)}
+    :host([glass]) .sec,:host([glass]) .etabs,:host([glass]) .reset{background:rgba(255,255,255,0.08);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.14)}
+    :host([glass]) .inp,:host([glass]) .tseg,:host([glass]) .tsp,:host([glass]) .ep,:host([glass]) .lims button:not(.on){background:rgba(0,0,0,0.25)}
+    @media (prefers-reduced-motion: reduce){*{transition:none !important}}
+  `;
+  const EdBase = customElements.get('msh-editor');
+  class TeslaEditor extends (EdBase || HTMLElement) {
+    _render() {
+      if (!this._inline) return super._render();
+      if (!this._config || !this._hass) return;
+      if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return;
+      const tb = this._tab = this._tab || {};
+      if (tb.tesla == null) tb.tesla = focusTab(this.focusSection) || 'bil';
+      const cur = tb.tesla;
+      let body = '';
+      try { body = this['_p_' + cur](); } catch (e) { console.error('[ki-msh] Tilpass Tesla', e); body = `<div class="sec pad"><span class="ft">Feil: ${esc(e.message)}</span></div>`; }
+      const html = `<style>${TED_CSS}</style><div class="ted">
+        <div class="th"><span class="tt">Tilpass Tesla</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>
+        <div class="tbw"><div class="etabs" role="tablist" data-glass-drag="x">${ED_TABS.map(([k, l]) => `<button class="${k === cur ? 'on' : ''}" role="tab" aria-selected="${k === cur}" data-a="tetab" data-v="${k}">${l}</button>`).join('')}</div></div>
+        <div class="tsc" data-key="tsc-${cur}">${body}</div></div>`;
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      this._glassSync();
+      if (M.glassDrag) this.shadowRoot.querySelectorAll('[data-glass-drag]').forEach((el) => M.glassDrag(el, { axis: 'x' }));
+      installEd(this);
+      if (this.focusSection && !this._focused) {
+        this._focused = true;
+        const el = this.shadowRoot.querySelector(`[data-focus="${this.focusSection}"]`);
+        if (el) el.scrollIntoView({ block: 'start' });
+      }
+      if (this._efocus) { this._efocus = false; const i = this.shadowRoot.querySelector('.es input'); if (i) try { i.focus({ preventScroll: true }); } catch (e) { /* */ } }
+    }
+    _p_bil() {
+      const c = this._config, h = this._hass, cur = paintOf(c).toLowerCase(), cap = Number(c.capacity) || DEF.capacity, txt = c.button_text !== false;
+      const bil = `<section class="sec pad" data-focus="bil"><span class="lab">Bil</span>
+        <label class="fl"><span class="ft">Navn</span><input class="inp" data-name="name" value="${esc(c.name || DEF.name)}" placeholder="${esc(DEF.name)}" autocapitalize="off" spellcheck="false"></label>
+        <div class="fl" style="gap:8px"><span class="ft">Lakk</span><div class="paints">${PAINTS.map(([hex, n]) => `<button class="${cur === hex ? 'on' : ''}" data-a="tpaint" data-v="${hex}" title="${esc(n)}" aria-label="${esc(n)}" aria-pressed="${cur === hex}" style="background:${hex}"></button>`).join('')}</div></div>
+        ${segH('Batterikapasitet', 'capacity', [[60, '60 kWh'], [75, '75 kWh'], [82, '82 kWh']], cap)}</section>`;
+      const btns = BTNS.map(([k, label, icon]) => {
+        const b = btnCfg(c, k), on = b.show !== false, conf = b.confirm != null ? !!b.confirm : CONF_DEF[k], auto = entOf(h, c, k);
+        return `<div class="brow" data-key="b-${k}"><div class="bl"><span class="bic">${M.icon(icon, 20)}</span><span class="bn">${esc(label)}</span>${swH(on, `data-a="tbool" data-name="buttons.${k}.show" data-v="${on ? 0 : 1}" aria-label="Vis ${esc(label)}"`)}</div>
+          <input class="inp mono sm" data-name="buttons.${k}.entity" value="${esc(b.entity || auto || '')}" placeholder="Velg entitet" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="${esc(label)}: entitet">
+          <button class="cfm" data-a="tbool" data-name="buttons.${k}.confirm" data-v="${conf ? 0 : 1}" aria-pressed="${conf}">${M.icon(conf ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline', 18, `color:${conf ? '#f285c9' : '#7f7f7f'}`)}Be om bekreftelse</button></div>`;
+      }).join('');
+      return `${bil}<section class="sec" data-focus="buttons"><span class="lab lp">Hurtigknapper</span>
+        <div class="row"><span class="tx"><b>Vis tekst under ikonet</b><i>Låst, Tut, Defrost …</i></span>${swH(txt, `data-a="tbool" data-name="button_text" data-v="${txt ? 0 : 1}" aria-label="Vis tekst under ikonet"`)}</div>${btns}</section>`;
+    }
+    _p_faner() {
+      const c = this._config, V = visTabs(c), T = tabsCfg(c), act = V.includes(T.start) ? T.start : V[0], hid = tabHidden(c);
+      const prev = `<section class="sec pad" data-focus="faner"><span class="lab">Forhåndsvisning</span><div class="tsp" aria-hidden="true"><div class="trow">${tabBar(c, `<div class="tabs">${V.map((k) => tabBtn(c, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div></section>`;
+      const list = `<section class="sec"><span class="lab lp">Faner</span><div class="tlist">${tabOrder(c).map((k) => { const [, label, icon] = TABL[k], on = !hid.has(k);
+        return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag-vertical', 22)}</span>${M.icon(icon, 22, 'color:#afafaf')}<span class="tn">${esc(label)}</span>${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
+      const L = limitsOf(c);
+      const opts = `<section class="sec pad">${segH('Fanestil', 'tabs.style', [['filled', 'Fylt'], ['outline', 'Kontur']], T.style)}${segH('Faner viser', 'tabs.content', [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], T.content)}${segH('Startfane', 'tabs.start', V.map((k) => [k, TABL[k][1]]), act)}
+        <div class="fl" style="gap:8px"><span class="ft">Ladegrense-knapper</span><div class="lims">${LIMIT_OPTS.map((v) => `<button class="${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="tlim" data-v="${v}">${v} %</button>`).join('')}</div></div></section>`;
+      return prev + list + opts;
+    }
+    _p_ents() {
+      const c = this._config, h = this._hass, A = autoAll(h, c), pre = prefixes(c);
+      return GROUPS.map(([g, title]) => `<section class="sec" data-focus="ent-${g}"><span class="lab lp">${esc(title)}</span>${FIELDS.filter((f) => f[2] === g).map(([k, label, , doms, , , ic]) => {
+        const ov = ((c.entities || {})[k]) || null, cur = ov || A[k] || null, open = this._eo === k;
+        let panel = '';
+        if (open) {
+          const q = String(this._eqv || '').toLowerCase().trim(), nm = (id) => String(((h.states[id] || {}).attributes || {}).friendly_name || niceId(id));
+          let L = Object.keys(h.states).filter((id) => doms.includes(id.split('.')[0]));
+          if (q) L = L.filter((id) => id.includes(q.replace(/ /g, '_')) || nm(id).toLowerCase().includes(q));
+          const sc = (id) => (id === cur ? 0 : 10) + (pre.some((p) => obj(id).includes(p)) || /^sensor\.ki_/.test(id) || CHARGER_RX.test(obj(id)) ? 0 : 1);
+          L = L.sort((a, b) => sc(a) - sc(b) || (a < b ? -1 : 1)).slice(0, 8);
+          panel = `<div class="ep"><div class="es">${M.icon('mdi:magnify', 18, 'color:#7f7f7f')}<input data-tq="1" data-key="eq-${k}" value="${esc(this._eqv || '')}" placeholder="Søk etter entitet …" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"></div>
+            ${L.map((id) => `<button class="sug${id === cur ? ' on' : ''}" data-a="tset" data-name="entities.${k}" data-v="${esc(id)}">${M.icon(M.domainIcon ? M.domainIcon(id, h.states[id]) : 'mdi:shape', 18, 'color:#979797')}<span class="sn"><b>${esc(nm(id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:check', 18, `color:${GREEN};opacity:${id === cur ? 1 : 0}`)}</button>`).join('')}
+            ${L.length ? '' : '<span class="nohit">Ingen treff</span>'}${ov ? `<button class="eclr" data-a="tclr" data-name="entities.${k}">${A[k] ? 'Bruk automatisk' : 'Fjern entitet'}</button>` : ''}</div>`;
+        }
+        return `<div class="erow" data-key="e-${k}"><button class="eb" data-a="tent" data-v="${k}" aria-expanded="${open}"><span class="eic">${M.icon(ic, 18, 'color:#e1e1e1')}</span><span class="en"><span class="el">${esc(label)}</span><span class="ei${cur ? '' : ' none'}">${esc(cur || 'Velg entitet')}</span></span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:#7f7f7f')}</button>${panel}</div>`;
+      }).join('')}</section>`).join('');
+    }
+    _p_adv() {
+      const c = this._config, li = c.lock_inverted !== false, cf = c.confirm === true;
+      const sp = (k, d) => (c[k] != null ? Number(c[k]) : d);
+      return `<section class="sec" data-focus="avansert">
+          <div class="row advr"><span class="tx"><b>Lås: «på» betyr åpen</b><i>Tesla-brua (doors_locked). Slå av for ekte lock.-entitet</i></span>${swH(li, `data-a="tbool" data-name="lock_inverted" data-v="${li ? 0 : 1}" aria-label="Lås: på betyr åpen"`)}</div>
+          <div class="row advr"><span class="tx"><b>Bekreftelse på hurtigknapper</b><i>Spør før lås, tut, frunk og bagasje</i></span>${swH(cf, `data-a="tbool" data-name="confirm" data-v="${cf ? 0 : 1}" aria-label="Bekreftelse på hurtigknapper"`)}</div></section>
+        <section class="sec pad">${segH('Smartlading: ferdig før', 'smart_until', [5, 6, 7, 8, 9].map((x) => [x, `${M.pad(x)}:00`]), sp('smart_until', DEF.smart_until))}</section>
+        <section class="sec pad" data-focus="spacing"><span class="lab">Mellomrom</span>${segH('Mellom seksjonene', 'gap', [[4, 'Tett'], [8, 'Standard'], [18, 'Luftig']], sp('gap', 8))}${segH('Fra popup-headeren', 'pad_top', [[-20, 'Inntil'], [6, 'Tett'], [20, 'Standard'], [44, 'Luftig']], sp('pad_top', 20))}${segH('Luft i bunnen', 'pad_bottom', [[0, 'Ingen'], [24, 'Standard'], [60, 'Litt'], [150, 'Stor']], sp('pad_bottom', 24))}</section>
+        <label class="sec pad fl" style="gap:6px"><span class="ft">Prefiks for autofunn (kommaseparert)</span><input class="inp mono" data-name="prefix" value="${esc(c.prefix != null ? [].concat(c.prefix).join(', ') : DEF_PREFIX.join(', '))}" placeholder="${esc(DEF_PREFIX.join(', '))}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <button class="reset" data-a="treset">Tilbakestill til standard</button>`;
+    }
+    _click(e) {
+      if (!this._inline) return super._click(e);
+      const b = e.composedPath().find((n) => n.dataset && n.dataset.a);
+      if (!b) return;
+      const d = b.dataset, c = this._config || {};
+      switch (d.a) {
+        case 'tetab': if (this._tab.tesla === d.v) return; this._tab.tesla = d.v; this._eo = null; M.haptic('selection'); return this._render();
+        case 'tsel': M.haptic('selection'); return this._set(d.name, d.num === '1' ? Number(d.v) : d.v);
+        case 'tbool': M.haptic('selection'); return this._set(d.name, d.v === '1');
+        case 'tpaint': M.haptic('selection'); return this._set('paint', d.v === DEF.paint ? undefined : d.v);
+        case 'ttog': {
+          const hid = tabHidden(c);
+          if (!hid.has(d.v) && TABS.filter((t) => !hid.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+          if (hid.has(d.v)) hid.delete(d.v); else hid.add(d.v);
+          M.haptic('selection'); return this._set('tabs.hidden', hid.size ? [...hid] : undefined);
+        }
+        case 'tlim': { const L = new Set(limitsOf(c)), v = Number(d.v); if (L.has(v)) L.delete(v); else L.add(v); M.haptic('selection'); return this._set('limits', [...L].sort((x, y) => x - y)); }
+        case 'tent': this._eo = this._eo === d.v ? null : d.v; this._eqv = ''; this._efocus = !!this._eo; M.haptic('selection'); return this._render();
+        case 'tset': this._eo = null; this._eqv = ''; M.haptic('selection'); return this._set(d.name, d.v);
+        case 'tclr': this._eo = null; this._eqv = ''; M.haptic('selection'); return this._set(d.name, undefined);
+        case 'treset': { M.haptic('warning'); const id = c.card_id || M.uid(); this._config = { type: c.type || 'custom:msh-tesla-card', card_id: id }; return this._set('card_id', id); }
+        default: return super._click(e);
+      }
+    }
+    _input(e) {
+      const t = e.target;
+      if (this._inline && t.dataset && t.dataset.tq) { this._eqv = t.value; this._render(); return; }
+      return super._input(e);
+    }
+  }
+  if (EdBase && !customElements.get('msh-tesla-editor')) customElements.define('msh-tesla-editor', TeslaEditor);
+  // Arket: fast høyde (samme i alle faner), designets maks-bredde 440, header + faner står, bare innholdet scroller
+  const SHEET_CSS = `.sh{height:calc(100% - 24px - env(safe-area-inset-top, 0px));max-width:440px !important;display:flex;flex-direction:column;overflow:hidden;--ki-sh-pt:0px;--ki-sh-px:0px;--ki-sh-pb:0px}
+    .sh>.gz{flex:none;position:relative;top:0;margin:0}
+    .sh>.body{flex:1;min-height:0;display:flex;flex-direction:column}
+    .sh>.body>*{flex:none}.sh>.body>msh-tesla-editor{flex:1;min-height:0}
+    .sh>.body>.msh-draft-banner{margin:0 14px 12px !important}`;
+
   /* ============================================================ kortet */
   class Tesla extends M.Card {
     static get cardName() { return 'Tesla'; }
@@ -777,6 +1003,14 @@
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
     static get uiPersist() { return ['tab', 'sp']; }
+    static get editorTitle() { return 'Tilpass Tesla'; }
+    // Fiks 27.9b: eget ark (msh-tesla-editor) – samme utkast/lagring som alle «Tilpass …»-ark, designets utseende
+    customize(focus, opts) {
+      if (!customElements.get('msh-tesla-editor')) return super.customize(focus, opts);
+      const ui = M.openEditor(this, { cardClass: this.constructor, focus, tag: 'msh-tesla-editor', ...(opts || {}) });
+      if (ui && ui.overlay && !ui.overlay.root.querySelector('style[data-tesla]')) { const st = document.createElement('style'); st.dataset.tesla = ''; st.textContent = SHEET_CSS; ui.overlay.root.appendChild(st); }
+      return ui;
+    }
     get cardSize() { return 12; }
     _e(k) { return entOf(this.hass, this.config, k); }
     _S(k) { return this.s(this._e(k)); }
@@ -826,7 +1060,7 @@
     /* ---------------------------------------------------------- tegning */
     render() {
       const c = this.config, t = this.tab, V = visTabs(c);
-      const tabs = `<div class="trow"><div class="tbox"><div class="tabs msh-tr" role="tablist" data-gd-skip>${V.map((k) => tabBtn(c, k, k === t, `data-act="tab" data-key="${k}" data-v="${k}" data-haptic="selection"`)).join('')}</div></div>
+      const tabs = `<div class="trow">${tabBar(c, `<div class="tabs msh-tr" role="tablist" data-gd-skip>${V.map((k) => tabBtn(c, k, k === t, `data-act="tab" data-key="${k}" data-v="${k}" data-haptic="selection"`)).join('')}</div>`)}
         <button class="gear" data-act="customize" data-haptic="light" aria-label="Tilpass Tesla">${M.icon('mdi:cog', 22)}</button></div>`;
       let body;
       try { body = this['_t_' + t](); } catch (e) { body = this._failHTML(e); }
@@ -840,13 +1074,14 @@
       return `<div class="qb${txt ? ' txt' : ''}" style="--qn:${B.length}">${B.map(([k, label, icon]) => {
         const id = this._bid(k), st = id ? this.s(id) : null;
         let cls = '', ic = icon, lab = label;
-        // Fiks 26.10: aktiv tilstand (defrost på, frunk/bagasje åpen) = lys flis #e1e1e1 med mørkt ikon og tekst
+        // Fiks 27.9 (Tesla v3): ulåst = oransje flis + «rist» (tekst «Åpen»), defrost på = rosa + «pust», frunk/bagasje åpen = rosa
         let aria = lab;
-        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open'; lab = 'Ulåst'; } else if (st) lab = 'Låst'; aria = lab; }
-        if (k === 'defrost' && st && st.state === 'on') { cls = 'act'; aria = 'Defrost på'; }
+        if (k === 'lock') { const ul = st ? unlocked(h, { ...c, entities: { ...(c.entities || {}), lock: id } }) : false; if (ul) { cls = 'warn shake'; ic = 'mdi:lock-open'; lab = 'Åpen'; } else lab = 'Låst'; aria = st ? lab : 'Lås'; }
+        if (k === 'defrost' && st && st.state === 'on') { cls = 'act breathe'; aria = 'Defrost på'; }
         if ((k === 'frunk' || k === 'trunk') && isOpen(st)) { cls = 'act'; aria = k === 'frunk' ? 'Frunk åpen' : 'Bagasje åpen'; }
+        if (k === 'honk' && this._honk && Date.now() - this._honk < 700) cls = 'shake1';
         if (!id || !st) cls = 'none';
-        return `<button class="qbtn press ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(aria)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 22)}</span>${txt ? `<span class="ql">${esc(lab)}</span>` : ''}</button>`;
+        return `<button class="qbtn ${cls}" data-act="btn" data-v="${k}" ${id && st ? `data-ent="${esc(id)}"` : ''} aria-label="${esc(aria)}${!id ? ' – velg entitet' : ''}"><span class="qi">${M.icon(ic, 26)}</span>${txt ? `<span class="ql">${esc(lab)}</span>` : ''}</button>`;
       }).join('')}</div>`;
     }
     _btn(k) {
@@ -860,7 +1095,7 @@
         run = () => (dom === 'lock' ? M.call(h, 'lock', ul ? 'lock' : 'unlock', { entity_id: id }) : dom === 'binary_sensor' ? M.moreInfo(this, id) : M.toggle(h, id));
       } else if (k === 'honk') {
         q = 'Tute med bilen?'; ok = 'Tut';
-        run = () => (dom === 'button' || dom === 'input_button' ? M.call(h, dom, 'press', { entity_id: id }) : M.toggle(h, id));
+        run = () => { this._honk = Date.now(); const b = this.shadowRoot.querySelector('.qbtn[data-v="honk"]'); if (b) { b.classList.remove('shake1'); void b.offsetWidth; b.classList.add('shake1'); } return dom === 'button' || dom === 'input_button' ? M.call(h, dom, 'press', { entity_id: id }) : M.toggle(h, id); };
       } else {
         const n = { defrost: 'defrost', frunk: 'frunken', trunk: 'bagasjerommet' }[k];
         q = k === 'defrost' ? (on ? 'Slå av defrost?' : 'Slå på defrost?') : (on ? `Lukke ${n}?` : `Åpne ${n}?`);
@@ -879,21 +1114,22 @@
       ['charging_state', 'charger', 'charge_power', 'charge_cable'].forEach((k) => this._S(k));
       const swId = this._e('charger'), sw = swId ? this.s(swId) : null;
       const known = !!(this._e('charging_state') || swId || this._e('charge_power') || this._e('charge_cable'));
-      const stTxt = S.lader ? 'Tilkoblet · lader' : S.ferdig ? 'Tilkoblet · ferdig ladet' : S.tilkoblet ? 'Tilkoblet · lader ikke' : known ? 'Ikke tilkoblet' : '–';
+      const stTxt = S.lader ? 'Lader' : S.ferdig ? 'Ferdig ladet' : S.tilkoblet ? 'Tilkoblet · lader ikke' : known ? 'Ikke tilkoblet' : '–';
       const start = swId && sw
-        ? `<button class="ss press" data-act="charge" data-ent="${esc(swId)}" data-haptic="light">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:flash', 18)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>`
-        : `<button class="ss press" data-act="customize" data-section="ent-lading" aria-label="Velg lader">${M.icon('mdi:flash', 18)}Start</button>`;
-      // batteristolpe 56 px (0–100 %): grønt fyll med «79%» inni + hvit markering for ladegrensen. Dra setter grensen.
+        ? `<button class="ss${sw.state === 'on' ? ' on' : ''}" data-act="charge" data-ent="${esc(swId)}" data-haptic="medium">${M.icon(sw.state === 'on' ? 'mdi:stop' : 'mdi:flash', 20)}${sw.state === 'on' ? 'Stopp' : 'Start'}</button>`
+        : `<button class="ss" data-act="customize" data-section="ent-lading" aria-label="Velg lader">${M.icon('mdi:flash', 20)}Start</button>`;
+      // Fiks 27.9: stav 56 px på #282828 (0–100 %): grønt fyll til batteri %, skravert felt batteri → grense (flyter mens den
+      // lader), hvit grensemarkør 4 px. Dra setter grensen.
       const cur = this.ui.limDraft != null ? this.ui.limDraft : lim;
       const bp = bat != null ? M.clamp(bat, 0, 100) : 0, lp = cur != null ? M.clamp(cur, 0, 100) : null;
       const bar = `<div class="lim${limId ? '' : ' ro'}" data-key="lim" ${limId ? `role="slider" aria-label="Ladegrense" aria-valuemin="50" aria-valuemax="100" aria-valuenow="${cur != null ? Math.round(cur) : ''}" tabindex="0"` : 'aria-hidden="true"'} style="--b:${bp.toFixed(2)};--f:${lp != null ? lp.toFixed(2) : 0}">
-          <div class="lbat${S.lader ? ' chg' : ''}"></div><span class="lpct num">${bat != null ? Math.round(bat) + '%' : '–'}</span>${lp != null ? '<i class="lmk"></i>' : ''}</div>`;
+          <div class="lbat"></div>${lp != null ? `<div class="lgap${S.lader ? ' chg' : ''}"></div>` : ''}<span class="lpct num">${bat != null ? Math.round(bat) + '%' : '–'}</span>${lp != null ? '<i class="lmk"></i>' : ''}</div>`;
       const limRow = limId
         ? `<div class="lrow"><span class="ll">Ladegrense <b class="lv num" data-key="lv">${cur != null ? Math.round(cur) + ' %' : '–'}</b></span>
-            <div class="lb">${limitsOf(c).map((v) => `<button class="lchip press ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection" aria-label="Ladegrense ${v} %">${v}</button>`).join('')}</div></div>`
+            <div class="lb">${limitsOf(c).map((v) => `<button class="lchip ${cur != null && Math.round(cur) === v ? 'on' : ''}" data-act="limit" data-v="${v}" data-haptic="selection" aria-label="Ladegrense ${v} %">${v}</button>`).join('')}</div></div>`
         : `<div class="lrow"><span class="ll">Ladegrense</span>${this._miss('', 'ent-lading')}</div>`;
       const main = `<div class="card lc">
-        <div class="lhead"><div class="grow col"><span class="lt2">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>${start}</div>
+        <div class="lhead"><div class="grow col lh2"><span class="lt2">${esc(stTxt)}</span><span class="big num">${S.eff != null ? M.nf(S.eff, 1) : '–'}<small>kW</small></span></div>${start}</div>
         ${bar}${limRow}</div>`;
       // nøkkeltall: ett kort, 3 kolonner med skillelinjer (etikett over verdi, ingen ikoner)
       let tl = this._N('time_left');
@@ -932,42 +1168,43 @@
         : `<button class="tg none" role="switch" aria-checked="false" aria-label="Smartlading – velg entitet" data-act="customize" data-section="ent-lading"><i></i></button>`;
       const graph = vals.length
         ? `<div class="pb">${bars.map((x, j) => `<i class="${cheap.has(j) ? 'c' : ''}${x.past ? ' p' : ''}${x.v == null ? ' x' : ''}" style="height:${x.v == null ? 4 : Math.max(8, ((x.v - mn) / ((mx - mn) || 1)) * 100).toFixed(1) + '%'}${x.v == null ? 'px' : ''}" title="kl. ${M.pad(x.h)} · ${esc(fmt(x.v))}"></i>`).join('')}</div>
-          <div class="pl">${[0, 4, 8, 11].map((j) => `<span style="left:calc((100% + 4px) * ${j} / 12 + (100% + 4px) / 24 - 2px)">${M.pad(bars[j].h)}:00</span>`).join('')}</div>`
+          <div class="pl">${[0, 4, 8, 11].map((j) => `<span style="left:calc((100% + 3px) * ${j} / 12 + (100% + 3px) / 24 - 1.5px)">${M.pad(bars[j].h)}:00</span>`).join('')}</div>`
         : this._miss('Fant ingen timepriser', 'ent-lading');
-      return `<div class="card sm"><div class="srow"><span class="sci">${M.icon('mdi:clock-outline', 20)}</span><div class="grow col"><span class="stt">Smartlading</span><span class="sst">${esc(txt)}</span></div>${tog}</div>${graph}</div>`;
+      return `<div class="card sm"><div class="srow"><span class="sci">${M.icon('mdi:clock', 22)}</span><div class="grow col"><span class="stt">Smartlading</span><span class="sst">${esc(txt)}</span></div>${tog}</div>${graph}</div>`;
     }
 
     /* ---------------------------------------------------------- Kjøring */
     _t_kjoring() {
+      // Fiks 27.9 (Tesla v3): rekkevidde-kort (40/300 + «N km ved L %», blå stav 10 px med grensemarkør), daglig kjøring
+      // (valgt dag + «Uka totalt», 7 søyler 130 px: valgt rosa, ellers blå .6) og to pillefliser (r32, ikon-sirkel 48).
       const rng = this._N('range'), bat = this._N('battery'), lim = this._N('charge_limit');
       const atLim = rng != null && bat > 0 && lim != null ? rng / bat * lim : null;
       const range = this._e('range') ? `<div class="card rc" data-ent="${esc(this._e('range'))}">
-        <div class="row"><span class="lt grow">Rekkevidde</span>${bat != null ? `<span class="sub">${Math.round(bat)} %</span>` : ''}</div>
-        <span class="big num">${rng != null ? M.nf(rng, 0) : '–'}<small>km</small></span>
-        <div class="rb"><i style="width:${bat != null ? M.clamp(bat, 0, 100) : 0}%"></i>${lim != null ? `<b style="left:${M.clamp(lim, 0, 100)}%"></b>` : ''}</div>
-        <span class="sub">${atLim != null ? `Ved ladegrensen ${Math.round(lim)} %: ca ${M.nf(atLim, 0)} km` : lim != null ? `Ladegrense ${Math.round(lim)} %` : ''}</span></div>`
-        : `<div class="card rc"><span class="lt">Rekkevidde</span>${this._miss('', 'ent-lading')}</div>`;
-      // daglig km siste 7 dager
+        <div class="kh"><div class="col g2"><span class="lt3">Rekkevidde</span><span class="big num">${rng != null ? M.nf(rng, 0) : '–'}<small>km</small></span></div><span class="sub pb6">${atLim != null ? `${M.nf(atLim, 0)} km ved ${Math.round(lim)} %` : lim != null ? `Ladegrense ${Math.round(lim)} %` : ''}</span></div>
+        <div class="rb"><i style="width:${bat != null ? M.clamp(bat, 0, 100) : 0}%"></i>${lim != null ? `<b style="left:calc(${M.clamp(lim, 0, 100)}% - 1px)"></b>` : ''}</div></div>`
+        : `<div class="card rc"><span class="lt3">Rekkevidde</span>${this._miss('', 'ent-lading')}</div>`;
       let daily;
       if (this._e('daily')) {
         const D = this._days7(), mx = Math.max(1, ...D.map((x) => x.v || 0));
         const sel = this.ui.day != null && this.ui.day >= 0 && this.ui.day < 7 ? this.ui.day : 6, sd = D[sel];
-        daily = `<div class="card dc"><div class="row"><span class="lt grow">Daglig kjøring</span><span class="sub">siste 7 dager</span></div>
-          <div class="smt"><span class="big2 num">${sd.v != null ? M.nf(sd.v, 0) + ' km' : '–'}</span><span class="sub">${sel === 6 ? 'i dag' : sel === 5 ? 'i går' : UKE[sd.d.getDay()] + ' ' + sd.d.getDate() + '.'}</span></div>
-          <div class="db">${D.map((x, i) => `<button class="dbar${i === sel ? ' on' : ''}" data-act="day" data-v="${i}" data-haptic="selection" aria-label="${UKE[x.d.getDay()]}: ${x.v != null ? Math.round(x.v) + ' km' : 'ingen data'}"><i style="height:${x.v ? Math.max(4, x.v / mx * 100).toFixed(1) : 2}%"></i><span>${UKE[x.d.getDay()].slice(0, 2)}</span></button>`).join('')}</div></div>`;
-      } else daily = `<div class="card dc"><span class="lt">Daglig kjøring</span>${this._miss('', 'ent-status')}</div>`;
+        const tot = D.reduce((s, x) => s + (x.v || 0), 0), has = D.some((x) => x.v != null);
+        const DAG = ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'];
+        daily = `<div class="card dc"><div class="kh"><div class="col g2 smt"><span class="lt3">${sel === 6 ? 'I dag' : sel === 5 ? 'I går' : DAG[sd.d.getDay()]}</span><span class="big num">${sd.v != null ? M.nf(sd.v, 0) : '–'}<small>km</small></span></div><span class="sub pb6">Uka totalt <b class="num">${has ? M.nf(tot, 0) + ' km' : '–'}</b></span></div>
+          <div class="db">${D.map((x, i) => `<button class="dbar${i === sel ? ' on' : ''}" data-act="day" data-v="${i}" data-haptic="selection" aria-label="${UKE[x.d.getDay()]}: ${x.v != null ? Math.round(x.v) + ' km' : 'ingen data'}"><i style="height:${x.v ? Math.max(4, x.v / mx * 100).toFixed(1) + '%' : '4px'};animation-delay:${i * 40}ms"></i><span>${i === 6 ? 'I dag' : UKE[x.d.getDay()].slice(0, 2)}</span></button>`).join('')}</div></div>`;
+      } else daily = `<div class="card dc"><span class="lt3">Daglig kjøring</span>${this._miss('', 'ent-status')}</div>`;
       const odo = this._N('odometer'), D7 = this._e('daily') ? this._days7().filter((x) => x.v != null) : [];
       const avg = D7.length ? D7.reduce((s, x) => s + x.v, 0) / D7.length : null;
-      const tiles = `<div class="sum two"><div class="card st" ${this._e('odometer') ? `data-ent="${esc(this._e('odometer'))}"` : ''}>${M.icon('mdi:counter', 20, 'color:#afafaf')}<span class="sv num">${odo != null ? M.nf(odo, 0) + ' km' : '–'}</span><span class="sl">Kilometerstand</span></div>
-        <div class="card st">${M.icon('mdi:chart-line-variant', 20, 'color:#afafaf')}<span class="sv num">${avg != null ? M.nf(avg, 0) + ' km' : '–'}</span><span class="sl">Snitt per dag</span></div></div>`;
+      const tiles = `<div class="sum two">${this._pt('mdi:speedometer', odo != null ? M.nf(odo, 0) + ' km' : '–', 'Kilometerstand', 'odometer')}${this._pt('mdi:av-timer', avg != null ? M.nf(avg, 0) + ' km' : '–', 'Snitt per dag')}</div>`;
       return `<div class="col gap">${range}${daily}${tiles}</div>`;
     }
+    // pilleflis (design: r32, padding 8, ikon-sirkel 48 #404040, verdi 15/500 + etikett 12 #979797)
+    _pt(ic, v, l, kk) { return `<div class="card st" ${kk && this._e(kk) ? `data-ent="${esc(this._e(kk))}"` : ''}><span class="sti">${M.icon(ic, 22)}</span><span class="col stx"><span class="sv num">${v}</span><span class="sl">${esc(l)}</span></span></div>`; }
 
-    /* ---------------------------------------------------------- Sparing */
+    /* ---------------------------------------------------------- Sparing (Fiks 27.9: Tesla v3) */
     _t_sparing() {
       const h = this.hass;
       const any = ['saved_month', 'saved_year', 'cost_ev', 'cost_diesel', 'diesel_price'].some((k) => this._e(k));
-      if (!any) return `<div class="card"><span class="lt">Sparing</span>${this._miss('Fant ingen KI Drivstoff-sensorer', 'ent-sparing')}</div>`;
+      if (!any) return `<div class="card"><span class="lt3">Sparing</span>${this._miss('Fant ingen KI Drivstoff-sensorer', 'ent-sparing')}</div>`;
       const sp = this.ui.sp === 'aar' ? 'aar' : 'maned', k = sp === 'aar' ? 'saved_year' : 'saved_month';
       const st = this._S(k), a = (st && st.attributes) || {}, saved = numS(st);
       const dsl = a.diesel_ville_kostet != null ? Number(a.diesel_ville_kostet) : null, el = a.strom_kostet != null ? Number(a.strom_kostet) : null;
@@ -975,27 +1212,26 @@
       const seg = `<div class="seg" role="tablist" data-glass-drag="x">${[['maned', 'Måned'], ['aar', 'År']].map(([x, l]) => `<button class="sg ${x === sp ? 'on' : ''}" role="tab" aria-selected="${x === sp}" data-act="sp" data-v="${x}" data-haptic="selection">${l}</button>`).join('')}</div>`;
       const dp = this._S('diesel_price'), dpv = numS(dp), cp = this._N('charge_price');
       const pump = dpv == null ? `<button class="pump press" data-act="fuel">${M.icon('mdi:gas-station-off', 22)}<span class="grow"><b>Pumpepris mangler</b> · trykk for å hente</span>${M.icon('mdi:refresh', 20)}</button>` : '';
-      const head = `<div class="card sv0" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}><div class="row"><span class="lt grow">Spart ${sp === 'aar' ? 'i år' : 'denne måneden'}</span>${seg}</div>
-        <span class="big num">${saved != null ? M.nf(saved, 0) : '–'}<small>kr</small></span>
-        ${dsl != null ? `<div class="vs"><div class="vr"><span>Diesel</span><div class="vt"><i style="width:100%;background:${ORANGE}"></i></div><b class="num">${kr(dsl)}</b></div>
-          <div class="vr"><span>Strøm</span><div class="vt"><i style="width:${dsl > 0 && el != null ? M.clamp(el / dsl * 100, 2, 100).toFixed(1) : 0}%;background:${GREEN}"></i></div><b class="num">${kr(el)}</b></div></div>` : `<span class="sub">${saved != null ? 'Venter på de første kilometerne' : ''}</span>`}
-        ${pct != null ? `<span class="pct"><b class="num">${pct} %</b> billigere enn diesel</span>` : ''}</div>`;
-      const ev = this._N('cost_ev'), ds = this._N('cost_diesel');
+      const bar = (l, v, w, col, d) => `<div class="vr"><span class="vl"><span>${esc(l)}</span><b class="num">${kr(v)}</b></span><div class="vt"><i style="width:${w}%;background:${col};animation-delay:${d}s"></i></div></div>`;
+      const head = `<div class="card sv0" ${this._e(k) ? `data-ent="${esc(this._e(k))}"` : ''}><div class="kh top"><div class="col g2"><span class="lt3">Spart ${sp === 'aar' ? 'i år' : 'denne måneden'}</span><span class="big num">${saved != null ? M.nf(saved, 0) : '–'}<small>kr</small></span></div>${seg}</div>
+        ${dsl != null ? `<div class="vs">${bar('Diesel ville kostet', dsl, 100, ORANGE, 0)}${bar('Strøm kostet', el, dsl > 0 && el != null ? M.clamp(el / dsl * 100, 0, 100).toFixed(1) : 0, GREEN, 0.1)}</div>` : `<span class="sub">${saved != null ? 'Venter på de første kilometerne' : ''}</span>`}
+        ${pct != null ? `<span class="pct">${M.icon('mdi:trending-down', 16)}<span class="num">${pct} %</span> billigere enn diesel</span>` : ''}</div>`;
+      const ev = this._N('cost_ev'), ds = this._N('cost_diesel'), mm = Math.max(ev || 0, ds || 0) || 1;
       const nm = (kk, d) => { const id = this._e(kk); const n = id && h.states[id] ? String(h.states[id].attributes.friendly_name || '').replace(/^.*?Kostnad per mil\s*[–-]\s*/i, '') : ''; return n || d; };
-      const tile = (ic, l, v, u, kk) => `<div class="card st" ${this._e(kk) ? `data-ent="${esc(this._e(kk))}"` : ''}>${M.icon(ic, 20, 'color:#afafaf')}<span class="sv num">${v}${v !== '–' && u ? `<small>${u}</small>` : ''}</span><span class="sl">${esc(l)}</span></div>`;
-      const tiles = `<div class="sum two">${tile('mdi:car-electric', nm('cost_ev', 'Tesla'), ev != null ? M.nf(ev, 2) : '–', 'kr/mil', 'cost_ev')}${tile('mdi:car-estate', nm('cost_diesel', 'Diesel'), ds != null ? M.nf(ds, 2) : '–', 'kr/mil', 'cost_diesel')}
-        ${tile('mdi:fuel', 'Diesel ikke fylt', this._N('diesel_liters') != null ? M.nf(this._N('diesel_liters'), 0) : '–', 'L', 'diesel_liters')}${tile('mdi:molecule-co2', 'CO₂ spart', this._N('co2') != null ? M.nf(this._N('co2'), 0) : '–', 'kg', 'co2')}</div>`;
-      // spart per dag siste 30 dager (scrub)
+      const short = (n) => { const w = String(n).split(/\s+/); return w[1] && (w[0] + ' ' + w[1]).length <= 8 ? w[0] + ' ' + w[1] : w[0]; };
+      const mil = (kk, l, v, col, d) => `<div class="mr" ${this._e(kk) ? `data-ent="${esc(this._e(kk))}"` : ''}><span class="ml" title="${esc(l)}">${esc(short(l))}</span><div class="mt2"><i style="width:${v != null ? (v / mm * 100).toFixed(1) : 0}%;background:${col};animation-delay:${d}s"></i></div><b class="num">${v != null ? M.nf(v, 2) + ' kr' : '–'}</b></div>`;
+      const perMil = `<div class="card pm"><span class="lt3">Kostnad per mil</span>${mil('cost_ev', nm('cost_ev', 'Elbil'), ev, GREEN, 0)}${mil('cost_diesel', nm('cost_diesel', 'Diesel'), ds, ORANGE, 0.1)}</div>`;
+      const L = this._N('diesel_liters'), co2 = this._N('co2');
+      const tiles = `<div class="sum two">${this._pt('mdi:gas-station', L != null ? M.nf(L, 0) + ' L' : '–', 'Diesel ikke fylt', 'diesel_liters')}${this._pt('mdi:molecule-co2', co2 != null ? M.nf(co2, 0) + ' kg' : '–', 'CO₂ spart', 'co2')}</div>`;
       let perDay = '';
       if (this._e('saved_year') || this._e('saved_month')) {
         const D = this._days30(), mx = Math.max(1, ...D.map((x) => x.v || 0));
-        const sel = this.ui.sd != null && this.ui.sd >= 0 && this.ui.sd < D.length ? this.ui.sd : D.length - 1, sd = D[sel];
-        perDay = `<div class="card pd"><div class="row"><span class="lt grow">Spart per dag</span><span class="sub">siste 30 dager</span></div>
-          <div class="smt"><span class="big2 num">${sd && sd.v != null ? kr(sd.v) : '–'}</span><span class="sub">${sd ? (sel === D.length - 1 ? 'i dag' : `${UKE[sd.d.getDay()]} ${sd.d.getDate()}.${sd.d.getMonth() + 1}.`) : ''}</span></div>
-          <div class="scrub" data-key="scrub" aria-label="Spart per dag – dra for å velge dag">${D.map((x, i) => `<i class="${i === sel ? 'on' : ''}" style="height:${x.v ? Math.max(4, x.v / mx * 100).toFixed(1) : 2}%"></i>`).join('')}</div></div>`;
+        const sel = this.ui.sd != null && this.ui.sd >= 0 && this.ui.sd < D.length ? this.ui.sd : D.length - 1, sd = D[sel], ago = D.length - 1 - sel;
+        perDay = `<div class="card pd"><div class="kh"><div class="col g2 smt"><span class="lt3">${ago === 0 ? 'I dag' : `${ago} ${ago === 1 ? 'dag' : 'dager'} siden`}</span><span class="big3 num">${sd && sd.v != null ? M.nf(sd.v, 1) : '–'}<small>kr spart</small></span></div><span class="sub pb4">Siste 30 dager</span></div>
+          <div class="scrub" data-key="scrub" aria-label="Spart per dag – dra for å velge dag">${D.map((x, i) => `<i class="${i === sel ? 'on' : ''}" style="height:${x.v ? Math.max(4, x.v / mx * 100).toFixed(1) + '%' : '3px'};animation-delay:${i * 15}ms"></i>`).join('')}</div></div>`;
       }
-      const line = `<div class="line2">${M.icon('mdi:gas-station', 18, 'color:#979797')}<span>Diesel ${dpv != null ? M.nf(dpv, 2) + ' kr/L' : '–'} · Strøm ${cp != null ? M.nf(cp, 2) + ' kr/kWh' : '–'}</span></div>`;
-      return `<div class="col gap">${pump}${head}${tiles}${perDay}${line}</div>`;
+      const line = `<span class="line2">Diesel ${dpv != null ? M.nf(dpv, 2) + ' kr/L' : '–'} · Strøm ${cp != null ? M.nf(cp, 2) + ' kr/kWh' : '–'}</span>`;
+      return `<div class="col gap">${pump}${head}${perMil}${tiles}${perDay}${line}</div>`;
     }
 
     /* ---------------------------------------------------------- handlinger */
@@ -1104,17 +1340,21 @@
         .col{display:flex;flex-direction:column}.gap{gap:var(--msh-gap,8px)}
         .scene-slot{display:block;min-height:180px}
         .scene-slot msh-tesla-scene{display:block;--ha-card-border-radius:28px}
-        /* Fiks 26.10: hurtigknapper – 5 like brede fliser, 76 px høye, r22, #3a3a3a, gap 8; ikon 22 over etikett 15/500 */
+        /* Fiks 27.9 (Tesla v3): hurtigknapper – 5 kvadratiske fliser (aspect-ratio 1/1), r24, #3a3a3a, gap 8; innhold sentrert
+           med gap 4: ikon 26 px #fafafa + tekst 11/500 under. Aktiv: ulåst oransje, defrost/frunk/bagasje rosa, tekst #282828. */
         .qb{display:grid;grid-template-columns:repeat(var(--qn,5),minmax(0,1fr));gap:8px}
-        .qbtn{height:76px;border-radius:22px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--white,#fafafa);min-width:0;padding:0 1px;transition:background .3s,color .3s,transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .qbtn .ql{font-size:15px;font-weight:500;line-height:18px;letter-spacing:-.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .qbtn.warn{background:${ORANGE};color:#2c1d0c}
-        .qbtn.act{background:var(--gray1000,#e1e1e1);color:var(--gray200,#3a3a3a)}
+        .qbtn{aspect-ratio:1/1;max-height:112px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--white,#fafafa);min-width:0;padding:0 1px;transition:background .2s,color .2s,transform .12s}
+        .qbtn:active{transform:scale(.94)}
+        .qbtn .ql{font-size:11px;font-weight:500;line-height:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .qbtn.warn{background:${ORANGE};color:#282828}
+        .qbtn.act{background:${ACC};color:#282828}
         .qbtn.none{color:var(--gray600,#7f7f7f)}
-        .qbtn.shake .qi{animation:rist 2.6s ease-in-out infinite}
-        .qbtn.breathe{animation:pust 2.4s ease-in-out infinite}
-        @keyframes rist{0%,78%,100%{transform:rotate(0)}82%{transform:rotate(-12deg)}86%{transform:rotate(10deg)}90%{transform:rotate(-8deg)}94%{transform:rotate(5deg)}}
-        @keyframes pust{0%,100%{filter:brightness(1);box-shadow:0 0 0 0 rgba(242,133,201,.0)}50%{filter:brightness(1.08);box-shadow:0 0 0 6px rgba(242,133,201,.18)}}
+        .qbtn.shake .qi{animation:rist 3s ease-in-out infinite}
+        .qbtn.shake1 .qi{animation:rist .6s ease-in-out}
+        .qbtn.breathe .qi{animation:pust 2s ease-in-out infinite}
+        @keyframes rist{0%,85%,100%{transform:rotate(0)}90%{transform:rotate(-12deg)}95%{transform:rotate(12deg)}}
+        @keyframes pust{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+        @keyframes flow{from{background-position:0 0}to{background-position:24px 0}}
         .qi{display:grid;place-items:center}
         ${M.TAB_ROW_CSS || ''}
         ${TAB_CSS('')}
@@ -1124,35 +1364,61 @@
         .big{font-size:40px;font-weight:300;line-height:1.05;letter-spacing:-.01em}
         .big small,.sv small{font-size:15px;font-weight:400;margin-left:4px;color:var(--gray800,#afafaf)}
         .big2{font-size:24px;font-weight:400}
-        .smt{display:flex;align-items:baseline;gap:10px}
-        /* Fiks 26.10: Lading – ett kort: status + effekt, mørk Start-pill, batteristolpe 56 px med grensemarkør, grense-chips */
-        .lhead{display:flex;align-items:flex-start;gap:12px}
-        .lt2{font-size:14px;color:var(--gray800,#afafaf)}
-        .lc .big{font-size:36px;font-weight:300;margin-top:2px}
-        .ss{height:40px;padding:0 16px 0 12px;border-radius:20px;background:#4a4a4a;color:var(--white,#fafafa);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
-        .lim{position:relative;height:56px;border-radius:18px;background:var(--gray300,#404040);overflow:hidden;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none;margin-top:4px}
+        .smt{min-width:0}
+        /* Fiks 27.9: Kjøring/Sparing som Tesla v3 – kort r28, padding 18 */
+        .rc,.dc,.sv0,.pm,.pd{border-radius:28px;padding:18px}
+        .rc,.pd{gap:12px}.dc{gap:14px}.sv0{gap:16px}
+        .kh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+        .kh.top{align-items:flex-start}
+        .g2{gap:2px}
+        .lt3{font-size:13px;color:var(--gray800,#afafaf)}
+        .rc .big,.dc .big,.sv0 .big,.pd .big3{font-size:40px;font-weight:300;line-height:1.1;letter-spacing:0;display:flex;align-items:baseline;gap:4px}
+        .pd .big3{font-size:28px}
+        .rc .big small,.dc .big small,.sv0 .big small,.pd .big3 small{font-size:13px;font-weight:400;margin:0;color:var(--gray800,#afafaf)}
+        .pb6{padding-bottom:6px;white-space:nowrap}.pb4{padding-bottom:4px;white-space:nowrap}
+        .kh .sub b{color:var(--white,#fafafa);font-weight:500}
+        @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+        @keyframes growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+        /* Fiks 27.9 (Tesla v3): Lading – kort r28, padding 18/18/16, gap 14; status 13 #afafaf + effekt 40/300; Start/Stopp 44 px;
+           stav 56 px #282828 med grønt fyll, skravert felt batteri → grense og hvit markør; grense-chips 30 px */
+        .lc{border-radius:28px;padding:18px 18px 16px;gap:14px}
+        .lhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+        .lh2{gap:2px}
+        .lt2{font-size:13px;color:var(--gray800,#afafaf)}
+        .lc .big{font-size:40px;font-weight:300;line-height:1.1;letter-spacing:0;display:flex;align-items:baseline;gap:4px}
+        .lc .big small{font-size:13px;font-weight:400;margin:0;color:var(--gray800,#afafaf)}
+        .ss{height:44px;padding:0 16px 0 12px;border-radius:22px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;flex:none;transition:background .2s,transform .12s}
+        .ss.on{background:var(--white,#fafafa);color:#282828}
+        .ss:active{transform:scale(.96)}
+        .lim{position:relative;height:56px;border-radius:18px;background:#282828;overflow:hidden;touch-action:none;cursor:ew-resize;user-select:none;-webkit-user-select:none}
         .lim.ro{cursor:default}
-        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 1%);background:${GREEN};transition:width .4s}
-        .lpct{position:absolute;left:16px;top:0;bottom:0;display:flex;align-items:center;font-size:17px;font-weight:600;color:#12291d;pointer-events:none}
-        .lmk{position:absolute;top:8px;bottom:8px;width:3px;border-radius:2px;background:#fafafa;box-shadow:0 0 0 1px rgba(0,0,0,.25);left:calc(var(--f) * 1% - 1.5px);transition:left .25s;pointer-events:none}
+        .lbat{position:absolute;left:0;top:0;bottom:0;width:calc(var(--b) * 1%);background:${GREEN};border-radius:18px 0 0 18px;transition:width .4s}
+        .lgap{position:absolute;top:0;bottom:0;left:calc(min(var(--b), var(--f)) * 1%);width:calc(max(0, var(--f) - var(--b)) * 1%);background-image:repeating-linear-gradient(135deg,rgb(102 209 158 / .45) 0 3px,transparent 3px 8px);background-size:24px 100%;transition:width .2s;pointer-events:none}
+        .lgap.chg{animation:flow 1s linear infinite}
+        .lim.drag .lgap{transition:none}
+        .lpct{position:absolute;left:14px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;font-weight:600;color:#282828;pointer-events:none}
+        .lmk{position:absolute;top:8px;bottom:8px;width:4px;border-radius:2px;background:#fafafa;box-shadow:0 0 0 3px rgba(0,0,0,.25);left:calc(var(--f) * 1% - 2px);transition:left .2s;pointer-events:none}
         .lim.drag .lmk{transition:none}
-        .lrow{display:flex;align-items:center;gap:6px}
-        .ll{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;color:var(--gray800,#afafaf)}
-        .ll b{font-weight:600;color:var(--white,#fafafa);margin-left:2px}
-        .lb{display:flex;gap:3px;flex:none}
-        .lchip{min-width:30px;height:28px;padding:0 4px;border-radius:14px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
-        .lchip.on{background:${ACC};color:${INK}}
-        /* nøkkeltall: ett kort, 3 kolonner med skillelinjer */
-        .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:14px 0}
-        .kc{display:flex;flex-direction:column;gap:4px;padding:0 14px;min-width:0}
-        .kc+.kc{border-left:1px solid rgba(255,255,255,.08)}
-        .kl{font-size:14px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .kv{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .lrow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+        .ll{min-width:0;white-space:nowrap;font-size:13px;color:var(--gray800,#afafaf)}
+        .ll b{font-weight:500;color:var(--white,#fafafa)}
+        .lb{display:flex;gap:4px;flex:none}
+        .lchip{min-width:38px;height:30px;padding:0 8px;border-radius:15px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+        .lchip.on{background:${ACC};color:#3a3a3a}
+        /* nøkkeltall: ett kort (r24), 3 kolonner, celle padding 14/16, etikett 12 #979797, verdi 18/500 */
+        .pane .card{box-shadow:none}
+        .wrap>.trow{margin:4px 0}
+        .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:0}
+        .kc{display:flex;flex-direction:column;gap:4px;padding:14px 16px;min-width:0}
+        .kc+.kc{border-left:1px solid rgba(255,255,255,.06)}
+        .kl{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .kv{font-size:18px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         /* Smartlading: ikon-sirkel, tittel/tekst, bryter; 12 søyler med tidsakse */
         .srow{display:flex;align-items:center;gap:12px}
-        .sci{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none;color:var(--white,#fafafa)}
-        .stt{font-size:15px;font-weight:600}
-        .sst{font-size:13px;color:var(--gray800,#afafaf)}
+        .sm{border-radius:28px;padding:18px;gap:14px}
+        .sci{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none;color:var(--white,#fafafa)}
+        .stt{font-size:15px;font-weight:500}
+        .sst{font-size:12px;color:var(--gray700,#979797);margin-top:2px}
         .tg{position:relative;width:50px;height:30px;border-radius:15px;background:var(--gray400,#545454);flex:none;transition:background .2s}
         .tg i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
         .tg.on{background:${PINK}}
@@ -1160,11 +1426,13 @@
         .tg.none{opacity:.5}
         .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
         .sum.two{grid-template-columns:repeat(2,minmax(0,1fr))}
-        .st{gap:4px;padding:14px}
-        .sv{font-size:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .st{flex-direction:row;align-items:center;gap:12px;padding:8px;border-radius:32px}
+        .sti{width:48px;height:48px;border-radius:24px;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--white,#fafafa)}
+        .stx{min-width:0}
+        .sv{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pb{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-items:end;gap:4px;height:72px}
-        .pb i{display:block;border-radius:5px 5px 2px 2px;background:var(--gray400,#545454);min-width:0}
+        .pb{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-items:end;gap:3px;height:56px}
+        .pb i{display:block;border-radius:4px;background:var(--gray400,#545454);min-width:0}
         .pb i.p{opacity:.4}
         .pb i.x{background:var(--gray300,#404040)}
         .pb i.c{background:${PINK};opacity:1}
@@ -1172,30 +1440,37 @@
         .pl span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
         .pl span:first-child{transform:none;left:0 !important}
         .pl span:last-child{transform:none;left:auto !important;right:0}
-        .rb{position:relative;height:12px;border-radius:6px;background:var(--gray300,#404040)}
-        .rb i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:${GREEN}}
-        .rb b{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:#fafafa}
-        .db{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;height:110px}
-        .dbar{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;gap:6px;height:100%;min-width:0}
-        .dbar i{display:block;border-radius:8px;background:var(--gray400,#545454);transition:background .2s}
-        .dbar.on i{background:${BLUE}}
-        .dbar span{font-size:11px;color:var(--gray700,#979797);text-align:center}
+        .rb{position:relative;height:10px;border-radius:5px;background:#282828;overflow:hidden}
+        .rb i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:${BLUE};transform-origin:left;animation:growx .5s ease both}
+        .rb b{position:absolute;top:0;bottom:0;width:2px;background:#fafafa}
+        .db{display:flex;align-items:flex-end;gap:8px;height:130px}
+        .dbar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%;min-width:0}
+        .dbar i{display:block;width:100%;max-height:calc(100% - 24px);border-radius:8px;background:${BLUE};opacity:.6;transform-origin:bottom;animation:grow .5s ease both;transition:opacity .2s}
+        .dbar.on i{background:${ACC};opacity:1}
+        .dbar span{font-size:12px;color:var(--gray700,#979797);text-align:center;white-space:nowrap}
         .dbar.on span{color:var(--white,#fafafa)}
         .seg{display:inline-flex;padding:3px;border-radius:18px;background:#282828;gap:2px;flex:none}
-        .sg{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf)}
-        .sg.on{background:${ACC};color:${INK}}
-        .vs{display:flex;flex-direction:column;gap:8px}
-        .vr{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:10px;font-size:12px;color:var(--gray800,#afafaf)}
-        .vr b{font-size:13px;font-weight:500;color:var(--white,#fafafa)}
-        .vt{height:10px;border-radius:5px;background:var(--gray300,#404040);overflow:hidden}
-        .vt i{display:block;height:100%;border-radius:5px}
-        .pct{font-size:13px;color:var(--gray800,#afafaf)}.pct b{color:${GREEN};font-weight:600}
-        .scrub{display:flex;align-items:flex-end;gap:2px;height:80px;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
-        .scrub i{flex:1;min-width:0;border-radius:3px 3px 1px 1px;background:var(--gray400,#545454);pointer-events:none}
-        .scrub i.on{background:${GREEN}}
+        .sg{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf)}
+        .sg.on{background:${ACC};color:#3a3a3a}
+        .vs{display:flex;flex-direction:column;gap:10px}
+        .vr{display:flex;flex-direction:column;gap:6px}
+        .vl{display:flex;justify-content:space-between;font-size:13px;color:var(--gray800,#afafaf)}
+        .vr b{font-weight:400;color:var(--white,#fafafa);white-space:nowrap}
+        .vt{height:14px;border-radius:7px;background:#282828;overflow:hidden}
+        .vt i{display:block;height:100%;border-radius:7px;transform-origin:left;animation:growx .5s ease both}
+        .pm{gap:12px}
+        .mr{display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;gap:12px}
+        .ml{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .mt2{height:28px;border-radius:10px;background:#282828;overflow:hidden}
+        .mt2 i{display:block;height:100%;min-width:12px;border-radius:10px;transform-origin:left;animation:growx .5s ease both}
+        .mr b{font-size:15px;font-weight:500;white-space:nowrap;min-width:64px;text-align:right}
+        .pct{align-self:flex-start;height:28px;padding:0 12px;border-radius:14px;background:${GREEN};color:#282828;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px}
+        .scrub{display:flex;align-items:flex-end;gap:3px;height:80px;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+        .scrub i{flex:1;min-width:0;border-radius:3px;background:${GREEN};opacity:.7;pointer-events:none;transform-origin:bottom;animation:grow .5s ease both}
+        .scrub i.on{background:${ACC};opacity:1}
         .pump{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border-radius:24px;background:${ORANGE};color:#2c1d0c;text-align:left;font-size:13px}
         .pump b{font-weight:600}
-        .line2{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;color:var(--gray700,#979797)}
+        .line2{padding:4px 6px 0;font-size:12px;color:var(--gray600,#7f7f7f)}
         .miss{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
         .mdash{font-size:28px;font-weight:300;color:var(--gray600,#7f7f7f)}
         .mt{font-size:12px;color:var(--gray700,#979797)}

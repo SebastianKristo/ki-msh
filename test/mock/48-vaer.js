@@ -20,6 +20,8 @@ window.mockExtend(({ add }) => {
   add('sensor.pollen_or_oslo_today', 'Ingen', { friendly_name: 'Pollen or' }, { platform: 'naaf_pollen' });
   // 26.25: sted nr. 2 (stedsvelgeren / «Legg til sted»)
   add('weather.hytta', 'snowy', { temperature: -3.2, humidity: 88, wind_speed: 6.1, wind_bearing: 10, pressure: 1003, friendly_name: 'Hytta', temperature_unit: '°C', wind_speed_unit: 'm/s', supported_features: 3 }, { platform: 'met' });
+  // 27.4: sted nr. 3 (søk i «Legg til sted» på navn og ID)
+  add('weather.oslo_sentrum', 'rainy', { temperature: 9.4, humidity: 80, wind_speed: 3.1, wind_bearing: 180, pressure: 1009, friendly_name: 'Jobb Oslo', temperature_unit: '°C', wind_speed_unit: 'm/s', supported_features: 3 }, { platform: 'met' });
   add('sensor.pollen_salix_oslo_today', 'Beskjeden', { friendly_name: 'Pollen salix' }, { platform: 'naaf_pollen' });
 });
 (function () {

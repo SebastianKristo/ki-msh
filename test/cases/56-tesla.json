@@ -2,5 +2,6 @@
   { "name": "Tesla", "hash": "#tesla", "cards": [ { "type": "custom:msh-tesla-card", "card_id": "pop-tesla" } ] },
   { "name": "Tesla · Kjøring, kontur + ikoner, tekst under knappene", "hash": "#tesla", "cards": [ { "type": "custom:msh-tesla-card", "button_text": true, "paint": "#a3161f", "tabs": { "start": "kjoring", "style": "outline", "content": "icon_active", "order": ["kjoring", "lading", "sparing"] }, "buttons": { "honk": { "show": false } } } ] },
   { "name": "Tesla · Sparing", "hash": "#tesla", "cards": [ { "type": "custom:msh-tesla-card", "tabs": { "start": "sparing" } } ] },
+  { "name": "Tesla · designverdier (tekst + Kontur), ingen tekst under knappene", "hash": "#tesla", "cards": [ { "type": "custom:msh-tesla-card", "button_text": false, "tabs": { "content": "tekst", "style": "Kontur" } } ] },
   { "name": "Tesla · uten entiteter", "hash": "#tesla", "cards": [ { "type": "custom:msh-tesla-card", "prefix": "finnes_ikke_bil" } ] }
 ]

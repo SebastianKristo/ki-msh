@@ -1,4 +1,6 @@
-/* msh-vaer-card (+ innebygd msh-vaer-hero-card) · popup #vaer. Fasit: Vær v4 (spesifisert i Fiks 10), ellers Vær v3.dc.html.
+/* msh-vaer-card (+ innebygd msh-vaer-hero-card) · popup #vaer. Fasit: Vær v5.dc.html for stil «scene» (Fiks 26.24/26.25 + 27:
+ * fx()/fxBase()/@keyframes portet 1:1, Neste timer som kolonnekort, døgnvarsel, fliser, steder med søk og dra-og-slipp);
+ * stil «klassisk» = Vær v4 (spesifisert i Fiks 10), ellers Vær v3.dc.html.
  * Rekkefølge (standard, endres i «Tilpass været»): Toppkort (karusell: Været nå med heroFx · Andre varsler · Pollen, prikker)
  * · Farevarsler (utvidbare, skjult uten varsler) · Time for time · Dagskort (utvidbare, én åpen) · Detaljkort (2×N) · Månefase
  * · knappen «Tilpass været» (alltid nederst).
@@ -317,6 +319,8 @@
   const SECS = [['hero', 'Toppkort', 'mdi:view-carousel-outline'], ['alerts', 'Farevarsler', 'warning'], ['hours', 'Time for time', 'schedule'], ['days', 'Dagskort', 'calendar_month'], ['tiles', 'Detaljkort', 'grid_view'], ['moon', 'Månefase', 'bedtime']];
   const TILES = [['sky', 'Skydekke', 'cloud'], ['wind', 'Vind', 'air'], ['gust', 'Vindkast', 'storm'], ['sun', 'Sol opp og ned', 'wb_twilight'], ['hum', 'Fukt', 'humidity_percentage'], ['uv', 'UV-indeks', 'light_mode'], ['press', 'Trykk', 'compress'], ['rain', 'Nedbør', 'water_drop']];
   const SK = SECS.map((s) => s[0]), TK = TILES.map((t) => t[0]);
+  // 27.0: flisene i Scene (Vær v5): Vind · Soloppgang · Månefase · UV · Føles som · Nedbør · Sikt · Luftfuktighet · Lufttrykk
+  const STK = ['wind', 'sun', 'moon', 'uv', 'feels', 'rain', 'vis', 'hum', 'press'];
   const FIELDS = [
     { name: 'weather', label: 'Værmelding', domain: 'weather', auto: (hh) => homeWeather(hh) },
     { name: 'sol', label: 'Sol', domain: 'sun', auto: (hh) => M.all(hh, 'sun')[0] || null },
@@ -359,117 +363,168 @@
     }).filter((x) => x && x.lv > 1);
   }
 
-  /* ================================================================ Fiks 26.24/26.25 · stil «scene» (Vær v5) */
-  // HA-state → [norsk, ikon, bakgrunnsgradient, korttone]. Ukjent → cloudy. Natt + sunny/partlycloudy → natt-scene.
+  /* ================================================================ Fiks 26.24/26.25 + 27 · stil «scene» (fasit Vær v5.dc.html) */
+  // 27.0/27.3: tabellen C i Vær v5 (renderVals) 1:1 – HA-state → [etikett, ikon, bakgrunn (3 stopp), kortfarge (var(--card))].
+  // Natt: sunny → clear-night; partlycloudy → «partlycloudy-night» (nattens bakgrunn/kort + stjerner og skyer). Ukjent → cloudy.
   const SC = {
-    'clear-night': ['Klart', 'bedtime', 'linear-gradient(180deg,#0b1026 0%,#1b2347 55%,#2b3259 100%)', 'rgba(30,36,64,.55)'],
-    cloudy: ['Skyet', 'cloud', 'linear-gradient(180deg,#465160 0%,#667180 60%,#7a8490 100%)', 'rgba(40,48,58,.55)'],
-    fog: ['Tåke', 'foggy', 'linear-gradient(180deg,#59616a 0%,#838a91 60%,#959ba0 100%)', 'rgba(56,62,70,.55)'],
-    hail: ['Hagl', 'mdi:weather-hail', 'linear-gradient(180deg,#212833 0%,#374150 60%,#475160 100%)', 'rgba(30,36,46,.55)'],
-    lightning: ['Lyn', 'thunderstorm', 'linear-gradient(180deg,#171a28 0%,#2b2f44 60%,#3a3e56 100%)', 'rgba(28,30,44,.55)'],
-    'lightning-rainy': ['Tordenbyger', 'thunderstorm', 'linear-gradient(180deg,#151924 0%,#28303f 60%,#374152 100%)', 'rgba(26,30,40,.55)'],
-    partlycloudy: ['Delvis skyet', 'partly_cloudy_day', 'linear-gradient(180deg,#3a7cc1 0%,#66a3da 55%,#98c3e8 100%)', 'rgba(36,66,104,.45)'],
-    'partlycloudy-night': ['Delvis skyet', 'partly_cloudy_night', 'linear-gradient(180deg,#0e1430 0%,#222b4f 60%,#323b60 100%)', 'rgba(30,36,64,.55)'],
-    pouring: ['Kraftig regn', 'mdi:weather-pouring', 'linear-gradient(180deg,#1d2631 0%,#333f4d 60%,#434f5d 100%)', 'rgba(30,38,48,.55)'],
-    rainy: ['Regn', 'rainy', 'linear-gradient(180deg,#2c3846 0%,#475566 60%,#586575 100%)', 'rgba(40,48,58,.55)'],
-    snowy: ['Snø', 'weather_snowy', 'linear-gradient(180deg,#7d8b9b 0%,#a6b2bf 60%,#c3ccd5 100%)', 'rgba(62,74,88,.5)'],
-    'snowy-rainy': ['Sludd', 'weather_mix', 'linear-gradient(180deg,#525e6b 0%,#788490 60%,#8c97a2 100%)', 'rgba(48,56,66,.55)'],
-    sunny: ['Sol', 'clear_day', 'linear-gradient(180deg,#2c82d3 0%,#55a3e4 55%,#8ac2ee 100%)', 'rgba(28,66,116,.4)'],
-    windy: ['Vind', 'air', 'linear-gradient(180deg,#4a6883 0%,#6c88a1 60%,#839db3 100%)', 'rgba(40,56,72,.5)'],
-    'windy-variant': ['Vind og skyer', 'mdi:weather-windy-variant', 'linear-gradient(180deg,#475360 0%,#65727f 60%,#78848f 100%)', 'rgba(40,48,58,.55)'],
-    exceptional: ['Ekstremvær', 'mdi:alert-octagon', 'linear-gradient(180deg,#281115 0%,#471c21 60%,#5a2427 100%)', 'rgba(50,24,28,.55)'],
+    'clear-night': ['Klart', 'mdi:weather-night', ['#0b1224', '#141f3a', '#22305a'], 'rgba(12,18,36,.5)'],
+    cloudy: ['Skyet', 'mdi:weather-cloudy', ['#4a525e', '#59626f', '#687280'], 'rgba(40,46,56,.38)'],
+    fog: ['Tåke', 'mdi:weather-fog', ['#5d646c', '#6e757d', '#7f868e'], 'rgba(46,50,56,.38)'],
+    hail: ['Hagl', 'mdi:weather-hail', ['#2c3340', '#3a4252', '#4b5466'], 'rgba(26,30,40,.45)'],
+    lightning: ['Lyn', 'mdi:weather-lightning', ['#1a1d28', '#262a38', '#343a4c'], 'rgba(18,20,30,.5)'],
+    'lightning-rainy': ['Tordenbyger', 'mdi:weather-lightning-rainy', ['#1f2330', '#2b3040', '#3a3f52'], 'rgba(20,22,32,.48)'],
+    partlycloudy: ['Delvis skyet', 'mdi:weather-partly-cloudy', ['#3d6e9c', '#5889b5', '#7ea6c9'], 'rgba(26,52,84,.34)'],
+    'partlycloudy-night': ['Delvis skyet', 'mdi:weather-night-partly-cloudy', ['#0b1224', '#141f3a', '#22305a'], 'rgba(12,18,36,.5)'],
+    pouring: ['Kraftig regn', 'mdi:weather-pouring', ['#262d38', '#323b48', '#3e4858'], 'rgba(22,26,34,.48)'],
+    rainy: ['Regn', 'mdi:weather-rainy', ['#323a46', '#3f4957', '#4a5565'], 'rgba(30,36,46,.42)'],
+    snowy: ['Snø', 'mdi:weather-snowy', ['#56627a', '#6c7892', '#8591aa'], 'rgba(40,48,66,.36)'],
+    'snowy-rainy': ['Sludd', 'mdi:weather-snowy-rainy', ['#46505f', '#566172', '#677285'], 'rgba(36,42,54,.4)'],
+    sunny: ['Sol', 'mdi:weather-sunny', ['#2f6fb0', '#4d8fcc', '#79b1de'], 'rgba(20,50,90,.32)'],
+    windy: ['Vind', 'mdi:weather-windy', ['#4f6a86', '#6583a0', '#7e9bb6'], 'rgba(34,48,64,.36)'],
+    'windy-variant': ['Vind og skyer', 'mdi:weather-windy-variant', ['#4a5563', '#5a6574', '#6b7686'], 'rgba(38,44,54,.4)'],
+    exceptional: ['Ekstremvær', 'mdi:alert', ['#2a1c20', '#3a2429', '#4a2d33'], 'rgba(30,18,22,.5)'],
   };
   M.VAER_SCENES = Object.keys(SC).filter((k) => k !== 'partlycloudy-night'); // alle 15 HA-værtilstandene
+  const YEL = 'rgb(242 210 111)', ICO = '#e6ebf1', BLUE = 'rgb(115 185 242)';
+  const vgrad = (a) => `linear-gradient(180deg,${a[0]} 0%,${a[1]} 40%,${a[2]} 100%)`; // grad() i Vær v5
   const sceneOf = (state, night) => {
     let k = SC[state] ? state : 'cloudy';
     if (night && k === 'sunny') k = 'clear-night';
     if (night && k === 'partlycloudy') k = 'partlycloudy-night';
     const s = SC[k];
-    return { key: k, label: s[0], icon: s[1], bg: s[2], card: s[3], color: k === 'sunny' || k === 'partlycloudy' ? SUNY : k === 'exceptional' ? C.red : 'var(--white, #fafafa)' };
+    // ikonfarge som cond.iconStyle / ic() i Vær v5: sol (og delvis skyet) gul, ekstremvær rød, ellers #e6ebf1
+    return { key: k, label: s[0], icon: s[1], bg: vgrad(s[2]), card: s[3], color: k === 'sunny' || k === 'partlycloudy' ? YEL : k === 'exceptional' ? 'rgb(242 128 115)' : ICO };
   };
-  // Partikler/lag per scene (fasit fx() i Vær v5): stjerner, måne, sol, skyer, tåke, regn, styrtregn, sprut, snø (3 lag),
-  // hagl, lyn, vind og rød glød. Alt er absolutt plassert i scenelaget (dekker hele popupen) og pauses med .still.
-  const sceneFx = (k) => {
-    const P = [], add = (cls, s) => P.push(`<i class="${cls}" style="${s}"></i>`), R = (i, m = 100, o = 13) => (i * 37 + o) % m;
-    const has = (...a) => a.includes(k);
-    const stars = (n) => { for (let i = 0; i < n; i++) add('st', `left:${(i * 53 + 7) % 100}%;top:${(i * 29 + 3) % 58}%;width:${i % 4 ? 2 : 3}px;height:${i % 4 ? 2 : 3}px;animation-duration:${2 + (i % 5)}s;animation-delay:${-(i % 7)}s`); };
-    const clouds = (n, a, dark, fast) => { for (let i = 0; i < n; i++) add('cl', `left:${-20 + R(i, 90, 5)}%;top:${-30 + (i % 4) * 46}px;width:${260 + (i % 3) * 90}px;height:${90 + (i % 2) * 30}px;background:${dark ? `rgba(20,24,32,${a})` : `rgba(255,255,255,${a})`};animation-duration:${(fast ? 9 : 26) + (i % 3) * (fast ? 3 : 8)}s;animation-delay:${-i * 4}s`); };
-    const rain = (n, slant, dur, len, a) => { for (let i = 0; i < n; i++) add('rn', `left:${R(i, 110, 3) - 5}%;height:${len + (i % 3) * 6}px;opacity:${a};--sl:${slant}deg;--dx:${Math.round(-Math.tan(slant * Math.PI / 180) * 900)}px;animation-duration:${(dur + (i % 5) * 0.08).toFixed(2)}s;animation-delay:${(-((i * 0.137) % 1.3)).toFixed(2)}s`); };
-    const splash = (n) => { for (let i = 0; i < n; i++) add('sp', `left:${R(i, 96, 11)}%;bottom:${4 + (i % 6) * 12}px;animation-delay:${(-(i * 0.19) % 1).toFixed(2)}s`); };
-    const snow = (n) => { [[2, 14, 0.55], [4, 10, 0.75], [6, 7, 0.95]].forEach(([sz, dur, a], l) => { for (let i = 0; i < n; i++) add('sn', `left:${R(i + l * 7, 100, 17 + l * 5)}%;width:${sz}px;height:${sz}px;opacity:${a};animation-duration:${(dur + (i % 4) * 1.1).toFixed(1)}s;animation-delay:${(-((i * 1.7 + l) % dur)).toFixed(1)}s`); }); };
-    const hail = (n) => { for (let i = 0; i < n; i++) add('hl', `left:${R(i, 100, 29)}%;animation-duration:${(0.55 + (i % 4) * 0.07).toFixed(2)}s;animation-delay:${(-((i * 0.11) % 0.7)).toFixed(2)}s`); };
-    const fog = () => [8, 26, 44, 62, 80].forEach((y, i) => add('fg', `top:${y}%;animation-duration:${14 + i * 4}s;animation-delay:${-i * 3}s`));
-    const wind = (n) => { for (let i = 0; i < n; i++) add('wd', `top:${6 + (i * 13) % 88}%;width:${90 + (i % 3) * 60}px;animation-duration:${(1.4 + (i % 4) * 0.35).toFixed(2)}s;animation-delay:${(-i * 0.45).toFixed(2)}s`); };
-    const bolt = () => { add('fl', ''); P.push('<svg class="bolt" viewBox="0 0 60 160" aria-hidden="true"><path d="M34 0 L12 78 L30 78 L18 160 L52 60 L32 60 L46 0Z"/></svg>'); };
-    if (has('clear-night', 'partlycloudy-night')) stars(k === 'clear-night' ? 46 : 26);
-    if (k === 'clear-night') add('mo', '');
-    if (has('sunny', 'partlycloudy')) { add('sg', ''); add('sr', ''); }
-    if (k === 'exceptional') add('rg', '');
-    if (has('cloudy', 'fog', 'windy-variant')) clouds(5, 0.16);
-    if (has('partlycloudy', 'partlycloudy-night')) clouds(3, 0.28);
-    if (has('hail', 'lightning', 'lightning-rainy', 'exceptional', 'pouring')) clouds(5, 0.45, true);
-    if (has('rainy', 'snowy-rainy', 'snowy')) clouds(4, 0.12);
-    if (k === 'windy') clouds(3, 0.14, false, true);
-    if (k === 'fog') fog();
-    if (has('rainy', 'lightning-rainy', 'pouring')) rain(k === 'pouring' ? 42 : 34, 8, 0.75, 18, 0.7);
-    if (k === 'pouring') rain(46, 18, 0.5, 30, 0.55);
-    if (has('rainy', 'pouring', 'lightning-rainy')) splash(k === 'pouring' ? 18 : 12);
-    if (k === 'snowy-rainy') { snow(12); rain(16, 6, 0.9, 14, 0.5); }
-    if (k === 'snowy') snow(22);
-    if (k === 'hail') hail(30);
-    if (has('lightning', 'lightning-rainy', 'exceptional')) bolt();
-    if (has('windy', 'windy-variant', 'exceptional')) wind(k === 'exceptional' ? 9 : 7);
-    return P.join('');
+  // Liten ikonfarge (timer/dager): bare «sunny» er gul (ic() i Vær v5)
+  const icoCol = (k) => (k === 'sunny' ? YEL : ICO);
+
+  /* ---- 27.3 · fx()/fxBase() fra Vær v5 portet 1:1 (samme frø, antall, hastighet, delay, blur, opasitet og easing).
+   * React-stilobjektene er skrevet om til CSS-tekst; tall uten enhet = px (som React). Bare full = true (Scene) brukes.
+   * Klassen «a» = bevegelige partikler (fall/streak/blink/plask/støv): skjules ved prefers-reduced-motion og «Animasjoner av». */
+  const sp_ = (s, cls, inner = '', tag = 'span') => `<${tag}${cls ? ` class="${cls}"` : ''} style="position:absolute;${s}">${inner}</${tag}>`;
+  const fxBase = (kind) => {
+    let seed = 11; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const k = 1, sp = 3.2, out = [];
+    const cloud = (n, dark, op, top = 30) => { for (let i = 0; i < n; i++) { const w = 260 + r() * 220, d = 90 + r() * 90;
+      out.push(sp_(`top:${r() * top - 10}%;left:0;width:${w}px;height:${w * 0.42}px;border-radius:50%;filter:blur(24px);background:radial-gradient(closest-side, ${dark ? 'rgba(22,25,34,' : 'rgba(210,218,230,'}${op}), transparent);animation:drift ${d}s linear ${-r() * d}s infinite`, 'cl')); } };
+    const rain = (n, heavy) => [[0.25, 12, 1, 1.6], [0.4, 18, 1.2, 1.25], [0.6, 26, 1.5, 1]].forEach(([op, len, wd, dur], L) => {
+      for (let i = 0; i < n * (L + 1) * k; i++) { const dd = dur * sp * (heavy ? 0.8 : 1) * (0.85 + r() * 0.3);
+        out.push(sp_(`left:${r() * 110 - 5}%;width:${wd}px;height:${len * (heavy ? 1.3 : 1)}px;border-radius:${wd}px;background:linear-gradient(transparent, rgba(215,228,242,${op}));transform:rotate(${heavy ? 16 : 8}deg);animation:fall ${dd.toFixed(2)}s linear ${(-r() * dd).toFixed(2)}s infinite`, 'a rn')); } });
+    const splashes = (n) => { for (let i = 0; i < n * k; i++) { const d = 1.4 + r() * 1.2;
+      out.push(sp_(`bottom:${r() * 90}%;left:${r() * 100}%;width:10px;height:3px;border-radius:50%;border:1px solid rgba(215,228,242,.45);box-sizing:content-box;animation:splash ${d}s ease-out ${-r() * d}s infinite`, 'a sp')); } };
+    const bolt = (id, x, w, dur, delay) => {
+      const pts = [[50, 0]]; let cx = 50;
+      for (let y = 8; y <= 100; y += 6 + r() * 6) { cx += (r() - 0.5) * 18; pts.push([cx, y]); }
+      const fmt2 = (P) => P.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' L');
+      const main = 'M' + fmt2(pts);
+      const bi = 3 + Math.floor(r() * 3), b0 = pts[bi]; let bx = b0[0];
+      const br = 'M' + fmt2([b0, ...[1, 2, 3, 4].map((j) => [bx += (r() < 0.5 ? -1 : 1) * (4 + r() * 6), b0[1] + j * 7])]);
+      const a = `animation:bolt ${dur}s linear ${delay}s infinite;stroke-dasharray:1;stroke-dashoffset:1`;
+      out.push(`<svg class="a bo" data-bolt="${id}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;left:${x};top:0;width:${w}px;height:420px;overflow:visible;filter:drop-shadow(0 0 4px #c9d2ff) drop-shadow(0 0 14px rgba(160,175,255,.8))"><path d="${main}" pathLength="1" fill="none" stroke="#f4f6ff" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke" style="${a}"></path><path d="${br}" pathLength="1" fill="none" stroke="#e6eaff" stroke-width="1.2" stroke-linejoin="round" vector-effect="non-scaling-stroke" style="${a}"></path></svg>`);
+      out.push(sp_(`inset:0;background:radial-gradient(ellipse 70% 45% at ${x} 0%, rgba(215,222,255,.75), rgba(170,180,255,.18) 60%, transparent);mix-blend-mode:screen;animation:flash ${dur}s linear ${delay}s infinite`, 'a fl'));
+    };
+    if (kind === 'Regn') { cloud(4, false, 0.2); rain(12, false); splashes(8); }
+    if (kind === 'Torden') { cloud(6, true, 0.75); rain(18, true); bolt(1, '62%', 110, 9, 1.2); bolt(2, '18%', 90, 13, 5.5); }
+    if (kind === 'Sol') {
+      const sx = '82%', sy = 90;
+      for (let i = 0; i < 6; i++) out.push(sp_(`left:${sx};top:${sy}px;width:900px;height:${26 + r() * 40}px;margin-top:-20px;transform-origin:0 50%;rotate:${100 + i * 16 + r() * 6}deg;background:linear-gradient(90deg, rgba(255,244,205,.35), rgba(255,244,205,0) 80%);filter:blur(8px);animation:beam ${14 + r() * 8}s ease-in-out ${-r() * 10}s infinite`, 'bm'));
+      out.push(sp_(`left:${sx};top:${sy}px;width:260px;height:260px;margin:-130px 0 0 -130px;border-radius:50%;background:radial-gradient(closest-side, #fffdf2 0%, rgba(255,241,190,.9) 16%, rgba(255,214,120,.35) 42%, transparent);animation:bloom 8s ease-in-out infinite`, 'sun'));
+      [[0.28, 38, 0.5], [0.5, 18, 0.35], [0.72, 64, 0.22]].forEach(([t, s, o], i) => out.push(sp_(`left:calc(${sx} - ${t * 300}px);top:${sy + t * 360}px;width:${s}px;height:${s}px;margin-left:${-s / 2}px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,236,190,${o}), rgba(170,210,255,${o / 2}) 70%, transparent);animation:flare ${6 + i * 2}s ease-in-out ${-i}s infinite`, 'lf')));
+      for (let i = 0; i < 14 * k; i++) { const d = 7 + r() * 6; out.push(sp_(`left:${r() * 100}%;top:${r() * 40}%;width:3px;height:3px;border-radius:50%;background:rgba(255,248,220,.9);filter:blur(.5px);animation:mote ${d}s ease-in-out ${-r() * d}s infinite`, 'a mt')); }
+      cloud(2, false, 0.28, 20);
+    }
+    if (kind === 'Skyet') { cloud(7, false, 0.4); cloud(3, true, 0.3); }
+    if (kind === 'Snø') { cloud(3, false, 0.28);
+      [[0.45, 1.5, 3, 22, 1], [0.75, 3, 5, 15, 0], [0.95, 5, 8, 10, 0]].forEach(([op, s0, s1, dur, blur], L) => {
+        for (let i = 0; i < [40, 26, 10][L] * k; i++) { const s = s0 + r() * (s1 - s0), d = dur * sp * (0.8 + r() * 0.4), sw = 3 + r() * 3;
+          let flake;
+          if (L === 2 && r() < 0.6) { const fs = 12 + r() * 6; flake = M.icon('mdi:snowflake', fs.toFixed(1), `display:block;color:rgba(255,255,255,${op});animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite;filter:drop-shadow(0 0 3px rgba(255,255,255,.5))`); }
+          else flake = `<span style="display:block;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,${op}) 40%, rgba(255,255,255,0));filter:${blur ? 'blur(1px)' : 'none'};animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite"></span>`;
+          out.push(sp_(`left:${r() * 100}%;animation:fall ${d.toFixed(1)}s linear ${(-r() * d).toFixed(1)}s infinite`, 'a sn', flake)); } }); }
+    if (kind === 'Natt') {
+      for (let i = 0; i < 70 * k; i++) { const s = r() < 0.15 ? 2.5 : 1.5;
+        out.push(sp_(`left:${r() * 100}%;top:${r() * 45}%;width:${s}px;height:${s}px;border-radius:50%;background:#fff;animation:twinkle ${3 + r() * 5}s ease-in-out ${-r() * 5}s infinite`, 'st')); }
+      out.push(sp_('right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(closest-side, rgba(200,215,255,.28), transparent)', 'gl'));
+      cloud(1, false, 0.12);
+    }
+    return out.join('');
   };
+  const FX_HA = { 'clear-night': ['Natt'], 'partlycloudy-night': ['Natt'], cloudy: ['Skyet'], fog: ['Skyet'], hail: [], lightning: [], 'lightning-rainy': ['Torden'], partlycloudy: ['Sol'], pouring: ['Regn'], rainy: ['Regn'], snowy: ['Snø'], 'snowy-rainy': ['Snø'], sunny: ['Sol'], windy: [], 'windy-variant': ['Skyet'], exceptional: [] };
+  const sceneFx = (kind) => {
+    const out = (FX_HA[kind] || [kind]).map((b) => fxBase(b));
+    let seed = 23; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280, k = 1;
+    const clouds = (n, col, op) => { for (let i = 0; i < n; i++) { const w = 280 + r() * 200, d = 70 + r() * 60; out.push(sp_(`pointer-events:none;top:${r() * 30 - 10}%;left:0;width:${w}px;height:${w * 0.42}px;border-radius:50%;filter:blur(24px);background:radial-gradient(closest-side, rgba(${col},${op}), transparent);animation:drift ${d}s linear ${-r() * d}s infinite`, 'cl')); } };
+    const streaks = (n) => { for (let i = 0; i < n * k; i++) { const d = 1.1 + r() * 1.4, w = 60 + r() * 110; out.push(sp_(`pointer-events:none;left:0;top:${5 + r() * 90}%;width:${w}px;height:1.5px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(235,240,248,.55), transparent);animation:streak ${d.toFixed(2)}s linear ${(-r() * d).toFixed(2)}s infinite`, 'a wd')); } };
+    const drops = (n, len, op, dur, rot) => { for (let i = 0; i < n * k; i++) { const dd = dur * 3.2 * (0.85 + r() * 0.3); out.push(sp_(`pointer-events:none;left:${r() * 110 - 5}%;width:1.4px;height:${len}px;border-radius:1px;background:linear-gradient(transparent, rgba(215,228,242,${op}));transform:rotate(${rot}deg);animation:fall ${dd.toFixed(2)}s linear ${(-r() * dd).toFixed(2)}s infinite`, 'a rn')); } };
+    const pellets = (n) => { for (let i = 0; i < n * k; i++) { const s = 3 + r() * 3, dd = 2.2 * (0.8 + r() * 0.4); out.push(sp_(`pointer-events:none;left:${r() * 100}%;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff, rgba(210,225,240,.85));box-shadow:0 0 3px rgba(255,255,255,.6);animation:fall ${dd.toFixed(2)}s cubic-bezier(.5,0,1,1) ${(-r() * dd).toFixed(2)}s infinite`, 'a hl')); } };
+    const fog = () => { for (let i = 0; i < 5; i++) { const d = 26 + r() * 20; out.push(sp_(`pointer-events:none;left:-20%;width:140%;top:${18 + i * 16}%;height:140px;background:linear-gradient(180deg, transparent, rgba(222,228,236,.34), transparent);filter:blur(16px);animation:fogmove ${d.toFixed(1)}s ease-in-out ${(-r() * d).toFixed(1)}s infinite`, 'fg')); } };
+    const bolt = (x, dur, delay) => {
+      out.push(`<svg class="a bo" viewBox="0 0 40 120" aria-hidden="true" style="position:absolute;pointer-events:none;left:${x};top:0;width:70px;height:300px;overflow:visible;filter:drop-shadow(0 0 6px #c9d2ff)"><path d="M22 0 L12 48 L22 50 L8 120 L30 44 L20 42 L28 0 Z" fill="#eef1ff" style="animation:flash ${dur}s linear ${delay}s infinite;opacity:0"></path></svg>`);
+      out.push(sp_(`pointer-events:none;inset:0;background:radial-gradient(ellipse 70% 45% at ${x} 0%, rgba(215,222,255,.7), transparent 70%);mix-blend-mode:screen;opacity:0;animation:flash ${dur}s linear ${delay}s infinite`, 'a fl'));
+    };
+    if (kind === 'fog') fog();
+    if (kind === 'hail') { clouds(6, '26,30,40', 0.7); pellets(40); }
+    if (kind === 'lightning') { clouds(7, '22,25,34', 0.8); bolt('64%', 8, 1); bolt('22%', 11, 4.5); }
+    if (kind === 'partlycloudy' || kind === 'partlycloudy-night') clouds(4, '225,232,242', kind === 'partlycloudy' ? 0.55 : 0.3);
+    if (kind === 'pouring') { clouds(5, '22,25,34', 0.7); drops(34, 34, 0.7, 0.7, 14); }
+    if (kind === 'snowy-rainy') drops(14, 20, 0.5, 1, 8);
+    if (kind === 'windy') { clouds(3, '210,218,230', 0.25); streaks(26); }
+    if (kind === 'windy-variant') streaks(22);
+    if (kind === 'exceptional') { out.push(sp_('pointer-events:none;inset:0;background:radial-gradient(ellipse 90% 60% at 50% 0%, rgba(242,128,115,.45), transparent 70%);animation:glowx 3s ease-in-out infinite', 'ex')); clouds(6, '30,20,24', 0.7); streaks(18); bolt('70%', 9, 2); }
+    return out.join('');
+  };
+  // @keyframes fra Vær v5 (<helmet>) 1:1 – i scenelagets og kortets shadow root (keyframes virker i shadow DOM)
+  const V5_KF = `
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @keyframes fall{from{top:-60px}to{top:100%}}
+    @keyframes fogmove{0%,100%{transform:translateX(-10%)}50%{transform:translateX(10%)}}
+    @keyframes streak{from{transform:translateX(-160px);opacity:0}15%{opacity:1}85%{opacity:1}to{transform:translateX(520px);opacity:0}}
+    @keyframes glowx{0%,100%{opacity:.35}50%{opacity:.85}}
+    @keyframes sway{0%,100%{transform:translateX(-14px) rotate(-20deg)}50%{transform:translateX(14px) rotate(20deg)}}
+    @keyframes drift{from{transform:translateX(-60%)}to{transform:translateX(160%)}}
+    @keyframes flash{0%,100%{opacity:0}0.6%{opacity:.8}1.2%{opacity:.15}2%{opacity:1}4.5%{opacity:0}}
+    @keyframes bolt{0%,100%{opacity:0;stroke-dashoffset:1}0.6%{opacity:1;stroke-dashoffset:0}1.2%{opacity:.3}2%{opacity:1}3.5%{opacity:.6}5%{opacity:0;stroke-dashoffset:0}}
+    @keyframes twinkle{0%,100%{opacity:.15}50%{opacity:.9}}
+    @keyframes beam{0%,100%{transform:rotate(-4deg);opacity:.5}50%{transform:rotate(4deg);opacity:.9}}
+    @keyframes bloom{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.06);opacity:1}}
+    @keyframes flare{0%,100%{opacity:.15}50%{opacity:.45}}
+    @keyframes mote{0%{transform:translate(0,0);opacity:0}20%{opacity:.8}100%{transform:translate(40px,-60px);opacity:0}}
+    @keyframes splash{0%,80%{transform:scaleX(.2);opacity:0}85%{opacity:.6}100%{transform:scaleX(1.4);opacity:0}}
+  `;
   const SCENE_CSS = `
     :host{position:absolute;inset:0;z-index:-1;display:block;pointer-events:none;overflow:hidden;border-radius:inherit;contain:paint}
-    .sc{position:absolute;inset:0;overflow:hidden;border-radius:inherit;transition:background .6s}
-    .sc i,.sc svg{position:absolute;display:block;pointer-events:none}
-    .st{border-radius:50%;background:#fff;animation:vs-tw 3s ease-in-out infinite}
-    .mo{right:12%;top:max(70px,9%);width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 36% 34%,#fffbea,#ebe5d4 58%,#cfc7b0);box-shadow:0 0 50px rgba(255,248,220,.35)}
-    .sg{right:-90px;top:-90px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(255,236,160,.75),rgba(255,214,110,.25) 35%,transparent 66%);animation:vs-glow 6s ease-in-out infinite}
-    .sr{right:-200px;top:-200px;width:580px;height:580px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,240,190,.16) 0deg 6deg,transparent 6deg 20deg);-webkit-mask:radial-gradient(circle,#000 18%,transparent 62%);mask:radial-gradient(circle,#000 18%,transparent 62%);animation:vs-spin 80s linear infinite}
-    .rg{inset:-10%;background:radial-gradient(ellipse at 50% 20%,rgba(242,80,70,.55),transparent 60%);animation:vs-pulse 2.6s ease-in-out infinite}
-    .cl{border-radius:999px;filter:blur(16px);animation:vs-drift 26s ease-in-out infinite alternate}
-    .fg{left:-40%;width:180%;height:64px;border-radius:32px;background:linear-gradient(90deg,transparent,rgba(230,232,235,.22),rgba(230,232,235,.3),transparent);filter:blur(10px);animation:vs-fog 16s ease-in-out infinite alternate}
-    .rn{top:-40px;width:1.6px;border-radius:1px;background:linear-gradient(transparent,rgba(210,228,255,.95));transform:rotate(var(--sl));animation:vs-rain .8s linear infinite}
-    .sp{width:12px;height:4px;border-radius:50%;border:1px solid rgba(210,228,255,.55);opacity:0;animation:vs-splash .9s ease-out infinite}
-    .sn{top:-12px;border-radius:50%;background:#fff;animation:vs-snow 10s linear infinite}
-    .hl{top:-10px;width:5px;height:5px;border-radius:50%;background:#eef4fa;box-shadow:0 0 2px rgba(255,255,255,.8);animation:vs-hail .6s linear infinite}
-    .wd{left:0;height:2px;border-radius:1px;background:linear-gradient(90deg,transparent,rgba(230,238,248,.55),transparent);animation:vs-wind 1.6s linear infinite}
-    .fl{inset:0;background:rgba(255,255,240,.55);opacity:0;animation:vs-flash 6s linear infinite}
-    .bolt{left:58%;top:6%;width:44px;height:120px;opacity:0;fill:rgba(255,252,220,.95);filter:drop-shadow(0 0 10px rgba(255,250,200,.9));animation:vs-flash 6s linear infinite}
+    .sc{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;transition:background .6s}
+    .sc svg{display:block}
+    .paused *{animation-play-state:paused !important}
     .still *{animation:none !important}
-    .still .rn,.still .sn,.still .hl,.still .sp,.still .wd,.still .fl,.still .bolt{display:none !important}
-    @media (prefers-reduced-motion: reduce){.sc *{animation:none !important}.rn,.sn,.hl,.sp,.wd,.fl,.bolt{display:none !important}}
-    @keyframes vs-tw{0%,100%{opacity:.25}50%{opacity:.95}}
-    @keyframes vs-glow{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
-    @keyframes vs-spin{to{transform:rotate(360deg)}}
-    @keyframes vs-pulse{0%,100%{opacity:.45}50%{opacity:1}}
-    @keyframes vs-drift{0%{transform:translateX(-6%)}100%{transform:translateX(8%)}}
-    @keyframes vs-fog{0%{transform:translateX(-12%)}100%{transform:translateX(12%)}}
-    @keyframes vs-rain{0%{transform:translate(0,0) rotate(var(--sl))}100%{transform:translate(var(--dx),110vh) rotate(var(--sl))}}
-    @keyframes vs-splash{0%{opacity:0;transform:scale(.2)}20%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
-    @keyframes vs-snow{0%{transform:translate(0,0)}50%{transform:translate(18px,55vh)}100%{transform:translate(-10px,110vh)}}
-    @keyframes vs-hail{0%{transform:translate(0,0)}100%{transform:translate(-30px,110vh)}}
-    @keyframes vs-wind{0%{transform:translateX(-120%);opacity:0}20%{opacity:.8}100%{transform:translateX(120vw);opacity:0}}
-    @keyframes vs-flash{0%,82%,100%{opacity:0}83%,86%{opacity:1}84.5%{opacity:.15}88%{opacity:0}}
+    .still .a{display:none !important}
+    @media (prefers-reduced-motion: reduce){.sc *{animation:none !important}.sc .a{display:none !important}}
+    ${V5_KF}
   `;
-  // Faste kontroller i bunnen av popupen: stedsvelger (glass, nede til venstre, meny åpner oppover) og tune (nede til høyre)
+  // 27.0 · faste kontroller (Vær v5 pickWrap/gearWrap): stedsvelger nede til venstre (meny åpner oppover) + tune nede til høyre
+  const PINK160 = 'linear-gradient(160deg,#f28ac9,#f6c9c4)', INK = 'rgba(70,58,64,.95)';
   const CTL_CSS = `
     :host{position:absolute;left:0;right:0;bottom:0;height:0;z-index:6;pointer-events:none;display:block;font-family:${M.FONT};color:#fafafa;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .b{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom, 0px));pointer-events:auto;height:44px;border-radius:22px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 6px 18px rgba(0,0,0,.25);display:flex;align-items:center;gap:6px;padding:0 12px 0 12px;font-size:14px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
-    .b:active{transform:scale(.95)}
+    .b{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom, 0px));pointer-events:auto;height:48px;border-radius:24px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s}
+    .b:hover{background:rgba(28,30,36,.88)}
+    .b:active{transform:scale(.92)}
     .pl{left:16px;max-width:calc(100% - 100px)}
     .pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tn{right:16px;width:44px;padding:0;justify-content:center}
+    .cv{opacity:.8;transition:transform .2s}
+    .cv.up{transform:rotate(180deg)}
+    .tn{right:16px;width:48px;padding:0;justify-content:center}
     .mbg{position:absolute;left:0;right:0;bottom:0;height:100vh;pointer-events:auto}
-    .mn{position:absolute;left:16px;bottom:calc(68px + env(safe-area-inset-bottom, 0px));pointer-events:auto;min-width:200px;max-width:calc(100% - 32px);max-height:50vh;overflow:auto;border-radius:20px;background:rgba(28,30,36,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.35);padding:6px;display:flex;flex-direction:column;gap:2px;transform-origin:bottom left;animation:vc-in .18s ease-out}
-    .mi{height:44px;border-radius:14px;display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left;font-size:14px;white-space:nowrap}
-    .mi.on{background:rgba(255,255,255,.14)}
-    @keyframes vc-in{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+    .mn{position:absolute;left:16px;bottom:calc(72px + env(safe-area-inset-bottom, 0px));pointer-events:auto;width:270px;max-width:calc(100% - 32px);max-height:60vh;overflow:auto;border-radius:22px;background:rgba(36,38,44,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade .2s ease}
+    .mi{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 12px;border-radius:16px;text-align:left;color:#fafafa}
+    .mi.on{background:${PINK160};color:${INK}}
+    .mc{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
+    .mnm{font-size:15px;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mid{font-size:10px;color:#a8a8a8;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
+    .mi.on .mid{color:rgba(70,58,64,.75)}
+    .mt{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     @media (prefers-reduced-motion: reduce){.mn{animation:none}}
   `;
   // Scenelaget: eget element med shadow root, lagt i Bubble-popupen (.bubble-pop-up, transform → absolutt = hele popupen,
@@ -497,23 +552,48 @@
   };
   M.vaerPlaces = placesOf;
   const STIL = [['klassisk', 'Klassisk'], ['scene', 'Scene']];
-  const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'calendar_month'], ['tiles', 'Fliser', 'grid_view']];
+  const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'mdi:view-week'], ['tiles', 'Fliser', 'grid_view']];
   const stilOf = (c) => (c && c.stil === 'klassisk' ? 'klassisk' : 'scene'); // standard scene (26.24)
   const hiddenOf = (c) => new Set([...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])]);
   M.vaerStilOf = stilOf;
 
-  // GUI-editoren (getConfigElement): Steder – liste med fjern + «Legg til sted» (navn + weather.*-velger)
-  const placesGui = (h, c, key) => {
-    const L = Array.isArray(c.places) ? c.places.filter((p) => p && p.entity) : [], all = M.all(h, 'weather');
-    return `<div class="f" data-key="vp-${key}"><label>Steder</label>
-      ${L.length ? L.map((p, i) => `<div class="line" data-key="vp-${i}-${esc(p.entity)}" style="gap:8px"><span style="flex:1;min-width:0;font-size:13px">${esc(p.name || p.entity)} <span class="small">${esc(p.entity)}</span></span><button class="chip" data-a="fn" data-k="${key}" data-op="rm" data-i="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">Fjern</button></div>`).join('') : '<div class="small">Bare Hjem (værmeldingen fra autokonfig) – legg til flere steder under.</div>'}
-      <div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--gray100,#2f2f2f)">
+  // GUI-editoren (getConfigElement): Steder – én rad per sted (navn + ha-selector {entity: {domain: 'weather'}} med HAs
+  // innebygde søk, ↑/↓, Fjern) + «Legg til sted» (ha-selector). Lagres i places: [{ name, entity }] (27.4/27.8).
+  // Uten ha-selector (test/eldre HA): navn + <select> over alle weather.* + «Legg til sted».
+  const placesGui = (h, c, key, ed) => {
+    const L = Array.isArray(c.places) ? c.places.filter((p) => p && p.entity) : [], all = M.all(h, 'weather'), hasSel = !!customElements.get('ha-selector');
+    const sel = esc(JSON.stringify({ entity: { domain: 'weather' } }));
+    if (ed && ed.shadowRoot && !ed.__vpAdd) { // «Legg til sted»-velgeren (uten data-name): ny rad i places
+      ed.__vpAdd = true;
+      ed.shadowRoot.addEventListener('value-changed', (e) => {
+        const t = e.target;
+        if (!t || !t.dataset || t.dataset.vpadd == null) return;
+        e.stopPropagation();
+        const v = e.detail && e.detail.value, cc = ed._config || {}, L0 = (Array.isArray(cc.places) ? cc.places : []).filter((p) => p && p.entity);
+        if (!v || L0.some((p) => p.entity === v)) return;
+        const hh = ed._hass || ed.hass, auto = L0.length ? null : M.vaerAuto(hh, cc).weather;
+        const base = auto && auto !== v ? [{ name: (hh && hh.config && hh.config.location_name) || 'Hjem', entity: auto }] : [];
+        M.haptic('success');
+        ed._set('places', [...L0, ...base, { name: M.name(hh, v), entity: v }].filter((p, i, arr) => arr.findIndex((q) => q.entity === p.entity) === i));
+      });
+    }
+    const btn = (op, i, label, ic, dis) => `<button class="chip" data-a="fn" data-k="${key}" data-op="${op}" data-i="${i}" aria-label="${esc(label)}" ${dis ? 'disabled' : ''}>${ic ? M.icon(ic, 18) : esc(label)}</button>`;
+    const rows = L.length ? L.map((p, i) => `<div class="col" data-key="vp-${i}" style="gap:6px;padding:8px 0;border-top:${i ? '1px solid rgba(255,255,255,.06)' : '0'}">
+        <div class="line" style="gap:6px"><input class="inp" data-name="places.${i}.name" value="${esc(p.name || '')}" placeholder="${esc(M.name(h, p.entity))}" style="flex:1;min-width:0">
+          ${btn('up', i, 'Flytt opp', 'mdi:arrow-up', i === 0)}${btn('down', i, 'Flytt ned', 'mdi:arrow-down', i === L.length - 1)}${btn('rm', i, `Fjern ${p.name || p.entity}`, 'mdi:delete-outline')}</div>
+        ${hasSel ? `<ha-selector data-name="places.${i}.entity" data-nomorph data-selector="${sel}" data-label="Værmelding (weather.*)" data-helper=""></ha-selector>` : `<span class="small">${esc(p.entity)}</span>`}</div>`).join('')
+      : '<div class="small">Bare Hjem (værmeldingen fra autokonfig) – legg til flere steder under.</div>';
+    const add = hasSel
+      ? `<ha-selector data-vpadd data-nomorph data-selector="${sel}" data-label="Legg til sted (søk etter weather.*)" data-helper="Navnet fylles med entitetens navn og kan endres over"></ha-selector>`
+      : `<div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--gray100,#2f2f2f)">
         <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--gray100,#2f2f2f)">${all.map((id) => `<option value="${esc(id)}">${esc(M.name(h, id))} · ${esc(id)}</option>`).join('')}</select>
-        <button class="chip on" data-a="fn" data-k="${key}" data-op="add" ${all.length ? '' : 'disabled'}>Legg til sted</button></div></div>`;
+        <button class="chip on" data-a="fn" data-k="${key}" data-op="add" ${all.length ? '' : 'disabled'}>Legg til sted</button></div>`;
+    return `<div class="f" data-key="vp-${key}"><label>Steder</label>${rows}${add}</div>`;
   };
   const placesClick = (d, ed) => {
-    const c = ed._config || {}, L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity);
-    if (d.op === 'rm') { L.splice(Number(d.i), 1); M.haptic('selection'); return ed._set('places', L.length ? L : undefined); }
+    const c = ed._config || {}, L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity), i = Number(d.i);
+    if (d.op === 'rm') { L.splice(i, 1); M.haptic('selection'); return ed._set('places', L.length ? L : undefined); }
+    if (d.op === 'up' || d.op === 'down') { const j = d.op === 'up' ? i - 1 : i + 1; if (j < 0 || j >= L.length) return undefined; [L[i], L[j]] = [L[j], L[i]]; M.haptic('selection'); return ed._set('places', L); }
     if (d.op === 'add') {
       const R = ed.shadowRoot || ed, ent = (R.querySelector('[data-vp="ent"]') || {}).value, nm = ((R.querySelector('[data-vp="name"]') || {}).value || '').trim();
       if (!ent) return undefined;
@@ -530,9 +610,9 @@
       return () => [
         // 26.24/26.25: samme valg som «Tilpass Vær» (Stil · Steder · Seksjoner · Fliser) – config er sannheten
         { type: 'select', name: 'stil', label: 'Stil', default: 'scene', options: STIL, help: 'Scene = fullskjerms værscene bak hele popupen · Klassisk = Vær v4' },
-        { type: 'html', html: (hh, cc, key) => placesGui(hh, cc, key), click: (d, ed) => placesClick(d, ed) },
+        { type: 'html', html: (hh, cc, key, ed) => placesGui(hh, cc, key, ed), click: (d, ed) => placesClick(d, ed) },
         ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { const s = new Set(Array.isArray(cc.hide) ? cc.hide : []); if (v) s.delete(k); else s.add(k); const hs = (cc.hidden_sections || []).filter((x) => x !== k || !v); if (ed && ed._set) { if (hs.length !== (cc.hidden_sections || []).length) ed._config = { ...ed._config, hidden_sections: hs.length ? hs : undefined }; ed._set('hide', HIDE.map((x) => x[0]).filter((x) => s.has(x))); } } })),
-        { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)']] },
+        { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)'], ['feels', 'Føles som (Scene)'], ['vis', 'Sikt (Scene)']] },
         { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
         { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Seksjoner (Klassisk)', options: SECS.map((s) => [s[0], s[1]]) },
@@ -619,11 +699,17 @@
     _drawCtl() {
       const el = this._ctl;
       if (!el) return;
-      const L = placesOf(this._hass, super.config), cur = this._place(), i0 = L.indexOf(cur);
+      const L = placesOf(this._hass, super.config), i0 = M.clamp(Number(this.ui.place) || 0, 0, Math.max(0, L.length - 1)), cur = L[i0] || null;
+      const h = this._hass, night = (() => { const ss = h && M.vaerAuto(h, super.config).sun; const so = ss && h.states[ss]; return so ? so.state === 'below_horizon' : isNight(Date.now(), null); })();
+      // 27.0: designets stedsmeny (Vær v5 ents): værikon, navn 15/500 + entitets-ID (mono 10 px), temperatur nå; valgt = rosa
+      const item = (p, i) => {
+        const on = i === i0, so = p.entity && h ? h.states[p.entity] : null, cd = sceneOf(so ? so.state : null, night), t = so ? num(so.attributes.temperature) : null;
+        return `<button class="mi${on ? ' on' : ''}" role="menuitemradio" aria-checked="${on}" data-a="pick" data-i="${i}">${M.icon(cd.icon, 22, `color:${on ? INK : icoCol(cd.key)}`)}<span class="mc"><span class="mnm">${esc(p.name)}</span><span class="mid">${esc(p.entity || '–')}</span></span><span class="mt">${t != null ? Math.round(t) : '–'}°</span></button>`;
+      };
       const html = `<style>${CTL_CSS}</style>
-        ${this._ctlMenu ? `<div class="mbg" data-a="close"></div><div class="mn" role="menu">${L.map((p, i) => `<button class="mi${i === i0 ? ' on' : ''}" role="menuitemradio" aria-checked="${i === i0}" data-a="pick" data-i="${i}">${M.icon(i === i0 ? 'mdi:map-marker' : 'mdi:map-marker-outline', 18)}<span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
-        <button class="b pl" data-a="place" aria-haspopup="menu" aria-expanded="${!!this._ctlMenu}" aria-label="Velg sted">${M.icon('mdi:map-marker', 18)}<span class="pn">${esc(cur ? cur.name : 'Hjem')}</span>${M.icon(this._ctlMenu ? 'mdi:chevron-down' : 'mdi:chevron-up', 18)}</button>
-        <button class="b tn" data-a="tune" aria-label="Tilpass Vær">${M.icon('mdi:tune', 20)}</button>`;
+        ${this._ctlMenu ? `<div class="mbg" data-a="close"></div><div class="mn" role="menu">${L.map(item).join('')}</div>` : ''}
+        <button class="b pl" data-a="place" aria-haspopup="menu" aria-expanded="${!!this._ctlMenu}" aria-label="Bytt sted" title="Bytt sted">${M.icon('mdi:map-marker', 20)}<span class="pn">${esc(cur ? cur.name : 'Hjem')}</span><span class="cv${this._ctlMenu ? ' up' : ''}">${M.icon('mdi:chevron-up', 18)}</span></button>
+        <button class="b tn" data-a="tune" aria-label="Tilpass Vær" title="Tilpass Vær">${M.icon('mdi:tune', 22)}</button>`;
       if (el._h !== html) { el._h = html; el.shadowRoot.innerHTML = html; }
     }
     _ctlClick(e) {
@@ -650,7 +736,8 @@
         if (el.__scr) return;
         el.__scr = true;
         M.guardDrag(el, 'none');
-        const pos = (e) => { const n = Number(el.dataset.n) || 1, r = el.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * (n - 1)), 0, Math.max(0, n - 1)); };
+        // data-mode="col" (27.1/27.2): n like kolonner – indeks = floor(f·n) (Vær v5 round(f·n − .5)); ellers punkt: round(f·(n−1))
+        const pos = (e) => { const n = Number(el.dataset.n) || 1, r = el.getBoundingClientRect(), f = (e.clientX - r.left) / Math.max(1, r.width); return M.clamp(el.dataset.mode === 'col' ? Math.floor(f * n) : Math.round(f * (n - 1)), 0, Math.max(0, n - 1)); };
         let down = null;
         el.addEventListener('pointerdown', (e) => {
           if (e.button) return;
@@ -727,7 +814,7 @@
         const all = [...box.querySelectorAll('.tw')].map((x) => x.dataset.tile), to = s.over.dataset.tile;
         const o = all.filter((x) => x !== s.k), j = o.indexOf(to);
         o.splice(all.indexOf(s.k) < all.indexOf(to) ? j + 1 : j, 0, s.k);
-        const full = orderOf(stilOf(this._rawConfig) === 'scene' ? [...TK, 'moon'] : TK, [...o, ...orderOf([...TK, 'moon'], this._rawConfig.tile_order || this._rawConfig.tiles).filter((x) => !o.includes(x))]);
+        const ALLK = [...new Set([...TK, ...STK])], full = orderOf(ALLK, [...o, ...orderOf(ALLK, this._rawConfig.tile_order || this._rawConfig.tiles).filter((x) => !o.includes(x))]);
         M.haptic('success');
         return this._saveCfg({ tile_order: full });
       };
@@ -901,15 +988,17 @@
       sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? '<svg class="moon" style="width:56px;height:56px"><circle cx="28" cy="28" r="28" fill="#404040"/></svg>' : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--gray700,#979797)">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
       const hid = hiddenOf(c);
       const empty = !st ? M.emptyState(a.weather ? `Fant ikke ${a.weather}` : 'Fant ingen weather.*', 'overrides') : '';
-      if (scene) return this._scene({ c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty });
+      if (scene) return this._scene({ c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty, X: { ws, gust, bear, hum, dew, uv, pr, prU, trend, rain24, moon } });
       const order = orderOf(SK, c.sections);
       const blocks = order.filter((k) => !hid.has(k) && sec[k]).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${sec[k]}</div>`);
       // Stedsvelger + «Tilpass Vær» (tune) ligger fast i bunnen av popupen (portalet, 26.25) – ingen knapp nederst i innholdet
       return `<div class="wrap klassisk">${empty}${blocks.join('')}<div class="ctl-slot" data-nomorph></div></div>`;
     }
-    /* ---------------------------------------------------------- stil «scene» (26.24/26.25, Vær v5) */
+    /* ---------------------------------------------------------- stil «scene» (26.24/26.25 + 27, fasit Vær v5.dc.html) */
+    // Rekkefølge som designet: Nå · Farevarsel · Neste timer · Døgnvarsel · Fliser · «Data fra …». Kortene er var(--card)
+    // (kortfargen per tilstand) + blur(18px), radius 24. Animasjonene ligger i scenelaget bak hele popupen (_mountLayers).
     _scene(x) {
-      const { c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty } = x, ui = this.ui, raw = this._rawConfig || {};
+      const { c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, hid, empty, X } = x, ui = this.ui, raw = this._rawConfig || {};
       const night = sunSt ? sunSt.state === 'below_horizon' : isNight(Date.now(), null);
       const sc = sceneOf(st ? st.state : null, night);
       this._sc = sc;
@@ -917,91 +1006,162 @@
       const placeName = (pl && !pl.auto && pl.name) || c.name || (h.config && h.config.location_name) || (st ? M.name(h, a.weather) : '–');
       const today = todayOf(Dl) || Dl[0] || null, temp = st ? num(A.temperature) : null;
       const hi = today ? num(today.temperature) : null, lo = today ? num(today.templow) : null;
-      // H/L som ÉN ferdig streng (white-space: nowrap) – aldri flere tekstnoder i en flex-kolonne (26.24)
-      const hl = `H ${hi != null ? Math.round(hi) + '°' : '–'} · L ${lo != null ? Math.round(lo) + '°' : '–'}`;
+      const ph = (what) => esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? `Ingen ${what}` : 'Henter prognose …');
+      // tall som String(n).replace('.', ',') i Vær v5: 0,6 · 3 · 1016 (én desimal, ingen «,0»)
+      const nf = (v) => { if (v == null || isNaN(v)) return '–'; const r1 = Math.round(Number(v) * 10) / 10; return M.nf(r1, r1 % 1 ? 1 : 0); };
+      const ws1 = nf;
       const S = {};
-      S.now = `<section class="snw" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}><span class="spl ell">${esc(placeName)}</span>
+      // ---- Nå (sted i versaler · 96 px temperatur · tilstand · H/L som ÉN streng, 26.24)
+      S.now = `<section class="snw" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}><span class="sloc">${M.icon('mdi:map-marker', 14)}<span class="ell">${esc(String(placeName).toUpperCase())}</span></span>
         <span class="stp num">${temp != null ? Math.round(temp) : '–'}°</span>
-        <span class="scd">${M.icon(sc.icon, 22, `color:${sc.color}`)}<span class="ell">${esc(st ? sc.label : '–')}</span></span>
-        <span class="shl num">${esc(hl)}</span></section>`;
-      if (sec.alerts) S.alerts = sec.alerts;
-      // Neste timer: segment Temperatur · Nedbør · Vind (Liquid Glass-drag) + glatt graf med scrub og boble
-      const seg = ['temp', 'rain', 'wind'].includes(ui.seg) ? ui.seg : 'temp';
-      const G = H.slice(0, Math.max(12, Math.min(48, Number(raw.hours) || 24)));
-      const val = (f) => (seg === 'temp' ? num(f.temperature) : seg === 'rain' ? num(f.precipitation) || 0 : num(f.wind_speed));
-      const V = G.map(val), ok = V.filter((v) => v != null);
-      const col = seg === 'temp' ? SUNY : seg === 'rain' ? RAIN : 'var(--light-blue, #c8ddfa)';
-      let gHtml = `<div class="gph ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen timeprognose' : 'Henter prognose …')}</div>`;
-      if (ok.length > 1) {
-        const gust = seg === 'wind' ? G.map((f) => num(f.wind_gust_speed)) : [];
-        const all = [...ok, ...gust.filter((v) => v != null)];
-        let mn = Math.min(...all), mx = Math.max(...all);
-        if (seg !== 'temp') mn = 0;
-        if (mx - mn < 1) mx = mn + 1;
-        const X = (i) => (i / (G.length - 1)) * 300, Y = (v) => 100 - ((v - mn) / (mx - mn)) * 78 - 8;
-        let last = ok[0];
-        const P = V.map((v, i) => { if (v != null) last = v; return [X(i), Y(v != null ? v : last)]; }), d = smooth(P);
-        const gP = gust.length && gust.some((v) => v != null) ? gust.map((v, i) => [X(i), Y(v != null ? v : 0)]) : null;
-        const si = ui.scr && ui.scr.k === 'hg' ? Math.min(ui.scr.i, G.length - 1) : null;
-        const txt = (i) => {
-          const f = G[i], v = V[i];
-          if (seg === 'temp') return v != null ? `${f1(v)}°` : '–';
-          if (seg === 'rain') return `${f1(v)} ${pu}${num(f.precipitation_probability) != null ? ` · ${Math.round(f.precipitation_probability)} %` : ''}`;
-          return `${v != null ? f1(v) : '–'} ${wu}${num(f.wind_gust_speed) != null ? ` · kast ${f1(f.wind_gust_speed)}` : ''}`;
-        };
-        const bub = si != null ? `<div class="gb num" style="left:clamp(56px, ${(si / (G.length - 1)) * 100}%, calc(100% - 56px))">${M.pad(new Date(G[si].datetime).getHours())} · ${esc(txt(si))}</div>` : '';
-        const ticks = [0, 6, 12, 18].filter((i) => i < G.length).map((i) => `<span style="left:${(i / (G.length - 1)) * 100}%">${i ? M.pad(new Date(G[i].datetime).getHours()) : 'Nå'}</span>`).join('');
-        gHtml = `<div class="gph" data-seg="${seg}"><svg viewBox="0 0 300 100" preserveAspectRatio="none"><defs><linearGradient id="vgf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${col};stop-opacity:.45"/><stop offset="1" style="stop-color:${col};stop-opacity:0"/></linearGradient></defs>
-          <path d="${d} L300,100 L0,100Z" fill="url(#vgf)"></path>${gP ? `<path class="sm" d="${smooth(gP)}" fill="none" style="stroke:${col};stroke-width:1.5;stroke-dasharray:4 4;opacity:.7" vector-effect="non-scaling-stroke"></path>` : ''}<path class="sm" d="${d}" fill="none" style="stroke:${col};stroke-width:2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg>
-          ${si != null ? `<div class="gc" style="left:${(si / (G.length - 1)) * 100}%"><i style="top:${P[si][1]}%;background:${col}"></i></div>` : ''}${bub}
-          <div class="scrub" data-scrub="hg" data-n="${G.length}"></div><div class="gt">${ticks}</div></div>`;
+        <span class="scd">${esc(st ? sc.label : '–')}</span>
+        <span class="shl num">${esc(`H ${hi != null ? Math.round(hi) + '°' : '–'} · L ${lo != null ? Math.round(lo) + '°' : '–'}`)}</span></section>`;
+      // ---- Farevarsel (designets kort: gul sirkel, tittel 15/500, tid 12 px, chevron; åpen = tekst + kilde)
+      const AL = a.alerts.flatMap((id) => parseAlerts(h, id)).sort((p, q) => (p.future - q.future) || (q.lv - p.lv));
+      const dlong = (t) => new Date(t).toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' });
+      if (AL.length) {
+        S.alerts = AL.map((al) => {
+          const open = ui.alertOpen === al.key, col = LV[al.lv][1];
+          const when = al.future ? `Fra ${hm(al.from)} ${dlong(al.from)}` : `Pågår${!isNaN(al.to) ? ` · til ${hm(al.to)} ${dlong(al.to)}` : ''}`;
+          const src = String(al.src || '').split(' · ')[0];
+          return `<button class="g sal${open ? ' open' : ''}" data-act="alert" data-k="${esc(al.key)}" data-key="${esc(al.key)}" data-ent="${esc(al.ent)}" data-haptic="light" aria-expanded="${open}">
+            <span class="salh"><span class="saic" style="background:${col}">${M.icon(al.icon, 18)}</span><span class="salt"><span class="salti">${esc(al.title)}</span><span class="sals">${esc(when)}</span></span><span class="chev">${M.icon('mdi:chevron-down', 22, `color:#a8a8a8;transition:transform .25s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span></span>
+            ${open ? `<span class="salx">${al.text ? `<span class="tx">${esc(al.text)}</span>` : ''}${al.blocks.map((bk) => `<span class="tx"><b>${esc(bk[0])}:</b> ${esc(bk[1])}</span>`).join('')}
+              <span class="salsrc"><span>${esc(/met/i.test(src) ? 'MET NORGE' : src.toUpperCase())}</span>${al.url ? `<a class="map" href="${esc(al.url)}" target="_blank" rel="noopener">Åpne kart${M.icon('mdi:open-in-new', 14)}</a>` : ''}</span></span>` : ''}
+          </button>`;
+        }).join('');
       }
-      const strip = G.length ? `<div class="hst noscroll">${G.map((f, i) => {
-        const t = new Date(f.datetime).getTime(), cd = sceneOf(f.condition, f.is_daytime != null ? !f.is_daytime : isNight(t, sun)), v = V[i];
-        const lab = seg === 'temp' ? (v != null ? `${Math.round(v)}°` : '–') : seg === 'rain' ? (v != null ? f1(v) : '–') : (v != null ? f1(v) : '–');
-        return `<span class="hs" data-key="hs${i}"><span class="hst-t">${i ? M.pad(new Date(t).getHours()) : 'Nå'}</span>${M.icon(cd.icon, 22, `color:${cd.color}`)}<span class="hst-v num">${lab}</span></span>`;
-      }).join('')}</div>` : '';
-      S.hours = `<section class="g gcard"><div class="ghd"><span class="gl">${M.icon('schedule', 16)}Neste timer</span></div>
-        <div class="seg" role="tablist" data-glass-drag="x">${[['temp', 'Temperatur'], ['rain', 'Nedbør'], ['wind', 'Vind']].map(([k, l]) => `<button class="sg${seg === k ? ' on' : ''}" role="tab" aria-selected="${seg === k}" ${seg === k ? 'data-active="1"' : ''} data-act="seg" data-k="${k}" data-haptic="off" data-key="sg-${k}">${l}</button>`).join('')}</div>
-        ${gHtml}${strip}</section>`;
-      // Døgnvarsel (10 døgn): trykk folder ut dagen på stedet (én åpen, pil roteres); dra over spennet = klokkeslett + verdi
+      // ---- Neste timer (27.1): kolonnekort, rund ikon-pillvelger (Liquid Glass), metric endrer verdiene i kolonnene
+      const metric = ['temp', 'rain', 'wind'].includes(ui.seg) ? ui.seg : 'temp';
+      const MT = { temp: ['mdi:thermometer', `Temperatur (${A.temperature_unit || '°C'})`, 'Temperatur'], rain: ['mdi:water', 'Nedbør · mengde og sannsynlighet', 'Nedbør'], wind: ['mdi:weather-windy', `Vind (${wu}) · kast`, 'Vind'] };
+      const G = H.slice(0, Math.max(12, Math.min(48, Number(raw.hours) || 24))), n = G.length, cw = 56;
+      const tlab = (f, i) => (i ? M.pad(new Date(f.datetime).getHours()) : 'Nå');
+      const cols = G.map((f, i) => {
+        const t = new Date(f.datetime).getTime(), cd = sceneOf(f.condition, f.is_daytime != null ? !f.is_daytime : isNight(t, sun));
+        const pp = num(f.precipitation_probability), mm = num(f.precipitation), T = num(f.temperature);
+        let body;
+        if (metric === 'temp') body = `${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}<span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span>`;
+        else if (metric === 'rain') body = `<span class="rbx"><i class="l1"></i><i class="l2"></i><i class="rf" style="height:${mm ? Math.max(6, Math.min(100, (mm / 1.5) * 100)).toFixed(0) + '%' : '0'}"></i></span><span class="hmm">${mm ? nf(mm) : '0'} ${esc(pu)}</span><span class="hpr">${M.icon('mdi:water', 14, `color:${BLUE}`)}${pp != null ? Math.round(pp) + '%' : '–'}</span>`;
+        else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span><span class="hwsp"></span>`;
+        return `<div class="hc" data-key="hc${i}"><span class="ht${i ? '' : ' now'}">${tlab(f, i)}</span>${body}</div>`;
+      }).join('');
+      let chart = '';
+      if (metric === 'wind' && n > 1) {
+        let lw = null;
+        const WS = G.map((f) => { const v = num(f.wind_speed); if (v != null) lw = v; return lw != null ? lw : 0; }), GS = G.map((f) => num(f.wind_gust_speed));
+        const WX = Math.max(1, ...WS, ...GS.filter((v) => v != null)) * 1.1, wy = (v) => 56 - ((v || 0) / WX) * 50;
+        const ext = (arr) => [[0, wy(arr[0])], ...arr.map((v, i) => [i * cw + cw / 2, wy(v)]), [n * cw, wy(arr[n - 1])]];
+        const gOk = GS.some((v) => v != null), si = ui.scr && ui.scr.k === 'wh' ? M.clamp(ui.scr.i, 0, n - 1) : null;
+        const fx = si != null ? ((si + 0.5) / n) * 100 : 0, fs = si != null ? G[si] : null;
+        chart = `<svg class="wch" viewBox="0 0 ${n * cw} 58" preserveAspectRatio="none" aria-hidden="true">${gOk ? `<path class="sm" d="${smooth(ext(GS.map((v, i) => (v != null ? v : WS[i]))))} L${n * cw},58 L0,58 Z" fill="rgba(95,201,196,.22)"></path>` : ''}<path class="sm" d="${smooth(ext(WS))}" fill="none" stroke="rgb(95 201 196)" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg>
+          <span class="wsc" data-scrub="wh" data-n="${n}" data-mode="col"></span>
+          ${fs ? `<span class="wmk" style="left:${fx.toFixed(2)}%"></span><span class="wtip gb" style="left:clamp(0px, calc(${fx.toFixed(2)}% - 70px), calc(100% - 140px))">${tlab(fs, si)} · ${ws1(num(fs.wind_speed))} ${esc(wu)} · kast ${ws1(num(fs.wind_gust_speed))}</span>` : ''}`;
+      }
+      S.hours = `<section class="g hcard" data-metric="${metric}"><div class="hhd"><span class="hti"><span class="htt">Neste timer</span><span class="hsub">${esc(MT[metric][1])}</span></span>
+        <span class="mpill" role="tablist" data-glass-drag="x">${['temp', 'rain', 'wind'].map((k) => `<button class="mb sg${metric === k ? ' on' : ''}" role="tab" aria-selected="${metric === k}" aria-label="${MT[k][2]}" title="${MT[k][2]}" ${metric === k ? 'data-active="1"' : ''} data-act="seg" data-k="${k}" data-haptic="off" data-key="mb-${k}">${M.icon(MT[k][0], 18)}</button>`).join('')}</span></div>
+        ${n ? `<div class="hsc noscroll"><div class="hin"><div class="hrow">${cols}</div>${chart}</div></div>` : `<div class="hph">${ph('timeprognose')}</div>`}</section>`;
+      // ---- Døgnvarsel (27.2): én åpen dag, stav skalert mot ukens min/maks; Nedbør/Vind-velgeren gir egne rader (Vær v5)
       const nD = Math.max(1, Math.min(10, Number(raw.days) || 10)), days = Dl.slice(0, nD);
-      const HA = (this._fc && this._fc.hourly) || [];
-      if (days.length) {
-        const lows = days.map((f) => num(f.templow) != null ? num(f.templow) : num(f.temperature)).filter((v) => v != null), highs = days.map((f) => num(f.temperature)).filter((v) => v != null);
-        const gmn = Math.min(...lows, ...highs), gmx = Math.max(...lows, ...highs), span = Math.max(1, gmx - gmn), pos = (v) => ((v - gmn) / span) * 100;
-        const today0 = new Date().toDateString();
-        S.days = `<section class="g gcard"><div class="ghd"><span class="gl">${M.icon('calendar_month', 16)}${days.length}-døgnsvarsel</span></div><div class="dl">${days.map((f, i) => {
-          const t = new Date(f.datetime), key = 'd' + t.toDateString(), open = ui.dayOpen === key, isToday = t.toDateString() === today0;
-          const cd = sceneOf(f.condition, false), hiD = num(f.temperature), loD = num(f.templow) != null ? num(f.templow) : hiD, pp = num(f.precipitation_probability);
-          const dH = HA.filter((y) => new Date(y.datetime).toDateString() === t.toDateString());
-          const sd = ui.scr && ui.scr.k === 'd' + i ? dH[Math.min(ui.scr.i, dH.length - 1)] : null;
-          const nowM = isToday && temp != null && hiD != null ? `<i class="dnow" style="left:${M.clamp(pos(temp), 0, 100).toFixed(1)}%"></i>` : '';
-          const bar = sd ? `<span class="dsv num">${M.pad(new Date(sd.datetime).getHours())}:00 · ${num(sd.temperature) != null ? f1(sd.temperature) + '°' : '–'}</span>`
-            : `<span class="dtrk"><span class="dfill" style="left:${loD != null ? pos(loD).toFixed(1) : 0}%;width:${hiD != null && loD != null ? Math.max(4, pos(hiD) - pos(loD)).toFixed(1) : 0}%;background-size:${(10000 / Math.max(4, (hiD != null && loD != null ? pos(hiD) - pos(loD) : 100))).toFixed(0)}% 100%;background-position:${loD != null && hiD != null && pos(hiD) - pos(loD) < 100 ? (pos(loD) / Math.max(0.01, 100 - (pos(hiD) - pos(loD))) * 100).toFixed(0) : 0}% 0"></span>${nowM}</span>`;
+      const HA = (this._fc && this._fc.hourly) || [], today0 = new Date().toDateString();
+      const dname = (t) => (t.toDateString() === today0 ? 'I dag' : cap(wd(t)));
+      const blocks8 = (t) => { const ds = t.toDateString(), B = [[], [], [], [], [], [], [], []]; HA.forEach((y) => { const d = new Date(y.datetime); if (d.toDateString() === ds) B[Math.floor(d.getHours() / 3)].push(y); }); return B; };
+      if (!days.length) S.days = `<section class="g dcard"><div class="hph" style="padding:14px 0">${ph('dagsprognose')}</div></section>`;
+      else if (metric === 'rain') {
+        const curB = Math.floor(new Date().getHours() / 3);
+        S.days = `<section class="g dcard" data-metric="rain">${days.map((f, i) => {
+          const t = new Date(f.datetime), B = blocks8(t), isT = t.toDateString() === today0;
+          const seg = B.map((L) => (L.length ? L.reduce((s0, y) => s0 + (num(y.precipitation) || 0), 0) : 0));
+          const segP = B.map((L) => { const v = L.map((y) => num(y.precipitation_probability)).filter((q) => q != null); return v.length ? Math.round(Math.max(...v)) : null; });
+          const mm = num(f.precipitation), p = num(f.precipitation_probability);
+          const k = ui.scr && ui.scr.k === 'rd' + i ? M.clamp(ui.scr.i, 0, 7) : -1, on = k >= 0;
+          const mmTxt = on ? `${M.pad(k * 3)}: ${seg[k] ? nf(seg[k]) : '0'} ${pu}` : `${nf(mm)} ${pu}`, pTxt = on ? (segP[k] != null ? segP[k] + '%' : '–') : (p != null ? Math.round(p) + '%' : '–');
+          return `<div class="rrow" data-key="rd${i}"><span class="dn">${esc(dname(t))}</span>
+            <span class="rsg" data-scrub="rd${i}" data-n="8" data-mode="col">${seg.map((v, j) => `<span class="rs${j >= 2 && j < 6 ? ' d' : ''}${(on ? j === k : isT && j === curB) ? ' o' : ''}${on && j === k ? ' k' : ''}"><i style="height:${v ? Math.min(100, (v / 0.6) * 25 + 10).toFixed(0) + '%' : '0'}"></i></span>`).join('')}</span>
+            <span class="rmm num" style="width:${on ? 96 : 52}px;color:${(on ? seg[k] : mm) ? '#fafafa' : '#6a6a6a'}">${esc(mmTxt)}</span><span class="rpp num" style="color:${(on ? seg[k] : p) ? BLUE : '#6a6a6a'}">${pTxt}</span></div>`;
+        }).join('')}</section>`;
+      } else if (metric === 'wind') {
+        const rows = days.map((f) => { const B = blocks8(new Date(f.datetime)), dw = num(f.wind_speed), dg = num(f.wind_gust_speed);
+          const s0 = B.map((L) => { const v = L.map((y) => num(y.wind_speed)).filter((q) => q != null); return v.length ? v.reduce((p, q) => p + q, 0) / v.length : dw; });
+          const g0 = B.map((L, j) => { const v = L.map((y) => num(y.wind_gust_speed)).filter((q) => q != null); return v.length ? Math.max(...v) : dg != null ? dg : s0[j]; });
+          return { f, s: s0, g: g0, ok: s0.some((v) => v != null) }; });
+        const Vm = Math.max(9, ...rows.flatMap((r) => [...r.s, ...r.g]).filter((v) => v != null)) * 1.05;
+        const sy = (v) => 28 - ((v || 0) / Vm) * 24, sx = (j) => (j / 7) * 100;
+        S.days = `<section class="g dcard" data-metric="wind">${rows.map((r, i) => {
+          const t = new Date(r.f.datetime), k = ui.scr && ui.scr.k === 'wd' + i ? M.clamp(ui.scr.i, 0, 7) : null;
+          const sv = r.s.map((v) => v || 0), gv = r.g.map((v, j) => (v != null ? v : sv[j]));
+          const loW = r.ok ? Math.round(Math.min(...r.s.filter((v) => v != null))) : null, hiW = r.ok ? Math.round(Math.max(...gv)) : null;
+          const txt = k == null ? `${loW != null ? `${loW}–${hiW}` : '–'} <span>${esc(wu)}</span>` : `${M.pad(k * 3)}: ${ws1(r.s[k])} <span>/${ws1(r.g[k])}</span>`;
+          return `<div class="rrow" data-key="wd${i}"><span class="dn">${esc(dname(t))}</span>
+            <span class="wdc" data-scrub="wd${i}" data-n="8"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><rect x="33" y="0" width="34" height="30" fill="rgba(255,255,255,.04)"></rect>${r.ok ? `<path class="sm" d="${smooth(gv.map((v, j) => [sx(j), sy(v)]))} L100,30 L0,30 Z" fill="rgba(95,201,196,.22)"></path><path class="sm" d="${smooth(sv.map((v, j) => [sx(j), sy(v)]))}" fill="none" stroke="rgb(95 201 196)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>` : ''}</svg>
+            ${k != null ? `<span class="wdm" style="left:${sx(k).toFixed(1)}%"></span>` : ''}</span><span class="wdt num">${txt}</span></div>`;
+        }).join('')}</section>`;
+      } else {
+        const lows = days.map((f) => (num(f.templow) != null ? num(f.templow) : num(f.temperature))), highs = days.map((f) => num(f.temperature));
+        const allT = [...lows, ...highs].filter((v) => v != null), wmin = allT.length ? Math.min(...allT) : 0, wmax = allT.length ? Math.max(...allT) : 1;
+        const pos = (v) => M.clamp(((v - wmin) / Math.max(1, wmax - wmin)) * 100, 0, 100);
+        const tcol = (v) => (v < 10 ? '#6fd0d0' : v < 15 ? '#8fd6a8' : v < 20 ? '#c9d97a' : '#f2c94c');
+        S.days = `<section class="g dcard"><div class="dl">${days.map((f, i) => {
+          const t = new Date(f.datetime), key = 'd' + t.toDateString(), open = ui.dayOpen === key, isT = t.toDateString() === today0;
+          const cd = sceneOf(f.condition, false), hiD = highs[i], loD = lows[i], pp = num(f.precipitation_probability);
+          const bar = hiD != null && loD != null ? `<span class="dbar" style="left:${pos(loD).toFixed(1)}%;right:${(100 - pos(hiD)).toFixed(1)}%;background:linear-gradient(90deg,${tcol(loD)},${tcol(hiD)})"></span>` : '';
+          const dot = isT && temp != null ? `<span class="ddot" style="left:calc(${pos(temp).toFixed(1)}% - 5px)"></span>` : '';
           let det = '';
           if (open) {
-            const nm = isToday ? 'I dag' : cap(t.toLocaleDateString('nb-NO', { weekday: 'long' }));
-            const pr = num(f.precipitation), ws = num(f.wind_speed);
-            const sent = `${nm}: ${cd.label.toLowerCase()}${pr != null ? `, ${f1(pr)} ${pu} nedbør` : ''}. Fra ${loD != null ? Math.round(loD) + '°' : '–'} om natta til ${hiD != null ? Math.round(hiD) + '°' : '–'} på ettermiddagen${ws != null ? `, vind ${f1(ws)} ${wu}` : ''}.`;
-            const h3 = dH.filter((y) => new Date(y.datetime).getHours() % 3 === 0);
+            const nm = isT ? 'I dag' : cap(t.toLocaleDateString('nb-NO', { weekday: 'long' })), pr = num(f.precipitation), ws = num(f.wind_speed);
+            const sent = `${nm}: ${cd.label.toLowerCase()}${pr ? `, ${f1(pr)} ${pu} nedbør` : ''}. Fra ${loD != null ? Math.round(loD) + '°' : '–'} om natta til ${hiD != null ? Math.round(hiD) + '°' : '–'} på ettermiddagen${ws != null ? `, vind ${f1(ws)} ${wu}` : ''}.`;
+            const dH = HA.filter((y) => new Date(y.datetime).toDateString() === t.toDateString());
+            const h3 = [0, 3, 6, 9, 12, 15, 18, 21].map((hh) => dH.find((y) => new Date(y.datetime).getHours() === hh)).filter(Boolean);
             const shift = sun ? Math.round((new Date(t).setHours(12, 0, 0, 0) - new Date().setHours(12, 0, 0, 0)) / 86400000) * 86400000 : 0;
             const uvD = num(f.uv_index), huD = num(f.humidity);
-            const cells = [['water_drop', 'Nedbør', pr != null ? `${f1(pr)} ${pu}${pp != null ? ` · ${Math.round(pp)} %` : ''}` : '–'], ['air', 'Vind', ws != null ? `${f1(ws)} ${wu}${f.wind_bearing != null ? ' ' + compass(f.wind_bearing) : ''}` : '–'], ['light_mode', 'UV', uvD != null ? `${f1(uvD)} · ${uvOf(uvD)[0].toLowerCase()}` : '–'],
-              ['humidity_percentage', 'Fukt', huD != null ? `${Math.round(huD)} %` : '–'], ['mdi:weather-sunset-up', 'Sol opp', sun ? hm(sun.rise + shift) : '–'], ['mdi:weather-sunset-down', 'Sol ned', sun ? hm(sun.set + shift) : '–']];
+            const cells = [['mdi:water', 'Nedbør', pr != null ? `${nf(pr)} ${pu}` : '–'], ['mdi:weather-windy', 'Vind', ws != null ? `${nf(ws)} ${wu}` : '–'], ['mdi:weather-sunny', 'UV', uvD != null ? `${Math.round(uvD)} ${uvOf(uvD)[0].toLowerCase()}` : '–'],
+              ['mdi:water-percent', 'Fukt', huD != null ? `${Math.round(huD)} %` : '–'], ['mdi:weather-sunset', 'Sol opp', sun ? hm(sun.rise + shift) : '–'], ['mdi:weather-night', 'Sol ned', sun ? hm(sun.set + shift) : '–']];
             det = `<div class="dx" data-key="dx-${esc(key)}"><p class="dsen">${esc(sent)}</p>
-              ${h3.length ? `<div class="d3 noscroll">${h3.map((y, j) => { const cy = sceneOf(y.condition, y.is_daytime != null ? !y.is_daytime : isNight(new Date(y.datetime).getTime(), sun)), py = num(y.precipitation_probability); return `<span class="hs" data-key="d3-${j}"><span class="hst-t">${M.pad(new Date(y.datetime).getHours())}</span>${M.icon(cy.icon, 22, `color:${cy.color}`)}<span class="hst-v num">${num(y.temperature) != null ? Math.round(y.temperature) + '°' : '–'}</span><span class="hst-p num">${py != null ? Math.round(py) + ' %' : num(y.precipitation) ? f1(y.precipitation) + ' ' + esc(pu) : ''}</span></span>`; }).join('')}</div>` : ''}
-              <div class="dgr">${cells.map(([ic, l, v]) => `<span class="dc">${M.icon(ic, 18)}<span class="col" style="min-width:0"><span class="dcl">${l}</span><span class="dcv ell">${esc(v)}</span></span></span>`).join('')}</div></div>`;
+              ${h3.length ? `<div class="d3 noscroll">${h3.map((y, j) => { const cy = sceneOf(y.condition, y.is_daytime != null ? !y.is_daytime : isNight(new Date(y.datetime).getTime(), sun)), py = num(y.precipitation_probability); return `<span class="hs" data-key="d3-${j}"><span class="dht">${M.pad(new Date(y.datetime).getHours())}</span>${M.icon(cy.icon, 20, `color:${icoCol(cy.key)}`)}<span class="dhv num">${num(y.temperature) != null ? Math.round(y.temperature) + '°' : '–'}</span><span class="dhp num">${py ? Math.round(py) + '%' : ''}</span></span>`; }).join('')}</div>` : ''}
+              <div class="dgr">${cells.map(([ic, l, v]) => `<span class="dc"><span class="dcl">${M.icon(ic, 14)}${l}</span><span class="dcv">${esc(v)}</span></span>`).join('')}</div></div>`;
           }
           return `<div class="dw${open ? ' open' : ''}" data-key="${esc(key)}"><button class="dr" data-act="day" data-k="${esc(key)}" data-haptic="light" aria-expanded="${open}">
-            <span class="dn">${esc(isToday ? 'I dag' : cap(wd(t)))}</span><span class="di">${M.icon(cd.icon, 24, `color:${cd.color}`)}${pp != null && pp >= 20 ? `<small class="num">${Math.round(pp)} %</small>` : ''}</span>
-            <span class="dlo2 num">${loD != null ? Math.round(loD) + '°' : '–'}</span><span class="dbar" ${dH.length > 1 ? `data-scrub="d${i}" data-n="${dH.length}"` : ''}>${bar}</span><span class="dhi2 num">${hiD != null ? Math.round(hiD) + '°' : '–'}</span>
-            <span class="chev">${M.icon('expand_more', 20, `transition:transform .25s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span></button>${det}</div>`;
+            <span class="dn">${esc(dname(t))}</span><span class="di">${M.icon(cd.icon, 22, `color:${icoCol(cd.key)}`)}<span class="dp num">${pp ? Math.round(pp) + '%' : ''}</span></span>
+            <span class="dlo num">${loD != null ? Math.round(loD) + '°' : '–'}</span><span class="dtr">${bar}${dot}</span><span class="dhi num">${hiD != null ? Math.round(hiD) + '°' : '–'}</span>
+            <span class="chev">${M.icon('mdi:chevron-down', 18, `color:#8a8a8a;transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span></button>${det}</div>`;
         }).join('')}</div></section>`;
-      } else S.days = `<section class="g gcard"><div class="gph ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen dagsprognose' : 'Henter prognose …')}</div></section>`;
-      if (sec.tiles) S.tiles = sec.tiles;
+      }
+      // ---- Fliser (Vær v5): Vind (kompass) · Soloppgang (bue) · Månefase · UV · Føles som · Nedbør · Sikt · Luftfuktighet · Lufttrykk
+      const DIRN = ['nord', 'nordøst', 'øst', 'sørøst', 'sør', 'sørvest', 'vest', 'nordvest'];
+      const dirOf = (b) => (b == null ? null : DIRN[Math.round((((b % 360) + 360) % 360) / 45) % 8]);
+      const ticks = Array.from({ length: 48 }, (_, i) => `<span class="tk2" style="height:${i % 12 ? 6 : 10}px;background:${i % 12 ? '#5a5a5a' : '#8a8a8a'};transform:rotate(${i * 7.5}deg)"></span>`).join('');
+      // solbuen: punkt for klokkeslettet langs kurven M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50 (horisont y = 36)
+      const bz = (p0, p1, p2, p3, t) => { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; };
+      const sunPt = (() => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); let tx = ((Date.now() - d0.getTime()) / 86400000) * 140, best = [tx, 50], bd = 1e9;
+        for (let s = 0; s <= 1; s += 0.01) { [[0, 30, 45, 70, 50, 50, 6, 6], [70, 95, 110, 140, 6, 6, 50, 50]].forEach((q) => { const xx = bz(q[0], q[1], q[2], q[3], s), yy = bz(q[4], q[5], q[6], q[7], s); if (Math.abs(xx - tx) < bd) { bd = Math.abs(xx - tx); best = [xx, yy]; } }); }
+        return best; })();
+      const tile = (icon, l, v, u, k, sub, scale) => `<div class="g tl2 tg"><span class="th2">${M.icon(icon, 15)}${esc(l)}</span><span class="tv2"><span class="tvb">${v}</span><span class="tvu">${v === '–' ? '' : esc(u || '')}</span></span><span class="tk">${esc(k || '')}</span>${scale || ''}<span class="tsb">${esc(sub || '')}</span></div>`;
+      const track = (g, mark) => `<span class="ttr" style="background:${g}">${mark}</span>`;
+      const dotMk = (p) => (p == null ? '' : `<span style="position:absolute;top:-2px;left:calc(${p.toFixed(1)}% - 5px);width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d"></span>`);
+      const today24 = H.filter((f) => new Date(f.datetime).toDateString() === today0).map((f) => num(f.uv_index)).filter((v) => v != null);
+      const uvMax = today24.length ? Math.max(...today24) : null;
+      const app = num(A.apparent_temperature), feelsSub = app == null || temp == null ? '' : Math.abs(app - temp) < 1 ? 'Samme som faktisk temperatur.' : app < temp ? 'Føles kaldere enn faktisk temperatur.' : 'Føles varmere enn faktisk temperatur.';
+      const r6 = H.slice(0, 6).map((f) => num(f.precipitation) || 0).reduce((p, q) => p + q, 0);
+      const vis = num(A.visibility), visU = A.visibility_unit || 'km';
+      const T2 = {
+        wind: `<div class="g tl2"><span class="th2">${M.icon('mdi:weather-windy', 15)}Vind</span><div class="cmp">${ticks}<span class="cmpn">N</span><div class="ndl" style="transform:rotate(${X.bear != null ? (X.bear + 180) % 360 : 0}deg);opacity:${X.bear != null ? 1 : 0.3}"><b></b><i></i></div><span class="cmpc"><span class="cmpv">${ws1(X.ws)}</span><span class="cmpu">${esc(wu)}</span></span></div>
+          <span class="tfoot">${esc(`${dirOf(X.bear) ? `Fra ${dirOf(X.bear)}` : 'Retning –'} · kast ${ws1(X.gust)} ${wu}`)}</span></div>`,
+        sun: `<div class="g tl2"><span class="th2">${M.icon('mdi:weather-sunset', 15)}Soloppgang</span><span class="sbig num">${sun ? hm(sun.rise) : '–'}</span>
+          <svg class="sarc" viewBox="0 0 140 60" aria-hidden="true"><path d="M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50" fill="none" stroke="#555" stroke-width="2"></path><line x1="0" y1="36" x2="140" y2="36" stroke="#6a6a6a" stroke-width="1"></line><circle cx="${sunPt[0].toFixed(1)}" cy="${sunPt[1].toFixed(1)}" r="5" fill="#303030" stroke="rgb(242 210 111)" stroke-width="2"></circle></svg>
+          <span class="tfoot">Solnedgang ${sun ? hm(sun.set) : '–'}</span></div>`,
+        moon: `<div class="g tl2 mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th2">${M.icon('mdi:weather-night', 15)}${esc(X.moon.name)}</span>${X.moon.none ? '<svg class="moon" style="width:84px;height:84px;align-self:center"><circle cx="42" cy="42" r="42" fill="#404040"/></svg>' : moonDisc(X.moon.p, 84)}</div>`,
+        uv: tile('mdi:weather-sunny', 'UV-indeks', X.uv != null ? String(Math.round(X.uv)) : '–', '', X.uv != null ? uvOf(X.uv)[0] : '', uvMax != null ? `${uvOf(uvMax)[0]} resten av dagen.` : '', track('linear-gradient(90deg,#6fd29a,#f2c94c,#f0a36b,#f07070,#c97ae0)', dotMk(X.uv != null ? M.clamp(X.uv / 11, 0, 1) * 100 : null))),
+        feels: tile('mdi:thermometer', 'Føles som', app != null ? Math.round(app) + '°' : '–', '', '', feelsSub),
+        rain: tile('mdi:water', 'Nedbør', H.length ? nf(r6) : '–', pu, 'neste 6 t', X.rain24 != null ? `${nf(X.rain24)} ${pu} ventet neste døgn.` : ''),
+        vis: tile('mdi:eye', 'Sikt', vis != null ? nf(vis) : '–', visU, '', vis == null ? '' : vis >= 10 ? 'God sikt.' : vis >= 4 ? 'Moderat sikt.' : 'Dårlig sikt.'),
+        hum: tile('mdi:water-percent', 'Luftfuktighet', X.hum != null ? String(Math.round(X.hum)) : '–', '%', '', X.dew != null ? `Duggpunkt ${Math.round(X.dew)}° nå.` : ''),
+        press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')),
+      };
+      const tord = orderOf(STK, raw.tile_order || raw.tiles), thid = new Set(raw.hidden_tiles || []), tl = tord.filter((k) => !thid.has(k));
+      if (tl.length) S.tiles = `<div class="tiles stiles" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T2[k]}</div>`).join('')}</div>`;
+      const plat = (M.regEntry(h, a.weather) || {}).platform || '', attr = String(A.attribution || '');
+      const src = plat === 'met' || /met\.no|yr\b|norwegian meteorological/i.test(attr) ? 'Yr / MET Norge' : attr;
       const blocks = ['now', 'alerts', 'hours', 'days', 'tiles'].filter((k) => S[k] && !hid.has(k)).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${S[k]}</div>`);
-      return `<div class="wrap scene" data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}<div class="ctl-slot" data-nomorph></div></div>`;
+      return `<div class="wrap scene" data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
     }
     onAction(name, el, ev) {
       if (name === 'alert') { if (ev.composedPath().some((n) => n.tagName === 'A')) return; return this.setUI({ alertOpen: this.ui.alertOpen === el.dataset.k ? null : el.dataset.k }); }
@@ -1012,9 +1172,9 @@
     }
     afterRender() {
       guardSwipe(this.shadowRoot.querySelector('.hrs'), 'pan-x');
-      this.shadowRoot.querySelectorAll('.hst,.d3').forEach((el) => guardSwipe(el, 'pan-x'));
-      const seg = this.shadowRoot.querySelector('.seg');
-      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' }); // Liquid Glass-drag (26.24): pan-y + stopPropagation, haptic ved bytte
+      this.shadowRoot.querySelectorAll('.hsc,.d3').forEach((el) => guardSwipe(el, 'pan-x'));
+      const seg = this.shadowRoot.querySelector('.mpill');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' }); // Liquid Glass-drag (26.24/27.1): pan-y + stopPropagation, haptic ved bytte
       this._bindScrubs();
       this._bindTiles();
       this._mountLayers();
@@ -1078,67 +1238,134 @@
         .tdrag .tw:not(.lift){transform:scale(.98)}
         .mnt .moon{margin:6px 0 0}
         .ctl-slot{display:block;height:0}
-        /* ---- stil «scene» (26.24/26.25): scenen ligger i popup-laget; kortene er halvtransparente glass */
-        :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)} /* lesbar tekst over scenen */
-        .scene{position:relative;gap:12px;color:#fff}
+        /* ---- stil «scene» (26.24/26.25 + 27, Vær v5): scenen ligger i popup-laget; kortene er var(--card) + blur(18px) */
+        :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)}
+        .scene{position:relative;gap:10px;color:#fafafa}
         .scn-slot{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:28px;overflow:hidden}
-        .scene>.blk{position:relative;z-index:1}
-        .g,.scene .tl,.scene .day{background:var(--vaer-card,rgba(40,48,58,.55));-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-        .g{border-radius:28px}
-        .gcard{display:flex;flex-direction:column;gap:12px;padding:16px}
-        .scene .th,.scene .tvv small{color:var(--vaer-t2)}
-        .scene .ts{color:rgba(255,255,255,.85)}
-        .scene .bar{background:rgba(255,255,255,.2)}
-        .scene .mk{box-shadow:0 0 0 2px rgba(0,0,0,.25)}
-        .scene .wd{background:rgba(255,255,255,.14)}
-        .snw{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:18px 0 22px;text-shadow:0 1px 8px rgba(0,0,0,.25)}
-        .spl{font-size:17px;font-weight:500;max-width:100%}
-        .stp{font-size:92px;font-weight:200;letter-spacing:-0.04em;line-height:1;padding-left:.22em}
-        .scd{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:500;max-width:100%}
-        .shl{font-size:16px;color:rgba(255,255,255,.85);white-space:nowrap}
-        .ghd{display:flex;align-items:center;justify-content:space-between;gap:8px}
-        .gl{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--vaer-t2);text-transform:uppercase;letter-spacing:.04em}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:rgba(0,0,0,.22);position:relative;touch-action:pan-y}
-        .sg{flex:1;min-width:0;height:34px;border-radius:17px;font-size:13px;font-weight:500;color:rgba(255,255,255,.78);transition:background .2s,color .2s;white-space:nowrap}
-        .sg.on{background:rgba(255,255,255,.92);color:#1c1e24}
-        .seg .gd-lens{position:absolute;z-index:3;pointer-events:none}
-        .gph{position:relative;height:120px;margin:4px 0 14px}
-        .gph.ph{height:auto;min-height:60px;display:grid;place-items:center;font-size:13px;color:var(--vaer-t2);margin:0}
-        .gph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-        .gph .gc{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.7);pointer-events:none}
-        .gph .gc i{position:absolute;left:-5px;width:10px;height:10px;margin-top:-5px;border-radius:5px;box-shadow:0 0 0 2px #fff}
-        .gb{position:absolute;top:-6px;transform:translate(-50%,-100%);padding:4px 10px;border-radius:12px;background:rgba(20,22,28,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-size:12px;font-weight:600;white-space:nowrap;pointer-events:none}
-        .gt{position:absolute;left:0;right:0;bottom:-16px;height:14px;pointer-events:none}
-        .gt span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--vaer-t3)}
-        .gt span:first-child{transform:none}
-        .hst,.d3{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -4px}
-        .hs{flex:none;width:48px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 0;border-radius:16px}
-        .hst-t{font-size:12px;color:var(--vaer-t2)}
-        .hst-v{font-size:14px;font-weight:500}
-        .hst-p{font-size:11px;color:var(--light-blue,#c8ddfa);min-height:13px}
-        .dl{display:flex;flex-direction:column}
-        .dw{border-top:1px solid rgba(255,255,255,.1)}
-        .dw:first-child{border-top:0}
-        .dr{display:grid;grid-template-columns:52px 44px 36px minmax(0,1fr) 36px 22px;align-items:center;gap:6px;width:100%;min-height:50px;text-align:left}
-        .dn{font-size:15px;font-weight:500}
-        .di{display:flex;flex-direction:column;align-items:center;line-height:1}
-        .di small{font-size:10px;color:var(--light-blue,#c8ddfa);margin-top:2px}
-        .dlo2{font-size:15px;color:var(--vaer-t2);text-align:right}
-        .dhi2{font-size:15px;font-weight:500}
-        .dbar{position:relative;height:28px;display:flex;align-items:center}
-        .dtrk{position:relative;display:block;width:100%;height:5px;border-radius:3px;background:rgba(0,0,0,.25)}
-        .dfill{position:absolute;top:0;bottom:0;border-radius:3px;background-image:linear-gradient(90deg,#73b9f2,#66d19e 35%,#f2d26f 65%,#f28073)}
-        .dnow{position:absolute;top:-2px;width:9px;height:9px;margin-left:-4.5px;border-radius:5px;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.3)}
-        .dsv{width:100%;text-align:center;font-size:13px;font-weight:600;white-space:nowrap}
-        .dr .chev{display:grid;place-items:center;color:var(--vaer-t2)}
-        .dx{display:flex;flex-direction:column;gap:12px;padding:4px 0 14px}
-        .dsen{margin:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,.9);text-wrap:pretty}
-        .dgr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-        .dc{display:flex;align-items:center;gap:8px;min-width:0;padding:10px;border-radius:16px;background:rgba(0,0,0,.18);color:var(--vaer-t2)}
-        .dcl{font-size:11px;color:var(--vaer-t3)}
-        .dcv{font-size:13px;font-weight:500;color:#fff}
-        .scene .tiles{gap:10px}
-        .scene .tl{border-radius:28px}
+        .scene>.blk{position:relative;z-index:1;gap:10px}
+        .scene .g{background:var(--vaer-card,rgba(30,36,46,.42));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-radius:24px;color:#fafafa}
+        .scene .snw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0 22px;text-align:center}
+        .scene .sloc{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:600;letter-spacing:.08em;color:#e6ebf1;max-width:100%}
+        .scene .stp{font-size:96px;font-weight:300;letter-spacing:-0.04em;line-height:1;padding-left:18px}
+        .scene .scd{font-size:19px;font-weight:500;color:#e6ebf1}
+        .scene .shl{font-size:15px;color:#d3dae3;white-space:nowrap;display:block}
+        .scene .sal{display:flex;flex-direction:column;gap:8px;padding:14px 16px;text-align:left;width:100%}
+        .scene .salh{display:flex;align-items:center;gap:10px;width:100%}
+        .scene .saic{width:32px;height:32px;border-radius:50%;color:#2b2208;display:flex;align-items:center;justify-content:center;flex:none}
+        .scene .salt{flex:1;min-width:0;display:flex;flex-direction:column}
+        .scene .salti{font-size:15px;font-weight:500}
+        .scene .sals{font-size:12px;color:#a8a8a8}
+        .scene .sal .chev{line-height:0;flex:none}
+        .scene .salx{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);animation:fade .3s ease}
+        .scene .salx .tx{font-size:14px;line-height:1.5;color:#e1e1e1;text-wrap:pretty}
+        .scene .salx .tx b{font-weight:500}
+        .scene .salsrc{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#8a8a8a;letter-spacing:.04em}
+        .scene .salsrc .map{color:#afafaf;letter-spacing:0}
+        .scene .hcard{padding:14px 0 12px;display:flex;flex-direction:column;gap:12px}
+        .scene .hhd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px}
+        .scene .hti{display:flex;flex-direction:column;min-width:0}
+        .scene .htt{font-size:15px;font-weight:500}
+        .scene .hsub{font-size:12px;color:#a8a8a8}
+        .scene .mpill{display:flex;gap:2px;padding:2px;border-radius:999px;background:#303030;touch-action:pan-y;user-select:none;-webkit-user-select:none;position:relative;flex:none}
+        .scene .mb{width:40px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:transparent;color:#bdbdbd;transition:background .3s,color .3s}
+        .scene .mb.on{background:${PINK160};color:${INK}}
+        .scene .mpill .gd-lens{position:absolute;z-index:3;pointer-events:none}
+        .scene .hsc{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 8px;overscroll-behavior-x:contain}
+        .scene .hsc::-webkit-scrollbar,.scene .d3::-webkit-scrollbar{display:none}
+        .scene .hin{position:relative;width:max-content}
+        .scene .hrow{display:flex}
+        .scene .hc{flex:none;width:56px;display:flex;flex-direction:column;align-items:center;gap:6px}
+        .scene .ht{font-size:13px;font-weight:400;color:#a8a8a8}
+        .scene .ht.now{font-weight:600;color:#fafafa}
+        .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px}
+        .scene .hv{font-size:17px;font-weight:500}
+        .scene .rbx{position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
+        .scene .rbx i{position:absolute;left:0;right:0}
+        .scene .rbx .l1,.scene .rbx .l2{border-top:1px dashed #4a4a4a}
+        .scene .rbx .l1{top:33%}.scene .rbx .l2{top:66%}
+        .scene .rbx .rf{bottom:0;background:${BLUE};border-radius:6px 6px 0 0}
+        .scene .hmm{font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums}
+        .scene .hpr{display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+        .scene .hw{display:flex;flex-direction:column;align-items:center;margin-top:6px}
+        .scene .hwv{font-size:19px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+        .scene .hwg{font-size:11px;color:#a8a8a8}
+        .scene .hwsp{height:58px}
+        .scene .wch{position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block}
+        .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair}
+        .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}
+        .scene .wtip{position:absolute;bottom:62px;width:140px;text-align:center;padding:4px 8px;border-radius:10px;background:rgba(20,22,28,.85);font-size:12px;font-weight:500;white-space:nowrap;pointer-events:none;box-sizing:border-box}
+        .scene .hph{padding:0 16px 4px;font-size:13px;color:#a8a8a8}
+        .scene .dcard{padding:4px 16px}
+        .scene .dl{display:flex;flex-direction:column}
+        .scene .dw{display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,.07)}
+        .scene .dw:first-child{border-top:none}
+        .scene .dr{display:flex;align-items:center;gap:8px;min-height:52px;width:100%;text-align:left;cursor:pointer}
+        .scene .dn{width:44px;flex:none;font-size:15px;font-weight:500}
+        .scene .di{width:40px;flex:none;display:flex;flex-direction:column;align-items:center}
+        .scene .dp{font-size:11px;font-weight:500;color:${BLUE};line-height:1.2}
+        .scene .dlo{width:30px;flex:none;text-align:right;font-size:15px;color:#a8a8a8}
+        .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:#2a2a2a;margin:0 4px;min-width:0}
+        .scene .dbar{position:absolute;top:0;bottom:0;border-radius:3px}
+        .scene .ddot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d}
+        .scene .dhi{width:30px;flex:none;text-align:right;font-size:15px;font-weight:500;letter-spacing:0;line-height:normal}
+        .scene .dr .chev{width:18px;flex:none;display:grid;place-items:center;line-height:0}
+        .scene .dx{display:flex;flex-direction:column;gap:12px;padding:4px 0 16px;animation:vxh .3s ease;overflow:hidden}
+        .scene .dsen{margin:0;font-size:15px;line-height:1.5;color:#e6ebf1;text-wrap:pretty;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .scene .d3{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin:0 -4px;padding:0 4px;overscroll-behavior-x:contain}
+        .scene .d3 .hs{flex:1 0 52px;padding:10px 0;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;gap:6px}
+        .scene .dht{font-size:12px;color:#a8a8a8}
+        .scene .dhv{font-size:15px;font-weight:500}
+        .scene .dhp{font-size:11px;font-weight:500;color:${BLUE};min-height:13px}
+        .scene .dgr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .scene .dc{padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:3px;min-width:0}
+        .scene .dcl{display:flex;align-items:center;gap:5px;font-size:11px;color:#a8a8a8;white-space:nowrap}
+        .scene .dcv{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .scene .rrow{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid rgba(255,255,255,.07)}
+        .scene .rrow:first-child{border-top:none}
+        .scene .rsg{flex:1;display:flex;gap:3px;height:26px;align-items:stretch;min-width:0;touch-action:none;cursor:crosshair}
+        .scene .rs{flex:1;position:relative;border-radius:3px;overflow:hidden;background:#353535;transition:transform .12s}
+        .scene .rs.d{background:#4a4a4a}
+        .scene .rs.o{outline:1.5px solid #fafafa}
+        .scene .rs.k{transform:scaleY(1.12)}
+        .scene .rs i{position:absolute;left:0;right:0;bottom:0;background:${BLUE}}
+        .scene .rmm{flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap;transition:width .15s}
+        .scene .rpp{width:40px;flex:none;text-align:right;font-size:15px;font-weight:500}
+        .scene .wdc{position:relative;flex:1;min-width:0;height:30px;touch-action:none;cursor:crosshair}
+        .scene .wdc svg{width:100%;height:30px;display:block;border-radius:6px;background:#333}
+        .scene .wdm{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}
+        .scene .wdt{width:88px;flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap}
+        .scene .wdt span{font-weight:400;color:#a8a8a8}
+        .scene .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .scene .tw{display:flex;flex-direction:column}
+        .scene .tw.lift{border-radius:24px}
+        .scene .tw.over>.tl2{box-shadow:inset 0 0 0 2px var(--pink,#f285c9)}
+        .scene .tl2{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0;box-sizing:border-box}
+        .scene .tl2.tg{gap:6px;min-height:150px}
+        .scene .th2{display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8;min-width:0}
+        .scene .tv2{display:flex;align-items:baseline;gap:4px}
+        .scene .tvb{font-size:32px;font-weight:300;line-height:1.1}
+        .scene .tvu{font-size:13px;color:#a8a8a8}
+        .scene .tk{font-size:13px;font-weight:500}
+        .scene .tk:empty{display:none}
+        .scene .ttr{position:relative;height:6px;border-radius:3px;margin-top:4px;flex:none}
+        .scene .tsb{margin-top:auto;font-size:12px;color:#d6d6d6;line-height:1.4;text-wrap:pretty}
+        .scene .cmp{position:relative;width:112px;height:112px;align-self:center;flex:none}
+        .scene .cmp .tk2{position:absolute;left:55px;top:4px;width:2px;border-radius:1px;transform-origin:1px 52px}
+        .scene .cmpn{position:absolute;left:50%;top:2px;transform:translateX(-50%);font-size:10px;font-weight:600;color:#a8a8a8}
+        .scene .ndl{position:absolute;inset:8px;transition:transform .4s}
+        .scene .ndl b{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid rgb(242 133 201)}
+        .scene .ndl i{position:absolute;left:50%;top:10px;bottom:6px;width:2px;transform:translateX(-50%);background:rgb(242 133 201)}
+        .scene .cmpc{position:absolute;inset:30px;border-radius:50%;background:#3d3d3d;display:flex;flex-direction:column;align-items:center;justify-content:center}
+        .scene .cmpv{font-size:22px;font-weight:500;line-height:1}
+        .scene .cmpu{font-size:11px;color:#a8a8a8}
+        .scene .tfoot{font-size:12px;color:#d6d6d6}
+        .scene .sbig{font-size:28px;font-weight:300;line-height:1}
+        .scene .sarc{display:block;width:calc(100% + 32px);margin:0 -16px;height:62px;flex:none}
+        .scene .mnt .moon{align-self:center;flex:none;box-shadow:0 0 18px rgba(220,225,235,.18)}
+        .scene .attr{font-size:11px;color:#8a8a8a;text-align:center;padding-top:6px}
+        @keyframes vxh{from{opacity:0;max-height:0;transform:translateY(6px)}to{opacity:1;max-height:640px;transform:none}}
+        @media (prefers-reduced-motion: reduce){.scene .dx,.scene .salx{animation:none}}
+        ${V5_KF}
         .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
         .moon{position:relative;flex:none;border-radius:50%;overflow:hidden;display:block}
       `;
@@ -1201,9 +1428,11 @@ ${VE}`;
   // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Tilbakestill rekkefølge».
   // Utkastflyten (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig (rosa pille øverst
   // til høyre). Utenfor/Esc forkaster. Samme felter som GUI-editoren (stil, places, hide, tile_order, hero_fx).
-  const miniPrev = (k) => (k === 'scene'
-    ? '<span class="mp sc"><i></i><i></i><i></i><b></b><b></b></span>'
-    : '<span class="mp kl"><b></b><b></b><b class="s"></b><b class="s"></b></span>');
+  // Fiks 27 (27.4/27.8, fasit Vær v5 tp/places): header (ikon · «Tilpass Vær» · Ferdig) · Stil-segment · «Steder · hold og
+  // dra for rekkefølge» (håndtak, live omorganisering, slett, trykk = bytt entitet) · «Legg til sted» (navn + søk i alle
+  // weather.* på navn og ID, treff med ikon/navn/ID/temp, allerede lagt til dimmet) · Seksjoner (brytere) · Fliser.
+  // Seksjonene har flex: none (ingenting klippes) – bare arket scroller.
+  const STIL_IC = { klassisk: 'mdi:view-agenda', scene: 'mdi:image-filter-hdr' };
   function openSheet(card) {
     if (card._sheet && card._sheet.ov && !card._sheet.ov.closed) return card._sheet;
     let ov = null;
@@ -1215,7 +1444,12 @@ ${VE}`;
       onBusy: (b) => { st.busy = b; draw(); },
       onReload: () => draw(),
     });
-    const st = { busy: false, name: '', ent: '' };
+    const st = { busy: false, adding: false, edit: null, name: '', named: false, ent: '', q: '', drag: null };
+    const hass = () => card.hass || card._hass;
+    const autoPlace = (D) => { const h = hass(), ent = M.vaerAuto(h, D).weather; return ent ? { name: (h && h.config && h.config.location_name) || 'Hjem', entity: ent, auto: true } : null; };
+    // Stedslisten slik den vises: tom config → automatisk «Hjem» (materialiseres når listen endres)
+    const listOf = (D) => { const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity).map((p) => ({ name: p.name, entity: p.entity })); if (L.length) return L; const a = autoPlace(D); return a ? [a] : []; };
+    const plain = (L) => L.map((p) => ({ name: p.name || M.name(hass(), p.entity), entity: p.entity }));
     const apply = (patch, hap) => {
       if (st.busy) return;
       const next = { ...ctl.draft, ...patch };
@@ -1224,40 +1458,56 @@ ${VE}`;
       if (hap) M.haptic(hap);
       draw();
     };
-    const sw = (a, k, on, label) => `<button class="tsw${on ? ' on' : ''}" data-a="${a}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(label)}"></button>`;
+    // Valgt sted (stedsvelgeren) følger med når listen endres (samme entitet, ny plass)
+    const keepSel = (oldL, newL) => {
+      const cur = oldL[M.clamp(Number(card.ui.place) || 0, 0, Math.max(0, oldL.length - 1))], i = cur ? newL.findIndex((p) => p.entity === cur.entity) : 0;
+      card.setUI({ place: Math.max(0, i) });
+      if (card._drawCtl) card._drawCtl();
+    };
+    const setPlaces = (oldL, N, hap) => { apply({ places: plain(N) }, hap); keepSel(oldL, N); };
+    const sw = (a, k, on, label) => `<button class="tsw${on ? ' on' : ''}" data-a="${a}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(label)}"><i></i></button>`;
+    const fname = (id) => { const s0 = hass() && hass().states[id]; return (s0 && s0.attributes.friendly_name) || id; };
+    const candsHTML = () => {
+      const h = hass(), L = listOf(ctl.draft), used = new Set(L.filter((p, i) => i !== st.edit).map((p) => p.entity)), q = st.q.toLowerCase().trim();
+      const all = M.all(h, 'weather').filter((id) => !q || id.toLowerCase().includes(q.replace(/ /g, '_')) || fname(id).toLowerCase().includes(q));
+      if (!all.length) return '<span class="none">Ingen treff</span>';
+      return all.map((id) => {
+        const s0 = h.states[id], cd = sceneOf(s0 && s0.state, false), t = s0 ? num(s0.attributes.temperature) : null, u = used.has(id);
+        return `<button class="cd${st.ent === id ? ' on' : ''}${u ? ' used' : ''}" data-a="cand" data-k="${esc(id)}" ${u ? 'disabled aria-disabled="true"' : ''} aria-pressed="${st.ent === id}">${M.icon(cd.icon, 18, `color:${icoCol(cd.key)}`)}<span class="cdc"><span class="cdn ell">${esc(fname(id))}</span><span class="cdi ell">${esc(id)}${u ? ' · lagt til' : ''}</span></span><span class="cdt">${t != null ? Math.round(t) + '°' : '–'}</span></button>`;
+      }).join('');
+    };
+    const addOk = () => !!(st.ent && st.name.trim());
+    const refreshAdd = () => {
+      const c = box.querySelector('.cands'); if (c) c.innerHTML = candsHTML();
+      const b = box.querySelector('[data-a="add"]'); if (b) { b.disabled = !addOk(); b.classList.toggle('on', addOk()); }
+    };
     const draw = () => {
       if (!ov) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      const D = ctl.draft, h = card.hass, stil = stilOf(D), hid = hiddenOf(D), fxOn = D.hero_fx !== false;
-      const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity), all = M.all(h, 'weather');
-      const auto = M.vaerAuto(h, { ...D, overrides: { ...(D.overrides || {}) } }).weather;
-      const hasSel = !!customElements.get('ha-selector');
-      if (!st.ent || !all.includes(st.ent)) st.ent = all.find((id) => !L.some((p) => p.entity === id)) || all[0] || '';
-      box.innerHTML = `<div class="hd"><span class="tt">Tilpass Vær</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      const D = ctl.draft, stil = stilOf(D), hid = hiddenOf(D), fxOn = D.hero_fx !== false, L = listOf(D);
+      box.innerHTML = `<div class="hd"><span class="hic">${M.icon('mdi:weather-partly-cloudy', 24)}</span><span class="tt">Tilpass Vær</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         <span class="cap">Stil</span>
-        <div class="stl" role="radiogroup">${STIL.map(([k, l]) => `<button class="sto${stil === k ? ' on' : ''}" role="radio" aria-checked="${stil === k}" data-a="stil" data-k="${k}">${miniPrev(k)}<span class="sl">${l}</span><span class="ss">${k === 'scene' ? 'Værscene bak hele popupen' : 'Vær v4 med toppkort'}</span></button>`).join('')}</div>
-        <span class="cap">Steder</span>
-        <div class="rows">${(L.length ? L : [{ name: (h && h.config && h.config.location_name) || 'Hjem', entity: auto, auto: true }]).map((p, i) => `<div class="r" data-key="pl-${i}">
-          <span class="ri">${M.icon('mdi:map-marker-outline', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">${esc(p.name || p.entity || '–')}</span><span class="rs ell">${esc(p.auto ? `Automatisk · ${p.entity || 'fant ingen weather.*'}` : p.entity)}</span></span>
-          ${p.auto ? '' : `<button class="x" data-a="rm" data-k="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">${M.icon('mdi:close', 18)}</button>`}</div>`).join('')}</div>
-        <div class="add">
-          <span class="rs" style="padding:0 4px">Legg til sted</span>
-          <input class="in" data-in="name" placeholder="Navn (f.eks. Hytta)" value="${esc(st.name)}" autocomplete="off">
-          ${hasSel ? '<ha-selector class="hsel"></ha-selector>' : `<div class="chips">${all.length ? all.map((id) => `<button class="chip${st.ent === id ? ' on' : ''}" data-a="ent" data-k="${esc(id)}" aria-pressed="${st.ent === id}">${esc(M.name(h, id))}</button>`).join('') : '<span class="rs">Fant ingen weather.*-entiteter</span>'}</div>`}
-          <button class="nb addb" data-a="add" ${st.ent ? '' : 'disabled'}>${M.icon('mdi:plus', 18)}Legg til sted</button></div>
+        <div class="stl" role="radiogroup" data-glass-drag="x">${STIL.map(([k, l]) => `<button class="sto${stil === k ? ' on' : ''}" role="radio" aria-checked="${stil === k}" ${stil === k ? 'data-active="1"' : ''} data-a="stil" data-k="${k}">${M.icon(STIL_IC[k], 18)}${l}</button>`).join('')}</div>
+        <span class="cap">Steder · hold og dra for rekkefølge</span>
+        <div class="plist" data-plist>${L.map((p, i) => `<div class="pr" data-prow data-i="${i}" data-key="pl-${esc(p.entity)}">
+            <span class="hdl" data-drag="${i}" aria-label="Dra for å endre rekkefølge">${M.icon('mdi:drag', 22)}</span>
+            <button class="pe" data-a="edit" data-k="${i}" aria-label="Bytt entitet for ${esc(p.name || p.entity)}">${M.icon('mdi:map-marker', 20, 'color:#afafaf')}<span class="col grow" style="min-width:0;line-height:1.25"><span class="rl ell">${esc(p.name || fname(p.entity))}</span><span class="rs ell">${esc(p.auto ? `${p.entity} · automatisk` : p.entity)}</span></span></button>
+            ${L.length > 1 ? `<button class="x" data-a="rm" data-k="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">${M.icon('mdi:delete', 20)}</button>` : ''}</div>`).join('')}
+          <button class="padd" data-a="openadd" aria-expanded="${st.adding}">${M.icon('mdi:map-marker-plus', 20)}<span>${st.edit != null ? 'Bytt entitet' : 'Legg til sted'}</span></button>
+          ${st.adding ? `<div class="add">
+            <input class="in" data-in="name" placeholder="Navn, f.eks. Hytta" value="${esc(st.name)}" autocomplete="off">
+            <span class="lab">Vær-entitet</span>
+            <div class="sr">${M.icon('mdi:magnify', 18, 'color:#7f7f7f')}<input data-in="q" placeholder="Søk etter sted eller weather.* …" value="${esc(st.q)}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+            <div class="cands">${candsHTML()}</div>
+            <button class="addb${addOk() ? ' on' : ''}" data-a="add" ${addOk() ? '' : 'disabled'}>${M.icon(st.edit != null ? 'mdi:check' : 'mdi:plus', 18)}${st.edit != null ? 'Lagre' : 'Legg til'}</button></div>` : ''}</div>
         <span class="cap">Seksjoner</span>
-        <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}"><span class="ri">${M.icon(ic, 20)}</span><span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
-          <div class="r"><span class="ri">${M.icon('mdi:weather-snowy-rainy', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl ell">Animasjoner</span><span class="rs ell">Regn, snø, lyn, sol og vind</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
+        <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}">${M.icon(ic, 20, 'color:#afafaf')}<span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
+          <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:#afafaf')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
         <span class="cap">Fliser</span>
-        <div class="r tr"><span class="ri">${M.icon('grid_view', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="rl">Rekkefølge</span><span class="rs">Hold inne en flis i popupen og dra</span></span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>Tilbakestill rekkefølge</button></div>
+        <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
-      const inp = box.querySelector('[data-in="name"]');
-      if (inp) inp.addEventListener('input', () => { st.name = inp.value; });
-      const hs = box.querySelector('ha-selector');
-      if (hs) {
-        hs.hass = h; hs.selector = { entity: { domain: 'weather' } }; hs.value = st.ent; hs.label = 'Værmelding (weather.*)';
-        hs.addEventListener('value-changed', (e) => { st.ent = (e.detail && e.detail.value) || ''; const b = box.querySelector('[data-a="add"]'); if (b) b.disabled = !st.ent; });
-      }
+      const seg = box.querySelector('.stl');
+      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' });
       if (sh) sh.scrollTop = top;
     };
     ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, onClose: () => { ctl.dispose(); card._sheet = null; } });
@@ -1265,21 +1515,63 @@ ${VE}`;
     box.className = 'vaer-sheet';
     Object.defineProperty(box, '_config', { get: () => ctl.draft });
     ov.body.appendChild(box);
+    box.addEventListener('input', (e) => {
+      const k = e.target.dataset && e.target.dataset.in;
+      if (k === 'name') { st.name = e.target.value; st.named = !!st.name.trim(); refreshAdd(); }
+      if (k === 'q') { st.q = e.target.value; refreshAdd(); }
+    });
+    // 27.8 · dra og slipp: håndtak (touch-action: none, stopPropagation – fallgruve 2), live omorganisering, haptic
+    box.addEventListener('pointerdown', (e) => {
+      const hd = e.target.closest && e.target.closest('[data-drag]');
+      if (!hd || e.button || st.busy) return;
+      e.preventDefault(); e.stopPropagation();
+      const row = hd.closest('[data-prow]'), list = row.parentElement, id = e.pointerId;
+      st.drag = row; row.classList.add('drag'); list.classList.add('dragging');
+      M.haptic('medium');
+      const mv = (ev) => {
+        if (ev.pointerId !== id) return;
+        ev.preventDefault(); ev.stopPropagation();
+        const rs = [...list.querySelectorAll('[data-prow]')];
+        let to = rs.findIndex((x) => { const b = x.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if (to < 0) to = rs.length - 1;
+        const from = rs.indexOf(row);
+        if (to === from) return;
+        if (to > from) rs[to].after(row); else rs[to].before(row);
+        M.haptic('selection');
+      };
+      const tm = (ev) => { if (ev.cancelable) ev.preventDefault(); ev.stopPropagation(); };
+      const up = (ev) => {
+        if (ev.pointerId !== id) return;
+        window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); window.removeEventListener('touchmove', tm, true);
+        row.classList.remove('drag'); list.classList.remove('dragging'); st.drag = null;
+        const L = listOf(ctl.draft), ord = [...list.querySelectorAll('[data-prow]')].map((x) => Number(x.dataset.i));
+        if (ord.every((v, i) => v === i)) { M.haptic('light'); return draw(); }
+        return setPlaces(L, ord.map((i) => L[i]), 'light');
+      };
+      window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+      window.addEventListener('touchmove', tm, { capture: true, passive: false });
+    });
     ov.root.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el || el.disabled) return;
-      const a = el.dataset.a, k = el.dataset.k, D = ctl.draft;
-      const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity);
+      const a = el.dataset.a, k = el.dataset.k, D = ctl.draft, L = listOf(D);
       switch (a) {
         case 'done': return ctl.done();
         case 'stil': return stilOf(D) === k ? undefined : apply({ stil: k }, 'selection');
-        case 'rm': { L.splice(Number(k), 1); return apply({ places: L }, 'selection'); }
-        case 'ent': st.ent = k; M.haptic('selection'); return draw();
+        case 'rm': { if (L.length < 2) return undefined; const N = L.filter((_, i) => i !== Number(k)); st.adding = false; st.edit = null; return setPlaces(L, N, 'medium'); }
+        case 'openadd': { st.adding = !st.adding || st.edit != null; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = ''; M.haptic('light'); draw(); const i = st.adding && box.querySelector('[data-in="name"]'); if (i) i.focus({ preventScroll: true }); return undefined; }
+        case 'edit': { const p = L[Number(k)]; if (!p) return undefined; st.adding = true; st.edit = Number(k); st.name = p.name || ''; st.named = true; st.ent = p.entity; st.q = ''; M.haptic('light'); return draw(); }
+        case 'cand': {
+          st.ent = k; M.haptic('selection');
+          if (!st.named || !st.name.trim()) { st.name = fname(k); const i = box.querySelector('[data-in="name"]'); if (i) i.value = st.name; } // navnet fylles med friendly_name (kan endres)
+          return refreshAdd();
+        }
         case 'add': {
-          if (!st.ent) return undefined;
-          const nm = (st.name || '').trim() || M.name(card.hass, st.ent);
-          st.name = '';
-          return apply({ places: [...L.filter((p) => p.entity !== st.ent || p.name !== nm), { name: nm, entity: st.ent }] }, 'success');
+          if (!addOk()) return undefined;
+          const N = L.map((p) => ({ ...p })), item = { name: st.name.trim(), entity: st.ent };
+          if (st.edit != null && N[st.edit]) N[st.edit] = item; else if (!N.some((p) => p.entity === st.ent)) N.push(item);
+          st.adding = false; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = '';
+          return setPlaces(L, N, 'success');
         }
         case 'sec': {
           const s = new Set(Array.isArray(D.hide) ? D.hide : []), was = hiddenOf(D).has(k);
@@ -1288,7 +1580,7 @@ ${VE}`;
           return apply({ hide: HIDE.map((x) => x[0]).filter((x) => s.has(x)), hidden_sections: hs }, 'selection');
         }
         case 'fx': return apply({ hero_fx: D.hero_fx === false }, 'selection');
-        case 'treset': return apply({ tile_order: undefined, tiles: undefined }, 'warning');
+        case 'treset': return apply({ tile_order: undefined, tiles: undefined }, 'medium');
         case 'more': return Promise.resolve(ctl.done()).then((r) => { if (ctl.closed) M.Card.prototype.customize.call(card, 'overrides'); return r; });
         default: return undefined;
       }
@@ -1299,67 +1591,58 @@ ${VE}`;
   }
   const PINKG = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
   const SHEET_CSS = `
-    .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding-top:4px}
-    .hd{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 4px 6px}
-    .hd>.col{flex:1 1 170px}
-    .tt{font-size:22px;font-weight:600;white-space:nowrap}
-    .st{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
-    .nb{height:40px;padding:0 14px;border-radius:20px;background:var(--ki-g-row,var(--gray300,#404040));font-size:14px;font-weight:500;flex:none}
-    .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINKG};color:#5a3a48;font-size:14px;font-weight:600;flex:none}
-    .nb:active,.ok:active,.chip:active,.more:active{transform:scale(.96)}
-    .cap{font-size:13px;color:var(--ki-g-t2,var(--gray700,#979797));padding:10px 6px 0}
-    .chips{display:flex;gap:6px;flex-wrap:wrap}
-    .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:13px;font-weight:500;transition:background .2s,color .2s}
-    .chip.on{background:var(--gray1000,#e1e1e1);color:#282828}
-    .rows{display:flex;flex-direction:column;gap:8px}
-    .r{display:flex;align-items:center;gap:8px;height:56px;padding:0 6px 0 10px;border-radius:28px;background:var(--ki-g-row,var(--gray200,#3a3a3a));transition:opacity .2s,box-shadow .15s}
-    .r.off>:not(.eye){opacity:.5}
-    .hdl{display:grid;place-items:center;width:28px;height:44px;color:var(--gray600,#7f7f7f);cursor:grab;touch-action:none;flex:none}
-    .ri{width:24px;flex:none;display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
-    .rl{flex:1;min-width:0;font-size:15px;font-weight:500}
-    .ud{display:flex;flex:none;border-radius:18px;background:var(--ki-g-seg,#282828);padding:2px}
-    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--white,#fafafa)}
-    .ud button:disabled{opacity:.2;pointer-events:none}
-    .eye{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--gray800,#afafaf)}
-    .eye.off{color:var(--gray500,#696969)}
-    .fxr{height:64px;padding-right:12px}
-    .rs{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
-    .tsw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
-    .tsw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:10px;padding-top:2px}
+    .vaer-sheet>*{flex:none;min-width:0}
+    .hd{display:flex;align-items:center;gap:12px;padding:4px 4px 6px}
+    .hic{width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#2f2f2f;display:grid;place-items:center;flex:none}
+    .tt{flex:1;min-width:0;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ok{height:44px;padding:0 20px;border-radius:22px;background:${PINKG};color:#3a3a3a;font-size:15px;font-weight:600;flex:none}
+    .ok:active,.nb:active,.more:active,.x:active,.addb:active{transform:scale(.95)}
+    .cap{font-size:12px;color:#979797;padding:8px 6px 0}
+    .stl{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px;background:#3a3a3a;position:relative;touch-action:pan-y}
+    .sto{height:44px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:#fafafa;transition:background .2s,color .2s}
+    .sto.on{background:${PINKG};color:#3a3a3a}
+    .stl .gd-lens{position:absolute;z-index:3;pointer-events:none}
+    .plist{flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden}
+    .pr{display:flex;align-items:center;gap:12px;min-height:60px;padding:0 8px 0 16px;border-bottom:1px solid rgba(255,255,255,.05);position:relative;background:transparent;transition:transform .15s,background .15s,box-shadow .15s}
+    .pr.drag{z-index:2;background:#404040;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:scale(1.02)}
+    .hdl{width:32px;height:48px;margin-left:-10px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f;user-select:none;-webkit-user-select:none}
+    .dragging .hdl{cursor:grabbing}
+    .pe{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:56px;text-align:left}
+    .rl{font-size:15px}
+    .rs{font-size:11px;color:#979797;font-family:ui-monospace,monospace}
+    .rs2{font-size:12px;color:#979797}
+    .x{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:#afafaf;flex:none}
+    .padd{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;color:rgb(242 133 201);font-size:15px;font-weight:500}
+    .add{display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 8px 8px;border-radius:20px;background:#404040;animation:vsf .2s ease}
+    .in{height:48px;border-radius:16px;border:0;outline:0;background:#2f2f2f;color:#fafafa;font:inherit;font-size:15px;padding:0 14px}
+    .lab{font-size:12px;color:#979797;padding:2px 4px 0}
+    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#2f2f2f}
+    .sr input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:#fafafa;font:inherit;font-size:14px;padding:0}
+    .cands{display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto;overscroll-behavior:contain}
+    .cd{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:16px;text-align:left;color:#e1e1e1;background:transparent;flex:none}
+    .cd.on{background:#545454}
+    .cd.used{opacity:.4;cursor:default}
+    .cdc{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .cdn{font-size:13px}
+    .cdi{font-size:11px;color:#979797;font-family:ui-monospace,monospace}
+    .cdt{font-size:13px;color:#c7c7c7;flex:none}
+    .none{padding:10px;font-size:12px;color:#7f7f7f}
+    .addb{height:48px;border-radius:24px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;background:#404040;color:#7f7f7f}
+    .addb.on{background:${PINKG};color:#3a3a3a}
+    .rows{flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden}
+    .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-top:1px solid rgba(255,255,255,.05)}
+    .r>.rl{flex:1;min-width:0}
+    .tsw{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
+    .tsw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
     .tsw.on{background:${PINKG}}
-    .tsw.on::after{transform:translateX(18px)}
-    .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:10px;border-radius:24px;background:var(--ki-g-seg,rgba(0,0,0,0.18))}
-    .g{display:flex;align-items:center;gap:8px;height:48px;padding:0 4px 0 12px;border-radius:16px;background:var(--ki-g-row,var(--gray200,#3a3a3a));cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;min-width:0;transition:opacity .2s,box-shadow .15s}
-    .g.off>:not(.eye){opacity:.5}
-    .g .eye{width:30px;height:30px}
-    .gl{flex:1;min-width:0;font-size:13px;font-weight:500}
-    .drag{position:relative;z-index:5;opacity:.9;transition:none !important;cursor:grabbing}
-    .r.over{box-shadow:inset 0 3px 0 rgb(242 133 201)}
-    .g.over{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
-    .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
-    .hd{flex-wrap:nowrap}
-    .hd .tt{flex:1;min-width:0}
-    .stl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .sto{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px;border-radius:22px;background:var(--ki-g-row,var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .2s;text-align:left}
-    .sto.on{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
-    .sto:active{transform:scale(.97)}
-    .sl{font-size:15px;font-weight:600;padding:2px 4px 0}
-    .ss{font-size:11px;color:var(--ki-g-t2,var(--gray700,#979797));padding:0 4px}
-    .mp{position:relative;display:block;width:100%;height:64px;border-radius:14px;overflow:hidden}
-    .mp.kl{background:#282828;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px}
-    .mp.kl b{display:block;border-radius:6px;background:#3a3a3a;grid-column:span 2}
-    .mp.kl b.s{grid-column:span 1}
-    .mp.sc{background:linear-gradient(180deg,#2c3846,#586575);padding:6px;display:flex;flex-direction:column;gap:4px;justify-content:flex-end}
-    .mp.sc i{position:absolute;top:4px;width:1.5px;height:12px;background:rgba(210,228,255,.9);transform:rotate(10deg)}
-    .mp.sc i:nth-child(1){left:22%}.mp.sc i:nth-child(2){left:52%;top:14px}.mp.sc i:nth-child(3){left:78%}
-    .mp.sc b{display:block;height:14px;border-radius:6px;background:rgba(40,48,58,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
-    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--gray800,#afafaf)}
-    .add{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:24px;background:var(--ki-g-seg,rgba(0,0,0,0.18))}
-    .in{height:44px;padding:0 14px;border-radius:14px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:14px}
-    .addb{display:flex;align-items:center;justify-content:center;gap:6px}
-    .nb:disabled{opacity:.4}
-    .r.tr{height:auto;min-height:64px;padding:8px 8px 8px 10px;flex-wrap:wrap}
-    .hsel{display:block}
-    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;margin-top:6px;border-radius:22px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:14px;font-weight:500;color:var(--gray900,#c7c7c7)}
+    .tsw.on i{left:23px}
+    .tbox{flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:#3a3a3a}
+    .tnote{font-size:14px;color:#c7c7c7;line-height:1.4;text-wrap:pretty}
+    .nb{height:44px;border-radius:22px;background:#404040;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+    .nb:disabled{opacity:.5}
+    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;margin-top:2px;border-radius:22px;background:#3a3a3a;font-size:14px;font-weight:500;color:#c7c7c7}
+    @keyframes vsf{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion: reduce){.add{animation:none}}
   `;
 })();

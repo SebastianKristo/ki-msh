@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input::placeholder{color:#979797}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes smoke{0%{transform:translate(0,0) scale(.6);opacity:0}25%{opacity:.55}100%{transform:translate(-10px,-34px) scale(1.6);opacity:0}}
+@keyframes fly{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,-4px)}}
+@keyframes flap{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.82}}
+@keyframes camscan{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(14deg)}}
+@keyframes recblink{0%,55%{opacity:1}56%,100%{opacity:.15}}
+@keyframes lockpop{0%{transform:scale(1)}35%{transform:scale(.72) translateY(3px)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes sunrise{0%{transform:translateY(60px);opacity:0}100%{transform:none;opacity:1}}
+@keyframes dawnsky{0%{opacity:1}100%{opacity:0}}
+@keyframes sealring{0%{transform:scale(.4);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./glass-drag.js"></script>
+<script src="./haptic.js"></script>
+</helmet>
+<div style="min-height:100vh;display:flex;justify-content:center;padding:24px 0;box-sizing:border-box">
+<section data-screen-label="Innstillinger" style="width:100%;max-width:440px;background:#282828;border-radius:38px;padding:20px 14px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px">
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px 6px">
+    <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">settings</span></span>
+    <span style="flex:1;font-size:30px;font-weight:600;letter-spacing:-0.03em">Innstillinger</span>
+    <button style="width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></button>
+  </header>
+
+  <sc-if value="{{ isScene }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ toggleNight }}" style="position:relative;height:184px;border-radius:28px;overflow:hidden;background:#141a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);cursor:pointer;animation:fade .45s ease both" style-active="transform:scale(.985)">
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,#3a3d72 0%,#77598e 45%,#d68f86 78%,#f0b88c 100%)"></div>
+    <div style="{{ scene.nightSky }}"></div>
+    <div style="{{ scene.dawn }}"></div>
+    <svg viewBox="0 0 240 160" preserveAspectRatio="xMaxYMax meet" style="position:absolute;right:0;bottom:0;height:100%;width:100%;overflow:visible">
+      <defs><mask id="moonCut2"><rect x="0" y="0" width="240" height="160" fill="#fff"></rect><circle cx="82" cy="30" r="12" fill="#000"></circle></mask></defs>
+      <g style="{{ scene.stars }}">
+        <circle cx="20" cy="22" r="1.2" fill="#fff" style="animation:twinkle 2.4s ease-in-out infinite"></circle>
+        <circle cx="44" cy="58" r="1" fill="#fff" style="animation:twinkle 3.1s ease-in-out .6s infinite"></circle>
+        <circle cx="104" cy="18" r="1.3" fill="#fff" style="animation:twinkle 2.8s ease-in-out 1.1s infinite"></circle>
+        <circle cx="132" cy="44" r="1" fill="#fff" style="animation:twinkle 3.6s ease-in-out .3s infinite"></circle>
+        <circle cx="160" cy="14" r="1.2" fill="#fff" style="animation:twinkle 2.2s ease-in-out 1.6s infinite"></circle>
+        <circle cx="8" cy="70" r="1" fill="#fff" style="animation:twinkle 2.9s ease-in-out 1.3s infinite"></circle>
+      </g>
+      <g style="{{ scene.moon }}"><circle cx="74" cy="36" r="13" fill="#f6e7b4" mask="url(#moonCut2)"></circle></g>
+      <g style="{{ scene.sunWrap }}"><g style="{{ scene.sun }}">
+        <g style="transform-box:fill-box;transform-origin:center;animation:spin 40s linear infinite">
+          <g stroke="#fbe3a0" stroke-width="2.4" stroke-linecap="round" opacity=".8">
+            <line x1="125" y1="80" x2="125" y2="70"></line><line x1="147" y1="89" x2="154" y2="82"></line><line x1="156" y1="112" x2="166" y2="112"></line>
+            <line x1="103" y1="89" x2="96" y2="82"></line><line x1="94" y1="112" x2="84" y2="112"></line><line x1="147" y1="135" x2="154" y2="142"></line><line x1="103" y1="135" x2="96" y2="142"></line><line x1="125" y1="144" x2="125" y2="154"></line>
+          </g>
+        </g>
+        <circle cx="125" cy="112" r="21" fill="#fbe3a0"></circle>
+      </g></g>
+      <path d="M0 160 Q50 140 120 142 T240 138 V160 Z" fill="#1c1b38"></path>
+      <polygon points="86,152 99,106 112,152" fill="#1c1b38"></polygon>
+      <g style="transform-box:fill-box;animation:smoke 3.2s ease-out infinite"><circle cx="208" cy="50" r="4" fill="#c9c4dc"></circle></g>
+      <g style="transform-box:fill-box;animation:smoke 3.2s ease-out 1.1s infinite"><circle cx="208" cy="50" r="4" fill="#c9c4dc"></circle></g>
+      <g style="transform-box:fill-box;animation:smoke 3.2s ease-out 2.2s infinite"><circle cx="208" cy="50" r="4" fill="#c9c4dc"></circle></g>
+      <rect x="203" y="54" width="10" height="24" fill="#3a3868"></rect>
+      <rect x="150" y="86" width="64" height="60" fill="#3a3868"></rect>
+      <polygon points="140,92 182,52 224,92" fill="#4b4886" stroke="#5b58a0" stroke-width="2" stroke-linejoin="round"></polygon>
+      <g style="{{ scene.windows }}">
+        <circle cx="182" cy="75" r="6"></circle>
+        <rect x="158" y="96" width="12" height="12" rx="1.5"></rect><rect x="173" y="96" width="12" height="12" rx="1.5"></rect>
+        <rect x="158" y="112" width="12" height="12" rx="1.5"></rect><rect x="173" y="112" width="12" height="12" rx="1.5"></rect>
+      </g>
+      <g style="{{ scene.cam }}"><rect x="196" y="98" width="12" height="7" rx="2" fill="#2a2850"></rect><circle cx="200" cy="101.5" r="1.6"></circle></g>
+      <rect x="192" y="114" width="14" height="32" rx="2" fill="#2a2850"></rect>
+      <g style="{{ scene.birds }}">
+        <g style="animation:fly 7s ease-in-out infinite"><path d="M196 24 q4 -4 8 0 q4 -4 8 0" fill="none" stroke="#2a2548" stroke-width="1.6" stroke-linecap="round" style="transform-box:fill-box;transform-origin:center;animation:flap .9s ease-in-out infinite"></path></g>
+        <g style="animation:fly 8s ease-in-out 1s infinite"><path d="M214 18 q3.5 -3.5 7 0 q3.5 -3.5 7 0" fill="none" stroke="#2a2548" stroke-width="1.5" stroke-linecap="round" style="transform-box:fill-box;transform-origin:center;animation:flap 1s ease-in-out .3s infinite"></path></g>
+      </g>
+    </svg>
+    <div style="position:absolute;left:18px;top:18px;right:72px;display:flex;flex-direction:column;gap:2px;text-shadow:0 1px 6px rgba(0,0,0,.35)">
+      <span style="font-size:13px;color:#e6e2ee">{{ scene.kicker }}</span>
+      <span style="font-size:28px;font-weight:400;line-height:1.2">{{ scene.title }}</span>
+      <span style="font-size:13px;color:#e6e2ee">{{ scene.sub }}</span>
+      <sc-if value="{{ pending }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:11px;color:#e6e2ee;margin-top:4px"><span style="width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite"></span>Synker …</span></sc-if>
+    </div>
+    <div style="position:absolute;left:14px;bottom:14px;display:flex;gap:6px">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+        <button onClick="{{ m.tap }}" style="{{ m.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ m.icon }}</span>{{ m.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  </sc-if>
+
+  <sc-if value="{{ isSplit }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+      <div onClick="{{ toggleNight }}" style="{{ split.nightCard }}">
+        <svg viewBox="0 0 180 150" preserveAspectRatio="xMaxYMid meet" style="position:absolute;right:0;top:0;width:100%;height:calc(100% - 44px);pointer-events:none">
+          <g style="{{ split.starOp }}">
+            <circle cx="30" cy="50" r="1" fill="#fff" style="animation:twinkle 2.6s ease-in-out infinite"></circle>
+            <circle cx="62" cy="82" r="1" fill="#fff" style="animation:twinkle 3.1s ease-in-out .7s infinite"></circle>
+            <circle cx="120" cy="40" r="1.1" fill="#fff" style="animation:twinkle 2.3s ease-in-out 1.2s infinite"></circle>
+            <circle cx="46" cy="106" r="1" fill="#fff" style="animation:twinkle 3.4s ease-in-out .4s infinite"></circle>
+          </g>
+          <g><circle cx="84" cy="44" r="10" fill="#f6e7b4"></circle><circle cx="90" cy="39" r="8" fill="#23285a"></circle></g>
+          <path d="M0 150 Q60 128 120 134 T180 130 V150 Z" fill="#1c1f44"></path>
+          <polygon points="70,140 78,112 86,140" fill="#1c1f44"></polygon>
+          <g transform="translate(-12 -40)"><rect x="112" y="104" width="44" height="36" fill="#3a3d78"></rect>
+          <polygon points="104,108 134,82 164,108" fill="#4b4f94"></polygon>
+          <g style="{{ split.windows }}"><rect x="120" y="112" width="9" height="9" rx="1"></rect><rect x="132" y="112" width="9" height="9" rx="1"></rect><rect x="120" y="124" width="9" height="9" rx="1"></rect><rect x="132" y="124" width="9" height="9" rx="1"></rect></g></g>
+        </svg>
+        <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start">
+          <span style="font-size:14px;color:#dcdcf0">Nattmodus</span>
+          <span style="width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.12);display:grid;place-items:center"><span class="ms" style="font-size:22px">bedtime</span></span>
+        </div>
+        <div style="position:relative;margin-top:auto;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:28px;font-weight:400">Av</span>
+          <span style="{{ split.nTrack }}"><span style="{{ split.nKnob }}"></span></span>
+        </div>
+      </div>
+      <div onClick="{{ togglePrivate }}" style="{{ split.privCard }}">
+        <div style="{{ split.privGlow }}"></div>
+        {{ split.privFx }}
+        <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start">
+          <span style="font-size:14px;color:#e2efe8">Privatmodus</span>
+          <span style="width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.14);display:grid;place-items:center"><span class="ms" style="font-size:22px">{{ split.privIcon }}</span></span>
+        </div>
+        <div style="position:relative;display:flex;flex-direction:column;gap:4px;margin-top:6px">
+          {{ split.privLock }}
+          <span style="font-size:12px;color:#e2efe8">{{ split.privSub }}</span>
+        </div>
+        <div style="position:relative;margin-top:auto;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:28px;font-weight:400">{{ split.privLabel }}</span>
+          <span style="{{ split.pTrack }}"><span style="{{ split.pKnob }}"></span></span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="margin:4px 0;display:flex;align-items:center;gap:8px">
+  <div data-glass-drag="x" style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:26px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.tap }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:20px">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span></sc-if></button></sc-for>
+  </div>
+    <button onClick="{{ openCfg }}" title="Tilpass" style="width:56px;height:56px;border-radius:28px;flex:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center" style-active="transform:scale(0.94)"><span class="ms" style="font-size:24px">settings</span></button>
+  </div>
+
+  <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+    <label style="height:48px;border-radius:24px;background:#3a3a3a;display:flex;align-items:center;gap:10px;padding:0 16px">
+      <span class="ms" style="font-size:20px;color:#979797">search</span>
+      <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="{{ searchPh }}" style="flex:1;min-width:0;height:100%;background:transparent;border:0;outline:none;color:#fafafa;font:inherit;font-size:15px"></input>
+    </label>
+  </sc-if>
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <sc-if value="{{ showSummary }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px 0">
+      <span style="font-size:13px;color:#afafaf">{{ summary }}</span>
+      <button onClick="{{ allToggle }}" style="height:32px;padding:0 12px;border-radius:16px;background:#404040;font-size:12px;font-weight:500;white-space:nowrap;flex:none">{{ allLabel }}</button>
+    </div></sc-if>
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+      <button onClick="{{ r.tap }}" style="{{ r.row }}">
+        <span style="{{ r.ic }}"><span class="ms" style="font-size:22px">{{ r.icon }}</span></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:15px;font-weight:500">{{ r.title }}</span><span style="{{ r.subS }}">{{ r.sub }}</span></span>
+        <span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span>
+      </button>
+    </sc-for>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><span style="text-align:center;font-size:14px;color:#979797;padding:24px 0">Ingen treff</span></sc-if>
+  </div>
+</section>
+
+<sc-if value="{{ cfgOpen }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Tilpass Innstillinger" style="position:fixed;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center">
+    <div onClick="{{ closeCfg }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)"></div>
+    <div style="position:relative;width:100%;max-width:440px;height:min(660px, calc(100vh - 52px));box-sizing:border-box;background:#282828;border-radius:38px 38px 0 0;display:flex;flex-direction:column;box-shadow:0 -20px 50px rgba(0,0,0,0.5)">
+      <div style="display:flex;justify-content:center;padding-top:10px"><span style="width:40px;height:5px;border-radius:3px;background:#545454"></span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 20px 14px">
+        <span style="flex:1;font-size:22px;font-weight:600;letter-spacing:-0.02em">Tilpass Innstillinger</span>
+        <button onClick="{{ closeCfg }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600">Ferdig</button>
+      </div>
+      <div style="padding:0 14px 12px">
+        <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <sc-for list="{{ ce.tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 14px 28px;display:flex;flex-direction:column;gap:8px">
+        <sc-if value="{{ ce.isFaner }}" hint-placeholder-val="{{ true }}">
+          <section style="flex:none;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Forhåndsvisning</span>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:20px;background:#282828;pointer-events:none">
+              <div style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:26px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+                <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><span style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:20px">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span></sc-if></span></sc-for>
+              </div>
+              <span style="width:56px;height:56px;border-radius:28px;flex:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center"><span class="ms" style="font-size:24px">settings</span></span>
+            </div>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Faner · dra for rekkefølge</span>
+            <sc-for list="{{ ce.tabRows }}" as="t" hint-placeholder-count="3">
+              <div data-trow="1" style="{{ t.row }}">
+                <span onPointerDown="{{ t.dDown }}" onPointerMove="{{ dMove }}" onPointerUp="{{ dUp }}" onPointerCancel="{{ dUp }}" style="width:28px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                <span class="ms" style="font-size:22px;color:#afafaf;width:24px">{{ t.icon }}</span>
+                <input value="{{ t.label }}" onChange="{{ t.setLabel }}" style="flex:1;min-width:0;height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:14px"></input>
+                <sc-if value="{{ t.custom }}" hint-placeholder-val="{{ false }}"><button onClick="{{ t.del }}" title="Slett fane" style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#f28073"><span class="ms" style="font-size:20px">delete</span></button></sc-if>
+                <button onClick="{{ t.toggle }}" style="{{ t.track }}"><span style="{{ t.knob }}"></span></button>
+              </div>
+            </sc-for>
+            <button onClick="{{ ce.add.toggle }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-top:1px solid rgba(255,255,255,.06);text-align:left;color:rgb(242 133 201)"><span class="ms" style="font-size:22px">add_circle</span><span style="font-size:15px;font-weight:500">Legg til fane</span></button>
+            <sc-if value="{{ ce.add.open }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;margin:0 8px 8px;padding:12px;border-radius:20px;background:#282828;animation:fade .25s ease both">
+                <span style="font-size:12px;color:#979797;padding:0 4px">Varsler fra KI Varslinger</span>
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <sc-for list="{{ ce.add.srcs }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:20px;color:#afafaf">{{ o.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">{{ o.label }}</span><span style="font-size:11px;color:#979797">{{ o.count }}</span></span><span class="ms" style="{{ o.check }}">check</span></button></sc-for>
+                </div>
+                <input value="{{ ce.add.name }}" onChange="{{ ce.add.onName }}" placeholder="Navn på fanen" style="height:48px;border-radius:16px;border:0;outline:none;padding:0 14px;background:#3a3a3a;color:#fafafa;font:inherit;font-size:15px"></input>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ ce.add.icons }}" as="o" hint-placeholder-count="8"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:20px">{{ o.ic }}</span></button></sc-for>
+                </div>
+                <button onClick="{{ ce.add.go }}" style="{{ ce.add.btn }}">Legg til fane</button>
+              </div>
+            </sc-if>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <sc-for list="{{ ce.tabSegs }}" as="g" hint-placeholder-count="1">
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">{{ g.title }}</span><div data-glass-drag="x" style="{{ g.box }}"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div>
+            </sc-for>
+          </section>
+        </sc-if>
+        <sc-if value="{{ ce.isRows }}" hint-placeholder-val="{{ false }}">
+          <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:#3a3a3a">
+            <sc-for list="{{ ce.rowTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+          </div>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Antall på + «Slå alle»</span><span style="font-size:12px;color:#979797">Linjen «4 av 4 på · Slå alle av» over listen</span></span>
+              <button onClick="{{ ce.sumToggle }}" style="{{ ce.sumSw.track }}"><span style="{{ ce.sumSw.knob }}"></span></button>
+            </div>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Rader · dra for rekkefølge</span>
+            <sc-for list="{{ ce.rows }}" as="r" hint-placeholder-count="6">
+              <div data-trow="1" style="{{ r.row }}">
+                <span onPointerDown="{{ r.dDown }}" onPointerMove="{{ dMove }}" onPointerUp="{{ dUp }}" onPointerCancel="{{ dUp }}" style="width:28px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                <span class="ms" style="font-size:20px;color:#afafaf;width:24px">{{ r.icon }}</span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><span style="font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.ent }}</span></span>
+                <button onClick="{{ r.toggle }}" title="Vis" style="{{ r.track }}"><span style="{{ r.knob }}"></span></button>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+        <sc-if value="{{ ce.isEnts }}" hint-placeholder-val="{{ false }}">
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Toppkort</span>
+            <sc-for list="{{ ce.ents }}" as="r" hint-placeholder-count="3">
+              <div style="{{ r.row }}">
+                <button onClick="{{ r.toggle }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:44px">
+                  <span style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:#404040"><span class="ms" style="font-size:18px;color:#e1e1e1">{{ r.icon }}</span></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ r.label }}</span><span style="{{ r.entS }}">{{ r.entTxt }}</span></span>
+                  <span class="ms" style="font-size:20px;color:#7f7f7f">{{ r.chev }}</span>
+                </button>
+                <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828">
+                    <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:#3a3a3a"><span class="ms" style="font-size:18px;color:#7f7f7f">search</span><input value="{{ r.q }}" onChange="{{ r.setQ }}" placeholder="Søk etter entitet …" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:13px"></input></div>
+                    <sc-for list="{{ r.sug }}" as="o" hint-placeholder-count="4">
+                      <button onClick="{{ o.go }}" style="{{ o.style }}" style-hover="background:#3a3a3a">
+                        <span class="ms" style="font-size:18px;color:#979797">toggle_on</span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.id }}</span></span>
+                        <span class="ms" style="{{ o.check }}">check</span>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ r.none }}" hint-placeholder-val="{{ false }}"><span style="padding:10px;font-size:12px;color:#7f7f7f">Ingen treff</span></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+        <sc-if value="{{ ce.isAdv }}" hint-placeholder-val="{{ false }}">
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <sc-for list="{{ ce.advRows }}" as="r" hint-placeholder-count="3">
+              <div style="{{ r.row }}">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#979797">{{ r.sub }}</span></span>
+                <button onClick="{{ r.toggle }}" style="{{ r.track }}"><span style="{{ r.knob }}"></span></button>
+              </div>
+            </sc-for>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <sc-for list="{{ ce.advSegs }}" as="g" hint-placeholder-count="1">
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">{{ g.title }}</span><div data-glass-drag="x" style="{{ g.box }}"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div>
+            </sc-for>
+          </section>
+          <button onClick="{{ ce.reset }}" style="flex:none;height:48px;border-radius:24px;background:#3a3a3a;font-size:14px;font-weight:500;color:#f28073">Tilbakestill til standard</button>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;sceneNight&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;sceneMorning&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const G = 'rgb(102 209 158)', RD = 'rgb(242 128 115)';
+const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
+const TABS = [['auto', 'Sikkerhet', 'shield'], ['push', 'Hjem', 'home'], ['strom', 'Strøm', 'bolt']];
+const slug = t => t.toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+const mk = (tab, arr) => arr.map(([icon, title, sub, on], i) => ({ id: tab + i, icon, title, sub, on, ent: 'input_boolean.varsel_' + slug(title) }));
+const ITEMS = {
+  auto: mk('auto', [['edit_notifications', 'Dør låst/åpnet', 'Varsel med kamerabilde', true], ['lock', 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', true], ['security', 'Alarm', 'Varsel når alarmen går eller endres', true], ['doorbell', 'Ringeklokke', 'Varsel med bilde når noen ringer', true]]),
+  push: mk('push', [['person_pin_circle', 'Hjemme / borte', 'Varsler når noen kommer eller drar', true], ['cottage', 'Home Assistant', 'Varsel etter omstart av HA', true], ['departure_board', 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', false], ['cleaning_services', 'Støvsuger', 'Varsel om feil og fullført runde', true], ['partly_cloudy_day', 'Værmelding', 'Daglig værvarsel fra AI', true]]),
+  strom: mk('strom', [['luggage', 'Bortemodus', 'Varsel når huset settes i bortemodus', true], ['electric_bolt', 'Effektgrense', 'Varsel når timen nærmer seg grensen', true], ['notifications', 'Energivarsler', 'Hovedbryter for alle energivarsler', true], ['login', 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', true], ['heat', 'Håndklevarmer', 'Varsel om håndklevarmeren', false], ['light_mode', 'Sommermodus', 'Varsel når sommermodus slår inn', true], ['event', 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', true], ['event_busy', 'Spør torsdag', 'Spør om dere drar bort i helgen', false], ['water_heater', 'Varmtvann', 'Varsel om berederen og legionella', true]]) };
+const KIV = [['kamera', 'Kamera', 'videocam', [['directions_walk', 'Bevegelse ved inngang', 'Varsel med bilde ved bevegelse', true], ['package_2', 'Pakke levert', 'Varsel når kamera ser en pakke', true], ['person_alert', 'Ukjent person', 'Varsel ved ukjent ansikt', false]]],
+  ['klima', 'Klima', 'thermostat', [['humidity_high', 'Høy fukt bad', 'Varsel over 75 % i 20 min', true], ['window', 'Vindu åpent + varme', 'Varsel når vindu står åpent med varme på', true], ['ac_unit', 'Frostvarsel', 'Varsel ved frost i natt', true]]],
+  ['hvitevarer', 'Hvitevarer', 'local_laundry_service', [['local_laundry_service', 'Vaskemaskin ferdig', 'Varsel når programmet er ferdig', true], ['dry', 'Tørketrommel ferdig', 'Varsel når tørken er ferdig', true], ['dishwasher', 'Oppvask ferdig', 'Varsel når oppvasken er ferdig', false]]],
+  ['batteri', 'Batteri', 'battery_alert', [['battery_alert', 'Lavt batteri', 'Varsel når en enhet er under 15 %', true], ['sensors_off', 'Enhet offline', 'Varsel når en sensor slutter å svare', true]]]];
+const TICONS = ['notifications', 'videocam', 'thermostat', 'local_laundry_service', 'battery_alert', 'pets', 'garage', 'water_drop'];
+const ENTS = ['input_boolean.nattmodus', 'input_boolean.privatmodus', 'input_boolean.gjestemodus', 'input_datetime.vekking', 'sensor.neste_alarm', 'switch.kamera_privat', 'input_boolean.bortemodus'];
+const DEF = { tabOrder: TABS.map(t => t[0]), custom: [], tabHid: {}, tabName: {}, tabMode: 'begge', rowOrder: {}, rowHid: {}, ent: { natt: 'input_boolean.nattmodus', privat: 'input_boolean.privatmodus', vekking: 'input_datetime.vekking' }, search: true, summary: true, offFirst: false, haptic: true, scene: 'auto' };
+class Component extends DCLogic {
+  state = { tab: 'auto', query: '', night: this.props.sceneNight ?? false, priv: true, on: Object.fromEntries(Object.values(ITEMS).flat().map(i => [i.id, i.on])) };
+  componentDidMount() { try { const c = JSON.parse(localStorage.getItem('ki-innst-cfg') || 'null'); if (c) this.setState({ cfg: { ...DEF, ...c } }); } catch (e) {} }
+  toggleNightOpt() { const C = { ...DEF, ...(this.state.cfg || {}) }; if (C.haptic) hp('medium'); clearTimeout(this._pend);
+    this.setState({ night: !this.state.night, pending: true }); this._pend = setTimeout(() => this.setState({ pending: false }), 2500); }
+  componentWillUnmount() { clearTimeout(this._pend); }
+  setCfg(p) { const cfg = { ...DEF, ...this.state.cfg, ...p }; this.setState({ cfg }); try { localStorage.setItem('ki-innst-cfg', JSON.stringify(cfg)); } catch (e) {} }
+  renderVals() {
+    const s = this.state, C = { ...DEF, ...(s.cfg || {}) }, set = (o, t) => { if (C.haptic) hp(t); this.setState(o); }, cset = p => { if (C.haptic) hp('selection'); this.setCfg(p); };
+    TABS.splice(3); (C.custom || []).forEach(c => { TABS.push([c.key, c.name, c.icon]); const src = KIV.find(k => k[0] === c.src); ITEMS[c.key] = src ? mk(c.key, src[3]) : []; });
+    const allKeys = TABS.map(x => x[0]); C.tabOrder = [...C.tabOrder.filter(k => allKeys.includes(k)), ...allKeys.filter(k => !C.tabOrder.includes(k))];
+    const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? 'rgb(242 133 201)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } });
+    const night = C.scene === 'natt' ? true : C.scene === 'dag' ? false : s.night, t = '1.2s cubic-bezier(.5,0,.2,1)';
+    const hr = new Date().getHours(), morning = !night && (C.scene === 'morgen' || (this.props.sceneMorning ?? false) || (C.scene === 'auto' && hr >= 5 && hr < 11));
+    const scene = {
+      nightSky: { position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#0f1433 0%,#1c2250 55%,#2d2f62 100%)', opacity: night ? 1 : 0, transition: 'opacity ' + t },
+      stars: { opacity: night ? 1 : 0, transition: 'opacity ' + t },
+      moon: { transform: night ? 'none' : 'translateY(70px)', opacity: night ? 1 : 0, transition: 'transform ' + t + ', opacity ' + t },
+      sun: { transform: night ? 'translateY(70px)' : 'none', opacity: night ? 0 : 1, transition: 'transform ' + t + ', opacity ' + t },
+      sunWrap: { animation: morning ? 'sunrise 2.6s cubic-bezier(.2,.7,.2,1) both' : 'none' },
+      dawn: { position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#2a2c5c 0%,#5a4778 55%,#b0727a 100%)', opacity: 0, animation: morning ? 'dawnsky 3s ease-out both' : 'none', pointerEvents: 'none' },
+      birds: { opacity: night ? 0 : 1, transition: 'opacity .8s' },
+      windows: { fill: night ? '#ffd572' : '#f5cf78', filter: night ? 'drop-shadow(0 0 4px rgba(255,210,110,.9))' : 'none', animation: night ? 'glow 3s ease-in-out infinite' : 'none' },
+      cam: { fill: s.priv ? '#545454' : RD, opacity: 1, animation: s.priv ? 'none' : 'glow 1.4s ease-in-out infinite' },
+      kicker: night ? 'Nattmodus på' : 'Nattmodus av', title: night ? 'God natt' : 'God morgen', sub: night ? 'Vekking kl. 07:00' : 'Ha en fin dag' };
+    const chip = (on, onBg, onFg) => ({ height: 36, padding: '0 14px 0 10px', borderRadius: 18, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', background: on ? onBg : 'rgba(0,0,0,.32)', color: on ? onFg : '#e1e1e1', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', transition: 'background .25s, color .25s, transform .1s' });
+    const modes = [
+      { icon: 'bedtime', label: night ? 'Natt på' : 'Natt av', tap: e => { e && e.stopPropagation(); this.toggleNightOpt(); }, style: chip(night, '#fafafa', '#282828') },
+      { icon: s.priv ? 'videocam_off' : 'videocam', label: s.priv ? 'Privat på' : 'Kamera på', tap: e => { e && e.stopPropagation(); set({ priv: !s.priv }, 'medium'); }, style: chip(s.priv, G, '#1d2a22') }];
+    const visT = C.tabOrder.filter(k => !C.tabHid[k]), tab = visT.includes(s.tab) ? s.tab : visT[0], tname = k => C.tabName[k] || TABS.find(x => x[0] === k)[1];
+    const tabs = visT.map(k => { const icon = TABS.find(x => x[0] === k)[2], act = tab === k, m = C.tabMode;
+      return { label: tname(k), icon, showIcon: m !== 'tekst', showLabel: m !== 'ikon', tap: () => set({ tab: k, query: '' }, 'selection'),
+        style: { flex: '1 1 0', minWidth: 0, padding: '0 4px', height: m === 'begge' ? 56 : 44, borderRadius: 22, display: 'flex', flexDirection: m === 'begge' ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: m === 'begge' ? 3 : 6, fontSize: m === 'begge' ? 11 : 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', background: act ? PK : 'transparent', color: act ? '#3a3a3a' : '#afafaf' } }; });
+    const ordered = k => { const o = C.rowOrder[k] || [], all = ITEMS[k]; return [...o.map(id => all.find(i => i.id === id)).filter(Boolean), ...all.filter(i => !o.includes(i.id))]; };
+    const list = ordered(tab).filter(i => !C.rowHid[i.id]), q = s.query.trim().toLowerCase();
+    let shown = list.filter(i => !q || (i.title + ' ' + i.sub).toLowerCase().includes(q));
+    if (C.offFirst) shown = [...shown.filter(i => !(s.on[i.id] ?? i.on)), ...shown.filter(i => s.on[i.id] ?? i.on)];
+    const nOn = list.filter(i => s.on[i.id] ?? i.on).length, allOn = nOn === list.length;
+    const rows = shown.map((i, k) => { const on = !!(s.on[i.id] ?? i.on);
+      return { icon: i.icon, title: i.title, sub: on ? i.sub : 'Av · ' + i.sub, ...sw(on), tap: () => set({ on: { ...s.on, [i.id]: !on } }, 'selection'),
+        row: { width: '100%', display: 'flex', alignItems: 'center', gap: 14, minHeight: 66, padding: '4px 18px 4px 4px', boxSizing: 'border-box', borderRadius: 34, background: '#3a3a3a', animation: 'fade .3s ' + (k * 25) + 'ms ease both' },
+        ic: { width: 58, height: 58, borderRadius: 29, flex: 'none', display: 'grid', placeItems: 'center', background: on ? '#4a4a4a' : 'rgb(242 128 115 / .16)', color: on ? '#e1e1e1' : RD, transition: 'background .25s, color .25s' },
+        subS: { fontSize: 12, color: on ? '#979797' : RD, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }; });
+    // tilpass
+    const sep = i => i ? '1px solid rgba(255,255,255,.06)' : 'none';
+    const mkSegs = arr => arr.map(([title, opts, cur, fn]) => ({ title, box: { display: 'grid', gridTemplateColumns: 'repeat(' + opts.length + ',minmax(0,1fr))', gap: 2, padding: 4, borderRadius: 22, background: '#282828' }, opts: opts.map(([v, l]) => ({ label: l, go: () => fn(v), style: { height: 36, borderRadius: 18, fontSize: 12, fontWeight: 500, background: cur === v ? PK : 'transparent', color: cur === v ? '#3a3a3a' : '#afafaf' } })) }));
+    const dStart = (kind, key, order) => e => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} if (C.haptic) hp('medium'); this.setState({ dKind: kind, dKey: key, dOrder: order }); };
+    const dMove = e => { if (!s.dKey) return; e.stopPropagation(); const rs = [...e.currentTarget.closest('section').querySelectorAll('[data-trow]')], y = e.clientY;
+      let to = rs.findIndex(x => { const b = x.getBoundingClientRect(); return y < b.top + b.height / 2; }); if (to < 0) to = rs.length - 1;
+      const o = [...s.dOrder], from = o.indexOf(s.dKey); if (to === from) return; o.splice(from, 1); o.splice(to, 0, s.dKey); if (C.haptic) hp('selection'); this.setState({ dOrder: o }); };
+    const dUp = () => { if (!s.dKey) return; if (s.dKind === 'tab') this.setCfg({ tabOrder: s.dOrder }); else this.setCfg({ rowOrder: { ...C.rowOrder, [s.dKind]: s.dOrder } }); this.setState({ dKey: null, dOrder: null, dKind: null }); };
+    const dragRow = (dg, i, base) => ({ ...base, position: 'relative', zIndex: dg ? 2 : 0, borderRadius: dg ? 18 : 0, borderTop: i && !dg ? '1px solid rgba(255,255,255,.06)' : 'none', background: dg ? '#404040' : 'transparent', boxShadow: dg ? '0 8px 24px rgba(0,0,0,.4)' : 'none', transform: dg ? 'scale(1.02)' : 'none', transition: 'transform .15s, background .15s' });
+    const cet = s.cet || 'faner', rt = s.rt || 'auto';
+    const liveTabs = s.dKind === 'tab' && s.dOrder ? s.dOrder : C.tabOrder;
+    const rowIds = s.dKind === rt && s.dOrder ? s.dOrder : ordered(rt).map(i => i.id);
+    const nice = id => { const n = (id.split('.')[1] || '').replace(/_/g, ' '); return n.charAt(0).toUpperCase() + n.slice(1); };
+    const ce = { isFaner: cet === 'faner', isRows: cet === 'rows', isEnts: cet === 'ents', isAdv: cet === 'adv',
+      tabs: [['faner', 'Faner'], ['rows', 'Rader'], ['ents', 'Entiteter'], ['adv', 'Avansert']].map(([k, label]) => ({ label, go: () => set({ cet: k }, 'selection'), style: { height: 40, borderRadius: 20, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', background: cet === k ? PK : 'transparent', color: cet === k ? '#3a3a3a' : '#afafaf' } })),
+      tabRows: liveTabs.map((k, i) => { const vis = !C.tabHid[k];
+        return { icon: TABS.find(x => x[0] === k)[2], label: tname(k), ...sw(vis), custom: (C.custom || []).some(c => c.key === k), del: () => { if (C.haptic) hp('medium'); this.setCfg({ custom: C.custom.filter(c => c.key !== k), tabOrder: C.tabOrder.filter(x => x !== k) }); }, row: dragRow(s.dKey === k, i, { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 16px' }),
+          setLabel: e => this.setCfg({ tabName: { ...C.tabName, [k]: e.target.value } }), toggle: () => { if (vis && visT.length < 2) return; cset({ tabHid: { ...C.tabHid, [k]: vis } }); }, dDown: dStart('tab', k, C.tabOrder) }; }),
+      tabDel: k => () => { if (C.haptic) hp('medium'); this.setCfg({ custom: C.custom.filter(c => c.key !== k), tabOrder: C.tabOrder.filter(x => x !== k) }); },
+      add: (() => { const n = s.nt || { name: '', icon: TICONS[0], src: '' }, ok = n.name.trim() && n.src, upd = p => this.setState({ nt: { ...n, ...p } });
+        return { open: !!s.ntOpen, toggle: () => set({ ntOpen: !s.ntOpen, nt: { name: '', icon: TICONS[0], src: '' } }, 'light'), name: n.name, onName: e => upd({ name: e.target.value }),
+          icons: TICONS.map(ic => ({ ic, go: () => { if (C.haptic) hp('selection'); upd({ icon: ic }); }, style: { width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', background: n.icon === ic ? PK : '#3a3a3a', color: n.icon === ic ? '#3a3a3a' : '#e1e1e1' } })),
+          srcs: KIV.map(([k, label, icon, arr]) => ({ label, icon, count: arr.length + ' regler', go: () => { if (C.haptic) hp('selection'); upd({ src: k, name: n.name || label, icon: n.name ? n.icon : icon }); },
+            style: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '0 14px', borderRadius: 16, textAlign: 'left', width: '100%', boxSizing: 'border-box', background: n.src === k ? '#545454' : 'transparent' }, check: { fontSize: 20, color: G, opacity: n.src === k ? 1 : 0 } })),
+          btn: { height: 48, borderRadius: 24, fontSize: 15, fontWeight: 600, background: ok ? PK : '#3a3a3a', color: ok ? '#3a3a3a' : '#7f7f7f', pointerEvents: ok ? 'auto' : 'none' },
+          go: () => { if (!ok) return; if (C.haptic) hp('success'); const key = 'c' + Date.now().toString(36); this.setCfg({ custom: [...(C.custom || []), { key, name: n.name.trim(), icon: n.icon, src: n.src }], tabOrder: [...C.tabOrder, key] }); this.setState({ ntOpen: false, tab: key }); } }; })(),
+      tabSegs: mkSegs([['Faner viser', [['begge', 'Ikon + tekst'], ['tekst', 'Tekst'], ['ikon', 'Ikoner']], C.tabMode, v => cset({ tabMode: v })]]),
+      rowTabs: TABS.map(([k]) => ({ label: tname(k), go: () => set({ rt: k }, 'selection'), style: { height: 36, borderRadius: 18, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', background: rt === k ? '#404040' : 'transparent', color: rt === k ? '#fafafa' : '#979797' } })),
+      rows: rowIds.map((id, i) => { const it = ITEMS[rt].find(x => x.id === id), vis = !C.rowHid[id];
+        return { icon: it.icon, title: it.title, ent: it.ent, ...sw(vis), row: dragRow(s.dKey === id, i, { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 16px', opacity: vis ? 1 : .6 }),
+          toggle: () => cset({ rowHid: { ...C.rowHid, [id]: vis } }), dDown: dStart(rt, id, ordered(rt).map(x => x.id)) }; }),
+      ents: [['natt', 'bedtime', 'Nattmodus'], ['privat', 'videocam_off', 'Privatmodus'], ['vekking', 'alarm', 'Vekketid']].map(([k, icon, label], i) => { const ent = C.ent[k] || '', open = s.entOpen === k, q2 = (s.entQ || '').toLowerCase().trim();
+        const hits = ENTS.filter(id => !q2 || id.includes(q2.replace(/ /g, '_')) || nice(id).toLowerCase().includes(q2)).slice(0, 8);
+        const put = v => { cset({ ent: { ...C.ent, [k]: v } }); this.setState({ entOpen: null, entQ: '' }); };
+        return { icon, label, open, chev: open ? 'expand_less' : 'expand_more', entTxt: ent || 'Velg entitet', entS: { fontSize: 11, fontFamily: ent ? 'ui-monospace,monospace' : 'inherit', color: ent ? '#979797' : 'rgb(242 133 201)' },
+          row: { display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 16px', borderTop: sep(i) },
+          toggle: () => set({ entOpen: open ? null : k, entQ: '' }, 'selection'), q: s.entQ || '', setQ: e => this.setState({ entQ: e.target.value }),
+          sug: hits.map(id => ({ id, name: nice(id), go: () => put(id), check: { fontSize: 18, color: G, opacity: id === ent ? 1 : 0 }, style: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '4px 10px', borderRadius: 12, textAlign: 'left', width: '100%', background: id === ent ? '#3a3a3a' : 'transparent' } })), none: !hits.length }; }),
+      advRows: [['search', 'Søkefelt', 'Vis søk over listene'], ['summary', 'Antall på + «Slå alle»', 'Vis «3 av 3 på» og Slå alle av/på'], ['offFirst', 'Avslåtte øverst', 'Sorter det som er av først'], ['haptic', 'Haptikk', 'Vibrasjon ved trykk']].map(([k, label, sub], i) => ({ label, sub, ...sw(C[k]), toggle: () => cset({ [k]: !C[k] }), row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 64, padding: '10px 16px', borderTop: sep(i) } })),
+      advSegs: mkSegs([['Toppkort-scene', [['auto', 'Automatisk'], ['morgen', 'God morgen'], ['dag', 'Kun kort'], ['natt', 'God natt']], C.scene, v => cset({ scene: v })]]),
+      sumSw: sw(C.summary), sumToggle: () => cset({ summary: !C.summary }),
+      reset: () => { if (C.haptic) hp('medium'); this.setCfg({ ...DEF }); } };
+    const swN = (on, onBg, offBg) => ({ track: { width: 50, height: 28, borderRadius: 14, flex: 'none', position: 'relative', background: on ? onBg : offBg, transition: 'background .25s' }, knob: { position: 'absolute', top: 4, left: on ? 26 : 4, width: 20, height: 20, borderRadius: 10, background: on ? '#1d2a22' : '#fafafa', transition: 'left .3s' } });
+    const nS = swN(false, G, 'rgba(255,255,255,.28)'), pS = swN(s.priv, G, 'rgba(255,255,255,.28)');
+    nS.track.boxShadow = pS.track.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,.2)';
+    const split = {
+      nightCard: { position: 'relative', height: 164, borderRadius: 28, overflow: 'hidden', padding: 16, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', cursor: 'pointer', background: 'linear-gradient(180deg,#23285a,#2c2d5e)' },
+      starOp: { opacity: .5 }, windows: { fill: '#f5cf78' },
+      nTrack: nS.track, nKnob: nS.knob, pTrack: pS.track, pKnob: pS.knob,
+      privCard: { position: 'relative', height: 164, borderRadius: 28, overflow: 'hidden', padding: 16, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', cursor: 'pointer', background: s.priv ? 'linear-gradient(160deg,#173d31,#1f5642)' : '#3a3a3a', transition: 'background .5s' },
+      privGlow: { position: 'absolute', right: -20, top: 20, width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle,rgba(111,210,154,.35),transparent 70%)', opacity: s.priv ? 1 : 0, transition: 'opacity .6s', animation: 'glow 3s ease-in-out infinite' },
+      privFx: (() => { const h = React.createElement, on = s.priv, ab = o => ({ position: 'absolute', ...o }), ease = 'cubic-bezier(.34,1.3,.64,1)';
+        return h('div', { style: ab({ inset: 0, pointerEvents: 'none' }) },
+          h('span', { style: ab({ right: 0, top: 74, width: 10, height: 26, borderRadius: '4px 0 0 4px', background: on ? 'rgba(207,234,221,.35)' : '#5a5a5a', transition: 'background .5s' }) }),
+          h('div', { style: ab({ right: 10, top: 78, width: 50, height: 22, transformOrigin: '100% 50%', transform: on ? 'rotate(38deg)' : 'rotate(0deg)', transition: 'transform .7s ' + ease }) },
+            h('div', { style: { position: 'relative', width: '100%', height: '100%', transformOrigin: '100% 50%', animation: on ? 'none' : 'camscan 5s ease-in-out infinite' } },
+              h('span', { style: ab({ right: 46, top: -18, width: 96, height: 58, clipPath: 'polygon(100% 42%, 0 0, 0 100%, 100% 58%)', background: 'linear-gradient(270deg, rgba(255,236,170,.4), transparent)', opacity: on ? 0 : 1, transition: 'opacity .35s' }) }),
+              h('span', { style: ab({ inset: 0, borderRadius: 7, background: on ? '#cfeadd' : '#7a7a7a', boxShadow: on ? '0 4px 14px rgba(0,0,0,.25)' : 'none', transition: 'background .5s' }) }),
+              h('span', { style: ab({ left: -6, top: 2, width: 18, height: 18, borderRadius: '50%', overflow: 'hidden', background: 'radial-gradient(circle at 35% 35%, #8494a2, #111 62%)', boxShadow: '0 0 0 2px ' + (on ? '#cfeadd' : '#8a8a8a'), transition: 'box-shadow .5s' }) },
+                h('span', { style: ab({ left: 0, right: 0, top: 0, height: on ? '100%' : '0%', background: '#1f5642', transition: 'height .4s cubic-bezier(.4,0,.2,1) .2s' }) })),
+              h('span', { style: ab({ right: 7, top: 8, width: 6, height: 6, borderRadius: '50%', background: on ? '#1f5642' : 'rgb(242 128 115)', boxShadow: on ? 'none' : '0 0 6px rgb(242 128 115)', animation: on ? 'none' : 'recblink 1.2s steps(1) infinite' }) }))));
+      })(),
+      privLock: React.createElement('span', { key: 'lk' + s.priv, style: { position: 'relative', width: 28, height: 28, display: 'grid', placeItems: 'center' } },
+        s.priv ? React.createElement('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid rgba(207,234,221,.8)', animation: 'sealring .7s ease-out forwards' } }) : null,
+        React.createElement('span', { className: 'ms', style: { fontSize: 28, color: s.priv ? '#cfeadd' : '#afafaf', animation: 'lockpop .5s cubic-bezier(.34,1.6,.64,1)' } }, s.priv ? 'lock' : 'lock_open')),
+      privIcon: s.priv ? 'videocam_off' : 'videocam', lockIcon: s.priv ? 'lock' : 'lock_open', privSub: s.priv ? 'Kameraene er av' : 'Kameraene er på', privLabel: s.priv ? 'På' : 'Av' };
+    return { scene, modes, split, isScene: night || morning, isSplit: !night && !morning,
+      toggleNight: () => this.toggleNightOpt(), pending: !!s.pending, togglePrivate: () => set({ priv: !s.priv }, 'medium'), tabs, rows, empty: !shown.length, ce, dMove, dUp,
+      showSearch: C.search, showSummary: C.summary, query: s.query, onQuery: e => this.setState({ query: e.target.value }), searchPh: 'Søk blant ' + list.length,
+      summary: nOn + ' av ' + list.length + ' på', allLabel: allOn ? 'Slå alle av' : 'Slå alle på',
+      allToggle: () => set({ on: { ...s.on, ...Object.fromEntries(list.map(i => [i.id, !allOn])) } }, 'medium'),
+      cfgOpen: !!s.cfgOpen, openCfg: () => set({ cfgOpen: true }, 'light'), closeCfg: () => set({ cfgOpen: false, dKey: null }, 'light') };
+  }
+}
+</script>
+</body>
+</html>

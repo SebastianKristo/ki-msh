@@ -1,7 +1,8 @@
 // Testdata for Innstillinger (#settings, msh-innstillinger-card, fiks 25.5/26.15): toppkortet (brukerens ki-natt-card-entiteter:
 // switch.nattmodus, input_boolean.innendors_privace_mode, sensor.soverom_vekking_neste_alarm) og KI Varslinger og sikkerhet
 // (ki_notifications: 12 regler = 12 enheter, flere brytere per regel der hovedbryteren velges med erMaster). KI Energi
-// (varslingsbryterne) kommer fra 42-klimaz-blokker; KI Utelys (43-utelys) får plattform og enhet her. Bare test.
+// (varslingsbryterne) kommer fra 42-klimaz-blokker; KI Utelys (43-utelys) får plattform og enhet her. Fiks 27: kategoriene
+// Kamera (to regler) og Klima (én) + input_boolean.varsel_dor_last. Bare test.
 (function () {
   window.mockExtend(({ add, E, D }) => {
     const next = new Date(Date.now() + 8 * 3600e3); next.setHours(6, 45, 0, 0);
@@ -22,6 +23,11 @@
     dev('n_planter', 'Planter'); N('switch.planter_varsling', 'on', 'Planter - Varsling', 'n_planter');
     dev('n_stovsuger', 'Støvsuger'); N('switch.stovsuger_feil', 'on', 'Støvsuger - Feil', 'n_stovsuger'); N('switch.stovsuger_ferdig', 'on', 'Støvsuger - Ferdig', 'n_stovsuger');
     dev('n_ha', 'Home Assistant oppstart'); N('switch.home_assistant_oppstart_varsling', 'on', 'Home Assistant oppstart - Varsling', 'n_ha');
+    // Fiks 27.7: flere varsel-kategorier (Kamera, Klima) + en varsel-regel som hjelper (input_boolean.varsel_*, ingen enhet)
+    dev('n_bevegelse', 'Kamera - bevegelse ved inngang'); N('switch.kamera_bevegelse_inngang_varsling', 'on', 'Bevegelse ved inngang - Varsling', 'n_bevegelse');
+    dev('n_pakke', 'Kamera - pakke levert'); N('switch.kamera_pakke_levert_varsling', 'off', 'Pakke levert - Varsling', 'n_pakke');
+    dev('n_fukt', 'Høy fukt bad'); N('switch.hoy_fukt_bad_varsling', 'on', 'Høy fukt bad - Varsling', 'n_fukt');
+    add('input_boolean.varsel_dor_last', 'on', { friendly_name: 'Varsel dør låst/åpnet' });
     // KI Utelys (én enhet, tre brytere – hovedbryteren er _auto) og KI Energi (varslingsbryterne, én enhet)
     dev('dev_utelys', 'KI Utelys', 'Utelys');
     ['switch.ki_utelys_auto', 'switch.ki_utelys_kveld', 'switch.ki_utelys_morgen'].forEach((id) => { if (E[id]) { E[id].platform = 'ki_utelys'; E[id].device_id = 'dev_utelys'; } });

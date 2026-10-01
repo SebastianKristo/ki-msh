@@ -74,7 +74,8 @@ for (const [name, w, h, touch, fold, sb] of [
   if (name === 'fold884' || name === 'pc1440sb') {
     // (utenfor HA er MSH.dashRect hele vinduet – arket måles mot den)
     const o = await p.evaluate(async () => { const D = MSH.dashRect(), a = MSH.overlay({ html: '<p>x</p>' }); await new Promise((q) => setTimeout(q, 350)); const r = rect(a.host), s = rect(a.root.querySelector('.sh')); a.close(); return { D: { l: D.left, r: D.right }, r, s }; });
-    ok(`${name}: arket dekker ikke navbaren og står midt på innholdsflaten`, close(o.r.l, o.D.l + 120) && close(o.r.r, o.D.r) && close(o.s.l + o.s.w / 2, (o.D.l + 120 + o.D.r) / 2), o);
+    // 26.16: arket dekker navbaren (hele dashbordflaten), men selve arket står midt på innholdsflaten
+    ok(`${name}: arket dekker navbaren og står midt på innholdsflaten`, close(o.r.l, o.D.l) && close(o.r.r, o.D.r) && close(o.s.l + o.s.w / 2, (o.D.l + 120 + o.D.r) / 2), o);
   }
   // Bretting 884 → 412 → 884 uten reload, og resize på PC (scrollbar/sidebar)
   if (name === 'fold884') {
