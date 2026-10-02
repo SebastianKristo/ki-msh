@@ -64,13 +64,14 @@
     ['kart', 'Kart', 'mdi:map', (h) => { const n = posN(h); return [n, pl(n, 'med posisjon', 'med posisjon')]; }],
     ['vanning', 'Vanning', 'mdi:sprinkler', (h) => { const n = Math.max(cnt(h, 'valve') + plat(h, 'opensprinkler'), rx(h, /vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean'])); return [n, pl(n, 'ventil/sone', 'ventiler/soner')]; }],
     ['soppel', 'Søppel', 'mdi:trash-can', (h) => { const id = M.hjemTrashAuto ? M.hjemTrashAuto(h) : null; return [id ? 1 : 0, id ? M.name(h, id) : '']; }],
-    ['basseng', 'Basseng', 'mdi:pool', (h) => { const a = M.findArea(h, 'basseng', 'pool'), r = rx(h, /basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']); return [a || r ? Math.max(r, 1) : 0, a ? M.areaName(h, a) + (r ? ' · ' + pl(r, 'entitet', 'entiteter') : '') : pl(r, 'entitet', 'entiteter')]; }],
   ];
   const FNK = FN.map((f) => f[0]);
-  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (basseng → badebasseng, M.canonHash); navbar-id-en er fortsatt «basseng»
+  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (alias-hasher via M.canonHash). Bassengpopupen er slettet – foreslås ikke.
   const pk = (k) => (M.canonHash ? M.canonHash('#' + k).slice(1) : k);
   const fnOf = (k) => FN.find((f) => f[0] === k) || FN.find((f) => pk(f[0]) === pk(k));
-  const NAV_CAT = ['vanning', 'media', 'klima', 'basseng', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
+  const NAV_CAT = ['vanning', 'media', 'klima', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
+  // områder med rom-popup (ikke «Basseng»/«Pool» – MSH.roomBlocked, bassengpopupen er slettet)
+  const roomAreas = (h) => M.areas(h).filter((a) => !(M.roomBlocked && M.roomBlocked(h, a.id)));
   const areaDevs = (h, a) => { const D = Object.values((h && h.devices) || {}).filter((d) => d && d.area_id === a).length; return D || M.areaEntities(h, a).length; };
 
   /* ------------------------------------------------------------ config-oppslag (samme kilder som de fulle arkene) */
@@ -96,7 +97,7 @@
   const navId = () => { const l = navLive(); return (l && l.config && l.config.card_id) || (M.CARD_IDS || {}).navbar || 'ki-navbar'; };
   const navCfg = () => { const l = navLive(); return { ...((l && l.config) || {}), ...(M.store.card(navId()) || {}) }; };
   const navSet = (patch) => put('cards.' + navId(), { ...(M.store.card(navId()) || {}), ...patch });
-  const navBar = () => { const c = navCfg(); return Array.isArray(c.bar) ? c.bar : ['vanning', 'media', 'klima', 'basseng', 'ruter']; };
+  const navBar = () => { const c = navCfg(); return Array.isArray(c.bar) ? c.bar : ['vanning', 'media', 'klima', 'ruter']; };
   const navKnows = (k) => NAV_CAT.includes(k) || !!((navCfg().buttons || {})[k]);
   // Header: header_profiles (denne brukeren × enheten, som «Tilpass header»), ellers kortets config
   const HPROF = 'header_profiles';
@@ -233,7 +234,7 @@
     const init = () => {
       const h = hassNow(), hid = hdrHidden(), H = hdrCfg();
       o.persons = M.all(h, 'person').map((id) => ({ id, on: !hid.has(id) }));
-      o.rooms = M.areas(h).map((a) => ({ id: a.id, on: !popCfg(a.id).hidden, col: roomCol(h, a.id) }));
+      o.rooms = roomAreas(h).map((a) => ({ id: a.id, on: !popCfg(a.id).hidden, col: roomCol(h, a.id) }));
       o.fns = FN.map(([k]) => { const [n] = fnOf(k)[3](h); const stored = k === 'soppel' ? !soppelOn() : popCfg(k).hidden != null; return { k, on: stored ? fnOn(k) : n > 0 }; });
       const bar = navBar();
       o.nav = bar.filter((k) => o.fns.some((f) => f.k === k && f.on)).slice(0, 5);
@@ -415,7 +416,7 @@
         }
       } catch (e) { console.error('[ki-msh] onboarding steg ' + s, e); }
     };
-    const known = () => { const h = hassNow(); return [...new Set([...M.areas(h).map((a) => 'rom:' + a.id), ...FNK.map((k) => 'fn:' + k), ...fnList(h).map((f) => 'fn:' + f.key)])]; };
+    const known = () => { const h = hassNow(); return [...new Set([...roomAreas(h).map((a) => 'rom:' + a.id), ...FNK.map((k) => 'fn:' + k), ...fnList(h).map((f) => 'fn:' + f.key)])]; };
     const finish = () => {
       put('onboarded', true);
       put('onboard_known', known());
@@ -553,7 +554,7 @@
       desc: 'Utseendet på alle Tilpass-ark og glass-animasjonen i faner og segmenter.', open: { label: 'Tilpass Hjem', ev: { editor: 'home', focus: 'faner' } },
       q: [toggle('Liquid Glass-ark', () => !!(M.glassOn && M.glassOn()), (v) => M.setGlassTheme && M.setGlassTheme(v)),
         toggle('Liquid Glass-animasjon', () => !!(M.glassAnimOn && M.glassAnimOn()), (v) => M.setGlassAnim && M.setGlassAnim(v))] });
-    M.areas(h).forEach((a) => {
+    roomAreas(h).forEach((a) => {
       const hid = !!popCfg(a.id).hidden, c = roomCol(h, a.id);
       L.push({ id: 'rom:' + a.id, g: 'rom', icon: popCfg(a.id).icon || a.icon || 'mdi:home', color: c, title: a.name, sub: `${pl(areaDevs(h, a.id), 'enhet', 'enheter')} · ${hid ? 'skjult' : 'popup #' + a.id}`,
         desc: `Rom-popupen #${a.id}: klima-toppkort, lys, media og scener fra området.`, open: { label: 'Tilpass rom', ev: { editor: 'room', area: a.id } },
@@ -601,7 +602,7 @@
     if (!h || !M.store || !sget('onboarded')) return false;
     const known = new Set(sget('onboard_known') || []), R = reviewed();
     if (!known.size) return false;
-    const ids = [...M.areas(h).map((a) => 'rom:' + a.id), ...fnList(h).map((f) => 'fn:' + f.key)];
+    const ids = [...roomAreas(h).map((a) => 'rom:' + a.id), ...fnList(h).map((f) => 'fn:' + f.key)];
     return ids.some((id) => !known.has(id) && !R[id]);
   };
 

@@ -22,6 +22,7 @@ Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm
 | `reserve_space` | Gi innholdet plass (padding i bunnen / til venstre) · boolean | Plassering og oppførsel |
 | `toasts` | Bekreftelsesmeldinger · boolean | Plassering og oppførsel |
 | `admin_tools` | Vis «Tilpass» i Mer-menyen · boolean | Plassering og oppførsel |
+| `action_style` | Handlingsvelger (ruter \| liste) | Plassering og oppførsel |
 
 ## `msh-gjoremal-card`
 
@@ -167,6 +168,9 @@ Dager til neste søppeltømming. Trykk og hold kan velges (popup, visning, more-
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
+| `tap_action` | Trykk · tap |  |
+| `hold_action` | Hold · tap |  |
+| `action_style` | Handlingsvelger (ruter \| liste) |  |
 | `sensor` | Entitet · dager til tømming · entity |  |
 | `type_sensor` | Sensor · type avfall (valgfri) · entity |  |
 | `rosa` | Rosa på tømmedagen · boolean |  |
@@ -213,6 +217,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `default_tab` | Startfane | Faner |
 | `tab_height` | Høyde (std \| lav \| mid \| hoy \| ekstra \| custom) | Faner |
 | `tab_width` | Bredde per fane (std \| kompakt \| full \| custom) | Faner |
+| `tab_style` | Fanestil · stil (pille \| glide \| chips \| to \| popup \| gear) | Faner |
 | `battery.limit` | Grense for lavt batteri (%) · number | Batterier |
 | `battery.show` | Liste (lav \| alle) | Batterier |
 | `battery.always` | Vis fanen alltid · boolean | Batterier |
@@ -745,7 +750,7 @@ Toppkortet i msh-basseng-card (innebygd via MSH.HEROES, fiks 26.14): vanntempera
 
 ## `msh-basseng-card`
 
-Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.
+Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -1672,7 +1677,7 @@ Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, va
 
 ## `msh-varmepumpe-card`
 
-Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk.
+Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk (v3).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|

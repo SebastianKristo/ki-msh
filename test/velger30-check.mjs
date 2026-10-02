@@ -2,7 +2,7 @@
 // sammenlignes her, designfilen kan ikke rendres i testnettleseren).
 //   30.2  «Tilpass navbar» → Ved trykk → Popup → «Bytt ›»: arket (topp 50, radius 38 38 0 0, #282828, flex-kolonne),
 //         scrollområdet er en vanlig BLOKK med ÉN indre flex-wrapper, 36 popups (> 30) gruppert Rom · Funksjoner ·
-//         Importert med antall, filter + søk (navn, #hash, aliaser som #basseng → #badebasseng), siste rad og «Bruk egen
+//         Importert med antall, filter + søk (navn, #hash, aliaser som #nibe → #varmepumpe), siste rad og «Bruk egen
 //         hash» nås med touch (mobil) og hjul (PC), arket under er låst og lukkes ikke, valg lukker arket (haptic light).
 //   30.3  ruter 3 × 2 (76 px, r20, #232323 / valgt #404040 + rosa inset), forklaring, felt per handling (Popup/Egen hash/
 //         Sti med chips fra lovelace/config/URL med «Åpne i ny fane»/More-info/Ingen), «Test · åpne …» (44 px, medium),
@@ -53,11 +53,11 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     H.callWS = (m) => { if (m && m.type === 'lovelace/config') { window.__lc++; return Promise.resolve({ views: [{ title: 'Oversikt', path: 'oversikt', icon: 'mdi:home' }, { title: 'Kart', path: 'kart', icon: 'mdi:map' }, { title: 'Energi', path: 'energi' }] }); } return cws ? cws(m) : Promise.reject(new Error('x')); };
     MSH.lastHass = H;
     await MSH.store.load(H);
-    // 36 popups (> 30): 12 rom med romfarge, 15 funksjoner (inkl. #badebasseng), 9 importerte
+    // 36 popups (> 30): 12 rom med romfarge, 15 funksjoner (inkl. #varmepumpe), 9 importerte
     const E = [];
     const COL = ['rgb(242 192 115)', 'rgb(115 185 242)', 'rgb(182 155 242)', 'rgb(115 214 214)'];
     for (let i = 1; i <= 12; i++) E.push({ hash: i === 1 ? '#stue' : '#rom' + i, name: i === 1 ? 'Stue' : 'Rom ' + i, icon: 'mdi:sofa', group: 'rom', source: 'auto', color: COL[i % 4] });
-    E.push({ hash: '#badebasseng', name: 'Basseng', icon: 'mdi:pool', group: 'fn', source: 'auto' });
+    E.push({ hash: '#varmepumpe', name: 'Varmepumpe', icon: 'mdi:heat-pump', group: 'fn', source: 'auto' });
     E.push({ hash: '#vaer', name: 'Vær', icon: 'mdi:weather-partly-cloudy', group: 'fn', source: 'auto' });
     E.push({ hash: '#klima', name: 'Klima', icon: 'mdi:thermostat', group: 'fn', source: 'auto' });
     E.push({ hash: '#lys', name: 'Lys', icon: 'mdi:lightbulb-group', group: 'fn', source: 'auto' });
@@ -72,7 +72,7 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     document.getElementById('dash').appendChild(nb);
     await wait(700);
   });
-  ok(`${vp} 30.1-alias: #basseng → #badebasseng`, await p.evaluate(() => MSH.canonHash('#basseng') === '#badebasseng'));
+  ok(`${vp} 30.1-alias: #nibe → #varmepumpe (bassengpopupen er slettet: #basseng er ingen alias)`, await p.evaluate(() => MSH.canonHash('#nibe') === '#varmepumpe' && MSH.canonHash('#basseng') === '#basseng'));
 
   /* ---------------- «Tilpass navbar» → knappen Klima → handlingsvelgeren */
   await p.evaluate(async () => {
@@ -163,14 +163,14 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     const f = async (k) => { R.querySelector(`.flt [data-v="${k}"]`).click(); await wait(30); return { n: R.querySelectorAll('.pr').length, g: [...R.querySelectorAll('.lb')].map((x) => x.textContent) }; };
     const out = { rom: await f('rom'), imp: await f('imp'), fn: await f('fn') };
     await f('alle');
-    out.bass = await set('basseng'); out.alias = await set('#basseng'); out.hash = await set('#klima');
+    out.bass = await set('varmepumpe'); out.alias = await set('#nibe'); out.hash = await set('#klima');
     await set('zzz'); out.none = (R.querySelector('.none') || {}).textContent;
     await set('');
     out.all = R.querySelectorAll('.pr').length;
     return out;
   });
   ok(`${vp} 30.2 filter Rom → 12, Importert → 9, Funksjoner → 15`, fs.rom.n === 12 && fs.rom.g.join() === 'Rom · 12' && fs.imp.n === 9 && fs.fn.n === 15, fs);
-  ok(`${vp} 30.2 søk treffer navn, #hash og alias (#basseng → #badebasseng)`, fs.bass.join() === '#badebasseng' && fs.alias.join() === '#badebasseng' && fs.hash.join() === '#klima' && fs.all === 36, fs);
+  ok(`${vp} 30.2 søk treffer navn, #hash og alias (#nibe → #varmepumpe)`, fs.bass.join() === '#varmepumpe' && fs.alias.join() === '#varmepumpe' && fs.hash.join() === '#klima' && fs.all === 36, fs);
   ok(`${vp} 30.2 ingen treff: «Ingen popup heter «zzz»»`, fs.none === 'Ingen popup heter «zzz»', fs.none);
 
   // trykk på siste rad velger, lukker arket, haptic light, lagres i HA-format
@@ -187,14 +187,14 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     out.hf = [Math.round(R.querySelector('.hf').getBoundingClientRect().height), cs.borderRadius, R.querySelector('.hf span').textContent];
     i.value = 'finnesikke'; i.dispatchEvent(new Event('input', { bubbles: true })); await wait(30);
     let m = R.querySelector('.hm'); out.warn = [m.textContent, getComputedStyle(m).color];
-    i.value = 'basseng'; i.dispatchEvent(new Event('input', { bubbles: true })); await wait(30);
+    i.value = 'nibe'; i.dispatchEvent(new Event('input', { bubbles: true })); await wait(30);
     m = R.querySelector('.hm'); out.okm = [m.textContent, getComputedStyle(m).color];
     i.value = 'finnesikke'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); await wait(400);
     out.cfg = ED._config.buttons.klima.tap_action; out.tst = (R.querySelector('.tst') || {}).textContent;
     return out;
   });
   ok(`${vp} 30.2 «Bruk egen hash» lukker arket og bytter til Egen hash (felt med fast «#», 48 px r16)`, own.portals === 1 && own.mode === 'hash' && own.tileOn === 'Egen hash' && own.hasHash && own.hf[0] === 48 && own.hf[1] === '16px' && own.hf[2] === '#', own);
-  ok(`${vp} 30.3 Egen hash: gul «finnes ikke … lagres likevel», grønn «Åpner Basseng» (alias #basseng)`, /Popupen finnes ikke i dette dashbordet – lagres likevel/.test(own.warn[0]) && own.warn[1] === 'rgb(242, 192, 115)' && own.okm[0].trim() === 'Åpner Basseng' && own.okm[1] === 'rgb(102, 209, 158)', own);
+  ok(`${vp} 30.3 Egen hash: gul «finnes ikke … lagres likevel», grønn «Åpner Varmepumpe» (alias #nibe)`, /Popupen finnes ikke i dette dashbordet – lagres likevel/.test(own.warn[0]) && own.warn[1] === 'rgb(242, 192, 115)' && own.okm[0].trim() === 'Åpner Varmepumpe' && own.okm[1] === 'rgb(102, 209, 158)', own);
   ok(`${vp} 30.3 ukjent hash lagres likevel, Test · åpne #finnesikke`, own.cfg && own.cfg.navigation_path === '#finnesikke' && own.tst.trim() === 'Test · åpne #finnesikke', own);
 
   // Sti: chips fra lovelace/config
@@ -296,13 +296,13 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     [...R.querySelectorAll('.tl')].find((x) => x.textContent.trim() === 'Popup').click(); await wait(200);
     R.querySelector('.pf').click(); await wait(500);
     const P = MSH.portals(), S = P[P.length - 1].shadowRoot, n = S.querySelectorAll('.pr').length;
-    S.querySelector('.pr[data-v="#badebasseng"]').click(); await wait(500);
+    S.querySelector('.pr[data-v="#varmepumpe"]').click(); await wait(500);
     const last = saves[saves.length - 1];
     E.ov.close(); await wait(300);
     return { labels, rows: Object.values(rows), n, row: last && last.prose && last.prose[0] };
   });
   ok(`${vp} 30.3 prosa: samme handlingsvelger (7 valg → 4 + 3 ruter, ingen alene)`, pr.labels && pr.labels.join('|') === 'Popup|Egen hash|Sti|URL|More-info|Dørlås|Ingen' && pr.rows.every((n) => n >= 2), pr);
-  ok(`${vp} 30.2 prosa: samme popup-velger-ark (36), valget lagres som tap i HA-format`, pr.n === 36 && pr.row && pr.row.tap && pr.row.tap.navigation_path === '#badebasseng', pr);
+  ok(`${vp} 30.2 prosa: samme popup-velger-ark (36), valget lagres som tap i HA-format`, pr.n === 36 && pr.row && pr.row.tap && pr.row.tap.navigation_path === '#varmepumpe', pr);
 
   /* ---------------- Søppel: Tilpass Hjem → Kort → Søppel og GUI-editoren (samme valg) */
   const so = await p.evaluate(async () => {
@@ -362,7 +362,7 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
   /* ---------------- popup_hash-felt (GUI, f.eks. Hjem · gjøremål) → samme ark, ikke ha-selector select */
   const ph = await p.evaluate(async () => {
     const el = customElements.get('msh-hjem-gjoremal-card').getConfigElement(); el.hass = H;
-    el.setConfig({ type: 'custom:msh-hjem-gjoremal-card', popup_hash: '#basseng' });
+    el.setConfig({ type: 'custom:msh-hjem-gjoremal-card', popup_hash: '#nibe' });
     document.body.appendChild(el); await wait(400);
     const ed = (el.shadowRoot || el).querySelector('msh-editor') || el, sr = ed.shadowRoot || ed;
     const f = sr.querySelector('msh-popup-field[data-name="popup_hash"]'), sel = sr.querySelector('ha-selector[data-name="popup_hash"]');
@@ -373,7 +373,7 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
     el.remove();
     return out;
   });
-  ok(`${vp} 30.2 popup_hash i GUI-editoren: popup-felt (alias #basseng → Basseng, «Bytt»), samme ark, lagres`, ph.field && !ph.sel && ph.text === 'Basseng' && ph.by === 'Bytt' && ph.rows === 36 && ph.on === '#badebasseng' && ph.saved === '#lys', ph);
+  ok(`${vp} 30.2 popup_hash i GUI-editoren: popup-felt (alias #nibe → Varmepumpe, «Bytt»), samme ark, lagres`, ph.field && !ph.sel && ph.text === 'Varmepumpe' && ph.by === 'Bytt' && ph.rows === 36 && ph.on === '#varmepumpe' && ph.saved === '#lys', ph);
 
   if (shots) await p.screenshot({ path: `${shots}/velger30-slutt-${vp}.png` });
   ok(`${vp} ingen sidefeil`, !errs.length, errs.slice(0, 4));

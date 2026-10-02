@@ -58,7 +58,7 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
   const { p, errs } = await boot({});
   const n = await p.evaluate(() => window.MSH.portals().length);
   ok(n === 0, 'onboarding vises ikke i testharnessen (ingen <home-assistant>, ingen __kiOnboard)', n);
-  const facts = await p.evaluate(() => { const H = window.H, M = window.MSH; return { areas: M.areas(H).length, persons: M.all(H, 'person').length, lights: M.all(H, 'light').length, media: M.all(H, 'media_player').length, climate: M.all(H, 'climate').length, sensors: M.all(H, 'sensor').length, persIds: M.all(H, 'person'), areaIds: M.areas(H).map((a) => a.id), fnKeys: M.FUNCTION_POPUPS.map((f) => f[0].slice(1)), fnAlias: Object.keys(M.HASH_ALIAS || {}).map((a) => a.slice(1)) }; });
+  const facts = await p.evaluate(() => { const H = window.H, M = window.MSH; return { areas: M.areas(H).length, persons: M.all(H, 'person').length, lights: M.all(H, 'light').length, media: M.all(H, 'media_player').length, climate: M.all(H, 'climate').length, sensors: M.all(H, 'sensor').length, persIds: M.all(H, 'person'), areaIds: M.areas(H).filter((a) => !M.roomBlocked(H, a.id)).map((a) => a.id), rooms: M.areas(H).filter((a) => !M.roomBlocked(H, a.id)).length, blocked: M.areas(H).filter((a) => M.roomBlocked(H, a.id)).map((a) => a.id), fnKeys: M.FUNCTION_POPUPS.map((f) => f[0].slice(1)), fnAlias: Object.keys(M.HASH_ALIAS || {}).map((a) => a.slice(1)) }; });
 
   /* ---------------- 2 · onboarding med flagget */
   await p.evaluate(() => { window.__kiOnboard = true; window.MSH.onboardMaybe(window.H); });
@@ -90,8 +90,10 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
 
   // steg 2: rom av + farge
   t = await sheet(p);
-  ok(/Rom/.test(t) && new RegExp(facts.areas + ' områder').test(t), 'steg 2: ett kort per område', t.slice(0, 160));
-  const room = facts.areaIds.find((a) => a === 'stue') || facts.areaIds[0], room2 = facts.areaIds.find((a) => a !== room && !facts.fnKeys.includes(a) && !facts.fnAlias.includes(a)); // 30.1: #basseng er alias for #badebasseng
+  ok(/Rom/.test(t) && new RegExp(facts.rooms + ' områder').test(t), 'steg 2: ett kort per område (ikke «Basseng» – bassengpopupen er slettet)', t.slice(0, 160));
+  const bl = await p.evaluate((ids) => { const P = window.MSH.portals(), r = P[P.length - 1].shadowRoot; return ids.filter((id) => r.querySelector(`[data-a="rtog"][data-v="${id}"]`)); }, facts.blocked);
+  ok(facts.blocked.includes('basseng') && !bl.length, 'steg 2: området «Basseng» foreslås ikke som rom', { blocked: facts.blocked, bl });
+  const room = facts.areaIds.find((a) => a === 'stue') || facts.areaIds[0], room2 = facts.areaIds.find((a) => a !== room && !facts.fnKeys.includes(a) && !facts.fnAlias.includes(a)); // 30.1: alias-hasher (f.eks. #nibe) er ikke rom
   await click(p, `[data-a="rtog"][data-v="${room2}"]`);
   await click(p, `[data-a="rcol"][data-v="${room}"]`); await p.waitForTimeout(80);
   if (SHOT) await p.screenshot({ path: SHOT + '/ob-2.png' });
@@ -104,6 +106,8 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
   ok(/Funksjoner/.test(t) && /Lys/.test(t) && /Søppel/.test(t), 'steg 3: funksjonsrader', t.slice(0, 200));
   const red = await p.evaluate(() => { const P = window.MSH.portals(); return [...P[P.length - 1].shadowRoot.querySelectorAll('.row')].filter((r) => r.querySelector('.red')).map((r) => [r.dataset.v, r.querySelector('.sw').classList.contains('on')]); });
   ok(red.every((x) => !x[1]), 'funksjoner uten entiteter står av («Ingen entiteter funnet»)', red);
+  const fnRows = await p.evaluate(() => { const P = window.MSH.portals(); return [...P[P.length - 1].shadowRoot.querySelectorAll('button.row[data-v]')].map((r) => r.dataset.v); });
+  ok(fnRows.length > 3 && !fnRows.some((v) => /basseng|pool/.test(v)) && !/Basseng/.test(t), 'steg 3: Basseng foreslås ikke (bassengpopupen er slettet)', fnRows);
   await click(p, 'button.row[data-v="lys"]'); await p.waitForTimeout(60);
   await click(p, '[data-a="next"]'); await p.waitForTimeout(150);
   U = await p.evaluate(() => window.MSH.store.get('popups.lys'));
@@ -111,7 +115,7 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
 
   // steg 4: navbar – maks 5 med toast
   const chips = await p.evaluate(() => { const P = window.MSH.portals(); return [...P[P.length - 1].shadowRoot.querySelectorAll('[data-a="nav"]')].map((c) => c.dataset.v); });
-  ok(!chips.includes('lys') && !chips.includes('soppel'), 'steg 4: bare påslåtte funksjoner med popup som chips', chips);
+  ok(!chips.includes('lys') && !chips.includes('soppel') && !chips.includes('basseng'), 'steg 4: bare påslåtte funksjoner med popup som chips', chips);
   // nullstill valget og velg i ny rekkefølge
   for (const k of chips) { const on = await p.evaluate((k) => { const P = window.MSH.portals(); return P[P.length - 1].shadowRoot.querySelector(`[data-a="nav"][data-v="${k}"]`).classList.contains('on'); }, k); if (on) await click(p, `[data-a="nav"][data-v="${k}"]`); }
   const want = chips.slice(0, 6);

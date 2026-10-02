@@ -1186,7 +1186,7 @@
     /* ======================================================== Popups */
     _popList() {
       const hass = this.hass, c = this.F(), P = this._popCfg(), out = [];
-      M.areas(hass).forEach((a) => {
+      M.areas(hass).filter((a) => !(M.roomBlocked && M.roomBlocked(hass, a.id))).forEach((a) => { // ingen rom-popup for «Basseng» (slettet)
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
       });

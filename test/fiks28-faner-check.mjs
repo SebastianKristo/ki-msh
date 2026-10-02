@@ -30,7 +30,7 @@ const CARDS = [
   ['Vanning', 'msh-vanning-card', '#vanning', {}],
   ['Kamera', 'msh-kamera-card', '#kamera', {}],
   ['Innstillinger', 'msh-innstillinger-card', '#settings', {}],
-  ['Basseng', 'msh-basseng-card', '#badebasseng', {}],
+  ['Basseng', 'msh-basseng-card', '#mitt-basseng', {}], // manuell popup (bassengpopupene er slettet)
   ['Lys', 'msh-lys-card', '#lys', {}],
   ['Klima', 'msh-klima-card', '#klima', {}],
   ['Media', 'msh-media-card', '#media', {}],

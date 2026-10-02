@@ -1,6 +1,6 @@
 /* KI MSH · trykk-handling i HA-format (Fiks 15.6) – Fiks 30.3: felles handlingsvelger etter Handlingsvelger.dc.html.
  * Config (HA-standard, samme verdi fungerer i GUI-editoren):
- *   { action: 'navigate', navigation_path: '#badebasseng' }   popup (fra listen) eller egen hash
+ *   { action: 'navigate', navigation_path: '#vanning' }   popup (fra listen) eller egen hash
  *   { action: 'navigate', navigation_path: '/dashboard-hjem/kart' }   sti (visning i et dashbord)
  *   { action: 'url', url_path: 'https://…', new_tab: false? }   ·   { action: 'more-info', entity? }   ·   { action: 'none' }
  *   { action: 'lock-sheet' }   (KI-intern, prosa: hurtigarket for dørlåsen – tidligere link: 'lock')
@@ -10,7 +10,7 @@
  *   norm(t)            → gyldig tap-objekt eller null
  *   hashOf(t)          → '#x' når handlingen åpner en popup, ellers ''
  *   run(el, t, { entity }) → utfør (navigate/url/more-info/toggle/tjeneste). Returnerer true når noe ble gjort.
- *   popupOf(hash, hass) → popup-oppføringen (MSH.popupPicker.list, også aliaser som #basseng → #badebasseng) eller null
+ *   popupOf(hash, hass) → popup-oppføringen (MSH.popupPicker.list, også aliaser som #nibe → #varmepumpe) eller null
  *   label(t, hass)     → kort tekst («Popup · Tesla», «#tesla», «/lovelace/x», «URL», …)
  *   views(hass)        → Promise<[[sti, navn, ikon]]> – dashbordets visninger (lovelace/config) + andre dashbord (hass.panels)
  *   html({ value, modes, labels, key, attrs, style: 'ruter'|'liste', stdHint, noneHint, gui, entity }) → '<msh-tap-picker …>'

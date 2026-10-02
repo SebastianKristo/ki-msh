@@ -38,7 +38,7 @@
     }
     // 3) åpen-prikk
     const cfg = card.config || {};
-    const bar = Array.isArray(cfg.bar) ? cfg.bar : ['vanning', 'media', 'klima', 'basseng', 'ruter'];
+    const bar = Array.isArray(cfg.bar) ? cfg.bar : ['vanning', 'media', 'klima', 'ruter'];
     if (!bar.includes('klima') || !portal()) return;
     location.hash = '#klima';
     await sleep(380);

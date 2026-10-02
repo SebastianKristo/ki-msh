@@ -1,12 +1,12 @@
-/*! KI MSH 1.5.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
+/*! KI MSH 1.5.1 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
 (function () { try {
-  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.5.0") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.5.0" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
+  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.5.1") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.5.1" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
   var cs = document.currentScript && document.currentScript.src; // klassisk <script>; som modul (HA-ressurs): ressurslisten
   var urls = cs ? [cs] : (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(function (e) { return e.name; }).filter(function (u) { return /ki-msh(\.min)?\.js/.test(u); });
-  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.5.0"; });
-  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.5.0" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.5.0" + ' på ressursen og tøm cachen (se README).');
+  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.5.1"; });
+  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.5.1" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.5.1" + ' på ressursen og tøm cachen (se README).');
 } catch (e) { /* */ } })();
-window.KI_MSH_VERSION = "1.5.0";
+window.KI_MSH_VERSION = "1.5.1";
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
@@ -5189,7 +5189,6 @@ try {
     ['#kamera', 'Kamera', 'mdi:cctv', 'msh-kamera-card'],
     ['#media', 'Media', 'mdi:cast', 'msh-media-card'],
     ['#klima', 'Klima', 'mdi:thermostat', 'msh-klima-card'],
-    ['#badebasseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'], // fiks 30.1 – standard-hash #badebasseng; #basseng er alias (M.HASH_ALIAS, 40-basseng.js)
     ['#ruter', 'Ruter', 'mdi:bus', 'msh-ruter-card'],
     ['#vanning', 'Vanning', 'mdi:sprinkler', 'msh-vanning-card'],
     ['#sikkerhet', 'Sikkerhet', 'mdi:shield-home', 'msh-sikkerhet-card'],
@@ -5209,14 +5208,19 @@ try {
     ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
     ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe · 31.2: #nibe er alias (M.HASH_ALIAS, 61-varmepumpe.js)
   ];
-  // Fiks 30.1 · gamle hasher som alias for ÉN popup: { '#basseng': '#badebasseng' } (satt i 40-basseng.js). Lenker,
+  // Fiks 30.1 · gamle hasher som alias for ÉN popup (f.eks. { '#nibe': '#varmepumpe' }, satt i 61-varmepumpe.js). Lenker,
   // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
+  // (Bassengpopupene er slettet – #basseng/#badebasseng er ikke lenger alias, se 40-basseng.js.)
   M.HASH_ALIAS = M.HASH_ALIAS || {};
   M.canonHash = (h) => { const s = String(h == null ? '' : h).trim(); return M.HASH_ALIAS[s] || s; };
   M.hashAliasesOf = (h) => Object.keys(M.HASH_ALIAS).filter((a) => M.HASH_ALIAS[a] === h);
-  // card_id for en funksjons-popup når den ikke er 'pop-' + hash (30.1: #badebasseng beholder 'pop-basseng' og oppsettet)
+  // card_id for en funksjons-popup når den ikke er 'pop-' + hash
   M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
   M.popupCardId = (hash) => M.POPUP_CARD_ID[hash] || 'pop-' + String(hash).replace(/^#/, '');
+  // Basseng slettet · områder som aldri får en rom-popup (f.eks. et område «Basseng»/«Pool» – bassengpopupen er slettet, 40-basseng.js):
+  // liste med (hass, area_id) → true. Gjelder strategien, «Lag popups» (manuelt dashbord) og popup-velgeren.
+  M.ROOM_BLOCK = M.ROOM_BLOCK || [];
+  M.roomBlocked = (hass, id) => M.ROOM_BLOCK.some((f) => { try { return !!f(hass, id); } catch (e) { return false; } });
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#garasje': (hass) => M.all(hass, 'cover', (st) => st.attributes.device_class === 'garage').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
   const needOk = (hash, hass) => !M.popupNeeds[hash] || !hass || M.popupNeeds[hash](hass);
@@ -5229,7 +5233,7 @@ try {
     if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden, color: e.color || null })); // 30.2: romfarge til popup-velgeren
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
-    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id]) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // 30.1: område «Basseng» = funksjons-popupen
+    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id] && !M.roomBlocked(hass, a.id)) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // basseng slettet: ingen rom-popup for området «Basseng»
     M.FUNCTION_POPUPS.forEach(([h, n, i]) => { if (needOk(h, hass)) add(h, n, i, 'fn', 'auto'); });
     if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
     const cp = (M.store && M.store.get('custom_popups')) || [];
@@ -5319,8 +5323,8 @@ try {
     const res = { created: [], updated: [] }, drop = new Set();
     const S0 = (M.store && M.store.get()) || {}, gapFor = (hash) => M.headerGapOf(((S0.popups || {})[hash.slice(1)] || {}).header_gap, S0.popup_header_gap);
     const put = (hash, make, mainTag, extra) => {
-      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #badebasseng) tas over av den nye
-      // Fiks 30.1 · alle gamle popups under alias-hashene (f.eks. #basseng ved siden av #badebasseng): den første tas over
+      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #nibe → #varmepumpe) tas over av den nye
+      // Fiks 30.1 · alle gamle popups under alias-hashene (f.eks. #nibe ved siden av #varmepumpe): den første tas over
       // (hvis hashen ikke finnes fra før), resten fjernes – nøyaktig ÉN popup per funksjon.
       let took = null;
       const gone = [];
@@ -5348,7 +5352,7 @@ try {
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.roomBlocked(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // basseng slettet: ingen rom-popup for området «Basseng»
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });
@@ -6351,7 +6355,7 @@ try {
  *     popup_overrides:
  *       '#vaer': { name: Været, width_desktop: 600px }       # deep-merge inn i generert popup (lister erstattes, color = ikonfarge)
  *       '#media': { replace: true, config: { … } }          # erstatt hele popupen
- *       '#basseng': false                                    # skjul popupen
+ *       '#kamera': false                                     # skjul popupen
  *       '#kart': { header_gap: 0 }                           # 26.18: eget mellomrom under Bubble-headeren for én popup
  *     popup_header_gap: -10                # 26.18: felles mellomrom (px) fra Bubble-headeren til første kort (MSH.applyHeaderGap)
  * Resultat: én panel-visning med én vertical-stack: msh-hjem-card, msh-navbar-card og alle Bubble-popups
@@ -6411,7 +6415,7 @@ try {
     return out;
   }
   // Popup-valg fra «Tilpass Hjem» → Popups: nøkkel = hash uten # (eldre: med #)
-  // 30.1: også under en gammel alias-hash (ki-store popups.basseng → #badebasseng) til engangsmigreringen har flyttet den
+  // 30.1: også under en gammel alias-hash (MSH.HASH_ALIAS, f.eks. ki-store popups.nibe → #varmepumpe)
   const hashKeys = (hash) => [hash, ...(M.hashAliasesOf ? M.hashAliasesOf(hash) : [])];
   const popOf = (user, hash) => { const P = (user && user.popups) || {}; for (const h of hashKeys(String(hash))) { const v = P[String(h).replace(/^#/, '')] || P[h]; if (v) return v; } return null; };
   const plainVar = (col) => { const m = /^var\((--[\w-]+)\s*,[^)]*\)$/.exec(String(col || '').trim()); return m ? `var(${m[1]})` : col; };
@@ -6433,7 +6437,7 @@ try {
    * Mangler entitetene viser kortet tom-tilstanden (aldri skjult popup). */
   // Popups som lages når noe peker på dem (navbarens innebygde knapper, Hjem-flis, snarveier), også uten entiteter –
   // kortene viser da tom-tilstand i stedet for at knappen peker på en popup som ikke finnes.
-  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#badebasseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
+  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#gjoremal': { nav: 'gjoremal' } };
   const hasStr = (o, v, d) => (d > 12 || o == null ? false : typeof o === 'string' ? o.trim() === v : typeof o === 'object' ? Object.values(o).some((x) => hasStr(x, v, (d || 0) + 1)) : false);
   function popupRefs(hash, config, user) {
     const R = M.REF_POPUPS[hash];
@@ -6442,7 +6446,7 @@ try {
     const nav = { ...(config.navbar || {}), ...(cards[I.navbar] || {}) };
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
     // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
-    const C = (h) => (M.canonHash ? M.canonHash(h) : h); // 30.1: #basseng (alias) peker på #badebasseng
+    const C = (h) => (M.canonHash ? M.canonHash(h) : h); // 30.1: alias-hash (f.eks. #nibe) peker på standard-hashen
     const target = (b) => { if (!b) return null; const t = b.tap_action || b.tap; /* 30.3: tap_action (HA-standard), gamle tap */ if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
     const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
@@ -6462,7 +6466,6 @@ try {
       '#klima': () => has(['climate', 'fan']),
       '#kamera': () => has('camera'),
       '#sikkerhet': () => has(['alarm_control_panel', 'lock']),
-      '#badebasseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|baseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']) || !!(M.bassengLegacy && M.bassengLegacy(config)), // fiks 26.14/30.1: også en gammel importert #basseng/#badebasseng
       '#ruter': () => plat('entur', 'entur_public_transport', 'entur_sx'),
       '#vanning': () => has('valve') || plat('opensprinkler') || rx(/vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean']),
       '#vaer': () => has('weather'),
@@ -6485,7 +6488,7 @@ try {
     const out = [];
     M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => {
       const key = hash.slice(1);
-      if (hide[key] === false || (M.hashAliasesOf || (() => []))(hash).some((a) => hide[a.slice(1)] === false)) return; // 30.1: popups.basseng: false skjuler fortsatt
+      if (hide[key] === false || (M.hashAliasesOf || (() => []))(hash).some((a) => hide[a.slice(1)] === false)) return; // 30.1: alias-nøkkelen (popups.nibe: false) skjuler fortsatt
       if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
       if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
       const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA[hash] === 'function' ? M.POPUP_EXTRA[hash](config) : undefined; // 25.4: oppsett fra en importert popup (#soppel)
@@ -6587,11 +6590,14 @@ try {
    *                  base (vinnerens config), config (endelig, null = skjult), override: merge|replace|null, overrideFrom: yaml|store|null,
    *                  hidden, hiddenBy: yaml|store|user|null, losers: [kilde …] } */
   M.mergePopups = function ({ auto = [], yaml, custom, yamlOverrides, storeOverrides, userPopups } = {}) {
-    const report = { entries: [], collisions: [], invalid: [] };
+    const report = { entries: [], collisions: [], invalid: [], dropped: [] };
     const cand = new Map(); // hash → [{ source, index, config, meta }]
     const order = [];
     const push = (source, cfg, index, meta) => {
-      // Fiks 26.14 · gammel hash for en generert popup (M.POPUP_ALIAS, f.eks. importert #badebasseng → #basseng)
+      // Basseng slettet · importerte/egne gamle bassengpopups (MSH.POPUP_DROP, 40-basseng.js) droppes – de tas ikke over
+      const DROP = source !== 'auto' && isObj(cfg) && Object.keys(M.POPUP_DROP || {}).find((k) => { try { return !!M.POPUP_DROP[k].test(cfg); } catch (e) { return false; } });
+      if (DROP) { report.dropped.push({ source, index, hash: normHash(cfg.hash), name: cfg.name || normHash(cfg.hash), by: M.POPUP_DROP[DROP].name || DROP }); return; }
+      // Fiks 26.14 · gammel hash for en generert popup (M.POPUP_ALIAS, f.eks. importert #nibe → #varmepumpe)
       const AL = source !== 'auto' && isObj(cfg) && (M.POPUP_ALIAS || {})[normHash(cfg.hash)];
       if (AL) { try { if (!AL.test || AL.test(cfg)) { meta = { ...(meta || {}), aliasOf: normHash(cfg.hash) }; cfg = { ...cfg, hash: AL.to }; } } catch (e) { /* */ } }
       const hash = isObj(cfg) ? normHash(cfg.hash) : '';
@@ -6609,7 +6615,7 @@ try {
     });
     const YO = isObj(yamlOverrides) ? yamlOverrides : {}, SO = isObj(storeOverrides) ? storeOverrides : {}, UP = isObj(userPopups) ? userPopups : {};
     const own = (O, k) => Object.prototype.hasOwnProperty.call(O, k);
-    const ovOf = (O, hash) => { for (const h of hashKeys(hash)) { if (own(O, h)) return O[h]; if (own(O, h.slice(1))) return O[h.slice(1)]; } return undefined; }; // 30.1: alias-hash (#basseng) gjelder #badebasseng
+    const ovOf = (O, hash) => { for (const h of hashKeys(hash)) { if (own(O, h)) return O[h]; if (own(O, h.slice(1))) return O[h.slice(1)]; } return undefined; }; // 30.1: alias-hash (#nibe) gjelder #varmepumpe
     const winners = new Map();
     report.replaced = []; report.inactive = [];
     const upOf = (hash) => { for (const h of hashKeys(hash)) { const v = UP[h.slice(1)] || UP[h]; if (v) return v; } return null; };
@@ -6653,7 +6659,7 @@ try {
         overrideFrom = from;
       });
       let repaired = false;
-      // Fiks 28.14 · gamle kort i en importert/overstyrt popup (MSH.POPUP_MIGRATE, f.eks. ki-basseng-card/gap-card i #basseng) → ÉTT kort
+      // Fiks 28.14 · gamle kort i en importert/overstyrt popup (MSH.POPUP_MIGRATE, f.eks. gamle varmepumpe-kort) → ÉTT kort
       const MIG = !hidden && M.POPUP_MIGRATE && M.POPUP_MIGRATE[hash];
       if (typeof MIG === 'function') { try { const fx = MIG(cfg, gen && gen.config); if (fx) { console.info('[ki-msh] popup', hash, 'gamle kort migrert til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } } catch (e) { console.warn('[ki-msh] popup', hash, e); } }
       if (gen && w.source === 'auto' && !hidden) { const fx = repairCards(cfg, gen.config); if (fx) { console.warn('[ki-msh] popup', hash, 'hadde tom/ugyldig kortliste – rettet til', fx.cards.map(tagOf).join(', ')); cfg = fx; repaired = true; } }
@@ -6813,11 +6819,15 @@ try {
     config = config || {};
     M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
     if (M.store) await M.store.load(hass);
+    // Basseng slettet · engangsmigrering av ki-store (40-basseng.js) før alt annet leses: alle bassengpopups,
+    // -overstyringer, -valg, navbar-knapper og lenker til #basseng/#badebasseng/#pool/#svommebasseng fjernes
+    // (logget, migrations.basseng_fjernet)
+    if (M.bassengMigrateStore) M.bassengMigrateStore(hass);
     const user = (M.store && (M.store.view ? M.store.view() : M.store.get())) || {};
     const R = await registries(hass);
     const funcs = buildFunctionPopups(R, hass, config, user);
     const fHash = new Set(funcs.map((f) => f.hash));
-    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id])); // samme hash som en funksjon (f.eks. Basseng) → funksjons-popupen vinner
+    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id]) && !(M.roomBlocked && M.roomBlocked(hass, r.id))); // samme hash som en funksjon → funksjons-popupen vinner; basseng slettet: aldri rom-popup for området «Basseng»/«Pool»
     const uo = (hash) => popOf(user, hash) || {}; // «Tilpass Hjem» → Popups: navn/ikon/ikonfarge på genererte
     const I = M.CARD_IDS;
     const home = { type: 'custom:msh-hjem-card', card_id: I.home, ...(config.home || {}), cards: {
@@ -6860,13 +6870,10 @@ try {
       const { header_gap: hg, ...rest } = p || {};
       return M.applyHeaderGap(rest, M.headerGapOf((uo(p.hash) || {}).header_gap, hg, S.popup_header_gap, config.popup_header_gap));
     });
-    // Fiks 30.1 · 28.14-tvillingene (MSH.POPUP_TWINS, #basseng + #badebasseng) er fjernet: nøyaktig ÉN popup per funksjon,
-    // gamle hasher er alias (MSH.HASH_ALIAS → history.replaceState). Engangsmigrering av ki-store (40-basseng.js):
-    if (M.bassengMigrateStore) M.bassengMigrateStore(hass); // én gang: gamle basseng-popups/-kort/-lenker i ki-store skrives om
     if (M.varmepumpeMigrateStore) M.varmepumpeMigrateStore(hass); // 31.2 · én gang: gamle varmepumpe-popups (#nibe, gamle kort) og lenker i ki-store skrives om
     if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
-    const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => ((M.REF_POPUPS[f.hash] || {}).nav || f.hash.slice(1))); // 30.1: #badebasseng = navbar-knappen «basseng»
+    const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => ((M.REF_POPUPS[f.hash] || {}).nav || f.hash.slice(1))); // REF_POPUPS.nav: navbar-id-en når den ikke er hashen
     const navbar = { type: 'custom:msh-navbar-card', card_id: I.navbar, bar: fk.slice(0, 5), more: fk.slice(5), ...(config.navbar || {}) };
     return { title: 'Hjem', path: 'hjem', icon: 'mdi:home', panel: true, cards: [{ type: 'vertical-stack', cards: [home, navbar, ...res.popups] }] };
   };
@@ -9715,7 +9722,7 @@ try {
 try {
 /* KI MSH · trykk-handling i HA-format (Fiks 15.6) – Fiks 30.3: felles handlingsvelger etter Handlingsvelger.dc.html.
  * Config (HA-standard, samme verdi fungerer i GUI-editoren):
- *   { action: 'navigate', navigation_path: '#badebasseng' }   popup (fra listen) eller egen hash
+ *   { action: 'navigate', navigation_path: '#vanning' }   popup (fra listen) eller egen hash
  *   { action: 'navigate', navigation_path: '/dashboard-hjem/kart' }   sti (visning i et dashbord)
  *   { action: 'url', url_path: 'https://…', new_tab: false? }   ·   { action: 'more-info', entity? }   ·   { action: 'none' }
  *   { action: 'lock-sheet' }   (KI-intern, prosa: hurtigarket for dørlåsen – tidligere link: 'lock')
@@ -9725,7 +9732,7 @@ try {
  *   norm(t)            → gyldig tap-objekt eller null
  *   hashOf(t)          → '#x' når handlingen åpner en popup, ellers ''
  *   run(el, t, { entity }) → utfør (navigate/url/more-info/toggle/tjeneste). Returnerer true når noe ble gjort.
- *   popupOf(hash, hass) → popup-oppføringen (MSH.popupPicker.list, også aliaser som #basseng → #badebasseng) eller null
+ *   popupOf(hash, hass) → popup-oppføringen (MSH.popupPicker.list, også aliaser som #nibe → #varmepumpe) eller null
  *   label(t, hass)     → kort tekst («Popup · Tesla», «#tesla», «/lovelace/x», «URL», …)
  *   views(hass)        → Promise<[[sti, navn, ikon]]> – dashbordets visninger (lovelace/config) + andre dashbord (hass.panels)
  *   html({ value, modes, labels, key, attrs, style: 'ruter'|'liste', stdHint, noneHint, gui, entity }) → '<msh-tap-picker …>'
@@ -10403,10 +10410,10 @@ try {
   const PINK = C.accent;
 
   // Innebygde knapper (id = popup-hash uten #). Ikon/navn fra designets CAT.
-  const CAT = { vanning: ['sprinkler', 'Sprinkler'], media: ['music_note', 'Musikk'], klima: ['thermostat', 'Klima'], basseng: ['pool', 'Basseng'], ruter: ['tram', 'Ruter'], gjoremal: ['checklist', 'Gjøremål'], kart: ['map', 'Kart'], energi: ['bolt', 'Energi'] }; // energi (21.1): i «Mer» til den flyttes // kart (20.22): skjult til den legges til i Tilpass navbar
-  const DEF = { bar: ['vanning', 'media', 'klima', 'basseng', 'ruter'], more: ['gjoremal'] };
+  const CAT = { vanning: ['sprinkler', 'Sprinkler'], media: ['music_note', 'Musikk'], klima: ['thermostat', 'Klima'], ruter: ['tram', 'Ruter'], gjoremal: ['checklist', 'Gjøremål'], kart: ['map', 'Kart'], energi: ['bolt', 'Energi'] }; // energi (21.1): i «Mer» til den flyttes // kart (20.22): skjult til den legges til i Tilpass navbar // basseng: fjernet (bassengpopupen er slettet – en gammel «basseng» i bar/more filtreres bort)
+  const DEF = { bar: ['vanning', 'media', 'klima', 'ruter'], more: ['gjoremal'] };
   // Popups i prosjektet (mål for egne knapper)
-  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['basseng', 'pool', 'Basseng'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi']];
+  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi']];
   const ACTS = [['', 'block', 'Ingen'], ['lock_toggle', 'key', 'Veksle dørlås'], ['lock', 'lock', 'Lås dør'], ['unlock', 'lock_open', 'Lås opp'], ['alarm_toggle', 'shield', 'Veksle alarm'], ['alarm_on', 'shield', 'Armer alarm'], ['alarm_off', 'remove_moderator', 'Slå av alarm'], ['lights_on', 'lightbulb', 'Alle lys på'], ['lights_off', 'light_off', 'Alle lys av'], ['garage_toggle', 'garage', 'Veksle garasjeport'], ['tv_toggle', 'tv', 'Veksle TV'], ['vac_toggle', 'robot_2', 'Pause/start støvsuger'], ['service', 'terminal', 'Egendefinert tjeneste']];
   const ACT_DOM = { lock_toggle: 'lock', lock: 'lock', unlock: 'lock', alarm_toggle: 'alarm_control_panel', alarm_on: 'alarm_control_panel', alarm_off: 'alarm_control_panel', garage_toggle: 'cover', tv_toggle: 'media_player', vac_toggle: 'vacuum' };
   const OPS = [['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
@@ -10611,7 +10618,7 @@ try {
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
   // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
   // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
-  // Fiks 30.1: innebygd mål = standard-hashen (basseng → #badebasseng); gamle alias-hasher (#basseng) peker dit (M.canonHash)
+  // Fiks 30.1: innebygd mål = standard-hashen; gamle alias-hasher (f.eks. #nibe) peker dit (M.canonHash)
   const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
   const defHash = (id) => canon('#' + id);
   const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
@@ -20277,7 +20284,7 @@ try {
     /* ======================================================== Popups */
     _popList() {
       const hass = this.hass, c = this.F(), P = this._popCfg(), out = [];
-      M.areas(hass).forEach((a) => {
+      M.areas(hass).filter((a) => !(M.roomBlocked && M.roomBlocked(hass, a.id))).forEach((a) => { // ingen rom-popup for «Basseng» (slettet)
         const rr = get(c, 'rooms.' + a.id) || {}, au = M.roomAuto ? M.roomAuto(hass, a.id) : {};
         out.push({ g: 'rom', key: a.id, hash: '#' + a.id, name: a.name, icon: rr.icon || a.icon || (au.A && au.A.ikon) || 'mdi:texture-box', color: rr.color || (M.romColor ? M.romColor(a.id, hass) : C.orange) });
       });
@@ -24455,7 +24462,7 @@ try {
 
 /* ---- 40-basseng.js ---- */
 try {
-/* Basseng-popup #badebasseng (alias #basseng, fiks 30.1). Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14/30.1). Basseng v3 er utgått
+/* Basseng-kortet msh-basseng-card. Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14/30.1). Basseng v3 er utgått
  * (bare den gamle localStorage-nøkkelen basseng-v3-cfg leses én gang for migrering).
  * ÉTT kort i popupen: msh-basseng-card tegner toppkort (msh-basseng-hero-card, innebygd via MSH.HEROES) → prosalinje
  * «Vannet er …» → glass-faner (Oversikt · Varme · Klor · Spreder) → innholdet i fanen (Oversikt: hurtigknapper Lys ·
@@ -24464,6 +24471,8 @@ try {
  * device_class. Overstyring: overrides.<rolle> (bytt), exclude: [rolle|entitet], include: [{ entity, navn, ikon }] /
  * include.hurtig (ekstra hurtigknapper), include.flagg / include.personer. Gammel config (`hurtig:`, ki-basseng-nøkler,
  * basseng-v3-cfg i localStorage) migreres én gang til config (M.poolNorm). Bunnluft: MSH.popupBottomPad (ingen gap-card).
+ * Bassengpopupene (#badebasseng/#basseng) er slettet: strategien lager dem ikke lenger – kortet legges manuelt i en egen
+ * Bubble-popup (README → Manuelt). Se «bassengpopupene er slettet» nederst (engangsmigrering av ki-store).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -24856,7 +24865,7 @@ try {
     if (Object.keys(labels).length) n.labels = labels;
     return n;
   };
-  // Popup-oppsett fra et importert/gammelt Bubble-popup (#badebasseng med ki-basseng-card, ki-basseng-hero-card og
+  // Popup-oppsett fra et importert/gammelt Bubble-popup (med ki-basseng-card, ki-basseng-hero-card og
   // gap-card) → config for ÉTT msh-basseng-card. null = ikke et gammelt basseng-popup.
   const LEG_TAGS = ['ki-basseng-card', 'ki-basseng-hero-card', 'msh-basseng-hero-card'];
   const tagOfC = (c) => String((c && c.type) || '').replace(/^custom:/, '');
@@ -25382,94 +25391,82 @@ try {
       `;
     }
   }
-  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
+  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
 
-  /* ------------------------------------------------------------ popup #badebasseng · alias #basseng (fiks 26.14/28.14/30.1) */
-  // Fiks 30.1 · nøyaktig ÉN bassengpopup: strategien lager #badebasseng med ÉTT msh-basseng-card (card_id pop-basseng, som
-  // før – oppsettet beholdes). #basseng (og #pool/#svommebasseng) er bare alias: hashchange/location-changed dit →
-  // history.replaceState til #badebasseng (gamle lenker, navbar-config og varsler virker). 28.14-tvillingen (en kopi av
-  // popupen på #badebasseng ved siden av #basseng) er fjernet. En importert/egen popup med de gamle kortene – på en av
-  // hashene – erstattes av den genererte (MSH.POPUP_ALIAS flytter alias-hashen til #badebasseng, MSH.POPUP_SUPERSEDE lar
-  // den genererte vinne til brukeren velger «Bruk egen»), og fjernes fra ki-store én gang (M.bassengMigrateStore).
-  const PHASH = '#badebasseng', OLD_HASH = ['#basseng', '#pool', '#svommebasseng'], ALL_HASH = [PHASH, ...OLD_HASH];
-  M.HASH_ALIAS = M.HASH_ALIAS || {};
-  OLD_HASH.forEach((h) => { M.HASH_ALIAS[h] = PHASH; });
-  M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
-  M.POPUP_CARD_ID[PHASH] = 'pop-basseng';
-  M.BASSENG_HASH = PHASH;
-  const KEEP = ['navn', 'name', 'hurtig', 'varmepumpe', 'pumpe', 'lys', 'stillemodus', 'stikkontakt', 'vanntemp', 'ute', 'pooltak', 'forvalg', 'overrides', 'exclude', 'include', 'area'];
+  /* ------------------------------------------------------------ bassengpopupene er slettet (brukerens beslutning) */
+  // Strategien lager ingen bassengpopup lenger – verken #badebasseng eller #basseng – og ingen rom-popup for et område
+  // som heter «Basseng»/«Pool» (MSH.ROOM_BLOCK). Navbaren har ingen innebygd basseng-knapp, og onboarding foreslår den
+  // ikke. msh-basseng-card finnes fortsatt og kan legges manuelt i en egen popup (README → Manuelt); alias-elementene
+  // ki-basseng-card/ki-basseng-hero-card rendrer det for manuelle dashbord. Omdirigeringen #basseng → #badebasseng er
+  // fjernet (det finnes ikke noe mål).
+  //   · MSH.POPUP_DROP.basseng: gamle/importerte bassengpopups i dashbord-config (strategi-YAML custom_popups, ki-store
+  //     custom_popups) droppes av strategien (MSH.mergePopups → report.dropped) i stedet for å tas over.
+  //   · M.bassengMigrateStore: engangsmigrering av ki-store (migrations.basseng_fjernet), se under.
+  const ALL_HASH = ['#badebasseng', '#basseng', '#pool', '#svommebasseng'];
+  M.BASSENG_HASHES = ALL_HASH;
   const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
-  const popLists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
   const hashN = (cfg) => { const s = String((cfg && cfg.hash) || '').trim(); return s ? s.replace(/^#?/, '#') : ''; };
+  const isPoolHash = (v) => { const s = String(v == null ? '' : v).trim(); return !!s && ALL_HASH.includes(s.replace(/^#?/, '#')); };
   const hasMainC = (cfg) => cardsDeep(cfg && cfg.cards).some((c) => tagOfC(c) === 'msh-basseng-card');
   // Ser ut som en bassengpopup: gamle/nye bassengkort, eller navn/ikon/innhold om basseng (f.eks. decluttering-maler)
   const POOLISH_RX = /basseng|baseng|pool|sv[øo]mme/i;
   const poolish = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || hasMainC(cfg) || POOLISH_RX.test(`${cfg.name || ''} ${cfg.icon || ''}`) || (() => { try { return POOLISH_RX.test(JSON.stringify(cfg.cards || [])); } catch (e) { return false; } })());
-  // Gammel bassengpopup: på en alias-hash (#basseng …) og basseng-aktig, eller på #badebasseng med de gamle kortene
-  const isLegacyPop = (cfg) => { const h = hashN(cfg); return OLD_HASH.includes(h) ? poolish(cfg) : h === PHASH && M.bassengLegacyTest(cfg); };
-  M.bassengIsOldPopup = isLegacyPop;
-  const extraOf = (cfg) => {
-    const card = M.bassengLegacyCard(cfg) || cardsDeep(cfg && cfg.cards).find((c) => tagOfC(c) === 'msh-basseng-card') || {}, out = {};
-    KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
-    return out;
-  };
-  M.bassengExtra = function (config) {
-    for (const L of popLists(config)) for (const e of (Array.isArray(L) ? L : [])) {
-      const cfg = cfgOf(e);
-      if (!isLegacyPop(cfg)) continue;
-      const out = extraOf(cfg);
-      if (Object.keys(out).length) return out;
-    }
-    return undefined;
-  };
-  M.bassengLegacy = (config) => popLists(config).some((L) => (Array.isArray(L) ? L : []).some((e) => isLegacyPop(cfgOf(e))));
-  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
-  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) || (!hasMainC(cfg) && poolish(cfg)) };
-  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
-  M.POPUP_EXTRA[PHASH] = (config) => M.bassengExtra(config);
-  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
-  M.POPUP_LEGACY_CARD[PHASH] = (popup, tag) => (tag === 'msh-basseng-card' && M.bassengLegacyTest(popup) ? M.bassengLegacyCard(popup) : null); // manuelt dashbord (M.buildPopups)
-  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
-  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => poolish(cfg) }; });
-  /* Fiks 28.14 · gamle kort i en importert/overstyrt popup (strategi-YAML custom_popups, ki-store custom_popups/
-   * popup_overrides): ki-basseng-card, ki-basseng-hero-card, msh-basseng-hero-card og gap-card → ÉTT msh-basseng-card med
-   * innstillingene fra de gamle kortene (M.bassengLegacyCard). Andre egne kort i popupen røres ikke. null = ingenting å gjøre.
-   * Strategien kaller den for popupen #badebasseng (MSH.POPUP_MIGRATE). */
-  const isGapC = (c) => tagOfC(c) === 'gap-card';
-  const isPoolC = (c) => LEG_TAGS.includes(tagOfC(c)) || isGapC(c) || tagOfC(c) === 'msh-basseng-card';
-  const onlyPool = (c) => isPoolC(c) || (Array.isArray(c && c.cards) && c.cards.length > 0 && c.cards.every(onlyPool));
-  M.bassengMigratePopup = function (cfg, want) {
-    if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards)) return null;
-    const deep = cardsDeep(cfg.cards), hasMain = deep.some((c) => tagOfC(c) === 'msh-basseng-card');
-    const legacy = M.bassengLegacyTest(cfg), gaps = deep.some(isGapC), mains = deep.filter((c) => tagOfC(c) === 'msh-basseng-card').length;
-    if (!legacy && !(hasMain && gaps) && mains < 2) return null;
-    const w = want && typeof want === 'object' ? want : { type: 'custom:msh-basseng-card', card_id: 'pop-basseng' };
-    const own = deep.find((c) => tagOfC(c) === 'msh-basseng-card');
-    const main = { ...w, ...(M.bassengLegacyCard(cfg) || {}), type: 'custom:msh-basseng-card', card_id: (own && own.card_id) || w.card_id || 'pop-basseng' };
-    const at = cfg.cards.findIndex(onlyPool), rest = cfg.cards.filter((c) => !onlyPool(c));
-    rest.splice(Math.max(0, Math.min(at < 0 ? 0 : at, rest.length)), 0, main);
-    return { ...cfg, cards: rest };
-  };
-  M.POPUP_MIGRATE = M.POPUP_MIGRATE || {};
-  M.POPUP_MIGRATE[PHASH] = (cfg, gen) => M.bassengMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null);
+  // Gammel/importert bassengpopup (droppes av strategien): de gamle kortene (ki-basseng-*, msh-basseng-hero-card), eller
+  // basseng-aktig på en av bassenghashene uten msh-basseng-card. En egen popup med msh-basseng-card (manuelt) beholdes.
+  M.bassengIsOldPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || (ALL_HASH.includes(hashN(cfg)) && !hasMainC(cfg) && poolish(cfg)));
+  // Alle bassengpopups (engangsmigreringen av ki-store): også de med msh-basseng-card, på hvilken som helst hash
+  M.bassengIsPoolPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengIsOldPopup(cfg) || hasMainC(cfg) || (ALL_HASH.includes(hashN(cfg)) && poolish(cfg)));
+  M.POPUP_DROP = M.POPUP_DROP || {};
+  M.POPUP_DROP.basseng = { name: 'Basseng (slettet)', test: (cfg) => M.bassengIsOldPopup(cfg) };
+  // Ingen rom-popup for et område som heter basseng/pool (id eller navn)
+  const POOL_AREA_RX = /basseng|baseng|(^|[\s_-])pool([\s_-]|$)|sv[øo]mmebasseng/i;
+  M.ROOM_BLOCK = M.ROOM_BLOCK || [];
+  M.ROOM_BLOCK.push((hass, id) => { const a = (hass && hass.areas && hass.areas[id]) || {}; return POOL_AREA_RX.test(String(id || '')) || POOL_AREA_RX.test(String(a.name || '')); });
 
-  /* Fiks 30.1 · engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering;
-   * merket i ki-store `migrations.basseng30` (kjører aldri igjen) og logget i konsollen:
-   *   1. custom_popups: gamle bassengpopups (#basseng/#pool/#svommebasseng, eller #badebasseng med gamle kort) fjernes;
-   *      innstillingene (navn, hurtig, roller …) flyttes til kortets config (cards.pop-basseng, bare nøkler som mangler).
-   *   2. popup_overrides: #basseng/basseng → #badebasseng/badebasseng; gamle kort (ki-basseng-*, gap-card) → ÉTT kort.
-   *   3. popups (Tilpass Hjem → Popups: navn/ikon/farge/skjult/header_gap): basseng → badebasseng.
-   *   4. Lenker i alle kortconfiger (navbar, Hjem-kort, prosa-piller, varsler): '#basseng' → '#badebasseng'.
-   *   5. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js fjernes (lovelace/resources/delete).
+  /* Engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering; merket i
+   * ki-store `migrations.basseng_fjernet` (kjører aldri igjen) og logget i konsollen:
+   *   1. custom_popups: ALLE bassengpopups fjernes (gamle kort, msh-basseng-card, eller basseng-aktig på #basseng/
+   *      #badebasseng/#pool/#svommebasseng). Andre popups (også en helt annen popup på #basseng) beholdes.
+   *   2. popup_overrides.basseng/badebasseng/pool/svommebasseng (med og uten #) fjernes.
+   *   3. popups.<samme nøkler> (Tilpass Hjem → Popups: navn/ikon/farge/skjult) fjernes.
+   *   4. Navbar: knappen «basseng» (bar/more/hidden/buttons.basseng) og egne knapper som peker på en bassenghash fjernes.
+   *   5. Lenker til bassenghashene i alle kortconfiger (Hjem-kort, prosa-piller, popup_hash, tap_action …) fjernes;
+   *      selve kortet/pillen beholdes.
+   *   6. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js slettes (lovelace/resources/delete).
    * Service worker-/nettleser-cachen for de gamle filene tømmes ved hver oppstart (M.bassengClearCache). */
-  const MIG_KEY = 'migrations.basseng30';
+  const MIG_KEY = 'migrations.basseng_fjernet';
   const OLD_FILE_RX = /(^|\/)ki-basseng(-hero)?-card\.js(\?|$)/;
-  const swapHash = (o, d = 0) => {
-    if (d > 14 || o == null) return { v: o, n: 0 };
-    if (typeof o === 'string') { const t = o.trim(); return OLD_HASH.includes(t) ? { v: PHASH, n: 1 } : { v: o, n: 0 }; }
-    if (Array.isArray(o)) { let n = 0; const v = o.map((x) => { const r = swapHash(x, d + 1); n += r.n; return r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
-    if (typeof o === 'object') { let n = 0; const v = {}; Object.keys(o).forEach((k) => { const r = swapHash(o[k], d + 1); n += r.n; v[k] = r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
-    return { v: o, n: 0 };
+  const LINK_KEYS = ['navigation_path', 'popup_hash', 'hash', 'link', 'path', 'card_hash', 'icon_hash', 'alarm_hash', 'trash_hash'];
+  // en lenke til en bassenghash: '#basseng' (alle nøkler), 'basseng' uten # (bare lenkenøkler), eller { action: navigate, navigation_path }
+  const isPoolLink = (v, key) => {
+    if (typeof v === 'string') { const t = v.trim(); return t[0] === '#' ? isPoolHash(t) : !!key && LINK_KEYS.includes(key) && isPoolHash(t); }
+    return !!v && typeof v === 'object' && !Array.isArray(v) && v.action === 'navigate' && typeof v.navigation_path === 'string' && isPoolHash(v.navigation_path);
+  };
+  const stripLinks = (o, d = 0, key = null) => {
+    if (d > 14 || o == null || typeof o !== 'object') return { v: o, n: 0 };
+    if (Array.isArray(o)) {
+      let n = 0;
+      const v = [];
+      o.forEach((x) => { if (isPoolLink(x, null)) { n++; return; } const r = stripLinks(x, d + 1); n += r.n; v.push(r.v); });
+      return n ? { v, n } : { v: o, n: 0 };
+    }
+    let n = 0;
+    const v = {};
+    Object.keys(o).forEach((k) => { if (isPoolLink(o[k], k)) { n++; return; } const r = stripLinks(o[k], d + 1, k); n += r.n; v[k] = r.v; });
+    return n ? { v, n } : { v: o, n: 0 };
+  };
+  // knappens mål (navbar): tap_action/tap (HA-format eller streng) eller den gamle hash-nøkkelen
+  const btnPool = (b) => { if (!b || typeof b !== 'object') return false; const t = b.tap_action || b.tap; if (t && typeof t === 'object') return isPoolLink(t); if (typeof t === 'string' && t.trim()) return isPoolHash(t); return b.hash != null && b.hash !== '' && isPoolHash(b.hash); };
+  const navStrip = (c, log, id) => {
+    if (!c || typeof c !== 'object' || Array.isArray(c) || !(c.buttons || Array.isArray(c.bar) || Array.isArray(c.more))) return c;
+    const out = { ...c }, gone = new Set(['basseng']);
+    if (out.buttons && typeof out.buttons === 'object') {
+      const B = { ...out.buttons };
+      Object.keys(B).forEach((k) => { if (k === 'basseng' || (B[k] && B[k].custom && btnPool(B[k]))) { delete B[k]; gone.add(k); log.push(`navbar-knappen «${k}» fjernet (${id})`); } });
+      out.buttons = B;
+    }
+    ['bar', 'more', 'hidden'].forEach((k) => { if (Array.isArray(out[k]) && out[k].some((x) => gone.has(x))) { out[k] = out[k].filter((x) => !gone.has(x)); log.push(`navbar ${k}: basseng fjernet (${id})`); } });
+    return out;
   };
   M.bassengMigrateStore = function (hass) {
     if (M._poolStoreMig || !M.store || !M.store.loaded || typeof M.store.get !== 'function') return false;
@@ -25478,61 +25475,34 @@ try {
     const log = [];
     // 1 · custom_popups
     const CP = M.store.get('custom_popups');
-    let extra = {};
     if (Array.isArray(CP)) {
-      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!isLegacyPop(cfg)) return true; extra = { ...extraOf(cfg), ...extra }; log.push('custom_popups ' + hashN(cfg) + ' fjernet'); return false; });
+      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!M.bassengIsPoolPopup(cfg)) return true; log.push('custom_popups ' + (hashN(cfg) || '?') + ' fjernet'); return false; });
       if (keep.length !== CP.length) M.store.set('custom_popups', keep);
     }
-    if (Object.keys(extra).length) {
-      const id = 'pop-basseng', cur = M.store.get('cards.' + id) || {}, add = {};
-      Object.keys(extra).forEach((k) => { if (cur[k] == null) add[k] = extra[k]; });
-      if (Object.keys(add).length) { M.store.set('cards.' + id, { ...cur, ...add }); log.push('innstillinger (' + Object.keys(add).join(', ') + ') → cards.' + id); }
-    }
-    // 2 · popup_overrides
-    const O = M.store.get('popup_overrides');
-    if (O && typeof O === 'object') {
+    // 2 · popup_overrides · 3 · popups.<key>
+    [['popup_overrides', 'popup_overrides'], ['popups', 'popups']].forEach(([key, lbl]) => {
+      const O = M.store.get(key);
+      if (!O || typeof O !== 'object') return;
       const n = { ...O };
       let ch = false;
-      Object.keys(O).forEach((k) => {
-        const h = '#' + String(k).replace(/^#/, ''), ov = O[k];
-        if (!ALL_HASH.includes(h)) return;
-        let v = ov;
-        if (ov && typeof ov === 'object') {
-          const fx = ov.replace && ov.config ? M.bassengMigratePopup(ov.config) : M.bassengMigratePopup(ov);
-          if (fx) { v = ov.replace && ov.config ? { ...ov, config: { ...fx, hash: PHASH } } : fx; ch = true; log.push('popup_overrides ' + k + ': gamle kort → ÉTT msh-basseng-card'); }
-          else if (ov.replace && ov.config && ov.config.hash && OLD_HASH.includes(hashN(ov.config))) { v = { ...ov, config: { ...ov.config, hash: PHASH } }; ch = true; }
-        }
-        if (h !== PHASH) {
-          const nk = String(k)[0] === '#' ? PHASH : PHASH.slice(1);
-          delete n[k];
-          if (!(nk in n) && !(PHASH in n) && !(PHASH.slice(1) in n)) { n[nk] = v; log.push('popup_overrides ' + k + ' → ' + nk); } else log.push('popup_overrides ' + k + ' fjernet (' + nk + ' finnes)');
-          ch = true;
-        } else n[k] = v;
-      });
-      if (ch) M.store.set('popup_overrides', n);
-    }
-    // 3 · popups.<key>
-    const P = M.store.get('popups');
-    if (P && typeof P === 'object') {
-      const n = { ...P };
-      let ch = false;
-      OLD_HASH.forEach((h) => [h, h.slice(1)].forEach((k) => {
-        if (!(k in n)) return;
-        const tk = PHASH.slice(1), v = { ...(n[k] || {}) };
-        if (v.prefer === 'custom' && !(M.store.get('custom_popups') || []).some((e) => hashN(cfgOf(e)) === PHASH)) delete v.prefer;
-        if (!n[tk] && Object.keys(v).length) n[tk] = v;
-        delete n[k]; ch = true; log.push('popups.' + k + ' → popups.' + tk);
-      }));
-      if (ch) M.store.set('popups', n);
-    }
-    // 4 · lenker i kortconfigene
+      Object.keys(O).forEach((k) => { if (isPoolHash(k)) { delete n[k]; ch = true; log.push(lbl + '.' + k + ' fjernet'); } });
+      if (ch) M.store.set(key, n);
+    });
+    // 4 · navbar-knapper · 5 · lenker i kortconfigene
     const CD = M.store.get('cards');
-    if (CD && typeof CD === 'object') { const r = swapHash(CD); if (r.n) { M.store.set('cards', r.v); log.push(r.n + ' lenke(r) #basseng → #badebasseng i kortconfigene'); } }
+    if (CD && typeof CD === 'object') {
+      let ch = false;
+      const n = {};
+      Object.keys(CD).forEach((id) => { const v = navStrip(CD[id], log, id); if (v !== CD[id]) ch = true; n[id] = v; });
+      const r = stripLinks(n);
+      if (r.n) log.push(r.n + ' lenke(r) til #basseng/#badebasseng fjernet i kortconfigene');
+      if (ch || r.n) M.store.set('cards', r.v);
+    }
     M.store.set(MIG_KEY, { at: new Date().toISOString(), log }, { immediate: true });
-    console.info('[ki-msh] Basseng-migrering (fiks 30.1) kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
-    // 5 · gamle Lovelace-ressurser (bare admin)
+    console.info('[ki-msh] Basseng-popupene er slettet – migrering kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
+    // 6 · gamle Lovelace-ressurser (bare admin)
     if (hass && hass.user && hass.user.is_admin && hass.callWS) {
-      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er fjernet (gammelt kort)')))))
+      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er slettet (gammelt kort)')))))
         .catch((e) => console.warn('[ki-msh] Basseng: kunne ikke rydde Lovelace-ressursene (YAML-modus?)', e && (e.message || e.code)));
     }
     return true;
@@ -25567,7 +25537,7 @@ try {
     static getStubConfig() { return { card_id: 'pop-basseng' }; }
     setConfig(c) {
       this._cfg = { ...(c || {}), type: 'custom:msh-basseng-card' };
-      if (!warned.has(tag)) { warned.add(tag); console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-basseng-card${hero ? ' (ingenting hvis popupen allerede har et bassengkort)' : ''}. Bytt til «type: custom:msh-basseng-card» i popupen ${PHASH}.`); }
+      if (!warned.has(tag)) { warned.add(tag); console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-basseng-card${hero ? ' (ingenting hvis popupen allerede har et bassengkort)' : ''}. Bytt til «type: custom:msh-basseng-card» i popupen.`); }
       if (this._inner) this._inner.setConfig(this._cfg);
       else if (this.isConnected) this._mount();
     }
@@ -25611,29 +25581,6 @@ try {
     window.__mshPoolHash = true;
     setTimeout(() => M.bassengDefineAliases(), 1500);
     setTimeout(() => M.bassengClearCache(), 3000);
-    // #basseng (alias) → #badebasseng, med mindre en helt annen (ikke-basseng) popup bruker den gamle hashen
-    const ownPopupAt = (hash) => {
-      const R = M.popupReport;
-      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden);
-      let found = false;
-      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && hashN(c) === hash && !poolish(c)) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
-      w(document, 0);
-      return found;
-    };
-    M.bassengRedirect = function () {
-      const h = location.hash;
-      if (!OLD_HASH.includes(h) || ownPopupAt(h)) return false;
-      try {
-        const old = location.href;
-        history.replaceState(history.state, '', location.pathname + location.search + PHASH);
-        window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: old, newURL: location.href }));
-        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
-        return true;
-      } catch (x) { return false; }
-    };
-    // capture: før Bubble Card leser hashen
-    ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => M.bassengRedirect(), true));
-    setTimeout(() => M.bassengRedirect(), 0);
   }
 })();
 
@@ -42466,13 +42413,14 @@ try {
     ['kart', 'Kart', 'mdi:map', (h) => { const n = posN(h); return [n, pl(n, 'med posisjon', 'med posisjon')]; }],
     ['vanning', 'Vanning', 'mdi:sprinkler', (h) => { const n = Math.max(cnt(h, 'valve') + plat(h, 'opensprinkler'), rx(h, /vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean'])); return [n, pl(n, 'ventil/sone', 'ventiler/soner')]; }],
     ['soppel', 'Søppel', 'mdi:trash-can', (h) => { const id = M.hjemTrashAuto ? M.hjemTrashAuto(h) : null; return [id ? 1 : 0, id ? M.name(h, id) : '']; }],
-    ['basseng', 'Basseng', 'mdi:pool', (h) => { const a = M.findArea(h, 'basseng', 'pool'), r = rx(h, /basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']); return [a || r ? Math.max(r, 1) : 0, a ? M.areaName(h, a) + (r ? ' · ' + pl(r, 'entitet', 'entiteter') : '') : pl(r, 'entitet', 'entiteter')]; }],
   ];
   const FNK = FN.map((f) => f[0]);
-  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (basseng → badebasseng, M.canonHash); navbar-id-en er fortsatt «basseng»
+  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (alias-hasher via M.canonHash). Bassengpopupen er slettet – foreslås ikke.
   const pk = (k) => (M.canonHash ? M.canonHash('#' + k).slice(1) : k);
   const fnOf = (k) => FN.find((f) => f[0] === k) || FN.find((f) => pk(f[0]) === pk(k));
-  const NAV_CAT = ['vanning', 'media', 'klima', 'basseng', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
+  const NAV_CAT = ['vanning', 'media', 'klima', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
+  // områder med rom-popup (ikke «Basseng»/«Pool» – MSH.roomBlocked, bassengpopupen er slettet)
+  const roomAreas = (h) => M.areas(h).filter((a) => !(M.roomBlocked && M.roomBlocked(h, a.id)));
   const areaDevs = (h, a) => { const D = Object.values((h && h.devices) || {}).filter((d) => d && d.area_id === a).length; return D || M.areaEntities(h, a).length; };
 
   /* ------------------------------------------------------------ config-oppslag (samme kilder som de fulle arkene) */
@@ -42498,7 +42446,7 @@ try {
   const navId = () => { const l = navLive(); return (l && l.config && l.config.card_id) || (M.CARD_IDS || {}).navbar || 'ki-navbar'; };
   const navCfg = () => { const l = navLive(); return { ...((l && l.config) || {}), ...(M.store.card(navId()) || {}) }; };
   const navSet = (patch) => put('cards.' + navId(), { ...(M.store.card(navId()) || {}), ...patch });
-  const navBar = () => { const c = navCfg(); return Array.isArray(c.bar) ? c.bar : ['vanning', 'media', 'klima', 'basseng', 'ruter']; };
+  const navBar = () => { const c = navCfg(); return Array.isArray(c.bar) ? c.bar : ['vanning', 'media', 'klima', 'ruter']; };
   const navKnows = (k) => NAV_CAT.includes(k) || !!((navCfg().buttons || {})[k]);
   // Header: header_profiles (denne brukeren × enheten, som «Tilpass header»), ellers kortets config
   const HPROF = 'header_profiles';
@@ -42635,7 +42583,7 @@ try {
     const init = () => {
       const h = hassNow(), hid = hdrHidden(), H = hdrCfg();
       o.persons = M.all(h, 'person').map((id) => ({ id, on: !hid.has(id) }));
-      o.rooms = M.areas(h).map((a) => ({ id: a.id, on: !popCfg(a.id).hidden, col: roomCol(h, a.id) }));
+      o.rooms = roomAreas(h).map((a) => ({ id: a.id, on: !popCfg(a.id).hidden, col: roomCol(h, a.id) }));
       o.fns = FN.map(([k]) => { const [n] = fnOf(k)[3](h); const stored = k === 'soppel' ? !soppelOn() : popCfg(k).hidden != null; return { k, on: stored ? fnOn(k) : n > 0 }; });
       const bar = navBar();
       o.nav = bar.filter((k) => o.fns.some((f) => f.k === k && f.on)).slice(0, 5);
@@ -42817,7 +42765,7 @@ try {
         }
       } catch (e) { console.error('[ki-msh] onboarding steg ' + s, e); }
     };
-    const known = () => { const h = hassNow(); return [...new Set([...M.areas(h).map((a) => 'rom:' + a.id), ...FNK.map((k) => 'fn:' + k), ...fnList(h).map((f) => 'fn:' + f.key)])]; };
+    const known = () => { const h = hassNow(); return [...new Set([...roomAreas(h).map((a) => 'rom:' + a.id), ...FNK.map((k) => 'fn:' + k), ...fnList(h).map((f) => 'fn:' + f.key)])]; };
     const finish = () => {
       put('onboarded', true);
       put('onboard_known', known());
@@ -42955,7 +42903,7 @@ try {
       desc: 'Utseendet på alle Tilpass-ark og glass-animasjonen i faner og segmenter.', open: { label: 'Tilpass Hjem', ev: { editor: 'home', focus: 'faner' } },
       q: [toggle('Liquid Glass-ark', () => !!(M.glassOn && M.glassOn()), (v) => M.setGlassTheme && M.setGlassTheme(v)),
         toggle('Liquid Glass-animasjon', () => !!(M.glassAnimOn && M.glassAnimOn()), (v) => M.setGlassAnim && M.setGlassAnim(v))] });
-    M.areas(h).forEach((a) => {
+    roomAreas(h).forEach((a) => {
       const hid = !!popCfg(a.id).hidden, c = roomCol(h, a.id);
       L.push({ id: 'rom:' + a.id, g: 'rom', icon: popCfg(a.id).icon || a.icon || 'mdi:home', color: c, title: a.name, sub: `${pl(areaDevs(h, a.id), 'enhet', 'enheter')} · ${hid ? 'skjult' : 'popup #' + a.id}`,
         desc: `Rom-popupen #${a.id}: klima-toppkort, lys, media og scener fra området.`, open: { label: 'Tilpass rom', ev: { editor: 'room', area: a.id } },
@@ -43003,7 +42951,7 @@ try {
     if (!h || !M.store || !sget('onboarded')) return false;
     const known = new Set(sget('onboard_known') || []), R = reviewed();
     if (!known.size) return false;
-    const ids = [...M.areas(h).map((a) => 'rom:' + a.id), ...fnList(h).map((f) => 'fn:' + f.key)];
+    const ids = [...roomAreas(h).map((a) => 'rom:' + a.id), ...fnList(h).map((f) => 'fn:' + f.key)];
     return ids.some((id) => !known.has(id) && !R[id]);
   };
 
@@ -52048,4 +51996,4 @@ try {
 
 } catch (e) { console.error('[ki-msh] 99-ui-persist.js', e); }
 
-console.info('%c KI MSH %c 1.5.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
+console.info('%c KI MSH %c 1.5.1 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');

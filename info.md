@@ -4,8 +4,9 @@
 
 My SmartHome v3-dashbordet for Home Assistant – custom cards i JavaScript, bygget for **Bubble Card-popups**.
 
-- Strategien `custom:ki-dashboard` bygger Hjem, navbaren og én popup per rom og funksjon (Basseng, Vanning, Varmepumpe,
-  Server, Klima, Lys, Media, Kamera, Sikkerhet, Vær, Kalender, Energi, Tesla, Sir Sweeps …).
+- Strategien `custom:ki-dashboard` bygger Hjem, navbaren og én popup per rom og funksjon (Vanning, Varmepumpe, Server,
+  Klima, Lys, Media, Kamera, Sikkerhet, Vær, Kalender, Energi, Tesla, Sir Sweeps …). Basseng-kortet legges manuelt i en
+  egen popup (bassengpopupen lages ikke lenger).
 - Alt autokonfigureres fra HA-områder, -registre og KI Rom – ingen eksempeldata.
 - «Tilpass»-ark for Hjem, navbar, header, rom og hver popup, pluss GUI-editor for alle kort.
 

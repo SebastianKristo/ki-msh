@@ -33,10 +33,10 @@
   const PINK = C.accent;
 
   // Innebygde knapper (id = popup-hash uten #). Ikon/navn fra designets CAT.
-  const CAT = { vanning: ['sprinkler', 'Sprinkler'], media: ['music_note', 'Musikk'], klima: ['thermostat', 'Klima'], basseng: ['pool', 'Basseng'], ruter: ['tram', 'Ruter'], gjoremal: ['checklist', 'Gjøremål'], kart: ['map', 'Kart'], energi: ['bolt', 'Energi'] }; // energi (21.1): i «Mer» til den flyttes // kart (20.22): skjult til den legges til i Tilpass navbar
-  const DEF = { bar: ['vanning', 'media', 'klima', 'basseng', 'ruter'], more: ['gjoremal'] };
+  const CAT = { vanning: ['sprinkler', 'Sprinkler'], media: ['music_note', 'Musikk'], klima: ['thermostat', 'Klima'], ruter: ['tram', 'Ruter'], gjoremal: ['checklist', 'Gjøremål'], kart: ['map', 'Kart'], energi: ['bolt', 'Energi'] }; // energi (21.1): i «Mer» til den flyttes // kart (20.22): skjult til den legges til i Tilpass navbar // basseng: fjernet (bassengpopupen er slettet – en gammel «basseng» i bar/more filtreres bort)
+  const DEF = { bar: ['vanning', 'media', 'klima', 'ruter'], more: ['gjoremal'] };
   // Popups i prosjektet (mål for egne knapper)
-  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['basseng', 'pool', 'Basseng'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi']];
+  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi']];
   const ACTS = [['', 'block', 'Ingen'], ['lock_toggle', 'key', 'Veksle dørlås'], ['lock', 'lock', 'Lås dør'], ['unlock', 'lock_open', 'Lås opp'], ['alarm_toggle', 'shield', 'Veksle alarm'], ['alarm_on', 'shield', 'Armer alarm'], ['alarm_off', 'remove_moderator', 'Slå av alarm'], ['lights_on', 'lightbulb', 'Alle lys på'], ['lights_off', 'light_off', 'Alle lys av'], ['garage_toggle', 'garage', 'Veksle garasjeport'], ['tv_toggle', 'tv', 'Veksle TV'], ['vac_toggle', 'robot_2', 'Pause/start støvsuger'], ['service', 'terminal', 'Egendefinert tjeneste']];
   const ACT_DOM = { lock_toggle: 'lock', lock: 'lock', unlock: 'lock', alarm_toggle: 'alarm_control_panel', alarm_on: 'alarm_control_panel', alarm_off: 'alarm_control_panel', garage_toggle: 'cover', tv_toggle: 'media_player', vac_toggle: 'vacuum' };
   const OPS = [['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
@@ -241,7 +241,7 @@
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
   // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
   // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
-  // Fiks 30.1: innebygd mål = standard-hashen (basseng → #badebasseng); gamle alias-hasher (#basseng) peker dit (M.canonHash)
+  // Fiks 30.1: innebygd mål = standard-hashen; gamle alias-hasher (f.eks. #nibe) peker dit (M.canonHash)
   const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
   const defHash = (id) => canon('#' + id);
   const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
