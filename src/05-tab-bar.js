@@ -52,7 +52,7 @@
   const TH = M.theme || {};
   const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(255 255 255 / ${a})`);
   const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
-  const mode = (v) => (v === 'ikon' || v === 'i' || v === 'ikoner' ? 'i' : v === 'tekst' || v === 't' ? 't' : v === 'aktiv' || v === 'a' ? 'a' : 'b');
+  const mode = (v) => (v === 'ikon' || v === 'i' || v === 'ikoner' ? 'i' : v === 'tekst' || v === 't' ? 't' : v === 'aktiv' || v === 'a' ? 'a' : v === 'rad' || v === 'r' ? 'r' : 'b'); // r = ikon + tekst på én linje (forhåndsvisning)
 
   /* ================================================================ 33.4 · fanehøyde */
   const MIN = 28, MAX = 64, STEPS = [[32, 'Lav'], [38, 'Standard'], [44, 'Middels'], [50, 'Høy'], [56, 'Ekstra']], STD = 38;

@@ -211,6 +211,9 @@
     return u[0] === '/' && hass.hassUrl ? hass.hassUrl(u) : u;
   };
 
+  // 33.4 · fanehøyde (05-tab-bar.js): variabler + felles editorfelt (Direkte/Frigate)
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const KTH = { items: [{ key: 'live', label: 'Direkte', icon: 'mdi:video' }, { key: 'frigate', label: 'Frigate', icon: 'mdi:history' }], mode: 'rad', native: 38, gear: true };
   class Kamera extends M.Card {
     static get cardName() { return 'Kamera'; }
     static get defaults() { return { refresh: 10 }; }
@@ -232,6 +235,7 @@
             { type: 'select', name: 'layout', label: 'Oppsett', options: LAYOUTS.map(([k, l]) => [k, l]), default: layoutOf(c) },
             { type: 'select', name: 'mode', label: 'Startmodus', options: [['live', 'Direkte'], ['frigate', 'Frigate']], default: srcMode(c) },
             { type: 'order', name: 'tab_order', hiddenName: 'tab_hidden', label: 'Faner (hold inne en fane i popupen og dra for å flytte)', options: [['live', 'Direkte'], ['frigate', 'Frigate']] }, // Fiks 28.13
+            ...(M.tabH ? [M.tabH.field(KTH)] : []), // 33.4: fanehøyde (Direkte/Frigate)
             { type: 'select', name: 'view', label: 'Startvisning', options: [['alle', 'Alle'], ['events', 'Hendelser']], default: 'alle' },
             { type: 'number', name: 'refresh', label: 'Oppdater stillbilder (sekunder)', min: 2, max: 300, default: 10, help: 'Kun mens popupen er åpen' },
             { type: 'text', name: 'frigate_instance', label: 'Frigate-instans', placeholder: 'frigate' },
@@ -408,7 +412,7 @@
       const tOrd = Array.isArray(cfg.tab_order) ? cfg.tab_order : [], tIx = (k) => { const i = tOrd.indexOf(k); return i < 0 ? 9 : i; }; // Fiks 28.13: tab_order
       const modes = [['live', 'Direkte', 'videocam'], ['frigate', 'Frigate', 'history']].sort((a, b) => tIx(a[0]) - tIx(b[0])).filter((m, i, A) => !(cfg.tab_hidden || []).includes(m[0]) || A.every((x) => (cfg.tab_hidden || []).includes(x[0]))).map(([k, l, i]) => `<button class="md ${mode === k ? 'on' : ''}" data-act="mode" data-v="${k}" data-haptic="selection">${M.icon(i, 18)}${l}</button>`).join('');
       // Visning-meny (▾): i popup til høyre for Direkte/Frigate, i dashbord i headeren
-      const top = `<div class="top" style="margin-top:${dash ? 0 : padTOf(cfg)}px"><div class="seg">${modes}</div>${dash ? '' : `<button class="tune ${this._drop ? 'on' : ''}" data-act="drop" title="Visning">${M.icon('tune', 22)}</button>`}</div>`;
+      const top = `<div class="top" style="margin-top:${dash ? 0 : padTOf(cfg)}px;${M.tabH ? M.tabH.style(cfg) : ''}"><div class="seg">${modes}</div>${dash ? '' : `<button class="tune ${this._drop ? 'on' : ''}" data-act="drop" title="Visning">${M.icon('tune', 22)}</button>`}</div>`;
       const head = dash ? `<div class="hd"><button class="hb ${this._drop ? 'on' : ''}" data-act="drop" title="Visning"><span class="hi">${M.icon(cfg.icon || 'videocam', 22)}</span>${M.icon('mdi:chevron-down', 18, 'color:var(--ki-text-mid, var(--gray700,#979797))')}</button><span class="ht ell">${esc(cfg.title || 'Kamera')}</span><span class="hc">${vis.length} ${vis.length === 1 ? 'kamera' : 'kameraer'}</span></div>` : '';
       const back = dash && cfg.back_path ? `<button class="back" data-act="back" data-haptic="light">${M.icon('mdi:chevron-left', 22)}<span>Tilbake</span></button>` : '';
       const wrap = (inner) => `<div class="k ${dash ? 'dash' : 'pop'} ${back ? 'hasback' : ''}" style="--cg:${gapOf(cfg)}px;--tfs:${textOf(cfg)}px">${head}${top}${inner}</div>${back}`;
@@ -692,10 +696,12 @@
         .ht{flex:1;min-width:0;font-size:28px;font-weight:500}
         .hc{flex:none;font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .top{position:relative;display:flex;gap:8px;align-items:center}
-        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:23px;background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
-        .md{height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, ▾-knappen = sporets høyde */
+        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 4px);background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
+        .md{height:${TV('th', 38)};padding:0 ${TV('tp', 0)};border-radius:calc(${TV('th', 38)} / 2);display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
         .md.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-        .tune{width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none;transition:background .2s}
+        .md ha-icon{--mdc-icon-size:${TV('ti', 18)} !important;width:${TV('ti', 18)} !important;height:${TV('ti', 18)} !important}
+        .tune{width:calc(${TV('th', 38)} + 8px);height:calc(${TV('th', 38)} + 8px);border-radius:calc(${TV('th', 38)} / 2 + 4px);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none;transition:background .2s}
         .tune.on{background:var(--ki-surface-2, var(--gray300,#404040))}
         .chips{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0;padding:0;min-width:0}
         .ch{flex:none;height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
@@ -868,6 +874,8 @@
       sr.addEventListener('keydown', (e) => { const t = e.target; if (t && t.dataset && t.dataset.a === 'nm' && e.key === 'Enter') { e.preventDefault(); t.blur(); } });
       // Slider: ikke la Bubble Card / arket scrolle eller lukke mens man drar
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (e.target && e.target.type === 'range') e.stopPropagation(); }, { passive: true }));
+      // 33.4: fanehøyde – slider live (utkast + forhåndsvisning), lagres i utkastet ved slipp/segment
+      if (M.tabH) M.tabH.bindEditor(sr, { set: (v, commit) => { if (commit) return this._set({ tab_height: v }); const c = { ...this._config }; if (v == null) delete c.tab_height; else c.tab_height = v; this._config = c; this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit: false } })); } });
     }
     set inline(v) { this._inline = v; }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
@@ -909,7 +917,8 @@
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="s"><div class="st"><span>Visning</span><span class="sm">${esc((LAYOUTS.find((x) => x[0] === L) || [])[1] || '')}</span></div>
-          <div class="lg">${LAYOUTS.map(([k, l, i]) => `<button class="${L === k ? 'on' : ''}" data-a="lay" data-v="${k}">${M.icon(i, 22)}<span>${esc(l)}</span></button>`).join('')}</div></div>
+          <div class="lg">${LAYOUTS.map(([k, l, i]) => `<button class="${L === k ? 'on' : ''}" data-a="lay" data-v="${k}">${M.icon(i, 22)}<span>${esc(l)}</span></button>`).join('')}</div>
+          ${M.tabH ? `<div style="padding:6px 4px 0" data-key="tabh">${M.tabH.editorHTML(c.tab_height, { ...KTH, cfg: c })}</div>` : ''}</div>
         <div class="s"><div class="st"><span>Utseende</span></div>
           ${M.spacingEditorHTML ? M.spacingEditorHTML(SP_FIELDS, { cam_gap: g, padT: padTOf(c) }, 'ksp-kamera') : `<div class="spc">
             ${spRow('cam_gap', 'mdi:arrow-expand-horizontal', 'Mellomrom', g, 0, 24, 1, GAP_PRESETS.map(([v, l]) => [v, `${l} ${v}`]))}
