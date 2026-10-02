@@ -28,6 +28,7 @@
   const HASH = '#kalender';
   const TTL = 300000, DAY = 86400000;
   const TABS = [['kalender', 'Kalender', 'mdi:calendar-month'], ['hytta', 'Hytta', 'mdi:home-roof'], ['framover', 'Framover', 'mdi:movie'], ['bursdager', 'Bursdager', 'mdi:cake-variant'], ['posten', 'Posten', 'mdi:email']];
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
   const PARTS = {
     kalender: [['main', 'Kalender']],
@@ -494,7 +495,7 @@
     ];
     return [
       { type: 'tabs', id: 'kalender', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'name' ? 'tekst' : 'aktiv'), native: 40, gear: true })] : [])] }, // 33.4: fanehøyde
         { key: 'kalendere', label: 'Kalendere', icon: 'mdi:calendar-multiple', focus: ['kalendere'], fields: [kal] },
         { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde)] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
@@ -671,11 +672,11 @@
       const view = viewTab ? this._view(t) : 'liste';
       const vIcon = !viewTab ? 'mdi:tune-variant' : view === 'maned' ? 'mdi:view-agenda' : 'mdi:calendar-month'; // calendar_month ↔ view_agenda
       const mode = `<div class="mode"><button class="mb press" aria-label="${gear ? 'Tilpass kalender' : viewTab ? (view === 'maned' ? 'Vis liste' : 'Vis måned') : 'Tilpass kalender'} · hold for kalendere · sveip for tannhjul" data-mode="${gear ? 'gear' : 'view'}">
-        <span class="rail" style="transform:translateY(${gear ? -48 : 0}px)"><span>${M.icon(vIcon, 22)}</span><span>${M.icon('mdi:cog', 22)}</span></span></button>
+        <span class="rail" style="transform:translateY(${gear ? 'calc(-1 * var(--mbh, 48px))' : '0px'})"><span>${M.icon(vIcon, 22)}</span><span>${M.icon('mdi:cog', 22)}</span></span></button>
         <span class="mdots" aria-hidden="true"><i class="${gear ? '' : 'on'}"></i><i class="${gear ? 'on' : ''}"></i></span></div>`;
       let body;
       try { body = this['_t_' + t](); } catch (e) { body = this._failHTML(e); }
-      return `<div class="wrap"><div class="top">${tabs}${mode}</div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
+      return `<div class="wrap"><div class="top"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabs}${mode}</div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
     }
     _parts(t) { const hid = partHidden(this.config, t); return partOrder(this.config, t).filter((p) => !hid.has(p)); }
     _missing(text, section) { return `<div class="miss"><span class="mdash">–</span><span>·</span><button class="pick press" data-act="customize" data-section="${esc(section || 'kilder')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
@@ -1093,19 +1094,21 @@
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (40), sporet H + 8, knappen = sporets høyde */
+        .top{display:flex;align-items:center;gap:8px;min-width:0;--mbh:calc(${TV('th', 40)} + 8px)}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden}
         .tabs .itab{color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
         .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .tabs.itabs>.itab{min-width:30px}
+        .tabs.itabs>.itab{min-width:30px;height:${TV('th', 40)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 14)}}
+        .tabs.itabs>.itab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
         .tabs.itabs>.itab[aria-selected="true"]{padding:0 12px 0 10px}
         .tabs.names{overflow-x:auto;touch-action:pan-x}
-        .ntab{flex:1 0 auto;height:40px;padding:0 14px;border-radius:20px;font-size:13px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .ntab{flex:1 0 auto;height:${TV('th', 40)};padding:0 ${TV('tp', 14)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 13)};white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .mode{position:relative;flex:none;display:flex;align-items:center}
-        .mb{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;color:var(--ki-text, var(--white,#fafafa));box-shadow:${C.edge}}
+        .mb{width:var(--mbh, 48px);height:var(--mbh, 48px);border-radius:calc(var(--mbh, 48px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;color:var(--ki-text, var(--white,#fafafa));box-shadow:${C.edge}}
         .rail{display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.34,1.4,.64,1)}
-        .rail>span{width:48px;height:48px;display:grid;place-items:center;flex:none}
+        .rail>span{width:var(--mbh, 48px);height:var(--mbh, 48px);display:grid;place-items:center;flex:none}
         .mdots{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;pointer-events:none}
         .mdots i{width:4px;height:4px;border-radius:2px;background:var(--ki-text-3, var(--gray500,#696969));transition:background .2s,height .2s}
         .mdots i.on{height:10px;background:var(--ki-text, var(--gray1000,#e1e1e1))}
@@ -1257,7 +1260,7 @@
         .bform .pri,.pka .pri{height:44px;padding:0 16px;border-radius:22px;background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:600;display:inline-flex;align-items:center;gap:6px;font-size:13px}
         .post{padding:16px;display:flex;flex-direction:column;gap:14px}
         .pt{display:flex;align-items:center;gap:14px}
-        .pic{width:60px;height:60px;border-radius:30px;display:grid;place-items:center;background:${WA(0.1)};flex:none}
+        .pic{width:60px;height:60px;border-radius:30px;display:grid;place-items:center;background:var(--ki-surface-2, rgba(250,251,252,.1));flex:none}
         .pic.on{background:${C.red};color:var(--ki-on-accent, #232323)}
         .pt .grow{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
         .pchip{height:24px;padding:0 10px;border-radius:12px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray900,#c7c7c7))}

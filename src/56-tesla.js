@@ -622,6 +622,9 @@
   // Fiks 27.9 (Tesla v3): Fylt = beholder #3a3a3a (r24, padding 4, gap 2, inset .05), fane 40 px r20 14/500, inaktiv #afafaf,
   // aktiv rosa gradient + #3a3a3a. Kontur = sentrert, kant rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1))), r22, padding 3, fane 36 px r18 15 px, aktiv rosa
   // + #282828, inaktiv #fafafa. Ikon vises bare med «Ikoner / Ikon + aktiv / Begge» (standard Tekst).
+  // 33.4 · fanehøyde (05-tab-bar.js): variabler + felles editorfelt (Fylt 40 / Kontur 36 px uten valg)
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const TTH = { native: (c) => (tabsCfg(c).style === 'outline' ? 36 : 40) };
   function tabBtn(c, k, on, attrs) {
     const [, label, icon] = TABL[k], T = tabsCfg(c), mode = T.content;
     const showIcon = mode !== 'text', showLabel = mode === 'text' || mode === 'both' || (mode === 'icon_active' && on);
@@ -631,17 +634,18 @@
   const tabBar = (c, inner) => `<div class="tbox ${tabsCfg(c).style === 'outline' ? 'ol' : 'fl'}">${inner}</div>`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
     ${pre} .tbox{flex:1;min-width:0;box-sizing:border-box}
-    ${pre} .tbox.fl{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('var(--ki-surface, var(--gray200,#3a3a3a))', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}overflow:hidden}
-    ${pre} .tbox.fl .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:20px;overflow:hidden;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tbox.fl{padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);${M.tabSurface ? M.tabSurface('var(--ki-surface, var(--gray200,#3a3a3a))', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}overflow:hidden}
+    ${pre} .tbox.fl .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:calc(${TV('th', 40)} / 2);overflow:hidden;-webkit-mask-image:none;mask-image:none}
     ${pre} .tbox.fl .tabs>.tab{min-width:0;width:100%}
-    ${pre} .tbox.fl .tab{height:40px;padding:0 8px;border-radius:20px;font-size:14px;font-weight:500}
-    ${pre} .tbox.fl .tab.io{padding:0 10px}
+    ${pre} .tbox.fl .tab{height:${TV('th', 40)};padding:0 ${TV('tp', 8)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 14)};font-weight:500}
+    ${pre} .tbox.fl .tab.io{padding:0 ${TV('tp', 10)}}
+    ${pre} .tbox .tab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
     ${pre} .tbox.ol{display:flex;justify-content:center}
-    ${pre} .tbox.ol .tabs{display:flex;gap:2px;padding:3px;border-radius:22px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1)));max-width:100%;-webkit-mask-image:none;mask-image:none}
-    ${pre} .tbox.ol .tab{height:36px;min-width:44px;padding:0 20px;border-radius:18px;font-size:15px;font-weight:400}
-    ${pre} .tbox.ol .tab.io{padding:0 14px}
+    ${pre} .tbox.ol .tabs{display:flex;gap:2px;padding:3px;border-radius:calc(${TV('th', 38)} / 2 + 3px);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1)));max-width:100%;-webkit-mask-image:none;mask-image:none}
+    ${pre} .tbox.ol .tab{height:${TV('th', 36)};min-width:44px;padding:0 ${TV('tp', 20)};border-radius:calc(${TV('th', 36)} / 2);font-size:${TV('tf', 15)};font-weight:400}
+    ${pre} .tbox.ol .tab.io{padding:0 ${TV('tp', 14)}}
     ${pre} .tab{overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .2s,color .2s}
-    ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('var(--ki-surface, var(--gray200,#3a3a3a))', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}color:var(--ki-text, #fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    ${pre} .gear{width:calc(${TV('th', 40)} + 8px);height:calc(${TV('th', 40)} + 8px);border-radius:calc(${TV('th', 40)} / 2 + 4px);flex:none;display:grid;place-items:center;${M.tabSurface ? M.tabSurface('var(--ki-surface, var(--gray200,#3a3a3a))', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}color:var(--ki-text, #fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     ${pre} .gear:active{transform:scale(.94)}`;
 
   /* ------------------------------------------------------------ «Tilpass Tesla»: dra-og-slipp for fanene (fallgruve 2) */
@@ -708,7 +712,7 @@
     const preview = { type: 'html', html: (hh, cc) => {
       const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
       return `<style>${TAB_CSS('.tsp')}.tsp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828)}.tsp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px 10px}.tsp .tab,.tsp .gear{pointer-events:none}</style>
-        <div class="tsp" data-key="tsp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow">${tabBar(cc, `<div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
+        <div class="tsp" data-key="tsp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow"${M.tabH && M.tabH.style(cc) ? ` style="${M.tabH.style(cc)}"` : ''}>${tabBar(cc, `<div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
     } };
     const order = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
@@ -757,7 +761,7 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-            preview, order,
+            preview, ...(M.tabH ? [M.tabH.field({ ...TTH, preview: false })] : []), order, // 33.4: fanehøyde
             { type: 'select', name: 'tabs.style', label: 'Fanestil', options: [['filled', 'Fylt'], ['outline', 'Kontur']], default: 'filled' },
             { type: 'select', name: 'tabs.content', label: 'Faner viser', options: [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], default: 'text' },
             { type: 'select', name: 'tabs.start', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'lading' },
@@ -922,13 +926,16 @@
     }
     _p_faner() {
       const c = this._config, V = visTabs(c), T = tabsCfg(c), act = V.includes(T.start) ? T.start : V[0], hid = tabHidden(c);
-      const prev = `<section class="sec pad" data-focus="faner"><span class="lab">Forhåndsvisning</span><div class="tsp" aria-hidden="true"><div class="trow">${tabBar(c, `<div class="tabs">${V.map((k) => tabBtn(c, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div></section>`;
+      const prev = `<section class="sec pad" data-focus="faner"><span class="lab">Forhåndsvisning</span><div class="tsp" aria-hidden="true"><div class="trow"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabBar(c, `<div class="tabs">${V.map((k) => tabBtn(c, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div></section>`;
       const list = `<section class="sec"><span class="lab lp">Faner</span><div class="tlist">${tabOrder(c).map((k) => { const [, label, icon] = TABL[k], on = !hid.has(k);
         return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag', 22)}</span>${M.icon(icon, 22, 'color:var(--ki-text-2, #afafaf)')}<span class="tn">${esc(label)}</span>${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
       const L = limitsOf(c);
       const opts = `<section class="sec pad">${segH('Fanestil', 'tabs.style', [['filled', 'Fylt'], ['outline', 'Kontur']], T.style)}${segH('Faner viser', 'tabs.content', [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], T.content)}${segH('Startfane', 'tabs.start', V.map((k) => [k, TABL[k][1]]), act)}
         <div class="fl" style="gap:8px"><span class="ft">Ladegrense-knapper</span><div class="lims">${LIMIT_OPTS.map((v) => `<button class="${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="tlim" data-v="${v}">${v} %</button>`).join('')}</div></div></section>`;
-      return prev + list + opts;
+      // 33.4: fanehøyde (felles felt) rett under forhåndsvisningen
+      if (M.tabH && this.shadowRoot) M.tabH.bindEditor(this.shadowRoot, { set: (v, commit) => this._set('tab_height', v, commit !== false) });
+      const th = M.tabH ? `<section class="sec pad" data-key="tabh">${M.tabH.editorHTML(c.tab_height, { ...TTH, cfg: c, preview: false })}</section>` : '';
+      return prev + th + list + opts;
     }
     _p_ents() {
       const c = this._config, h = this._hass, A = autoAll(h, c), pre = prefixes(c);
@@ -1063,7 +1070,7 @@
     /* ---------------------------------------------------------- tegning */
     render() {
       const c = this.config, t = this.tab, V = visTabs(c);
-      const tabs = `<div class="trow">${tabBar(c, `<div class="tabs msh-tr" role="tablist" data-gd-skip>${V.map((k) => tabBtn(c, k, k === t, `data-act="tab" data-key="${k}" data-v="${k}" data-haptic="selection"`)).join('')}</div>`)}
+      const tabs = `<div class="trow"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabBar(c, `<div class="tabs msh-tr" role="tablist" data-gd-skip>${V.map((k) => tabBtn(c, k, k === t, `data-act="tab" data-key="${k}" data-v="${k}" data-haptic="selection"`)).join('')}</div>`)}
         <button class="gear" data-act="customize" data-haptic="light" aria-label="Tilpass Tesla">${M.icon('mdi:cog', 22)}</button></div>`;
       let body;
       try { body = this['_t_' + t](); } catch (e) { body = this._failHTML(e); }

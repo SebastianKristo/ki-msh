@@ -20,7 +20,9 @@ const res = [];
 const ok = (name, c, info) => res.push(`${c ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`);
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-await p.goto('file://' + resolve('test/harness.html'));
+// http-opphav så location.pathname kan være en dashbord-sti (/ki-dashboard/hjem)
+await p.route('http://ki.test/**', (rt) => { const u = new URL(rt.request().url()); const f = u.pathname.endsWith('.js') ? resolve('test/' + u.pathname.split('/').pop()) : resolve('test/harness.html'); rt.fulfill({ path: f }); });
+await p.goto('http://ki.test/ki-dashboard/hjem');
 for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
 await p.addScriptTag({ path: bundle });
 const r = await p.evaluate(async () => {
@@ -32,7 +34,6 @@ const r = await p.evaluate(async () => {
   M.hjemNavigate = (u) => nav.push(u);
   const oT = M.toast; M.toast = (t, o) => { toasts.push(t); return oT(t, o); };
   // dashbord-sti som i HA: /ki-dashboard/hjem
-  history.replaceState(null, '', '/ki-dashboard/hjem');
   out.curPath = M.hjemCurPath();
   document.getElementById('dash').innerHTML = '';
   const h = window.mockHass(); h.config = { ...(h.config || {}), location_name: 'Oslo' };

@@ -300,26 +300,29 @@
   M.POPUP_EXTRA[HASH] = (config) => M.innstExtra(config);
 
   /* ============================================================ fanelinjen (kortet + forhåndsvisningen i arket) */
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const tabMode = (c) => (c.tab_labels === 'ikon' ? 'i' : c.tab_labels === 'name' ? 't' : 'b');
   // o: { preview, hp (data-haptic for fanene), hpGear }
   function tabBar(c, V, cur, o) {
     const m = tabMode(c), pv = !!o.preview, tag = pv ? 'span' : 'button';
     const btn = (d) => `<${tag} class="tb ${d.key === cur ? 'on' : ''}" data-key="tb-${esc(d.key)}" ${pv ? '' : `role="tab" aria-selected="${d.key === cur}" aria-label="${esc(d.name)}" data-act="tab" data-v="${esc(d.key)}" ${o.hp || ''}`}>${m !== 't' ? M.icon(d.icon, 20) : ''}${m !== 'i' ? `<span class="tl">${esc(d.name)}</span>` : ''}</${tag}>`;
     const gear = pv ? `<span class="gear">${M.icon('settings', 24)}</span>` : `<button class="gear press" data-act="customize" ${o.hpGear || ''} aria-label="Tilpass Innstillinger">${M.icon('settings', 24)}</button>`;
-    return `<div class="bar${pv ? ' pv' : ''}" ${pv ? 'aria-hidden="true"' : ''}><div class="tabs m-${m}${V.length > 4 ? ' many' : ''}" ${pv ? '' : 'role="tablist" data-glass-drag="x"'}>${V.map(btn).join('')}</div>${gear}</div>`;
+    return `<div class="bar${pv ? ' pv' : ''}" ${pv ? 'aria-hidden="true"' : ''}${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}><div class="tabs m-${m}${V.length > 4 ? ' many' : ''}" ${pv ? '' : 'role="tablist" data-glass-drag="x"'}>${V.map(btn).join('')}</div>${gear}</div>`;
   }
   // Design: fanelinje r26 pad 4 gap 2 (#3a3a3a + innerkant), knapper 56 px (ikon + tekst, 11 px) / 44 px (13 px), rosa aktiv.
   // 4 faner: teksten krymper (ellipsis); > 4: vannrett scroll. P = prefiks (kortet: '', arket: '.pvw ').
   const TAB_CSS = (P) => `
     ${P}.bar{display:flex;align-items:center;gap:8px;min-width:0;margin:4px 0}
-    ${P}.tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:26px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));position:relative;overflow-x:auto;scrollbar-width:none;touch-action:pan-y}
+    ${P}.tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:calc(${TV('th', 44)} / 2 + 4px);background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));position:relative;overflow-x:auto;scrollbar-width:none;touch-action:pan-y}
     ${P}.tabs::-webkit-scrollbar{display:none}
-    ${P}.tb{flex:1 1 0;min-width:0;padding:0 4px;height:44px;border-radius:22px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;color:var(--ki-text-2, #afafaf);box-sizing:border-box}
-    ${P}.tabs.m-b .tb{height:56px;flex-direction:column;gap:3px;font-size:11px}
+    ${P}.tb{flex:1 1 0;min-width:0;padding:0 ${TV('tp', 4)};height:${TV('th', 44)};border-radius:calc(${TV('th', 44)} / 2);display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 13)};font-weight:500;white-space:nowrap;overflow:hidden;color:var(--ki-text-2, #afafaf);box-sizing:border-box}
+    ${P}.tabs.m-b .tb{height:${TV('th2', 56)};flex-direction:column;gap:3px;font-size:calc(${TV('tf', 13)} - 2px)}
+    ${P}.tb ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
     ${P}.tb .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis}
     ${P}.tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
-    ${P}.tabs.many .tb{flex:1 0 auto;min-width:60px;padding:0 10px}
-    ${P}.gear{width:56px;height:56px;border-radius:28px;flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}`;
+    ${P}.tabs.many .tb{flex:1 0 auto;min-width:60px;padding:0 ${TV('tp', 10)}}
+    ${P}.gear{width:calc(${TV('th', 48)} + 8px);height:calc(${TV('th', 48)} + 8px);border-radius:calc(${TV('th', 48)} / 2 + 4px);flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
+    ${P}.bar:has(.tabs.m-b) .gear{width:calc(${TV('th2', 48)} + 8px);height:calc(${TV('th2', 48)} + 8px);border-radius:calc(${TV('th2', 48)} / 2 + 4px)}`;
 
   /* ============================================================ editoren (Tilpass Innstillinger + GUI) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
@@ -787,6 +790,7 @@
           { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner, gui] },
           { type: 'section', id: 'visning', label: '', fields: [
             { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Ikon + tekst'], ['name', 'Tekst'], ['ikon', 'Ikoner']], default: 'icon' },
+            ...(M.tabH ? [M.tabH.field({ native: (cc) => (tabMode(cc) === 'b' ? 40 : 44), preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen øverst følger valget)
             { type: 'select', name: 'start_tab', label: 'Startfane', options: fanerOf(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
           ] },
         ] },

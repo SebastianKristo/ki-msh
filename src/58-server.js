@@ -512,8 +512,10 @@
     return { order: o, hidden, start: mapK(c.start_tab != null ? c.start_tab : (T.start || c.start_tab || '')) };
   }
   function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
-  // 33.4 (senere) kan gi «auto»/egen verdi – her: tall 28–64, ellers standard 44
-  const tabH = (c) => { const v = Number(c.tab_height); return c.tab_height !== '' && c.tab_height != null && isFinite(v) && v > 0 ? M.clamp(Math.round(v), 28, 64) : 44; };
+  // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
+  const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const thVars = (c) => `${M.tabH ? M.tabH.style(c) : ''}--sv-th:${TV('th', 44)};`;
   const isCards = (c) => /^kort$/i.test(String(c.velger || ''));
   const showProse = (c) => c.show_prose !== false;
 
@@ -565,12 +567,12 @@
       <span class="hct"><span class="ring"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="rtr"></circle><circle cx="20" cy="20" r="17" class="rfl" style="stroke:${x.none ? 'transparent' : x.ok ? x.col : OR}" stroke-dasharray="${ringDash(x.pct)}"></circle></svg>${M.icon(HOSTL[k][2], 18)}</span><span class="dot ${x.none ? 'none' : x.ok ? 'ok' : 'warn'}"></span></span>
       <span class="hcb"><b class="ell">${esc(HOSTL[k][1])}</b><span class="ell num">${esc(x.sub || '–')}</span></span></button>`;
   }).join('')}</div>`;
-  const PREV_CSS = (th) => `.svp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828);display:flex;flex-direction:column;gap:10px;--sv-th:${th}px}
+  const PREV_CSS = () => `.svp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828);display:flex;flex-direction:column;gap:10px}
     .svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px}.svp button{pointer-events:none}
     ${TAB_CSS('.svp')}`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
     ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));touch-action:pan-y}
-    ${pre} .tb{flex:1 1 0;min-width:0;height:var(--sv-th,44px);padding:0 6px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
+    ${pre} .tb{flex:1 1 0;min-width:0;height:var(--sv-th,44px);padding:0 ${TV('tp', 6)};border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
     ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
     ${pre} .gear:active{transform:scale(.92)}
@@ -602,7 +604,7 @@
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
       const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
-      return `<style>${PREV_CSS(tabH(cc))}</style><div class="svp" data-key="svp" aria-hidden="true"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
+      return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
       const [txt, col] = intStatus(hh, cc, I.key);
@@ -620,7 +622,7 @@
           { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
             preview,
             { type: 'select', name: 'velger', label: 'Vertvelger', options: [['faner', 'Faner'], ['kort', 'Kort']], default: 'faner', help: 'Kort = to kolonner med last-ring og statusprikk. Tannhjulet ligger da i toppkortet.' },
-            { type: 'range', name: 'tab_height', label: 'Fanehøyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 60, step: 2, default: 44, unit: 'px', presets: [[36, 'Lav'], [44, 'Standard'], [52, 'Høy']] },
+            ...(M.tabH ? [M.tabH.field({ native: 44, preview: false })] : []), // 33.4: felles fanehøyde (forhåndsvisningen over følger valget)
             { type: 'boolean', name: 'show_prose', label: 'Setning under toppkortet', default: true },
           ] },
         ] },
@@ -900,7 +902,7 @@
         try { body = this['_b_' + host + '_' + sub](R, HA); } catch (e) { body = this._failHTML(e); }
         parts.push(`<div class="pane" data-key="pane-${host}-${sub}">${body}</div>`);
       }
-      return `<div class="wrap" style="--sv-th:${tabH(c)}px">${parts.join('')}</div>`;
+      return `<div class="wrap" style="${thVars(c)}">${parts.join('')}</div>`;
     }
     _hero(R, HA, host, cards) {
       const ui = this.ui, c = this.config, Ms = this._metrics(R, HA, host);

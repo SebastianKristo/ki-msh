@@ -249,6 +249,7 @@
 
   /* ============================================================ faner */
   const TABS = [['oversikt', 'Oversikt', 'mdi:view-grid-outline'], ['kalender', 'Kalender', 'mdi:calendar-month-outline'], ['varsler', 'Varsler', 'mdi:bell-outline']];
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
   const tabOrder = (c) => M.edOrder(TABS.map((t) => t[0]), c.tab_order);
   // `kalender: false` (gammel config) skjuler Kalender-fanen til brukeren velger faner selv (tab_hidden)
@@ -383,7 +384,7 @@
       { type: 'tabs', id: 'soppel', tabs: [
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', fields: [faner] },
-          { type: 'section', id: 'visning', label: 'Visning', fields: [{ type: 'select', name: 'start_tab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'oversikt' }] },
+          { type: 'section', id: 'visning', label: 'Visning', fields: [{ type: 'select', name: 'start_tab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'oversikt' }, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => TABL[k][1]), mode: 'tekst', native: 40, gear: false })] : [])] }, // 33.4: fanehøyde
         ] },
         { key: 'fraksjoner', label: 'Fraksjoner', icon: 'mdi:delete-variant', focus: ['fraksjoner'], fields: [{ type: 'section', id: 'fraksjoner', label: 'Fraksjoner', fields: [frak] }] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:database-search-outline', focus: ['entiteter'], fields: [
@@ -438,7 +439,7 @@
 
     render() {
       const c = this.config, Dt = this._data(), t = this.tab, V = visTabs(c);
-      const tabs = `<div class="tabs" role="tablist" data-glass-drag="x">${V.map((k) => `<button class="tb ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" ${this._hp('selection')}>${esc(TABL[k][1])}</button>`).join('')}</div>`;
+      const tabs = `<div class="tabs" role="tablist" data-glass-drag="x"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${V.map((k) => `<button class="tb ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" ${this._hp('selection')}>${esc(TABL[k][1])}</button>`).join('')}</div>`;
       let body;
       try { body = this['_t_' + t](Dt); } catch (e) { body = this._failHTML(e); }
       return `<div class="wrap">${this._hero(Dt)}${V.length > 1 ? tabs : ''}<div class="pane" data-key="pane-${t}">${body}</div></div>`;
@@ -575,8 +576,9 @@
         @keyframes drive{0%{transform:translateX(-110px)}100%{transform:translateX(calc(100cqw + 20px))}}
         .road{container-type:inline-size}
         /* faner */
-        .tabs{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y}
-        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:14px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (40), sporet H + 8 */
+        .tabs{display:flex;gap:2px;padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y}
+        .tb{flex:1 1 0;min-width:0;height:${TV('th', 40)};padding:0 ${TV('tp', 8)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 14)};white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .tb.on{background:${C.accent};color:${OA};font-weight:500}
         /* Oversikt */
         .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--msh-gap,8px)}

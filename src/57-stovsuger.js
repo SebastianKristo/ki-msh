@@ -36,6 +36,7 @@
   const esc = M.esc, C = M.C;
   const HASH = '#rolf', TAG = 'msh-stovsuger-card';
   const TABS = [['renhold', 'Renhold', 'mdi:broom'], ['kontroll', 'Kontroll', 'mdi:tune-vertical'], ['info', 'Info', 'mdi:information-outline'], ['kart', 'Kart', 'mdi:map-outline']];
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
   const PARTS = {
     renhold: [['rom', 'Romgrid'], ['start', 'Start-knapp'], ['soner', 'Soner']],
@@ -391,6 +392,7 @@
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [faner] },
           { type: 'select', name: 'tab_labels', label: 'Stil', options: [['name', 'Tekst'], ['icon', 'Symboler']], default: 'name', help: 'Tekst (standard): like brede tekstfaner i full bredde. Symboler: bare ikon, den aktive fanen viser også navnet.' },
           { type: 'select', name: 'startTab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'renhold' },
+          ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'icon' ? 'aktiv' : 'tekst'), native: 40, gear: true })] : []), // 33.4: fanehøyde
         ] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:link-variant', focus: ['entiteter', ...groups.map((g) => 'ent-' + M.slug(g))], fields: entFields },
         { key: 'avansert', label: 'Avansert', icon: 'mdi:cog-outline', focus: ['avansert', 'spacing'], fields: [
@@ -508,7 +510,7 @@
       }).join('')}</div>`;
       let body;
       try { body = this['_t_' + t](m); } catch (e) { body = this._failHTML(e); }
-      return `<div class="wrap">${this._hero(m)}${m.tank ? this._tank(m) : ''}<div class="top">${tabs}<button class="gear press" data-act="customize" aria-label="Tilpass">${M.icon('mdi:cog', 22)}</button></div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
+      return `<div class="wrap">${this._hero(m)}${m.tank ? this._tank(m) : ''}<div class="top"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabs}<button class="gear press" data-act="customize" aria-label="Tilpass">${M.icon('mdi:cog', 22)}</button></div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
     }
     _parts(t) { const hid = partHidden(this.config, t); return PARTS[t].map((p) => p[0]).filter((p) => !hid.has(p)); }
     _missing(text, section) { return `<div class="miss"><span class="mdash">–</span><span>·</span><button class="pick press" data-act="customize" data-section="${esc(section || 'ent-robot_og_status')}">${M.icon('mdi:plus', 18)}Velg entitet</button>${text ? `<span class="mt">${esc(text)}</span>` : ''}</div>`; }
@@ -817,13 +819,16 @@
         .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tt b{font-size:15px;font-weight:600}.tt span{font-size:12px;opacity:.8}
         .tb{height:40px;padding:0 14px;border-radius:20px;background:${BA(0.12)};display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
         .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray200,#3a3a3a))') : ''}}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:calc(${TV('th', 40)} + 8px);box-sizing:border-box;border-radius:calc(${TV('th', 40)} / 2 + 4px);background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray200,#3a3a3a))') : ''}}
         .tabs.names{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
         .tabs .itab{color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
         .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, var(--gray800,#afafaf))}
-        .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));flex:none;box-shadow:${C.edge}}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (40), sporet og tannhjulet H + 8 */
+        .tabs.itabs>.itab{height:${TV('th', 40)};border-radius:calc(${TV('th', 40)} / 2)}
+        .tabs.itabs>.itab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
+        .ntab{min-width:0;width:100%;height:${TV('th', 40)};padding:0 ${TV('tp', 6)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 14)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .gear{width:calc(${TV('th', 40)} + 8px);height:calc(${TV('th', 40)} + 8px);border-radius:calc(${TV('th', 40)} / 2 + 4px);display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));flex:none;box-shadow:${C.edge}}
         .sh{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
         .meta{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));margin-left:auto}

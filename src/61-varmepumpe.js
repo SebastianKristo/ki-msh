@@ -216,6 +216,9 @@
   const visTabs = (hass, c) => { const H = tabHidden(c); return tabOrder(c).filter((k) => !H.has(k) && (k !== 'luft' || !hass || hasLuft(hass, c))); };
   // Knapper uten entitet vises ikke (v3: «Knapper uten entitet vises ikke»)
   const visBtns = (hass, c) => { const H = btnHidden(c); return btnOrder(c).filter((k) => !H.has(k) && (!hass || !!btnEnt(hass, c, k))); };
+  // 33.4 · fanehøyde (05-tab-bar.js): variabler + felles editorfelt
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const VTH = { items: (h, c) => (h ? visTabs(h, c) : (c.tabs || TABS.map((t) => t[0]))).map((k) => ({ key: k, label: tabName(c, k), icon: (TK[k] || [])[2] })), mode: (c) => ({ icon: 'ikon', name: 'tekst', icon_name: 'rad' })[tabStyle(c)] || 'tekst', native: 44, gear: true };
   const tabStyle = (c) => (['icon', 'name', 'icon_name'].includes(c.tab_style) ? c.tab_style : DEF.tab_style);
   const btnStyle = (c) => (c.button_style === 'icon' ? 'icon' : 'icon_text');
 
@@ -452,7 +455,7 @@
         const o = k === tab, label = tabName(c, k);
         return `<button class="tb ${o ? 'on' : ''}" role="tab" aria-selected="${o}" data-act="tab" data-v="${k}" data-haptic="selection" title="${esc(label)}" aria-label="${esc(label)}">${st !== 'name' ? M.icon(TK[k][2], 20) : ''}${st !== 'icon' ? `<span>${esc(label)}</span>` : ''}</button>`;
       };
-      return `<div class="trow" data-key="trow"><div class="tabs" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
+      return `<div class="trow" data-key="trow"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}><div class="tabs" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
         <button class="gear press" data-act="customize" title="Tilpass varmepumpe" aria-label="Tilpass varmepumpe">${M.icon('mdi:cog', 22)}</button></div>`;
     }
     // Rad (v3 ovRows): ikon · navn/undertekst · stort tall + enhet. Mangler → «–» + «Velg entitet».
@@ -687,11 +690,12 @@
         .qb.blink{animation:vp-blink 1.2s ease-in-out infinite}
         /* fanelinje */
         .trow{display:flex;align-items:center;gap:8px;margin:2px 0;min-width:0}
-        .tabs{flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(max-content,1fr);gap:0;padding:4px;border-radius:26px;overflow-x:auto;scrollbar-width:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));position:relative;touch-action:pan-y}
+        .tabs{flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(max-content,1fr);gap:0;padding:4px;border-radius:calc(${TV('th', 44)} / 2 + 4px);overflow-x:auto;scrollbar-width:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));position:relative;touch-action:pan-y}
         .tabs::-webkit-scrollbar{display:none}
-        .tb{height:44px;min-width:0;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;color:var(--ki-text-2, #afafaf);transition:background .35s,color .35s}
+        .tb{height:${TV('th', 44)};min-width:0;border-radius:calc(${TV('th', 44)} / 2);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 ${TV('tp', 10)};font-size:${TV('tf', 13)};font-weight:500;white-space:nowrap;background:transparent;color:var(--ki-text-2, #afafaf);transition:background .35s,color .35s}
         .tb.on{background:${PINK};color:${INK}}
-        .gear{width:52px;height:52px;border-radius:26px;flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
+        .tb ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
+        .gear{width:calc(${TV('th', 44)} + 8px);height:calc(${TV('th', 44)} + 8px);border-radius:calc(${TV('th', 44)} / 2 + 4px);flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
         .gear:active{transform:scale(.94)}
         /* faneinnhold */
         .pane{display:flex;flex-direction:column;gap:10px;animation:fade .3s ease}
@@ -867,6 +871,7 @@
         + '<span class="hint">Dra i håndtaket for å flytte, feltet gir nytt navn, bryteren skjuler. Knapper uten entitet vises ikke.</span>');
       if (st.tab === 't') return safe(() => sec('Faner · rekkefølge og navn', `<div class="dl" data-list="tabs">${listRows(D, 'tabs')}</div>`, 'lsec')
         + sec('Fanene viser', `<div class="sg2" role="radiogroup" data-glass-drag="x">${TAB_MODES.map(([k, l]) => segBtn('tmode', k, l, tabStyle(D) === k)).join('')}</div>`, 'pad')
+        + (M.tabH ? sec('Fanehøyde', M.tabH.editorHTML(D.tab_height, { ...VTH, cfg: D, label: 'Høyde' }), 'pad') : '') // 33.4: fanehøyde (felles felt)
         + '<span class="hint">Dra i håndtaket for å flytte. Minst én fane må være synlig. Faner uten data (f.eks. Luft uten BT20/BT21) skjules av seg selv.</span>');
       if (st.tab === 'e') {
         const first = ['power', 'energy', 'freq', 'status', 'ute', 'vv', 'boost', 'vent', 'pump', 'alarm', 'wifi', 'smart', 'cost_day'];
@@ -898,6 +903,8 @@
     box.className = 'vps';
     Object.defineProperty(box, '_config', { get: () => ctl.draft });
     ov.body.appendChild(box);
+    // 33.4: fanehøyde – slider live (utkast/forhåndsvisning bak arket), segment/slipp lagrer i utkastet og tegner på nytt
+    if (M.tabH) M.tabH.bindEditor(box, { set: (v, commit) => { if (commit) return apply({ tab_height: v }); const next = { ...ctl.draft }; if (v == null) delete next.tab_height; else next.tab_height = v; ctl.set(next); } });
     // Scrollområdet: aldri kjede til popupen/dashbordet (fallgruve 2)
     ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => box.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('.scr')) e.stopPropagation(); }, { passive: true }));
     box.addEventListener('input', (e) => {
@@ -1179,6 +1186,7 @@
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             tabPrev, tabList,
             { type: 'select', name: 'tab_style', label: 'Fanene viser', options: TAB_MODES, default: DEF.tab_style },
+            ...(M.tabH ? [M.tabH.field(VTH)] : []), // 33.4: fanehøyde
             { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
           ] },
         ] },

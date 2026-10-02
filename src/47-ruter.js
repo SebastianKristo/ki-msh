@@ -13,6 +13,8 @@
   // hvit/svart etter regel 4/3 (WA/KA). Linjefargene (badger) beholdes. Mørk modus = som før.
   const TH = M.theme || {};
   const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  // Tekst på tone-pille: mørknet aksent blandes ytterligere med svart i lys modus (--ki-accent-mix 60 %) → ≥ 4,5:1
+  const ATP = (c) => `color-mix(in srgb, ${AT(c)} var(--ki-accent-mix, 100%), black)`;
   const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
   const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0/max(var(--ki-ka-min,0),calc(${a}*var(--ki-ka-k,1))))`);
@@ -477,7 +479,7 @@
     _chip(ledig, cls = 'go') {
       if (this.config.go_now === false || ledig == null) return '';
       const [t, col] = goOf(ledig);
-      return `<span class="${cls}" style="color:${AT(col)};background:${TONE(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
+      return `<span class="${cls}" style="color:${ATP(col)};background:${TONE(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
     }
     _occ(occ) {
       const l = OCC[occ];
@@ -838,7 +840,7 @@
         .pnx{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pv{flex:none;height:34px;padding:0 12px 0 10px;border-radius:17px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
         .sep{color:var(--ki-text-3, var(--gray600,#7f7f7f));font-size:14px}
-        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${AT(C.green)};background:${TONE(C.green, 0.16)}}
+        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${ATP(C.green)};background:${TONE(C.green, 0.16)}}
         .atot{font-size:17px;font-weight:600}
         .aarr{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .atxt{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}

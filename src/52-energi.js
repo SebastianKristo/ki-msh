@@ -27,6 +27,8 @@
   // etter regel 4/3 (WA/KA). Grafer: linje/fyll i aksent, markør --ki-text-2, tomme spor --ki-surface-3. Mørk = som før.
   const TH = M.theme || {};
   const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  // Tekst på tone-pille: mørknet aksent blandes ytterligere med svart i lys modus (--ki-accent-mix 60 %) → ≥ 4,5:1
+  const ATP = (c) => `color-mix(in srgb, ${AT(c)} var(--ki-accent-mix, 100%), black)`;
   const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
   const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const SECS = [['house', 'Huset'], ['tiles', 'Snarveier'], ['power', 'Strøm'], ['price', 'Strømpriser'], ['top', 'Toppforbrukere'], ['water', 'Vann']];
@@ -649,7 +651,7 @@
       }
       const busy = !D && R.loaded && (R.grid_in.length || R.power);
       return `<section class="sec">
-        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${AT(C.blue)}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${ATP(C.blue)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
           <div class="ph2"><div class="big">${M.icon('mdi:flash', 22, `color:${C.blue}`)}<span class="num"><b>${fKwh(imp)}</b> kWh</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Importert${busy ? ' · henter …' : ''}</span>
