@@ -245,7 +245,9 @@
   const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
   const defHash = (id) => canon('#' + id);
   const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
-  const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
+  // Fiks 30.3: HA-standard nøkler buttons.<id>.tap_action / hold_action (gamle tap / hash leses fortsatt)
+  const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap_action || b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
+  const holdOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.hold_action); return t && t.action !== 'none' ? t : null; };
   const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? canon(p) : ''; };
   const ruleHit = (x, st) => {
     if (!x || !x.entity || !st) return false;
@@ -454,6 +456,7 @@
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
+          { type: 'select', name: 'action_style', label: 'Handlingsvelger', options: [['ruter', 'Ruter'], ['liste', 'Liste']], default: 'ruter', help: 'Hvordan «Ved trykk» / «Ved hold» vises for knappene.' }, // 30.3
           { type: 'nbplace' },
         ] },
         { type: 'navbar', part: 'style' },
@@ -892,6 +895,8 @@
         if (!s0.on) return;
         e.stopPropagation();
         swallow = Date.now();
+        // Fiks 30.3: hold og slipp uten å flytte → hold_action (når den er satt)
+        const hAct = e.type !== 'pointercancel' && s0.to === s0.i ? holdOf(norm(this.config), s0.el.dataset.id) : null;
         s0.its.forEach((b) => { b.style.transform = ''; b.classList.remove('lift'); });
         nav.classList.remove('reord');
         delete nav.dataset.glassDragOff;
@@ -903,7 +908,7 @@
           const N = norm(this.config), bar = [...N.bar], pos = bar.map((id, j) => (N.hidden.has(id) ? -1 : j)).filter((j) => j >= 0);
           pos.forEach((j, k) => { if (ids[k] != null) bar[j] = ids[k]; }); // skjulte beholder plassen sin
           this._saveBar(bar);
-        } else this._schedule(true);
+        } else { this._schedule(true); if (hAct && M.tap) M.tap.run(this, hAct); }
       };
       nav.addEventListener('pointerdown', (e) => {
         if (e.button || st || this._inline) return;
@@ -1672,9 +1677,11 @@
         const v = e.detail ? e.detail.value : null;
         if (t.dataset.nbicon) return this._btn(t.dataset.nbicon, { icon: v || undefined });
         const id = t.dataset.nbtap, isC = !!(norm(this._config).B[id] || {}).custom, tp = M.tap.norm(v);
-        // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap i HA-format, gammel hash fjernes
+        // 30.3 · hold_action: Ingen lagres ikke
+        if (t.dataset.nbw === 'hold') return this._btn(id, { hold_action: !tp || tp.action === 'none' ? undefined : tp });
+        // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap_action i HA-format, gamle tap/hash fjernes
         const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && canon(tp.navigation_path) === defHash(id));
-        return this._btn(id, { tap: std ? undefined : tp, hash: undefined });
+        return this._btn(id, { tap_action: std ? undefined : tp, tap: undefined, hash: undefined });
       });
     }
     _field(f, key) {
@@ -1798,7 +1805,8 @@
           ${isC ? `<div class="fl"><span class="cap">Når du trykker · handling</span><select class="s44" data-nbf="action" data-id="${esc(id)}">${acts.map(([k, l]) => `<option value="${esc(k)}" ${String(b.action || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
             ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}
             ${ACT_DOM[b.action] ? `<span class="cap">Entitet · ${b.entity ? esc(M.name(h, b.entity)) + ' (' + esc(b.entity) + ')' : 'auto: ' + esc(M.all(h, ACT_DOM[b.action])[0] || 'fant ingen')}</span>${this._search({ type: 'entity', domain: ACT_DOM[b.action] }, 'nbbe_' + id, 'nbbent', id, b.entity ? 'Bytt …' : 'Velg ' + ACT_DOM[b.action] + ' …')}${b.entity ? `<button class="rsb" data-a="nbbclr" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Bruk auto</button>` : ''}` : ''}</div>` : ''}
-          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Handling · og så' : 'Handling'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id), modes: isC ? ['popup', 'hash', 'path', 'url', 'none'] : ['popup', 'hash', 'path', 'url'], attrs: `data-nbtap="${esc(id)}"` })}</div>`
+          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Ved trykk · og så' : 'Ved trykk'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id) || { action: 'none' }, style: c.action_style, entity: '', attrs: `data-nbtap="${esc(id)}" data-nbw="tap"` })}</div>
+            <div class="fl"><span class="cap">Ved hold</span>${M.tap.html({ key: 'nbhold_' + id, value: holdOf(N, id) || { action: 'none' }, style: c.action_style, noneHint: 'Hold og dra flytter knappen. Ingen egen hold-handling.', attrs: `data-nbtap="${esc(id)}" data-nbw="hold"` })}</div>`
     : `<div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>`}
           ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Tilbakestill til ${esc(base[1])}</button>`}
         </div>`;

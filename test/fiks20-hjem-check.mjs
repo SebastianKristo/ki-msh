@@ -88,19 +88,22 @@ const ed = await p.evaluate(async () => {
   document.getElementById('dash').appendChild(e);
   let last = null; e.addEventListener('config-changed', (x) => { last = x.detail.config; });
   await new Promise((q) => setTimeout(q, 300));
-  const R = e.shadowRoot, sels = [...R.querySelectorAll('select[data-name$="_action.action"]')];
-  const out = { n: sels.length, tap: sels[0] && sels[0].value, hold: sels[1] && sels[1].value, opts: sels[0] ? [...sels[0].options].map((o) => o.textContent) : [], hashField: !!R.querySelector('[data-name="tap_action.hash"]'), pillH: sels[0] && sels[0].parentElement.getBoundingClientRect().height, bg: sels[0] && getComputedStyle(sels[0].parentElement).backgroundColor };
-  sels[0].value = 'url'; sels[0].dispatchEvent(new Event('change', { bubbles: true }));
+  // Fiks 30.3: felles handlingsvelger (msh-tap-picker, HA-format) for Trykk og Hold
+  const R = e.shadowRoot, T = [...R.querySelectorAll('msh-tap-picker[data-name$="_action"]')];
+  const out = { n: T.length, tap: T[0] && [T[0].mode, (T[0].value || {}).navigation_path], hold: T[1] && T[1].mode, opts: T[0] ? [...T[0].shadowRoot.querySelectorAll('[data-p="mode"]')].map((o) => o.dataset.v) : [], tileH: T[0] && Math.round(T[0].shadowRoot.querySelector('.tl').getBoundingClientRect().height) };
+  [...T[0].shadowRoot.querySelectorAll('[data-p="mode"]')].find((x) => x.dataset.v === 'url').click();
+  await new Promise((q) => setTimeout(q, 100));
+  const ui = T[0].shadowRoot.querySelector('input[data-f="url"]'); out.urlField = !!ui;
+  if (ui) { ui.value = 'https://example.com'; ui.dispatchEvent(new Event('change', { bubbles: true })); }
   await new Promise((q) => setTimeout(q, 200));
-  out.after = last && last.tap_action; out.urlField = !!R.querySelector('input[data-name="tap_action.url_path"]');
-  out.help = [...R.querySelectorAll('[data-key="tract-tap_action"] .help')].map((x) => x.textContent).join();
+  out.after = last && last.tap_action; out.help = T[0].shadowRoot.querySelector('.tg') ? T[0].shadowRoot.querySelector('.tg').textContent : '';
   e.remove();
   return out;
 });
-ok('20.2 editor: to nedtrekkslister (Trykk, Hold) med seks handlinger', ed.n === 2 && ed.opts.length === 6, ed);
-ok('20.2 editor: popup_hash vises som «Åpne popup» + hash-felt; Hold = More-info', ed.tap === 'popup' && ed.hold === 'more-info' && ed.hashField, ed);
-ok('20.2 editor: pillen 44 px, #282828', Math.round(ed.pillH) === 44 && ed.bg === 'rgb(40, 40, 40)', ed);
-ok('20.2 editor: valg lagres som tap_action { action: url } + URL-felt + undertekst', ed.after && ed.after.action === 'url' && ed.urlField && /ny fane/.test(ed.help), ed);
+ok('20.2/30.3 editor: to handlingsvelgere (Trykk, Hold) med valgene', ed.n === 2 && ed.opts.join() === 'std,popup,hash,path,url,more,service,none', ed);
+ok('20.2/30.3 editor: popup_hash vises som Popup #avfall (eller egen hash); Hold = standard', ed.tap && ['popup', 'hash'].includes(ed.tap[0]) && ed.tap[1] === '#avfall' && ed.hold === 'std', ed);
+ok('30.3 editor: ruter 76 px', ed.tileH === 76, ed);
+ok('20.2 editor: valg lagres som tap_action { action: url } + URL-felt + «Åpne i ny fane»', ed.after && ed.after.action === 'url' && ed.urlField && /ny fane/.test(ed.help), ed);
 
 /* ---------------- 20.7 · Tekst per tilstand */
 await p.evaluate(async () => {

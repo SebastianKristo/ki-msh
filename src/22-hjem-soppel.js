@@ -96,6 +96,7 @@
     },
     html(h, c) { return this.render(h, c); }, // felles msh-editor ('html' → f.html)
   });
+  const TAP_MODES = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
   class Soppel extends M.Card {
     static get cardName() { return 'Hjem · søppel'; }
     static get defaults() { return { rosa: true, rosa_dager: 0 }; }
@@ -103,8 +104,11 @@
     static get schema() {
       return [
         { type: 'info', label: 'Søppelkort · velg hva trykk og hold gjør' },
-        actField('tap_action', 'Trykk'),
-        actField('hold_action', 'Hold'),
+        // Fiks 30.3: felles handlingsvelger (msh-tap-picker, HA-format) – samme valg som «Tilpass Hjem» → Søppelkort.
+        // Gamle former (popup_hash, { action: popup, hash }, call-service) leses fortsatt (M.tap.norm / M.hjemTrashAct).
+        { type: 'tap', name: 'tap_action', label: 'Trykk', modes: TAP_MODES, stdHint: 'Standard: åpner popupen #soppel', auto: (h, c) => (!c.tap_action && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null) },
+        { type: 'tap', name: 'hold_action', label: 'Hold', modes: TAP_MODES, stdHint: 'Standard: more-info for sensoren', noneHint: 'Ingen handling ved hold.' },
+        { type: 'select', name: 'action_style', label: 'Handlingsvelger', options: [['ruter', 'Ruter'], ['liste', 'Liste']], default: 'ruter' },
         { type: 'entity', name: 'sensor', label: 'Entitet · dager til tømming', domain: 'sensor', auto: autoSensor, help: 'Tall (dager), «0,Restavfall,Plastavfall», dato eller attributt days/daysTo' },
         { type: 'entity', name: 'type_sensor', label: 'Sensor · type avfall (valgfri)', domains: ['sensor', 'input_text', 'input_select'] },
         { type: 'boolean', name: 'rosa', label: 'Rosa på tømmedagen', default: true },

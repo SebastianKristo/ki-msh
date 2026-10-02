@@ -17,7 +17,7 @@
  *   { type:'stepper', entity: id | (hass,cfg)=>id, label, help, unit, min, max, step } → «− verdi +» med systemets velger
  *       (09-pickers); skriver entitetens verdi direkte (number/time/date/datetime-tjenestene), ikke til config
  *   'icon': inline (dashbordets ark) = felles søkbar ikonvelger MSH.iconPicker (09-icon-picker); HA GUI-editor = ha-icon-picker
- *   'hash': inline = popup-velgeren MSH.popupPicker (09-tap-picker, Fiks 17.8); HA GUI-editor = ha-selector select (custom_value)
+ *   'hash': popup-feltet MSH.popupPicker (09-tap-picker) – også i HAs GUI-editor (Fiks 30.2: ett felles popup-velger-ark)
  *   { type:'tap', name, label, modes:['popup','hash','path','url','more','lock','none'], auto } → trykk-handling i HA-format
  *       ({ action: navigate, navigation_path: '#tesla' } …) via <msh-tap-picker> (09-tap-picker)
  *   { type:'action', name, label, std, apps } → HA action-format (Standard · Åpne app · Send kommando · HA-handling · Ingen)
@@ -898,7 +898,7 @@
           return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
         case 'hash': { // forslag: alle popups inkl. egne (MSH.allPopups)
           // Fiks 17.8: HAs GUI-editor → ha-selector select (samme liste, egen verdi); dashbordets ark → popup-velgeren (09-tap-picker)
-          if (M.popupPicker && !this._inline && customElements.get('ha-selector')) return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-selector="${esc(JSON.stringify(M.popupPicker.selector(this._hass)))}" data-label="${esc(f.label || 'Popup')}" data-helper="${esc(f.help || (auto || f.placeholder ? 'Standard ' + (auto || f.placeholder) : ''))}"></ha-selector></div>`;
+          // Fiks 30.2: også HAs GUI-editor bruker det felles popup-velger-arket (msh-popup-field → MSH.popupPicker.open)
           if (M.popupPicker) return `<div class="f">${lab}${M.popupPicker.html({ key: 'ph-' + key, name: f.name, value: val || '', placeholder: auto || f.placeholder || '', label: f.label })}${help}</div>`;
           const dl = 'hl-' + key, opts = M.popupOptions ? M.popupOptions(this._hass) : [];
           return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
@@ -909,7 +909,7 @@
           if (M.iconPicker) return `<div class="f">${lab}${M.iconPicker.html({ key: 'ic-' + key, name: f.name, value: val || '', placeholder: auto || f.placeholder || '', label: f.label })}${help}</div>`;
           return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;
         case 'tap': // trykk-handling i HA-format (09-tap-picker, Fiks 15.6): { action: navigate|url|more-info|none … }; auto = standard
-          if (M.tap) return `<div class="f">${lab}${M.tap.html({ key: 'tap-' + key, value: val || auto || null, modes: f.modes, labels: f.labels, stdHint: f.stdHint, attrs: `data-name="${esc(f.name)}"` })}${help}</div>`;
+          if (M.tap) return `<div class="f">${lab}${M.tap.html({ key: 'tap-' + key, value: val || auto || null, modes: f.modes, labels: f.labels, stdHint: f.stdHint, noneHint: f.noneHint, style: f.style || (c && c.action_style), gui: !this._inline, attrs: `data-name="${esc(f.name)}"` })}${help}</div>`; // 30.3: action_style (ruter|liste) fra kortets config
           return '';
         case 'color':
           return this._color(f, val, auto);

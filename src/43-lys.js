@@ -1,6 +1,7 @@
 /* msh-lys-card · Lys-popup (#lys). Kilde: Lys v4.dc.html + fiks3 (punkt 1–3, 5).
- * Rad under Bubble-headeren: fane-pillen (Utelys · én per etasje · Lys på; scroller vannrett, langt trykk + dra =
- * omorganiser via MSH.tabReorder → tab_order) og til høyre tannhjulet (44 × 44, samme glass-flate og ring som pillen).
+ * Rad under Bubble-headeren (Fiks 31.5): felles fanelinje MSH.tabBar (variant gear, 05-tab-bar.js – samme komponent som
+ * tab_style gear på Hjem): Utelys · én per etasje (kortnavn som på Hjem) · Lys på, bredde etter teksten; hold + dra =
+ * omorganiser (MSH.tabRow → tab_order), og til høyre tannhjulet (56 × 56).
  * Tannhjulet åpner «Tilpass lys»: eget bunnark (MSH.overlay → document.body; solid, frosted med Liquid Glass-tema) med navigasjonsrad Avbryt · tittel ·
  * Ferdig, Visning (Mellomrom/Kolonner/Størrelse/Slider-høyde, live bak arket), Innhold (Faner · Scener · Rom og lys ·
  * Utelys som undersider med «‹ Tilpass») og «Tilbakestill til standard». Ingen omfangsvelger – én felles config.
@@ -38,8 +39,6 @@
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
-  // Fanerad-flate: standard transparent + ring, glass kun med Liquid Glass-temaet (05-tab-reorder.js, Fiks 15.2)
-  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);';
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -165,7 +164,9 @@
   // Faner: [nøkkel, visningsnavn, standardnavn]
   const tabDefs = (A, c) => {
     const nm = (c && c.tab_names) || {};
-    return [['out', 'Utelys'], ...A.floors.map((f) => [f.key, f.name]), ['on', 'Lys på']].map(([k, l]) => [k, nm[k] || l, l]);
+    // Fiks 31.5: etasjene får kortnavnet fra Hjem (fanenavnet der, ellers «1. etasje» → «1. etg»)
+    const sh = (f) => (M.hjemFloorLabel ? M.hjemFloorLabel(f.id, f.name) : f.name);
+    return [['out', 'Utelys'], ...A.floors.map((f) => [f.key, f.id ? sh(f) : f.name]), ['on', 'Lys på']].map(([k, l]) => [k, nm[k] || l, l]);
   };
   // Scener for en etasje: KI Rom-lysscenene (button.*_lys_*) i etasjens rom, gruppert per scene (ett trykk = alle rom),
   // og/eller egne (lysnivåer + scene.* i etasjen). include.scener_lys legges alltid til. Sortert etter scene_order.
@@ -328,10 +329,10 @@
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
-      // Én rad: fane-pillen (fyller bredden, scroller) + tannhjulet som egen knapp med samme glass-flate og ring
+      // Fiks 31.5: fanelinjen + tannhjulet = felles MSH.tabBar (variant gear, samme som tab_style gear på Hjem / Innstillinger)
+      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys' }) : '';
       return `<div class="wrap" style="${vars}">
-        <div class="trow"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" role="tab" aria-selected="${k === tab}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div>
-          <button class="gear" data-act="customize" data-haptic="light" aria-label="Tilpass lys">${M.icon('mdi:cog', 22)}</button></div>
+        ${bar}
         ${body || ''}
       </div>`;
     }
@@ -594,7 +595,7 @@
       const d = el.dataset, h = this.hass, A = this._A || M.lysAuto(h, this.config);
       const toast = (t) => { if (this.config.toasts !== false) M.toast(t); };
       switch (name) {
-        case 'tab': return this.setUI({ tab: d.key });
+        case 'tab': return this.setUI({ tab: d.v || d.key });
         case 'fold': return this.setUI({ fold: { ...(this.ui.fold || {}), [d.k]: !(this.ui.fold || {})[d.k] } });
         case 'outall': {
           const ids = A.lamps.map((l) => l.id), lit = ids.some((id) => { const s = this.s(id); return s && s.state === 'on'; });
@@ -657,13 +658,12 @@
 
     /* ---------------- faner (felles MSH.tabReorder) og lys-slidere */
     afterRender() {
-      const row = this.shadowRoot.querySelector('.tabs');
-      M.tabReorder(row, {
-        card: this, glass: true,
-        items: () => Array.from(row.querySelectorAll('.tab')),
+      // Fiks 31.5: felles fanelinje (MSH.tabBar.bind → MSH.tabRow): hold 400 ms + dra = flytt (tab_order), Esc avbryter
+      if (M.tabBar) M.tabBar.bind(this, this.shadowRoot.querySelector('.mtb'), {
         active: () => this._curTab(),
+        order: () => M.mshOrder(tabDefs(this._A || M.lysAuto(this.hass, this.config), this.cfg).map((x) => x[0]), this.cfg.tab_order, []),
         onSelect: (k) => this.setUI({ tab: k }),
-        onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
+        save: (full, keys) => { const hid = this.config.hidden_tabs || []; return M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
       });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
       const sr = this.shadowRoot.querySelector('.sr');
@@ -743,16 +743,9 @@
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
-        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme flate og ring.
-           Standard: transparent + ring. Glassflate (blur + glasskant) bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2);
-           glass-dra/trykk-linsen (MSH.tabReorder glass + glassTap) er alltid på. */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;${TRS}overflow:hidden}
-        .tabs{gap:2px;border-radius:18px;overflow-x:auto;scrollbar-width:none}
-        .tabs::-webkit-scrollbar{display:none}
-        .tab{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;transition:background .2s}
-        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .gear:active{transform:scale(.92)}
+        /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
+           bredde etter teksten, tannhjul 56 × 56 */
+        ${M.tabBar ? M.tabBar.CSS : ''}
         /* lys-rader (felles rad, 12 px mellom) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
         /* Utelys-kortet */

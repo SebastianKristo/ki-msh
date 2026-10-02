@@ -59,7 +59,7 @@
     const areas = M.areas(hass), T = [{ id: 'hjem', label: 'Hjem', view: 'karusell', kind: 'hjem' }];
     const floors = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0));
     const RES = ['hjem', 'aktuelt', 'batterier', 'uten_etasje'];
-    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
+    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: M.floorShort ? M.floorShort(f.name) : f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
     if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'uten_etasje', label: 'Andre rom', view: 'liste', kind: 'andre' });
     customTabs(c).forEach((t) => { if (!T.some((x) => x.id === t.id)) T.push(t); });
     T.push({ id: 'aktuelt', label: 'Aktuelt', view: 'liste', kind: 'aktuelt' });
@@ -337,6 +337,12 @@
     input[type=range]{width:100%;accent-color:${PK};cursor:pointer}
     .big52{height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
     .tset{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    /* Fiks 31.4 · Fanestil: forhåndsvisning (boks #232323 r18) med valgt stil live (CSS fra 24-hjem-faner.js, prefiks hts-/mtb-) */
+    .fsp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:var(--gray000,#232323);overflow:hidden;min-width:0}
+    .fsp .fspl{font-size:11px;font-weight:500;letter-spacing:0.08em;color:#7f7f7f}
+    .fsp .fsph{font-size:11px;color:#7f7f7f;line-height:1.4}
+    .fsp [data-a="fsprev"]{cursor:pointer}
+    ${M.HJEM_TABS_CSS || ''}
     .o36{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
     .stp{display:flex;align-items:center;gap:2px;padding:3px;border-radius:18px;background:var(--gray000,#232323);flex:none}
     .stp>button{width:30px;height:30px;border-radius:15px;display:grid;place-items:center;color:#c7c7c7}
@@ -710,7 +716,7 @@
       const cur = (kind) => { const a = c[kind]; if (a && typeof a === 'object' && a.action) return M.tap ? M.tap.norm(a) : a; return kind === 'tap_action' && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null; };
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
       const tp = (kind, lab, icn, std) => `<div class="tap" data-key="tr-tp-${kind}"><span class="th">${ic(icn, 20, 'color:#afafaf')}${esc(lab)}</span>
-          ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { path: 'Naviger', service: 'Tjeneste' }, stdHint: std, attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
+          ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { service: 'Tjeneste' }, stdHint: std, style: c.action_style, noneHint: kind === 'hold_action' ? 'Ingen handling ved hold.' : '', attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
       const RE = /s(ø|o)ppel|avfall|renovasjon|waste|garbage|trash/i;
       const sugg = (doms, cur2) => Object.keys(st).filter((id) => doms.includes(id.split('.')[0]) && id !== cur2 && RE.test(id + ' ' + ((st[id].attributes || {}).friendly_name || ''))).sort().slice(0, 6);
       const chips = (f, doms) => { const L = sugg(doms, c[f]); return L.length ? `<div class="chs" data-key="tr-sg-${f}">${L.map((id) => `<button class="o34 press" data-a="trsug" data-f="${f}" data-v="${esc(id)}" title="${esc(id)}">${ic('mdi:auto-fix', 16)}${esc(M.name(hass, id))}</button>`).join('')}</div>` : ''; };
@@ -894,7 +900,7 @@
         return 'Standard: ' + H.tapLabel(a, w) + (w === 'hold_ic' && a && a.navigation_path === '#dorlas' ? ' (Dørlås-popupen; uten lås → more-info)' : ''); };
       const cur = (w) => cfg[H.TAP_KEYS[w]] || (w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action) || null;
       const taps = H.TAP_FIELDS.map(([w, lab]) => `<div class="tap" data-key="${pre}-tp-${esc(k)}-${w}"><span class="th">${ic(w === 'ic' ? 'radio_button_checked' : w === 'card' ? 'touch_app' : w === 'hold_ic' ? 'mdi:gesture-tap-hold' : 'mdi:hand-back-right-outline', 20, 'color:#afafaf')}${esc(lab)}</span>
-          ${M.tap ? M.tap.html({ key: `${pre}-tpk-${k}-${w}`, value: cur(w) || (w === 'card' && H.kindOf(c, k) === 'cam' && H.camTapShown ? H.camTapShown(c, k) : null), modes: H.TAP_MODES, labels: H.TAP_LABELS, stdHint: std(w), attrs: `data-in="tetap" data-k="${esc(k)}" data-w="${w}"` }) : ''}</div>`).join('');
+          ${M.tap ? M.tap.html({ key: `${pre}-tpk-${k}-${w}`, value: cur(w) || (w === 'card' && H.kindOf(c, k) === 'cam' && H.camTapShown ? H.camTapShown(c, k) : null), modes: H.TAP_MODES, labels: H.TAP_LABELS, stdHint: std(w), style: c.action_style, noneHint: /^hold/.test(w) ? 'Ingen handling ved hold.' : '', attrs: `data-in="tetap" data-k="${esc(k)}" data-w="${w}"` }) : ''}</div>`).join('');
       return `${dom ? `<div class="fld"><span class="fl">Entitet · ${esc([].concat(dom).join(', '))}</span>${pk}</div>` : ''}
         <div class="g2"><div class="fld"><span class="fl">Navn</span><input class="in" data-in="tename" data-k="${esc(k)}" value="${esc(cfg.name || '')}" placeholder="${esc(K[1])}"></div>
           <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="tesub" data-k="${esc(k)}" value="${esc(cfg.sub || '')}" placeholder="${esc(kd === 'lock' ? 'Dørlås / Inngang' : K[1])}"></div></div>
@@ -983,7 +989,7 @@
       if (!u.calEd) return row;
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'];
       const tp = (w, v, std) => `<div class="tap" data-key="cal-tp-${w}"><span class="th">${ic(w === 'tap' ? 'touch_app' : 'mdi:gesture-tap-hold', 20, 'color:#afafaf')}${w === 'tap' ? 'Trykk' : 'Hold'}</span>
-          ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, labels: { path: 'Navigate' }, stdHint: std, attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
+          ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, stdHint: std, style: c.action_style, noneHint: w === 'hold' ? 'Ingen handling ved hold.' : '', attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
       return row + `<div class="ted" data-key="cal-ed">${tp('tap', ta, 'Standard: kalender-arket (detaljer)')}${tp('hold', ha, 'Standard: ingen')}
           <div class="fld"><span class="fl">Kalendere · ${sel.length ? sel.length + ' valgt' : 'alle'}</span><div class="ach">${all.map((id) => `<button class="${!sel.length || sel.includes(id) ? 'on' : ''}" data-a="calent" data-v="${esc(id)}" data-h="selection">${esc(M.name(this.hass, id))}</button>`).join('') || '<span class="sub">Fant ingen calendar.*</span>'}</div></div>
           <button class="tgl" data-a="calallday" data-h="selection" style="background:var(--gray200,#3a3a3a)">Ta med «Hele dagen»-hendelser${this._sw(K.all_day !== false)}</button></div>`;
@@ -1123,6 +1129,7 @@
           <div class="v">${t.kind === 'batterier' ? '<span class="chip on-pk">Batterier</span>' : VIEWS.map(([v, l]) => `<button class="chip ${t.view === v ? 'on-pk' : ''}" data-a="tabview" data-k="${esc(t.id)}" data-v="${v}" data-h="selection">${l}</button>`).join('')}
             ${t.view !== 'batterier' ? `<button class="rs" data-a="tabcards" data-k="${esc(t.id)}">Rom og snarveier${ic('chevron_right', 18)}</button>` : ''}</div>
           ${t.kind === 'batterier' ? this._bat(c) : ''}
+          ${custom && M.iconPicker ? `<div class="fld"><span class="fl">Ikon (Glidende, Chips, To nivåer, Som popups)</span>${M.iconPicker.html({ key: 'tic-' + t.id, value: get(c, 'tab_icons.' + t.id) || '', placeholder: 'mdi:layers', label: 'Ikon', attrs: `data-in="tabicon" data-k="${esc(t.id)}" style="--msh-if-bg:var(--gray000,#232323)"` })}</div>` : ''}
         </div>`;
       }).join('');
       const opt = (key, v, l, curV) => `<button class="o36 ${curV === v ? 'on-pk' : ''}" data-a="tabset" data-k="${key}" data-v="${v}" data-h="selection">${l}</button>`;
@@ -1136,9 +1143,19 @@
       const hOn = M.hapticOff ? !M.hapticOff() : true;
       const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:#979797">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:#7f7f7f">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
       // Fiks 20.8: Fanestil (høyde/bredde, tabSet) øverst → Liquid Glass-animasjon → fanene → «+ Ny fane»
+      // Fiks 31.4: Stil (tab_style) + «Fanene viser» (tab_mode, Som popups) + forhåndsvisning øverst (Hjem v3 · fs/tabSet)
+      const st = M.hjemTabStyle ? M.hjemTabStyle(c) : c.tab_style || 'pille', lf = this.fanerLive;
+      let pvId = this.u.pvTab;
+      if (!pvId || (lf && lf._cur && lf._cur.id === pvId)) { pvId = lf && lf._cur ? lf._cur.id : null; this.u.pvTab = null; }
+      const pv = M.hjemTabsPreview ? M.hjemTabsPreview(hass, c, pvId, (t) => `data-a="fsprev" data-t="${esc(t.id)}" data-h="selection"`) : '';
+      const pvBox = `<div class="fsp" data-key="fsp"><span class="fspl">FORHÅNDSVISNING</span>${pv}<span class="fsph">Viser dine faner live. Trykk for å teste – valgt fane følger Hjem.</span></div>`;
+      const stRow = `<div class="fld"><span class="fl">Stil</span><div class="chs">${(M.HJEM_TAB_STYLES || [['pille', 'Pille']]).map(([v, l]) => opt('tab_style', v, l, st)).join('')}</div></div>`;
+      const visRow = st === 'popup' ? `<div class="fld"><span class="fl">Fanene viser</span><div class="chs">${(M.HJEM_TAB_MODES || []).map(([v, l]) => opt('tab_mode', v, l, c.tab_mode || 'begge')).join('')}</div></div>` : '';
+      const pl = st === 'pille' ? '' : ' · gjelder Pille';
       return `<div class="tset"><span class="lb">Fanestil</span>
-          <div class="fld"><span class="fl">Høyde</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
-          <div class="fld"><span class="fl">Bredde per fane</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
+          ${pvBox}${stRow}${visRow}
+          <div class="fld"><span class="fl">Høyde${pl}</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
+          <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
         </div>
         ${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
@@ -1254,7 +1271,7 @@
           <div class="fld"><span class="fl">Ikon i boblen</span><div class="chs" style="max-height:124px;overflow-y:auto;scrollbar-width:none">${PICONS.map(([v, l]) => `<button class="chip ${(p.icon || '') === v ? 'on-pk' : ''}" data-a="picon" data-i="${i}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
             <input class="in" data-in="pf" data-i="${i}" data-f="icon" value="${esc(p.icon === 'dot' ? '' : p.icon || '')}" placeholder="Eller skriv inn en emoji / mdi:ikon"></div>
           <div class="fld"><span class="fl">Farge · Auto følger verdien (pris, lås, alarm …)</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${PSW.map(([v, col, l]) => `<button class="sw34 ${(p.color || 'hvit') === v ? 'on' : ''}" data-a="pcol" data-i="${i}" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, labels: { path: 'Sti' }, attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
+          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, noneHint: 'Boblen gjør ingenting ved trykk.', attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
           <div class="fld"><span class="fl">Utfør også</span><select class="in" data-in="pact" data-i="${i}">${ACTS.filter(([v]) => v !== 'more' || p.act === 'more').map(([v, l]) => `<option value="${v}" ${(p.act || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
             ${p.act === 'service' ? `<div class="svc"><span class="sh2">${ic('terminal', 16)}Utfør handling</span>
               <input class="in" data-in="pf" data-i="${i}" data-f="svc" value="${esc(p.svc || '')}" placeholder="domene.tjeneste, f.eks. light.turn_on">
@@ -1395,6 +1412,8 @@
         if (d.in === 'tetap') { const H = HT(), p = `tile_cfg.${d.k}.`; const pt = { [p + H.TAP_KEYS[d.w]]: v || undefined }; const al = { ic: 'tap_action', card: 'tap_action', hold_ic: 'icon_hold_action', hold_card: 'hold_action' }[d.w]; if (get(this.F(), p + al) != null && d.w !== 'ic' && d.w !== 'card') pt[p + al] = undefined; return this.saveF(pt); }
         return this._teSet(d.k, d.in === 'teent' ? 'entity' : 'icon', v || '');
       });
+      // Fiks 31.4 · eget ikon for egne faner (tab_icons.<fane>)
+      r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'tabicon'); if (!el) return; e.stopPropagation(); this.saveF({ ['tab_icons.' + el.dataset.k]: (e.detail && e.detail.value) || undefined }); });
       // Fiks 17.8 · snarvei-raden: ikonvelger og popup-velger (msh-icon-field / msh-popup-field)
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && (n.dataset.in === 'licon' || n.dataset.in === 'lhash')); if (!el || !this.u.sel) return; e.stopPropagation(); const v = (e.detail && e.detail.value) || ''; this.saveF({ [`links.${this.u.sel.id}.${el.dataset.in === 'licon' ? 'icon' : 'hash'}`]: v || undefined }); });
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'icpick'); if (el && this.u.sel) { const v = e.detail && e.detail.value; this._roomSet(this.u.sel.id, { icon: v || undefined }); } });
@@ -1466,7 +1485,7 @@
         u.sel = null; u.pick = null;
         if (Object.keys(p).length) this.saveF(p); else this.render();
       } else if (u.sec === 'faner') {
-        this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
+        this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined, tab_style: undefined, tab_mode: undefined, tab_icons: undefined });
       } else if (u.sec === 'pop') {
         this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
@@ -1724,7 +1743,7 @@
         case 'tabdel': {
           if (!t || t.kind !== 'custom') return;
           const list = String(c.custom_tabs || '').split(',').map((x) => x.trim()).filter((x) => x && 'c_' + M.slug(x) !== t.id);
-          const p = { custom_tabs: list.join(', ') || undefined, ['tab_labels.' + t.id]: undefined, ['tab_views.' + t.id]: undefined, ['layout.' + t.id]: undefined, ['tiles.' + t.id]: undefined };
+          const p = { custom_tabs: list.join(', ') || undefined, ['tab_labels.' + t.id]: undefined, ['tab_views.' + t.id]: undefined, ['tab_icons.' + t.id]: undefined, ['layout.' + t.id]: undefined, ['tiles.' + t.id]: undefined };
           if (Array.isArray(c.tab_order)) p.tab_order = c.tab_order.filter((x) => x !== t.id);
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
@@ -1740,9 +1759,15 @@
           return this.saveF({ custom_tabs: [...ex, name].join(', ') });
         }
         case 'tabset': {
-          const p = { [d.k]: d.v === 'std' ? undefined : d.v };
+          const p = { [d.k]: d.v === 'std' || (d.k === 'tab_style' && d.v === 'pille') || (d.k === 'tab_mode' && d.v === 'begge') ? undefined : d.v };
           if (d.v === 'custom') { const pk = d.k + '_px'; if (!c[pk]) p[pk] = d.k === 'tab_height' ? TAB_H[c.tab_height || 'std'] || 38 : 88; }
           return this.saveF(p);
+        }
+        case 'fsprev': { // 31.4: trykk i forhåndsvisningen bytter fane på Hjem
+          const lf = this.fanerLive, i = lf && lf._TV ? lf._TV.findIndex((x) => x.id === d.t) : -1;
+          if (i >= 0) lf._pickTab(i);
+          u.pvTab = d.t;
+          return this.render();
         }
         case 'tabstep': { const v = M.clamp((Number(c[d.k]) || Number(d.def)) + Number(d.v), Number(d.min), Number(d.max)); return this.saveF({ [d.k]: v }); }
         case 'bcond': return this.saveF({ 'battery.cond': d.v });

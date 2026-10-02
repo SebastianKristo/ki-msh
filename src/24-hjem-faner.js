@@ -10,6 +10,17 @@
   const M = window.MSH, esc = M.esc, C = M.C;
   const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const TAB_H = { lav: 32, std: 38, mid: 44, hoy: 50, ekstra: 56 };
+  /* Fiks 31.4 · fanestil (Etasjevelger.dc.html + Hjem v3 · fs): tab_style pille | glide | chips | to | popup | gear
+   * (standard pille = dagens, uendret). popup/gear = felles MSH.tabBar (05-tab-bar.js, samme komponent som popupene og Lys).
+   * tab_mode ikon | tekst | begge (standard begge) gjelder «Som popups». tab_icons.<fane> = eget ikon (alle stiler med ikon). */
+  const TAB_STYLES = [['pille', 'Pille'], ['glide', 'Glidende · ikon'], ['chips', 'Chips med status'], ['to', 'To nivåer'], ['popup', 'Som popups'], ['gear', 'Tekst + tannhjul']];
+  const TAB_MODES = [['ikon', 'Ikon'], ['tekst', 'Tekst'], ['begge', 'Begge']];
+  M.HJEM_TAB_STYLES = TAB_STYLES;
+  M.HJEM_TAB_MODES = TAB_MODES;
+  const tabStyle = (c) => (TAB_STYLES.some(([v]) => v === (c && c.tab_style)) ? c.tab_style : 'pille');
+  M.hjemTabStyle = tabStyle;
+  // Kortnavn for etasjer (Hjem og Lys): «1. etasje» → «1. etg»
+  M.floorShort = (n) => String(n == null ? '' : n).replace(/\s*etasje\b/i, ' etg').replace(/^\s+/, '');
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const VIEWS = [['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']];
   const SLOTS = [['off', 'Av'], ['L-top', 'Venstre · over rom'], ['L-bottom', 'Venstre · under rom'], ['R-top', 'Høyre · over rom'], ['R-bottom', 'Høyre · under rom']];
@@ -27,6 +38,8 @@
   // Fiks 20.13 (Hjem v3 · noRooms / layDefault aktuelt → []): Aktuelt-fanen (id aktuelt eller view 'aktuelt') viser aldri romkort
   const isAkt = (t) => !!t && (t.id === 'aktuelt' || t.kind === 'aktuelt' || t.view === 'aktuelt');
   M.hjemIsAkt = isAkt;
+  // Fiks 31.4 · «To nivåer»: underraden har alle faner av typen Kortliste (etasjer, Andre rom, egne kortlister) – ikke Hjem/Aktuelt
+  const isFloorTab = (t) => !!t && t.view === 'liste' && !isAkt(t) && t.kind !== 'hjem' && t.kind !== 'batterier';
   /* Fiks 16.11 · snarvei-fliser med egen entitet, navn, ikon, undertekst og fire handlinger.
    * Config per flis: tile_cfg.<id> = { kind, entity, name, icon, sub, tap_icon, tap_card, hold_icon, hold_card, side, pos }
    *   id = typen for første flis (lock, alarm, cam …), ekstra fliser av samme type: <type>_<n> (lock_2) med kind.
@@ -55,7 +68,7 @@
   };
   const TAP_KEYS = { ic: 'tap_icon', card: 'tap_card', hold_ic: 'hold_icon', hold_card: 'hold_card' };
   const TAP_FIELDS = [['ic', 'Trykk på ikonet'], ['card', 'Trykk på kortet'], ['hold_ic', 'Hold på ikonet'], ['hold_card', 'Hold på kortet']];
-  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'path', 'more', 'service', 'none'];
+  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none']; // 30.3: + URL (3 × 3 ruter)
   const TAP_LABELS = { path: 'Navigate' }; // fiks 19.3: dashbord-sti (f.eks. /dashboard-kamera)
   // Entitetsdomene per flis-type (søkbar velger i «Tilpass Hjem» → Kort og GUI-editoren). Apparater: status-sensor.
   const TILE_DOM = { lock: 'lock', alarm: 'alarm_control_panel', cam: 'camera', todo: 'todo', garage: 'cover', ruter: 'sensor', tv: 'media_player', vacr: 'vacuum', dish: ['sensor', 'binary_sensor', 'switch'], wash: ['sensor', 'binary_sensor', 'switch'], dry: ['sensor', 'binary_sensor', 'switch'] };
@@ -318,13 +331,40 @@
     const areas = M.areas(hass), T = [{ id: 'hjem', label: 'Hjem', view: 'karusell', kind: 'hjem' }];
     const floors = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0));
     const RES = ['hjem', 'aktuelt', 'batterier', 'uten_etasje'];
-    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
+    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: floorTabId(f.floor_id), label: M.floorShort(f.name), view: 'liste', kind: 'floor', floor: f.floor_id }); });
     if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'uten_etasje', label: 'Andre rom', view: 'liste', kind: 'andre' });
     customTabs(c).forEach((t) => { if (!T.some((x) => x.id === t.id)) T.push(t); });
     T.push({ id: 'aktuelt', label: 'Aktuelt', view: 'liste', kind: 'aktuelt' });
     T.push({ id: 'batterier', label: 'Batterier', view: 'batterier', kind: 'batterier' });
     return T;
   }
+  function floorTabId(fid) { return ['hjem', 'aktuelt', 'batterier', 'uten_etasje'].includes(fid) || String(fid).startsWith('c_') ? 'f_' + fid : fid; }
+  // Fiks 31.5: etasjens kortnavn slik det står på Hjem (tab_labels.<fane> i Hjem-kortets config, ellers M.floorShort)
+  M.hjemFloorLabel = function (fid, name) {
+    let c = null;
+    try {
+      const live = M.liveOf && M.liveOf('msh-hjem-faner-card');
+      c = live && live.config ? live.config : M.effectiveConfig && M.CARD_IDS ? M.effectiveConfig({ type: 'custom:msh-hjem-faner-card', card_id: M.CARD_IDS.faner }, null, { shared: true }) : null;
+    } catch (e) { c = null; }
+    return (c && fid && get(c, 'tab_labels.' + floorTabId(fid))) || M.floorShort(name);
+  };
+  // Fiks 31.4 · ikon per fane (designet: Hjem home, 1./2. etg counter_1/2, Ute yard, Aktuelt bolt, Batterier battery_alert)
+  function tabIcon(hass, c, t) {
+    const own = get(c, 'tab_icons.' + t.id);
+    if (own) return own;
+    if (t.kind === 'hjem') return 'mdi:home';
+    if (isAkt(t)) return 'mdi:lightning-bolt';
+    if (t.kind === 'batterier') return 'mdi:battery-alert';
+    if (t.kind === 'floor') {
+      const f = M.floors(hass).find((x) => x.floor_id === t.floor);
+      if (f && outdoorFloor(f)) return 'yard';
+      const lv = f ? Number(f.level) : NaN;
+      if (Number.isInteger(lv) && lv >= 0 && lv <= 9) return `mdi:numeric-${lv}-circle-outline`;
+      return (f && f.icon) || 'mdi:layers';
+    }
+    return 'mdi:layers';
+  }
+  M.hjemTabIcon = tabIcon;
   function allTabs(hass, c) {
     const A = autoTabs(hass, c), ord = Array.isArray(c.tab_order) ? c.tab_order : [];
     const out = [...ord.map((id) => A.find((t) => t.id === id)).filter(Boolean), ...A.filter((t) => !ord.includes(t.id))];
@@ -541,6 +581,54 @@
     return f;
   }
 
+
+  /* Fiks 31.4 · CSS for fanestilene (kortet og forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil). Prefiks hts-. */
+  const PK = C.accent, RD = 'var(--red,#f28073)', EDGE = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
+  M.HJEM_TABS_CSS = `
+    ${M.tabBar ? M.tabBar.CSS : ''}
+    .hts-glide,.hts-chips,.hts-top,.hts-sub{user-select:none;-webkit-user-select:none;touch-action:pan-y}
+    .hts-glide>*,.hts-chips>*,.hts-top>*,.hts-sub>*,.hts-bat,.hts-pt{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;cursor:pointer;font-family:inherit;border:0;margin:0;box-sizing:border-box}
+    .hts-ic{display:inline-flex;flex:none;line-height:0}
+    .hts-glide{position:relative;display:grid;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box;min-width:0}
+    .hts-thumb{position:absolute;top:4px;bottom:4px;border-radius:22px;background:${PK};box-shadow:0 6px 16px rgb(242 133 201 / 0.25);transition:left .28s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+    .hts-glide.tr-drag .hts-thumb{opacity:.35}
+    .hts-gt{position:relative;z-index:1;height:56px;min-width:0;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:var(--gray800,#afafaf);font-size:11px;font-weight:500;transition:color .2s}
+    .hts-gt.on{color:var(--gray100,#2f2f2f)}
+    .hts-gl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+    .hts-gt.warn:not(.on) .hts-ic{color:${RD}}
+    .hts-chips{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -2px;padding:0 2px;min-width:0}
+    .hts-chips::-webkit-scrollbar,.hts-sub::-webkit-scrollbar{display:none}
+    .hts-ch{flex:none;height:56px;padding:0 16px 0 12px;border-radius:28px;display:flex;align-items:center;gap:10px;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);box-shadow:${EDGE};transition:background .2s;text-align:left}
+    .hts-ch .hts-ic{color:var(--gray800,#afafaf)}
+    .hts-ch.on{background:${PK};color:var(--gray100,#2f2f2f);box-shadow:none}
+    .hts-ch.on .hts-ic{color:var(--gray100,#2f2f2f)}
+    .hts-cx{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+    .hts-cl{font-size:14px;font-weight:500;white-space:nowrap;line-height:1.2}
+    .hts-cm{font-size:11px;white-space:nowrap;color:var(--gray700,#979797);line-height:1.2}
+    .hts-ch.on .hts-cm{color:rgba(47,47,47,0.75)}
+    .hts-ch.warn:not(.on) .hts-ic,.hts-ch.warn:not(.on) .hts-cm{color:${RD}}
+    .hts-to{display:flex;flex-direction:column;gap:10px;min-width:0}
+    .hts-tor{display:flex;align-items:center;gap:8px;min-width:0}
+    .hts-top{flex:1;min-width:0;display:grid;gap:2px;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box}
+    .hts-tt{height:48px;border-radius:22px;min-width:0;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;background:transparent;color:var(--gray900,#c7c7c7);transition:background .2s}
+    .hts-tt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+    .hts-tl{overflow:hidden;text-overflow:ellipsis}
+    .hts-bat{position:relative;width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;padding:0;background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf);box-shadow:${EDGE};transition:background .2s}
+    .hts-bat.warn{color:${RD}}
+    .hts-bat.on{background:${RD};color:var(--gray100,#2f2f2f)}
+    .hts-bn{position:absolute;top:4px;right:4px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:${RD};color:var(--gray100,#2f2f2f);font-size:11px;font-weight:600;display:grid;place-items:center;line-height:1}
+    .hts-bat.on .hts-bn{background:var(--gray100,#2f2f2f);color:${RD}}
+    .hts-sub{display:flex;gap:6px;padding:0 4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;min-width:0}
+    .hts-st{flex:none;height:36px;padding:0 16px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;box-shadow:inset 0 0 0 1px var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);display:flex;align-items:center}
+    .hts-st.on{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1.5px var(--pink,#f285c9);color:var(--white,#fafafa)}
+    .hts-pp{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
+    .hts-pp.full{align-self:stretch}
+    .hts-ppr{display:flex;gap:0}
+    .hts-pt{flex:0 0 auto;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;border-radius:999px;color:var(--gray800,#afafaf)}
+    .hts-pp.full .hts-pt{flex:1 0 auto}
+    .hts-pt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+  `;
+
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
     static get cardName() { return 'Hjem · faner og romkort'; }
@@ -566,6 +654,10 @@
             ...(c.tab_height === 'custom' ? [{ type: 'number', name: 'tab_height_px', label: 'Høyde (px)', min: 24, max: 80, placeholder: '38' }] : []),
             { type: 'select', name: 'tab_width', label: 'Bredde per fane', options: [['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']], default: 'std' },
             ...(c.tab_width === 'custom' ? [{ type: 'number', name: 'tab_width_px', label: 'Bredde (px)', min: 48, max: 200, placeholder: '88' }] : []),
+            // Fiks 31.4: samme valg som «Tilpass Hjem» → Faner → Fanestil (høyde/bredde gjelder Pille)
+            { type: 'select', name: 'tab_style', label: 'Fanestil · stil', options: TAB_STYLES, default: 'pille', help: 'Høyde og bredde gjelder Pille. De andre stilene har faste mål.' },
+            ...(tabStyle(c) === 'popup' ? [{ type: 'select', name: 'tab_mode', label: 'Fanene viser', options: TAB_MODES, default: 'begge' }] : []),
+            ...(['glide', 'chips', 'to', 'popup'].includes(tabStyle(c)) ? T.map((t) => ({ type: 'icon', name: `tab_icons.${t.id}`, label: `Ikon · ${t.label}`, placeholder: M.iconName ? M.iconName(tabIcon(hass, c, t)) : tabIcon(hass, c, t) })) : []),
           ] },
           { type: 'section', id: 'batterier', label: 'Batterier', icon: 'mdi:battery-alert', fields: [
             { type: 'number', name: 'battery.limit', label: 'Grense for lavt batteri (%)', min: 5, max: 60, step: 5, placeholder: '20' },
@@ -839,7 +931,68 @@
     }
     // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
     // Linsen (.ind) posisjoneres etter målt fane (afterRender) – bredden følger fanen.
-    _tabsHTML(TV, cur) {
+    // Fiks 31.4: fanestilen (tab_style) velger markup. pv = forhåndsvisning i «Tilpass Hjem» ({ attrs(t, i) } per fane).
+    _tabsHTML(TV, cur, pv) {
+      const st = tabStyle(this.config);
+      if (st === 'pille') return pv ? this._pillePV(TV, cur, pv) : this._pilleHTML(TV, cur);
+      const B = this._B || this._batteries(), low = B.list.filter((b) => b.low).length;
+      const A = (t, i) => (pv ? pv.attrs(t, i) : `data-act="tab" data-i="${i}" data-v="${esc(t.id)}" data-haptic="selection"`);
+      const tag = pv ? 'span' : 'button', role = (on) => (pv ? '' : `role="tab" aria-selected="${on}"`);
+      const icon = (t) => tabIcon(this.hass, this.config, t), warn = (t) => t.kind === 'batterier' && low > 0;
+      const idx = Math.max(0, TV.indexOf(cur));
+      if (st === 'popup' || st === 'gear') {
+        const items = TV.map((t) => ({ key: t.id, label: t.label, icon: icon(t), warn: warn(t) }));
+        return M.tabBar.html(items, cur.id, {
+          variant: st === 'gear' ? 'gear' : 'pop', mode: this.config.tab_mode, key: 'hts-bar', preview: !!pv,
+          attrs: (t, i) => A(TV[i], i), gearAttrs: 'data-act="hjemedit" data-haptic="light"', gearLabel: 'Tilpass Hjem',
+        });
+      }
+      if (st === 'glide') {
+        const N = TV.length || 1;
+        return `<div class="hts-glide" data-key="hts-glide" style="grid-template-columns:repeat(${N},minmax(0,1fr))" ${pv ? '' : 'role="tablist"'} data-gd-skip>
+          <span class="hts-thumb" data-key="hts-thumb" style="left:calc(4px + (100% - 8px) / ${N} * ${idx});width:calc((100% - 8px) / ${N})"></span>
+          ${TV.map((t, i) => `<${tag} class="hts-gt${i === idx ? ' on' : ''}${warn(t) ? ' warn' : ''}" ${role(i === idx)} aria-label="${esc(t.label)}" data-key="hts-${esc(t.id)}" ${A(t, i)}><span class="hts-ic">${M.icon(icon(t), 20)}</span><span class="hts-gl">${esc(t.label)}</span></${tag}>`).join('')}
+        </div>`;
+      }
+      if (st === 'chips') {
+        return `<div class="hts-chips" data-key="hts-chips" ${pv ? '' : 'role="tablist"'} data-gd-skip>${TV.map((t, i) => `<${tag} class="hts-ch${i === idx ? ' on' : ''}${warn(t) ? ' warn' : ''}" ${role(i === idx)} aria-label="${esc(t.label)}" data-key="hts-${esc(t.id)}" ${A(t, i)}><span class="hts-ic">${M.icon(icon(t), 22)}</span><span class="hts-cx"><span class="hts-cl">${esc(t.label)}</span><span class="hts-cm">${esc(this._tabMeta(t, B))}</span></span></${tag}>`).join('')}</div>`;
+      }
+      // to nivåer: hovedrad (Hjem · Etasjer · Aktuelt · egne faner som ikke er Kortliste) + Batterier-knapp; underrad = Kortliste-fanene
+      const flo = TV.filter(isFloorTab), inFlo = flo.includes(cur), bat = TV.find((t) => t.kind === 'batterier');
+      const top = [];
+      TV.forEach((t) => {
+        if (t === bat) return;
+        if (isFloorTab(t)) { if (!top.some((x) => x.etg)) top.push({ etg: true }); return; }
+        top.push(t);
+      });
+      const tBtn = (x) => {
+        if (x.etg) { const tg = inFlo ? cur : flo[0], i = TV.indexOf(tg); return `<${tag} class="hts-tt${inFlo ? ' on' : ''}" ${role(inFlo)} aria-label="Etasjer" data-key="hts-etg" ${A(tg, i).replace(/data-v="[^"]*"/, 'data-v="__etg"')}><span class="hts-ic">${M.icon('mdi:layers-triple', 18)}</span><span class="hts-tl">Etasjer</span></${tag}>`; }
+        const i = TV.indexOf(x), on = x === cur;
+        return `<${tag} class="hts-tt${on ? ' on' : ''}" ${role(on)} aria-label="${esc(x.label)}" data-key="hts-${esc(x.id)}" ${A(x, i)}><span class="hts-ic">${M.icon(icon(x), 18)}</span><span class="hts-tl">${esc(x.label)}</span></${tag}>`;
+      };
+      const batB = bat ? `<${tag} class="hts-bat${bat === cur ? ' on' : ''}${low ? ' warn' : ''}" ${role(bat === cur)} aria-label="${esc(bat.label)}" title="${esc(bat.label)}" data-key="hts-bat" data-tr-fixed ${A(bat, TV.indexOf(bat))}>${M.icon(icon(bat), 22)}${low ? `<span class="hts-bn">${low}</span>` : ''}</${tag}>` : '';
+      const sub = inFlo ? `<div class="hts-sub" data-key="hts-sub" ${pv ? '' : 'role="tablist"'} data-gd-skip>${flo.map((t) => { const on = t === cur; return `<${tag} class="hts-st${on ? ' on' : ''}" ${role(on)} data-key="hts-s-${esc(t.id)}" ${A(t, TV.indexOf(t))}>${esc(t.label)}</${tag}>`; }).join('')}</div>` : '';
+      return `<div class="hts-to" data-key="hts-to"><div class="hts-tor"><div class="hts-top" data-key="hts-top" style="grid-template-columns:repeat(${top.length || 1},minmax(0,1fr))" ${pv ? '' : 'role="tablist"'} data-gd-skip>${top.map(tBtn).join('')}</div>${batB}</div>${sub}</div>`;
+    }
+    // Status under navnet (Chips): «N favoritter», «N rom · N lys», «Nå», «N lave» / «Alle ok» – fra ekte data
+    _tabMeta(t, B) {
+      if (t.kind === 'batterier') { const n = B.list.filter((b) => b.low).length; return n ? `${n} lave` : 'Alle ok'; }
+      if (isAkt(t)) return 'Nå';
+      let R = [];
+      try { R = this._rooms(t); } catch (e) { R = []; }
+      if (t.kind === 'hjem') return R.length ? `${R.length} ${R.length === 1 ? 'favoritt' : 'favoritter'}` : '–';
+      if (!R.length) return '–';
+      const lit = R.reduce((n, r) => n + (r.lightsOn || 0), 0);
+      return `${R.length} rom${lit ? ` · ${lit} lys` : ''}`;
+    }
+    // Pille i forhåndsvisningen: statisk (aktiv fane bærer pillen), samme høyde/bredde som på Hjem
+    _pillePV(TV, cur, pv) {
+      const c = this.config, h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
+      const w = c.tab_width || 'std', tw = w === 'custom' ? `width:${Number(c.tab_width_px) || 88}px;` : '';
+      const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
+      return `<div class="hts-pp${w === 'full' ? ' full' : ''}" data-key="hts-pp"><div class="hts-ppr">${TV.map((t, i) => `<span class="hts-pt${t === cur ? ' on' : ''}" data-key="hts-pt-${esc(t.id)}" ${pv.attrs(t, i)} style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</span>`).join('')}</div></div>`;
+    }
+    _pilleHTML(TV, cur) {
       const c = this.config, idx = Math.max(0, TV.indexOf(cur));
       const h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
       const w = c.tab_width || 'std';
@@ -1420,7 +1573,7 @@
       this._ticking = false;
       const wrap = (inner) => `<div class="hf ${L.fold ? 'fold' : ''}">${inner}</div>`;
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
-      const B = this._batteries(), E = (this._E = tileEnts(hass, c));
+      const B = (this._B = this._batteries()), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
       this._autoFillOnce();
       this._aktMigOnce();
@@ -1447,6 +1600,7 @@
     onAction(name, el, ev) {
       const d = el.dataset;
       if (name === 'tab') return this._pickTab(Number(d.i));
+      if (name === 'hjemedit') { if (M.openDashEditor) M.openDashEditor({ editor: 'home' }); return; } // 31.4: tannhjulet (Tekst + tannhjul)
       if (name === 'tile') {
         // fiks 19.3: sveip i flis-stabelen (Kamera/Ruter) er ikke trykk – pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
         if (ev && ev.detail !== 0 && this._pdXY && ev.clientX != null && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
@@ -1547,6 +1701,7 @@
     // plass, er sideveis dra = liquid glass-linse (.ind følger fingeren). Flytt fane KUN etter langt trykk (400 ms)
     // eller i redigeringsmodus (this.editMode / window.__kiEditMode).
     _bindTabs() {
+      if (tabStyle(this.config) !== 'pille') return this._bindStyleTabs();
       const row = this.shadowRoot.querySelector('.tg');
       if (!row) return;
       const items = () => [...row.querySelectorAll('.tab')];
@@ -1569,6 +1724,23 @@
         onGlassEnd: (b) => { row.classList.remove('drag'); items().forEach((t) => t.classList.remove('near')); if (!b) this.update(); },
       });
     }
+    // Fiks 31.4: de andre fanestilene – felles MSH.tabRow (hold 400 ms + dra = flytt → tab_order, Esc avbryter, kort trykk
+    // bytter fane, glass-valg ved sideveis dra, haptic selection, touch-action pan-y + stopPropagation – fallgruve 2).
+    _bindStyleTabs() {
+      const R = this.shadowRoot, st = tabStyle(this.config), TV = this._TV || [];
+      const all = () => allTabs(this.hass, this.config).map((t) => t.id);
+      const save = (keys) => this._saveCfg({ tab_order: M.tabMerge(keys, all()) });
+      const base = { active: () => (this._cur || {}).id, order: all, save: (full, keys) => save(keys) };
+      if (st === 'popup' || st === 'gear') { if (M.tabBar) M.tabBar.bind(this, R.querySelector('.mtb'), base); return; }
+      if (!M.tabRow) return;
+      const row = (sel, items, o) => { const el = R.querySelector(sel); if (el) M.tabRow(this, el, { ...base, items: () => [...el.querySelectorAll(items)], ...(o || {}) }); };
+      if (st === 'glide') return row('.hts-glide', '.hts-gt');
+      if (st === 'chips') return row('.hts-chips', '.hts-ch');
+      // to nivåer: «Etasjer» flyttes som én blokk (alle Kortliste-fanene), underraden omorganiserer etasjene innbyrdes
+      const flo = TV.filter(isFloorTab).map((t) => t.id);
+      row('.hts-top', '.hts-tt', { active: () => (flo.includes((this._cur || {}).id) ? '__etg' : (this._cur || {}).id), save: (full, keys) => save(keys.flatMap((k) => (k === '__etg' ? flo : [k]))) });
+      row('.hts-sub', '.hts-st');
+    }
     get styles() {
       return `${M.romkortCSS || ''}
         ${M.APPLIANCE_CSS || ''}
@@ -1579,6 +1751,7 @@
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
         ${M.TAB_ROW_CSS || ''}
+        ${M.HJEM_TABS_CSS}
         .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
@@ -1667,5 +1840,14 @@
       `;
     }
   }
+  /* Fiks 31.4 · forhåndsvisning i «Tilpass Hjem» → Faner → Fanestil: valgt stil med brukerens egne faner (ekte data, config
+   * = utkastet). attrs(t, i) gir hver fane arkets egne data-a-attributter (trykk bytter fane på Hjem). */
+  M.hjemTabsPreview = function (hass, c, curId, attrs) {
+    if (!hass || !c) return '';
+    const p = M.__hjemPV || (M.__hjemPV = document.createElement('msh-hjem-faner-card'));
+    p._rawConfig = c; p._config = { ...HjemFaner.defaults, ...c }; p._hass = hass;
+    const B = (p._B = p._batteries()), TV = (p._TV = p._tabsV(B)), cur = (p._cur = TV.find((t) => t.id === curId) || p._curTab(TV));
+    return p._tabsHTML(TV, cur, { attrs });
+  };
   M.define('msh-hjem-faner-card', HjemFaner, 'MSH Hjem · faner og romkort', 'Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, snarveier, apparater og rom-varsler.');
 })();

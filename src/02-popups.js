@@ -98,7 +98,7 @@
     ['#rolf', 'Sir Sweeps', 'mdi:robot-vacuum', 'msh-stovsuger-card'], // fiks 24.9 – støvsuger (57-stovsuger.js), bare når vacuum.* finnes (M.popupNeeds); sub_button via M.POPUP_LOOK/M.POPUP_FORCE['#rolf']
     ['#soppel', 'Søppel', 'mdi:trash-can', 'msh-avfall-card'], // fiks 25.4 – avfallsfraksjoner (days_to_pickup), kalender og varsler (59-avfall.js); erstatter den importerte #soppel (ki-avfall-card)
     ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
-    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe
+    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe · 31.2: #nibe er alias (M.HASH_ALIAS, 61-varmepumpe.js)
   ];
   // Fiks 30.1 · gamle hasher som alias for ÉN popup: { '#basseng': '#badebasseng' } (satt i 40-basseng.js). Lenker,
   // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
@@ -117,7 +117,7 @@
   M.allPopups = function (hass, opts) {
     const R = M.popupReport;
     const inc = (e) => (opts && opts.hidden) || !e.hidden;
-    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden }));
+    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden, color: e.color || null })); // 30.2: romfarge til popup-velgeren
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
     if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id]) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // 30.1: område «Basseng» = funksjons-popupen

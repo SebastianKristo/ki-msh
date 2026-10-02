@@ -100,7 +100,7 @@
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
     // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
     const C = (h) => (M.canonHash ? M.canonHash(h) : h); // 30.1: #basseng (alias) peker på #badebasseng
-    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
+    const target = (b) => { if (!b) return null; const t = b.tap_action || b.tap; /* 30.3: tap_action (HA-standard), gamle tap */ if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
     const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
     if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && target(B[k]) === hash)) return true;
@@ -520,6 +520,7 @@
     // Fiks 30.1 · 28.14-tvillingene (MSH.POPUP_TWINS, #basseng + #badebasseng) er fjernet: nøyaktig ÉN popup per funksjon,
     // gamle hasher er alias (MSH.HASH_ALIAS → history.replaceState). Engangsmigrering av ki-store (40-basseng.js):
     if (M.bassengMigrateStore) M.bassengMigrateStore(hass); // én gang: gamle basseng-popups/-kort/-lenker i ki-store skrives om
+    if (M.varmepumpeMigrateStore) M.varmepumpeMigrateStore(hass); // 31.2 · én gang: gamle varmepumpe-popups (#nibe, gamle kort) og lenker i ki-store skrives om
     if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => ((M.REF_POPUPS[f.hash] || {}).nav || f.hash.slice(1))); // 30.1: #badebasseng = navbar-knappen «basseng»

@@ -1,12 +1,12 @@
-/*! KI MSH 1.4.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
+/*! KI MSH 1.5.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
 (function () { try {
-  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.4.0") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.4.0" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
+  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.5.0") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.5.0" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
   var cs = document.currentScript && document.currentScript.src; // klassisk <script>; som modul (HA-ressurs): ressurslisten
   var urls = cs ? [cs] : (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(function (e) { return e.name; }).filter(function (u) { return /ki-msh(\.min)?\.js/.test(u); });
-  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.4.0"; });
-  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.4.0" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.4.0" + ' på ressursen og tøm cachen (se README).');
+  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.5.0"; });
+  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.5.0" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.5.0" + ' på ressursen og tøm cachen (se README).');
 } catch (e) { /* */ } })();
-window.KI_MSH_VERSION = "1.4.0";
+window.KI_MSH_VERSION = "1.5.0";
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
@@ -3643,7 +3643,7 @@ try {
  *   { type:'stepper', entity: id | (hass,cfg)=>id, label, help, unit, min, max, step } → «− verdi +» med systemets velger
  *       (09-pickers); skriver entitetens verdi direkte (number/time/date/datetime-tjenestene), ikke til config
  *   'icon': inline (dashbordets ark) = felles søkbar ikonvelger MSH.iconPicker (09-icon-picker); HA GUI-editor = ha-icon-picker
- *   'hash': inline = popup-velgeren MSH.popupPicker (09-tap-picker, Fiks 17.8); HA GUI-editor = ha-selector select (custom_value)
+ *   'hash': popup-feltet MSH.popupPicker (09-tap-picker) – også i HAs GUI-editor (Fiks 30.2: ett felles popup-velger-ark)
  *   { type:'tap', name, label, modes:['popup','hash','path','url','more','lock','none'], auto } → trykk-handling i HA-format
  *       ({ action: navigate, navigation_path: '#tesla' } …) via <msh-tap-picker> (09-tap-picker)
  *   { type:'action', name, label, std, apps } → HA action-format (Standard · Åpne app · Send kommando · HA-handling · Ingen)
@@ -4524,7 +4524,7 @@ try {
           return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}">${help}</div>`;
         case 'hash': { // forslag: alle popups inkl. egne (MSH.allPopups)
           // Fiks 17.8: HAs GUI-editor → ha-selector select (samme liste, egen verdi); dashbordets ark → popup-velgeren (09-tap-picker)
-          if (M.popupPicker && !this._inline && customElements.get('ha-selector')) return `<div class="f"><ha-selector data-name="${esc(f.name)}" data-nomorph data-selector="${esc(JSON.stringify(M.popupPicker.selector(this._hass)))}" data-label="${esc(f.label || 'Popup')}" data-helper="${esc(f.help || (auto || f.placeholder ? 'Standard ' + (auto || f.placeholder) : ''))}"></ha-selector></div>`;
+          // Fiks 30.2: også HAs GUI-editor bruker det felles popup-velger-arket (msh-popup-field → MSH.popupPicker.open)
           if (M.popupPicker) return `<div class="f">${lab}${M.popupPicker.html({ key: 'ph-' + key, name: f.name, value: val || '', placeholder: auto || f.placeholder || '', label: f.label })}${help}</div>`;
           const dl = 'hl-' + key, opts = M.popupOptions ? M.popupOptions(this._hass) : [];
           return `<div class="f">${lab}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" list="${dl}" value="${val != null ? esc(val) : ''}" placeholder="${esc(auto != null ? auto : f.placeholder || '')}"><datalist id="${dl}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>${help}</div>`;
@@ -4535,7 +4535,7 @@ try {
           if (M.iconPicker) return `<div class="f">${lab}${M.iconPicker.html({ key: 'ic-' + key, name: f.name, value: val || '', placeholder: auto || f.placeholder || '', label: f.label })}${help}</div>`;
           return `<div class="f">${lab}<div class="line">${M.icon(val || auto || 'mdi:help', 22)}<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${esc(f.name)}" value="${esc(val || '')}" placeholder="${esc(auto || 'mdi:… / phu:… / hue:…')}"></div>${help}</div>`;
         case 'tap': // trykk-handling i HA-format (09-tap-picker, Fiks 15.6): { action: navigate|url|more-info|none … }; auto = standard
-          if (M.tap) return `<div class="f">${lab}${M.tap.html({ key: 'tap-' + key, value: val || auto || null, modes: f.modes, labels: f.labels, stdHint: f.stdHint, attrs: `data-name="${esc(f.name)}"` })}${help}</div>`;
+          if (M.tap) return `<div class="f">${lab}${M.tap.html({ key: 'tap-' + key, value: val || auto || null, modes: f.modes, labels: f.labels, stdHint: f.stdHint, noneHint: f.noneHint, style: f.style || (c && c.action_style), gui: !this._inline, attrs: `data-name="${esc(f.name)}"` })}${help}</div>`; // 30.3: action_style (ruter|liste) fra kortets config
           return '';
         case 'color':
           return this._color(f, val, auto);
@@ -5207,7 +5207,7 @@ try {
     ['#rolf', 'Sir Sweeps', 'mdi:robot-vacuum', 'msh-stovsuger-card'], // fiks 24.9 – støvsuger (57-stovsuger.js), bare når vacuum.* finnes (M.popupNeeds); sub_button via M.POPUP_LOOK/M.POPUP_FORCE['#rolf']
     ['#soppel', 'Søppel', 'mdi:trash-can', 'msh-avfall-card'], // fiks 25.4 – avfallsfraksjoner (days_to_pickup), kalender og varsler (59-avfall.js); erstatter den importerte #soppel (ki-avfall-card)
     ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
-    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe
+    ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe · 31.2: #nibe er alias (M.HASH_ALIAS, 61-varmepumpe.js)
   ];
   // Fiks 30.1 · gamle hasher som alias for ÉN popup: { '#basseng': '#badebasseng' } (satt i 40-basseng.js). Lenker,
   // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
@@ -5226,7 +5226,7 @@ try {
   M.allPopups = function (hass, opts) {
     const R = M.popupReport;
     const inc = (e) => (opts && opts.hidden) || !e.hidden;
-    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden }));
+    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden, color: e.color || null })); // 30.2: romfarge til popup-velgeren
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
     if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id]) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // 30.1: område «Basseng» = funksjons-popupen
@@ -6443,7 +6443,7 @@ try {
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
     // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
     const C = (h) => (M.canonHash ? M.canonHash(h) : h); // 30.1: #basseng (alias) peker på #badebasseng
-    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
+    const target = (b) => { if (!b) return null; const t = b.tap_action || b.tap; /* 30.3: tap_action (HA-standard), gamle tap */ if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
     const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
     if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && target(B[k]) === hash)) return true;
@@ -6863,6 +6863,7 @@ try {
     // Fiks 30.1 · 28.14-tvillingene (MSH.POPUP_TWINS, #basseng + #badebasseng) er fjernet: nøyaktig ÉN popup per funksjon,
     // gamle hasher er alias (MSH.HASH_ALIAS → history.replaceState). Engangsmigrering av ki-store (40-basseng.js):
     if (M.bassengMigrateStore) M.bassengMigrateStore(hass); // én gang: gamle basseng-popups/-kort/-lenker i ki-store skrives om
+    if (M.varmepumpeMigrateStore) M.varmepumpeMigrateStore(hass); // 31.2 · én gang: gamle varmepumpe-popups (#nibe, gamle kort) og lenker i ki-store skrives om
     if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
     const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => ((M.REF_POPUPS[f.hash] || {}).nav || f.hash.slice(1))); // 30.1: #badebasseng = navbar-knappen «basseng»
@@ -6956,6 +6957,79 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 04-strategy.js', e); }
+
+/* ---- 05-tab-bar.js ---- */
+try {
+/* KI MSH · felles fanelinje («Som popups» og «Tekst + tannhjul») – Fiks 31.4 / 31.5.
+ * Én komponent for fanelinjene som ser ut som popupenes (Vanning / Innstillinger): Hjem (tab_style popup | gear,
+ * 24-hjem-faner.js), forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil (27-hjem-editor.js) og Lys-popupen (43-lys.js).
+ *   MSH.tabBar.html(items, cur, o) → '<div class="mtb mtb-pop|mtb-gear">…</div>'
+ *     items: [{ key, label, icon?, warn? }]  (warn = rødt ikon når fanen ikke er aktiv, f.eks. Batterier med lave)
+ *     o.variant: 'pop'  – flate #3a3a3a r26 pad 4 gap 2, like brede faner, aktiv rosa pille r22.
+ *                         o.mode ikon|tekst|begge (standard begge): begge = 56 px (ikon 20 over tekst 12), ellers 44 px.
+ *                'gear' – tekstfaner på flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24 tekst 14/500 #c7c7c7, bredde
+ *                         etter teksten (flex 1 1 auto, padding 0 8px – aldri kuttet; for mange → vannrett scroll),
+ *                         + rund knapp 56 × 56 (#3a3a3a + innerkant) med settings 24 px.
+ *     o.attrs(item, i, on) → attributter per fane (standard: data-act="tab" data-v data-i data-haptic="selection")
+ *     o.gear: false = ingen tannhjul (standard: med for 'gear'); o.gearAttrs, o.gearLabel; o.preview: spans uten roller.
+ *     o.rowCls / o.tabCls: ekstra klasser på raden / fanene (f.eks. 'tabs' / 'tab'); o.keyPrefix (data-key, standard 'mtb-').
+ *   MSH.tabBar.CSS   – legg i kortets/arkets styles (klassene har prefiks mtb-, kolliderer ikke).
+ *   MSH.tabBar.bind(card, el, opts) → MSH.tabRow på fanene (hold 400 ms + dra = flytt, Esc avbryter, glass-valg,
+ *     haptic, touch-action pan-y + stopPropagation – fallgruve 2). opts som MSH.tabRow (active, order, field | save …).
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.tabBar) return;
+  const esc = (s) => (M.esc ? M.esc(s) : String(s == null ? '' : s));
+  const PINK = (M.C && M.C.accent) || 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+  const mode = (v) => (v === 'ikon' || v === 'i' ? 'i' : v === 'tekst' || v === 't' ? 't' : 'b');
+
+  function html(items, cur, o) {
+    o = o || {};
+    const kp = o.keyPrefix != null ? o.keyPrefix : 'mtb-';
+    const v = o.variant === 'gear' ? 'gear' : 'pop', m = v === 'gear' ? 't' : mode(o.mode), pv = !!o.preview, tag = pv ? 'span' : 'button';
+    const btn = (t, i) => {
+      const on = t.key === cur;
+      const a = o.attrs ? o.attrs(t, i, on) : `data-act="${o.act || 'tab'}" data-v="${esc(t.key)}" data-i="${i}" data-haptic="selection"`;
+      const ic = m !== 't' ? `<span class="mtb-ic">${M.icon(t.icon || 'mdi:tab', m === 'i' ? 22 : 20)}</span>` : '';
+      const lb = m !== 'i' ? `<span class="mtb-l">${esc(t.label)}</span>` : '';
+      return `<${tag} class="mtb-t${o.tabCls ? ' ' + o.tabCls : ''}${on ? ' on' : ''}${t.warn ? ' warn' : ''}" ${pv ? '' : `role="tab" aria-selected="${on}"`} aria-label="${esc(t.label)}" data-key="${esc(kp)}${esc(t.key)}" ${a}>${ic}${lb}</${tag}>`;
+    };
+    const withGear = o.gear != null ? !!o.gear : v === 'gear';
+    const gt = pv ? 'span' : 'button';
+    const gear = withGear ? `<${gt} class="gear mtb-g" data-key="mtb-gear" ${o.gearAttrs || 'data-act="customize" data-haptic="light"'} aria-label="${esc(o.gearLabel || 'Tilpass')}">${M.icon('settings', 24)}</${gt}>` : '';
+    return `<div class="mtb mtb-${v}" data-key="${esc(o.key || 'mtb')}"><div class="mtb-tabs m-${m}${o.rowCls ? ' ' + o.rowCls : ''}" ${pv ? 'aria-hidden="true"' : 'role="tablist"'} data-gd-skip>${(items || []).map(btn).join('')}</div>${gear}</div>`;
+  }
+
+  const CSS = `
+    .mtb{display:flex;align-items:center;gap:8px;min-width:0;width:100%;box-sizing:border-box}
+    .mtb-tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;box-sizing:border-box;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none}
+    .mtb-tabs::-webkit-scrollbar{display:none}
+    .mtb-pop .mtb-tabs{border-radius:26px}
+    .mtb-gear .mtb-tabs{border-radius:28px}
+    .mtb-t{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0;border:0;white-space:nowrap;font-family:inherit;font-weight:500;line-height:1.2;color:var(--gray900,#c7c7c7);background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .2s,color .2s}
+    .mtb-t.on{background:${PINK};color:var(--gray100,#2f2f2f)}
+    .mtb-gear .mtb-t{flex:1 1 auto;min-width:max-content;height:48px;padding:0 8px;border-radius:24px;font-size:14px}
+    .mtb-pop .mtb-t{flex:1 1 0;min-width:44px;height:44px;padding:0 4px;border-radius:22px;gap:6px;font-size:14px;overflow:hidden}
+    .mtb-pop .m-b .mtb-t{height:56px;flex-direction:column;gap:2px;font-size:12px}
+    .mtb-l{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+    .mtb-ic{display:inline-flex;flex:none;line-height:0}
+    .mtb-t.warn:not(.on) .mtb-ic{color:var(--red,#f28073)}
+    .mtb-g{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;margin:0;padding:0;border:0;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);color:var(--white,#fafafa);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .mtb-g:active{transform:scale(.92)}
+  `;
+
+  function bind(card, el, opts) {
+    if (!el || !M.tabRow) return null;
+    const row = el.classList && el.classList.contains('mtb-tabs') ? el : el.querySelector('.mtb-tabs');
+    if (!row) return null;
+    return M.tabRow(card, row, { items: () => Array.from(row.querySelectorAll('.mtb-t')), ...(opts || {}) });
+  }
+
+  M.tabBar = { html, CSS, bind, mode };
+})();
+
+} catch (e) { console.error('[ki-msh] 05-tab-bar.js', e); }
 
 /* ---- 05-tab-reorder.js ---- */
 try {
@@ -9639,43 +9713,59 @@ try {
 
 /* ---- 09-tap-picker.js ---- */
 try {
-/* KI MSH · trykk-handling i HA-format (Fiks 15.6): navbar-knapper og prosa-piller.
+/* KI MSH · trykk-handling i HA-format (Fiks 15.6) – Fiks 30.3: felles handlingsvelger etter Handlingsvelger.dc.html.
  * Config (HA-standard, samme verdi fungerer i GUI-editoren):
- *   tap: { action: 'navigate', navigation_path: '#tesla' }   popup (fra listen) eller egen hash
- *   tap: { action: 'navigate', navigation_path: '/lovelace/energi' }   dashbord-sti
- *   tap: { action: 'url', url_path: 'https://…' }   ·   tap: { action: 'more-info', entity? }   ·   tap: { action: 'none' }
- *   tap: { action: 'lock-sheet' }   (KI-intern, prosa: hurtigarket for dørlåsen – tidligere link: 'lock')
- * Bakoverkompatibelt: mangler tap, leses de gamle nøklene (navbar: buttons.<id>.hash, prosa: link + act: 'more').
+ *   { action: 'navigate', navigation_path: '#badebasseng' }   popup (fra listen) eller egen hash
+ *   { action: 'navigate', navigation_path: '/dashboard-hjem/kart' }   sti (visning i et dashbord)
+ *   { action: 'url', url_path: 'https://…', new_tab: false? }   ·   { action: 'more-info', entity? }   ·   { action: 'none' }
+ *   { action: 'lock-sheet' }   (KI-intern, prosa: hurtigarket for dørlåsen – tidligere link: 'lock')
+ * Bakoverkompatibelt: strenger ('#x' / '/sti' / 'https://…' / 'none') og Søppel-formatet { action: 'popup', hash } leses.
  *
  * API (window.MSH.tap):
- *   norm(t)            → gyldig tap-objekt eller null (streng '#x' / '/sti' / 'https://…' / 'none' godtas også)
+ *   norm(t)            → gyldig tap-objekt eller null
  *   hashOf(t)          → '#x' når handlingen åpner en popup, ellers ''
- *   run(el, t, { entity }) → utfør (navigate/url/more-info). Returnerer true når noe ble gjort.
- *   popupOf(hash, hass) → popup-oppføringen fra MSH.allPopups (inkl. egne/importerte) eller null
+ *   run(el, t, { entity }) → utfør (navigate/url/more-info/toggle/tjeneste). Returnerer true når noe ble gjort.
+ *   popupOf(hash, hass) → popup-oppføringen (MSH.popupPicker.list, også aliaser som #basseng → #badebasseng) eller null
  *   label(t, hass)     → kort tekst («Popup · Tesla», «#tesla», «/lovelace/x», «URL», …)
- *   html({ value, modes, labels: { path: 'Sti' }, key, attrs }) → '<msh-tap-picker …>'
- * <msh-tap-picker value='{"action":…}' modes="popup,hash,path,url,more,lock,none">: segment Popup · Egen hash ·
- *   Dashbord-sti · URL (· More-info · Dørlås · Ingen). Popup = søkbar liste over ALLE popups (ikon, navn, #hash).
- *   Fiks 16.11 (Hjem-fliser): modes kan også ha std (Standard = tom verdi/null), toggle ({ action: 'toggle' }) og service
- *   ({ action: 'perform-action', perform_action: 'script.x', data: {…} } – data skrives som YAML).
- *   Egen hash = fritekst, advarer «Ingen popup med #xyz», men lagres likevel. Hendelse: value-changed { value: tap | null }.
- * Fiks 17.8: Popup åpner popup-velgeren (ark, MSH.popupPicker) med «Test»; Dashbord-sti får forslag fra dashbordets
- *   visninger, Tjeneste forslag fra hass.services, More-info en entitet-velger (tom = kortets egen entitet).
+ *   views(hass)        → Promise<[[sti, navn, ikon]]> – dashbordets visninger (lovelace/config) + andre dashbord (hass.panels)
+ *   html({ value, modes, labels, key, attrs, style: 'ruter'|'liste', stdHint, noneHint, gui, entity }) → '<msh-tap-picker …>'
  *
- * MSH.popupPicker (Fiks 17.8) – gjenbrukbar popup-velger for alle rad-editorer og GUI-editoren:
- *   open({ value, onPick(hash), title, hass }) → Promise<'#hash' | '' | null>  · arket: søk, liste Rom · Funksjoner ·
- *     Andre (MSH.allPopups = strategiens liste + alle andre Bubble pop-up-hasher i dashbordets config; Fiks 26.9: ingen
- *     maks-antall, listen scroller med touch/hjul/trackpad og valgt rad scrolles inn med scrollTop), «Egen hash» med advarsel «Popupen finnes ikke i dette dashbordet»
- *     (lagres likevel) og «Test» (location.hash).
- *   html({ name, value, placeholder, key, label, attrs }) → '<msh-popup-field …>' (ikon, navn, #hash · Test · ×).
- *     Hendelse value-changed { value: '#hash' | '' } – msh-editor lagrer via data-name.
- *   selector(hass) → ha-selector select { options, custom_value: true } for HAs GUI-editor.  list(hass) · norm(h)
+ * <msh-tap-picker value='{"action":…}' modes="popup,hash,path,url,more,none" action-style="ruter|liste">
+ *   Fiks 30.3 (fasit Handlingsvelger.dc.html): standardstil «ruter» = rutenett med like store ruter (76 px, r20, #232323;
+ *   valgt #404040 + inset 1.5 px rosa, fylt rosa ikon), 3 kolonner (aldri én rute alene på en linje – 4/2 kolonner når
+ *   antallet ellers gir det), forklaring under (12 px #7f7f7f). Stil «liste» (action_style: liste) = radioliste med
+ *   ikon-sirkel, navn, undertekst og hake. Under velgeren: feltet for valgt handling (fade 200 ms) og «Test · åpne …»
+ *   (konturknapp 44 px, ikke for Ingen). Ekstra moduser der kortet trenger dem: std (Standard = tom verdi), toggle,
+ *   service ({ action: 'perform-action', perform_action, data }), lock. Hendelse: value-changed { value: tap | null }.
+ *   Haptic: selection ved bytte, light når popup-velgeren åpnes/velges, medium ved Test.
+ *
+ * MSH.popupPicker – ÉTT felles popup-velger-ark (Fiks 30.2) for navbar, Tilpass Hjem (Kort/Tekst), Søppel og GUI-editorene:
+ *   open({ value, onPick(hash), onCustom(), title, hass, from }) → Promise<'#hash' | '' | null> (null = avbrutt)
+ *     Ark over arket under (portalet, topp 50 px, radius 38 38 0 0, #282828), flex-kolonne: tittel/antall/søk/filter står
+ *     fast; listen er en vanlig BLOKK (.sc: flex 1, min-height 0, overflow-y auto, overscroll contain, pan-y) med ÉN indre
+ *     flex-wrapper (.scw) uten høydegrense – da presses aldri gruppeboksene sammen, og siste rad + «Bruk egen hash» nås.
+ *     Grupper Rom · Funksjoner · Importert med antall, filter Alle/Rom/Funksjoner/Importert, søk i navn, #hash og aliaser.
+ *     «Bruk egen hash» → onCustom() (handlingsvelgeren bytter til Egen hash), ellers et felt i arket.
+ *     stopPropagation på touch/pointer i listen; arket under er låst (overflow hidden) mens velgeren er åpen.
+ *   html({ name, value, placeholder, key, label, attrs }) → '<msh-popup-field …>' (ikon-sirkel, navn, #hash, «Bytt ›»).
+ *   selector(hass) → ha-selector select { options, custom_value } (reserve).  list(hass) · norm(h)
  */
 (function () {
   const M = window.MSH;
   if (!M || M.tap) return;
   const esc = M.esc;
-  const MODES = { std: 'Standard', toggle: 'Veksle', popup: 'Popup', hash: 'Egen hash', path: 'Dashbord-sti', url: 'URL', more: 'More-info', service: 'Tjeneste', lock: 'Dørlås', none: 'Ingen' };
+  const PK = 'rgb(242 133 201)', GRAD = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+  // [etikett, ikon av, ikon på, undertekst]
+  const MODES = { std: 'Standard', toggle: 'Veksle', popup: 'Popup', hash: 'Egen hash', path: 'Sti', url: 'URL', more: 'More-info', service: 'Tjeneste', lock: 'Dørlås', none: 'Ingen' };
+  const MICON = {
+    popup: ['mdi:application-outline', 'mdi:application'], hash: ['mdi:pound', 'mdi:pound'], path: ['mdi:sign-direction', 'mdi:sign-direction'],
+    url: ['mdi:link-variant', 'mdi:link-variant'], more: ['mdi:information-outline', 'mdi:information'], none: ['mdi:cancel', 'mdi:cancel'],
+    std: ['mdi:star-circle-outline', 'mdi:star-circle'], toggle: ['mdi:toggle-switch-off-outline', 'mdi:toggle-switch'], service: ['mdi:play-circle-outline', 'mdi:play-circle'], lock: ['mdi:lock-outline', 'mdi:lock'],
+  };
+  const MSUB = { popup: 'Åpner en popup i dashbordet', hash: 'Skriv en #hash selv', path: 'Går til en annen visning', url: 'Åpner en nettside', more: 'Viser entitetens dialog', none: 'Ingen handling', std: 'Kortets standard', toggle: 'Veksler entiteten', service: 'Kaller en tjeneste', lock: 'Åpner hurtigarket for dørlåsen' };
+  const DESIGN = ['popup', 'hash', 'path', 'url', 'more', 'none']; // fasitens seks – faste etiketter (Sti, ikke «Navigate»)
+  // Kolonner i rutenettet: 3, men aldri én rute alene på siste linje
+  const colsFor = (n) => (n <= 3 ? Math.max(1, n) : n % 3 !== 1 ? 3 : n % 4 !== 1 ? 4 : 2);
 
   function norm(t) {
     if (t == null || t === '') return null;
@@ -9689,12 +9779,14 @@ try {
     if (typeof t !== 'object' || !t.action) return null;
     const a = String(t.action);
     if (a === 'navigate') { const p = String(t.navigation_path || '').trim(); return p ? { ...t, navigation_path: p } : null; }
+    if (a === 'popup') { const h = normHash(t.hash); return h ? { action: 'navigate', navigation_path: h } : null; } // Søppel 20.2-formatet
     if (a === 'url') { const u = String(t.url_path || '').trim(); return u ? { ...t, url_path: u } : null; }
     if (a === 'more-info' || a === 'none' || a === 'lock-sheet' || a === 'toggle' || a === 'call-service' || a === 'perform-action') return { ...t };
     return null;
   }
   const hashOf = (t) => { t = norm(t); const p = t && t.action === 'navigate' ? t.navigation_path : ''; return p && p[0] === '#' ? p : ''; };
-  const popupOf = (hash, hass) => { if (!hash) return null; try { return popupList(hass).find((p) => p.hash === hash) || null; } catch (e) { return null; } }; // 26.9: også manuelle dashbord-popups
+  const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
+  const popupOf = (hash, hass) => { if (!hash) return null; try { const L = popupList(hass), c = canon(hash); return L.find((p) => p.hash === hash) || L.find((p) => p.hash === c) || null; } catch (e) { return null; } };
   function run(el, t, o = {}) {
     t = norm(t);
     if (!t) return false;
@@ -9708,6 +9800,7 @@ try {
       M.call(h, sv.slice(0, i), sv.slice(i + 1), { ...(t.data || t.service_data || {}), ...(t.target || {}) }).catch(() => {});
       return true;
     }
+    if (t.action === 'lock-sheet' && M.lockSheet) { try { M.lockSheet(el, o.entity); return true; } catch (e) { return false; } }
     return false;
   }
   function modeOf(t, hass) {
@@ -9732,73 +9825,400 @@ try {
     return MODES[m];
   }
 
+  /* ------------------------------------------------------------ popup-listen (strategiens liste + dashbordets egne) */
+  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', imp: 'Importert' };
+  const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
+  const normHash = (s) => { const r = String(s == null ? '' : s).trim(); return r ? '#' + r.replace(/^#+/, '').replace(/\s+/g, '-') : ''; };
+  // Fiks 26.9: alle Bubble pop-up-hasher i dashbordet – også manuelle popups utenfor strategien (lovelace-configen)
+  const dashPopups = () => {
+    const out = [];
+    try {
+      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const cfg = panel && panel.lovelace && panel.lovelace.config;
+      const walk = (c, d) => {
+        if (!c || typeof c !== 'object' || d > 12) return;
+        if (Array.isArray(c)) { c.forEach((x) => walk(x, d + 1)); return; }
+        if (c.type === 'custom:bubble-card' && c.card_type === 'pop-up' && c.hash) out.push({ hash: normHash(c.hash), name: c.name || normHash(c.hash), icon: c.icon, group: 'imp', source: 'dash' });
+        ['views', 'cards', 'sections', 'card', 'elements'].forEach((k) => { if (c[k]) walk(c[k], d + 1); });
+      };
+      walk(cfg, 0);
+    } catch (e) { /* ingen lovelace (GUI-editor utenfor dashbordet) */ }
+    return out;
+  };
+  // [{ hash, name, icon, group: rom|fn|imp, color, aliases, hidden }] – alle popups, ingen maks-antall
+  const popupList = (hass) => {
+    const h = hass || M.lastHass;
+    let L = [];
+    try { L = M.allPopups ? M.allPopups(h, { hidden: true }) : []; } catch (e) { L = []; }
+    const seen = new Set(L.map((p) => p.hash));
+    dashPopups().forEach((p) => { if (!seen.has(p.hash)) { seen.add(p.hash); L.push(p); } });
+    return L.map((p) => {
+      const group = p.group === 'rom' || p.group === 'fn' ? p.group : 'imp'; // egne/importerte/ukjente → Importert
+      let color = p.color || null;
+      if (!color && group === 'rom' && M.romColor) { try { color = M.romColor(String(p.hash).slice(1), h); } catch (e) { color = null; } }
+      const aliases = M.hashAliasesOf ? M.hashAliasesOf(p.hash) : [];
+      return { ...p, group, color: group === 'rom' ? color : null, aliases };
+    });
+  };
+  const MISSING = 'Popupen finnes ikke i dette dashbordet';
+
+  /* ------------------------------------------------------------ Fiks 30.2 · popup-velger-arket */
+  const PSHEET_CSS = `
+    *{box-sizing:border-box}
+    button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
+    /* arket: flex-kolonne, ingen egen scroll – bare .sc scroller */
+    .sh.tp{display:flex;flex-direction:column;overflow:hidden;padding:0;border-radius:38px 38px 0 0;box-shadow:0 -20px 50px rgba(0,0,0,0.5)}
+    :host(:not([data-glass])) .sh.tp{background:#282828}
+    .sh.tp>.gz{position:relative;top:auto;flex:none;height:auto;margin:0;padding:8px 0 0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+    .sh.tp>.gz .grab{width:36px;height:5px;border-radius:3px;background:#545454}
+    .sh.tp>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+    .body>*{flex:none}
+    .hd{display:flex;align-items:center;gap:8px;padding:10px 18px 12px}
+    .hd .tt{flex:1;min-width:0;display:flex;flex-direction:column}
+    .hd .tt b{font-size:22px;font-weight:600;color:#fafafa;line-height:1.25}
+    .hd .tt i{font-style:normal;font-size:12px;color:#979797}
+    .hd .x{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#3a3a3a;color:#fafafa;flex:none}
+    .top{display:flex;flex-direction:column;gap:10px;padding:0 14px 10px}
+    .sr{display:flex;align-items:center;gap:10px;height:46px;padding:0 8px 0 16px;border-radius:23px;background:#3a3a3a;color:#fafafa}
+    .sr input{flex:1;min-width:0;height:100%;font-size:15px;color:#fafafa}
+    .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
+    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
+    .sr .qx[hidden]{display:none}
+    .flt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:#3a3a3a;touch-action:pan-y}
+    .flt button{height:36px;border-radius:18px;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;color:#c7c7c7;transition:background .2s}
+    .flt button.on{background:${GRAD};color:#2f2f2f}
+    /* 30.2 · scrollområdet er en vanlig BLOKK (ikke flex/grid) med ÉN indre flex-wrapper uten høydegrense */
+    .body>.sc{display:block;flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;padding:0 14px calc(40px + env(safe-area-inset-bottom, 0px))}
+    .sc::-webkit-scrollbar{display:none}
+    .scw{display:flex;flex-direction:column;gap:8px}
+    .grs{display:contents}
+    .lb{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 6px 0}
+    .gb{display:flex;flex-direction:column;border-radius:22px;background:#3a3a3a;overflow:hidden}
+    .pr{flex:none;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px 8px 10px;text-align:left;width:100%;color:#fafafa}
+    .pr+.pr{border-top:1px solid rgba(255,255,255,0.06)}
+    .pr.on{background:#404040}
+    .pr:active{background:rgba(255,255,255,0.06)}
+    .pr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#2f2f2f;color:#e1e1e1}
+    .pr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .pr .nm b{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pr .h{font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pr .ck{opacity:0;color:${PK};flex:none}
+    .pr.on .ck{opacity:1}
+    .none{padding:20px 6px;font-size:14px;color:#979797;text-align:center}
+    .cust{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:22px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14);margin-top:4px;text-align:left;width:100%;color:#fafafa}
+    .cust .nm{flex:1;display:flex;flex-direction:column}
+    .cust .nm b{font-size:14px;font-weight:500}
+    .cust .nm i{font-style:normal;font-size:12px;color:#979797}
+    .own{display:flex;flex-direction:column;gap:8px}
+    .own[hidden]{display:none}
+    .own .ln{display:flex;gap:8px;align-items:center}
+    .own .hf{flex:1;min-width:0;display:flex;align-items:center;height:48px;border-radius:16px;background:#3a3a3a;padding:0 14px;gap:2px}
+    .own .hf span{font:15px ui-monospace,Menlo,monospace;color:#7f7f7f}
+    .own input{flex:1;min-width:0;height:100%;color:#fafafa;font:15px ui-monospace,Menlo,monospace}
+    .own .ok{height:48px;padding:0 18px;border-radius:24px;background:${GRAD};color:#2f2f2f;font-weight:600;font-size:14px;flex:none}
+    .wr{display:flex;align-items:center;gap:6px;font-size:12px;color:#f2c073;padding:0 2px;min-height:16px}
+    .wr.okc{color:#66d19e}
+    :host([data-glass]) .sr,:host([data-glass]) .flt,:host([data-glass]) .gb,:host([data-glass]) .hd .x,:host([data-glass]) .own .hf{background:rgba(0,0,0,0.25)}
+  `;
+  // Åpent modalt <dialog> (HAs GUI-editor i top-layer) rundt elementet → arket legges inni dialogen, ellers er det inert
+  const modalOf = (el) => {
+    let n = el;
+    for (let d = 0; n && d < 40; d++) {
+      if (n.localName === 'dialog' && n.open) { try { if (n.matches(':modal')) return n; } catch (e) { return n; } }
+      n = n.parentNode || (n.host || null);
+      if (n && n.nodeType === 11) n = n.host || null;
+    }
+    return null;
+  };
+  // Åpner arket. o: { value, onPick(hash), onCustom(), title, hass, from } → Promise<'#hash' | '' (tømt) | null (avbrutt)>
+  function openPopupPicker(o = {}) {
+    const hass = o.hass || M.lastHass, cur = normHash(o.value), all = popupList(hass);
+    const curC = canon(cur), known = (h) => !!h && all.some((p) => p.hash === h || p.hash === canon(h));
+    const nameOf = (h) => { const p = all.find((x) => x.hash === h || x.hash === canon(h)); return p ? p.name : ''; };
+    const S = M.overlay({ css: PSHEET_CSS, maxWidth: 540, tilpass: true, html: `
+      <div class="hd" data-sheet-head><span class="tt"><b>${esc(o.title || 'Velg popup')}</b><i>${all.length} popups i dashbordet</i></span><button class="x" data-p="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 22)}</button></div>
+      <div class="top">
+        <div class="sr">${M.icon('mdi:magnify', 20, 'color:#979797')}<input class="q" placeholder="Søk navn eller #hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm" hidden>${M.icon('mdi:close-circle', 18)}</button></div>
+        <div class="flt" role="tablist" data-glass-drag="x">${[['alle', 'Alle'], ['rom', 'Rom'], ['fn', 'Funksjoner'], ['imp', 'Importert']].map(([k, l]) => `<button class="${k === 'alle' ? 'on' : ''}" data-p="f" data-v="${k}" role="tab" aria-selected="${k === 'alle'}">${l}</button>`).join('')}</div>
+      </div>
+      <div class="sc"><div class="scw"><div class="grs"></div>
+        <button class="cust" data-p="custom">${M.icon('mdi:pound', 20, 'color:#afafaf')}<span class="nm"><b>Bruk egen hash</b><i>For popups som ikke finnes ennå</i></span>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button>
+        <div class="own" ${cur && !known(cur) ? '' : 'hidden'}><div class="ln"><div class="hf"><span>#</span><input class="oh" placeholder="tesla" value="${esc(cur && !known(cur) ? cur.slice(1) : '')}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div><button class="ok" data-p="own">Bruk</button></div><div class="wr">${cur && !known(cur) ? M.icon('mdi:alert', 16) + MISSING + ' – lagres likevel' : ''}</div></div>
+      </div></div>` });
+    const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), grs = R.querySelector('.grs'), oh = R.querySelector('.oh'), wr = R.querySelector('.wr'), own = R.querySelector('.own'), qx = R.querySelector('.qx');
+    // HAs GUI-editor i en modal <dialog>: flytt arket inn i dialogen (top-layer), ellers kan det ikke trykkes på
+    const dlg = o.from ? modalOf(o.from) : null;
+    if (dlg) { try { dlg.appendChild(S.host); } catch (e) { /* */ } }
+    const cb = o.onPick || o.onChange || o.onSelect;
+    let picked = null, resolveP, filt = 'alle';
+    const P = new Promise((r) => { resolveP = r; });
+    // Lås arket under (og eventuelle andre ark) mens velgeren er åpen
+    const locked = M.portals().filter((h) => h !== S.host).map((h) => h.shadowRoot && h.shadowRoot.querySelector('.sh')).filter(Boolean).map((sh) => { const v = sh.style.overflowY; sh.style.overflowY = 'hidden'; return [sh, v]; });
+    S.onClosed = () => { locked.forEach(([sh, v]) => { sh.style.overflowY = v; }); resolveP(picked); };
+    const done = (v) => { M.haptic('light'); picked = v || ''; S.close(); if (cb) cb(picked); };
+    const draw = () => {
+      const qs = qi.value.trim(), q = fold(qs);
+      qx.hidden = !qs;
+      const hits = all.filter((p) => (filt === 'alle' || p.group === filt) && (!q || fold(`${p.name} ${p.hash} ${(p.aliases || []).join(' ')}`).includes(q)));
+      const row = (p) => {
+        const on = p.hash === cur || p.hash === curC, col = p.color;
+        return `<button class="pr ${on ? 'on' : ''}" data-v="${esc(p.hash)}" aria-pressed="${on}"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p.icon || 'mdi:card-outline', 20)}</span><span class="nm"><b>${esc(p.name)}</b><span class="h">${esc(p.hash)}${p.hidden ? ' · skjult' : ''}</span></span><span class="ck">${M.icon('mdi:check-circle', 22)}</span></button>`;
+      };
+      grs.innerHTML = Object.keys(PGROUPS).map((g) => { const L = hits.filter((p) => p.group === g); return L.length ? `<span class="lb" data-g="${g}">${PGROUPS[g]} · ${L.length}</span><div class="gb">${L.map(row).join('')}</div>` : ''; }).join('')
+        || `<span class="none">${qs ? `Ingen popup heter «${esc(qs)}»` : 'Ingen popups i dette dashbordet'}</span>`;
+    };
+    const ownMsg = () => {
+      const h = normHash(oh.value);
+      wr.classList.toggle('okc', !!h && known(h));
+      wr.innerHTML = !h ? '' : known(h) ? M.icon('mdi:check', 16) + 'Åpner ' + esc(nameOf(h)) : M.icon('mdi:alert', 16) + MISSING + ' – lagres likevel';
+    };
+    qi.addEventListener('input', draw);
+    // 30.2 · listen eier gesten: Bubble Card/arket under lukkes eller scrolles ikke (aldri preventDefault – scroll virker)
+    ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sc.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+    oh.addEventListener('input', ownMsg);
+    R.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
+      if (e.key !== 'Enter') return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.target === oh) { const h = normHash(oh.value); if (h) done(h); return; }
+      const f = grs.querySelector('[data-v]'); if (f) done(f.dataset.v);
+    });
+    R.addEventListener('click', (e) => {
+      const b = e.composedPath().find((n) => n.dataset && (n.dataset.v != null || n.dataset.p));
+      if (!b) return;
+      const p = b.dataset.p;
+      if (!p) return done(b.dataset.v);
+      if (p === 'close') { M.haptic('light'); return S.close(); }
+      if (p === 'qx') { qi.value = ''; M.haptic('selection'); draw(); qi.focus(); return; }
+      if (p === 'f') { if (filt === b.dataset.v) return; filt = b.dataset.v; M.haptic('selection'); R.querySelectorAll('.flt button').forEach((x) => { const on = x.dataset.v === filt; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); }); draw(); sc.scrollTop = 0; return; }
+      if (p === 'custom') {
+        M.haptic('light');
+        if (o.onCustom) { picked = null; S.close(); o.onCustom(); return; }
+        own.hidden = !own.hidden;
+        if (!own.hidden) { ownMsg(); requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; try { oh.focus({ preventScroll: true }); } catch (x) { oh.focus(); } }); }
+        return;
+      }
+      if (p === 'own') { const h = normHash(oh.value); if (h) done(h); else oh.focus(); }
+    });
+    if (M.glassDrag) { try { M.glassDrag(R.querySelector('.flt'), { axis: 'x' }); } catch (e) { /* */ } }
+    draw();
+    // Valgt rad scrolles inn ved åpning (scrollTop, ikke scrollIntoView – det scroller arket/siden også)
+    const toSel = () => { const on = grs.querySelector('.pr.on'); if (!on || !sc.clientHeight) return; const r = on.getBoundingClientRect(), b = sc.getBoundingClientRect(); sc.scrollTop += r.top - b.top - (sc.clientHeight - r.height) / 2; };
+    requestAnimationFrame(() => { toSel(); if (window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) { try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } } });
+    P.close = S.close; P.sheet = S;
+    return P;
+  }
+
+  /* ------------------------------------------------------------ <msh-popup-field> (popup_hash-felt) */
+  const PF_CSS = `
+    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
+    *{box-sizing:border-box}
+    button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .f{display:flex;align-items:center;gap:6px;min-width:0}
+    .pk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-if-bg,var(--msh-tp-bg,#232323));text-align:left}
+    .pk:active{transform:scale(.99)}
+    .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1}
+    .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .nm b{font-weight:500;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i{font-style:normal;font-size:12px;line-height:1.2;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i.w{color:#f2c073}
+    .nm.ph b{color:#979797}
+    .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
+    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#979797}
+  `;
+  // Feltet (fasit: «Popup»-feltet i Handlingsvelger.dc.html): ikon-sirkel (romfarge), navn, #hash og «Bytt ›» → arket.
+  // × (når en verdi er satt og feltet har standard) tømmer til standard. value-changed { value: '#hash' | '' }
+  class MshPopupField extends HTMLElement {
+    static get observedAttributes() { return ['value', 'placeholder', 'label']; }
+    constructor() {
+      super();
+      const sr = this.attachShadow({ mode: 'open' });
+      sr.addEventListener('click', (e) => {
+        const b = e.composedPath().find((n) => n.dataset && n.dataset.p);
+        if (!b) return;
+        e.stopPropagation();
+        M.haptic('light');
+        if (b.dataset.p === 'x') return this._emit('');
+        this._sheet = openPopupPicker({ value: this.value || normHash(this.getAttribute('placeholder')), title: this.getAttribute('label') || 'Velg popup', hass: this._hass, from: this, onPick: (v) => this._emit(v) });
+      });
+    }
+    set hass(h) { this._hass = h; }
+    get value() { return normHash(this.getAttribute('value')); }
+    set value(v) { this.setAttribute('value', v || ''); }
+    connectedCallback() { this._render(); }
+    attributeChangedCallback(n, o, v) { if (o !== v) this._render(); }
+    _emit(v) {
+      this.setAttribute('value', v || '');
+      this.dispatchEvent(new CustomEvent('value-changed', { detail: { value: v || '' }, bubbles: true, composed: true }));
+    }
+    _render() {
+      if (!this.shadowRoot) return;
+      const v = this.value, ph = normHash(this.getAttribute('placeholder')), h = v || ph;
+      const p = h ? popupOf(h, this._hass) : null, col = p && p.color;
+      const sub = v ? (p ? v : `${v} · ${MISSING}`) : ph ? `Standard · ${ph}` : 'Alle popups i dashbordet';
+      const html = `<style>${PF_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg popup"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, h ? '' : 'opacity:.55')}</span>`
+        + `<span class="nm${h ? '' : ' ph'}"><b>${esc(p ? p.name : v || 'Velg popup …')}</b><i class="${v && !p ? 'w' : ''}">${esc(sub)}</i></span><span class="by">Bytt${M.icon('mdi:chevron-right', 18)}</span></button>`
+        + `${v && ph ? `<button class="x" data-p="x" title="Tilbake til standard">${M.icon('mdi:close', 18)}</button>` : ''}</div>`;
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+    }
+  }
+  if (!customElements.get('msh-popup-field')) customElements.define('msh-popup-field', MshPopupField);
+  M.popupPicker = {
+    tag: 'msh-popup-field', GROUPS: PGROUPS, MISSING,
+    open: openPopupPicker, list: popupList, norm: normHash,
+    // ha-selector select (reserve): samme liste, egen verdi tillatt
+    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'imp' ? ' (importert)' : ''}` })) } }),
+    html(o = {}) {
+      return `<msh-popup-field data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} value="${esc(normHash(o.value))}" placeholder="${esc(o.placeholder || '')}"${o.label ? ` label="${esc(o.label)}"` : ''} ${o.attrs || ''}></msh-popup-field>`;
+    },
+  };
+
+  /* ------------------------------------------------------------ sti-forslag fra lovelace/config (ikke hardkodet) */
+  const viewIcon = (v) => v.icon || (v.panel ? 'mdi:view-dashboard' : 'mdi:view-dashboard-outline');
+  const dashBase = () => '/' + (location.pathname.split('/')[1] || 'lovelace');
+  let VC = { key: '', t: 0, list: null, p: null };
+  function viewsSync(hass) {
+    const out = [], seen = new Set(), add = (v, l, ic) => { if (v && !seen.has(v)) { seen.add(v); out.push([v, l || v, ic || 'mdi:view-dashboard-outline']); } };
+    const base = dashBase();
+    (VC.list || []).forEach((x) => add(...x));
+    try {
+      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
+      const root = panel && panel.shadowRoot && panel.shadowRoot.querySelector('hui-root');
+      const views = (root && root.lovelace && root.lovelace.config && root.lovelace.config.views) || (panel && panel.lovelace && panel.lovelace.config && panel.lovelace.config.views) || [];
+      views.forEach((v, i) => add(`${base}/${v.path || i}`, v.title || v.path || 'Visning ' + (i + 1), viewIcon(v)));
+    } catch (e) { /* */ }
+    const P = (hass && hass.panels) || {};
+    Object.keys(P).forEach((k) => { const p = P[k]; if (p && p.component_name === 'lovelace' && '/' + (p.url_path || k) !== base) add('/' + (p.url_path || k), p.title || p.url_path || k, p.icon || 'mdi:view-dashboard'); });
+    return out;
+  }
+  // Henter dashbordets visninger via WS lovelace/config (mellomlagret 60 s). Strategi-dashbord gir ingen visninger der –
+  // da brukes den genererte configen (hui-root) og andre dashbord fra hass.panels.
+  function views(hass) {
+    const h = hass || M.lastHass, base = dashBase(), key = base;
+    if (VC.key === key && VC.list && Date.now() - VC.t < 60000) return Promise.resolve(viewsSync(h));
+    if (VC.key === key && VC.p) return VC.p;
+    VC = { key, t: 0, list: VC.key === key ? VC.list : null, p: null };
+    const url = base.slice(1) === 'lovelace' ? null : base.slice(1);
+    VC.p = (async () => {
+      let list = [];
+      try {
+        if (h && h.callWS) {
+          const lc = await h.callWS({ type: 'lovelace/config', url_path: url });
+          if (lc && Array.isArray(lc.views)) list = lc.views.map((v, i) => [`${base}/${v.path || i}`, v.title || v.path || 'Visning ' + (i + 1), viewIcon(v)]);
+        }
+      } catch (e) { list = []; }
+      VC.list = list; VC.t = Date.now(); VC.p = null;
+      return viewsSync(h);
+    })();
+    return VC.p;
+  }
+  const services = (hass) => { const S = (hass && hass.services) || {}, out = []; Object.keys(S).sort().forEach((d) => Object.keys(S[d] || {}).sort().forEach((sv) => out.push(d + '.' + sv))); return out.slice(0, 2000); };
+
+  /* ------------------------------------------------------------ <msh-tap-picker> · handlingsvelgeren (Fiks 30.3) */
   const CSS = `
     :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
-    .w{display:flex;flex-direction:column;gap:8px}
-    .seg{display:flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:17px;background:var(--msh-tp-bg,#232323)}
-    .seg button{flex:1 1 auto;height:30px;padding:0 10px;border-radius:14px;font-size:12px;font-weight:500;white-space:nowrap;color:#afafaf}
-    .seg button.on{background:var(--pink,#f285c9);color:#2f2f2f}
-    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:var(--msh-tp-bg,#232323);text-align:left}
-    .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-    .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .in{height:44px;width:100%;border-radius:14px;padding:0 14px;background:var(--msh-tp-bg,#232323);color:#fafafa;font-size:15px}
-    .in::placeholder{color:#7f7f7f}
-    .pl{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:16px;background:var(--msh-tp-bg,#232323)}
-    .pl .in{height:40px;background:#3a3a3a;font-size:15px}
-    .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px}
-    .pr{display:flex;align-items:center;gap:10px;min-height:46px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
-    .pr.on{background:rgba(255,255,255,0.08)}
-    .pr .h{font-size:12px;color:#979797;font-variant-numeric:tabular-nums;flex:none}
-    .gl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:6px 10px 2px}
-    .hint{font-size:12px;line-height:1.4;color:#979797;padding:0 4px}
-    .hint b{color:#fafafa;font-weight:500}
-    .warn{color:var(--orange,#f2b573)!important}
-    .pkr{display:flex;align-items:center;gap:6px}
-    .pkr .pk{flex:1;min-width:0}
-    .tst{flex:none;height:48px;padding:0 14px;border-radius:14px;background:var(--msh-tp-bg,#232323);color:var(--pink,#f285c9);font-size:13px;font-weight:500}
-    .none{font-size:12px;color:#7f7f7f;padding:10px}
+    @keyframes tpfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+    .w{display:flex;flex-direction:column;gap:14px}
+    .sel{display:flex;flex-direction:column;gap:8px}
+    .grid{display:grid;gap:6px}
+    .tl{height:76px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--msh-tp-bg,#232323);color:#c7c7c7;min-width:0;padding:0 4px;transition:background .2s,box-shadow .2s}
+    .tl .ti{color:#979797;transition:color .2s;display:inline-flex}
+    .tl .tn{font-size:13px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tl.on{background:#404040;box-shadow:inset 0 0 0 1.5px ${PK};color:#fafafa}
+    .tl.on .ti{color:${PK}}
+    .tl:active{transform:scale(.97)}
+    .sub{font-size:12px;color:#7f7f7f;padding:0 2px;line-height:1.4}
+    .lst{display:flex;flex-direction:column;padding:4px;border-radius:18px;background:var(--msh-tp-bg,#232323)}
+    .lr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:14px;text-align:left;width:100%;transition:background .2s}
+    .lr.on{background:#404040}
+    .lr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#404040;color:#e1e1e1}
+    .lr.on .ci{background:${GRAD};color:#2f2f2f}
+    .lr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .lr .nm b{font-size:14px;font-weight:500}
+    .lr .nm i{font-style:normal;font-size:12px;color:#979797}
+    .lr .ck{color:${PK};opacity:0;transition:opacity .2s;flex:none}
+    .lr.on .ck{opacity:1}
+    .fld{display:flex;flex-direction:column;gap:8px;animation:tpfade .2s ease both}
+    .cap{font-size:12px;color:#979797;padding:0 2px}
+    .pf{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-tp-bg,#232323);text-align:left;width:100%}
+    .pf:active{transform:scale(.99)}
+    .pf .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1}
+    .pf .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .pf .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pf .nm i{font-style:normal;font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pf .nm.ph b{color:#979797}
+    .pf .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
+    .hf{display:flex;align-items:center;height:48px;border-radius:16px;background:var(--msh-tp-bg,#232323);padding:0 14px;gap:2px}
+    .hf span{font:15px ui-monospace,Menlo,monospace;color:#7f7f7f}
+    .hf input{flex:1;min-width:0;height:100%;color:#fafafa;font:15px ui-monospace,Menlo,monospace}
+    .in{height:48px;width:100%;border-radius:16px;padding:0 14px;background:var(--msh-tp-bg,#232323);color:#fafafa;font-size:15px}
+    .in.mono{font:15px ui-monospace,Menlo,monospace}
+    .in::placeholder,.hf input::placeholder{color:#7f7f7f}
     textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
+    .msg{display:flex;align-items:center;gap:6px;font-size:12px;padding:0 2px}
+    .msg.ok{color:#66d19e} .msg.warn{color:#f2c073}
+    .chips{display:flex;gap:6px;flex-wrap:wrap}
+    .chips button{height:34px;padding:0 12px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--msh-tp-bg,#232323);color:#c7c7c7;max-width:100%}
+    .chips button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chips button.on{background:${GRAD};color:#2f2f2f}
+    .tg{display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:16px;background:var(--msh-tp-bg,#232323);width:100%}
+    .tg .t{flex:1;text-align:left;font-size:14px}
+    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
+    .trk.on{background:${PK}}
+    .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}
+    .trk.on i{left:21px}
+    .hint{font-size:13px;color:#979797;line-height:1.45;padding:0 2px}
+    .hint b{color:#fafafa;font-weight:500}
+    .hint.warn{color:#f2c073}
+    .tst{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%;min-width:0}
+    .tst span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .tst:active{transform:scale(.98)}
+    ha-selector{display:block}
   `;
-  const GROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
-  const fold = (s) => String(s || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a');
 
   class MshTapPicker extends HTMLElement {
-    static get observedAttributes() { return ['value', 'modes']; }
+    static get observedAttributes() { return ['value', 'modes', 'action-style']; }
     constructor() {
       super();
-      this._open = false; this._q = ''; this._mode = null;
+      this._mode = null;
       const sr = this.attachShadow({ mode: 'open' });
       sr.addEventListener('click', (e) => this._click(e));
       sr.addEventListener('input', (e) => { e.stopPropagation(); this._inp(e.target, false); });
       sr.addEventListener('change', (e) => { e.stopPropagation(); this._inp(e.target, true); });
       // entitet-velgeren (More-info) sender value-changed – fang den her, ellers når den verten som en tap-verdi
       sr.addEventListener('value-changed', (e) => { e.stopPropagation(); const t = e.composedPath().find((n) => n.dataset && n.dataset.f === 'ent'); if (t) { const v = (e.detail && e.detail.value) || ''; this._emit(v ? { action: 'more-info', entity: v } : { action: 'more-info' }, 'more'); } });
-      sr.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); if (e.target.dataset.f === 'q') { const f = sr.querySelector('.pr[data-v]'); if (f) this._emit({ action: 'navigate', navigation_path: f.dataset.v }, 'popup'); } else e.target.blur(); } });
-      ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => sr.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('pls'))) e.stopPropagation(); }, { passive: true })); // 26.9: aldri preventDefault
+      sr.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); e.target.blur(); } });
     }
-    set hass(h) { this._hass = h; if (!this._open) this._render(); }
+    set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); else this._syncSel(); }
     get hass() { return this._hass || M.lastHass || null; }
     get value() { try { return norm(JSON.parse(this.getAttribute('value') || 'null')); } catch (e) { return norm(this.getAttribute('value')); } }
     set value(v) { this.setAttribute('value', v ? JSON.stringify(v) : ''); }
-    get modes() { const m = String(this.getAttribute('modes') || 'popup,hash,path,url').split(',').map((x) => x.trim()).filter((x) => MODES[x]); return m.length ? m : ['popup']; }
+    get modes() { const m = String(this.getAttribute('modes') || 'popup,hash,path,url,more,none').split(',').map((x) => x.trim()).filter((x) => MODES[x]); return m.length ? m : ['popup']; }
+    get actionStyle() { let g = ''; try { g = M.store && M.store.get ? M.store.get('action_style') : ''; } catch (e) { g = ''; } const a = this.getAttribute('action-style') || g || 'ruter'; return String(a).toLowerCase() === 'liste' ? 'liste' : 'ruter'; }
     connectedCallback() { this._render(); }
     attributeChangedCallback(n, o, v) {
       if (o === v) return;
-      if (n === 'value') { const nm = modeOf(this.value, this.hass); if (!(this._mode && (nm === this._mode || ((nm === 'popup' || nm === 'hash') && (this._mode === 'popup' || this._mode === 'hash'))))) this._mode = null; }
+      if (n === 'value') { const nm = modeOf(this.value, this.hass); if (!(this._mode && (nm === this._mode || ((nm === 'popup' || nm === 'hash') && (this._mode === 'popup' || this._mode === 'hash')) || (nm === 'none' && !this.value)))) this._mode = null; }
       this._render();
     }
-    get mode() { const v = this.value, m = this._mode || (!v && this.modes.includes('std') ? 'std' : modeOf(v, this.hass)); return this.modes.includes(m) ? m : m === 'hash' && this.modes.includes('popup') ? 'popup' : this.modes[0]; }
-    _emit(v, mode) {
+    get mode() { const v = this.value, m = this._mode || (!v && this.modes.includes('std') ? 'std' : modeOf(v, this.hass)); return this.modes.includes(m) ? m : m === 'hash' && this.modes.includes('popup') ? 'popup' : m === 'popup' && this.modes.includes('hash') ? 'hash' : this.modes[0]; }
+    _lab(m) { return DESIGN.includes(m) ? MODES[m] : this.getAttribute('label-' + m) || MODES[m]; }
+    _emit(v, mode, quiet) {
       if (mode) this._mode = mode;
-      this._open = false; this._q = '';
       this.setAttribute('value', v ? JSON.stringify(v) : '');
-      M.haptic('selection');
+      if (!quiet) M.haptic('selection');
       this._render();
       this.dispatchEvent(new CustomEvent('value-changed', { detail: { value: v || null }, bubbles: true, composed: true }));
+    }
+    _openPicker() {
+      M.haptic('light');
+      openPopupPicker({ value: hashOf(this.value), hass: this.hass, from: this, title: 'Velg popup',
+        onPick: (h) => this._emit(h ? { action: 'navigate', navigation_path: h } : null, h && popupOf(h, this.hass) ? 'popup' : 'hash', true),
+        onCustom: this.modes.includes('hash') ? () => { this._mode = 'hash'; M.haptic('selection'); this._render(); const i = this.shadowRoot.querySelector('[data-f="hash"]'); if (i) i.focus(); } : null });
     }
     _click(e) {
       const b = e.composedPath().find((n) => n.dataset && n.dataset.p);
@@ -9807,40 +10227,39 @@ try {
       if (d.p === 'mode') {
         const m = d.v;
         if (m === this.mode) return;
-        this._mode = m; this._open = false;
+        this._mode = m;
         M.haptic('selection');
-        if (m === 'more') return this._emit({ action: 'more-info' }, m);
-        if (m === 'none') return this._emit({ action: 'none' }, m);
-        if (m === 'lock') return this._emit({ action: 'lock-sheet' }, m);
-        if (m === 'std') return this._emit(null, m);
-        if (m === 'toggle') return this._emit({ action: 'toggle' }, m);
+        if (m === 'more') return this._emit({ action: 'more-info' }, m, true);
+        if (m === 'none') return this._emit({ action: 'none' }, m, true);
+        if (m === 'lock') return this._emit({ action: 'lock-sheet' }, m, true);
+        if (m === 'std') return this._emit(null, m, true);
+        if (m === 'toggle') return this._emit({ action: 'toggle' }, m, true);
         this._render();
-        if (m === 'popup' && !hashOf(this.value) && M.popupPicker) return this._click({ composedPath: () => [{ dataset: { p: 'open' } }] });
-        if (m !== 'popup') { const i = this.shadowRoot.querySelector('.in'); if (i) i.focus(); }
+        if (m === 'hash' || m === 'path' || m === 'url') { const i = this.shadowRoot.querySelector('.fld input'); if (i && window.matchMedia && matchMedia('(hover: hover)').matches) i.focus(); }
         return;
       }
-      if (d.p === 'open') { // Fiks 17.8: popup-velgeren (ark) i stedet for innebygd liste
-        M.haptic('light');
-        if (!M.popupPicker) { this._open = !this._open; this._q = ''; this._render(); return; }
-        M.popupPicker.open({ value: hashOf(this.value), hass: this.hass, onPick: (h) => this._emit(h ? { action: 'navigate', navigation_path: h } : null, 'popup') });
-        return;
+      if (d.p === 'open') return this._openPicker();
+      if (d.p === 'chip') return this._emit({ action: 'navigate', navigation_path: d.v }, 'path');
+      if (d.p === 'newtab') { const v = this.value; if (!v || v.action !== 'url') { this._newTab = this._newTab === false; return this._render(); } const nt = v.new_tab === false; const n = { ...v }; if (nt) delete n.new_tab; else n.new_tab = false; return this._emit(n, 'url'); }
+      if (d.p === 'test') {
+        const v = this.value;
+        if (!v) return;
+        M.haptic('medium');
+        run(this, v, { entity: this.getAttribute('entity') || undefined, hass: this.hass });
       }
-      if (d.p === 'test') { const h = hashOf(this.value); if (h) { M.haptic('light'); M.openPopup(h); } return; }
-      if (d.p === 'pick') return this._emit({ action: 'navigate', navigation_path: d.v }, 'popup');
     }
     _inp(t, commit) {
       const f = t.dataset && t.dataset.f;
       if (!f) return;
-      if (f === 'q') { if (!commit) { this._q = t.value; this._render(); } return; }
       const raw = t.value.trim();
       if (f === 'hash') {
         const h = raw ? '#' + raw.replace(/^#+/, '').replace(/\s+/g, '-') : '';
-        if (!commit) { const w = this.shadowRoot.querySelector('.hw'); if (w) { const p = popupOf(h, this.hass); w.className = 'hint hw' + (h && !p ? ' warn' : ''); w.innerHTML = this._hashHint(h, p); } return; }
+        if (!commit) { const w = this.shadowRoot.querySelector('.hm'); if (w) { const p = popupOf(h, this.hass); w.outerHTML = this._hashMsg(h, p); } return; }
         return this._emit(h ? { action: 'navigate', navigation_path: h } : null, 'hash');
       }
       if (!commit) return;
       if (f === 'path') { const p = raw && raw[0] !== '/' && raw[0] !== '#' ? '/' + raw : raw; return this._emit(p ? { action: 'navigate', navigation_path: p } : null, 'path'); }
-      if (f === 'url') return this._emit(raw ? { action: 'url', url_path: raw } : null, 'url');
+      if (f === 'url') { const v = raw ? { action: 'url', url_path: raw } : null; if (v && this._newTab === false) v.new_tab = false; return this._emit(v, 'url'); }
       if (f === 'ent') return this._emit(raw ? { action: 'more-info', entity: raw } : { action: 'more-info' }, 'more');
       if (f === 'svc' || f === 'data') {
         const cur = this.value || {}, sv = f === 'svc' ? raw : String(cur.perform_action || cur.service || '');
@@ -9858,265 +10277,89 @@ try {
         return this._emit(v, 'service');
       }
     }
-    _hashHint(h, p) {
-      if (!h) return 'Skriv hashen til popupen, f.eks. <b>#tesla</b>.';
-      if (p) return `Åpner popupen <b>${esc(p.name)}</b> · trykk igjen lukker.`;
-      return `Ingen popup med ${esc(h)} – lagres likevel (f.eks. en popup du legger til senere).`;
+    _hashMsg(h, p) {
+      if (!h) return '<span class="msg hm"></span>';
+      if (p) return `<span class="msg ok hm">${M.icon('mdi:check', 16)}Åpner ${esc(p.name)}</span>`;
+      return `<span class="msg warn hm">${M.icon('mdi:alert', 16)}Popupen finnes ikke i dette dashbordet – lagres likevel</span>`;
     }
-    _list(cur) {
-      const h = this.hass, all = popupList(h); // 26.9: samme liste som popup-velgeren (alle popups, ingen maks)
-      const q = fold(this._q.trim());
-      const hits = all.filter((p) => !q || fold(`${p.name} ${p.hash}`).includes(q));
-      const g = {};
-      hits.forEach((p) => { (g[p.group] = g[p.group] || []).push(p); });
-      const row = (p) => `<button class="pr ${p.hash === cur ? 'on' : ''}" data-p="pick" data-v="${esc(p.hash)}" data-key="${esc(p.hash)}">${M.icon(p.icon || 'mdi:card-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(p.name)}</b>${p.hidden ? '<i>Skjult</i>' : ''}</span><span class="h">${esc(p.hash)}</span></button>`;
-      const body = Object.keys(g).sort((a, b) => Object.keys(GROUPS).indexOf(a) - Object.keys(GROUPS).indexOf(b)).map((k) => `<div class="gl">${esc(GROUPS[k] || k)}</div>${g[k].map(row).join('')}`).join('');
-      return `<div class="pl"><input class="in" data-f="q" value="${esc(this._q)}" placeholder="Søk popup – navn eller #hash" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
-        <div class="pls">${body || `<div class="none">Ingen popups${q ? ' matcher' : ''}</div>`}</div></div>`;
+    _testLabel(mode, v) {
+      const h = hashOf(v);
+      return { popup: h ? 'Test · åpne ' + h : '', hash: h ? 'Test · åpne ' + h : '', path: v && v.action === 'navigate' ? 'Test · gå til visning' : '', url: v && v.action === 'url' ? 'Test · åpne nettside' : '', more: 'Test · vis dialog', toggle: 'Test · veksle', service: v && (v.perform_action || v.service) ? 'Test · kjør tjenesten' : '', lock: 'Test · åpne dørlåsen' }[mode] || '';
+    }
+    _field(mode, v) {
+      const h = this.hass, cur = hashOf(v);
+      if (mode === 'popup') {
+        const p = popupOf(cur, h), col = p && p.color, n = popupList(h).length;
+        return `<span class="cap">Popup</span><button class="pf" data-p="open"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22)}</span><span class="nm${p || cur ? '' : ' ph'}"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i>${esc(p ? p.hash : cur || n + ' popups i dashbordet')}</i></span><span class="by">${cur ? 'Bytt' : 'Velg'}${M.icon('mdi:chevron-right', 18)}</span></button>`;
+      }
+      if (mode === 'hash') {
+        const p = popupOf(cur, h);
+        return `<span class="cap">Hash</span><div class="hf"><span>#</span><input data-f="hash" value="${esc(cur.replace(/^#/, ''))}" placeholder="tesla" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>${this._hashMsg(cur, p)}`;
+      }
+      if (mode === 'path') {
+        const pth = v && v.action === 'navigate' && v.navigation_path[0] !== '#' ? v.navigation_path : '';
+        const vp = this._views || viewsSync(h);
+        if (!this._viewsP) this._viewsP = views(h).then((l) => { this._views = l; this._render(); }).catch(() => {});
+        return `<span class="cap">Sti</span><input class="in mono" data-f="path" value="${esc(pth)}" placeholder="${esc(dashBase())}/0" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          ${vp.length ? `<div class="chips">${vp.map(([p, l, ic]) => `<button class="${p === pth ? 'on' : ''}" data-p="chip" data-v="${esc(p)}" title="${esc(p)}">${M.icon(ic, 16)}<span>${esc(l)}</span></button>`).join('')}</div>` : ''}`;
+      }
+      if (mode === 'url') {
+        const u = v && v.action === 'url' ? v.url_path : '', nt = v && v.action === 'url' ? v.new_tab !== false : this._newTab !== false;
+        return `<span class="cap">Adresse</span><input class="in" data-f="url" type="url" inputmode="url" value="${esc(u)}" placeholder="https://" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          <button class="tg" data-p="newtab" role="switch" aria-checked="${nt}"><span class="t">Åpne i ny fane</span><span class="trk ${nt ? 'on' : ''}"><i></i></span></button>`;
+      }
+      if (mode === 'more') {
+        const ent = v && v.action === 'more-info' ? v.entity || '' : '';
+        const gui = this.hasAttribute('gui') && customElements.get('ha-selector');
+        return `<span class="cap">Entitet</span>${gui ? `<ha-selector data-f="ent" data-nomorph data-key="tp-ent-gui"></ha-selector>`
+          : M.entityPicker ? M.entityPicker.html({ key: 'tp-ent', value: ent, placeholder: 'Kortets egen entitet', attrs: 'data-f="ent"' }) : `<input class="in mono" data-f="ent" value="${esc(ent)}" placeholder="light.stue" autocomplete="off" autocapitalize="off" spellcheck="false">`}
+          ${ent ? '' : '<span class="hint" style="font-size:12px">Tom = kortets egen entitet.</span>'}`;
+      }
+      if (mode === 'none') return `<span class="hint">${esc(this.getAttribute('none-hint') || 'Knappen gjør ingenting ved trykk. Hold-handlingen gjelder fortsatt.')}</span>`;
+      if (mode === 'lock') return '<span class="hint">Åpner hurtigarket for dørlåsen.</span>';
+      if (mode === 'std') return `<span class="hint">${esc(this.getAttribute('std-hint') || 'Standard for kortet.')}</span>`;
+      if (mode === 'toggle') return '<span class="hint">Veksler entiteten (lås/lås opp, på/av …).</span>';
+      if (mode === 'service') {
+        const sv = v && (v.action === 'perform-action' || v.action === 'call-service') ? v.perform_action || v.service || '' : '';
+        const data = v && v.data && Object.keys(v.data).length ? (M.yaml && M.yaml.dump ? M.yaml.dump(v.data) : JSON.stringify(v.data)) : '';
+        return `<span class="cap">Tjeneste</span><input class="in mono" data-f="svc" list="tp-svc" value="${esc(sv)}" placeholder="script.alarm_toggle" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><datalist id="tp-svc">${services(h).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>
+          <textarea class="in" data-f="data" placeholder="data (YAML), f.eks.&#10;entity_id: lock.inngang" autocapitalize="off" spellcheck="false">${esc(String(data).replace(/\n$/, ''))}</textarea>
+          <span class="hint${this._dataErr ? ' warn' : ''}" style="font-size:12px">${this._dataErr ? 'Feil i data: ' + esc(this._dataErr) : 'Kaller tjenesten med data. Tom data = ingen data.'}</span>`;
+      }
+      return '';
+    }
+    // ha-selector (GUI-editoren): egenskaper settes etter render
+    _syncSel() {
+      const s = this.shadowRoot && this.shadowRoot.querySelector('ha-selector[data-f="ent"]');
+      if (!s) return;
+      const v = this.value;
+      s.hass = this.hass; s.selector = { entity: {} }; s.label = 'Entitet'; s.value = v && v.action === 'more-info' ? v.entity || '' : '';
     }
     _render() {
       if (!this.shadowRoot) return;
-      const v = this.value, mode = this.mode, h = this.hass, cur = hashOf(v);
-      let body = '';
-      if (mode === 'popup') {
-        const p = popupOf(cur, h);
-        body = `<div class="pkr"><button class="pk" data-p="open">${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i class="${cur && !p ? 'warn' : ''}">${esc(p ? p.hash : cur ? cur + ' · Popupen finnes ikke i dette dashbordet' : 'Alle popups – også egne og importerte')}</i></span>${M.icon(this._open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:#979797')}</button>${cur ? '<button class="tst" data-p="test" title="Åpne popupen">Test</button>' : ''}</div>${this._open ? this._list(cur) : ''}`;
-      } else if (mode === 'hash') {
-        const p = popupOf(cur, h);
-        body = `<input class="in" data-f="hash" value="${esc(cur)}" placeholder="#tesla" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint hw${cur && !p ? ' warn' : ''}">${this._hashHint(cur, p)}</span>`;
-      } else if (mode === 'path') {
-        const p = v && v.action === 'navigate' && v.navigation_path[0] !== '#' ? v.navigation_path : '';
-        const vp = viewPaths(h); // Fiks 17.8: forslag fra dashbordets visninger
-        body = `<input class="in" data-f="path" list="tp-views" value="${esc(p)}" placeholder="/lovelace/energi" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><datalist id="tp-views">${vp.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist><span class="hint">Sti i Home Assistant, f.eks. <b>/lovelace/energi</b> eller <b>/dashboard-hytte/0</b>.${vp.length ? ` ${vp.length} forslag fra dashbordet.` : ''}</span>`;
-      } else if (mode === 'url') {
-        const u = v && v.action === 'url' ? v.url_path : '';
-        body = `<input class="in" data-f="url" type="url" inputmode="url" value="${esc(u)}" placeholder="https://…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><span class="hint">Åpnes i ny fane.</span>`;
-      } else if (mode === 'more') { // Fiks 17.8: entitet-velger (tom = kortets/flisens egen entitet)
-        const ent = v && v.action === 'more-info' ? v.entity || '' : '';
-        body = `${M.entityPicker ? M.entityPicker.html({ key: 'tp-ent', value: ent, placeholder: 'Kortets egen entitet', attrs: 'data-f="ent"' }) : `<input class="in" data-f="ent" value="${esc(ent)}" placeholder="light.stue" autocomplete="off" autocapitalize="off" spellcheck="false">`}<span class="hint">Viser detaljene (more-info) for entiteten${ent ? '' : ' · tom = kortets egen'}.</span>`;
-      }
-      else if (mode === 'lock') body = '<span class="hint">Åpner hurtigarket for dørlåsen.</span>';
-      else if (mode === 'std') body = `<span class="hint">${esc(this.getAttribute('std-hint') || 'Standard for kortet.')}</span>`;
-      else if (mode === 'toggle') body = '<span class="hint">Veksler entiteten (lås/lås opp, på/av …).</span>';
-      else if (mode === 'service') {
-        const sv = v && (v.action === 'perform-action' || v.action === 'call-service') ? v.perform_action || v.service || '' : '';
-        const data = v && v.data && Object.keys(v.data).length ? (M.yaml && M.yaml.dump ? M.yaml.dump(v.data) : JSON.stringify(v.data)) : '';
-        body = `<input class="in" data-f="svc" list="tp-svc" value="${esc(sv)}" placeholder="domene.tjeneste, f.eks. script.alarm_toggle" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><datalist id="tp-svc">${services(h).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>
-          <textarea class="in" data-f="data" placeholder="data (YAML), f.eks.&#10;entity_id: lock.inngang" autocapitalize="off" spellcheck="false">${esc(String(data).replace(/\n$/, ''))}</textarea>
-          <span class="hint${this._dataErr ? ' warn' : ''}">${this._dataErr ? 'Feil i data: ' + esc(this._dataErr) : 'Kaller tjenesten med data. Tom data = ingen data.'}</span>`;
-      }
-      else body = '<span class="hint">Ingen handling ved trykk.</span>';
-      const html = `<style>${CSS}</style><div class="w"><div class="seg" role="tablist">${this.modes.map((m) => `<button class="${m === mode ? 'on' : ''}" aria-selected="${m === mode}" data-p="mode" data-v="${m}">${esc(this.getAttribute('label-' + m) || MODES[m])}</button>`).join('')}</div>${body}</div>`;
+      const v = this.value, mode = this.mode, modes = this.modes, list = this.actionStyle === 'liste';
+      const ic = (m, on, s) => M.icon(MICON[m][on ? 1 : 0], s);
+      const sel = list
+        ? `<div class="lst" role="radiogroup">${modes.map((m) => `<button class="lr ${m === mode ? 'on' : ''}" role="radio" aria-checked="${m === mode}" data-p="mode" data-v="${m}"><span class="ci">${ic(m, true, 20)}</span><span class="nm"><b>${esc(this._lab(m))}</b><i>${esc(MSUB[m])}</i></span><span class="ck">${M.icon('mdi:check-circle', 22)}</span></button>`).join('')}</div>`
+        : `<div class="grid" role="radiogroup" style="grid-template-columns:repeat(${colsFor(modes.length)},minmax(0,1fr))">${modes.map((m) => `<button class="tl ${m === mode ? 'on' : ''}" role="radio" aria-checked="${m === mode}" data-p="mode" data-v="${m}"><span class="ti">${ic(m, m === mode, 24)}</span><span class="tn">${esc(this._lab(m))}</span></button>`).join('')}</div><span class="sub">${esc(MSUB[mode] || '')}</span>`;
+      const tl = this._testLabel(mode, v);
+      const html = `<style>${CSS}</style><div class="w" data-style="${list ? 'liste' : 'ruter'}"><div class="sel">${sel}</div>`
+        + `<div class="fld" data-key="fld-${mode}" data-mode="${mode}">${this._field(mode, v)}</div>`
+        + (mode !== 'none' && mode !== 'std' && tl ? `<button class="tst" data-p="test" data-key="tst">${M.icon('mdi:play', 19)}<span>${esc(tl)}</span></button>` : '')
+        + '</div>';
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      this._syncSel();
     }
   }
   if (!customElements.get('msh-tap-picker')) customElements.define('msh-tap-picker', MshTapPicker);
 
-  /* ------------------------------------------------------------ Fiks 17.8 · popup-velger (ark) + <msh-popup-field> */
-  // Kilde: MSH.allPopups (strategiens popup-liste – samme som «Tilpass Hjem» → Popups), gruppert Rom · Funksjoner · Andre.
-  const PGROUPS = { rom: 'Rom', fn: 'Funksjoner', egne: 'Andre' };
-  // Fiks 26.9: alle Bubble pop-up-hasher i dashbordet – også manuelle popups utenfor strategien (lovelace-configen)
-  const dashPopups = () => {
-    const out = [];
-    try {
-      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
-      const cfg = panel && panel.lovelace && panel.lovelace.config;
-      const walk = (c, d) => {
-        if (!c || typeof c !== 'object' || d > 12) return;
-        if (Array.isArray(c)) { c.forEach((x) => walk(x, d + 1)); return; }
-        if (c.type === 'custom:bubble-card' && c.card_type === 'pop-up' && c.hash) out.push({ hash: normHash(c.hash), name: c.name || normHash(c.hash), icon: c.icon, group: 'egne', source: 'dash' });
-        ['views', 'cards', 'sections', 'card', 'elements'].forEach((k) => { if (c[k]) walk(c[k], d + 1); });
-      };
-      walk(cfg, 0);
-    } catch (e) { /* ingen lovelace (GUI-editor utenfor dashbordet) */ }
-    return out;
-  };
-  const popupList = (hass) => {
-    let L = [];
-    try { L = M.allPopups ? M.allPopups(hass || M.lastHass, { hidden: true }) : []; } catch (e) { L = []; }
-    const seen = new Set(L.map((p) => p.hash));
-    dashPopups().forEach((p) => { if (!seen.has(p.hash)) { seen.add(p.hash); L.push(p); } });
-    return L.map((p) => (PGROUPS[p.group] ? p : { ...p, group: 'egne' })); // ukjent gruppe → «Andre»
-  };
-  const normHash = (s) => { const r = String(s == null ? '' : s).trim(); return r ? '#' + r.replace(/^#+/, '').replace(/\s+/g, '-') : ''; };
-  const MISSING = 'Popupen finnes ikke i dette dashbordet';
-  const PSHEET_CSS = `
-    .sh{display:flex;flex-direction:column;overflow:hidden!important;height:min(680px, calc(100% - 24px - env(safe-area-inset-top, 0px)))}
-    /* Fiks 26.9: flex-kolonne – header/søk/egen hash faste (flex:none), bare listen (.sc) scroller */
-    .sh>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden}
-    .body>*{flex:none}
-    *{box-sizing:border-box}
-    button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
-    .hd{display:flex;align-items:center;gap:10px;min-height:40px}
-    .hd b{flex:1;font-size:18px;font-weight:500;color:#fafafa}
-    .hd .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
-    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;flex:none}
-    .sr input{flex:1;min-width:0;height:100%;font-size:16px}
-    .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
-    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
-    .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px;padding-bottom:4px}
-    .sc::-webkit-scrollbar{width:4px}.sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:2px}
-    .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 2px 4px;flex:none}
-    .pr{display:flex;align-items:center;gap:12px;min-height:52px;padding:4px 10px 4px 6px;border-radius:14px;text-align:left;width:100%;flex:none}
-    .pr:active{transform:scale(.99)}
-    .pr.on{background:rgba(255,255,255,0.1)}
-    .pr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
-    .pr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-    .pr .nm b{font-weight:500;font-size:14px;color:#fafafa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pr .nm i{font-style:normal;font-size:11px;color:#7f7f7f}
-    .pr .h{font-size:12px;color:#979797;font-variant-numeric:tabular-nums;flex:none}
-    .note{font-size:12px;color:#979797;line-height:1.45;padding:8px 2px}
-    .own{display:flex;gap:8px;align-items:center;flex:none}
-    .own input{flex:1;min-width:0;height:44px;border-radius:14px;padding:0 12px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:15px}
-    .own .ok{height:44px;padding:0 16px;border-radius:22px;background:var(--pink,#f285c9);color:#2f2f2f;font-weight:600;font-size:14px}
-    .wr{font-size:12px;color:var(--orange,#f2b573);padding:0 2px;flex:none;min-height:16px}
-    .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:32px}
-    .lnk{font-size:13px;color:var(--pink,#f285c9);font-weight:500;padding:6px 2px}
-    .cur{font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    :host([data-glass]) .sr,:host([data-glass]) .own input,:host([data-glass]) .hd .x,:host([data-glass]) .pr .ci{background:rgba(0,0,0,0.25)}
-  `;
-  // Åpner arket. o: { value, onPick(hash), title, hass } → Promise<'#hash' | '' (tømt) | null (avbrutt)>
-  function openPopupPicker(o = {}) {
-    const hass = o.hass || M.lastHass, cur = normHash(o.value), all = popupList(hass), known = (h) => all.some((p) => p.hash === h);
-    const S = M.overlay({ css: PSHEET_CSS, maxWidth: 440, html: `
-      <div class="hd"><b>${esc(o.title || 'Velg popup')}</b><button class="x" data-p="close" title="Lukk">${M.icon('mdi:close', 20)}</button></div>
-      <div class="sr">${M.icon('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" placeholder="Søk popup – navn eller #hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm">${M.icon('mdi:close-circle', 18)}</button></div>
-      <div class="sc"></div>
-      <div class="lb" style="padding-top:0">Egen hash</div>
-      <div class="own"><input class="oh" placeholder="#tesla" value="${esc(cur && !known(cur) ? cur : '')}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"><button class="ok" data-p="own">Bruk</button></div>
-      <div class="wr">${cur && !known(cur) ? MISSING : ''}</div>
-      <div class="ft"><span class="cur">${cur ? 'Nå: ' + esc(cur) : 'Ikke valgt'}</span><span style="display:flex;gap:14px">${cur ? '<button class="lnk" data-p="clear">Tøm</button>' : ''}<button class="lnk" data-p="test">Test</button></span></div>` });
-    const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), oh = R.querySelector('.oh'), wr = R.querySelector('.wr');
-    const cb = o.onPick || o.onChange || o.onSelect;
-    let picked = null, resolveP;
-    const P = new Promise((r) => { resolveP = r; });
-    S.onClosed = () => resolveP(picked);
-    const done = (v) => { M.haptic('success'); picked = v || ''; S.close(); if (cb) cb(picked); };
-    const draw = () => {
-      const q = fold(qi.value.trim());
-      const hits = all.filter((p) => !q || fold(`${p.name} ${p.hash}`).includes(q));
-      const g = {};
-      hits.forEach((p) => { (g[p.group] = g[p.group] || []).push(p); });
-      const row = (p) => `<button class="pr ${p.hash === cur ? 'on' : ''}" data-v="${esc(p.hash)}"><span class="ci">${M.icon(p.icon || 'mdi:card-outline', 22)}</span><span class="nm"><b>${esc(p.name)}</b>${p.hidden ? '<i>Skjult</i>' : ''}</span><span class="h">${esc(p.hash)}</span></button>`;
-      const order = Object.keys(PGROUPS);
-      sc.innerHTML = Object.keys(g).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99).map((k) => `<div class="lb">${esc(PGROUPS[k] || k)}</div>${g[k].map(row).join('')}`).join('')
-        || `<div class="note">Ingen popups${q ? ` matcher «${esc(qi.value.trim())}»` : ' i dette dashbordet'}. Bruk «Egen hash» under.</div>`;
-    };
-    qi.addEventListener('input', draw);
-    // Fiks 26.9: listen eier scroll-gesten – Bubble-popupen/arket fanger den ikke (aldri preventDefault)
-    ['touchstart', 'touchmove', 'wheel'].forEach((t) => sc.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
-    oh.addEventListener('input', () => { const h = normHash(oh.value); wr.textContent = h && !known(h) ? MISSING : ''; });
-    R.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); M.haptic('light'); S.close(); return; }
-      if (e.key !== 'Enter') return;
-      e.preventDefault(); e.stopPropagation();
-      if (e.target === oh) { const h = normHash(oh.value); if (h) done(h); return; }
-      const f = sc.querySelector('[data-v]'); if (f) done(f.dataset.v);
-    });
-    R.addEventListener('click', (e) => {
-      const b = e.composedPath().find((n) => n.dataset && (n.dataset.v != null || n.dataset.p));
-      if (!b) return;
-      const p = b.dataset.p;
-      if (!p) return done(b.dataset.v);
-      if (p === 'close') { M.haptic('light'); return S.close(); }
-      if (p === 'qx') { qi.value = ''; M.haptic('selection'); draw(); qi.focus(); return; }
-      if (p === 'clear') return done('');
-      if (p === 'own') { const h = normHash(oh.value); if (h) done(h); else oh.focus(); return; }
-      if (p === 'test') { const h = normHash(oh.value) || cur; if (!h) return M.toast ? M.toast('Velg en popup først') : null; M.haptic('light'); S.close(); M.openPopup(h); }
-    });
-    draw();
-    // Valgt rad scrolles inn i synsfeltet ved åpning (scrollTop, ikke scrollIntoView – det scroller arket/siden også)
-    const toSel = () => { const on = sc.querySelector('.pr.on'); if (!on || !sc.clientHeight) return; const r = on.getBoundingClientRect(), b = sc.getBoundingClientRect(); sc.scrollTop += r.top - b.top - (sc.clientHeight - r.height) / 2; };
-    requestAnimationFrame(() => { toSel(); try { qi.focus({ preventScroll: true }); } catch (e) { qi.focus(); } });
-    P.close = S.close; P.sheet = S;
-    return P;
-  }
-  const PF_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
-    *{box-sizing:border-box}
-    button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .f{display:flex;align-items:center;gap:4px;height:var(--msh-if-h,48px);padding:0 4px;border-radius:14px;background:var(--msh-if-bg,var(--msh-tp-bg,#282828));min-width:0}
-    .pk{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:10px;padding:0 4px;text-align:left}
-    .pk:active{transform:scale(.99)}
-    .ci{width:38px;height:38px;border-radius:19px;flex:none;display:grid;place-items:center;background:var(--msh-if-ic,#3a3a3a)}
-    .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-    .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i.w{color:var(--orange,#f2b573)}
-    .nm.ph b{color:#979797}
-    .x,.t{height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#979797}
-    .x{width:36px}
-    .t{padding:0 10px;font-size:12px;font-weight:500;color:var(--pink,#f285c9)}
-  `;
-  // Feltet: popupens ikon, navn og #hash. Trykk → arket, × tømmer, «Test» åpner popupen. value-changed { value: '#hash' | '' }
-  class MshPopupField extends HTMLElement {
-    static get observedAttributes() { return ['value', 'placeholder', 'label']; }
-    constructor() {
-      super();
-      const sr = this.attachShadow({ mode: 'open' });
-      sr.addEventListener('click', (e) => {
-        const b = e.composedPath().find((n) => n.dataset && n.dataset.p);
-        if (!b) return;
-        e.stopPropagation();
-        M.haptic('light');
-        if (b.dataset.p === 'x') return this._emit('');
-        if (b.dataset.p === 't') { const h = this.value || normHash(this.getAttribute('placeholder')); if (h) M.openPopup(h); return; }
-        this._sheet = openPopupPicker({ value: this.value, title: this.getAttribute('label') || 'Velg popup', hass: this._hass, onPick: (v) => this._emit(v) });
-      });
-    }
-    set hass(h) { this._hass = h; }
-    get value() { return normHash(this.getAttribute('value')); }
-    set value(v) { this.setAttribute('value', v || ''); }
-    connectedCallback() { this._render(); }
-    attributeChangedCallback(n, o, v) { if (o !== v) this._render(); }
-    _emit(v) {
-      this.setAttribute('value', v || '');
-      this.dispatchEvent(new CustomEvent('value-changed', { detail: { value: v || '' }, bubbles: true, composed: true }));
-    }
-    _render() {
-      if (!this.shadowRoot) return;
-      const v = this.value, ph = normHash(this.getAttribute('placeholder')), h = v || ph;
-      const p = h ? popupOf(h, this._hass) : null;
-      const sub = v ? (p ? v : `${v} · ${MISSING}`) : ph ? `Standard · ${ph}` : 'Alle popups i dashbordet';
-      const html = `<style>${PF_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg popup"><span class="ci">${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, v ? '' : 'opacity:.55')}</span>`
-        + `<span class="nm${v ? '' : ' ph'}"><b>${esc(p ? p.name : v || 'Velg popup …')}</b><i class="${v && !p ? 'w' : ''}">${esc(sub)}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`
-        + `${h ? '<button class="t" data-p="t" title="Åpne popupen">Test</button>' : ''}${v ? `<button class="x" data-p="x" title="Tøm">${M.icon('mdi:close', 18)}</button>` : ''}</div>`;
-      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
-    }
-  }
-  if (!customElements.get('msh-popup-field')) customElements.define('msh-popup-field', MshPopupField);
-  M.popupPicker = {
-    tag: 'msh-popup-field', GROUPS: PGROUPS, MISSING,
-    open: openPopupPicker, list: popupList, norm: normHash,
-    // ha-selector select (GUI-editoren): samme liste, egen verdi tillatt
-    selector: (hass) => ({ select: { mode: 'dropdown', custom_value: true, options: popupList(hass).map((p) => ({ value: p.hash, label: `${p.name} · ${p.hash}${p.group === 'egne' ? ' (andre)' : ''}` })) } }),
-    html(o = {}) {
-      return `<msh-popup-field data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.name ? `data-name="${esc(o.name)}"` : ''} value="${esc(normHash(o.value))}" placeholder="${esc(o.placeholder || '')}"${o.label ? ` label="${esc(o.label)}"` : ''} ${o.attrs || ''}></msh-popup-field>`;
-    },
-  };
-  // Forslag til dashbord-sti (Navigate): visningene i dette dashbordet + andre dashbord (hass.panels)
-  function viewPaths(hass) {
-    const out = [], seen = new Set(), add = (v, l) => { if (v && !seen.has(v)) { seen.add(v); out.push([v, l || v]); } };
-    try {
-      const base = '/' + (location.pathname.split('/')[1] || 'lovelace');
-      const ha = document.querySelector('home-assistant'), panel = ha && M.deep && M.deep(ha.shadowRoot, 'ha-panel-lovelace');
-      const root = panel && panel.shadowRoot && panel.shadowRoot.querySelector('hui-root');
-      const views = (root && root.lovelace && root.lovelace.config && root.lovelace.config.views) || (panel && panel.lovelace && panel.lovelace.config && panel.lovelace.config.views) || [];
-      views.forEach((v, i) => add(`${base}/${v.path || i}`, v.title || v.path || 'Visning ' + (i + 1)));
-    } catch (e) { /* */ }
-    const P = (hass && hass.panels) || {};
-    Object.keys(P).forEach((k) => { const p = P[k]; if (p && p.component_name === 'lovelace') add('/' + (p.url_path || k), p.title || p.url_path || k); });
-    return out;
-  }
-  const services = (hass) => { const S = (hass && hass.services) || {}, out = []; Object.keys(S).sort().forEach((d) => Object.keys(S[d] || {}).sort().forEach((sv) => out.push(d + '.' + sv))); return out.slice(0, 2000); };
-
   M.tap = {
-    tag: 'msh-tap-picker', MODES,
-    norm, hashOf, run, popupOf, label, modeOf,
+    tag: 'msh-tap-picker', MODES, DESIGN, colsFor,
+    norm, hashOf, run, popupOf, label, modeOf, views,
     html(o = {}) {
       const t = norm(o.value);
-      return `<msh-tap-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} value="${esc(t ? JSON.stringify(t) : '')}" modes="${esc((o.modes || ['popup', 'hash', 'path', 'url']).join(','))}"${o.stdHint ? ` std-hint="${esc(o.stdHint)}"` : ''}${Object.keys(o.labels || {}).map((k) => ` label-${esc(k)}="${esc(o.labels[k])}"`).join('')} ${o.attrs || ''}></msh-tap-picker>`;
+      const st = o.style || o.actionStyle;
+      return `<msh-tap-picker data-nomorph ${o.key ? `data-key="${esc(o.key)}"` : ''} value="${esc(t ? JSON.stringify(t) : '')}" modes="${esc((o.modes || DESIGN).join(','))}"${st ? ` action-style="${esc(st)}"` : ''}${o.stdHint ? ` std-hint="${esc(o.stdHint)}"` : ''}${o.noneHint ? ` none-hint="${esc(o.noneHint)}"` : ''}${o.entity ? ` entity="${esc(o.entity)}"` : ''}${o.gui ? ' gui' : ''}${Object.keys(o.labels || {}).map((k) => ` label-${esc(k)}="${esc(o.labels[k])}"`).join('')} ${o.attrs || ''}></msh-tap-picker>`;
     },
   };
 })();
@@ -10372,7 +10615,9 @@ try {
   const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
   const defHash = (id) => canon('#' + id);
   const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
-  const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
+  // Fiks 30.3: HA-standard nøkler buttons.<id>.tap_action / hold_action (gamle tap / hash leses fortsatt)
+  const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap_action || b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
+  const holdOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.hold_action); return t && t.action !== 'none' ? t : null; };
   const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? canon(p) : ''; };
   const ruleHit = (x, st) => {
     if (!x || !x.entity || !st) return false;
@@ -10581,6 +10826,7 @@ try {
           { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
+          { type: 'select', name: 'action_style', label: 'Handlingsvelger', options: [['ruter', 'Ruter'], ['liste', 'Liste']], default: 'ruter', help: 'Hvordan «Ved trykk» / «Ved hold» vises for knappene.' }, // 30.3
           { type: 'nbplace' },
         ] },
         { type: 'navbar', part: 'style' },
@@ -11019,6 +11265,8 @@ try {
         if (!s0.on) return;
         e.stopPropagation();
         swallow = Date.now();
+        // Fiks 30.3: hold og slipp uten å flytte → hold_action (når den er satt)
+        const hAct = e.type !== 'pointercancel' && s0.to === s0.i ? holdOf(norm(this.config), s0.el.dataset.id) : null;
         s0.its.forEach((b) => { b.style.transform = ''; b.classList.remove('lift'); });
         nav.classList.remove('reord');
         delete nav.dataset.glassDragOff;
@@ -11030,7 +11278,7 @@ try {
           const N = norm(this.config), bar = [...N.bar], pos = bar.map((id, j) => (N.hidden.has(id) ? -1 : j)).filter((j) => j >= 0);
           pos.forEach((j, k) => { if (ids[k] != null) bar[j] = ids[k]; }); // skjulte beholder plassen sin
           this._saveBar(bar);
-        } else this._schedule(true);
+        } else { this._schedule(true); if (hAct && M.tap) M.tap.run(this, hAct); }
       };
       nav.addEventListener('pointerdown', (e) => {
         if (e.button || st || this._inline) return;
@@ -11799,9 +12047,11 @@ try {
         const v = e.detail ? e.detail.value : null;
         if (t.dataset.nbicon) return this._btn(t.dataset.nbicon, { icon: v || undefined });
         const id = t.dataset.nbtap, isC = !!(norm(this._config).B[id] || {}).custom, tp = M.tap.norm(v);
-        // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap i HA-format, gammel hash fjernes
+        // 30.3 · hold_action: Ingen lagres ikke
+        if (t.dataset.nbw === 'hold') return this._btn(id, { hold_action: !tp || tp.action === 'none' ? undefined : tp });
+        // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap_action i HA-format, gamle tap/hash fjernes
         const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && canon(tp.navigation_path) === defHash(id));
-        return this._btn(id, { tap: std ? undefined : tp, hash: undefined });
+        return this._btn(id, { tap_action: std ? undefined : tp, tap: undefined, hash: undefined });
       });
     }
     _field(f, key) {
@@ -11925,7 +12175,8 @@ try {
           ${isC ? `<div class="fl"><span class="cap">Når du trykker · handling</span><select class="s44" data-nbf="action" data-id="${esc(id)}">${acts.map(([k, l]) => `<option value="${esc(k)}" ${String(b.action || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
             ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}
             ${ACT_DOM[b.action] ? `<span class="cap">Entitet · ${b.entity ? esc(M.name(h, b.entity)) + ' (' + esc(b.entity) + ')' : 'auto: ' + esc(M.all(h, ACT_DOM[b.action])[0] || 'fant ingen')}</span>${this._search({ type: 'entity', domain: ACT_DOM[b.action] }, 'nbbe_' + id, 'nbbent', id, b.entity ? 'Bytt …' : 'Velg ' + ACT_DOM[b.action] + ' …')}${b.entity ? `<button class="rsb" data-a="nbbclr" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Bruk auto</button>` : ''}` : ''}</div>` : ''}
-          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Handling · og så' : 'Handling'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id), modes: isC ? ['popup', 'hash', 'path', 'url', 'none'] : ['popup', 'hash', 'path', 'url'], attrs: `data-nbtap="${esc(id)}"` })}</div>`
+          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Ved trykk · og så' : 'Ved trykk'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id) || { action: 'none' }, style: c.action_style, entity: '', attrs: `data-nbtap="${esc(id)}" data-nbw="tap"` })}</div>
+            <div class="fl"><span class="cap">Ved hold</span>${M.tap.html({ key: 'nbhold_' + id, value: holdOf(N, id) || { action: 'none' }, style: c.action_style, noneHint: 'Hold og dra flytter knappen. Ingen egen hold-handling.', attrs: `data-nbtap="${esc(id)}" data-nbw="hold"` })}</div>`
     : `<div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>`}
           ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Tilbakestill til ${esc(base[1])}</button>`}
         </div>`;
@@ -15157,7 +15408,7 @@ try {
   // «Ved trykk» for en setning: tap (HA-format) → ellers gamle link/act 'more' (bakoverkompatibelt)
   function tapOf(p) {
     if (!p) return null;
-    const t = M.tap ? M.tap.norm(p.tap) : null;
+    const t = M.tap ? M.tap.norm(p.tap_action || p.tap) : null; // 30.3: tap_action (HA-standard) leses også
     if (t) return t;
     const l = String(p.link || '').trim();
     if (l === 'lock') return { action: 'lock-sheet' };
@@ -16121,6 +16372,7 @@ try {
     },
     html(h, c) { return this.render(h, c); }, // felles msh-editor ('html' → f.html)
   });
+  const TAP_MODES = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
   class Soppel extends M.Card {
     static get cardName() { return 'Hjem · søppel'; }
     static get defaults() { return { rosa: true, rosa_dager: 0 }; }
@@ -16128,8 +16380,11 @@ try {
     static get schema() {
       return [
         { type: 'info', label: 'Søppelkort · velg hva trykk og hold gjør' },
-        actField('tap_action', 'Trykk'),
-        actField('hold_action', 'Hold'),
+        // Fiks 30.3: felles handlingsvelger (msh-tap-picker, HA-format) – samme valg som «Tilpass Hjem» → Søppelkort.
+        // Gamle former (popup_hash, { action: popup, hash }, call-service) leses fortsatt (M.tap.norm / M.hjemTrashAct).
+        { type: 'tap', name: 'tap_action', label: 'Trykk', modes: TAP_MODES, stdHint: 'Standard: åpner popupen #soppel', auto: (h, c) => (!c.tap_action && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null) },
+        { type: 'tap', name: 'hold_action', label: 'Hold', modes: TAP_MODES, stdHint: 'Standard: more-info for sensoren', noneHint: 'Ingen handling ved hold.' },
+        { type: 'select', name: 'action_style', label: 'Handlingsvelger', options: [['ruter', 'Ruter'], ['liste', 'Liste']], default: 'ruter' },
         { type: 'entity', name: 'sensor', label: 'Entitet · dager til tømming', domain: 'sensor', auto: autoSensor, help: 'Tall (dager), «0,Restavfall,Plastavfall», dato eller attributt days/daysTo' },
         { type: 'entity', name: 'type_sensor', label: 'Sensor · type avfall (valgfri)', domains: ['sensor', 'input_text', 'input_select'] },
         { type: 'boolean', name: 'rosa', label: 'Rosa på tømmedagen', default: true },
@@ -16356,6 +16611,17 @@ try {
   const M = window.MSH, esc = M.esc, C = M.C;
   const get = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const TAB_H = { lav: 32, std: 38, mid: 44, hoy: 50, ekstra: 56 };
+  /* Fiks 31.4 · fanestil (Etasjevelger.dc.html + Hjem v3 · fs): tab_style pille | glide | chips | to | popup | gear
+   * (standard pille = dagens, uendret). popup/gear = felles MSH.tabBar (05-tab-bar.js, samme komponent som popupene og Lys).
+   * tab_mode ikon | tekst | begge (standard begge) gjelder «Som popups». tab_icons.<fane> = eget ikon (alle stiler med ikon). */
+  const TAB_STYLES = [['pille', 'Pille'], ['glide', 'Glidende · ikon'], ['chips', 'Chips med status'], ['to', 'To nivåer'], ['popup', 'Som popups'], ['gear', 'Tekst + tannhjul']];
+  const TAB_MODES = [['ikon', 'Ikon'], ['tekst', 'Tekst'], ['begge', 'Begge']];
+  M.HJEM_TAB_STYLES = TAB_STYLES;
+  M.HJEM_TAB_MODES = TAB_MODES;
+  const tabStyle = (c) => (TAB_STYLES.some(([v]) => v === (c && c.tab_style)) ? c.tab_style : 'pille');
+  M.hjemTabStyle = tabStyle;
+  // Kortnavn for etasjer (Hjem og Lys): «1. etasje» → «1. etg»
+  M.floorShort = (n) => String(n == null ? '' : n).replace(/\s*etasje\b/i, ' etg').replace(/^\s+/, '');
   const OUT_RX = /(^|_)(ute|utendors|utvendig|outdoor|outside|hage|garden|yard|terrasse|uteomrade)(_|$)/;
   const VIEWS = [['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']];
   const SLOTS = [['off', 'Av'], ['L-top', 'Venstre · over rom'], ['L-bottom', 'Venstre · under rom'], ['R-top', 'Høyre · over rom'], ['R-bottom', 'Høyre · under rom']];
@@ -16373,6 +16639,8 @@ try {
   // Fiks 20.13 (Hjem v3 · noRooms / layDefault aktuelt → []): Aktuelt-fanen (id aktuelt eller view 'aktuelt') viser aldri romkort
   const isAkt = (t) => !!t && (t.id === 'aktuelt' || t.kind === 'aktuelt' || t.view === 'aktuelt');
   M.hjemIsAkt = isAkt;
+  // Fiks 31.4 · «To nivåer»: underraden har alle faner av typen Kortliste (etasjer, Andre rom, egne kortlister) – ikke Hjem/Aktuelt
+  const isFloorTab = (t) => !!t && t.view === 'liste' && !isAkt(t) && t.kind !== 'hjem' && t.kind !== 'batterier';
   /* Fiks 16.11 · snarvei-fliser med egen entitet, navn, ikon, undertekst og fire handlinger.
    * Config per flis: tile_cfg.<id> = { kind, entity, name, icon, sub, tap_icon, tap_card, hold_icon, hold_card, side, pos }
    *   id = typen for første flis (lock, alarm, cam …), ekstra fliser av samme type: <type>_<n> (lock_2) med kind.
@@ -16401,7 +16669,7 @@ try {
   };
   const TAP_KEYS = { ic: 'tap_icon', card: 'tap_card', hold_ic: 'hold_icon', hold_card: 'hold_card' };
   const TAP_FIELDS = [['ic', 'Trykk på ikonet'], ['card', 'Trykk på kortet'], ['hold_ic', 'Hold på ikonet'], ['hold_card', 'Hold på kortet']];
-  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'path', 'more', 'service', 'none'];
+  const TAP_MODES = ['std', 'toggle', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none']; // 30.3: + URL (3 × 3 ruter)
   const TAP_LABELS = { path: 'Navigate' }; // fiks 19.3: dashbord-sti (f.eks. /dashboard-kamera)
   // Entitetsdomene per flis-type (søkbar velger i «Tilpass Hjem» → Kort og GUI-editoren). Apparater: status-sensor.
   const TILE_DOM = { lock: 'lock', alarm: 'alarm_control_panel', cam: 'camera', todo: 'todo', garage: 'cover', ruter: 'sensor', tv: 'media_player', vacr: 'vacuum', dish: ['sensor', 'binary_sensor', 'switch'], wash: ['sensor', 'binary_sensor', 'switch'], dry: ['sensor', 'binary_sensor', 'switch'] };
@@ -16664,13 +16932,40 @@ try {
     const areas = M.areas(hass), T = [{ id: 'hjem', label: 'Hjem', view: 'karusell', kind: 'hjem' }];
     const floors = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0));
     const RES = ['hjem', 'aktuelt', 'batterier', 'uten_etasje'];
-    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
+    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: floorTabId(f.floor_id), label: M.floorShort(f.name), view: 'liste', kind: 'floor', floor: f.floor_id }); });
     if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'uten_etasje', label: 'Andre rom', view: 'liste', kind: 'andre' });
     customTabs(c).forEach((t) => { if (!T.some((x) => x.id === t.id)) T.push(t); });
     T.push({ id: 'aktuelt', label: 'Aktuelt', view: 'liste', kind: 'aktuelt' });
     T.push({ id: 'batterier', label: 'Batterier', view: 'batterier', kind: 'batterier' });
     return T;
   }
+  function floorTabId(fid) { return ['hjem', 'aktuelt', 'batterier', 'uten_etasje'].includes(fid) || String(fid).startsWith('c_') ? 'f_' + fid : fid; }
+  // Fiks 31.5: etasjens kortnavn slik det står på Hjem (tab_labels.<fane> i Hjem-kortets config, ellers M.floorShort)
+  M.hjemFloorLabel = function (fid, name) {
+    let c = null;
+    try {
+      const live = M.liveOf && M.liveOf('msh-hjem-faner-card');
+      c = live && live.config ? live.config : M.effectiveConfig && M.CARD_IDS ? M.effectiveConfig({ type: 'custom:msh-hjem-faner-card', card_id: M.CARD_IDS.faner }, null, { shared: true }) : null;
+    } catch (e) { c = null; }
+    return (c && fid && get(c, 'tab_labels.' + floorTabId(fid))) || M.floorShort(name);
+  };
+  // Fiks 31.4 · ikon per fane (designet: Hjem home, 1./2. etg counter_1/2, Ute yard, Aktuelt bolt, Batterier battery_alert)
+  function tabIcon(hass, c, t) {
+    const own = get(c, 'tab_icons.' + t.id);
+    if (own) return own;
+    if (t.kind === 'hjem') return 'mdi:home';
+    if (isAkt(t)) return 'mdi:lightning-bolt';
+    if (t.kind === 'batterier') return 'mdi:battery-alert';
+    if (t.kind === 'floor') {
+      const f = M.floors(hass).find((x) => x.floor_id === t.floor);
+      if (f && outdoorFloor(f)) return 'yard';
+      const lv = f ? Number(f.level) : NaN;
+      if (Number.isInteger(lv) && lv >= 0 && lv <= 9) return `mdi:numeric-${lv}-circle-outline`;
+      return (f && f.icon) || 'mdi:layers';
+    }
+    return 'mdi:layers';
+  }
+  M.hjemTabIcon = tabIcon;
   function allTabs(hass, c) {
     const A = autoTabs(hass, c), ord = Array.isArray(c.tab_order) ? c.tab_order : [];
     const out = [...ord.map((id) => A.find((t) => t.id === id)).filter(Boolean), ...A.filter((t) => !ord.includes(t.id))];
@@ -16887,6 +17182,54 @@ try {
     return f;
   }
 
+
+  /* Fiks 31.4 · CSS for fanestilene (kortet og forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil). Prefiks hts-. */
+  const PK = C.accent, RD = 'var(--red,#f28073)', EDGE = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
+  M.HJEM_TABS_CSS = `
+    ${M.tabBar ? M.tabBar.CSS : ''}
+    .hts-glide,.hts-chips,.hts-top,.hts-sub{user-select:none;-webkit-user-select:none;touch-action:pan-y}
+    .hts-glide>*,.hts-chips>*,.hts-top>*,.hts-sub>*,.hts-bat,.hts-pt{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;cursor:pointer;font-family:inherit;border:0;margin:0;box-sizing:border-box}
+    .hts-ic{display:inline-flex;flex:none;line-height:0}
+    .hts-glide{position:relative;display:grid;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box;min-width:0}
+    .hts-thumb{position:absolute;top:4px;bottom:4px;border-radius:22px;background:${PK};box-shadow:0 6px 16px rgb(242 133 201 / 0.25);transition:left .28s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+    .hts-glide.tr-drag .hts-thumb{opacity:.35}
+    .hts-gt{position:relative;z-index:1;height:56px;min-width:0;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:var(--gray800,#afafaf);font-size:11px;font-weight:500;transition:color .2s}
+    .hts-gt.on{color:var(--gray100,#2f2f2f)}
+    .hts-gl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+    .hts-gt.warn:not(.on) .hts-ic{color:${RD}}
+    .hts-chips{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -2px;padding:0 2px;min-width:0}
+    .hts-chips::-webkit-scrollbar,.hts-sub::-webkit-scrollbar{display:none}
+    .hts-ch{flex:none;height:56px;padding:0 16px 0 12px;border-radius:28px;display:flex;align-items:center;gap:10px;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);box-shadow:${EDGE};transition:background .2s;text-align:left}
+    .hts-ch .hts-ic{color:var(--gray800,#afafaf)}
+    .hts-ch.on{background:${PK};color:var(--gray100,#2f2f2f);box-shadow:none}
+    .hts-ch.on .hts-ic{color:var(--gray100,#2f2f2f)}
+    .hts-cx{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+    .hts-cl{font-size:14px;font-weight:500;white-space:nowrap;line-height:1.2}
+    .hts-cm{font-size:11px;white-space:nowrap;color:var(--gray700,#979797);line-height:1.2}
+    .hts-ch.on .hts-cm{color:rgba(47,47,47,0.75)}
+    .hts-ch.warn:not(.on) .hts-ic,.hts-ch.warn:not(.on) .hts-cm{color:${RD}}
+    .hts-to{display:flex;flex-direction:column;gap:10px;min-width:0}
+    .hts-tor{display:flex;align-items:center;gap:8px;min-width:0}
+    .hts-top{flex:1;min-width:0;display:grid;gap:2px;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box}
+    .hts-tt{height:48px;border-radius:22px;min-width:0;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;background:transparent;color:var(--gray900,#c7c7c7);transition:background .2s}
+    .hts-tt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+    .hts-tl{overflow:hidden;text-overflow:ellipsis}
+    .hts-bat{position:relative;width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;padding:0;background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf);box-shadow:${EDGE};transition:background .2s}
+    .hts-bat.warn{color:${RD}}
+    .hts-bat.on{background:${RD};color:var(--gray100,#2f2f2f)}
+    .hts-bn{position:absolute;top:4px;right:4px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:${RD};color:var(--gray100,#2f2f2f);font-size:11px;font-weight:600;display:grid;place-items:center;line-height:1}
+    .hts-bat.on .hts-bn{background:var(--gray100,#2f2f2f);color:${RD}}
+    .hts-sub{display:flex;gap:6px;padding:0 4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;min-width:0}
+    .hts-st{flex:none;height:36px;padding:0 16px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;box-shadow:inset 0 0 0 1px var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);display:flex;align-items:center}
+    .hts-st.on{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1.5px var(--pink,#f285c9);color:var(--white,#fafafa)}
+    .hts-pp{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
+    .hts-pp.full{align-self:stretch}
+    .hts-ppr{display:flex;gap:0}
+    .hts-pt{flex:0 0 auto;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;border-radius:999px;color:var(--gray800,#afafaf)}
+    .hts-pp.full .hts-pt{flex:1 0 auto}
+    .hts-pt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+  `;
+
   /* ------------------------------------------------------------ kort */
   class HjemFaner extends M.Card {
     static get cardName() { return 'Hjem · faner og romkort'; }
@@ -16912,6 +17255,10 @@ try {
             ...(c.tab_height === 'custom' ? [{ type: 'number', name: 'tab_height_px', label: 'Høyde (px)', min: 24, max: 80, placeholder: '38' }] : []),
             { type: 'select', name: 'tab_width', label: 'Bredde per fane', options: [['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']], default: 'std' },
             ...(c.tab_width === 'custom' ? [{ type: 'number', name: 'tab_width_px', label: 'Bredde (px)', min: 48, max: 200, placeholder: '88' }] : []),
+            // Fiks 31.4: samme valg som «Tilpass Hjem» → Faner → Fanestil (høyde/bredde gjelder Pille)
+            { type: 'select', name: 'tab_style', label: 'Fanestil · stil', options: TAB_STYLES, default: 'pille', help: 'Høyde og bredde gjelder Pille. De andre stilene har faste mål.' },
+            ...(tabStyle(c) === 'popup' ? [{ type: 'select', name: 'tab_mode', label: 'Fanene viser', options: TAB_MODES, default: 'begge' }] : []),
+            ...(['glide', 'chips', 'to', 'popup'].includes(tabStyle(c)) ? T.map((t) => ({ type: 'icon', name: `tab_icons.${t.id}`, label: `Ikon · ${t.label}`, placeholder: M.iconName ? M.iconName(tabIcon(hass, c, t)) : tabIcon(hass, c, t) })) : []),
           ] },
           { type: 'section', id: 'batterier', label: 'Batterier', icon: 'mdi:battery-alert', fields: [
             { type: 'number', name: 'battery.limit', label: 'Grense for lavt batteri (%)', min: 5, max: 60, step: 5, placeholder: '20' },
@@ -17185,7 +17532,68 @@ try {
     }
     // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
     // Linsen (.ind) posisjoneres etter målt fane (afterRender) – bredden følger fanen.
-    _tabsHTML(TV, cur) {
+    // Fiks 31.4: fanestilen (tab_style) velger markup. pv = forhåndsvisning i «Tilpass Hjem» ({ attrs(t, i) } per fane).
+    _tabsHTML(TV, cur, pv) {
+      const st = tabStyle(this.config);
+      if (st === 'pille') return pv ? this._pillePV(TV, cur, pv) : this._pilleHTML(TV, cur);
+      const B = this._B || this._batteries(), low = B.list.filter((b) => b.low).length;
+      const A = (t, i) => (pv ? pv.attrs(t, i) : `data-act="tab" data-i="${i}" data-v="${esc(t.id)}" data-haptic="selection"`);
+      const tag = pv ? 'span' : 'button', role = (on) => (pv ? '' : `role="tab" aria-selected="${on}"`);
+      const icon = (t) => tabIcon(this.hass, this.config, t), warn = (t) => t.kind === 'batterier' && low > 0;
+      const idx = Math.max(0, TV.indexOf(cur));
+      if (st === 'popup' || st === 'gear') {
+        const items = TV.map((t) => ({ key: t.id, label: t.label, icon: icon(t), warn: warn(t) }));
+        return M.tabBar.html(items, cur.id, {
+          variant: st === 'gear' ? 'gear' : 'pop', mode: this.config.tab_mode, key: 'hts-bar', preview: !!pv,
+          attrs: (t, i) => A(TV[i], i), gearAttrs: 'data-act="hjemedit" data-haptic="light"', gearLabel: 'Tilpass Hjem',
+        });
+      }
+      if (st === 'glide') {
+        const N = TV.length || 1;
+        return `<div class="hts-glide" data-key="hts-glide" style="grid-template-columns:repeat(${N},minmax(0,1fr))" ${pv ? '' : 'role="tablist"'} data-gd-skip>
+          <span class="hts-thumb" data-key="hts-thumb" style="left:calc(4px + (100% - 8px) / ${N} * ${idx});width:calc((100% - 8px) / ${N})"></span>
+          ${TV.map((t, i) => `<${tag} class="hts-gt${i === idx ? ' on' : ''}${warn(t) ? ' warn' : ''}" ${role(i === idx)} aria-label="${esc(t.label)}" data-key="hts-${esc(t.id)}" ${A(t, i)}><span class="hts-ic">${M.icon(icon(t), 20)}</span><span class="hts-gl">${esc(t.label)}</span></${tag}>`).join('')}
+        </div>`;
+      }
+      if (st === 'chips') {
+        return `<div class="hts-chips" data-key="hts-chips" ${pv ? '' : 'role="tablist"'} data-gd-skip>${TV.map((t, i) => `<${tag} class="hts-ch${i === idx ? ' on' : ''}${warn(t) ? ' warn' : ''}" ${role(i === idx)} aria-label="${esc(t.label)}" data-key="hts-${esc(t.id)}" ${A(t, i)}><span class="hts-ic">${M.icon(icon(t), 22)}</span><span class="hts-cx"><span class="hts-cl">${esc(t.label)}</span><span class="hts-cm">${esc(this._tabMeta(t, B))}</span></span></${tag}>`).join('')}</div>`;
+      }
+      // to nivåer: hovedrad (Hjem · Etasjer · Aktuelt · egne faner som ikke er Kortliste) + Batterier-knapp; underrad = Kortliste-fanene
+      const flo = TV.filter(isFloorTab), inFlo = flo.includes(cur), bat = TV.find((t) => t.kind === 'batterier');
+      const top = [];
+      TV.forEach((t) => {
+        if (t === bat) return;
+        if (isFloorTab(t)) { if (!top.some((x) => x.etg)) top.push({ etg: true }); return; }
+        top.push(t);
+      });
+      const tBtn = (x) => {
+        if (x.etg) { const tg = inFlo ? cur : flo[0], i = TV.indexOf(tg); return `<${tag} class="hts-tt${inFlo ? ' on' : ''}" ${role(inFlo)} aria-label="Etasjer" data-key="hts-etg" ${A(tg, i).replace(/data-v="[^"]*"/, 'data-v="__etg"')}><span class="hts-ic">${M.icon('mdi:layers-triple', 18)}</span><span class="hts-tl">Etasjer</span></${tag}>`; }
+        const i = TV.indexOf(x), on = x === cur;
+        return `<${tag} class="hts-tt${on ? ' on' : ''}" ${role(on)} aria-label="${esc(x.label)}" data-key="hts-${esc(x.id)}" ${A(x, i)}><span class="hts-ic">${M.icon(icon(x), 18)}</span><span class="hts-tl">${esc(x.label)}</span></${tag}>`;
+      };
+      const batB = bat ? `<${tag} class="hts-bat${bat === cur ? ' on' : ''}${low ? ' warn' : ''}" ${role(bat === cur)} aria-label="${esc(bat.label)}" title="${esc(bat.label)}" data-key="hts-bat" data-tr-fixed ${A(bat, TV.indexOf(bat))}>${M.icon(icon(bat), 22)}${low ? `<span class="hts-bn">${low}</span>` : ''}</${tag}>` : '';
+      const sub = inFlo ? `<div class="hts-sub" data-key="hts-sub" ${pv ? '' : 'role="tablist"'} data-gd-skip>${flo.map((t) => { const on = t === cur; return `<${tag} class="hts-st${on ? ' on' : ''}" ${role(on)} data-key="hts-s-${esc(t.id)}" ${A(t, TV.indexOf(t))}>${esc(t.label)}</${tag}>`; }).join('')}</div>` : '';
+      return `<div class="hts-to" data-key="hts-to"><div class="hts-tor"><div class="hts-top" data-key="hts-top" style="grid-template-columns:repeat(${top.length || 1},minmax(0,1fr))" ${pv ? '' : 'role="tablist"'} data-gd-skip>${top.map(tBtn).join('')}</div>${batB}</div>${sub}</div>`;
+    }
+    // Status under navnet (Chips): «N favoritter», «N rom · N lys», «Nå», «N lave» / «Alle ok» – fra ekte data
+    _tabMeta(t, B) {
+      if (t.kind === 'batterier') { const n = B.list.filter((b) => b.low).length; return n ? `${n} lave` : 'Alle ok'; }
+      if (isAkt(t)) return 'Nå';
+      let R = [];
+      try { R = this._rooms(t); } catch (e) { R = []; }
+      if (t.kind === 'hjem') return R.length ? `${R.length} ${R.length === 1 ? 'favoritt' : 'favoritter'}` : '–';
+      if (!R.length) return '–';
+      const lit = R.reduce((n, r) => n + (r.lightsOn || 0), 0);
+      return `${R.length} rom${lit ? ` · ${lit} lys` : ''}`;
+    }
+    // Pille i forhåndsvisningen: statisk (aktiv fane bærer pillen), samme høyde/bredde som på Hjem
+    _pillePV(TV, cur, pv) {
+      const c = this.config, h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
+      const w = c.tab_width || 'std', tw = w === 'custom' ? `width:${Number(c.tab_width_px) || 88}px;` : '';
+      const pad = w === 'custom' ? '0 6px' : w === 'kompakt' ? '0 12px' : '0 18px';
+      return `<div class="hts-pp${w === 'full' ? ' full' : ''}" data-key="hts-pp"><div class="hts-ppr">${TV.map((t, i) => `<span class="hts-pt${t === cur ? ' on' : ''}" data-key="hts-pt-${esc(t.id)}" ${pv.attrs(t, i)} style="height:${h}px;padding:${pad};${tw}">${esc(t.label)}</span>`).join('')}</div></div>`;
+    }
+    _pilleHTML(TV, cur) {
       const c = this.config, idx = Math.max(0, TV.indexOf(cur));
       const h = c.tab_height === 'custom' ? Number(c.tab_height_px) || 38 : TAB_H[c.tab_height || 'std'] || 38;
       const w = c.tab_width || 'std';
@@ -17766,7 +18174,7 @@ try {
       this._ticking = false;
       const wrap = (inner) => `<div class="hf ${L.fold ? 'fold' : ''}">${inner}</div>`;
       if (!M.areas(hass).length) return wrap(M.emptyState('Fant ingen rom (områder) i Home Assistant', 'faner'));
-      const B = this._batteries(), E = (this._E = tileEnts(hass, c));
+      const B = (this._B = this._batteries()), E = (this._E = tileEnts(hass, c));
       const TV = (this._TV = this._tabsV(B)), cur = this._curTab(TV);
       this._autoFillOnce();
       this._aktMigOnce();
@@ -17793,6 +18201,7 @@ try {
     onAction(name, el, ev) {
       const d = el.dataset;
       if (name === 'tab') return this._pickTab(Number(d.i));
+      if (name === 'hjemedit') { if (M.openDashEditor) M.openDashEditor({ editor: 'home' }); return; } // 31.4: tannhjulet (Tekst + tannhjul)
       if (name === 'tile') {
         // fiks 19.3: sveip i flis-stabelen (Kamera/Ruter) er ikke trykk – pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
         if (ev && ev.detail !== 0 && this._pdXY && ev.clientX != null && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
@@ -17893,6 +18302,7 @@ try {
     // plass, er sideveis dra = liquid glass-linse (.ind følger fingeren). Flytt fane KUN etter langt trykk (400 ms)
     // eller i redigeringsmodus (this.editMode / window.__kiEditMode).
     _bindTabs() {
+      if (tabStyle(this.config) !== 'pille') return this._bindStyleTabs();
       const row = this.shadowRoot.querySelector('.tg');
       if (!row) return;
       const items = () => [...row.querySelectorAll('.tab')];
@@ -17915,6 +18325,23 @@ try {
         onGlassEnd: (b) => { row.classList.remove('drag'); items().forEach((t) => t.classList.remove('near')); if (!b) this.update(); },
       });
     }
+    // Fiks 31.4: de andre fanestilene – felles MSH.tabRow (hold 400 ms + dra = flytt → tab_order, Esc avbryter, kort trykk
+    // bytter fane, glass-valg ved sideveis dra, haptic selection, touch-action pan-y + stopPropagation – fallgruve 2).
+    _bindStyleTabs() {
+      const R = this.shadowRoot, st = tabStyle(this.config), TV = this._TV || [];
+      const all = () => allTabs(this.hass, this.config).map((t) => t.id);
+      const save = (keys) => this._saveCfg({ tab_order: M.tabMerge(keys, all()) });
+      const base = { active: () => (this._cur || {}).id, order: all, save: (full, keys) => save(keys) };
+      if (st === 'popup' || st === 'gear') { if (M.tabBar) M.tabBar.bind(this, R.querySelector('.mtb'), base); return; }
+      if (!M.tabRow) return;
+      const row = (sel, items, o) => { const el = R.querySelector(sel); if (el) M.tabRow(this, el, { ...base, items: () => [...el.querySelectorAll(items)], ...(o || {}) }); };
+      if (st === 'glide') return row('.hts-glide', '.hts-gt');
+      if (st === 'chips') return row('.hts-chips', '.hts-ch');
+      // to nivåer: «Etasjer» flyttes som én blokk (alle Kortliste-fanene), underraden omorganiserer etasjene innbyrdes
+      const flo = TV.filter(isFloorTab).map((t) => t.id);
+      row('.hts-top', '.hts-tt', { active: () => (flo.includes((this._cur || {}).id) ? '__etg' : (this._cur || {}).id), save: (full, keys) => save(keys.flatMap((k) => (k === '__etg' ? flo : [k]))) });
+      row('.hts-sub', '.hts-st');
+    }
     get styles() {
       return `${M.romkortCSS || ''}
         ${M.APPLIANCE_CSS || ''}
@@ -17925,6 +18352,7 @@ try {
         .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
         ${M.TAB_ROW_CSS || ''}
+        ${M.HJEM_TABS_CSS}
         .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
         .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
@@ -18013,6 +18441,15 @@ try {
       `;
     }
   }
+  /* Fiks 31.4 · forhåndsvisning i «Tilpass Hjem» → Faner → Fanestil: valgt stil med brukerens egne faner (ekte data, config
+   * = utkastet). attrs(t, i) gir hver fane arkets egne data-a-attributter (trykk bytter fane på Hjem). */
+  M.hjemTabsPreview = function (hass, c, curId, attrs) {
+    if (!hass || !c) return '';
+    const p = M.__hjemPV || (M.__hjemPV = document.createElement('msh-hjem-faner-card'));
+    p._rawConfig = c; p._config = { ...HjemFaner.defaults, ...c }; p._hass = hass;
+    const B = (p._B = p._batteries()), TV = (p._TV = p._tabsV(B)), cur = (p._cur = TV.find((t) => t.id === curId) || p._curTab(TV));
+    return p._tabsHTML(TV, cur, { attrs });
+  };
   M.define('msh-hjem-faner-card', HjemFaner, 'MSH Hjem · faner og romkort', 'Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, snarveier, apparater og rom-varsler.');
 })();
 
@@ -18713,7 +19150,7 @@ try {
     const areas = M.areas(hass), T = [{ id: 'hjem', label: 'Hjem', view: 'karusell', kind: 'hjem' }];
     const floors = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0));
     const RES = ['hjem', 'aktuelt', 'batterier', 'uten_etasje'];
-    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
+    floors.forEach((f) => { if (areas.some((a) => a.floor === f.floor_id)) T.push({ id: RES.includes(f.floor_id) || f.floor_id.startsWith('c_') ? 'f_' + f.floor_id : f.floor_id, label: M.floorShort ? M.floorShort(f.name) : f.name, view: 'liste', kind: 'floor', floor: f.floor_id }); });
     if (floors.length && areas.some((a) => !a.floor)) T.push({ id: 'uten_etasje', label: 'Andre rom', view: 'liste', kind: 'andre' });
     customTabs(c).forEach((t) => { if (!T.some((x) => x.id === t.id)) T.push(t); });
     T.push({ id: 'aktuelt', label: 'Aktuelt', view: 'liste', kind: 'aktuelt' });
@@ -18991,6 +19428,12 @@ try {
     input[type=range]{width:100%;accent-color:${PK};cursor:pointer}
     .big52{height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
     .tset{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    /* Fiks 31.4 · Fanestil: forhåndsvisning (boks #232323 r18) med valgt stil live (CSS fra 24-hjem-faner.js, prefiks hts-/mtb-) */
+    .fsp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:var(--gray000,#232323);overflow:hidden;min-width:0}
+    .fsp .fspl{font-size:11px;font-weight:500;letter-spacing:0.08em;color:#7f7f7f}
+    .fsp .fsph{font-size:11px;color:#7f7f7f;line-height:1.4}
+    .fsp [data-a="fsprev"]{cursor:pointer}
+    ${M.HJEM_TABS_CSS || ''}
     .o36{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
     .stp{display:flex;align-items:center;gap:2px;padding:3px;border-radius:18px;background:var(--gray000,#232323);flex:none}
     .stp>button{width:30px;height:30px;border-radius:15px;display:grid;place-items:center;color:#c7c7c7}
@@ -19364,7 +19807,7 @@ try {
       const cur = (kind) => { const a = c[kind]; if (a && typeof a === 'object' && a.action) return M.tap ? M.tap.norm(a) : a; return kind === 'tap_action' && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null; };
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
       const tp = (kind, lab, icn, std) => `<div class="tap" data-key="tr-tp-${kind}"><span class="th">${ic(icn, 20, 'color:#afafaf')}${esc(lab)}</span>
-          ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { path: 'Naviger', service: 'Tjeneste' }, stdHint: std, attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
+          ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { service: 'Tjeneste' }, stdHint: std, style: c.action_style, noneHint: kind === 'hold_action' ? 'Ingen handling ved hold.' : '', attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
       const RE = /s(ø|o)ppel|avfall|renovasjon|waste|garbage|trash/i;
       const sugg = (doms, cur2) => Object.keys(st).filter((id) => doms.includes(id.split('.')[0]) && id !== cur2 && RE.test(id + ' ' + ((st[id].attributes || {}).friendly_name || ''))).sort().slice(0, 6);
       const chips = (f, doms) => { const L = sugg(doms, c[f]); return L.length ? `<div class="chs" data-key="tr-sg-${f}">${L.map((id) => `<button class="o34 press" data-a="trsug" data-f="${f}" data-v="${esc(id)}" title="${esc(id)}">${ic('mdi:auto-fix', 16)}${esc(M.name(hass, id))}</button>`).join('')}</div>` : ''; };
@@ -19548,7 +19991,7 @@ try {
         return 'Standard: ' + H.tapLabel(a, w) + (w === 'hold_ic' && a && a.navigation_path === '#dorlas' ? ' (Dørlås-popupen; uten lås → more-info)' : ''); };
       const cur = (w) => cfg[H.TAP_KEYS[w]] || (w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action) || null;
       const taps = H.TAP_FIELDS.map(([w, lab]) => `<div class="tap" data-key="${pre}-tp-${esc(k)}-${w}"><span class="th">${ic(w === 'ic' ? 'radio_button_checked' : w === 'card' ? 'touch_app' : w === 'hold_ic' ? 'mdi:gesture-tap-hold' : 'mdi:hand-back-right-outline', 20, 'color:#afafaf')}${esc(lab)}</span>
-          ${M.tap ? M.tap.html({ key: `${pre}-tpk-${k}-${w}`, value: cur(w) || (w === 'card' && H.kindOf(c, k) === 'cam' && H.camTapShown ? H.camTapShown(c, k) : null), modes: H.TAP_MODES, labels: H.TAP_LABELS, stdHint: std(w), attrs: `data-in="tetap" data-k="${esc(k)}" data-w="${w}"` }) : ''}</div>`).join('');
+          ${M.tap ? M.tap.html({ key: `${pre}-tpk-${k}-${w}`, value: cur(w) || (w === 'card' && H.kindOf(c, k) === 'cam' && H.camTapShown ? H.camTapShown(c, k) : null), modes: H.TAP_MODES, labels: H.TAP_LABELS, stdHint: std(w), style: c.action_style, noneHint: /^hold/.test(w) ? 'Ingen handling ved hold.' : '', attrs: `data-in="tetap" data-k="${esc(k)}" data-w="${w}"` }) : ''}</div>`).join('');
       return `${dom ? `<div class="fld"><span class="fl">Entitet · ${esc([].concat(dom).join(', '))}</span>${pk}</div>` : ''}
         <div class="g2"><div class="fld"><span class="fl">Navn</span><input class="in" data-in="tename" data-k="${esc(k)}" value="${esc(cfg.name || '')}" placeholder="${esc(K[1])}"></div>
           <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="tesub" data-k="${esc(k)}" value="${esc(cfg.sub || '')}" placeholder="${esc(kd === 'lock' ? 'Dørlås / Inngang' : K[1])}"></div></div>
@@ -19637,7 +20080,7 @@ try {
       if (!u.calEd) return row;
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'];
       const tp = (w, v, std) => `<div class="tap" data-key="cal-tp-${w}"><span class="th">${ic(w === 'tap' ? 'touch_app' : 'mdi:gesture-tap-hold', 20, 'color:#afafaf')}${w === 'tap' ? 'Trykk' : 'Hold'}</span>
-          ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, labels: { path: 'Navigate' }, stdHint: std, attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
+          ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, stdHint: std, style: c.action_style, noneHint: w === 'hold' ? 'Ingen handling ved hold.' : '', attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
       return row + `<div class="ted" data-key="cal-ed">${tp('tap', ta, 'Standard: kalender-arket (detaljer)')}${tp('hold', ha, 'Standard: ingen')}
           <div class="fld"><span class="fl">Kalendere · ${sel.length ? sel.length + ' valgt' : 'alle'}</span><div class="ach">${all.map((id) => `<button class="${!sel.length || sel.includes(id) ? 'on' : ''}" data-a="calent" data-v="${esc(id)}" data-h="selection">${esc(M.name(this.hass, id))}</button>`).join('') || '<span class="sub">Fant ingen calendar.*</span>'}</div></div>
           <button class="tgl" data-a="calallday" data-h="selection" style="background:var(--gray200,#3a3a3a)">Ta med «Hele dagen»-hendelser${this._sw(K.all_day !== false)}</button></div>`;
@@ -19777,6 +20220,7 @@ try {
           <div class="v">${t.kind === 'batterier' ? '<span class="chip on-pk">Batterier</span>' : VIEWS.map(([v, l]) => `<button class="chip ${t.view === v ? 'on-pk' : ''}" data-a="tabview" data-k="${esc(t.id)}" data-v="${v}" data-h="selection">${l}</button>`).join('')}
             ${t.view !== 'batterier' ? `<button class="rs" data-a="tabcards" data-k="${esc(t.id)}">Rom og snarveier${ic('chevron_right', 18)}</button>` : ''}</div>
           ${t.kind === 'batterier' ? this._bat(c) : ''}
+          ${custom && M.iconPicker ? `<div class="fld"><span class="fl">Ikon (Glidende, Chips, To nivåer, Som popups)</span>${M.iconPicker.html({ key: 'tic-' + t.id, value: get(c, 'tab_icons.' + t.id) || '', placeholder: 'mdi:layers', label: 'Ikon', attrs: `data-in="tabicon" data-k="${esc(t.id)}" style="--msh-if-bg:var(--gray000,#232323)"` })}</div>` : ''}
         </div>`;
       }).join('');
       const opt = (key, v, l, curV) => `<button class="o36 ${curV === v ? 'on-pk' : ''}" data-a="tabset" data-k="${key}" data-v="${v}" data-h="selection">${l}</button>`;
@@ -19790,9 +20234,19 @@ try {
       const hOn = M.hapticOff ? !M.hapticOff() : true;
       const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:#979797">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:#7f7f7f">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
       // Fiks 20.8: Fanestil (høyde/bredde, tabSet) øverst → Liquid Glass-animasjon → fanene → «+ Ny fane»
+      // Fiks 31.4: Stil (tab_style) + «Fanene viser» (tab_mode, Som popups) + forhåndsvisning øverst (Hjem v3 · fs/tabSet)
+      const st = M.hjemTabStyle ? M.hjemTabStyle(c) : c.tab_style || 'pille', lf = this.fanerLive;
+      let pvId = this.u.pvTab;
+      if (!pvId || (lf && lf._cur && lf._cur.id === pvId)) { pvId = lf && lf._cur ? lf._cur.id : null; this.u.pvTab = null; }
+      const pv = M.hjemTabsPreview ? M.hjemTabsPreview(hass, c, pvId, (t) => `data-a="fsprev" data-t="${esc(t.id)}" data-h="selection"`) : '';
+      const pvBox = `<div class="fsp" data-key="fsp"><span class="fspl">FORHÅNDSVISNING</span>${pv}<span class="fsph">Viser dine faner live. Trykk for å teste – valgt fane følger Hjem.</span></div>`;
+      const stRow = `<div class="fld"><span class="fl">Stil</span><div class="chs">${(M.HJEM_TAB_STYLES || [['pille', 'Pille']]).map(([v, l]) => opt('tab_style', v, l, st)).join('')}</div></div>`;
+      const visRow = st === 'popup' ? `<div class="fld"><span class="fl">Fanene viser</span><div class="chs">${(M.HJEM_TAB_MODES || []).map(([v, l]) => opt('tab_mode', v, l, c.tab_mode || 'begge')).join('')}</div></div>` : '';
+      const pl = st === 'pille' ? '' : ' · gjelder Pille';
       return `<div class="tset"><span class="lb">Fanestil</span>
-          <div class="fld"><span class="fl">Høyde</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
-          <div class="fld"><span class="fl">Bredde per fane</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
+          ${pvBox}${stRow}${visRow}
+          <div class="fld"><span class="fl">Høyde${pl}</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
+          <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
         </div>
         ${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
@@ -19908,7 +20362,7 @@ try {
           <div class="fld"><span class="fl">Ikon i boblen</span><div class="chs" style="max-height:124px;overflow-y:auto;scrollbar-width:none">${PICONS.map(([v, l]) => `<button class="chip ${(p.icon || '') === v ? 'on-pk' : ''}" data-a="picon" data-i="${i}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
             <input class="in" data-in="pf" data-i="${i}" data-f="icon" value="${esc(p.icon === 'dot' ? '' : p.icon || '')}" placeholder="Eller skriv inn en emoji / mdi:ikon"></div>
           <div class="fld"><span class="fl">Farge · Auto følger verdien (pris, lås, alarm …)</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${PSW.map(([v, col, l]) => `<button class="sw34 ${(p.color || 'hvit') === v ? 'on' : ''}" data-a="pcol" data-i="${i}" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, labels: { path: 'Sti' }, attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
+          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, noneHint: 'Boblen gjør ingenting ved trykk.', attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
           <div class="fld"><span class="fl">Utfør også</span><select class="in" data-in="pact" data-i="${i}">${ACTS.filter(([v]) => v !== 'more' || p.act === 'more').map(([v, l]) => `<option value="${v}" ${(p.act || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
             ${p.act === 'service' ? `<div class="svc"><span class="sh2">${ic('terminal', 16)}Utfør handling</span>
               <input class="in" data-in="pf" data-i="${i}" data-f="svc" value="${esc(p.svc || '')}" placeholder="domene.tjeneste, f.eks. light.turn_on">
@@ -20049,6 +20503,8 @@ try {
         if (d.in === 'tetap') { const H = HT(), p = `tile_cfg.${d.k}.`; const pt = { [p + H.TAP_KEYS[d.w]]: v || undefined }; const al = { ic: 'tap_action', card: 'tap_action', hold_ic: 'icon_hold_action', hold_card: 'hold_action' }[d.w]; if (get(this.F(), p + al) != null && d.w !== 'ic' && d.w !== 'card') pt[p + al] = undefined; return this.saveF(pt); }
         return this._teSet(d.k, d.in === 'teent' ? 'entity' : 'icon', v || '');
       });
+      // Fiks 31.4 · eget ikon for egne faner (tab_icons.<fane>)
+      r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'tabicon'); if (!el) return; e.stopPropagation(); this.saveF({ ['tab_icons.' + el.dataset.k]: (e.detail && e.detail.value) || undefined }); });
       // Fiks 17.8 · snarvei-raden: ikonvelger og popup-velger (msh-icon-field / msh-popup-field)
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && (n.dataset.in === 'licon' || n.dataset.in === 'lhash')); if (!el || !this.u.sel) return; e.stopPropagation(); const v = (e.detail && e.detail.value) || ''; this.saveF({ [`links.${this.u.sel.id}.${el.dataset.in === 'licon' ? 'icon' : 'hash'}`]: v || undefined }); });
       r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'icpick'); if (el && this.u.sel) { const v = e.detail && e.detail.value; this._roomSet(this.u.sel.id, { icon: v || undefined }); } });
@@ -20120,7 +20576,7 @@ try {
         u.sel = null; u.pick = null;
         if (Object.keys(p).length) this.saveF(p); else this.render();
       } else if (u.sec === 'faner') {
-        this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined });
+        this.saveF({ tab_order: undefined, tab_hidden: undefined, tab_labels: undefined, tab_views: undefined, custom_tabs: undefined, tab_height: undefined, tab_height_px: undefined, tab_width: undefined, tab_width_px: undefined, tab_style: undefined, tab_mode: undefined, tab_icons: undefined });
       } else if (u.sec === 'pop') {
         this._saving = true; try { M.store.set('popups', undefined); } finally { this._saving = false; }
         u.popSel = null; this.render();
@@ -20378,7 +20834,7 @@ try {
         case 'tabdel': {
           if (!t || t.kind !== 'custom') return;
           const list = String(c.custom_tabs || '').split(',').map((x) => x.trim()).filter((x) => x && 'c_' + M.slug(x) !== t.id);
-          const p = { custom_tabs: list.join(', ') || undefined, ['tab_labels.' + t.id]: undefined, ['tab_views.' + t.id]: undefined, ['layout.' + t.id]: undefined, ['tiles.' + t.id]: undefined };
+          const p = { custom_tabs: list.join(', ') || undefined, ['tab_labels.' + t.id]: undefined, ['tab_views.' + t.id]: undefined, ['tab_icons.' + t.id]: undefined, ['layout.' + t.id]: undefined, ['tiles.' + t.id]: undefined };
           if (Array.isArray(c.tab_order)) p.tab_order = c.tab_order.filter((x) => x !== t.id);
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
@@ -20394,9 +20850,15 @@ try {
           return this.saveF({ custom_tabs: [...ex, name].join(', ') });
         }
         case 'tabset': {
-          const p = { [d.k]: d.v === 'std' ? undefined : d.v };
+          const p = { [d.k]: d.v === 'std' || (d.k === 'tab_style' && d.v === 'pille') || (d.k === 'tab_mode' && d.v === 'begge') ? undefined : d.v };
           if (d.v === 'custom') { const pk = d.k + '_px'; if (!c[pk]) p[pk] = d.k === 'tab_height' ? TAB_H[c.tab_height || 'std'] || 38 : 88; }
           return this.saveF(p);
+        }
+        case 'fsprev': { // 31.4: trykk i forhåndsvisningen bytter fane på Hjem
+          const lf = this.fanerLive, i = lf && lf._TV ? lf._TV.findIndex((x) => x.id === d.t) : -1;
+          if (i >= 0) lf._pickTab(i);
+          u.pvTab = d.t;
+          return this.render();
         }
         case 'tabstep': { const v = M.clamp((Number(c[d.k]) || Number(d.def)) + Number(d.v), Number(d.min), Number(d.max)); return this.saveF({ [d.k]: v }); }
         case 'bcond': return this.saveF({ 'battery.cond': d.v });
@@ -30483,8 +30945,9 @@ try {
 /* ---- 43-lys.js ---- */
 try {
 /* msh-lys-card · Lys-popup (#lys). Kilde: Lys v4.dc.html + fiks3 (punkt 1–3, 5).
- * Rad under Bubble-headeren: fane-pillen (Utelys · én per etasje · Lys på; scroller vannrett, langt trykk + dra =
- * omorganiser via MSH.tabReorder → tab_order) og til høyre tannhjulet (44 × 44, samme glass-flate og ring som pillen).
+ * Rad under Bubble-headeren (Fiks 31.5): felles fanelinje MSH.tabBar (variant gear, 05-tab-bar.js – samme komponent som
+ * tab_style gear på Hjem): Utelys · én per etasje (kortnavn som på Hjem) · Lys på, bredde etter teksten; hold + dra =
+ * omorganiser (MSH.tabRow → tab_order), og til høyre tannhjulet (56 × 56).
  * Tannhjulet åpner «Tilpass lys»: eget bunnark (MSH.overlay → document.body; solid, frosted med Liquid Glass-tema) med navigasjonsrad Avbryt · tittel ·
  * Ferdig, Visning (Mellomrom/Kolonner/Størrelse/Slider-høyde, live bak arket), Innhold (Faner · Scener · Rom og lys ·
  * Utelys som undersider med «‹ Tilpass») og «Tilbakestill til standard». Ingen omfangsvelger – én felles config.
@@ -30522,8 +30985,6 @@ try {
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
-  // Fanerad-flate: standard transparent + ring, glass kun med Liquid Glass-temaet (05-tab-reorder.js, Fiks 15.2)
-  const TRS = M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)') : 'background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);';
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -30649,7 +31110,9 @@ try {
   // Faner: [nøkkel, visningsnavn, standardnavn]
   const tabDefs = (A, c) => {
     const nm = (c && c.tab_names) || {};
-    return [['out', 'Utelys'], ...A.floors.map((f) => [f.key, f.name]), ['on', 'Lys på']].map(([k, l]) => [k, nm[k] || l, l]);
+    // Fiks 31.5: etasjene får kortnavnet fra Hjem (fanenavnet der, ellers «1. etasje» → «1. etg»)
+    const sh = (f) => (M.hjemFloorLabel ? M.hjemFloorLabel(f.id, f.name) : f.name);
+    return [['out', 'Utelys'], ...A.floors.map((f) => [f.key, f.id ? sh(f) : f.name]), ['on', 'Lys på']].map(([k, l]) => [k, nm[k] || l, l]);
   };
   // Scener for en etasje: KI Rom-lysscenene (button.*_lys_*) i etasjens rom, gruppert per scene (ett trykk = alle rom),
   // og/eller egne (lysnivåer + scene.* i etasjen). include.scener_lys legges alltid til. Sortert etter scene_order.
@@ -30812,10 +31275,10 @@ try {
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
-      // Én rad: fane-pillen (fyller bredden, scroller) + tannhjulet som egen knapp med samme glass-flate og ring
+      // Fiks 31.5: fanelinjen + tannhjulet = felles MSH.tabBar (variant gear, samme som tab_style gear på Hjem / Innstillinger)
+      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys' }) : '';
       return `<div class="wrap" style="${vars}">
-        <div class="trow"><div class="tbox"><div class="tabs msh-tr" data-gd-skip>${tabs.map((k) => `<button class="tab${k === tab ? ' on' : ''}" role="tab" aria-selected="${k === tab}" data-act="tab" data-key="${esc(k)}" data-haptic="selection" style="background:${k === tab ? PINK : 'transparent'};color:${k === tab ? INK : 'var(--gray800,#afafaf)'}">${esc(names[k])}</button>`).join('')}</div></div>
-          <button class="gear" data-act="customize" data-haptic="light" aria-label="Tilpass lys">${M.icon('mdi:cog', 22)}</button></div>
+        ${bar}
         ${body || ''}
       </div>`;
     }
@@ -31078,7 +31541,7 @@ try {
       const d = el.dataset, h = this.hass, A = this._A || M.lysAuto(h, this.config);
       const toast = (t) => { if (this.config.toasts !== false) M.toast(t); };
       switch (name) {
-        case 'tab': return this.setUI({ tab: d.key });
+        case 'tab': return this.setUI({ tab: d.v || d.key });
         case 'fold': return this.setUI({ fold: { ...(this.ui.fold || {}), [d.k]: !(this.ui.fold || {})[d.k] } });
         case 'outall': {
           const ids = A.lamps.map((l) => l.id), lit = ids.some((id) => { const s = this.s(id); return s && s.state === 'on'; });
@@ -31141,13 +31604,12 @@ try {
 
     /* ---------------- faner (felles MSH.tabReorder) og lys-slidere */
     afterRender() {
-      const row = this.shadowRoot.querySelector('.tabs');
-      M.tabReorder(row, {
-        card: this, glass: true,
-        items: () => Array.from(row.querySelectorAll('.tab')),
+      // Fiks 31.5: felles fanelinje (MSH.tabBar.bind → MSH.tabRow): hold 400 ms + dra = flytt (tab_order), Esc avbryter
+      if (M.tabBar) M.tabBar.bind(this, this.shadowRoot.querySelector('.mtb'), {
         active: () => this._curTab(),
+        order: () => M.mshOrder(tabDefs(this._A || M.lysAuto(this.hass, this.config), this.cfg).map((x) => x[0]), this.cfg.tab_order, []),
         onSelect: (k) => this.setUI({ tab: k }),
-        onReorder: (keys) => { const hid = this.config.hidden_tabs || []; M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
+        save: (full, keys) => { const hid = this.config.hidden_tabs || []; return M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
       });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
       const sr = this.shadowRoot.querySelector('.sr');
@@ -31227,16 +31689,9 @@ try {
         .bt{border-top:1px solid rgba(255,255,255,0.06)}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
-        /* fane-rad: pillen fyller bredden (scroller), tannhjulet er egen knapp med samme flate og ring.
-           Standard: transparent + ring. Glassflate (blur + glasskant) bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2);
-           glass-dra/trykk-linsen (MSH.tabReorder glass + glassTap) er alltid på. */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tbox{flex:1;min-width:0;padding:4px;border-radius:22px;${TRS}overflow:hidden}
-        .tabs{gap:2px;border-radius:18px;overflow-x:auto;scrollbar-width:none}
-        .tabs::-webkit-scrollbar{display:none}
-        .tab{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;transition:background .2s}
-        .gear{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;${TRS}color:var(--white,#fafafa);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .gear:active{transform:scale(.92)}
+        /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
+           bredde etter teksten, tannhjul 56 × 56 */
+        ${M.tabBar ? M.tabBar.CSS : ''}
         /* lys-rader (felles rad, 12 px mellom) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
         /* Utelys-kortet */
@@ -49787,29 +50242,39 @@ try {
 
 /* ---- 61-varmepumpe.js ---- */
 try {
-/* msh-varmepumpe-card · Varmepumpe-popup #varmepumpe (fiks 26.20 – promptets «ki-varmepumpe-card»).
- * Fasit «Varmepumpe v3.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ÉTT kort, Bubble eier headeren.
- * Rekkefølge: toppkort 176 px (animert pumpe med vifte, tank-fylling, rør med flyt, Hz-merke, kW og «Ute · kr i dag») · 3 KPI-kort
- *   (Ute, Kompressor, Varmtvann) · hurtigknapper (Boost, Ventilasjon, Pumpe, Eco, Alarm, Wi-Fi) · faner Info · Varme · Varmtvann · Luft
- *   + tannhjul (Tilpass varmepumpe) · fane-innhold · «Diagnostikk»-akkordeon nederst.
- *   Info: prosasetning med piller, rader (energi, kostnad i dag, tur/retur/rom/elkolbe), graf tur/retur 7 døgn og akkordeonene
- *   Kostnad · Systemdrift · Strøm (samme stil som Diagnostikk: #3d3d3d, radius 24).
+/* msh-varmepumpe-card · Varmepumpe-popup #varmepumpe (fiks 26.20 / 31.2 – promptets «ki-varmepumpe-card»).
+ * Fiks 31.2: bygget på nytt 1:1 etter «design/Varmepumpe v3.dc.html» (struktur, mål, tekster, animasjoner og keyframes
+ * fade/spin/flow/flowv/rise portert direkte). Funksjons-popup (Mal A), ÉTT kort, Bubble eier headeren.
+ * Rekkefølge (v3): toppkort 176 px (gradient 165°, skap 62×128 #e9e4de med vifte (spin), Hz-merke #f0a36b og tank som fylles,
+ *   rør med flyt (flow/flowv), 5 ribber, varme som stiger (rise), «Varmepumpe» + chip, kW 40/300 og «Ute … · … kr») ·
+ *   3 KPI-kort (#3d3d3d r22: Ute, Kompressor, Varmtvann) · hurtigknapper (72 px r22, rosa når aktiv, ellers kontur #4a4a4a;
+ *   Boost, Vifte, Pumpe (skjult som standard), Eco, Alarm, Wi-Fi – knapper uten entitet vises ikke) · fanelinje (#3a3a3a r26,
+ *   faner 44 px, Info · Varme · Varmtvann · Luft, hold 400 ms + dra = MSH.tabRow) + tannhjul 52 px · faneinnhold (fade .3s) ·
+ *   «Diagnostikk» (52 px r26 + rutenett 2 kolonner).
+ *   Info (26.20): prosa med piller, rader (energi, kostnad, tur/retur/rom/elkolbe), graf tur/retur 7 døgn og akkordeonene
+ *   Kostnad · Systemdrift · Strøm i samme stil som Diagnostikk.
  * Autokonfig (NIBE S/F-serien, integrasjonene nibe_heatpump / myuplink): enheten(e) i hass.devices med produsent «NIBE» (eller
  *   entiteter fra de to plattformene). Roller matches på parameter-ID-suffikset (_40013 …) først, deretter på navn. Ingen
  *   hardkodede entitets-ID-er og aldri mock: mangler en rolle → «–» + «Velg entitet». Luft-fanen skjules uten BT20/BT21.
- * Animasjoner (stopper når entiteten er av): puls på energi, pust/glød på kompressor, dupp på varmtvann ved lading, snurr på vifte
- *   og ventilasjon, vibrering på GP1, rist på alarm, blink på Wi-Fi av. Av med `anim: false` og prefers-reduced-motion.
- * Config (samme skjema i «Tilpass varmepumpe» og GUI-editoren, getConfigElement):
- *   name, device (enhets-id, tomt = automatisk), buttons / buttons_hidden, button_style: icon_text|icon, tabs / tabs_hidden,
- *   tab_style: icon_name|name|icon, start_tab, overrides: { <rolle>: entity_id }, kpi, diag, anim, gap/pad_top/pad_bottom.
+ * Animasjoner (stopper når entiteten er av): vifta i toppkortet snurrer i takt med viftehastigheten (raskt ved Boost/økt
+ *   ventilasjon), rør/varme bare når kompressoren går, puls på kW, pust på kompressor-ikonet, dupp på varmtvann ved lading,
+ *   snurr på Vifte-knappen, vibrering på Pumpe, rist på Alarm og blink på Wi-Fi av. Av med `anim: false` / reduced-motion.
+ * «Tilpass varmepumpe» (tannhjulet) = arket fra v3 (MSH.overlay tilpass: true + MSH.draftEditor, Ferdig = rosa pille):
+ *   fast forhåndsvisning + fanene Knapper · Faner · Entiteter · Visning; scrollområdet under. Samme config i GUI-editoren.
+ * Config: name, device (enhets-id, tomt = automatisk), buttons / buttons_hidden (standard ['pump']) / button_names,
+ *   button_style: icon_text|icon, tabs / tabs_hidden / tab_names, tab_style: name|icon|icon_name (Tekst/Ikon/Begge, standard
+ *   name), start_tab, overrides: { <rolle>: entity_id }, kpi, sentence, diag, anim, gap/pad_top/pad_bottom.
  */
 (function () {
   const M = window.MSH;
   if (!M || customElements.get('msh-varmepumpe-card')) return;
-  const esc = M.esc, C = M.C;
+  const esc = M.esc;
   const HASH = '#varmepumpe';
   const PLATS = ['nibe_heatpump', 'myuplink'];
-  const DEF = { tab_style: 'icon_name', button_style: 'icon_text', kpi: true, diag: true, anim: true };
+  const DEF = { tab_style: 'name', button_style: 'icon_text', kpi: true, diag: true, anim: true, sentence: true };
+  // v3-paletten
+  const PINK = 'linear-gradient(160deg,#f28ac9,#f6c9c4)', INK = 'rgba(70,58,64,.95)', BLUE = '#7ab8f0', GREEN = '#6fd29a', ORANGE = '#f0a36b';
+  const PINK_BTN = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
 
   /* ------------------------------------------------------------ roller
    * [nøkkel, etikett, gruppe, domener, parameter-ID-er (suffiks), navn-regex, ikon, ikke-regex, device_class] */
@@ -49897,11 +50362,6 @@ try {
   const RK = Object.fromEntries(ROLES.map((r) => [r[0], r]));
   const GROUPS = [['top', 'Toppkort og KPI', 'mdi:view-dashboard-outline'], ['btn', 'Hurtigknapper', 'mdi:gesture-tap-button'], ['info', 'Info', 'mdi:information-outline'], ['cost', 'Kostnad', 'mdi:cash'],
     ['sys', 'Systemdrift', 'mdi:cog-outline'], ['strom', 'Strøm', 'mdi:flash'], ['varme', 'Varme', 'mdi:radiator'], ['vv', 'Varmtvann', 'mdi:water-boiler'], ['luft', 'Luft', 'mdi:weather-windy'], ['diag', 'Diagnostikk', 'mdi:stethoscope']];
-  const BTNS = [['boost', 'Boost', 'mdi:rocket-launch'], ['vent', 'Ventilasjon', 'mdi:fan'], ['pump', 'Pumpe', 'mdi:pump'], ['eco', 'Eco', 'mdi:leaf'], ['alarm', 'Alarm', 'mdi:bell-outline'], ['wifi', 'Wi-Fi', 'mdi:wifi']];
-  const BK = Object.fromEntries(BTNS.map((b) => [b[0], b]));
-  const TABS = [['info', 'Info', 'mdi:information-outline'], ['varme', 'Varme', 'mdi:radiator'], ['vv', 'Varmtvann', 'mdi:water-boiler'], ['luft', 'Luft', 'mdi:weather-windy']];
-  const TK = Object.fromEntries(TABS.map((t) => [t[0], t]));
-
   /* ------------------------------------------------------------ oppdagelse */
   const dom = (id) => id.slice(0, id.indexOf('.'));
   const obj = (id) => id.slice(id.indexOf('.') + 1);
@@ -49966,24 +50426,6 @@ try {
   const numS = (s) => { if (!okS(s)) return null; const t = String(s.state).trim().replace(',', '.'); const v = Number(t); return t === '' || isNaN(v) ? null : v; };
   const unitS = (s) => (s && s.attributes.unit_of_measurement) || '';
   const dec = (v, u) => (/°|c$/i.test(u) ? 1 : Math.abs(v) < 10 && v % 1 ? 1 : v % 1 && Math.abs(v) < 100 ? 1 : 0);
-  function fmtS(s, d) {
-    if (!okS(s)) return '–';
-    const v = numS(s), u = unitS(s);
-    if (v != null && (s.attributes.device_class === 'monetary' || /^(nok|kr)$/i.test(u))) return M.nf(v, 2) + ' kr';
-    if (v == null) {
-      if (s.entity_id && dom(s.entity_id) === 'binary_sensor') return s.state === 'on' ? 'På' : 'Av';
-      if (s.attributes.device_class === 'timestamp') return tidTil(s.state);
-      return String(s.state);
-    }
-    return M.nf(v, d != null ? d : dec(v, u)) + (u ? (u === '°C' ? '°' : ' ' + u) : '');
-  }
-  const tidTil = (iso) => {
-    const t = Date.parse(iso); if (isNaN(t)) return String(iso);
-    const d = Math.round((t - Date.now()) / 86400000);
-    const dato = new Date(t).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
-    return d <= 0 ? `i dag · ${dato}` : d === 1 ? `i morgen · ${dato}` : `om ${d} dager · ${dato}`;
-  };
-  const deg = (v) => (v == null ? '–' : M.nf(v, 1) + '°');
   const kW = (s) => { const v = numS(s); if (v == null) return null; return /^w$/i.test(unitS(s)) ? v / 1000 : v; };
   const on = (s) => !!s && ['on', 'true', 'home', 'connected', 'running'].includes(String(s.state).toLowerCase());
   // select-valg → norsk etikett
@@ -49993,16 +50435,884 @@ try {
   const isNormal = (o) => /^(default|normal|home|hjemme)$/i.test(String(o || '').trim());
   const isAway = (o) => /^(away|borte)$/i.test(String(o || '').trim());
 
+
+  /* ------------------------------------------------------------ knapper og faner (v3: QDEF / TDEF) */
+  // [nøkkel, standardnavn, ikon, rolle]
+  const BTNS = [['boost', 'Boost', 'mdi:water-boiler', 'boost'], ['vent', 'Vifte', 'mdi:fan', 'vent'], ['pump', 'Pumpe', 'mdi:pump', 'pump'],
+    ['eco', 'Eco', 'mdi:leaf', 'smart'], ['alarm', 'Alarm', 'mdi:alert-circle', 'alarm'], ['wifi', 'Wi-Fi', 'mdi:wifi', 'wifi']];
+  const BK = Object.fromEntries(BTNS.map((b) => [b[0], b]));
+  const TABS = [['info', 'Info', 'mdi:information'], ['varme', 'Varme', 'mdi:heat-wave'], ['vv', 'Varmtvann', 'mdi:water-boiler'], ['luft', 'Luft', 'mdi:weather-windy']];
+  const TK = Object.fromEntries(TABS.map((t) => [t[0], t]));
+  const BTN_HIDE_DEF = ['pump'];
+  const TAB_MODES = [['icon', 'Ikon'], ['name', 'Tekst'], ['icon_name', 'Begge']];
+  const BTN_MODES = [['icon', 'Bare ikon'], ['icon_text', 'Ikon + tekst']];
+
   /* ------------------------------------------------------------ rekkefølge / synlighet */
   const orderOf = (list, keys) => { const o = (Array.isArray(list) ? list : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
   const btnOrder = (c) => orderOf(c.buttons, BTNS.map((b) => b[0]));
   const tabOrder = (c) => orderOf(c.tabs, TABS.map((t) => t[0]));
+  const btnHidden = (c) => new Set(Array.isArray(c.buttons_hidden) ? c.buttons_hidden : BTN_HIDE_DEF);
+  const tabHidden = (c) => new Set(Array.isArray(c.tabs_hidden) ? c.tabs_hidden : []);
+  const btnName = (c, k) => ((c.button_names || {})[k] || '').trim() || BK[k][1];
+  const tabName = (c, k) => ((c.tab_names || {})[k] || '').trim() || TK[k][1];
+  const btnEnt = (hass, c, k) => entOf(hass, c, BK[k][3]) || (k === 'boost' ? entOf(hass, c, 'boost_sel') : null);
   const hasLuft = (hass, c) => !!(entOf(hass, c, 'bt20') || entOf(hass, c, 'bt21'));
-  const visTabs = (hass, c) => tabOrder(c).filter((k) => !(c.tabs_hidden || []).includes(k) && (k !== 'luft' || !hass || hasLuft(hass, c)));
-  const visBtns = (hass, c) => btnOrder(c).filter((k) => !(c.buttons_hidden || []).includes(k) && (k !== 'eco' || !hass || !!entOf(hass, c, 'smart')));
+  const visTabs = (hass, c) => { const H = tabHidden(c); return tabOrder(c).filter((k) => !H.has(k) && (k !== 'luft' || !hass || hasLuft(hass, c))); };
+  // Knapper uten entitet vises ikke (v3: «Knapper uten entitet vises ikke»)
+  const visBtns = (hass, c) => { const H = btnHidden(c); return btnOrder(c).filter((k) => !H.has(k) && (!hass || !!btnEnt(hass, c, k))); };
+  const tabStyle = (c) => (['icon', 'name', 'icon_name'].includes(c.tab_style) ? c.tab_style : DEF.tab_style);
+  const btnStyle = (c) => (c.button_style === 'icon' ? 'icon' : 'icon_text');
 
-  /* ------------------------------------------------------------ editor (Tilpass varmepumpe) */
-  // Dra for rekkefølge i arket: håndtak [data-vpdrag] i rader [data-vpk] med data-vpl = listenavn (buttons | tabs)
+  /* ------------------------------------------------------------ tall */
+  const fmtN = (v, d) => (v == null ? '–' : M.nf(v, d));
+  const signed = (v) => (v == null ? '–' : v > 0 ? '+' + M.nf(v, v % 1 ? 1 : 0) : M.nf(v, v % 1 ? 1 : 0));
+  // verdi + enhet hver for seg (rader med stort tall og liten enhet, som v3)
+  function vu(s) {
+    if (!okS(s)) return ['–', ''];
+    const v = numS(s), u = unitS(s);
+    if (v == null) {
+      if (s.entity_id && dom(s.entity_id) === 'binary_sensor') return [s.state === 'on' ? 'På' : 'Av', ''];
+      if (s.attributes.device_class === 'timestamp') return [omTid(s.state), ''];
+      if (dom(s.entity_id) === 'update') return [s.state === 'on' ? 'Ny versjon' : (s.attributes.installed_version || 'Oppdatert'), ''];
+      return [optNb(s.state), ''];
+    }
+    if (s.attributes.device_class === 'monetary' || /^(nok|kr)$/i.test(u)) return [M.nf(v, 2), 'kr'];
+    if (u === '°C') return [M.nf(v, 1), '°'];
+    return [M.nf(v, dec(v, u)), u];
+  }
+  const omTid = (iso) => { const t = Date.parse(iso); if (isNaN(t)) return String(iso); const d = (t - Date.now()) / 86400000; return d <= 0 ? 'i dag' : d < 1 ? `om ${Math.max(1, Math.round(d * 24))} t` : `om ${Math.round(d)} d`; };
+
+  /* ------------------------------------------------------------ graf (v3: viewBox 300×70, y = 68 − (v−lo)/(hi−lo)·64) */
+  const GN = 48;
+  function gpaths(series, lo, hi) {
+    const y = (v) => (68 - ((v - lo) / (hi - lo || 1)) * 64).toFixed(1);
+    return series.map((arr) => (arr && arr.length > 1 ? arr.map((v, i) => `${i ? 'L' : 'M'}${((i / (arr.length - 1)) * 300).toFixed(1)},${y(v)}`).join(' ') : ''));
+  }
+  const area = (p) => (p ? p + ' L300,70 L0,70 Z' : '');
+
+  /* ============================================================ kortet */
+  class Varmepumpe extends M.Card {
+    static get cardName() { return 'Varmepumpe'; }
+    static get editorTitle() { return 'Tilpass varmepumpe'; }
+    static get defaults() { return { ...DEF }; }
+    static getStubConfig() { return { card_id: M.uid() }; }
+    static get schema() { return editorSchema; }
+    static get uiPersist() { return ['tab', 'acc']; }
+    get cardSize() { return 12; }
+    _e(k) { return entOf(this.hass, this.config, k); }
+    _S(k) { return this.s(this._e(k)); }
+    _N(k) { return numS(this._S(k)); }
+    get tab() { const V = visTabs(this.hass, this.config), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0] || null; }
+    customize(focus, opts) {
+      if ((this._config && this._config.embedded && this._host) || focus === 'spacing') return super.customize(focus, opts);
+      return openSheet(this, focus);
+    }
+    onOpen() {
+      const st = this.config.start_tab, V = visTabs(this.hass, this.config);
+      if (st && V.includes(st) && this.ui.tab !== st) this.setUI({ tab: st });
+      this._load();
+    }
+    // Historikk kun når popupen er åpen (fallgruve 8): 24 t for varmtvann/luft, 7 døgn for tur/retur. 5 min mellomlager.
+    async _load() {
+      const h = this.hass;
+      if (!h || !this.isOpen) return;
+      const d24 = ['vv', 'bt6', 'bt20', 'bt21'].map((k) => this._e(k)).filter(Boolean);
+      const d7 = ['bt2', 'bt3'].map((k) => this._e(k)).filter(Boolean);
+      const key = d24.join() + '|' + d7.join();
+      if (this._lk === key && Date.now() - (this._lt || 0) < 300000) return;
+      this._lk = key; this._lt = Date.now();
+      try {
+        const [a, b] = await Promise.all([d24.length ? M.history(h, d24, 24) : {}, d7.length ? M.history(h, d7, 168) : {}]);
+        this._h24 = a; this._h7 = b;
+      } catch (e) { this._h24 = this._h24 || {}; this._h7 = this._h7 || {}; }
+      this.update();
+    }
+
+    onAction(name, el, ev) {
+      const d = el.dataset, h = this.hass;
+      switch (name) {
+        case 'tab': if (d.v) { this._scrub = null; this.setUI({ tab: d.v }); } return undefined;
+        case 'acc': { const a = { ...(this.ui.acc || {}) }; a[d.v] = !a[d.v]; return this.setUI({ acc: a }); }
+        case 'btn': return this._btn(d.v);
+        case 'opt': return d.id && d.o != null && M.call(h, 'select', 'select_option', { entity_id: d.id, option: d.o });
+        case 'step': return this._step(d.id, Number(d.d));
+        case 'boostvv': return this._boostVV();
+        default: return super.onAction(name, el, ev);
+      }
+    }
+    _btn(k) {
+      const h = this.hass, id = btnEnt(h, this.config, k);
+      if (!id || !h.states[id]) return this.customize('entiteter');
+      if (k === 'boost') return this._boostVV();
+      if (k === 'vent') return M.toggle(h, id);
+      if (k === 'eco') {
+        const s = h.states[id], O = s.attributes.options || [];
+        const next = isNormal(s.state) ? O.find(isAway) || O.find((o) => !isNormal(o)) : O.find(isNormal) || O[0];
+        return next != null && M.call(h, 'select', 'select_option', { entity_id: id, option: next });
+      }
+      return M.moreInfo(this, id); // Pumpe, Alarm og Wi-Fi: bare visning
+    }
+    _boostVV() {
+      const h = this.hass, sw = this._e('boost'), sel = this._e('boost_sel');
+      if (sw && h.states[sw]) return M.toggle(h, sw);
+      if (sel && h.states[sel]) {
+        const s = h.states[sel], O = s.attributes.options || [];
+        const off = O.find((o) => /^(off|av)$/i.test(o));
+        const next = off != null && s.state !== off ? off : O.find((o) => o !== off) || O[0];
+        return next != null && M.call(h, 'select', 'select_option', { entity_id: sel, option: next });
+      }
+      return this.customize('entiteter');
+    }
+    _step(id, dir) {
+      const h = this.hass, s = id && h.states[id];
+      if (!s) return;
+      const A = s.attributes, st = Number(A.step) || 1, cur = this._pend && this._pend[id] != null ? this._pend[id] : numS(s);
+      if (cur == null) return;
+      const mn = A.min != null ? Number(A.min) : -Infinity, mx = A.max != null ? Number(A.max) : Infinity;
+      const val = Number((Math.round(M.clamp(cur + dir * st, mn, mx) / st) * st).toFixed(3));
+      if (val === cur) { M.haptic('warning'); return; }
+      this._pend = { ...(this._pend || {}), [id]: val };
+      clearTimeout(this._pt);
+      this._pt = setTimeout(() => { const p = this._pend || {}; const x = p[id]; delete p[id]; if (x != null) M.call(this.hass, 'number', 'set_value', { entity_id: id, value: x }).catch(() => {}); }, 450);
+      this.update();
+    }
+
+    /* ---------------------------------------------------------- tilstand */
+    _running() { const f = this._N('freq'); if (f != null) return f > 0; const cs = this._S('komp_status'); return !!cs && /run|går|on|start/i.test(String(cs.state)); }
+    _charging() {
+      const t = [this._S('status'), this._S('vv_modus'), this._S('komp_status')].filter(okS).map((s) => String(s.state)).join(' ');
+      return (this._running() && /hot ?water|varmtvann|hw|lad|charg|dhw/i.test(t)) || on(this._S('boost'));
+    }
+    _alarmOn() { const s = this._S('alarm'); if (!okS(s)) return false; if (dom(s.entity_id) === 'binary_sensor') return s.state === 'on'; const v = numS(s); return v != null ? v > 0 : !/^(0|ingen|none|ok|no alarm|off|false)$/i.test(String(s.state).trim()); }
+    _wifiOff() { const s = this._S('wifi'); return !!s && (s.state === 'off' || !okS(s)); }
+    _boostOn() { const sw = this._S('boost'); if (sw) return on(sw); const sel = this._S('boost_sel'); return !!sel && okS(sel) && !/^(off|av)$/i.test(sel.state); }
+    // v3: vifta snurrer 2,2 s (normal) / 0,5 s (Boost); i takt med viftehastigheten når den finnes. 0 = står.
+    _fanDur() {
+      if (this._boostOn() || on(this._S('vent'))) return 0.5;
+      const v = this._N('vifte');
+      if (v == null) return this._running() || this._e('freq') == null ? 2.2 : 0;
+      if (v <= 0) return 0;
+      return Number(Math.max(0.5, 2.2 * (58 / Math.max(10, Math.min(100, v)))).toFixed(2));
+    }
+    _vvFill() {
+      const m = this._S('mengde');
+      if (okS(m) && /%/.test(unitS(m)) && numS(m) != null) return { f: M.clamp(numS(m) / 100, 0, 1), calc: false };
+      const t = this._N('vv');
+      return t == null ? null : { f: M.clamp((t - 20) / (55 - 20), 0, 1), calc: true };
+    }
+
+    /* ---------------------------------------------------------- tegning */
+    render() {
+      const h = this.hass, c = this.config;
+      const R = oppdag(h, c);
+      R.ids.forEach((id) => this._deps.add(id));
+      Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
+      Object.keys(R.roles).forEach((k) => this._deps.add(R.roles[k]));
+      if (this._pend) Object.keys(this._pend).forEach((id) => { const s = h.states[id]; if (s && numS(s) === this._pend[id]) delete this._pend[id]; });
+      const parts = [this._top()];
+      if (!R.devs.length && !Object.keys(c.overrides || {}).length) parts.push(`<div class="nf" data-key="nf">${M.icon('mdi:heat-pump-outline', 26)}<b>Fant ingen NIBE-varmepumpe</b><span>Støtter NIBE S- og F-serien via integrasjonene NIBE Heat Pump eller myUplink. Legg til integrasjonen, så dukker den opp her automatisk.</span><button class="vs press" data-act="customize" data-section="entiteter">Velg entitet</button></div>`);
+      if (c.kpi !== false) parts.push(this._kpi());
+      const V = visBtns(h, c);
+      if (V.length) parts.push(this._btns(V));
+      const T = visTabs(h, c), tab = this.tab;
+      parts.push(this._tabRow(T, tab));
+      if (!tab) parts.push(`<div class="nf" data-key="nf-tabs">${M.icon('mdi:eye-off', 22)}<b>Alle fanene er skjult</b><button class="vs press" data-act="customize" data-section="faner">Tilpass</button></div>`);
+      else {
+        let body = '';
+        try { body = this['_' + tab](); } catch (e) { console.error('[ki-msh] varmepumpe', tab, e); body = '<div class="nf">Kunne ikke laste denne delen</div>'; }
+        parts.push(`<div class="pane" data-key="pane-${tab}">${body}</div>`);
+      }
+      if (c.diag !== false) parts.push(this._acc('diag', 'Diagnostikk', 'mdi:stethoscope', ROLES.filter((r) => r[2] === 'diag').map((r) => r[0]), true));
+      return `<div class="wrap ${c.anim === false ? 'noanim' : ''}">${parts.join('')}</div>`;
+    }
+
+    // Toppkort (v3: 176 px, gradient 165°, pumpe 170×150 nede til høyre)
+    _top() {
+      const c = this.config, anim = c.anim !== false, run = this._running(), fan = this._fanDur(), fill = this._vvFill(), ch = this._charging();
+      const pw = kW(this._S('power')), freq = this._N('freq'), ute = this._N('ute'), kr = this._S('cost_day'), vv = this._N('vv'), tur = this._N('bt2');
+      const pwId = this._e('power');
+      const chip = ch ? ['mdi:water-boiler', 'Varmtvann'] : run ? ['mdi:heat-wave', 'Varme'] : freq != null || okS(this._S('status')) ? ['mdi:sleep', 'Hviler'] : ['mdi:heat-wave', '–'];
+      const flow = anim && run;
+      const fanA = anim && fan ? `spin ${fan}s linear infinite` : 'none';
+      const pipe = (dir) => (flow ? `${dir} 1.2s linear infinite` : 'none');
+      const heat = [0, 1, 2].map((i) => `<span class="hr" style="right:${10 + i * 13}px;animation:${flow ? `rise 2.4s ease-in ${i * 0.6}s infinite` : 'none'};${flow ? '' : 'opacity:0'}"></span>`).join('');
+      const krTxt = okS(kr) && numS(kr) != null ? M.nf(numS(kr), 2) + ' kr' : '– kr';
+      return `<section class="top" data-key="top" aria-label="Varmepumpe">
+        <div class="unit" aria-hidden="true">
+          <div class="cab">
+            <div class="fanc"><span class="fan" style="animation:${fanA}">${M.icon('mdi:fan', 30)}</span></div>
+            <span class="hz">${freq == null ? '– Hz' : esc(M.nf(freq, 0)) + ' Hz'}</span>
+            <div class="tank"><div class="fill" style="height:${fill ? (fill.f * 100).toFixed(0) : 0}%"></div><span>${vv == null ? '–' : Math.round(vv) + '°'}</span></div>
+          </div>
+          <div class="ph" style="animation:${pipe('flow')}"></div><div class="phv" style="animation:${pipe('flowv')}"></div>
+          <div class="pc" style="animation:${flow ? 'flow 1.2s linear infinite reverse' : 'none'}"></div><div class="pcv"></div>
+          <div class="fins"><span></span><span></span><span></span><span></span><span></span></div>
+          ${heat}
+          <span class="sup">${tur == null ? '–' : Math.round(tur) + '°'}</span>
+        </div>
+        <div class="ttl"><span class="tn">${esc(c.name || 'Varmepumpe')}</span><span class="chip">${M.icon(chip[0], 14)}${esc(chip[1])}</span></div>
+        <div class="tbt"><span class="kwr ${anim && pw != null && pw > 0 ? 'puls' : ''}" ${pwId ? `data-act="more" data-id="${esc(pwId)}" data-ent="${esc(pwId)}"` : 'data-act="customize" data-section="entiteter"'}><span class="kw num">${pw == null ? '–' : esc(M.nf(pw, 2))}</span><span class="kwu">kW</span></span>
+          <span class="ts">Ute ${ute == null ? '–' : esc(M.nf(ute, 1)) + '°'} · ${esc(krTxt)}</span></div>
+      </section>`;
+    }
+    // 3 KPI-kort (v3: #3d3d3d r22, ikon 15 i farge, verdi 24/300, enhet 12, undertekst 11)
+    _kpi() {
+      const run = this._running(), ch = this._charging(), anim = this.config.anim !== false;
+      const ute = this._N('ute'), snitt = this._N('ute_snitt'), f = this._N('freq'), inne = this._N('inne'), vv = this._N('vv');
+      const lad = this._N('bt6') != null ? this._N('bt6') : this._N('vv_ladetemp');
+      const card = (k, icon, col, label, v, u, sub, icls) => {
+        const id = this._e(k);
+        return `<button class="kp" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="entiteter"'}>
+          <span class="kl"><span class="ki ${anim ? icls || '' : ''}" style="color:${col}">${M.icon(icon, 15)}</span><span class="ell">${label}</span></span>
+          <span class="kvr"><span class="kv num">${v}</span><span class="ku">${v === '–' ? '' : u}</span></span>
+          <span class="ks ${id ? '' : 'pk'}">${id ? sub : 'Velg entitet'}</span></button>`;
+      };
+      return `<div class="kpis" data-key="kpis">
+        ${card('ute', 'mdi:thermometer', '#d6d6d6', 'Ute', fmtN(ute, 1), '°', snitt != null ? `snitt ${M.nf(snitt, 1)}°` : 'BT1')}
+        ${card('freq', 'mdi:sine-wave', ORANGE, 'Kompressor', fmtN(f, 0), 'Hz', inne != null ? `inne ${M.nf(inne, 1)}°` : run ? 'går' : 'står', run ? 'pust' : '')}
+        ${card('vv', 'mdi:water-boiler', BLUE, 'Varmtvann', fmtN(vv, 1), '°', lad != null ? `lading ${M.nf(lad, 1)}°` : 'BT7', ch ? 'dupp' : '')}
+      </div>`;
+    }
+    // Hurtigknapper (v3: 72 px r22; aktiv = rosa + skygge, ellers kontur 1,5 px #4a4a4a)
+    _btns(V) {
+      const c = this.config, lbl = btnStyle(c) !== 'icon', h = this.hass;
+      const b = (k) => {
+        const label = btnName(c, k), id = btnEnt(h, c, k), s = id ? this.s(id) : null;
+        let icon = BK[k][2], act = false, cls = '';
+        if (k === 'boost') act = this._boostOn();
+        if (k === 'vent') { act = on(s); if (act) cls = 'spin-i'; }
+        if (k === 'pump') { act = on(s); if (act) cls = 'vib'; }
+        if (k === 'eco') act = okS(s) && !isNormal(s.state);
+        if (k === 'alarm') { const a = this._alarmOn(); if (a) cls = 'red rist'; icon = a ? 'mdi:alert-circle' : 'mdi:alert-circle-outline'; }
+        if (k === 'wifi') { const off = this._wifiOff(); act = !off; if (off) { cls = 'red blink'; icon = 'mdi:wifi-off'; } }
+        return `<button class="qb press ${act ? 'on' : ''} ${cls}" data-act="btn" data-v="${k}" data-ent="${esc(id)}" title="${esc(label)}" aria-label="${esc(label)}" ${['boost', 'vent', 'eco'].includes(k) ? `aria-pressed="${act}"` : ''}>${M.icon(icon, 24)}${lbl ? `<span class="ql">${esc(label)}</span>` : ''}</button>`;
+      };
+      return `<div class="qbs" data-key="qbs" style="grid-template-columns:repeat(${Math.max(1, V.length)},minmax(0,1fr))">${V.map(b).join('')}</div>`;
+    }
+    // Fanelinje + tannhjul (v3: #3a3a3a r26, faner 44 px r22 13/500, tannhjul 52 px)
+    _tabRow(V, tab) {
+      const c = this.config, st = tabStyle(c);
+      const btn = (k) => {
+        const o = k === tab, label = tabName(c, k);
+        return `<button class="tb ${o ? 'on' : ''}" role="tab" aria-selected="${o}" data-act="tab" data-v="${k}" data-haptic="selection" title="${esc(label)}" aria-label="${esc(label)}">${st !== 'name' ? M.icon(TK[k][2], 20) : ''}${st !== 'icon' ? `<span>${esc(label)}</span>` : ''}</button>`;
+      };
+      return `<div class="trow" data-key="trow"><div class="tabs" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
+        <button class="gear press" data-act="customize" title="Tilpass varmepumpe" aria-label="Tilpass varmepumpe">${M.icon('mdi:cog', 22)}</button></div>`;
+    }
+    // Rad (v3 ovRows): ikon · navn/undertekst · stort tall + enhet. Mangler → «–» + «Velg entitet».
+    _row(k, o) {
+      o = o || {};
+      const r = RK[k], id = this._e(k), s = id ? this.s(id) : null, label = o.label || r[1];
+      const ic = `<span class="ri" style="color:${o.col || '#d6d6d6'}">${M.icon(o.icon || r[6], 22)}</span>`;
+      if (!s) return `<button class="rw miss" data-key="r-${k}" data-act="customize" data-section="entiteter">${ic}<span class="rc"><span class="rl">${esc(label)}</span><span class="rs pk">Velg entitet</span></span><span class="rvw"><span class="rv">–</span></span></button>`;
+      const [v, u] = o.val != null ? [o.val, o.unit || ''] : vu(s);
+      return `<button class="rw" data-key="r-${k}" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}">${ic}<span class="rc"><span class="rl">${esc(label)}</span>${o.sub ? `<span class="rs">${esc(o.sub)}</span>` : ''}</span><span class="rvw"><span class="rv num ${o.vcls || ''}">${esc(v)}</span>${u ? `<span class="ru">${esc(u)}</span>` : ''}</span></button>`;
+    }
+    // Liten rad (v3 dhwRows): ikon 22 #d6d6d6 · navn 15 · verdi 15 #d6d6d6
+    _srow(k, label, icon) {
+      const id = this._e(k), s = id ? this.s(id) : null;
+      if (!s) return `<button class="sr miss" data-key="s-${k}" data-act="customize" data-section="entiteter">${M.icon(icon || RK[k][6], 22, 'color:#d6d6d6')}<span class="sl">${esc(label || RK[k][1])}</span><span class="sv2"><span class="pk">Velg entitet</span> –</span></button>`;
+      const [v, u] = vu(s);
+      return `<button class="sr" data-key="s-${k}" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}">${M.icon(icon || RK[k][6], 22, 'color:#d6d6d6')}<span class="sl">${esc(label || RK[k][1])}</span><span class="sv2 num">${esc(v)}${u ? (u === '°' ? '°C' : ' ' + esc(u)) : ''}</span></button>`;
+    }
+    // Akkordeon (stil som v3 «Diagnostikk»: knapp 52 px r26 #3d3d3d + flate #3d3d3d r24). grid = rutenett 2 kolonner.
+    _acc(key, title, icon, keys, grid) {
+      const open = !!(this.ui.acc || {})[key];
+      const firstK = { diag: 'het', cost: 'cost_day', sys: 'komp_status', strom: 'power' }[key];
+      const fs = firstK ? this._S(firstK) : null;
+      const fv = fs && okS(fs) ? vu(fs) : null;
+      const sub = fv ? `${{ diag: 'Hetgass', cost: 'I dag', sys: 'Kompressor', strom: 'Effekt' }[key]} ${fv[0]}${fv[1] === '°' ? '°' : fv[1] ? ' ' + fv[1] : ''}` : `${keys.filter((k) => this._e(k)).length} av ${keys.length}`;
+      const head = `<button class="ah" data-act="acc" data-v="${key}" aria-expanded="${open}">${M.icon(icon, 20, 'color:#d6d6d6')}<span class="at">${esc(title)}</span><span class="as">${esc(sub)}</span>${M.icon('mdi:chevron-down', 22, `color:#a8a8a8;transition:transform .25s;${open ? 'transform:rotate(180deg)' : ''}`)}</button>`;
+      if (!open) return `<div class="acc" data-key="acc-${key}">${head}</div>`;
+      const body = grid
+        ? `<div class="ab grid">${keys.map((k, i) => { const id = this._e(k), s = id ? this.s(id) : null, [v, u] = s ? vu(s) : ['–', '']; return `<button class="dr2${i > 1 ? ' bt' : ''}" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="entiteter"'}><span class="dl">${esc(RK[k][1])}</span><span class="dv num">${esc(v)}${u ? (u === '°' ? ' °C' : ' ' + esc(u)) : ''}</span></button>`; }).join('')}</div>`
+        : `<div class="ab lst">${keys.map((k) => this._row(k)).join('')}</div>`;
+      return `<div class="acc open" data-key="acc-${key}">${head}${body}</div>`;
+    }
+    // Graf (v3): serier [{k, col}], areal under første. Scrub: pekeren (touch-action:none + stopPropagation, fallgruve 2).
+    _gdata(g, keys, hours, hist) {
+      const S2 = keys.map((k) => { const id = this._e(k); return id && hist && hist[id] ? M.sample(hist[id], GN, hours) : []; });
+      const all = S2.flat();
+      let lo = all.length ? Math.min(...all) : 0, hi = all.length ? Math.max(...all) : 1;
+      const pad = Math.max(0.5, (hi - lo) * 0.12); lo -= pad; hi += pad;
+      const sc = this._scrub && this._scrub.g === g ? this._scrub.i : null;
+      const at = (j) => (sc != null && S2[j].length ? S2[j][Math.min(S2[j].length - 1, sc)] : null);
+      const tlab = sc == null ? null : (() => { const t = hours - (sc / (GN - 1)) * hours; return t < 0.5 ? 'nå' : hours > 48 ? `−${M.nf(t / 24, t < 24 ? 1 : 0)} d` : `−${M.nf(t, t < 10 ? 1 : 0)} t`; })();
+      return { S2, lo, hi, sc, at, tlab, has: all.length > 0 };
+    }
+    _svg(g, D, cols, fill) {
+      const P = gpaths(D.S2, D.lo, D.hi);
+      const lines = P.map((p, j) => (p ? `<path d="${p}" fill="none" stroke="${cols[j]}" stroke-width="2" vector-effect="non-scaling-stroke"></path>` : '')).reverse().join('');
+      const ar = P[0] ? `<path d="${area(P[0])}" fill="${fill}"></path>` : '';
+      const flat = D.has ? '' : '<path d="M0,40 L300,40" fill="none" stroke="#545454" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></path>';
+      const x = D.sc != null ? ((D.sc / (GN - 1)) * 300).toFixed(1) : null;
+      const mk = x != null ? `<path d="M${x},0 L${x},70" stroke="#fafafa" stroke-opacity=".6" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke"></path>` : '';
+      return `<svg class="gs" data-g="${g}" data-n="${GN}" viewBox="0 0 300 70" preserveAspectRatio="none" aria-label="Graf">${ar}${lines}${flat}${mk}</svg>`;
+    }
+    _cv(v) { return v == null ? '–' : M.nf(v, 1); }
+
+    /* ---------------------------------------------------------- faner */
+    _info() {
+      const c = this.config, f = this._N('freq'), inne = this._N('inne'), vv = this._N('vv'), run = this._running();
+      const pill = (t) => `<span class="pl">${esc(t)}</span>`;
+      const prosa = c.sentence === false ? '' : `<p class="prosa" data-key="prosa">${run ? `Kompressoren går på ${pill(f == null ? '– Hz' : M.nf(f, 0) + ' Hz')}` : 'Kompressoren står stille'} og holder inne på ${pill(inne == null ? '–' : M.nf(inne, 1) + '°')}. Varmtvannet er ${vv == null ? '–' : esc(M.nf(vv, 1)) + ' °C'}${this._charging() ? ' og lades nå' : ''}.</p>`;
+      const pw = kW(this._S('power')), t2 = this._N('bt2'), t3 = this._N('bt3'), mal = this._N('beregnet'), ek = this._N('elkolbe');
+      const rows = [
+        this._row('energy', { icon: 'mdi:lightning-bolt', col: GREEN, sub: pw != null ? `Nå ${M.nf(pw, 2)} kW` : '' }),
+        this._row('cost_day', { icon: 'mdi:cash', sub: 'Etter spotpris' }),
+        this._row('bt2', { sub: mal != null ? `Mål ${M.nf(mal, 1)}°` : '' }),
+        this._row('bt3', { sub: t2 != null && t3 != null ? `ΔT ${M.nf(t2 - t3, 1)}°` : '' }),
+        this._row('bt50'),
+        this._row('elkolbe', { col: ek != null && ek > 0 ? 'var(--yellow,#f2d573)' : '#d6d6d6', vcls: ek != null && ek > 0 ? 'gul' : '', sub: ek != null && ek > 0 ? 'Tilskudd er på' : '' }),
+      ].join('');
+      const D = this._gdata('tr', ['bt2', 'bt3'], 168, this._h7);
+      const tv = D.sc != null ? D.at(0) : t2, rv = D.sc != null ? D.at(1) : t3;
+      const graf = `<div class="gc" data-key="g-tr"><div class="gh"><span class="gt"><span class="gl">Tur (BT2)</span><span class="gvr"><span class="gv num">${this._cv(tv)}</span><span class="gu">°C</span></span></span><span class="gsub">${D.tlab || 'Siste 7 d'}</span></div>${this._svg('tr', D, ['#f0a36b', BLUE], 'rgba(240,163,107,.14)')}</div>
+        <div class="leg"><span><i style="background:#f0a36b"></i>Tur BT2</span><span><i style="background:${BLUE}"></i>Retur BT3 ${this._cv(rv)}°</span>${this._h7 ? '' : '<span class="lr">Henter …</span>'}</div>`;
+      return `${prosa}<div class="lst" data-key="info-rows">${rows}</div>${graf}
+        ${this._acc('cost', 'Kostnad', 'mdi:cash', ['cost_hour', 'cost_day', 'cost_month', 'cost_year'])}
+        ${this._acc('sys', 'Systemdrift', 'mdi:cog-outline', ['gm', 'drift', 'starter', 'avriming', 'tidsfaktor', 'komp_status'])}
+        ${this._acc('strom', 'Strøm', 'mdi:flash', ['be1', 'be2', 'be3', 'power', 'add_power'])}`;
+    }
+    _seg(k, sub) {
+      const id = this._e(k), s = id ? this.s(id) : null;
+      if (!s) return `<div class="lst">${this._row(k)}</div>`;
+      const O = s.attributes.options || [];
+      return `<div class="seg" role="radiogroup" data-key="seg-${k}">${O.map((o) => `<button class="sg ${o === s.state ? 'on' : ''}" role="radio" aria-checked="${o === s.state}" data-act="opt" data-id="${esc(id)}" data-o="${esc(o)}" data-haptic="selection">${esc(optNb(o))}${sub && sub[optNb(o)] ? ' · ' + esc(sub[optNb(o)]) : ''}</button>`).join('') || `<span class="muted">${esc(s.state)}</span>`}</div>`;
+    }
+    _stepper(k, label, sub, show) {
+      const id = this._e(k), s = id ? this.s(id) : null;
+      const p = s && this._pend && this._pend[id], v = p != null ? p : s ? numS(s) : null;
+      const A = (s && s.attributes) || {}, mn = A.min != null ? Number(A.min) : null, mx = A.max != null ? Number(A.max) : null;
+      const btn = (d, ic) => `<button class="pm press" data-act="step" data-id="${esc(id || '')}" data-d="${d}" aria-label="${esc(label)} ${d < 0 ? 'ned' : 'opp'}" ${!s || (v != null && ((d < 0 && mn != null && v <= mn) || (d > 0 && mx != null && v >= mx))) ? 'disabled' : ''}>${M.icon(ic, 22)}</button>`;
+      return `<div class="rw stp" data-key="stp-${k}"><button class="rc tl" ${s ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="entiteter"'}><span class="rl">${esc(label)}</span><span class="rs ${s ? '' : 'pk'}">${s ? esc(sub) : 'Velg entitet'}</span></button>
+        ${btn(-1, 'mdi:minus')}<span class="sv num ${p != null ? 'pend' : ''}">${v == null ? '–' : esc(show(v))}</span>${btn(1, 'mdi:plus')}</div>`;
+    }
+    _varme() {
+      const sm = this._S('smart'), smId = this._e('smart');
+      const SMI = { Normal: 'mdi:home', Borte: 'mdi:walk', Ferie: 'mdi:airplane' };
+      const smart = sm ? `<div class="chips" data-key="smart">${(sm.attributes.options || []).map((o) => { const l = optNb(o), a = o === sm.state; return `<button class="ch ${a ? 'on' : ''}" data-act="opt" data-id="${esc(smId)}" data-o="${esc(o)}" data-haptic="selection" aria-pressed="${a}">${M.icon(SMI[l] || 'mdi:circle-medium', 18)}${esc(l)}</button>`; }).join('')}</div>` : `<div class="lst">${this._row('smart')}</div>`;
+      const kv = this._N('kurve'), fv = this._N('forskyvning'), mal = this._N('beregnet'), gm = this._N('start_gm');
+      const deg1 = (v) => M.nf(v, 1) + '°';
+      return `<span class="cap">Driftsstilling</span>${this._seg('driftsstilling')}
+        <span class="cap">Smart Home-modus</span>${smart}
+        <div class="caprow"><span>Varmekurve</span><span>${kv == null ? '–' : `kurve ${M.nf(kv, 0)}, ${fv == null ? '–' : M.nf(fv, 0)}`}</span></div>
+        <div class="lst" data-key="curve">${this._stepper('kurve', 'Varmekurve', 'Brattere gir varmere tur ved kulde', (v) => M.nf(v, 0))}${this._stepper('forskyvning', 'Forskyvning', 'Hever eller senker hele kurven', signed)}${this._stepper('onsket', 'Ønsket', 'Innetemperatur', deg1)}${this._stepper('stopp', 'Stopp av varme', 'Ved utetemperatur', deg1)}</div>
+        <span class="calc">Beregnet turtemperatur ${mal == null ? '–' : M.nf(mal, 1)} °C · start GM ${gm == null ? '–' : M.nf(gm, 0)}</span>`;
+    }
+    _vv() {
+      const fill = this._vvFill(), sw = this._e('boost'), sel = this._e('boost_sel'), bOn = this._boostOn(), hasB = !!((sw && this.s(sw)) || (sel && this.s(sel)));
+      const D = this._gdata('vv', ['vv', 'bt6'], 24, this._h24);
+      const top = D.sc != null ? D.at(0) : this._N('vv'), b6 = D.sc != null ? D.at(1) : this._N('bt6');
+      const leg = this._S('legionella'), upd = this._S('fastvare');
+      const W = [];
+      if (this._alarmOn()) W.push(['red', 'mdi:bell-alert', 'Varsel fra varmepumpa', this._e('alarm')]);
+      if (upd && upd.state === 'on') W.push(['orange', 'mdi:update', `Ny fastvare ${upd.attributes.latest_version || ''}`.trim(), upd.entity_id]);
+      if (this._wifiOff()) W.push(['red', 'mdi:wifi-off', 'Varmepumpa er frakoblet', this._e('wifi')]);
+      if (okS(leg) && Date.parse(leg.state) && Date.parse(leg.state) - Date.now() < 86400000 * 2) W.push(['blue', 'mdi:virus', 'Legionellaheving ' + omTid(leg.state), leg.entity_id]);
+      const extra = ['mengde', 'andel', 'vv_tid', 'vv_modus', 'fastvare'].filter((k) => this._e(k)).map((k) => this._srow(k)).join('');
+      return `<div class="gc" data-key="g-vv"><div class="gh"><span class="gt"><span class="gl">Varmtvann topp (BT7)</span><span class="gvr"><span class="gv big num">${this._cv(top)}</span><span class="gu">°C</span></span></span><span class="gsub">${D.tlab || 'Siste 24 t'}</span></div>
+          ${this._svg('vv', D, ['#f0a36b', BLUE], 'rgba(240,163,107,.14)')}<div class="fb"><div style="width:${fill ? (fill.f * 100).toFixed(0) : 0}%"></div></div></div>
+        <div class="leg"><span><i style="background:#f0a36b"></i>Topp BT7</span><span><i style="background:${BLUE}"></i>Tilførsel BT6 ${this._cv(b6)}°</span><span class="lr">Fylt ${fill ? M.nf(fill.f * 100, 0) : '–'} %</span></div>
+        <span class="cap">Varmtvannsbehov</span>${this._seg('behov')}
+        <button class="boost press ${bOn ? 'on' : ''}" data-act="boostvv" ${hasB ? `data-ent="${esc(sw || sel)}"` : ''} aria-pressed="${bOn}">${M.icon(bOn ? 'mdi:stop' : 'mdi:lightning-bolt', 22)}${hasB ? (bOn ? 'Stopp varmtvann boost' : 'Varmtvann boost') : 'Varmtvann boost – velg entitet'}</button>
+        <div class="lst sm" data-key="vv-rows">${this._srow('vv_temp', 'Varmtvann', 'mdi:water')}${this._srow('ladeverdi', 'Lading', 'mdi:lightning-bolt')}${this._srow('legionella', 'Neste legionellaheving', 'mdi:virus')}${extra}</div>
+        ${W.length ? `<div class="varsel">${W.map(([col, ic, t, id]) => `<button class="vl ${col}" ${id ? `data-act="more" data-id="${esc(id)}"` : ''}>${M.icon(ic, 18)}<span class="ell">${esc(t)}</span></button>`).join('')}</div>` : ''}`;
+    }
+    _luft() {
+      const D = this._gdata('luft', ['bt20', 'bt21'], 24, this._h24);
+      const a = D.sc != null ? D.at(0) : this._N('bt20'), b = D.sc != null ? D.at(1) : this._N('bt21'), v = this._N('vifte');
+      const col = (k, label, val, extra) => { const id = this._e(k); return `<button class="lc" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="entiteter"'}><span class="gl">${label}</span><span class="gvr"><span class="gv mid num">${this._cv(val)}</span><span class="gu">°C${extra || ''}</span></span></button>`; };
+      const sw = (k, label) => {
+        const id = this._e(k), s = id ? this.s(id) : null;
+        if (!s) return this._row(k, { label });
+        const o = on(s);
+        return `<div class="rw" data-key="sw-${k}">${M.icon(RK[k][6], 22, 'color:#d6d6d6')}<button class="rc tl" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="rl">${esc(label)}</span><span class="rs">${o ? 'På' : 'Av'}</span></button><button class="sw ${o ? 'on' : ''}" role="switch" aria-checked="${o}" aria-label="${esc(label)}" data-act="toggle" data-id="${esc(id)}"><i></i></button></div>`;
+      };
+      const extra = ['bs1', 'viftemodus'].filter((k) => this._e(k)).map((k) => this._srow(k)).join('');
+      const vid = this._e('vifte');
+      return `<div class="gc" data-key="g-luft"><div class="two">${col('bt20', 'Avtrekk inn (BT20)', a)}${col('bt21', 'Avkast ut (BT21)', b, a != null && b != null ? ' · ' + signed(Number((b - a).toFixed(1))).replace('-', '−') + '°' : '')}</div>
+          ${this._svg('luft', D, ['#f0a36b', BLUE], 'rgba(122,184,240,.12)')}</div>
+        <div class="leg"><span><i style="background:#f0a36b"></i>Avtrekk</span><span><i style="background:${BLUE}"></i>Avkast</span><span class="lr">Siste 24 t</span></div>
+        <button class="fanbox" data-key="fan" ${vid ? `data-act="more" data-id="${esc(vid)}" data-ent="${esc(vid)}"` : 'data-act="customize" data-section="entiteter"'}><span class="fbh"><span>Viftehastighet avtrekk</span><span class="fbv num">${v == null ? '–' : M.nf(v, 0)} %</span></span><span class="fbb"><span style="width:${v == null ? 0 : M.clamp(v, 0, 100)}%"></span></span></button>
+        ${extra ? `<div class="lst sm">${extra}</div>` : ''}
+        <div class="lst" data-key="air-sw">${sw('vent', 'Økt ventilasjon')}${sw('natt', 'Nattkjøling')}</div>`;
+    }
+
+    afterRender() {
+      const Rt = this.shadowRoot;
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs), sideveis dra = Liquid Glass-valg
+      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tabs' });
+      // −/+ og graf-scrub: ikke la Bubble Card lukke/scrolle popupen (fallgruve 2)
+      Rt.querySelectorAll('.pm').forEach((b) => {
+        if (b.__vp) return; b.__vp = true;
+        const stop = (e) => e.stopPropagation();
+        b.addEventListener('pointerdown', stop); b.addEventListener('touchstart', stop, { passive: true }); b.addEventListener('touchmove', stop, { passive: true });
+      });
+      Rt.querySelectorAll('svg.gs[data-g]').forEach((svg) => {
+        if (svg.__vp) return; svg.__vp = true;
+        M.guardDrag(svg, 'none');
+        const g = svg.dataset.g;
+        const at = (e) => { const r = svg.getBoundingClientRect(); return Math.round(M.clamp((e.clientX - r.left) / (r.width || 1), 0, 1) * (GN - 1)); };
+        let act = false;
+        svg.addEventListener('pointerdown', (e) => { e.stopPropagation(); act = true; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* */ } this._scrub = { g, i: at(e) }; M.haptic('selection'); this.update(); });
+        svg.addEventListener('pointermove', (e) => { if (!act) return; e.stopPropagation(); const i = at(e); if (!this._scrub || this._scrub.i !== i) { this._scrub = { g, i }; this.update(); } });
+        ['touchstart', 'touchmove'].forEach((t) => svg.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+        const end = () => { if (!act) return; act = false; setTimeout(() => { if (!act) { this._scrub = null; this.update(); } }, 1600); };
+        svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+      });
+      if (this.isOpen && !this._h24 && !this._loading) { this._loading = true; Promise.resolve(this._load()).finally(() => { this._loading = false; }); }
+    }
+    get styles() {
+      return `
+        :host{display:block;width:100%}
+        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px);container-type:inline-size}
+        .num{font-variant-numeric:tabular-nums}
+        .ell{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .pk{color:rgb(242 133 201)!important}
+        /* v3 keyframes (portert direkte) */
+        @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes flow{from{background-position:0 0}to{background-position:24px 0}}
+        @keyframes flowv{from{background-position:0 0}to{background-position:0 24px}}
+        @keyframes rise{0%{opacity:0;transform:translateY(4px)}40%{opacity:.7}100%{opacity:0;transform:translateY(-14px)}}
+        /* 26.20-animasjonene fra den gamle YAML-en */
+        @keyframes vp-puls{0%,100%{opacity:1}50%{opacity:.6}}
+        @keyframes vp-pust{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.18);opacity:.75}}
+        @keyframes vp-dupp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+        @keyframes vp-vib{0%,100%{transform:translateX(0)}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
+        @keyframes vp-rist{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-14deg)}20%{transform:rotate(12deg)}30%{transform:rotate(-9deg)}40%{transform:rotate(6deg)}}
+        @keyframes vp-blink{50%{opacity:.35}}
+        /* toppkort */
+        .top{position:relative;height:176px;border-radius:28px;overflow:hidden;background:linear-gradient(165deg,#2a1d17 0%,#3a2418 55%,#5a3019 100%);flex:none}
+        .unit{position:absolute;right:18px;bottom:0;width:170px;height:150px}
+        .cab{position:absolute;left:0;bottom:0;width:62px;height:128px;border-radius:10px 10px 0 0;background:#e9e4de;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+        .fanc{position:absolute;left:11px;top:12px;width:40px;height:40px;border-radius:50%;background:#2d2d2d;display:flex;align-items:center;justify-content:center}
+        .fan{display:inline-flex;color:#e9e4de;line-height:0}
+        .hz{position:absolute;left:14px;top:60px;width:34px;height:14px;border-radius:5px;background:#f0a36b;color:#2b1608;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+        .tank{position:absolute;left:8px;right:8px;bottom:10px;height:38px;border-radius:7px;overflow:hidden;background:#3a3a3a}
+        .tank .fill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#f7b07c,#e3743f);transition:height .6s}
+        .tank span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff}
+        .ph{position:absolute;left:62px;right:16px;top:30px;height:3px;background:repeating-linear-gradient(90deg,#f08a5d 0 8px,transparent 8px 12px)}
+        .phv{position:absolute;right:16px;top:30px;width:3px;height:26px;background:repeating-linear-gradient(180deg,#f08a5d 0 8px,transparent 8px 12px)}
+        .pc{position:absolute;left:62px;right:2px;bottom:8px;height:3px;background:repeating-linear-gradient(90deg,#6aa9e8 0 8px,transparent 8px 12px)}
+        .pcv{position:absolute;right:2px;bottom:8px;width:3px;height:18px;background:#6aa9e8}
+        .fins{position:absolute;right:6px;bottom:18px;display:flex;gap:4px}
+        .fins span{width:9px;height:62px;border-radius:4px;background:#e8805a}
+        .hr{position:absolute;top:52px;width:3px;height:12px;border-radius:2px;border-left:2px solid #f5b58a;box-sizing:border-box}
+        .sup{position:absolute;right:30px;top:4px;font-size:10px;color:#f5b58a}
+        .ttl{position:absolute;left:18px;top:16px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;max-width:calc(100% - 210px)}
+        .tn{font-size:13px;color:#e0d4cc;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .chip{height:24px;padding:0 10px 0 8px;border-radius:12px;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:rgba(240,138,93,.3);white-space:nowrap}
+        .tbt{position:absolute;left:18px;bottom:16px;display:flex;flex-direction:column;gap:2px;max-width:calc(100% - 210px)}
+        .kwr{display:flex;align-items:baseline;gap:4px;cursor:pointer}
+        .kw{font-size:40px;font-weight:300;line-height:1}
+        .kwu{font-size:14px;color:#e0d4cc}
+        .kwr.puls .kw{animation:vp-puls 2.6s ease-in-out infinite}
+        .ts{font-size:12px;color:#cdbfb5;white-space:nowrap}
+        /* KPI */
+        .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .kp{background:#3d3d3d;border-radius:22px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left}
+        .kl{display:flex;align-items:center;gap:5px;font-size:12px;color:#a8a8a8;min-width:0}
+        .ki{display:inline-flex;flex:none}
+        .ki.pust{animation:vp-pust 2.4s ease-in-out infinite}.ki.dupp{animation:vp-dupp 2.4s ease-in-out infinite}
+        .kvr{display:flex;align-items:baseline;gap:2px}
+        .kv{font-size:24px;font-weight:300}.ku{font-size:12px;color:#a8a8a8}
+        .ks{font-size:11px;color:#8a8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* hurtigknapper */
+        .qbs{display:grid;gap:8px}
+        .qb{height:72px;min-width:0;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:background .3s,color .3s;background:transparent;color:#bdbdbd;box-shadow:inset 0 0 0 1.5px #4a4a4a}
+        .qb.on{background:${PINK};color:${INK};box-shadow:0 4px 14px rgba(0,0,0,.25)}
+        .qb.red{background:var(--red,#f28073);color:#2c1411;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+        .ql{font-size:11px;font-weight:500;max-width:100%;padding:0 4px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .qb.spin-i ha-icon{animation:spin 1.2s linear infinite}
+        .qb.vib ha-icon{animation:vp-vib .18s linear infinite}
+        .qb.rist ha-icon{animation:vp-rist 1.1s ease-in-out infinite;transform-origin:50% 10%}
+        .qb.blink{animation:vp-blink 1.2s ease-in-out infinite}
+        /* fanelinje */
+        .trow{display:flex;align-items:center;gap:8px;margin:2px 0;min-width:0}
+        .tabs{flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(max-content,1fr);gap:0;padding:4px;border-radius:26px;overflow-x:auto;scrollbar-width:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);position:relative;touch-action:pan-y}
+        .tabs::-webkit-scrollbar{display:none}
+        .tb{height:44px;min-width:0;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;color:#afafaf;transition:background .35s,color .35s}
+        .tb.on{background:${PINK};color:${INK}}
+        .gear{width:52px;height:52px;border-radius:26px;flex:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center}
+        .gear:active{transform:scale(.94)}
+        /* faneinnhold */
+        .pane{display:flex;flex-direction:column;gap:10px;animation:fade .3s ease}
+        .prosa{margin:6px 4px 2px;font-size:19px;line-height:1.75;text-wrap:pretty}
+        .pl{background:#fafafa;color:#141414;border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap}
+        .lst{background:#3d3d3d;border-radius:24px;padding:4px 16px}
+        .rw{display:flex;align-items:center;gap:12px;min-height:58px;width:100%;text-align:left}
+        .lst>.rw+.rw,.lst>.sr+.sr,.lst>.rw+.sr,.lst>.sr+.rw{border-top:1px solid rgba(255,255,255,.07)}
+        .ri{display:inline-flex;flex:none}
+        .rc{flex:1;min-width:0;display:flex;flex-direction:column;text-align:left}
+        .rl{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rs{font-size:12px;color:#a8a8a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rvw{display:flex;align-items:baseline;gap:4px;flex:none;max-width:50%}
+        .rv{font-size:24px;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv.gul{color:var(--yellow,#f2d573)}
+        .ru{font-size:12px;color:#a8a8a8}
+        .sr{display:flex;align-items:center;gap:12px;min-height:58px;width:100%;text-align:left}
+        .sl{flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sv2{font-size:15px;color:#d6d6d6;flex:none;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .cap{font-size:13px;color:#a8a8a8;padding:6px 6px 0}
+        .caprow{display:flex;justify-content:space-between;align-items:baseline;padding:10px 6px 0;font-size:13px;color:#a8a8a8}.caprow span+span{font-size:12px}
+        .calc{font-size:12px;color:#a8a8a8;padding:0 6px}
+        .seg{display:flex;gap:2px;padding:2px;border-radius:999px;background:#3d3d3d}
+        .sg{flex:1;min-width:0;height:38px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;background:transparent;color:rgba(255,255,255,.72);transition:background .3s,color .3s}
+        .sg.on{background:${PINK};color:${INK}}
+        .chips{display:flex;gap:6px;flex-wrap:wrap}
+        .ch{height:36px;padding:0 14px 0 10px;border-radius:999px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;background:#3d3d3d;color:#fafafa;transition:background .3s,color .3s}
+        .ch.on{background:${PINK};color:${INK}}
+        .stp .pm{width:40px;height:40px;border-radius:50%;background:#4b4b4b;display:flex;align-items:center;justify-content:center;flex:none;touch-action:manipulation}
+        .stp .pm:active{background:#555}.stp .pm[disabled]{opacity:.35;cursor:default}
+        .sv{min-width:44px;text-align:center;font-size:20px;font-weight:300;flex:none}.sv.pend{color:rgb(242 133 201)}
+        .tl{text-align:left}
+        .gc{position:relative;border-radius:26px;overflow:hidden;background:#3d3d3d;padding:14px 16px 0}
+        .gh{display:flex;justify-content:space-between;align-items:flex-start}
+        .gt{display:flex;flex-direction:column;gap:2px}
+        .gl{font-size:13px;color:#d6d6d6}
+        .gvr{display:flex;align-items:baseline;gap:3px}
+        .gv{font-size:34px;font-weight:300;line-height:1.1}.gv.big{font-size:40px}.gv.mid{font-size:34px}
+        .gu{font-size:14px;color:#a8a8a8}.two .gu{font-size:13px}
+        .gsub{font-size:12px;color:#a8a8a8;padding-top:4px}
+        .gs{display:block;width:calc(100% + 32px);margin:8px -16px 0;height:80px;touch-action:none;cursor:crosshair}
+        .fb{position:absolute;left:0;right:0;bottom:0;height:6px;background:#2a2a2a}.fb div{height:100%;background:#f0a36b;transition:width .5s}
+        .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .lc{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0}
+        .leg{display:flex;gap:14px;padding:0 6px;font-size:12px;color:#a8a8a8;flex-wrap:wrap}
+        .leg span{display:flex;align-items:center;gap:6px}.leg i{width:10px;height:3px;border-radius:2px;display:inline-block}.leg .lr{margin-left:auto}
+        .boost{height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:500;background:${BLUE};color:#10233a;transition:background .3s}
+        .boost.on{background:#3d3d3d;color:#fafafa}
+        .fanbox{background:#3d3d3d;border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;text-align:left;width:100%}
+        .fbh{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}.fbv{font-size:20px;font-weight:300}
+        .fbb{display:block;height:8px;border-radius:4px;background:#2a2a2a;overflow:hidden}.fbb span{display:block;height:100%;background:${BLUE};transition:width .5s}
+        .sw{position:relative;width:50px;height:28px;flex:none;border-radius:14px;background:#5a5a5a;transition:background .25s}
+        .sw i{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#2a2a2a;transition:left .25s}
+        .sw.on{background:${GREEN}}.sw.on i{left:26px}
+        /* akkordeoner (Diagnostikk-stil) */
+        .acc{display:flex;flex-direction:column;gap:10px}
+        .ah{height:52px;border-radius:26px;background:#3d3d3d;display:flex;align-items:center;gap:10px;padding:0 16px;margin-top:4px;width:100%}
+        .at{flex:1;text-align:left;font-size:15px}.as{font-size:12px;color:#a8a8a8;white-space:nowrap}
+        .ab{animation:fade .3s ease}
+        .ab.grid{background:#3d3d3d;border-radius:24px;padding:4px 16px 8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+        .dr2{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;font-size:14px;text-align:left;min-width:0}
+        .dr2.bt{border-top:1px solid rgba(255,255,255,.07)}
+        .dl{color:#a8a8a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dv{white-space:nowrap}
+        .varsel{display:flex;flex-direction:column;gap:6px}
+        .vl{height:44px;border-radius:22px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:13px;text-align:left}
+        .vl.red{background:rgba(242,128,115,.16);color:var(--red,#f28073)}.vl.orange{background:rgba(240,163,107,.16);color:#f0a36b}.vl.blue{background:rgba(122,184,240,.16);color:${BLUE}}
+        .nf{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 16px;border-radius:24px;background:#3d3d3d;font-size:13px;color:#a8a8a8}.nf b{color:#fafafa;font-size:15px;font-weight:500}
+        .vs{height:34px;padding:0 14px;border-radius:17px;background:#4b4b4b;color:#fafafa;font-size:13px;margin-top:4px}
+        .noanim *,.noanim *::before{animation:none!important}
+        .noanim .hr{opacity:0}
+        @media (prefers-reduced-motion: reduce){.wrap *{animation:none!important}}
+        @container (max-width:360px){.kp{padding:12px 10px}.kv{font-size:21px}.ttl,.tbt{max-width:calc(100% - 196px)}.kw{font-size:34px}}
+      `;
+    }
+  }
+
+  /* ============================================================ «Tilpass varmepumpe» (v3-arket) */
+  // MSH.overlay({ tilpass: true }) – 50 px fra toppen, til bunnen, dekker navbaren, samme høyde i alle faner (28.8/28.11).
+  // Fast øverst: tittel + Ferdig (rosa pille), Forhåndsvisning, fanene Knapper · Faner · Entiteter · Visning. Under: eget
+  // scrollområde (vanlig blokk, flex:1, min-height:0, overflow-y:auto, overscroll-behavior:contain – 30.2-mønsteret).
+  // Utkast (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig; utenfor/Esc forkaster.
+  const FOCUS = { knapper: 'q', buttons: 'q', 'vp-btn': 'q', faner: 't', tabs: 't', entiteter: 'e', entities: 'e', overrides: 'e', visning: 'v' };
+  const roleIdx = (k) => ROLES.findIndex((r) => r[0] === k);
+  // Beste entitet for en rolle på en valgt enhet: parameter-ID → navn → første med riktig domene
+  function bestOnDevice(hass, devId, k) {
+    const r = ROLES[roleIdx(k)]; if (!r) return null;
+    const [, , , doms, pids, rx, , not] = r;
+    const E = hass.entities || {}, S0 = hass.states || {};
+    const ids = Object.keys(E).filter((id) => E[id] && E[id].device_id === devId && S0[id] && doms.includes(dom(id))).sort();
+    for (const p of pids) { const re = new RegExp('(^|_)' + p + '($|_)'); const hit = ids.find((id) => re.test(obj(id))); if (hit) return hit; }
+    const txt = (id) => norm(obj(id) + ' ' + ((S0[id] && S0[id].attributes.friendly_name) || ''));
+    return ids.find((id) => rx.test(txt(id)) && !(not && not.test(txt(id)))) || ids[0] || null;
+  }
+  function openSheet(card, focus) {
+    if (card._sheet && card._sheet.ov && !card._sheet.ov.closed) { const t = FOCUS[focus] || (/^vp-/.test(focus || '') ? 'e' : null); if (t) { card._sheet.st.tab = t; card._sheet.draw(); } return card._sheet; }
+    let ov = null;
+    const st = { tab: FOCUS[focus] || (/^vp-/.test(focus || '') ? 'e' : 'q'), open: null, q: '', kind: 'alle', busy: false };
+    const ctl = M.draftEditor(card, {
+      saveOpts: { scope: 'shared' },
+      banner: () => ov && ov.root.querySelector('.scr .in'),
+      alive: () => !ov || ov.host.isConnected,
+      close: () => ov && ov.close(),
+      onBusy: (b) => { st.busy = b; draw(); },
+      onReload: () => draw(),
+    });
+    const hass = () => card.hass || card._hass;
+    const apply = (patch, hap) => {
+      if (st.busy) return;
+      const next = { ...ctl.draft, ...patch };
+      Object.keys(patch).forEach((k) => { if (patch[k] === undefined) delete next[k]; });
+      ctl.set(next);
+      if (hap) M.haptic(hap);
+      draw();
+    };
+    const sw = (a, k, onv, label) => `<button class="tsw${onv ? ' on' : ''}" data-a="${a}" data-k="${k}" role="switch" aria-checked="${onv}" aria-label="${esc(label)}"><span></span></button>`;
+    const segBtn = (a, k, label, onv) => `<button class="sgb${onv ? ' on' : ''}" data-a="${a}" data-k="${k}" role="radio" aria-checked="${onv}">${esc(label)}</button>`;
+    // Forhåndsvisning (v3 ed.pvQuick / pvTabs)
+    const preview = (D) => {
+      const h = hass(), V = visBtns(h, D), T = visTabs(h, D), tst = tabStyle(D), ic = btnStyle(D) === 'icon';
+      const act = T.includes(card.tab) ? card.tab : T[0];
+      return `<section class="pv"><span class="cap">Forhåndsvisning</span><div class="pvi">
+        <div class="pvq" style="grid-template-columns:repeat(${Math.max(1, V.length)},minmax(0,1fr))">${V.map((k) => `<span class="pq">${M.icon(BK[k][2], 20)}${ic ? '' : `<span class="pql">${esc(btnName(D, k))}</span>`}</span>`).join('') || '<span class="pqn">Ingen knapper</span>'}</div>
+        <div class="pvr"><div class="pvt">${T.map((k) => `<span class="pt${k === act ? ' on' : ''}">${tst !== 'name' ? M.icon(TK[k][2], 17) : ''}${tst !== 'icon' ? `<span class="ptl">${esc(tabName(D, k))}</span>` : ''}</span>`).join('')}</div><span class="pg">${M.icon('mdi:cog', 19)}</span></div>
+      </div></section>`;
+    };
+    const listRows = (D, list) => {
+      const isB = list === 'buttons', keys = isB ? btnOrder(D) : tabOrder(D), H = isB ? btnHidden(D) : tabHidden(D), h = hass();
+      return keys.map((k, i) => {
+        const hid = H.has(k), label = isB ? btnName(D, k) : tabName(D, k), def = isB ? BK[k][1] : TK[k][1];
+        const miss = isB ? (h && !btnEnt(h, D, k) ? 'Mangler entitet – vises ikke' : '') : (k === 'luft' && h && !hasLuft(h, D) ? 'Skjult automatisk – fant ikke BT20/BT21' : '');
+        return `<div class="dr${hid ? ' off' : ''}${i ? ' bt' : ''}" data-row="${k}" data-key="dr-${list}-${k}">
+          <span class="hdl" data-drag="${list}" title="Dra for å flytte" aria-label="Dra for å flytte ${esc(label)}">${M.icon('mdi:drag', 22)}</span>
+          <span class="dic">${M.icon(isB ? BK[k][2] : TK[k][2], 22)}</span>
+          <span class="dcol"><input class="nm" data-in="${isB ? 'button_names' : 'tab_names'}" data-k="${k}" value="${esc(label)}" placeholder="${esc(def)}" aria-label="Navn på ${esc(def)}" autocomplete="off" spellcheck="false">${miss ? `<span class="dms">${esc(miss)}</span>` : ''}</span>
+          ${sw(isB ? 'bvis' : 'tvis', k, !hid, (hid ? 'Vis ' : 'Skjul ') + label)}</div>`;
+      }).join('');
+    };
+    const hitsHTML = () => {
+      const h = hass(), D = ctl.draft, k = st.open; if (!h || !k) return '';
+      const r = ROLES[roleIdx(k)], doms = r[3], q = norm(st.q.trim()), Dv = h.devices || {}, E = h.entities || {}, S0 = h.states || {};
+      const R0 = oppdag(h, D), cur = entOf(h, D, k);
+      const match = (s) => !q || norm(s).includes(q) || norm(s).replace(/_/g, ' ').includes(q);
+      const areaN = (d) => { const a = d && d.area_id && h.areas && h.areas[d.area_id]; return a ? a.name : ''; };
+      const devName = (d) => (d && (d.name_by_user || d.name)) || '';
+      const entsOf = (id) => Object.keys(E).filter((x) => E[x] && E[x].device_id === id && S0[x] && doms.includes(dom(x)));
+      let devs = st.kind === 'ent' ? [] : (q ? Object.keys(Dv).filter((id) => match(devName(Dv[id]) + ' ' + areaN(Dv[id])) && entsOf(id).length) : R0.devs).slice(0, 30);
+      let ents = st.kind === 'dev' ? [] : (q ? Object.keys(S0).filter((id) => doms.includes(dom(id)) && match(id + ' ' + ((S0[id].attributes || {}).friendly_name || '') + ' ' + devName(E[id] && Dv[E[id].device_id]))) : R0.ids.filter((id) => doms.includes(dom(id))));
+      if (cur && !q && st.kind !== 'dev' && !ents.includes(cur)) ents = [cur, ...ents];
+      const nEnt = ents.length; ents = ents.slice(0, 60);
+      const item = (onv, icon, name, sub, mono, a, v) => `<button class="hit${onv ? ' on' : ''}" data-a="${a}" data-k="${esc(v)}">${`<span class="hic">${M.icon(icon, 18)}</span>`}<span class="hcol"><span class="hn">${esc(name)}</span><span class="hs${mono ? ' mono' : ''}">${esc(sub)}</span></span>${M.icon('mdi:check', 18, `color:${GREEN};opacity:${onv ? 1 : 0}`)}</button>`;
+      const dh = devs.map((id) => { const d = Dv[id], es = entsOf(id), best = bestOnDevice(h, id, k); return item(es.includes(cur), isNibeDev(d) ? 'mdi:heat-pump' : 'mdi:devices', devName(d) || id, `${areaN(d) ? areaN(d) + ' · ' : ''}${es.length} entiteter · velger ${best ? M.name(h, best).toLowerCase() : '–'}`, false, 'pickdev', id); }).join('');
+      const eh = ents.map((id) => { const d = E[id] && Dv[E[id].device_id]; return item(id === cur, M.domainIcon(id, S0[id]), `${(S0[id] && S0[id].attributes.friendly_name) || id}${d ? ' · ' + devName(d) : ''}`, id, true, 'pick', id); }).join('');
+      const out = (devs.length ? `<span class="hh">Enheter · ${devs.length}</span>${dh}` : '') + (ents.length ? `<span class="hh">Entiteter · ${nEnt}</span>${eh}` : '');
+      return out || '<span class="none">Ingen treff</span>';
+    };
+    const entRows = (D, keys) => {
+      const h = hass();
+      return keys.map((k, i) => {
+        const r = ROLES[roleIdx(k)], ov0 = (D.overrides || {})[k], auto = h ? autoOf(h, { ...D, overrides: {} }, k) : null, id = ov0 || auto, open = st.open === k;
+        const chip = ov0 ? ['o', 'Overstyrt'] : auto ? ['a', 'Auto'] : ['m', 'Mangler'];
+        return `<div class="er${i ? ' bt' : ''}" data-key="er-${k}"><button class="eb" data-a="ent" data-k="${k}" aria-expanded="${open}"><span class="eic">${M.icon(r[6], 20)}</span>
+          <span class="ecol"><span class="el"><span class="eln">${esc(r[1])}</span><span class="ech ${chip[0]}">${chip[1]}</span></span><span class="eid${id ? ' mono' : ' pkt'}">${esc(id || 'Velg entitet')}</span></span>
+          <span class="eact">${open ? 'Lukk' : id ? 'Bytt' : 'Velg'}</span></button>
+          ${open ? `<div class="eo"><div class="srow"><label class="sf">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-in="q" value="${esc(st.q)}" placeholder="Søk etter enhet eller entitet" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="autob" data-a="auto" data-k="${k}">Auto</button></div>
+            <div class="kinds" role="radiogroup">${[['alle', 'Alle'], ['dev', 'Enheter'], ['ent', 'Entiteter']].map(([kk, l]) => segBtn('kind', kk, l, st.kind === kk)).join('')}</div>
+            <div class="hits">${hitsHTML()}</div></div>` : ''}</div>`;
+      }).join('');
+    };
+    const content = (D) => {
+      const sec = (title, inner, cls) => `<section class="sec${cls ? ' ' + cls : ''}"><span class="cap">${esc(title)}</span>${inner}</section>`;
+      const safe = (fn) => { try { return fn(); } catch (e) { console.error('[ki-msh] Tilpass varmepumpe', e); return '<section class="sec"><span class="cap">Kunne ikke laste denne delen</span></section>'; } };
+      if (st.tab === 'q') return safe(() => sec('Hurtigknapper · rekkefølge og navn', `<div class="dl" data-list="buttons">${listRows(D, 'buttons')}</div>`, 'lsec')
+        + sec('Knappene viser', `<div class="sg2" role="radiogroup" data-glass-drag="x">${BTN_MODES.map(([k, l]) => segBtn('bmode', k, l, btnStyle(D) === k)).join('')}</div>`, 'pad')
+        + '<span class="hint">Dra i håndtaket for å flytte, feltet gir nytt navn, bryteren skjuler. Knapper uten entitet vises ikke.</span>');
+      if (st.tab === 't') return safe(() => sec('Faner · rekkefølge og navn', `<div class="dl" data-list="tabs">${listRows(D, 'tabs')}</div>`, 'lsec')
+        + sec('Fanene viser', `<div class="sg2" role="radiogroup" data-glass-drag="x">${TAB_MODES.map(([k, l]) => segBtn('tmode', k, l, tabStyle(D) === k)).join('')}</div>`, 'pad')
+        + '<span class="hint">Dra i håndtaket for å flytte. Minst én fane må være synlig. Faner uten data (f.eks. Luft uten BT20/BT21) skjules av seg selv.</span>');
+      if (st.tab === 'e') {
+        const first = ['power', 'energy', 'freq', 'status', 'ute', 'vv', 'boost', 'vent', 'pump', 'alarm', 'wifi', 'smart', 'cost_day'];
+        const rest = GROUPS.map(([g, label]) => [label, ROLES.filter((r) => r[2] === g && !first.includes(r[0])).map((r) => r[0])]).filter(([, L]) => L.length);
+        return safe(() => sec('Funnet på NIBE-enheten', `<div class="ents">${entRows(D, first)}</div>`, 'lsec') + rest.map(([label, L]) => sec(label, `<div class="ents">${entRows(D, L)}</div>`, 'lsec')).join('')
+          + '<span class="hint">Kortet finner entitetene selv. Bytt bare når den som ble funnet er feil. Roller som mangler, vises med «–» og skjuler knappen sin.</span>');
+      }
+      const VIS = [['anim', 'Animasjoner', 'Vifte, rør og varme i toppkortet'], ['kpi', 'Nøkkeltall', 'Ute, kompressor og varmtvann'], ['sentence', 'Setning i Info', '«Kompressoren går på …»'], ['diag', 'Diagnostikk', 'Knappen nederst i popupen']];
+      return safe(() => sec('Visning', `<div class="vis">${VIS.map(([k, l, s], i) => `<div class="vr${i ? ' bt' : ''}"><span class="vcol"><span class="vl1">${esc(l)}</span><span class="vl2">${esc(s)}</span></span>${sw('vis', k, D[k] !== false, l)}</div>`).join('')}</div>`, 'lsec')
+        + `<button class="reset" data-a="reset">${M.icon('mdi:restart', 20)}Tilbakestill alt</button>`);
+    };
+    const draw = () => {
+      if (!ov) return;
+      const scr = box.querySelector('.scr'), top = scr ? scr.scrollTop : 0, D = ctl.draft;
+      box.innerHTML = `<div class="fix">
+          <div class="hd"><span class="tt">Tilpass varmepumpe</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+          ${preview(D)}
+          <div class="etabs" role="tablist" data-glass-drag="x">${[['q', 'Knapper'], ['t', 'Faner'], ['e', 'Entiteter'], ['v', 'Visning']].map(([k, l]) => `<button class="et${st.tab === k ? ' on' : ''}" role="tab" aria-selected="${st.tab === k}" data-a="etab" data-k="${k}">${l}</button>`).join('')}</div>
+        </div>
+        <div class="scr" data-tab="${st.tab}"><div class="in">${content(D)}</div></div>`;
+      const n = box.querySelector('.scr');
+      if (n && st.keep !== false) n.scrollTop = top;
+      st.keep = true;
+      const et = box.querySelector('.etabs');
+      if (et && M.glassDrag) M.glassDrag(et, { axis: 'x', touchAction: 'pan-y' });
+    };
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    const box = document.createElement('div');
+    box.className = 'vps';
+    Object.defineProperty(box, '_config', { get: () => ctl.draft });
+    ov.body.appendChild(box);
+    // Scrollområdet: aldri kjede til popupen/dashbordet (fallgruve 2)
+    ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => box.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('.scr')) e.stopPropagation(); }, { passive: true }));
+    box.addEventListener('input', (e) => {
+      if (e.target.dataset.in === 'q') { st.q = e.target.value; const hb = box.querySelector('.hits'); if (hb) hb.innerHTML = hitsHTML(); }
+    });
+    box.addEventListener('change', (e) => {
+      const t = e.target, f = t.dataset && t.dataset.in;
+      if (f !== 'button_names' && f !== 'tab_names') return;
+      const k = t.dataset.k, def = f === 'button_names' ? BK[k][1] : TK[k][1], v = t.value.trim(), N = { ...(ctl.draft[f] || {}) };
+      if (!v || v === def) delete N[k]; else N[k] = v;
+      apply({ [f]: Object.keys(N).length ? N : undefined }, 'selection');
+    });
+    // Dra og slipp (v3: håndtak, touch-action none, stopPropagation – fallgruve 2), live omorganisering, haptic
+    box.addEventListener('pointerdown', (e) => {
+      const hd = e.target.closest && e.target.closest('[data-drag]');
+      if (!hd || e.button || st.busy) return;
+      e.preventDefault(); e.stopPropagation();
+      const row = hd.closest('[data-row]'), list = row.parentElement, id = e.pointerId, which = hd.dataset.drag;
+      row.classList.add('drag'); list.classList.add('dragging');
+      M.haptic('medium');
+      const mv = (ev) => {
+        if (ev.pointerId !== id) return;
+        ev.preventDefault(); ev.stopPropagation();
+        const rs = [...list.querySelectorAll('[data-row]')];
+        let to = rs.findIndex((x) => { const b = x.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if (to < 0) to = rs.length - 1;
+        const from = rs.indexOf(row);
+        if (to === from) return;
+        if (to > from) rs[to].after(row); else rs[to].before(row);
+        M.haptic('selection');
+      };
+      const tm = (ev) => { if (ev.cancelable) ev.preventDefault(); ev.stopPropagation(); };
+      const up = (ev) => {
+        if (ev.pointerId !== id) return;
+        window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); window.removeEventListener('touchmove', tm, true);
+        row.classList.remove('drag'); list.classList.remove('dragging');
+        const ord = [...list.querySelectorAll('[data-row]')].map((x) => x.dataset.row), D = ctl.draft;
+        const was = which === 'buttons' ? btnOrder(D) : tabOrder(D);
+        if (ord.join() === was.join()) { M.haptic('light'); return draw(); }
+        return apply({ [which]: ord }, 'light');
+      };
+      window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+      window.addEventListener('touchmove', tm, { capture: true, passive: false });
+    });
+    ov.root.addEventListener('click', (e) => {
+      const el = e.target.closest && e.target.closest('[data-a]');
+      if (!el || el.disabled) return;
+      const a = el.dataset.a, k = el.dataset.k, D = ctl.draft, h = hass();
+      switch (a) {
+        case 'done': return ctl.done();
+        case 'etab': if (st.tab !== k) { st.tab = k; st.open = null; st.keep = false; M.haptic('selection'); draw(); } return undefined;
+        case 'bvis': { const H = btnHidden(D); if (H.has(k)) H.delete(k); else H.add(k); return apply({ buttons_hidden: btnOrder(D).filter((x) => H.has(x)) }, 'selection'); }
+        case 'tvis': {
+          const H = tabHidden(D);
+          if (!H.has(k) && TABS.filter((t) => !H.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return undefined; }
+          if (H.has(k)) H.delete(k); else H.add(k);
+          return apply({ tabs_hidden: H.size ? tabOrder(D).filter((x) => H.has(x)) : undefined }, 'selection');
+        }
+        case 'bmode': return apply({ button_style: k }, 'selection');
+        case 'tmode': return apply({ tab_style: k }, 'selection');
+        case 'ent': st.open = st.open === k ? null : k; st.q = ''; st.kind = 'alle'; M.haptic('light'); draw(); { const i = st.open && box.querySelector('[data-in="q"]'); if (i) i.focus({ preventScroll: true }); } return undefined;
+        case 'kind': st.kind = k; M.haptic('selection'); { const hb = box.querySelector('.hits'); if (hb) hb.innerHTML = hitsHTML(); box.querySelectorAll('.kinds .sgb').forEach((b) => { const o = b.dataset.k === k; b.classList.toggle('on', o); b.setAttribute('aria-checked', o); }); } return undefined;
+        case 'pick': case 'pickdev': {
+          const r = st.open; if (!r) return undefined;
+          const id = a === 'pickdev' ? bestOnDevice(h, k, r) : k;
+          if (!id) { M.haptic('warning'); M.toast('Fant ingen passende entitet på enheten'); return undefined; }
+          st.open = null; st.q = '';
+          return apply({ overrides: { ...(D.overrides || {}), [r]: id } }, 'selection');
+        }
+        case 'auto': { const O = { ...(D.overrides || {}) }; delete O[k]; st.open = null; return apply({ overrides: Object.keys(O).length ? O : undefined }, 'light'); }
+        case 'vis': return apply({ [k]: D[k] === false }, 'selection');
+        case 'reset': { st.open = null; M.haptic('warning'); ctl.set({ type: D.type || 'custom:msh-varmepumpe-card', ...(D.card_id ? { card_id: D.card_id } : {}) }); return draw(); }
+        default: return undefined;
+      }
+    });
+    card._sheet = { ov, st, box, draw, ctl };
+    draw();
+    return card._sheet;
+  }
+  const SHEET_CSS = `
+    .sh{--ki-sh-px:14px;--ki-sh-pt:10px}
+    .sh.tp{display:flex;flex-direction:column;overflow:hidden;--ki-sh-pb:0px}
+    .sh.tp>.gz{position:relative;top:0;flex:none}
+    .body{flex:1;min-height:0;display:flex!important;flex-direction:column}
+    .vps{flex:1;min-height:0;display:flex;flex-direction:column}
+    .fix{flex:none;display:flex;flex-direction:column;gap:10px;padding:0 0 10px}
+    .hd{display:flex;align-items:center;gap:8px;padding:2px 6px 4px}
+    .tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINK_BTN};color:#3a3a3a;font-size:14px;font-weight:600;flex:none}
+    .ok:active,.reset:active,.autob:active{transform:scale(.95)}
+    .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f}
+    .pv{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:#3a3a3a}
+    .pvi{padding:10px;border-radius:18px;background:#303030;display:flex;flex-direction:column;gap:8px}
+    .pvq{display:grid;gap:6px}
+    .pq{height:52px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 2px;min-width:0;color:#bdbdbd;box-shadow:inset 0 0 0 1.5px #4a4a4a}
+    .pql{font-size:9px;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pqn{grid-column:1/-1;text-align:center;font-size:12px;color:#7f7f7f;line-height:52px}
+    .pvr{display:flex;align-items:center;gap:6px}
+    .pvt{flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:22px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+    .pt{height:34px;min-width:0;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;font-size:11px;font-weight:500;white-space:nowrap;color:#afafaf}
+    .pt.on{background:${PINK};color:${INK}}
+    .ptl{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+    .pg{width:40px;height:40px;border-radius:20px;flex:none;background:#3a3a3a;display:grid;place-items:center}
+    .etabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);position:relative;touch-action:pan-y}
+    .et{height:40px;border-radius:20px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;color:#afafaf;transition:background .3s,color .3s}
+    .et.on{background:${PINK};color:${INK}}
+    .scr{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;padding:0 0 calc(40px + env(safe-area-inset-bottom, 0px))}
+    .scr::-webkit-scrollbar{display:none}
+    .in{display:flex;flex-direction:column;gap:8px}
+    .sec{flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a}
+    .sec.lsec>.cap{padding:14px 16px 6px}
+    .sec.pad{gap:8px;padding:14px}
+    .dl{padding:0 12px 6px}
+    .dr{display:flex;align-items:center;gap:10px;min-height:64px;padding:6px 4px;position:relative;transition:opacity .2s,transform .2s}
+    .dr.bt{border-top:1px solid rgba(255,255,255,.06)}
+    .dr.off{opacity:.5}
+    .dr.drag{z-index:2;border-radius:18px;background:#404040;box-shadow:0 10px 24px rgba(0,0,0,.45);transform:scale(1.02);border-top-color:transparent;opacity:1}
+    .hdl{width:32px;height:48px;margin-left:-4px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f;user-select:none;-webkit-user-select:none}
+    .dragging .hdl{cursor:grabbing}
+    .dic{color:#afafaf;width:24px;flex:none;display:inline-flex}
+    .dcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+    .nm{width:100%;box-sizing:border-box;height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:14px}
+    .dms{font-size:11px;color:#979797;padding:0 4px}
+    .tsw{position:relative;width:50px;height:28px;flex:none;border-radius:14px;background:#5a5a5a;transition:background .25s}
+    .tsw span{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#2a2a2a;transition:left .25s}
+    .tsw.on{background:${GREEN}}.tsw.on span{left:26px}
+    .sg2,.kinds{display:flex;gap:2px;padding:3px;border-radius:20px;background:#282828;position:relative;touch-action:pan-y}
+    .kinds{border-radius:18px}
+    .sgb{flex:1;height:36px;border-radius:17px;font-size:13px;font-weight:500;background:transparent;color:#afafaf}
+    .kinds .sgb{height:32px;border-radius:15px;font-size:12px}
+    .sgb.on{background:${PINK};color:${INK}}
+    .hint{font-size:12px;color:#7f7f7f;padding:2px 8px 0;line-height:1.45}
+    .ents{padding:0 16px 4px}
+    .er{display:flex;flex-direction:column}
+    .er.bt{border-top:1px solid rgba(255,255,255,.06)}
+    .eb{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left}
+    .eic{width:40px;height:40px;flex:none;border-radius:20px;background:#404040;display:grid;place-items:center}
+    .ecol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .el{display:flex;align-items:center;gap:6px;min-width:0}
+    .eln{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ech{height:18px;padding:0 7px;border-radius:9px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;flex:none}
+    .ech.a{background:rgba(111,210,154,.18);color:#6fd29a}.ech.o{background:rgba(242,138,201,.2);color:#f28ac9}.ech.m{background:rgba(240,179,107,.2);color:#f0b36b}
+    .eid{font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .eid.mono,.hs.mono{font-family:ui-monospace,monospace}
+    .eid.pkt{color:rgb(242 133 201)}
+    .eact{font-size:13px;color:#afafaf;flex:none}
+    .eo{display:flex;flex-direction:column;gap:8px;padding:0 0 12px}
+    .srow{display:flex;gap:6px}
+    .sf{flex:1;min-width:0;height:44px;border-radius:22px;background:#282828;display:flex;align-items:center;gap:8px;padding:0 14px;box-sizing:border-box}
+    .sf input{flex:1;min-width:0;height:100%;background:transparent;border:0;outline:none;color:#fafafa;font:inherit;font-size:14px}
+    .autob{height:44px;padding:0 14px;border-radius:22px;background:#404040;font-size:13px;color:#afafaf;flex:none}
+    .hits{display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;border-radius:18px;background:#282828;padding:4px;touch-action:pan-y}
+    .hh{padding:10px 10px 4px;font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f}
+    .hit{display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 10px 4px 6px;border-radius:14px;width:100%;text-align:left;background:transparent;flex:none}
+    .hit.on{background:#3a3a3a}
+    .hic{width:36px;height:36px;flex:none;border-radius:18px;background:#3a3a3a;display:grid;place-items:center}
+    .hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .hn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hs{font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .none{padding:18px;text-align:center;font-size:13px;color:#979797}
+    .vis{padding:0 16px 4px}
+    .vr{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 0}
+    .vr.bt{border-top:1px solid rgba(255,255,255,.06)}
+    .vcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .vl1{font-size:15px;font-weight:500}.vl2{font-size:12px;color:#979797}
+    .reset{height:48px;border-radius:24px;background:#3a3a3a;font-size:14px;color:#afafaf;display:flex;align-items:center;justify-content:center;gap:8px;flex:none}
+  `;
+
+  /* ============================================================ GUI-editoren (getConfigElement) – samme config som arket */
+  const autoOf = (h, c, k) => { if (!h) return null; try { return oppdag(h, c || {}).roles[k] || null; } catch (e) { return null; } };
+  // Dra for rekkefølge i GUI-editoren: håndtak [data-vpdrag] i rader [data-vpk] med data-vpl = listenavn (buttons | tabs)
   function installEd(ed) {
     if (!ed || ed.__vpInst || !ed.shadowRoot) return;
     ed.__vpInst = true;
@@ -50049,14 +51359,13 @@ try {
     Rt.addEventListener('pointerup', end);
     Rt.addEventListener('pointercancel', end);
   }
-  const autoOf = (h, c, k) => { if (!h) return null; try { return oppdag(h, c || {}).roles[k] || null; } catch (e) { return null; } };
-  const dragRow = (list, k, label, icon, off, key, extra) => `<div data-vpk="${k}" data-vpl="${list}" style="height:52px;border-radius:26px;background:#2f2f2f;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${off ? 'opacity:.5' : ''}">
+  const dragRow = (list, k, label, def, icon, off, key, extra) => `<div data-vpk="${k}" data-vpl="${list}" style="min-height:56px;border-radius:24px;background:#2f2f2f;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 4px;${off ? 'opacity:.5' : ''}">
       <span data-vpdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 6px">${M.icon('mdi:drag', 22)}</span>
       <span style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(icon, 19)}</span>
-      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span>${extra ? `<span style="font-size:11px;color:#979797">${esc(extra)}</span>` : ''}</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" style="height:36px" data-name="${list === 'tabs' ? 'tab_names' : 'button_names'}.${k}" value="${esc(label === def ? '' : label)}" placeholder="${esc(def)}" aria-label="Navn på ${esc(def)}">${extra ? `<span style="font-size:11px;color:#979797">${esc(extra)}</span>` : ''}</span>
       <button class="ib" data-a="fn" data-k="${key}" data-v="${k}" aria-label="${off ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!off}">${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`;
-  const PV_CSS = 'padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px';
-  const PV_T = '<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px">Forhåndsvisning</div>';
+  const PV_CSS = 'padding:10px;border-radius:18px;background:#303030;display:flex;flex-direction:column;gap:8px';
+  const PV_T = '<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;margin:0 4px">Forhåndsvisning</div>';
 
   function editorSchema(h, c) {
     c = c || {};
@@ -50064,40 +51373,37 @@ try {
     const D = (h && h.devices) || {};
     const devOpts = h ? Object.keys(D).filter((id) => isNibeDev(D[id]) || (R && R.devs.includes(id)) || Object.values(h.entities || {}).some((e) => e && e.device_id === id && PLATS.includes(e.platform)))
       .map((id) => [id, `${D[id].name_by_user || D[id].name || id}${D[id].model ? ' · ' + D[id].model : ''}`]) : [];
-    // Knapper
     const btnPrev = { type: 'html', html: (hh, cc) => {
-      const V = visBtns(hh, cc), ic = (cc.button_style || DEF.button_style) === 'icon';
-      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;gap:6px">${V.length ? V.map((k) => `<span style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:44px;height:44px;border-radius:22px;background:#3a3a3a;display:grid;place-items:center">${M.icon(BK[k][2], 20)}</span>${ic ? '' : `<span style="font-size:11px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(BK[k][1])}</span>`}</span>`).join('') : '<span style="flex:1;text-align:center;font-size:12px;color:#979797">Ingen synlige knapper</span>'}</div></div>`;
+      const V = visBtns(hh, cc), ic = btnStyle(cc) === 'icon';
+      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:grid;grid-template-columns:repeat(${Math.max(1, V.length)},minmax(0,1fr));gap:6px">${V.length ? V.map((k) => `<span style="height:52px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;color:#bdbdbd;box-shadow:inset 0 0 0 1.5px #4a4a4a">${M.icon(BK[k][2], 20)}${ic ? '' : `<span style="font-size:9px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(btnName(cc, k))}</span>`}</span>`).join('') : '<span style="text-align:center;font-size:12px;color:#979797">Ingen synlige knapper</span>'}</div></div>`;
     } };
     const btnList = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
-      const hid = new Set(cc.buttons_hidden || []);
-      const src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' };
-      return `<div class="f" style="gap:8px"><label>Knapper · dra for rekkefølge</label>${btnOrder(cc).map((k) => {
-        const id = entOf(hh, cc, src[k]);
-        return dragRow('buttons', k, BK[k][1], BK[k][2], hid.has(k), key, id ? (hh.states[id] ? M.name(hh, id) : id) : k === 'eco' ? 'Vises bare med Smart Home-modus' : '– · Velg entitet');
-      }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Øyet skjuler knappen.</span></div>`;
-    }, click: (dd, ed) => { const s = new Set((ed._config || {}).buttons_hidden || []); if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); M.haptic('selection'); ed._set('buttons_hidden', s.size ? [...s] : undefined); } };
-    // Faner
+      const hid = btnHidden(cc);
+      return `<div class="f" style="gap:8px"><label>Hurtigknapper · rekkefølge og navn</label>${btnOrder(cc).map((k) => {
+        const id = hh ? btnEnt(hh, cc, k) : null;
+        return dragRow('buttons', k, btnName(cc, k), BK[k][1], BK[k][2], hid.has(k), key, id ? (hh.states[id] ? M.name(hh, id) : id) : 'Mangler entitet – vises ikke');
+      }).join('')}<span class="help">Dra i håndtaket for å flytte, feltet gir nytt navn, øyet skjuler. Knapper uten entitet vises ikke.</span></div>`;
+    }, click: (dd, ed) => { const cc = ed._config || {}, s = btnHidden(cc); if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); M.haptic('selection'); ed._set('buttons_hidden', btnOrder(cc).filter((x) => s.has(x))); } };
     const tabPrev = { type: 'html', html: (hh, cc) => {
-      const V = visTabs(hh, cc), st = cc.tab_style || DEF.tab_style, act = V.includes(cc.start_tab) ? cc.start_tab : V[0];
-      const t = (k) => { const x = TK[k], o = k === act; return `<span style="flex:${st === 'icon' && !o ? '0 0 44px' : '1 1 0'};min-width:0;height:34px;border-radius:17px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px;${o ? `background:${C.accent};color:#2a1720;font-weight:600` : 'color:#afafaf'}">${st !== 'name' ? M.icon(x[2], 18) : ''}${st !== 'icon' || o ? `<span>${esc(x[1])}</span>` : ''}</span>`; };
-      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:21px;background:#3a3a3a">${V.length ? V.map(t).join('') : '<span style="flex:1;text-align:center;font-size:12px;color:#979797;line-height:34px">Ingen synlige faner</span>'}</div><span style="width:42px;height:42px;border-radius:21px;background:#3a3a3a;display:grid;place-items:center;color:#afafaf;flex:none">${M.icon('mdi:cog', 20)}</span></div></div>`;
+      const V = visTabs(hh, cc), st = tabStyle(cc), act = V.includes(cc.start_tab) ? cc.start_tab : V[0];
+      const t = (k) => { const o = k === act; return `<span style="min-width:0;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;font-size:11px;font-weight:500;white-space:nowrap;${o ? `background:${PINK};color:${INK}` : 'color:#afafaf'}">${st !== 'name' ? M.icon(TK[k][2], 17) : ''}${st !== 'icon' ? `<span style="overflow:hidden;text-overflow:ellipsis">${esc(tabName(cc, k))}</span>` : ''}</span>`; };
+      return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:22px;background:#3a3a3a">${V.length ? V.map(t).join('') : '<span style="text-align:center;font-size:12px;color:#979797;line-height:34px">Ingen synlige faner</span>'}</div><span style="width:40px;height:40px;border-radius:20px;background:#3a3a3a;display:grid;place-items:center;flex:none">${M.icon('mdi:cog', 19)}</span></div></div>`;
     } };
     const tabList = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
-      const hid = new Set(cc.tabs_hidden || []);
-      return `<div class="f" style="gap:8px"><label>Faner · dra for rekkefølge</label>${tabOrder(cc).map((k) => dragRow('tabs', k, TK[k][1], TK[k][2], hid.has(k), key, k === 'luft' && hh && !hasLuft(hh, cc) ? 'Skjult automatisk – fant ikke BT20/BT21' : '')).join('')}<span class="help">Dra i håndtaket for rekkefølge. Øyet skjuler fanen. Minst én fane må være synlig.</span></div>`;
+      const hid = tabHidden(cc);
+      return `<div class="f" style="gap:8px"><label>Faner · rekkefølge og navn</label>${tabOrder(cc).map((k) => dragRow('tabs', k, tabName(cc, k), TK[k][1], TK[k][2], hid.has(k), key, k === 'luft' && hh && !hasLuft(hh, cc) ? 'Skjult automatisk – fant ikke BT20/BT21' : '')).join('')}<span class="help">Dra i håndtaket for å flytte. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
-      const s = new Set((ed._config || {}).tabs_hidden || []);
+      const cc = ed._config || {}, s = tabHidden(cc);
       if (!s.has(dd.v) && TABS.filter((t) => !s.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
       if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v);
-      M.haptic('selection'); ed._set('tabs_hidden', s.size ? [...s] : undefined);
+      M.haptic('selection'); ed._set('tabs_hidden', s.size ? tabOrder(cc).filter((x) => s.has(x)) : undefined);
     } };
     const entSec = ([g, label, icon]) => ({ type: 'section', id: 'vp-' + g, label, icon,
       meta: (hh, cc) => { const L = ROLES.filter((r) => r[2] === g); return `${L.filter((r) => entOf(hh, cc, r[0])).length} av ${L.length} funnet`; },
-      fields: ROLES.filter((r) => r[2] === g).map(([k, l, , doms, pids, , ic]) => ({ type: 'entity', name: 'overrides.' + k, label: l + (pids.length ? ` · ${pids[0]}` : ''), icon: ic, domain: doms, auto: (hh, cc) => autoOf(hh, cc, k), none_label: '– · Velg entitet' })) });
-    const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
+      fields: ROLES.filter((r) => r[2] === g).map(([k, l, , doms, pids, , ic]) => ({ type: 'entity', name: 'overrides.' + k, label: l + (pids.length ? ` · ${pids[0]}` : ''), icon: ic, domain: doms, auto: (hh, cc) => autoOf(hh, { ...cc, overrides: {} }, k), none_label: '– · Velg entitet' })) });
+    const reset = { type: 'button', label: 'Tilbakestill alt', icon: 'mdi:restart', run: (hh, cc, ed) => {
       M.haptic('warning');
       const id = (cc && cc.card_id) || M.uid();
       ed._config = { type: cc.type || 'custom:msh-varmepumpe-card', card_id: id };
@@ -50107,32 +51413,33 @@ try {
     return [
       ...(R && !found && !c.device ? [{ type: 'info', label: 'Fant ingen NIBE-enhet (integrasjonene nibe_heatpump eller myuplink). Velg entiteter under Entiteter.' }] : []),
       { type: 'tabs', id: 'varmepumpe', tabs: [
-        { key: 'knapper', label: 'Knapper', icon: 'mdi:gesture-tap-button', focus: ['knapper', 'buttons'], fields: [
+        { key: 'knapper', label: 'Knapper', icon: 'mdi:gesture-tap-button', focus: ['knapper', 'buttons', 'vp-btn'], fields: [
           { type: 'section', id: 'knapper', label: 'Hurtigknapper', icon: 'mdi:gesture-tap-button', fields: [
             btnPrev, btnList,
-            { type: 'select', name: 'button_style', label: 'Knappene viser', options: [['icon_text', 'Ikon og tekst'], ['icon', 'Bare ikon']], default: DEF.button_style },
+            { type: 'select', name: 'button_style', label: 'Knappene viser', options: BTN_MODES, default: DEF.button_style },
           ] },
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner', 'tabs'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             tabPrev, tabList,
-            { type: 'select', name: 'tab_style', label: 'Fanene viser', options: [['icon_name', 'Ikon og navn'], ['name', 'Bare navn'], ['icon', 'Bare ikon']], default: DEF.tab_style },
+            { type: 'select', name: 'tab_style', label: 'Fanene viser', options: TAB_MODES, default: DEF.tab_style },
             { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
           ] },
         ] },
-        { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted-type', focus: ['entiteter', 'entities', ...GROUPS.map((g) => 'vp-' + g[0])], fields: [
-          { type: 'info', label: 'Alt er funnet automatisk fra NIBE-enheten (parameter-ID først, så navn). Velg en annen entitet bare der det automatiske valget er feil.' },
-          { type: 'section', id: 'entiteter', label: 'Enhet', icon: 'mdi:heat-pump', fields: [
+        { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted-type', focus: ['entiteter', 'entities', 'overrides', ...GROUPS.map((g) => 'vp-' + g[0])], fields: [
+          { type: 'info', label: 'Kortet finner entitetene selv (parameter-ID først, så navn). Bytt bare når den som ble funnet er feil.' },
+          { type: 'section', id: 'entiteter', label: 'Funnet på NIBE-enheten', icon: 'mdi:heat-pump', fields: [
             { type: 'select', name: 'device', label: 'NIBE-enhet', options: [['', found ? `Automatisk · ${R.dev ? (R.dev.name_by_user || R.dev.name) : ''}` : 'Automatisk'], ...devOpts], default: '' },
           ] },
           ...GROUPS.map(entSec),
         ] },
         { key: 'visning', label: 'Visning', icon: 'mdi:eye-outline', focus: ['visning', 'spacing'], fields: [
           { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
-            { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: R && R.dev ? (R.dev.name_by_user || R.dev.name) : 'Varmepumpe' },
-            { type: 'boolean', name: 'kpi', label: 'KPI-kort (Ute, Kompressor, Varmtvann)', default: true },
-            { type: 'boolean', name: 'diag', label: 'Diagnostikk nederst', default: true },
-            { type: 'boolean', name: 'anim', label: 'Animasjoner', default: true, help: 'Pumpe, vifte, rør og knapper. Stopper uansett når entiteten er av.' },
+            { type: 'text', name: 'name', label: 'Navn i toppkortet', placeholder: 'Varmepumpe' },
+            { type: 'boolean', name: 'anim', label: 'Animasjoner', default: true, help: 'Vifte, rør og varme i toppkortet' },
+            { type: 'boolean', name: 'kpi', label: 'Nøkkeltall', default: true, help: 'Ute, kompressor og varmtvann' },
+            { type: 'boolean', name: 'sentence', label: 'Setning i Info', default: true, help: '«Kompressoren går på …»' },
+            { type: 'boolean', name: 'diag', label: 'Diagnostikk', default: true, help: 'Knappen nederst i popupen' },
           ] },
           M.spacingSchema(),
           reset,
@@ -50141,468 +51448,202 @@ try {
     ];
   }
 
-  /* ============================================================ kortet */
-  class Varmepumpe extends M.Card {
-    static get cardName() { return 'Varmepumpe'; }
-    static get editorTitle() { return 'Tilpass varmepumpe'; }
-    static get defaults() { return { ...DEF }; }
-    static getStubConfig() { return { card_id: M.uid() }; }
-    static get schema() { return editorSchema; }
-    static get uiPersist() { return ['tab', 'acc']; }
-    get cardSize() { return 12; }
-    _e(k) { return entOf(this.hass, this.config, k); }
-    _S(k) { return this.s(this._e(k)); }
-    _N(k) { return numS(this._S(k)); }
-    get tab() { const V = visTabs(this.hass, this.config), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0] || null; }
-    onOpen() {
-      const st = this.config.start_tab, V = visTabs(this.hass, this.config);
-      if (st && V.includes(st) && this.ui.tab !== st) this.setUI({ tab: st });
-      this._load();
-    }
-    // Historikk kun når popupen er åpen (fallgruve 8): 24 t for varmtvann/luft, 7 døgn for tur/retur
-    async _load() {
-      const h = this.hass;
-      if (!h || !this.isOpen) return;
-      const d24 = ['vv', 'bt6', 'bt20', 'bt21'].map((k) => this._e(k)).filter(Boolean);
-      const d7 = ['bt2', 'bt3'].map((k) => this._e(k)).filter(Boolean);
-      const key = d24.join() + '|' + d7.join();
-      if (this._lk === key && Date.now() - (this._lt || 0) < 300000) return;
-      this._lk = key; this._lt = Date.now();
-      try {
-        const [a, b] = await Promise.all([d24.length ? M.history(h, d24, 24) : {}, d7.length ? M.history(h, d7, 168) : {}]);
-        this._h24 = a; this._h7 = b;
-      } catch (e) { this._h24 = this._h24 || {}; this._h7 = this._h7 || {}; }
-      this.update();
-    }
-
-    onAction(name, el, ev) {
-      const d = el.dataset, h = this.hass;
-      switch (name) {
-        case 'tab': if (d.v) { this._scrub = null; this.setUI({ tab: d.v }); } return;
-        case 'acc': { const a = { ...(this.ui.acc || {}) }; a[d.v] = !a[d.v]; return this.setUI({ acc: a }); }
-        case 'btn': return this._btn(d.v);
-        case 'opt': return d.id && d.o != null && M.call(h, 'select', 'select_option', { entity_id: d.id, option: d.o });
-        case 'step': return this._step(d.id, Number(d.d));
-        case 'boostvv': return this._boostVV();
-        default: return super.onAction(name, el, ev);
-      }
-    }
-    _btn(k) {
-      const h = this.hass;
-      const src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' }[k];
-      const id = this._e(src);
-      if (!id || !h.states[id]) return this.customize('vp-btn');
-      if (k === 'boost' || k === 'vent') return M.toggle(h, id);
-      if (k === 'eco') {
-        const s = h.states[id], O = s.attributes.options || [];
-        const next = isNormal(s.state) ? O.find(isAway) || O.find((o) => !isNormal(o)) : O.find(isNormal) || O[0];
-        return next != null && M.call(h, 'select', 'select_option', { entity_id: id, option: next });
-      }
-      return M.moreInfo(this, id); // Pumpe, Alarm og Wi-Fi: bare visning
-    }
-    _boostVV() {
-      const h = this.hass, sw = this._e('boost'), sel = this._e('boost_sel');
-      if (sw && h.states[sw]) return M.toggle(h, sw);
-      if (sel && h.states[sel]) {
-        const s = h.states[sel], O = s.attributes.options || [];
-        const off = O.find((o) => /^(off|av)$/i.test(o));
-        const next = off != null && s.state !== off ? off : O.find((o) => o !== off) || O[0];
-        return next != null && M.call(h, 'select', 'select_option', { entity_id: sel, option: next });
-      }
-      return this.customize('vp-btn');
-    }
-    _step(id, dir) {
-      const h = this.hass, s = id && h.states[id];
-      if (!s) return;
-      const A = s.attributes, st = Number(A.step) || 1, cur = this._pend && this._pend[id] != null ? this._pend[id] : numS(s);
-      if (cur == null) return;
-      const mn = A.min != null ? Number(A.min) : -Infinity, mx = A.max != null ? Number(A.max) : Infinity;
-      const v = Math.round(M.clamp(cur + dir * st, mn, mx) / st) * st;
-      const val = Number(v.toFixed(3));
-      if (val === cur) { M.haptic('warning'); return; }
-      this._pend = { ...(this._pend || {}), [id]: val };
-      clearTimeout(this._pt);
-      this._pt = setTimeout(() => { const p = this._pend || {}; const x = p[id]; delete p[id]; if (x != null) M.call(this.hass, 'number', 'set_value', { entity_id: id, value: x }).catch(() => {}); }, 450);
-      this.update();
-    }
-
-    /* ---------------------------------------------------------- tegning */
-    render() {
-      const h = this.hass, c = this.config;
-      const R = oppdag(h, c);
-      R.ids.forEach((id) => this._deps.add(id));
-      Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
-      Object.keys(R.roles).forEach((k) => this._deps.add(R.roles[k]));
-      if (this._pend) Object.keys(this._pend).forEach((id) => { const s = h.states[id]; if (s && numS(s) === this._pend[id]) delete this._pend[id]; });
-      const parts = [this._top(R)];
-      if (c.kpi !== false) parts.push(this._kpi());
-      const V = visBtns(h, c);
-      if (V.length) parts.push(this._btns(V));
-      const T = visTabs(h, c), tab = this.tab;
-      parts.push(this._tabRow(T, tab));
-      if (!tab) parts.push(`<div class="empty">${M.icon('mdi:eye-off', 22)}<span>Alle fanene er skjult</span><button class="pick press" data-act="customize" data-section="faner">${M.icon('mdi:cog', 18)}Tilpass</button></div>`);
-      else parts.push(`<div class="pane" data-key="pane-${tab}">${this['_' + tab]()}</div>`);
-      if (c.diag !== false) parts.push(this._acc('diag', 'Diagnostikk', 'mdi:stethoscope', ROLES.filter((r) => r[2] === 'diag').map((r) => r[0])));
-      if (!R.devs.length && !Object.keys(c.overrides || {}).length) parts.splice(1, 0, `<div class="empty nf">${M.icon('mdi:heat-pump-outline', 26)}<b>Fant ingen NIBE-varmepumpe</b><span>Støtter NIBE S- og F-serien via integrasjonene NIBE Heat Pump eller myUplink. Legg til integrasjonen, så dukker den opp her automatisk.</span><button class="pick press" data-act="customize" data-section="entiteter">${M.icon('mdi:plus', 18)}Velg entitet</button></div>`);
-      return `<div class="wrap ${c.anim === false ? 'noanim' : ''}">${parts.join('')}</div>`;
-    }
-    // Rad: ikon · navn · verdi (mangler → «–» + «Velg entitet»)
-    _row(k, opt) {
-      opt = opt || {};
-      const r = RK[k], id = this._e(k), s = id ? this.s(id) : null;
-      const label = opt.label || r[1];
-      if (!id || !s) return `<div class="rw miss"><span class="ri">${M.icon(r[6], 20)}</span><span class="grow ell">${esc(label)}</span><span class="rv">–</span><button class="vs press" data-act="customize" data-section="vp-${r[2]}">Velg entitet</button></div>`;
-      const v = opt.val != null ? opt.val : fmtS(s);
-      return `<button class="rw" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ri ${opt.cls || ''}" ${opt.style ? `style="${opt.style}"` : ''}>${M.icon(opt.icon || r[6], 20)}</span><span class="grow col"><span class="ell">${esc(label)}</span>${opt.sub ? `<small class="ell">${esc(opt.sub)}</small>` : ''}</span><span class="rv num ${opt.vcls || ''}">${esc(v)}</span></button>`;
-    }
-    _running() { const f = this._N('freq'); if (f != null) return f > 0; const cs = this._S('komp_status'); return !!cs && /run|går|on|start/i.test(String(cs.state)); }
-    _charging() {
-      const t = [this._S('status'), this._S('vv_modus'), this._S('komp_status')].filter(okS).map((s) => String(s.state)).join(' ');
-      return this._running() && /hot ?water|varmtvann|hw|lad|charg|dhw/i.test(t) || on(this._S('boost'));
-    }
-    _alarmOn() { const s = this._S('alarm'); if (!okS(s)) return false; if (dom(s.entity_id) === 'binary_sensor') return s.state === 'on'; const v = numS(s); return v != null ? v > 0 : !/^(0|ingen|none|ok|no alarm|off|false)$/i.test(String(s.state).trim()); }
-    _wifiOff() { const s = this._S('wifi'); return !!s && (s.state === 'off' || !okS(s)); }
-    _fanDur() { const v = this._N('vifte'); if (v == null) return this._running() ? 1.6 : 0; if (v <= 0) return 0; return Math.max(0.35, 2.4 - (Math.min(100, v) / 100) * 2); }
-    _vvFill() {
-      const m = this._S('mengde');
-      if (okS(m) && /%/.test(unitS(m)) && numS(m) != null) return { f: M.clamp(numS(m) / 100, 0, 1), calc: false };
-      const t = this._N('vv');
-      return t == null ? null : { f: M.clamp((t - 20) / (55 - 20), 0, 1), calc: true };
-    }
-
-    _top(R) {
-      const c = this.config, run = this._running(), fan = this._fanDur(), fill = this._vvFill(), charging = this._charging();
-      const pw = kW(this._S('power')), freq = this._N('freq'), ute = this._N('ute'), kr = this._S('cost_day');
-      const st = this._S('status'), cs = this._S('komp_status');
-      const chip = okS(st) ? String(st.state) : run ? 'Kompressoren går' : cs || freq != null ? 'Hviler' : '–';
-      const name = c.name || (R.dev ? (R.dev.name_by_user || R.dev.name) : 'Varmepumpe');
-      const fy = fill ? 118 - fill.f * 84 : 118;
-      const blades = [0, 90, 180, 270].map((a) => `<path d="M0 0 C 4 -6, 13 -8, 17 -2 C 12 0, 5 2, 0 0Z" transform="rotate(${a})" fill="#c7c7c7"/>`).join('');
-      const pwId = this._e('power');
-      return `<section class="top ${run ? 'run' : ''}" aria-label="Varmepumpe">
-        <div class="tl"><span class="tn ell">${esc(name)}</span><span class="chip ${run ? 'on' : ''}">${M.icon(run ? 'mdi:heat-pump' : 'mdi:sleep', 14)}<span class="ell">${esc(chip)}</span></span></div>
-        <div class="tv ${pw != null && pw > 0 ? 'puls' : ''}" ${pwId ? `data-act="more" data-id="${esc(pwId)}" data-ent="${esc(pwId)}"` : 'data-act="customize" data-section="vp-top"'}><span class="big num">${pw == null ? '–' : M.nf(pw, pw < 10 ? 2 : 1)}</span><span class="u">kW</span></div>
-        <div class="ts">Ute ${esc(deg(ute))} · ${okS(kr) && numS(kr) != null ? esc(M.nf(numS(kr), 2)) + ' kr i dag' : '– kr i dag'}</div>
-        <svg class="pumpe" viewBox="0 0 170 150" aria-hidden="true">
-          <defs><clipPath id="vp-tank"><rect x="14" y="34" width="40" height="84" rx="16"/></clipPath>
-            <linearGradient id="vp-vann" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f28073"/><stop offset="1" stop-color="#f2b573"/></linearGradient></defs>
-          <g class="${charging ? 'dupp' : ''}"><rect x="14" y="34" width="40" height="84" rx="16" fill="#2f2f2f" stroke="#545454" stroke-width="2"/>
-            ${fill ? `<rect clip-path="url(#vp-tank)" x="14" y="${fy.toFixed(1)}" width="40" height="${(118 - fy + 2).toFixed(1)}" fill="url(#vp-vann)" opacity=".85"/><path clip-path="url(#vp-tank)" class="${charging ? 'bolge' : ''}" d="M8 ${fy.toFixed(1)} q 6 -3 12 0 t 12 0 t 12 0 t 12 0 t 12 0" fill="none" stroke="#fafafa" stroke-opacity=".35" stroke-width="1.5"/>` : ''}
-            <text x="34" y="30" text-anchor="middle" class="svt">${fill ? M.nf(fill.f * 100, 0) + ' %' : '–'}</text></g>
-          <path d="M 54 60 H 84" class="ror varm ${run && c.anim !== false ? 'flow' : ''}"/>
-          <path d="M 84 100 H 54" class="ror kald ${run && c.anim !== false ? 'flow' : ''}"/>
-          <rect x="84" y="12" width="76" height="128" rx="16" fill="#4a4a4a" class="skap"/>
-          <rect x="84" y="12" width="76" height="128" rx="16" fill="none" stroke="rgba(255,255,255,.08)"/>
-          <circle cx="122" cy="54" r="27" fill="#2f2f2f" stroke="#545454" stroke-width="2"/>
-          <g transform="translate(122 54)"><g class="vifte ${fan ? 'spin' : ''}" style="--vp-dur:${fan || 2}s">${blades}<circle r="4" fill="#7f7f7f"/></g></g>
-          <rect x="96" y="96" width="52" height="4" rx="2" fill="#545454"/><rect x="96" y="106" width="52" height="4" rx="2" fill="#545454"/>
-          <g class="hz"><rect x="102" y="116" width="40" height="18" rx="9" fill="${run ? 'var(--orange,#f2b573)' : '#545454'}"/><text x="122" y="129" text-anchor="middle" class="hzt ${run ? 'on' : ''}">${freq == null ? '– Hz' : M.nf(freq, 0) + ' Hz'}</text></g>
-        </svg>
-      </section>`;
-    }
-    _kpi() {
-      const ute = this._S('ute'), snitt = this._N('ute_snitt');
-      const f = this._N('freq'), mn = this._N('freq_min'), mx = this._N('freq_max'), run = this._running();
-      const lo = mn != null ? mn : 0, hi = mx != null && mx > lo ? mx : 120;
-      const pct = f == null ? 0 : M.clamp(((f - lo) / (hi - lo)) * 100, 0, 100);
-      const vv = this._S('vv'), bt6 = this._N('bt6'), ch = this._charging();
-      const card = (k, cls, icon, icls, label, val, sub, extra) => {
-        const id = this._e(k);
-        return `<button class="kp ${cls}" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : `data-act="customize" data-section="vp-top"`}><span class="kh"><span class="ki ${icls}">${M.icon(icon, 18)}</span><span class="ell">${label}</span></span><span class="kv num">${val}</span>${extra || ''}<span class="ks ell">${sub}</span></button>`;
-      };
-      return `<div class="kpis">
-        ${card('ute', '', 'mdi:thermometer', '', 'Ute', okS(ute) ? esc(deg(numS(ute))) : '–', snitt != null ? 'Snitt ' + esc(deg(snitt)) : this._e('ute') ? 'BT1' : 'Velg entitet')}
-        ${card('freq', run ? 'glod' : '', 'mdi:sine-wave', run ? 'pust' : '', 'Kompressor', f == null ? '–' : `${M.nf(f, 0)}<small>Hz</small>`, run ? 'Går' : f == null ? 'Velg entitet' : 'Står', `<span class="bar"><i style="width:${pct.toFixed(0)}%"></i></span>`)}
-        ${card('vv', '', 'mdi:water-boiler', ch ? 'dupp' : '', 'Varmtvann', okS(vv) ? esc(deg(numS(vv))) : '–', ch ? 'Lader' + (bt6 != null ? ' · ' + esc(deg(bt6)) : '') : bt6 != null ? 'BT6 ' + esc(deg(bt6)) : this._e('vv') ? 'BT7' : 'Velg entitet')}
-      </div>`;
-    }
-    _btns(V) {
-      const ic = (this.config.button_style || DEF.button_style) === 'icon';
-      const b = (k) => {
-        const [, label, icon0] = BK[k], src = { boost: 'boost', vent: 'vent', pump: 'pump', eco: 'smart', alarm: 'alarm', wifi: 'wifi' }[k];
-        const id = this._e(src), s = id ? this.s(id) : null;
-        let icon = icon0, cls = '', sub = '–', act = false;
-        if (s) {
-          if (k === 'boost') { act = on(s); cls = act ? 'on orange' : ''; sub = act ? 'På' : 'Av'; }
-          if (k === 'vent') { act = on(s); cls = act ? 'on blue spin-i' : ''; sub = act ? 'På' : 'Av'; }
-          if (k === 'pump') { act = on(s); cls = act ? 'on green vib' : ''; sub = act ? 'Går' : 'Står'; }
-          if (k === 'eco') { act = okS(s) && !isNormal(s.state); cls = act ? 'on green' : ''; sub = okS(s) ? optNb(s.state) : '–'; }
-          if (k === 'alarm') { act = this._alarmOn(); cls = act ? 'on red rist' : ''; icon = act ? 'mdi:bell-alert' : 'mdi:bell-outline'; sub = act ? (numS(s) != null ? M.nf(numS(s)) + ' varsel' : String(s.state)) : 'Ingen'; }
-          if (k === 'wifi') { const off = this._wifiOff(); act = off; cls = off ? 'on red blink' : ''; icon = off ? 'mdi:wifi-off' : 'mdi:wifi'; sub = off ? 'Frakoblet' : 'Tilkoblet'; }
-        }
-        const attrs = s ? `data-act="btn" data-v="${k}" data-ent="${esc(id)}"` : `data-act="customize" data-section="vp-btn"`;
-        return `<button class="qb press ${cls} ${s ? '' : 'miss'}" ${attrs} aria-label="${esc(label)}${s ? '' : ' – velg entitet'}" ${['boost', 'vent'].includes(k) && s ? `aria-pressed="${act}"` : ''}><span class="qi">${M.icon(icon, 22)}</span>${ic ? '' : `<span class="ql ell">${esc(label)}</span><span class="qs ell">${esc(s ? sub : 'Velg entitet')}</span>`}</button>`;
-      };
-      return `<div class="qbs ${ic ? 'ic' : ''}">${V.map(b).join('')}</div>`;
-    }
-    _tabRow(V, tab) {
-      const st = this.config.tab_style || DEF.tab_style;
-      const btn = (k) => {
-        const [, label, icon] = TK[k], o = k === tab;
-        if (st === 'icon') return M.iconTabs.btn({ label, icon }, o, `data-act="tab" data-v="${k}" data-haptic="selection"`, o ? 'on' : '');
-        return `<button class="tb ${o ? 'on' : ''}" role="tab" aria-selected="${o}" data-act="tab" data-v="${k}" data-haptic="selection">${st !== 'name' ? M.icon(icon, 20) : ''}<span>${esc(label)}</span></button>`;
-      };
-      return `<div class="trow"><div class="tabs ${st === 'icon' ? 'itabs' : ''}" role="tablist" data-glass-drag="x">${V.map(btn).join('')}</div>
-        <button class="gear press" data-act="customize" aria-label="Tilpass varmepumpe">${M.icon('mdi:cog', 22)}</button></div>`;
-    }
-    _acc(key, title, icon, keys) {
-      const open = !!(this.ui.acc || {})[key], n = keys.filter((k) => this._e(k)).length;
-      return `<section class="acc ${open ? 'open' : ''}" data-key="acc-${key}"><button class="ah" data-act="acc" data-v="${key}" aria-expanded="${open}"><span class="ai">${M.icon(icon, 20)}</span><span class="grow ell">${esc(title)}</span><span class="an">${n} av ${keys.length}</span>${M.icon('mdi:chevron-down', 22, 'color:#979797;transition:transform .2s;' + (open ? 'transform:rotate(180deg)' : ''))}</button>
-        ${open ? `<div class="ab">${keys.map((k) => this._row(k)).join('')}</div>` : ''}</section>`;
-    }
-    // Graf: serier [{k, col, label}], timer, historikk. Scrub med pekeren (touch-action:none + stopPropagation).
-    _graph(g, series, hours, hist) {
-      const Wg = 300, Hg = 96, N = hours > 48 ? 84 : 48;
-      const data = series.map((x) => ({ ...x, id: this._e(x.k) })).filter((x) => x.id);
-      if (!data.length) return `<div class="gr none">${M.icon('mdi:chart-line', 20)}<span>Fant ingen sensorer til grafen</span><button class="vs press" data-act="customize" data-section="vp-${RK[series[0].k][2]}">Velg entitet</button></div>`;
-      const S2 = data.map((x) => ({ ...x, v: hist ? M.sample((hist[x.id] || []), N, hours) : [] }));
-      const all = S2.flatMap((x) => x.v);
-      const mn = all.length ? Math.min(...all) : 0, mx = all.length ? Math.max(...all) : 1, sp = mx - mn || 1;
-      const y = (v) => Hg - 8 - ((v - mn) / sp) * (Hg - 20);
-      const pts = (arr) => arr.map((v, i) => `${((i / (N - 1)) * Wg).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-      const sc = this._scrub && this._scrub.g === g ? this._scrub.i : null;
-      const lines = S2.map((x, j) => (x.v.length ? `${j === 0 ? `<polygon points="0,${Hg} ${pts(x.v)} ${Wg},${Hg}" fill="${x.col}" fill-opacity=".12"/>` : ''}<polyline points="${pts(x.v)}" fill="none" stroke="${x.col}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` : '')).join('')
-        || `<line x1="0" y1="${Hg / 2}" x2="${Wg}" y2="${Hg / 2}" stroke="#545454" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`;
-      const mk = sc != null && all.length ? `<line x1="${((sc / (N - 1)) * Wg).toFixed(1)}" x2="${((sc / (N - 1)) * Wg).toFixed(1)}" y1="0" y2="${Hg}" stroke="#fafafa" stroke-opacity=".6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : '';
-      const tlab = sc == null ? 'nå' : (() => { const t = hours - (sc / (N - 1)) * hours; return t < 0.5 ? 'nå' : hours > 48 ? `−${M.nf(t / 24, t < 24 ? 1 : 0)} d` : `−${M.nf(t, t < 10 ? 1 : 0)} t`; })();
-      const leg = S2.map((x) => { const v = sc != null && x.v.length ? x.v[sc] : numS(this.s(x.id)); return `<span><i style="background:${x.col}"></i>${esc(x.label)} <b class="num">${v == null ? '–' : esc(deg(v))}</b></span>`; }).join('');
-      const xl = hours > 48 ? ['−7 d', '−3,5 d', 'nå'] : ['−24 t', '−12 t', 'nå'];
-      return `<div class="gr" data-g="${g}" data-n="${N}"><div class="gl">${leg}<span class="gt">${esc(tlab)}</span></div>
-        <svg class="gs" viewBox="0 0 ${Wg} ${Hg}" preserveAspectRatio="none" aria-label="Graf siste ${hours > 48 ? '7 døgn' : '24 timer'}">${lines}${mk}</svg>
-        <div class="gx"><span>${xl[0]}</span><span>${xl[1]}</span><span>${xl[2]}</span></div>${hist ? '' : '<div class="gw">Henter historikk …</div>'}</div>`;
-    }
-    _seg(k, label) {
-      const id = this._e(k), s = id ? this.s(id) : null;
-      if (!s) return `<div class="blk"><div class="bt">${esc(label)}</div>${this._row(k)}</div>`;
-      const O = s.attributes.options || [];
-      return `<div class="blk"><div class="bt">${esc(label)}</div><div class="seg" role="radiogroup" aria-label="${esc(label)}">${O.map((o) => `<button class="sg ${o === s.state ? 'on' : ''}" role="radio" aria-checked="${o === s.state}" data-act="opt" data-id="${esc(id)}" data-o="${esc(o)}" data-haptic="selection">${esc(optNb(o))}</button>`).join('') || `<span class="muted">${esc(s.state)}</span>`}</div></div>`;
-    }
-    _stepper(k, label, sub) {
-      const r = RK[k], id = this._e(k), s = id ? this.s(id) : null;
-      if (!s) return this._row(k, { label });
-      const p = this._pend && this._pend[id], v = p != null ? p : numS(s), u = unitS(s);
-      const A = s.attributes, mn = A.min != null ? Number(A.min) : null, mx = A.max != null ? Number(A.max) : null, st = Number(A.step) || 1;
-      const d = st < 1 ? 1 : 0;
-      return `<div class="rw stp" data-key="stp-${k}"><span class="ri">${M.icon(r[6], 20)}</span><button class="grow col tl" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ell">${esc(label)}</span>${sub ? `<small class="ell">${esc(sub)}</small>` : ''}</button>
-        <button class="pm press" data-act="step" data-id="${esc(id)}" data-d="-1" aria-label="${esc(label)} ned" ${v != null && mn != null && v <= mn ? 'disabled' : ''}>${M.icon('mdi:minus', 20)}</button>
-        <span class="sv num ${p != null ? 'pend' : ''}">${v == null ? '–' : M.nf(v, d) + (u ? (u === '°C' ? '°' : ' ' + u) : '')}</span>
-        <button class="pm press" data-act="step" data-id="${esc(id)}" data-d="1" aria-label="${esc(label)} opp" ${v != null && mx != null && v >= mx ? 'disabled' : ''}>${M.icon('mdi:plus', 20)}</button></div>`;
-    }
-
-    /* ---------------------------------------------------------- faner */
-    _info() {
-      const f = this._N('freq'), inne = this._N('inne'), vv = this._N('vv'), run = this._running();
-      const pill = (t, col) => `<span class="pl" style="--pc:${col}">${esc(t)}</span>`;
-      const prosa = `<div class="card prosa">${run ? 'Varmepumpa går på ' : 'Varmepumpa hviler'}${run ? pill(f == null ? '– Hz' : M.nf(f, 0) + ' Hz', C.orange) : ''} og holder ${pill(inne == null ? '–' : deg(inne), C.green)} inne. Varmtvannet er ${pill(vv == null ? '–' : deg(vv), C.red)}${this._charging() ? ' og lades nå' : ''}.</div>`;
-      const t2 = this._N('bt2'), t3 = this._N('bt3'), mal = this._N('beregnet'), ek = this._N('elkolbe');
-      const rows = [
-        this._row('energy'),
-        this._row('cost_day'),
-        this._row('bt2', { sub: mal != null ? 'Mål ' + deg(mal) : '' }),
-        this._row('bt3', { sub: t2 != null && t3 != null ? 'ΔT ' + M.nf(t2 - t3, 1) + '°' : '' }),
-        this._row('bt50'),
-        this._row('elkolbe', { cls: ek != null && ek > 0 ? 'gul' : '', vcls: ek != null && ek > 0 ? 'gul' : '', sub: ek != null && ek > 0 ? 'Tilskudd er på' : '' }),
-      ].join('');
-      return `${prosa}<div class="card list">${rows}</div>
-        <div class="card"><div class="ct">Tur og retur · 7 døgn</div>${this._graph('tr', [{ k: 'bt2', col: C.red, label: 'Tur' }, { k: 'bt3', col: C.blue, label: 'Retur' }], 168, this._h7)}</div>
-        ${this._acc('cost', 'Kostnad', 'mdi:cash', ['cost_hour', 'cost_day', 'cost_month', 'cost_year'])}
-        ${this._acc('sys', 'Systemdrift', 'mdi:cog-outline', ['gm', 'drift', 'starter', 'avriming', 'tidsfaktor', 'komp_status'])}
-        ${this._acc('strom', 'Strøm', 'mdi:flash', ['be1', 'be2', 'be3', 'power', 'add_power'])}`;
-    }
-    _varme() {
-      const mal = this._N('beregnet');
-      return `<div class="card blks">${this._seg('driftsstilling', 'Driftsstilling')}${this._seg('smart', 'Smart Home-modus')}</div>
-        <div class="card list">${this._stepper('kurve', 'Varmekurve')}${this._stepper('forskyvning', 'Forskyvning')}${this._stepper('onsket', 'Ønsket temperatur')}${this._stepper('start_gm', 'Start kompressor', 'Gradminutter')}${this._stepper('stopp', 'Stopp av varme', 'Ved utetemperatur over')}
-          ${this._row('beregnet', { val: mal != null ? deg(mal) : undefined })}</div>`;
-    }
-    _vv() {
-      const fill = this._vvFill(), sw = this._e('boost'), sel = this._e('boost_sel');
-      const bs = sw ? this.s(sw) : sel ? this.s(sel) : null;
-      const bOn = sw ? on(bs) : bs ? okS(bs) && !/^(off|av)$/i.test(bs.state) : false;
-      const leg = this._S('legionella'), upd = this._S('fastvare');
-      const V = [];
-      if (this._alarmOn()) V.push(['red', 'mdi:bell-alert', 'Varsel fra varmepumpa', this._e('alarm')]);
-      if (upd && upd.state === 'on') V.push(['orange', 'mdi:update', `Ny fastvare ${upd.attributes.latest_version || ''}`.trim(), upd.entity_id]);
-      if (this._wifiOff()) V.push(['red', 'mdi:wifi-off', 'Varmepumpa er frakoblet', this._e('wifi')]);
-      if (okS(leg) && Date.parse(leg.state) && Date.parse(leg.state) - Date.now() < 86400000 * 2) V.push(['blue', 'mdi:bacteria-outline', 'Legionellaøkning ' + tidTil(leg.state), leg.entity_id]);
-      return `<div class="card"><div class="ct">Varmtvann · 24 t</div>${this._graph('vv', [{ k: 'vv', col: C.red, label: 'BT7' }, { k: 'bt6', col: C.orange, label: 'BT6' }], 24, this._h24)}</div>
-        <div class="card fyll"><div class="fh"><span>Fyllingsgrad${fill && fill.calc ? ' (beregnet fra BT7)' : ''}</span><b class="num">${fill ? M.nf(fill.f * 100, 0) + ' %' : '–'}</b></div><span class="bar big"><i style="width:${fill ? (fill.f * 100).toFixed(0) : 0}%"></i></span></div>
-        <div class="card blks">${this._seg('behov', 'Behov')}
-          <button class="boost press ${bOn ? 'on' : ''}" data-act="boostvv" ${bs ? `data-ent="${esc(bs.entity_id)}"` : ''} aria-pressed="${bOn}">${M.icon('mdi:rocket-launch', 20)}<span>${bs ? (bOn ? 'Boost er på' + (sel && !sw ? ' · ' + optNb(bs.state) : '') : 'Boost varmtvann') : 'Boost – velg entitet'}</span></button></div>
-        <div class="card list">${this._row('vv')}${this._row('bt6')}${this._row('vv_temp')}${this._row('ladeverdi')}${this._row('mengde')}${this._row('andel')}${this._row('vv_tid')}${this._row('vv_modus')}${this._row('legionella')}</div>
-        ${V.length ? `<div class="varsel">${V.map(([col, ic, t, id]) => `<button class="vl ${col}" ${id ? `data-act="more" data-id="${esc(id)}"` : ''}>${M.icon(ic, 18)}<span class="ell">${esc(t)}</span></button>`).join('')}</div>` : ''}`;
-    }
-    _luft() {
-      const fan = this._fanDur(), v = this._N('vifte');
-      const sw = (k, label) => {
-        const id = this._e(k), s = id ? this.s(id) : null;
-        if (!s) return this._row(k, { label });
-        const o = on(s);
-        return `<div class="rw"><span class="ri ${k === 'vent' && o ? 'spin-i' : ''}">${M.icon(RK[k][6], 20)}</span><button class="grow col tl" data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"><span class="ell">${esc(label)}</span></button><button class="sw ${o ? 'on' : ''}" role="switch" aria-checked="${o}" aria-label="${esc(label)}" data-act="toggle" data-id="${esc(id)}"><i></i></button></div>`;
-      };
-      return `<div class="card"><div class="ct">Avtrekk og avkast · 24 t</div>${this._graph('luft', [{ k: 'bt20', col: C.orange, label: 'BT20' }, { k: 'bt21', col: C.blue, label: 'BT21' }], 24, this._h24)}</div>
-        <div class="card list">${this._row('vifte', { cls: fan ? 'spin-i' : '', style: `--vp-dur:${fan || 2}s`, sub: v != null ? (v >= 70 ? 'Høy' : v >= 35 ? 'Normal' : v > 0 ? 'Lav' : 'Stopp') : '' })}${this._row('bs1')}${this._row('viftemodus')}
-          ${sw('vent', 'Økt ventilasjon')}${sw('natt', 'Nattkjøling')}</div>`;
-    }
-
-    afterRender() {
-      const Rt = this.shadowRoot;
-      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs), sideveis dra = Liquid Glass-valg
-      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tabs' });
-      // −/+ og graf-scrub: ikke la Bubble Card lukke/scrolle popupen (fallgruve 2)
-      Rt.querySelectorAll('.pm').forEach((b) => {
-        if (b.__vp) return; b.__vp = true;
-        const stop = (e) => e.stopPropagation();
-        b.addEventListener('pointerdown', stop); b.addEventListener('touchstart', stop, { passive: true }); b.addEventListener('touchmove', stop, { passive: true });
-      });
-      Rt.querySelectorAll('.gr[data-g] .gs').forEach((svg) => {
-        if (svg.__vp) return; svg.__vp = true;
-        const gr = svg.closest('.gr');
-        M.guardDrag(svg, 'none');
-        const at = (e) => { const r = svg.getBoundingClientRect(), n = Number(gr.dataset.n) || 48; const f = M.clamp((e.clientX - r.left) / (r.width || 1), 0, 1); return Math.round(f * (n - 1)); };
-        let act = false;
-        svg.addEventListener('pointerdown', (e) => { e.stopPropagation(); act = true; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* */ } this._scrub = { g: gr.dataset.g, i: at(e) }; M.haptic('selection'); this.update(); });
-        svg.addEventListener('pointermove', (e) => { if (!act) return; e.stopPropagation(); const i = at(e); if (!this._scrub || this._scrub.i !== i) { this._scrub = { g: gr.dataset.g, i }; this.update(); } });
-        const end = () => { if (!act) return; act = false; setTimeout(() => { if (!act) { this._scrub = null; this.update(); } }, 1600); };
-        svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
-      });
-      if (this.isOpen && !this._h24 && !this._loading) { this._loading = true; Promise.resolve(this._load()).finally(() => { this._loading = false; }); }
-    }
-    get styles() {
-      const a = (x, p) => M.alpha(x, p);
-      return `
-        :host{display:block;width:100%}
-        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px);container-type:inline-size}
-        .top{position:relative;height:176px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};overflow:hidden}
-        .top .tl{position:absolute;left:18px;top:18px;right:190px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
-        .tn{font-size:13px;color:var(--gray800,#afafaf);max-width:100%}
-        .chip{height:26px;max-width:100%;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:rgba(255,255,255,.08);color:var(--gray800,#afafaf)}
-        .chip.on{background:${a(C.orange, 0.18)};color:${C.orange}}
-        .tv{position:absolute;left:18px;top:92px;display:flex;align-items:baseline;gap:4px;cursor:pointer}
-        .tv .big{font-size:44px;font-weight:300;line-height:1;letter-spacing:-.02em}
-        .tv .u{font-size:20px;color:var(--gray700,#979797)}
-        .ts{position:absolute;left:18px;bottom:16px;font-size:12px;color:var(--gray600,#7f7f7f)}
-        .pumpe{position:absolute;right:10px;top:13px;width:170px;height:150px}
-        .svt{font-size:10px;fill:#afafaf;font-family:inherit}
-        .hzt{font-size:10px;font-weight:600;fill:#fafafa;font-family:inherit}.hzt.on{fill:#2a1a0a}
-        .ror{fill:none;stroke-width:5;stroke-linecap:round}.ror.varm{stroke:${C.red}}.ror.kald{stroke:${C.blue}}
-        .ror.flow{stroke-dasharray:6 7;animation:vp-flow 1s linear infinite}
-        .top.run .skap{filter:drop-shadow(0 0 10px ${a(C.orange, 0.35)})}
-        .vifte.spin{animation:vp-spin var(--vp-dur,1.6s) linear infinite}
-        .dupp{animation:vp-dupp 2.4s ease-in-out infinite}
-        .bolge{animation:vp-bolge 2s ease-in-out infinite}
-        .puls .big{animation:vp-puls 2.6s ease-in-out infinite}
-        .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--msh-gap,8px)}
-        .kp{min-width:0;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};padding:14px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
-        .kp.glod{animation:vp-glod 3s ease-in-out infinite}
-        .kh{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--gray800,#afafaf);min-width:0;max-width:100%}
-        .ki{display:inline-flex}.ki.pust{color:${C.orange};animation:vp-pust 2.4s ease-in-out infinite}.ki.dupp{color:${C.red}}
-        .kv{font-size:24px;font-weight:400;line-height:1.1}.kv small{font-size:13px;color:var(--gray700,#979797);margin-left:2px}
-        .ks{font-size:11px;color:var(--gray600,#7f7f7f);max-width:100%}
-        .bar{display:block;width:100%;height:4px;border-radius:2px;background:var(--gray400,#545454);overflow:hidden;margin:2px 0}
-        .bar i{display:block;height:100%;border-radius:2px;background:${C.orange};transition:width .4s}
-        .bar.big{height:10px;border-radius:5px}.bar.big i{background:linear-gradient(90deg,${C.orange},${C.red})}
-        .qbs{display:flex;gap:6px}
-        .qb{flex:1 1 0;min-width:0;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px}
-        .qbs.ic .qb{padding:8px 4px}
-        .qi{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--gray300,#404040);transition:background .2s,color .2s}
-        .ql{font-size:12px;max-width:100%}.qs{font-size:10px;color:var(--gray600,#7f7f7f);max-width:100%}
-        .qb.miss{opacity:.55}
-        .qb.on.orange .qi{background:${C.orange};color:#2a1a0a}.qb.on.blue .qi{background:${C.blue};color:#0f2233}
-        .qb.on.green .qi{background:${C.green};color:#12291d}.qb.on.red .qi{background:${C.red};color:#2c1411}
-        .qb.spin-i .qi ha-icon,.ri.spin-i ha-icon{animation:vp-spin var(--vp-dur,1.2s) linear infinite}
-        .qb.vib .qi ha-icon{animation:vp-vib .18s linear infinite}
-        .qb.rist .qi ha-icon{animation:vp-rist 1.1s ease-in-out infinite;transform-origin:50% 10%}
-        .qb.blink .qi{animation:vp-blink 1.2s ease-in-out infinite}
-        .trow{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden}
-        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 6px;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden}
-        .tb span{overflow:hidden;text-overflow:ellipsis}
-        .tabs .tb.on,.tabs .itab.on{background:${C.accent};color:#2a1720;font-weight:500}
-        .tabs .itab{color:var(--gray800,#afafaf)}
-        ${M.iconTabs.css('.tabs.itabs')}
-        .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
-        .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .card{padding:14px 14px}
-        .card.list{padding:6px 6px}
-        .ct{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray600,#7f7f7f);margin:0 2px 10px}
-        .prosa{font-size:17px;line-height:1.6;color:var(--gray900,#c7c7c7)}
-        .pl{display:inline-flex;align-items:center;height:26px;padding:0 10px;margin:0 2px;border-radius:13px;font-size:14px;font-weight:500;background:${a('var(--pc)', 0.18)};color:var(--pc);vertical-align:1px}
-        .rw{width:100%;min-height:52px;display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:18px;text-align:left}
-        .rw+.rw{border-top:1px solid rgba(255,255,255,.06);border-radius:0}
-        .rw .col small{font-size:11px;color:var(--gray600,#7f7f7f)}
-        .ri{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
-        .ri.gul{background:${a(C.yellow, 0.2)};color:${C.yellow}}
-        .rv{font-size:15px;flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rv.gul{color:${C.yellow}}
-        .rw.miss .rv{color:var(--gray600,#7f7f7f)}
-        .vs{height:30px;padding:0 12px;border-radius:15px;background:var(--gray300,#404040);font-size:12px;flex:none}
-        .tl{text-align:left}
-        .pm{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);touch-action:manipulation}
-        .pm[disabled]{opacity:.35;cursor:default}
-        .sv{min-width:58px;text-align:center;font-size:16px;font-weight:500}.sv.pend{color:${C.pink}}
-        .blks{display:flex;flex-direction:column;gap:12px}
-        .bt{font-size:12px;color:var(--gray700,#979797);margin:0 4px 6px}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--gray300,#404040)}
-        .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:13px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
-        .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
-        .boost{height:48px;border-radius:24px;background:var(--gray300,#404040);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}
-        .boost.on{background:${C.orange};color:#2a1a0a}
-        .fyll .fh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--gray800,#afafaf);margin-bottom:10px}.fyll b{font-size:18px;color:#fafafa;font-weight:500}
-        .gr{position:relative;display:flex;flex-direction:column;gap:6px}
-        .gr.none{flex-direction:row;align-items:center;gap:10px;color:var(--gray700,#979797);font-size:13px}.gr.none span{flex:1}
-        .gs{width:100%;height:96px;display:block;touch-action:none;cursor:crosshair}
-        .gl{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--gray800,#afafaf);align-items:center}
-        .gl i{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:5px}.gl b{color:#fafafa;font-weight:500}
-        .gt{margin-left:auto;color:var(--gray600,#7f7f7f)}
-        .gx{display:flex;justify-content:space-between;font-size:11px;color:var(--gray600,#7f7f7f)}
-        .gw{position:absolute;right:0;bottom:18px;font-size:11px;color:var(--gray600,#7f7f7f)}
-        .sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-        .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-        .sw.on{background:${C.pink}}.sw.on i{transform:translateX(18px)}
-        .acc{border-radius:24px;background:#3d3d3d;box-shadow:${C.edge};overflow:hidden}
-        .ah{width:100%;height:56px;display:flex;align-items:center;gap:12px;padding:0 14px 0 10px;text-align:left;font-size:15px;font-weight:500}
-        .ai{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf);flex:none}
-        .an{font-size:12px;color:var(--gray600,#7f7f7f);font-weight:400}
-        .ab{padding:0 6px 6px}
-        .ab .rw:first-child{border-top:1px solid rgba(255,255,255,.06);border-radius:0}
-        .varsel{display:flex;flex-direction:column;gap:6px}
-        .vl{height:44px;border-radius:22px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:13px;text-align:left}
-        .vl.red{background:${a(C.red, 0.16)};color:${C.red}}.vl.orange{background:${a(C.orange, 0.16)};color:${C.orange}}.vl.blue{background:${a(C.blue, 0.16)};color:${C.blue}}
-        .empty.nf b{color:#fafafa;font-size:15px;font-weight:500}
-        @keyframes vp-spin{to{transform:rotate(360deg)}}
-        @keyframes vp-flow{to{stroke-dashoffset:-26}}
-        @keyframes vp-dupp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-        @keyframes vp-bolge{0%,100%{transform:translateX(0)}50%{transform:translateX(-6px)}}
-        @keyframes vp-puls{0%,100%{opacity:1}50%{opacity:.6}}
-        @keyframes vp-pust{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.75}}
-        @keyframes vp-glod{0%,100%{box-shadow:${C.edge},0 0 0 0 ${a(C.orange, 0)}}50%{box-shadow:${C.edge},0 0 16px 1px ${a(C.orange, 0.28)}}}
-        @keyframes vp-vib{0%,100%{transform:translateX(0)}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
-        @keyframes vp-rist{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-14deg)}20%{transform:rotate(12deg)}30%{transform:rotate(-9deg)}40%{transform:rotate(6deg)}}
-        @keyframes vp-blink{50%{opacity:.35}}
-        .ki.dupp{animation:vp-dupp 2.4s ease-in-out infinite}
-        .noanim *,.noanim *::before{animation:none!important}
-        @media (prefers-reduced-motion: reduce){.wrap *{animation:none!important}}
-        @container (max-width:460px){.tabs:not(.itabs) .tb ha-icon{display:none!important}.tb{padding:0 2px}}
-        @container (max-width:400px){.tb{font-size:12px}}
-        @container (max-width:360px){.kh .ki{display:none!important}}
-        @media (max-width:380px){.top .tl{right:150px}.pumpe{width:140px;height:124px;top:26px}.tv .big{font-size:38px}.ql{font-size:11px}.qi{width:40px;height:40px}}
-      `;
-    }
-  }
-
   M.POPUP_CARDS = M.POPUP_CARDS || [];
-  if (!M.POPUP_CARDS.includes('msh-varmepumpe-card')) M.POPUP_CARDS.push('msh-varmepumpe-card'); // «Mellomrom» ligger i Visning-fanen
-  // Den gamle importerte #varmepumpe (gap-card, button-cards, grids, simple-tabs, mini-graph-card, ki-varmepumpe-card) erstattes
-  // av ETT msh-varmepumpe-card – til brukeren velger «Bruk egen» (04-strategy). Ingen entiteter skrives inn i config.
+  if (!M.POPUP_CARDS.includes('msh-varmepumpe-card')) M.POPUP_CARDS.push('msh-varmepumpe-card'); // «Mellomrom» ligger i Visning-fanen (GUI)
+  M.varmepumpe = { oppdag, ROLES, nibeDevices, openSheet };
+  M.define('msh-varmepumpe-card', Varmepumpe, 'MSH Varmepumpe', 'Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk (v3).');
+
+  /* ============================================================ én varmepumpe-popup (fiks 31.2 · samme metode som 30.1) */
+  // Nøyaktig ÉN varmepumpe-popup: strategien lager #varmepumpe med ÉTT msh-varmepumpe-card (card_id varmepumpe, ingen
+  // entiteter i config). #nibe (og #heatpump/#heat_pump/#varmepumpa) er alias: hashchange/location-changed dit →
+  // history.replaceState til #varmepumpe. En importert/egen popup med de gamle kortene (gap-card, button-card, grid,
+  // simple-tabs, expander-card, mini-graph-card, ki-varmepumpe-card) – på en av hashene – erstattes av den genererte
+  // (MSH.POPUP_ALIAS flytter alias-hashen, MSH.POPUP_SUPERSEDE lar den genererte vinne til «Bruk egen», MSH.POPUP_MIGRATE
+  // gjør en overstyrt popup om til ÉTT kort) og fjernes fra ki-store én gang (M.varmepumpeMigrateStore, logget).
+  const OLD_HASH = ['#nibe', '#heatpump', '#heat_pump', '#varmepumpa'], ALL_HASH = [HASH, ...OLD_HASH];
+  M.HASH_ALIAS = M.HASH_ALIAS || {};
+  OLD_HASH.forEach((h) => { M.HASH_ALIAS[h] = HASH; });
+  M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
+  M.POPUP_CARD_ID[HASH] = 'varmepumpe';
+  M.VARMEPUMPE_HASH = HASH;
+  const tagOfC = (c) => String((c && c.type) || '').replace(/^custom:/, '');
+  const cardsDeep = (cards) => { const out = []; const w = (L, d) => (Array.isArray(L) ? L : []).forEach((c) => { if (!c || typeof c !== 'object' || d > 12) return; out.push(c); if (Array.isArray(c.cards)) w(c.cards, d + 1); if (c.card) w([c.card], d + 1); if (Array.isArray(c.tabs)) w(c.tabs.map((t) => t && (t.card || t)), d + 1); }); w(cards, 0); return out; };
+  const LEG_TAGS = ['ki-varmepumpe-card', 'ki-nibe-card', 'nibe-card'];
+  const VP_RX = /varmepumpe|varmepumpa|heat.?pump|\bnibe|_nibe|nibe_|_4001[34]\b|_40004\b|_41778\b|_43136\b|_47137\b|_5000[45]\b/i;
+  const jsonOf = (o) => { try { return JSON.stringify(o || {}); } catch (e) { return ''; } };
+  const vpish = (cfg) => !!cfg && typeof cfg === 'object' && (VP_RX.test(`${cfg.name || ''} ${cfg.icon || ''}`) || VP_RX.test(jsonOf(cfg.cards)));
+  const oneMain = (cfg) => Array.isArray(cfg && cfg.cards) && cfg.cards.length === 1 && tagOfC(cfg.cards[0]) === 'msh-varmepumpe-card';
+  // Gammel popup = kortene er ikke nøyaktig ÉTT msh-varmepumpe-card, og de handler om varmepumpa (gamle kort eller NIBE-innhold)
+  M.varmepumpeLegacyTest = (cfg) => {
+    if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards) || oneMain(cfg)) return false;
+    const deep = cardsDeep(cfg.cards);
+    return deep.some((c) => LEG_TAGS.includes(tagOfC(c))) || deep.filter((c) => tagOfC(c) === 'msh-varmepumpe-card').length > 0 || VP_RX.test(jsonOf(cfg.cards));
+  };
+  const hashN = (cfg) => { const s = String((cfg && cfg.hash) || '').trim(); return s ? s.replace(/^#?/, '#') : ''; };
+  const isLegacyPop = (cfg) => { const h = hashN(cfg); return OLD_HASH.includes(h) ? vpish(cfg) : h === HASH && M.varmepumpeLegacyTest(cfg); };
+  M.varmepumpeIsOldPopup = isLegacyPop;
+  M.varmepumpeMigratePopup = function (cfg, want) {
+    if (!M.varmepumpeLegacyTest(cfg)) return null;
+    const own = cardsDeep(cfg.cards).find((c) => tagOfC(c) === 'msh-varmepumpe-card');
+    const w = want && typeof want === 'object' ? want : { type: 'custom:msh-varmepumpe-card', card_id: 'varmepumpe' };
+    return { ...cfg, cards: [{ ...w, ...(own || {}), type: 'custom:msh-varmepumpe-card', card_id: (own && own.card_id) || w.card_id || 'varmepumpe' }] };
+  };
   M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
-  M.POPUP_SUPERSEDE[HASH] = { name: 'Varmepumpe', test: (cfg) => { const j = JSON.stringify(cfg || {}); return /custom:ki-varmepumpe-card/.test(j) || /nibe|_4001[34]\b|_40004\b/i.test(j); } };
+  M.POPUP_SUPERSEDE[HASH] = { name: 'Varmepumpe', test: (cfg) => M.varmepumpeLegacyTest(cfg) };
+  M.POPUP_MIGRATE = M.POPUP_MIGRATE || {};
+  M.POPUP_MIGRATE[HASH] = (cfg, gen) => M.varmepumpeMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null);
+  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
+  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: HASH, tag: 'msh-varmepumpe-card', test: (cfg) => vpish(cfg) }; });
   M.POPUP_EXTRA = M.POPUP_EXTRA || {};
-  M.POPUP_EXTRA[HASH] = () => ({ card_id: 'varmepumpe' });
+  M.POPUP_EXTRA[HASH] = () => ({ card_id: 'varmepumpe' }); // ingen entiteter i config (26.20)
+  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
+  if (!M.POPUP_LEGACY_CARD[HASH]) M.POPUP_LEGACY_CARD[HASH] = () => null;
   // Vilkår (strategi/allPopups): en NIBE-enhet (produsent NIBE, eller nibe_heatpump/myuplink-entiteter)
   M.popupNeeds = M.popupNeeds || {};
   M.popupNeeds[HASH] = (hass) => M.varmepumpeHas(hass);
-  M.varmepumpe = { oppdag, ROLES, nibeDevices };
-  M.define('msh-varmepumpe-card', Varmepumpe, 'MSH Varmepumpe', 'Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink – animert pumpe, KPI, hurtigknapper, Info · Varme · Varmtvann · Luft og diagnostikk.');
+
+  /* Engangsmigrering av ki-store (frontend/set_user_data). Kjøres av strategien ved generering; merket i ki-store
+   * `migrations.varmepumpe31` (kjører aldri igjen) og logget i konsollen:
+   *   1. custom_popups: gamle varmepumpe-popups (#nibe …, eller #varmepumpe med gamle kort) fjernes.
+   *   2. popup_overrides: #nibe/nibe → varmepumpe; gamle kort i en overstyrt popup → ÉTT msh-varmepumpe-card.
+   *   3. popups (Tilpass Hjem → Popups): nibe → varmepumpe.
+   *   4. Lenker i alle kortconfiger (navbar, Hjem-kort, prosa-piller, varsler): '#nibe' → '#varmepumpe'.
+   *   5. Admin: Lovelace-ressursen ki-varmepumpe-card.js fjernes (lovelace/resources/delete).
+   * Service worker-/nettleser-cachen for den gamle filen tømmes ved hver oppstart (M.varmepumpeClearCache). */
+  const MIG_KEY = 'migrations.varmepumpe31';
+  const OLD_FILE_RX = /(^|\/)ki-varmepumpe-card\.js(\?|$)/;
+  const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
+  const swapHash = (o, d = 0) => {
+    if (d > 14 || o == null) return { v: o, n: 0 };
+    if (typeof o === 'string') { const t = o.trim(); return OLD_HASH.includes(t) ? { v: HASH, n: 1 } : { v: o, n: 0 }; }
+    if (Array.isArray(o)) { let n = 0; const v = o.map((x) => { const r = swapHash(x, d + 1); n += r.n; return r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
+    if (typeof o === 'object') { let n = 0; const v = {}; Object.keys(o).forEach((k) => { const r = swapHash(o[k], d + 1); n += r.n; v[k] = r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
+    return { v: o, n: 0 };
+  };
+  M.varmepumpeMigrateStore = function (hass) {
+    if (M._vpStoreMig || !M.store || !M.store.loaded || typeof M.store.get !== 'function') return false;
+    M._vpStoreMig = true;
+    if (M.store.get(MIG_KEY)) return false;
+    const log = [];
+    // 1 · custom_popups
+    const CP = M.store.get('custom_popups');
+    if (Array.isArray(CP)) {
+      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!isLegacyPop(cfg)) return true; log.push('custom_popups ' + hashN(cfg) + ' fjernet'); return false; });
+      if (keep.length !== CP.length) M.store.set('custom_popups', keep);
+    }
+    // 2 · popup_overrides
+    const O = M.store.get('popup_overrides');
+    if (O && typeof O === 'object') {
+      const n = { ...O };
+      let ch = false;
+      Object.keys(O).forEach((k) => {
+        const h = '#' + String(k).replace(/^#/, ''), ov = O[k];
+        if (!ALL_HASH.includes(h)) return;
+        let v = ov;
+        if (ov && typeof ov === 'object') {
+          const fx = ov.replace && ov.config ? M.varmepumpeMigratePopup(ov.config) : M.varmepumpeMigratePopup(ov);
+          if (fx) { v = ov.replace && ov.config ? { ...ov, config: { ...fx, hash: HASH } } : fx; ch = true; log.push('popup_overrides ' + k + ': gamle kort → ÉTT msh-varmepumpe-card'); }
+          else if (ov.replace && ov.config && OLD_HASH.includes(hashN(ov.config))) { v = { ...ov, config: { ...ov.config, hash: HASH } }; ch = true; }
+        }
+        if (h !== HASH) {
+          const nk = String(k)[0] === '#' ? HASH : HASH.slice(1);
+          delete n[k];
+          if (!(nk in n) && !(HASH in n) && !(HASH.slice(1) in n)) { n[nk] = v; log.push('popup_overrides ' + k + ' → ' + nk); } else log.push('popup_overrides ' + k + ' fjernet (' + nk + ' finnes)');
+          ch = true;
+        } else n[k] = v;
+      });
+      if (ch) M.store.set('popup_overrides', n);
+    }
+    // 3 · popups.<key>
+    const P = M.store.get('popups');
+    if (P && typeof P === 'object') {
+      const n = { ...P };
+      let ch = false;
+      OLD_HASH.forEach((h) => [h, h.slice(1)].forEach((k) => {
+        if (!(k in n)) return;
+        const tk = HASH.slice(1), v = { ...(n[k] || {}) };
+        if (v.prefer === 'custom') delete v.prefer;
+        if (!n[tk] && Object.keys(v).length) n[tk] = v;
+        delete n[k]; ch = true; log.push('popups.' + k + ' → popups.' + tk);
+      }));
+      if (ch) M.store.set('popups', n);
+    }
+    // 4 · lenker i kortconfigene
+    const CD = M.store.get('cards');
+    if (CD && typeof CD === 'object') { const r = swapHash(CD); if (r.n) { M.store.set('cards', r.v); log.push(r.n + ' lenke(r) #nibe → #varmepumpe i kortconfigene'); } }
+    M.store.set(MIG_KEY, { at: new Date().toISOString(), log }, { immediate: true });
+    console.info('[ki-msh] Varmepumpe-migrering (fiks 31.2) kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
+    // 5 · gammel Lovelace-ressurs (bare admin)
+    if (hass && hass.user && hass.user.is_admin && hass.callWS) {
+      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Varmepumpe: Lovelace-ressursen', r.url, 'er fjernet (gammelt kort)')))))
+        .catch((e) => console.warn('[ki-msh] Varmepumpe: kunne ikke rydde Lovelace-ressursene (YAML-modus?)', e && (e.message || e.code)));
+    }
+    return true;
+  };
+  // Service worker-/Cache Storage: fjern den gamle filen (ki-varmepumpe-card.js) fra alle cacher
+  M.varmepumpeClearCache = function () {
+    try {
+      if (!window.caches || !caches.keys) return Promise.resolve(0);
+      return caches.keys().then((ks) => Promise.all(ks.map((k) => caches.open(k).then((c) => c.keys().then((reqs) => Promise.all(reqs.filter((r) => OLD_FILE_RX.test(new URL(r.url).pathname)).map((r) => c.delete(r))))))))
+        .then((a) => { const n = a.flat().filter(Boolean).length; if (n) console.info('[ki-msh] Varmepumpe: ' + n + ' gamle filer fjernet fra service worker-cachen'); return n; })
+        .catch(() => 0);
+    } catch (e) { return Promise.resolve(0); }
+  };
+  // `type: custom:ki-varmepumpe-card` i gammel config → rendrer msh-varmepumpe-card (uten de gamle entitetene) + én advarsel
+  M.varmepumpeDefineAlias = function () {
+    const tag = 'ki-varmepumpe-card';
+    if (customElements.get(tag)) return;
+    let warned = false;
+    class Alias extends HTMLElement {
+      static getStubConfig() { return { card_id: 'varmepumpe' }; }
+      setConfig(c) {
+        this._cfg = { type: 'custom:msh-varmepumpe-card', card_id: (c && c.card_id) || 'varmepumpe' };
+        if (!warned) { warned = true; console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-varmepumpe-card. Bytt til «type: custom:msh-varmepumpe-card» i popupen ${HASH}.`); }
+        if (this._inner) this._inner.setConfig(this._cfg); else if (this.isConnected) this._mount();
+      }
+      set hass(h) { this._hass = h; if (this._inner) this._inner.hass = h; }
+      get hass() { return this._hass; }
+      connectedCallback() { this.style.display = 'block'; this._mount(); }
+      getCardSize() { return 12; }
+      getGridOptions() { return { columns: 'full' }; }
+      _mount() {
+        if (!this._cfg || this._inner || !this.isConnected) return;
+        const el = document.createElement('msh-varmepumpe-card');
+        try { el.setConfig(this._cfg); } catch (e) { return; }
+        if (this._hass) el.hass = this._hass;
+        this._inner = el; this.appendChild(el);
+      }
+    }
+    try { customElements.define(tag, Alias); } catch (e) { /* definert av en annen ressurs i mellomtiden */ }
+  };
+  if (!window.__mshVpHash) {
+    window.__mshVpHash = true;
+    setTimeout(() => M.varmepumpeDefineAlias(), 1500);
+    setTimeout(() => M.varmepumpeClearCache(), 3000);
+    // popupen finnes på hashen (strategiens rapport, ellers Bubble-kortene i DOM-en); own = en annen (ikke-varmepumpe) popup
+    const popupAt = (hash, own) => {
+      const Rp = M.popupReport;
+      if (Rp && Array.isArray(Rp.entries) && Rp.entries.length) return Rp.entries.some((x) => x.hash === hash && !x.hidden && (!own || !vpish(x.config || {})));
+      let found = false;
+      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && hashN(c) === hash && (!own || !vpish(c))) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+      w(document, 0);
+      return found;
+    };
+    M.varmepumpeRedirect = function () {
+      const h = location.hash;
+      if (!OLD_HASH.includes(h) || popupAt(h, true) || !popupAt(HASH)) return false;
+      try {
+        const old = location.href;
+        history.replaceState(history.state, '', location.pathname + location.search + HASH);
+        window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: old, newURL: location.href }));
+        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+        return true;
+      } catch (x) { return false; }
+    };
+    // capture: før Bubble Card leser hashen
+    ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => M.varmepumpeRedirect(), true));
+    setTimeout(() => M.varmepumpeRedirect(), 0);
+  }
 })();
 
 } catch (e) { console.error('[ki-msh] 61-varmepumpe.js', e); }
@@ -51007,4 +52048,4 @@ try {
 
 } catch (e) { console.error('[ki-msh] 99-ui-persist.js', e); }
 
-console.info('%c KI MSH %c 1.4.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
+console.info('%c KI MSH %c 1.5.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
