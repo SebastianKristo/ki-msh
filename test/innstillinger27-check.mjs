@@ -3,6 +3,8 @@
 //       av fanelinjen · show_summary (Avansert + Rader + GUI)
 //  27.6 trykk på hele God natt-kortet · optimistisk UI med «Synker …» og tilbakerulling (natt + privat) · kameraet på veggfeste
 //  27.7 «Legg til fane» fra KI Varslinger-kategorier (custom_tabs) · 4+ faner · God morgen + soloppgang · Toppkort-scene
+// Fiks 29 erstatter 27.5-kategoriene: radene kommer fra MSH.finnBrytere (ki-varsling-card), «Legg til fane» velger
+// integrasjoner/enheter og lagrer faner[] (se innstillinger29-check). Assertene under er oppdatert til det.
 // Klokka styres med MSH.innstNow (ingen avhengighet av tidspunktet testen kjøres).
 //   node test/innstillinger27-check.mjs   (SHOTS=<mappe> for skjermbilder)
 import { createRequire } from 'node:module';
@@ -62,11 +64,11 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   const p = await page();
   const K = await p.evaluate(() => {
     const M = window.MSH, h = window.__h, T = M.innstTabs({}), rows = T.flatMap((t) => M.innstRows(h, {}, t.key));
-    return { tabs: T.map((t) => `${t.key}:${t.name}:${t.icon}`), dom: [...new Set(rows.map((r) => r.id.split('.')[0]))], plat: [...new Set(rows.map((r) => r.plattform))], names: rows.map((r) => r.name), kat: M.innstKategorier(h, {}).map((k) => `${k.key}:${k.count}`) };
+    return { tabs: T.map((t) => `${t.key}:${t.name}:${t.icon}`), dom: [...new Set(rows.map((r) => r.id.split('.')[0]))], plat: [...new Set(rows.map((r) => r.plattform))], names: rows.map((r) => r.name), enh: M.innstEnheter(h, { plattform: ['ki_notifications'] }).map((k) => `${k.enhet}:${k.n}`) };
   });
-  ok('27.5 faner = varsel-kategorier: Sikkerhet (shield) · Hjem (home) · Strøm (lyn)', K.tabs.join() === 'sikkerhet:Sikkerhet:mdi:shield,hjem:Hjem:mdi:home,strom:Strøm:mdi:lightning-bolt', K.tabs);
-  ok('27.5 bare varsel-brytere: switch/input_boolean fra ki_notifications, ki_energi og input_boolean.varsel_* – ingen automasjoner, KI Utelys eller synk', K.dom.every((d) => ['switch', 'input_boolean'].includes(d)) && K.plat.every((x) => ['ki_notifications', 'ki_energi', 'demo'].includes(x)) && !K.names.some((n) => /Vekking|Ansikt|Autolås|Dørlys|Heimdall|Utelys/.test(n)), K);
-  ok('27.7 kategoriene autooppdages med antall regler (Hjem 5 – Støvsuger teller som én regel, Kamera 2, Klima 1)', K.kat.join() === 'hjem:5,kamera:2,klima:1,sikkerhet:3,strom:9', K.kat);
+  ok('27.5/29 standardfaner: Sikkerhet (shield) · Hjem (home) · Strøm (lyn)', K.tabs.join() === 'sikkerhet:Sikkerhet:mdi:shield,hjem:Hjem:mdi:home,strom:Strøm:mdi:lightning-bolt', K.tabs);
+  ok('29 bare switch/input_boolean fra registeret (ki_notifications + ki_energi) – ingen KI Utelys som standard', K.dom.every((d) => ['switch', 'input_boolean'].includes(d)) && K.plat.every((x) => ['ki_notifications', 'ki_energi'].includes(x)) && !K.names.some((n) => /Utelys/.test(n)), K);
+  ok('29 enhetene (regler) i KI Varslinger autooppdages med antall brytere (Støvsuger 2, én per regel ellers)', K.enh.length === 15 && K.enh[0] === 'Støvsuger:2' && K.enh.slice(1).every((x) => /:1$/.test(x)), K.enh);
   // ------------------------------------------------ 27.6 · kameraet på veggfeste
   const G = await p.evaluate(() => { const k = window.__c.shadowRoot.querySelector('.mk.priv'), kr = k.getBoundingClientRect(), r = (s) => k.querySelector(s).getBoundingClientRect(), ci = r('.ci'), m = r('.pmount'), t = k.querySelector('.ptilt'); return { mountTop: Math.round(m.top - kr.top), mountRight: Math.round(kr.right - m.right), ciBottom: Math.round(ci.bottom - kr.top), tiltTop: t.offsetTop, ease: getComputedStyle(t).transitionTimingFunction, dur: getComputedStyle(t).transitionDuration, origin: getComputedStyle(t).transformOrigin, w: k.querySelector('.pbody').offsetWidth }; });
   ok('27.6 kamera på veggfeste til høyre (top 74 px), under ikonknappen (ikke bak den), vipp med spring-easing .7 s', G.mountTop === 74 && G.mountRight === 0 && G.ciBottom <= 74 && G.tiltTop >= G.ciBottom && /cubic-bezier\(0\.34, 1\.3, 0\.64, 1\)/.test(G.ease) && G.dur === '0.7s' && G.w === 50, G);
@@ -231,22 +233,23 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
     const ed = window.__ed, sr = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms));
     sr.querySelector('[data-op="ntopen"]').click(); await w(250);
     const lbl = sr.querySelector('.ntl').textContent.trim();
-    const srcs = [...sr.querySelectorAll('[data-op="ntsrc"]')].map((x) => x.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim());
+    const srcs = [...sr.querySelectorAll('[data-op="nenh"]')].map((x) => x.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim());
     const dis0 = sr.querySelector('.ntgo').disabled;
-    sr.querySelector('[data-op="ntsrc"][data-v="kamera"]').click(); await w(200);
-    const name = sr.querySelector('input[data-inn="ntname"]').value, icon = (sr.querySelector('.nti button.on ha-icon') || {}).getAttribute && sr.querySelector('.nti button.on ha-icon').getAttribute('icon'), dis1 = sr.querySelector('.ntgo').disabled;
-    sr.querySelector('[data-op="nticon"][data-v="mdi:paw"]').click(); await w(150);
+    sr.querySelector('[data-op="nenh"][data-x="Kamera - bevegelse ved inngang"]').click(); await w(200);
+    sr.querySelector('[data-op="nenh"][data-x="Kamera - pakke levert"]').click(); await w(200);
+    const name = sr.querySelector('input[data-inn="ntname"]').value, icon = (sr.querySelector('.ntp .nti button.on ha-icon') || {}).getAttribute && sr.querySelector('.ntp .nti button.on ha-icon').getAttribute('icon'), dis1 = sr.querySelector('.ntgo').disabled;
+    sr.querySelector('[data-op="nticon"][data-ic="mdi:paw"]').click(); await w(150);
     const n2 = sr.querySelector('input[data-inn="ntname"]'); n2.value = 'Kamera ute'; n2.dispatchEvent(new Event('input', { bubbles: true, composed: true })); n2.dispatchEvent(new Event('change', { bubbles: true, composed: true })); await w(100);
     sr.querySelector('[data-op="ntadd"]').click(); await w(300);
     const c = ed._config;
-    return { lbl, srcs, dis0, name, icon, dis1, ct: c.custom_tabs, tabs: c.tabs.map((t) => t.key), rows: [...sr.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk + (r.querySelector('.idel') ? ':slett' : '')), open: !!sr.querySelector('.ntp') };
+    return { lbl, srcs, dis0, name, icon, dis1, ct: c.custom_tabs, nf: c.faner.find((t) => t.key === 'f_kamera_ute'), hjem: c.faner.find((t) => t.key === 'hjem'), tabs: c.faner.map((t) => t.key), rows: [...sr.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk + (r.querySelector('.idel') ? ':slett' : '')), open: !!sr.querySelector('.ntp') };
   });
-  ok('27.7 «Legg til fane»: kilder fra KI Varslinger med antall (Kamera 2 regler, Klima 1 regel), navn + ikon fylles fra kategorien', AD.lbl === 'Varsler fra KI Varslinger' && AD.srcs.join() === 'Kamera2 regler,Klima1 regel' && AD.dis0 && AD.name === 'Kamera' && AD.icon === 'mdi:video' && !AD.dis1, AD);
-  ok('27.7 lagt til → custom_tabs [{ key, name, icon, source }] + tabs[], egen fane med søppelkasse', AD.ct && AD.ct.length === 1 && AD.ct[0].key === 'v_kamera' && AD.ct[0].name === 'Kamera ute' && AD.ct[0].icon === 'mdi:paw' && AD.ct[0].source === 'kamera' && AD.tabs.join() === 'strom,sikkerhet,hjem,v_kamera' && AD.rows.join() === 'strom,sikkerhet,hjem,v_kamera:slett' && !AD.open, AD);
+  ok('29.3 «Legg til fane»: enhetene fra finnBrytere() med antall (erstatter kategoriene), navn + ikon fylles fra første valgte enhet', AD.lbl === 'Ny fane' && AD.srcs.includes('Kamera - bevegelse ved inngang1 bryter') && AD.srcs.includes('Støvsuger2 brytere') && AD.dis0 && AD.name === 'Kamera - bevegelse ved inngang' && !!AD.icon && !AD.dis1, AD);
+  ok('29.3 lagt til → faner[] { key, name, icon, plattform, enheter } (ki-varsling-card-nøkler), Hjem gir fra seg enhetene, egen fane med søppelkasse', !AD.ct && AD.nf && AD.nf.name === 'Kamera ute' && AD.nf.icon === 'mdi:paw' && AD.nf.plattform.join() === 'ki_notifications' && AD.nf.enheter.join() === 'Kamera - bevegelse ved inngang,Kamera - pakke levert' && AD.hjem.ikke_enheter.includes('Kamera - pakke levert') && AD.tabs.join() === 'strom,sikkerhet,hjem,f_kamera_ute' && AD.rows.join() === 'strom,sikkerhet,hjem,f_kamera_ute:slett' && !AD.open, AD);
   const CT = await p.evaluate(async () => {
     const sr = window.__c.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms));
     const tabs = [...sr.querySelectorAll('.bar .tb')].map((t) => t.getAttribute('aria-label'));
-    sr.querySelector('.tb[data-v="v_kamera"]').click(); await w(250);
+    sr.querySelector('.tb[data-v="f_kamera_ute"]').click(); await w(250);
     const r1 = [...sr.querySelectorAll('.lst .pr .pt b')].map((x) => x.textContent.trim());
     // ny regel i integrasjonen dukker opp av seg selv
     const h = window.__h, S = { ...h.states }, E = { ...h.entities }, D = { ...h.devices };
@@ -255,10 +258,10 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
     E['switch.kamera_ukjent_person_varsling'] = { entity_id: 'switch.kamera_ukjent_person_varsling', platform: 'ki_notifications', device_id: 'n_ukjent' };
     window.__h = { ...h, states: S, entities: E, devices: D }; window.__c.hass = window.__h; await w(250);
     const r2 = [...sr.querySelectorAll('.lst .pr .pt b')].map((x) => x.textContent.trim());
-    const sik = window.MSH.innstRows(window.__h, window.__c.config, 'sikkerhet').map((r) => r.name);
-    return { tabs, r1, r2, sik };
+    const hjem = window.MSH.innstRows(window.__h, window.__c.config, 'hjem').map((r) => r.name);
+    return { tabs, r1, r2, hjem };
   });
-  ok('27.7 fanen viser kategoriens varsel-brytere live (ikke lenger i Sikkerhet); ny regel i integrasjonen dukker opp automatisk', CT.tabs.join() === 'Strøm,Sikkerhet,Huset,Kamera ute' && CT.r1.join() === 'Bevegelse ved inngang,Pakke levert' && CT.r2.join() === 'Bevegelse ved inngang,Pakke levert,Ukjent person' && CT.sik.join() === 'Alarm,Dør låst/åpnet,Fastkjørt lås', CT);
+  ok('29 fanen viser enhetenes brytere (ikke lenger i Hjem); ny ukjent regel i integrasjonen dukker opp i Hjem uten reload', CT.tabs.join() === 'Strøm,Sikkerhet,Huset,Kamera ute' && CT.r1.join() === 'Bevegelse ved inngang,Pakke levert' && CT.r2.join() === CT.r1.join() && CT.hjem.includes('Ukjent person') && !CT.hjem.includes('Pakke levert'), CT);
   await shot(p, '4-egen-fane');
   // 4 faner ved 390 px: alt får plass (ellipsis ved behov), ingen side-scroll
   const F4 = await p.evaluate(() => { const t = window.__c.shadowRoot.querySelector('.bar .tabs'); return { many: t.classList.contains('many'), fit: t.scrollWidth <= t.clientWidth + 1, page: document.documentElement.scrollWidth <= window.innerWidth }; });
@@ -266,35 +269,38 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
   // 28.5: egen fane kan omorganiseres (dra) og skjules (bryter) som de andre – reglene går tilbake til Sikkerhet når den er skjult
   const OH = await p.evaluate(async () => {
     const ed = window.__ed, sr = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms)), bar = () => [...window.__c.shadowRoot.querySelectorAll('.bar .tb')].map((t) => t.dataset.v);
-    ed.__edDrop['inn-tab'](['v_kamera', 'strom', 'sikkerhet', 'hjem']); await w(300);
-    const o1 = { cfg: ed._config.tabs.map((t) => t.key), card: bar(), rows: [...sr.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk), pv: [...sr.querySelectorAll('.pvw .tb')].length };
-    sr.querySelector('[data-op="teye"][data-v="v_kamera"]').click(); await w(300);
-    const o2 = { hid: (ed._config.tabs.find((t) => t.key === 'v_kamera') || {}).hidden, card: bar(), pv: [...sr.querySelectorAll('.pvw .tb')].length, sik: window.MSH.innstRows(window.__h, window.__c.config, 'sikkerhet').length };
-    sr.querySelector('[data-op="teye"][data-v="v_kamera"]').click(); await w(300);
+    ed.__edDrop['inn-tab'](['f_kamera_ute', 'strom', 'sikkerhet', 'hjem']); await w(300);
+    const o1 = { cfg: ed._config.faner.map((t) => t.key), card: bar(), rows: [...sr.querySelectorAll('[data-elist="inn-tab"]')].map((r) => r.dataset.edk), pv: [...sr.querySelectorAll('.pvw .tb')].length };
+    sr.querySelector('[data-op="teye"][data-v="f_kamera_ute"]').click(); await w(300);
+    const o2 = { hid: (ed._config.faner.find((t) => t.key === 'f_kamera_ute') || {}).hidden, card: bar(), pv: [...sr.querySelectorAll('.pvw .tb')].length };
+    sr.querySelector('[data-op="teye"][data-v="f_kamera_ute"]').click(); await w(300);
     const o3 = { card: bar() };
-    ed.__edDrop['inn-tab'](['strom', 'sikkerhet', 'hjem', 'v_kamera']); await w(300);
+    ed.__edDrop['inn-tab'](['strom', 'sikkerhet', 'hjem', 'f_kamera_ute']); await w(300);
     return { o1, o2, o3 };
   });
-  ok('28.5 egen fane: dra → først i fanelinjen (config + kort + forhåndsvisning), bryter skjuler den (reglene tilbake i Sikkerhet), bryter viser den igjen', OH.o1.cfg[0] === 'v_kamera' && OH.o1.card[0] === 'v_kamera' && OH.o1.rows[0] === 'v_kamera' && OH.o1.pv === 4 && OH.o2.hid === true && !OH.o2.card.includes('v_kamera') && OH.o2.pv === 3 && OH.o2.sik === 6 && OH.o3.card[0] === 'v_kamera', OH);
+  ok('28.5 egen fane: dra → først i fanelinjen (config + kort + forhåndsvisning), bryter skjuler den, bryter viser den igjen', OH.o1.cfg[0] === 'f_kamera_ute' && OH.o1.card[0] === 'f_kamera_ute' && OH.o1.rows[0] === 'f_kamera_ute' && OH.o1.pv === 4 && OH.o2.hid === true && !OH.o2.card.includes('f_kamera_ute') && OH.o2.pv === 3 && OH.o3.card[0] === 'f_kamera_ute', OH);
   // 28.5: ny kategori i integrasjonen dukker opp i «Legg til fane» uten reload (med antall)
   const NK = await p.evaluate(async () => {
     const ed = window.__ed, sr = ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms));
     sr.querySelector('[data-op="ntopen"]').click(); await w(250);
-    const before = [...sr.querySelectorAll('[data-op="ntsrc"]')].map((x) => x.dataset.v);
-    const h = window.__h, S = { ...h.states }, E = { ...h.entities };
-    S['switch.ki_varsel_vaskemaskin_ferdig'] = { entity_id: 'switch.ki_varsel_vaskemaskin_ferdig', state: 'on', attributes: { friendly_name: 'Vaskemaskin ferdig - Varsling' } };
-    E['switch.ki_varsel_vaskemaskin_ferdig'] = { entity_id: 'switch.ki_varsel_vaskemaskin_ferdig', platform: 'ki_notifications' };
-    S['switch.ki_varsel_hage_vanning'] = { entity_id: 'switch.ki_varsel_hage_vanning', state: 'on', attributes: { friendly_name: 'Vanning - Varsling', kategori: 'Hage' } };
-    E['switch.ki_varsel_hage_vanning'] = { entity_id: 'switch.ki_varsel_hage_vanning', platform: 'ki_notifications' };
-    window.__h = { ...h, states: S, entities: E }; window.__c.hass = window.__h; ed.hass = window.__h; await w(400);
-    const after = [...sr.querySelectorAll('[data-op="ntsrc"]')].map((x) => x.dataset.v + ':' + x.querySelector('.nm i').textContent.trim());
+    const before = [...sr.querySelectorAll('[data-op="nenh"]')].map((x) => x.dataset.x);
+    const pb = [...sr.querySelectorAll('.ntp [data-op="fplat"]')].map((x) => x.dataset.p);
+    const h = window.__h, S = { ...h.states }, E = { ...h.entities }, D = { ...h.devices };
+    D.n_vask = { id: 'n_vask', name: 'Vaskemaskin', name_by_user: null, model: 'Regel', entry_type: 'service' };
+    S['switch.vaskemaskin_ferdig_varsling'] = { entity_id: 'switch.vaskemaskin_ferdig_varsling', state: 'on', attributes: { friendly_name: 'Vaskemaskin - Varsling' } };
+    E['switch.vaskemaskin_ferdig_varsling'] = { entity_id: 'switch.vaskemaskin_ferdig_varsling', platform: 'ki_notifications', device_id: 'n_vask' };
+    S['switch.hage_vanning_varsel'] = { entity_id: 'switch.hage_vanning_varsel', state: 'on', attributes: { friendly_name: 'Vanning - Varsel' } };
+    E['switch.hage_vanning_varsel'] = { entity_id: 'switch.hage_vanning_varsel', platform: 'ki_hage' };
+    window.__h = { ...h, states: S, entities: E, devices: D }; window.__c.hass = window.__h; await w(400);
+    const after = [...sr.querySelectorAll('[data-op="nenh"]')].map((x) => x.dataset.x + ':' + x.querySelector('.nm i').textContent.trim());
+    const pa = [...sr.querySelectorAll('.ntp [data-op="fplat"]')].map((x) => x.dataset.p);
     sr.querySelector('[data-op="ntopen"]').click(); await w(200);
-    return { before, after };
+    return { before, after, pb, pa };
   });
-  ok('28.5 «Legg til fane»: nye kategorier fra integrasjonen (attributtet kategori = «Hage», Hvitevarer) vises live med antall regler', !NK.before.includes('hage') && NK.after.includes('hage:1 regel') && NK.after.some((x) => /^hvitevarer:\d+ regl?e?r?/.test(x)), NK);
+  ok('28.5/29 «Legg til fane»: ny regel (Vaskemaskin) og ny integrasjon (ki_hage) vises live uten reload, med antall', !NK.before.includes('Vaskemaskin') && NK.after.includes('Vaskemaskin:1 bryter') && !NK.pb.includes('ki_hage') && NK.pa.includes('ki_hage'), NK);
   // slett egen fane
-  const DL = await p.evaluate(async () => { const sr = window.__ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms)); sr.querySelector('[data-op="tdel"][data-v="v_kamera"]').click(); await w(300); const c = window.__ed._config; return { ct: c.custom_tabs, tabs: c.tabs.map((t) => t.key), card: [...window.__c.shadowRoot.querySelectorAll('.bar .tb')].map((t) => t.getAttribute('aria-label')), sik: window.MSH.innstRows(window.__h, window.__c.config, 'sikkerhet').length }; });
-  ok('27.7 søppelkassen sletter egen fane (custom_tabs + tabs), reglene går tilbake til Sikkerhet', DL.ct === undefined && !DL.tabs.includes('v_kamera') && DL.card.join() === 'Strøm,Sikkerhet,Huset' && DL.sik === 6, DL);
+  const DL = await p.evaluate(async () => { const sr = window.__ed.shadowRoot, w = (ms) => new Promise((q) => setTimeout(q, ms)); sr.querySelector('[data-op="tdel"][data-v="f_kamera_ute"]').click(); await w(300); const c = window.__ed._config; return { tabs: c.faner.map((t) => t.key), hjemIkke: c.faner.find((t) => t.key === 'hjem').ikke_enheter, card: [...window.__c.shadowRoot.querySelectorAll('.bar .tb')].map((t) => t.getAttribute('aria-label')), hjem: window.MSH.innstRows(window.__h, window.__c.config, 'hjem').map((r) => r.name) }; });
+  ok('29 søppelkassen sletter egen fane (faner[]), enhetene går tilbake til Hjem', !DL.tabs.includes('f_kamera_ute') && DL.card.join() === 'Strøm,Sikkerhet,Huset' && DL.hjem.includes('Pakke levert') && DL.hjem.includes('Bevegelse ved inngang') && !(DL.hjemIkke || []).some((x) => /Kamera/.test(x)), DL);
   await p.close();
 }
 
@@ -316,9 +322,9 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
     gs.querySelector('[data-op="tdel"][data-v="v_hv"]').click(); await new Promise((q) => setTimeout(q, 250));
     gs.querySelector('[data-a="tab"][data-v="avansert"]').click(); await new Promise((q) => setTimeout(q, 250));
     const sum = gs.querySelector('[data-name="show_summary"]'), sumOn = sum && sum.classList.contains('on');
-    return { rows, pv, ct: changed && changed.custom_tabs, sumOn };
+    return { rows, pv, ct: changed && changed.custom_tabs, f: changed && changed.faner, sumOn };
   });
-  ok('GUI-editoren (getConfigElement): samme Faner med forhåndsvisning og egne faner (slett → custom_tabs i YAML), show_summary i Avansert', GU.rows.join() === 'sikkerhet,hjem,strom,v_kamera:slett,v_klima:slett,v_hv:slett' && GU.pv === 6 && GU.ct && GU.ct.map((x) => x.key).join() === 'v_kamera,v_klima' && GU.sumOn === false, GU);
+  ok('GUI-editoren (getConfigElement): samme Faner (custom_tabs migrert) med forhåndsvisning og egne faner (slett → faner[] i YAML, custom_tabs borte), show_summary i Avansert', GU.rows.join() === 'sikkerhet,hjem,strom,v_kamera:slett,v_klima:slett,v_hv:slett' && GU.pv === 6 && !GU.ct && GU.f && GU.f.map((x) => x.key).join() === 'sikkerhet,hjem,strom,v_kamera,v_klima' && GU.sumOn === false, GU);
   await p.close();
 }
 

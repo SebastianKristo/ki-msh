@@ -455,7 +455,19 @@
       this._hold(false);
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
-      if (st.lens) st.lens.finish();
+      if (st.lens) {
+        // Valgt fane kan endre mål når den blir aktiv (ikonfaner: ikon → ikon + navn) – vent til fanebyttet er tegnet
+        // (maks 3 frames), og la linsen gli til fanens endelige mål før den tones ut (ellers ender boblen på det gamle målet).
+        const L = st.lens, want = hit ? this.idOf(hit) : null;
+        let n = 0;
+        const go = () => {
+          if (L.dead || L.fin) return;
+          const a = this.activeBtn();
+          if (want != null && (!a || this.idOf(a) !== want) && n++ < 3) { requestAnimationFrame(go); return; }
+          if (L.glideTo) L.glideTo(a); else L.finish();
+        };
+        if (hit) { requestAnimationFrame(go); L.timers.push(setTimeout(() => L.finish(), 500)); } else L.finish(); // reserve: rAF kommer aldri
+      }
     }
   }
 

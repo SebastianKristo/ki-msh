@@ -47,7 +47,8 @@
   // Mangler en nøkkel: ikon → typens veksling (ellers som kortet), kort → typens popup (ellers more-info),
   // hold på kortet → more-info, hold på ikonet → ingen.
   const DEF_TAP = {
-    lock: { ic: { action: 'toggle' }, card: { action: 'toggle' }, hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } },
+    lock: { ic: { action: 'toggle' }, card: NAV('#dorlas'), hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } }, // 32.3: kortet åpner #dorlas
+    garage: { ic: { action: 'toggle' }, card: NAV('#garasje'), hold_card: { action: 'more-info' } }, // 32.3: kortet åpner #garasje
     alarm: { ic: { action: 'toggle' }, card: NAV('#sikkerhet') },
     cam: { card: CAM_NAV }, // fiks 19.3: trykk → kamera-dashbordet (ikonet følger kortet), hold → more-info
     jul: { ic: { action: 'none' }, card: { action: 'none' } },
@@ -657,6 +658,7 @@
               ] : [{ type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] }]),
               ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
               ...stFields(hass, c, k, kd, P),
+              ...(kd === 'lock' || kd === 'garage' ? [{ type: 'hash', name: P + '.popup_hash', label: 'Popup (popup_hash) · trykk på kortet', placeholder: kd === 'lock' ? '#dorlas' : '#garasje' }] : []), // 32.3
               ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, labels: TAP_LABELS, ...(kd === 'cam' && w === 'card' ? { auto: (h, cc) => camTapShown(cc, k) } : {}), stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
           }
           out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
@@ -666,7 +668,7 @@
           } });
           return { type: 'section', id: 'tile-' + k, label: L, icon: kindIcon(k, c), fields: out };
         };
-        const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk låser/låser opp, hold på ikonet åpner #dorlas, hold på kortet viser detaljer.' }];
+        const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk på ikonet låser/låser opp, trykk på kortet og hold på ikonet åpner #dorlas, hold på kortet viser detaljer. Garasjeport: ikonet åpner/lukker, kortet åpner #garasje.' }];
         const onHjem = HT0 ? avail.filter((k) => tileSlot(c, HT0, k) !== 'off' && !(get(c, 'tile_hidden.hjem') || []).includes(k)) : [];
         ZONES.forEach(([sl, lab]) => {
           const inZ = onHjem.filter((k) => tileSlot(c, HT0, k) === sl), zf = [];
@@ -1108,6 +1110,7 @@
       const c = this.config, kd = kindOf(c, id), cfg = tileCfg(c, id);
       let a = cfg[TAP_KEYS[w]];
       if (a == null || a === '') a = w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action;
+      if ((a == null || a === '') && w === 'card' && cfg.popup_hash) a = NAV('#' + String(cfg.popup_hash).trim().replace(/^#/, '')); // 32.3: tile_cfg.<id>.popup_hash
       a = M.tap ? M.tap.norm(a) : null;
       if (a) return a;
       const tp = get(c, 'tap.' + id) || {};
@@ -1128,6 +1131,7 @@
     // #dorlas finnes bare når det er lås(er) (og popupen ikke er skjult) – ellers faller ikon-holdet tilbake til more-info
     _hasPopup(hash) {
       if (hash === '#dorlas' && !M.all(this.hass, 'lock').length) return false;
+      if (hash === '#garasje' && !M.all(this.hass, 'cover', (st) => st.attributes.device_class === 'garage').length) return false;
       const R = M.popupReport;
       if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((e) => e.hash === hash && !e.hidden);
       return true;
@@ -1139,6 +1143,7 @@
       if (a.action === 'more-info') { const e = a.entity || ent; if (e) M.moreInfo(this, e); return; }
       if (a.action === 'navigate' && /^#/.test(a.navigation_path) && !this._hasPopup(a.navigation_path)) { if (ent) M.moreInfo(this, ent); return; }
       if (a.action === 'navigate' && a.navigation_path === '#dorlas' && ent && /^lock\./.test(ent)) M.lasPick = ent; // popupen viser låsen på flisen
+      if (a.action === 'navigate' && a.navigation_path === '#garasje' && ent && /^cover\./.test(ent)) M.garasjePick = ent; // 32.3: popupen viser porten på flisen
       if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
       if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }

@@ -1140,9 +1140,10 @@
         const t = new Date(f.datetime).getTime(), cd = sceneOf(f.condition, f.is_daytime != null ? !f.is_daytime : isNight(t, sun));
         const pp = num(f.precipitation_probability), mm = num(f.precipitation), T = num(f.temperature);
         let body;
-        if (metric === 'temp') body = `${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}<span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span>`;
+        // 31.3: fast kolonnehøyde (152 px) i alle fanene – Temperatur: ikon, % og grader i en flex:1-boks (space-evenly)
+        if (metric === 'temp') body = `<span class="htb"><span class="hic">${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}</span><span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span></span>`;
         else if (metric === 'rain') body = `<span class="rbx"><i class="l1"></i><i class="l2"></i><i class="rf" style="height:${mm ? Math.max(6, Math.min(100, (mm / 1.5) * 100)).toFixed(0) + '%' : '0'}"></i></span><span class="hmm">${mm ? nf(mm) : '0'} ${esc(pu)}</span><span class="hpr">${M.icon('mdi:water', 14, `color:${BLUE}`)}${pp != null ? Math.round(pp) + '%' : '–'}</span>`;
-        else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span><span class="hwsp"></span>`;
+        else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span>`; // 31.3: ingen 58 px-spacer – grafen ligger absolutt nederst
         return `<div class="hc" data-key="hc${i}"><span class="ht${i ? '' : ' now'}">${tlab(f, i)}</span>${body}</div>`;
       }).join('');
       let chart = '';
@@ -1369,32 +1370,35 @@
         .scene .hcard{padding:14px 0 12px;display:flex;flex-direction:column;gap:12px}
         .scene .hhd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px}
         .scene .hti{display:flex;flex-direction:column;min-width:0}
-        .scene .htt{font-size:15px;font-weight:500}
-        .scene .hsub{font-size:12px;color:#a8a8a8}
+        .scene .htt{font-size:15px;font-weight:500;height:20px;line-height:20px}
+        .scene .hsub{font-size:12px;color:#a8a8a8;height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* 31.3: undertittelen brytes aldri (samme høyde i alle fanene) */
         .scene .mpill{display:flex;gap:2px;padding:2px;border-radius:999px;background:#303030;touch-action:pan-y;user-select:none;-webkit-user-select:none;position:relative;flex:none}
         .scene .mb{width:40px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:transparent;color:#bdbdbd;transition:background .3s,color .3s}
         .scene .mb.on{background:${PINK160};color:${INK}}
         .scene .mpill .gd-lens{position:absolute;z-index:3;pointer-events:none}
-        .scene .hsc{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 8px;overscroll-behavior-x:contain}
+        /* 31.3 · «Neste timer»: fast høyde i px (ingen prosent/auto, ingen line-height fra fontmetrikk) – lik i alle tre fanene,
+           på iOS WebKit og Chrome; ingen høydeanimasjon ved fanebytte */
+        .scene .hsc{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 8px;overscroll-behavior-x:contain;height:152px;box-sizing:content-box;transition:none}
         .scene .hsc::-webkit-scrollbar,.scene .d3::-webkit-scrollbar{display:none}
-        .scene .hin{position:relative;width:max-content}
-        .scene .hrow{display:flex}
-        .scene .hc{flex:none;width:56px;display:flex;flex-direction:column;align-items:center;gap:6px}
-        .scene .ht{font-size:13px;font-weight:400;color:#a8a8a8}
+        .scene .hin{position:relative;width:max-content;height:152px}
+        .scene .hrow{display:flex;height:152px;align-items:flex-start}
+        .scene .hc{flex:none;width:56px;height:152px;min-height:152px;max-height:152px;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:16px}
+        .scene .ht{flex:none;font-size:13px;font-weight:400;color:#a8a8a8;height:16px;line-height:16px}
+        .scene .htb{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly}
+        .scene .hic{display:block;width:26px;height:26px;line-height:0}
         .scene .ht.now{font-weight:600;color:#fafafa}
-        .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px}
-        .scene .hv{font-size:17px;font-weight:500}
-        .scene .rbx{position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
+        .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px;line-height:14px}
+        .scene .hv{font-size:17px;font-weight:500;height:20px;line-height:20px}
+        .scene .rbx{flex:none;position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
         .scene .rbx i{position:absolute;left:0;right:0}
         .scene .rbx .l1,.scene .rbx .l2{border-top:1px dashed #4a4a4a}
         .scene .rbx .l1{top:33%}.scene .rbx .l2{top:66%}
         .scene .rbx .rf{bottom:0;background:${BLUE};border-radius:6px 6px 0 0}
-        .scene .hmm{font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums}
-        .scene .hpr{display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
-        .scene .hw{display:flex;flex-direction:column;align-items:center;margin-top:6px}
-        .scene .hwv{font-size:19px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
-        .scene .hwg{font-size:11px;color:#a8a8a8}
-        .scene .hwsp{height:58px}
+        .scene .hmm{flex:none;font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums;height:14px;line-height:14px}
+        .scene .hpr{flex:none;display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;height:18px;line-height:18px}
+        .scene .hw{flex:none;display:flex;flex-direction:column;align-items:center;margin-top:6px}
+        .scene .hwv{font-size:19px;font-weight:500;height:21px;line-height:21px;font-variant-numeric:tabular-nums}
+        .scene .hwg{font-size:11px;color:#a8a8a8;height:13px;line-height:13px}
         .scene .wch{position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block}
         .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair}
         .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}

@@ -147,13 +147,14 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       yamlUendret: by('#verksted').length === 1 && same(by('#verksted')[0], M.applyHeaderGap(cfgY.custom_popups[0], -10)), // 26.18: + header-gap-blokken
       yamlSlaarAuto: by('#vaer').length === 1 && by('#vaer')[0].name === 'Vær YAML',
       kollisjoner: !!(col('#verksted') && col('#verksted').winner === 'yaml' && col('#verksted').losers.join() === 'custom' && col('#vaer') && col('#vaer').winner === 'yaml' && col('#vaer').losers.join() === 'auto'),
-      falseSkjuler: by('#basseng').length === 0 && ent('#basseng').hidden && ent('#basseng').hiddenBy === 'yaml' && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('basseng'),
+      // 30.1: '#basseng' (alias) i popup_overrides skjuler standard-popupen #badebasseng; ingen popup på #basseng
+      falseSkjuler: by('#badebasseng').length === 0 && by('#basseng').length === 0 && ent('#badebasseng').hidden && ent('#badebasseng').hiddenBy === 'yaml' && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('basseng'),
       replace: same(by('#media')[0], M.applyHeaderGap(cfgY.popup_overrides['#media'].config, -10)),
       deepMerge: by('#klima')[0].name === 'Klimaet' && by('#klima')[0].width_desktop === '620px' && /var\(--red\)/.test(by('#klima')[0].styles) && by('#klima')[0].cards.length === 1 && by('#klima')[0].cards[0].type === 'custom:msh-klima-card' && ent('#klima').override === 'merge',
       kiStoreUendret: same(by('#egen')[0], M.applyHeaderGap(egen, -10)),
       storeOverride: same(by('#lys')[0], M.popupReport.entries.find((e) => e.hash === '#lys').config) && by('#lys')[0].name === 'Lys egen' && ent('#lys').overrideFrom === 'store',
       rekkefolge: p3.map((c) => c.hash).slice(-3).join() === '#verksted,#vaer,#egen',
-      allPopups: ['#egen', '#verksted', '#stue'].every((h) => M.allPopups(hass).some((x) => x.hash === h)) && !M.allPopups(hass).some((x) => x.hash === '#basseng'),
+      allPopups: ['#egen', '#verksted', '#stue'].every((h) => M.allPopups(hass).some((x) => x.hash === h)) && !M.allPopups(hass).some((x) => /^#(bade)?basseng$/.test(x.hash)),
     };
 
     console.log('STEG // levende oppdatering'); // ki-store endres → popups i DOM oppdateres, åpen popup forblir åpen
@@ -165,7 +166,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     M.store.set('custom_popups', [egen, Y('#live', 'Live', [{ type: 'custom:msh-soppel-card' }])]);
     await wait(1400);
     const opened2 = all().filter((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));
-    res.live = { lagt: liveHash('#live') === 1, fjernet: liveHash('#basseng') === 0, egenBeholdt: liveHash('#egen') === 1, stueFortsattAapen: stueOpen0 && opened2.length === 1 && location.hash === '#stue' };
+    res.live = { lagt: liveHash('#live') === 1, fjernet: liveHash('#badebasseng') === 0 && liveHash('#basseng') === 0, egenBeholdt: liveHash('#egen') === 1, stueFortsattAapen: stueOpen0 && opened2.length === 1 && location.hash === '#stue' };
     history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await wait(500);
     location.hash = '#live'; await wait(900);
     const pl = all().find((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));

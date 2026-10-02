@@ -58,7 +58,7 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
   const { p, errs } = await boot({});
   const n = await p.evaluate(() => window.MSH.portals().length);
   ok(n === 0, 'onboarding vises ikke i testharnessen (ingen <home-assistant>, ingen __kiOnboard)', n);
-  const facts = await p.evaluate(() => { const H = window.H, M = window.MSH; return { areas: M.areas(H).length, persons: M.all(H, 'person').length, lights: M.all(H, 'light').length, media: M.all(H, 'media_player').length, climate: M.all(H, 'climate').length, sensors: M.all(H, 'sensor').length, persIds: M.all(H, 'person'), areaIds: M.areas(H).map((a) => a.id), fnKeys: M.FUNCTION_POPUPS.map((f) => f[0].slice(1)) }; });
+  const facts = await p.evaluate(() => { const H = window.H, M = window.MSH; return { areas: M.areas(H).length, persons: M.all(H, 'person').length, lights: M.all(H, 'light').length, media: M.all(H, 'media_player').length, climate: M.all(H, 'climate').length, sensors: M.all(H, 'sensor').length, persIds: M.all(H, 'person'), areaIds: M.areas(H).map((a) => a.id), fnKeys: M.FUNCTION_POPUPS.map((f) => f[0].slice(1)), fnAlias: Object.keys(M.HASH_ALIAS || {}).map((a) => a.slice(1)) }; });
 
   /* ---------------- 2 · onboarding med flagget */
   await p.evaluate(() => { window.__kiOnboard = true; window.MSH.onboardMaybe(window.H); });
@@ -91,7 +91,7 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
   // steg 2: rom av + farge
   t = await sheet(p);
   ok(/Rom/.test(t) && new RegExp(facts.areas + ' områder').test(t), 'steg 2: ett kort per område', t.slice(0, 160));
-  const room = facts.areaIds.find((a) => a === 'stue') || facts.areaIds[0], room2 = facts.areaIds.find((a) => a !== room && !facts.fnKeys.includes(a));
+  const room = facts.areaIds.find((a) => a === 'stue') || facts.areaIds[0], room2 = facts.areaIds.find((a) => a !== room && !facts.fnKeys.includes(a) && !facts.fnAlias.includes(a)); // 30.1: #basseng er alias for #badebasseng
   await click(p, `[data-a="rtog"][data-v="${room2}"]`);
   await click(p, `[data-a="rcol"][data-v="${room}"]`); await p.waitForTimeout(80);
   if (SHOT) await p.screenshot({ path: SHOT + '/ob-2.png' });

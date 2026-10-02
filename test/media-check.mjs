@@ -322,6 +322,7 @@ for (const vw of [390, 360]) {
     document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 100));
     const out = []; ed.addEventListener('config-changed', (e) => out.push(e.detail.config));
     const R = ed.shadowRoot; R.querySelector('[data-a="fn"][data-t="tv"]').click(); await new Promise((q) => setTimeout(q, 50));
+    const dd = R.querySelector('details[data-focus="p_stue_tv"]'); dd.open = true; await new Promise((q) => setTimeout(q, 50)); // 31.1: lat seksjon
     const bs = [...R.querySelectorAll('[data-name="players.stue_tv.remote_style"]')];
     const labels = bs.map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''));
     bs.find((b) => b.dataset.v === 'sirkel').click(); await new Promise((q) => setTimeout(q, 50));
@@ -400,6 +401,7 @@ for (const vw of [390, 360]) {
     document.body.appendChild(ed); await new Promise((q) => setTimeout(q, 100));
     const out = []; ed.addEventListener('config-changed', (e) => out.push(e.detail.config));
     const R = ed.shadowRoot; R.querySelector('[data-a="fn"][data-t="tv"]').click(); await new Promise((q) => setTimeout(q, 50));
+    const dd = R.querySelector('details[data-focus="p_stue_tv"]'); if (dd) { dd.open = true; await new Promise((q) => setTimeout(q, 50)); } // 31.1: lat seksjon
     const bs = [...R.querySelectorAll('[data-name="now_playing.style"]')];
     const labels = bs.map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''));
     const html = R.innerHTML;
@@ -447,7 +449,10 @@ for (const vw of [390, 360]) {
     const q = (sel) => R.querySelector(sel), qa = (sel) => [...R.querySelectorAll(sel)];
     q('[data-a="fn"][data-t="tv"]').click(); await w();
     const res = {};
+    // 31.1: seksjonene per spiller er late – åpne dem før innholdet leses
+    const openP = async (o) => { const d = q(`details[data-focus="p_${o}"]`); if (d && !d.open) { d.open = true; await w(); } };
     const blk = (o, k) => q(`[data-key="b21-${o}-${k}"]`);
+    await openP('stue_tv');
     const names = (o, k) => [...blk(o, k).querySelectorAll('input[data-f="name"]')].map((i) => i.value);
     const chips = (o, k) => [...blk(o, k).querySelectorAll('[data-op="chip"]')].map((c) => (c.getAttribute('aria-pressed') === 'true' ? '✓' : '+') + c.textContent.trim());
     res.apps0 = names('stue_tv', 'apps'); res.appChips = chips('stue_tv', 'apps');
@@ -470,7 +475,8 @@ for (const vw of [390, 360]) {
     blk('stue_tv', 'inputs').querySelector('[data-op="del"][data-i="0"]').click(); await w();
     res.in3 = (pl('stue_tv').inputs || []).map((a) => a.name);
     // Musikk: radio (favoritter) + forsterker (source_list)
-    q('[data-a="fn"][data-t="musikk"]').click(); await w(300);
+    q('[data-a="fn"][data-t="musikk"]').click(); await w(50);
+    await openP('kjokken_radio'); await openP('rn602_stue'); await w(300);
     res.radioTitle = (blk('kjokken_radio', 'presets') || { textContent: '' }).textContent.includes('Radiostasjoner og snarveier');
     res.radio0 = names('kjokken_radio', 'presets');
     res.favChips = chips('kjokken_radio', 'presets');

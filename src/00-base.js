@@ -892,6 +892,18 @@
       Object.assign(l.style, { left: (x - r.left) / k - op.clientLeft + op.scrollLeft + 'px', top: (y - r.top) / k - op.clientTop + op.scrollTop + 'px', width: w / k + 'px', height: h / k + 'px' });
       if (s.fw) s.fw.reset();
     };
+    // Glid linsen til el (ferske mål, f.eks. aktiv fane som ble bredere ved valg: ikon → ikon + navn) og fullfør etterpå.
+    // Er linsen allerede der (±1 px) → finish() straks.
+    s.glideTo = (el, ms = 180) => {
+      if (s.dead || s.fin) return;
+      const r = el && el.nodeType === 1 && el.isConnected ? el.getBoundingClientRect() : null;
+      const cur = l.getBoundingClientRect();
+      if (!r || !r.width || (Math.abs(r.left - cur.left) <= 1 && Math.abs(r.width - cur.width) <= 1 && Math.abs(r.top - cur.top) <= 1 && Math.abs(r.height - cur.height) <= 1)) { s.finish(); return; }
+      const e = `${ms}ms cubic-bezier(.3,.8,.3,1)`;
+      l.style.transition = `left ${e}, top ${e}, width ${e}, height ${e}`;
+      s.place(r.left, r.top, r.width, r.height);
+      s.timers.push(setTimeout(() => s.finish(), ms));
+    };
     s.finish = () => {
       if (s.fin || s.dead) return;
       s.fin = true;
@@ -1177,24 +1189,54 @@
   //   icon: eget ikon (alle prefiks, M.icon) eller false (ingen). enabled: false → ingen toast (toasts: false i config;
   //         kallerens haptic beholdes). duration: ms (standard 1,8 s, feil 3 s, «Lagrer …» står til den erstattes, maks 20 s).
   //   Pille 40 px, padding 0 16 (med ikon 0 16 0 12), r20, #e1e1e1 / #232323 13/500, skygge 0 10 30 rgba(0,0,0,.4), gap 6.
-  //   Plassering: sentrert i dashbordflaten, bottom calc(110px + safe-area) over navbaren; mens et ark er åpent: 16 px over
-  //   arkets bunnlinje (bunnlinjen = arkets sticky .foot/[data-sheet-foot] når det har en, ellers arkets bunnkant).
+  //   Plassering (31.6 – øverst, som før 28.9): top calc(16px + safe-area-inset-top), sentrert i dashbordflaten (ikke i
+  //   vinduet, ikke over HA-sidebaren). Mens et ark eller en Bubble-popup er åpen: 12 px under arkets/popupens toppkant
+  //   (under håndtaket), over innholdet. Ville pillen da dekke tittelteksten eller knappene i arkets tittelrad (Avbryt/
+  //   Ferdig/status), flyttes den rett under tittelraden (+8 px) – aldri oppå tittel eller Ferdig.
   //   I ki-overlay-root (portalet ut av popupen), z 60 over ark (42/43) og navbar, pointer-events: none.
-  //   Inn: opacity 0→1 + translateY(8px)→0 + scale(.96)→1 på 180 ms cubic-bezier(.2,.8,.2,1); ut tilsvarende 160 ms.
+  //   Inn (ovenfra): opacity 0→1 + translateY(-8px)→0 + scale(.96)→1 på 180 ms cubic-bezier(.2,.8,.2,1); ut tilsvarende 160 ms.
   //   Ny toast erstatter den som vises (samme element, ikke stablet), og timeren starter på nytt.
-  MSH.TOAST = { ms: 1800, errMs: 3000, busyMs: 20000, ease: 'cubic-bezier(.2,.8,.2,1)', bottom: 110 };
+  MSH.TOAST = { ms: 1800, errMs: 3000, busyMs: 20000, ease: 'cubic-bezier(.2,.8,.2,1)', top: 16, sheetTop: 12, dy: -8 };
   const toastType = (text) => (/^\s*lagrer\b/i.test(text) ? 'busy' : /^\s*(lagret|lastet inn)\b/i.test(text) ? 'ok' : /^\s*(feil|kunne ikke|fikk ikke)\b/i.test(text) ? 'error' : '');
-  // Arket toasten skal stå over (siste åpne ark i ki-overlay-root), og dets bunnlinje i px fra vinduets bunn.
-  MSH.toastAnchor = function () {
+  // Hindringer i arkets tittelrad (tekstens faktiske bredde via Range, knapper/status) – dyp søk i arkets shadow-trær
+  const toastObstacles = (root) => {
+    const out = [];
+    const walk = (r, d) => {
+      if (!r || d > 4 || !r.querySelectorAll) return;
+      r.querySelectorAll('.ttl, [data-sheet-head]').forEach((row) => {
+        const rr = row.getBoundingClientRect();
+        if (!rr.height) return;
+        const parts = [];
+        row.querySelectorAll('.tt, h1, h2, .title').forEach((tt) => { try { const rg = document.createRange(); rg.selectNodeContents(tt); const b = rg.getBoundingClientRect(); if (b.width) parts.push(b); } catch (e) { /* */ } });
+        row.querySelectorAll('button, .stat.on, [data-a="save"], .done').forEach((x) => { const b = x.getBoundingClientRect(); if (b.width && b.height && getComputedStyle(x).visibility !== 'hidden') parts.push(b); });
+        out.push({ row: rr, parts });
+      });
+      r.querySelectorAll('*').forEach((e) => { if (e.shadowRoot) walk(e.shadowRoot, d + 1); });
+    };
+    walk(root, 0);
+    return out;
+  };
+  // Hva toasten skal festes til: øverste åpne ark (ki-overlay-root) → åpen Bubble-popup → dashbordflaten.
+  // → { cx, top (px fra vinduets topp) | null, kind: 'sheet' | 'popup' | 'dash', w }
+  MSH.toastAnchor = function (w) {
     const P = MSH.portals().filter((h) => h.isConnected && h.classList.contains('on') && h.shadowRoot);
     for (let k = P.length - 1; k >= 0; k--) {
       const sr = P[k].shadowRoot, sh = sr.querySelector('.sh');
       if (!sh) continue;
       const r = sh.getBoundingClientRect();
       if (!r.width || !r.height) continue;
-      const foot = sr.querySelector('.sh .foot, .sh [data-sheet-foot]'), fr = foot && foot.getBoundingClientRect();
-      const line = fr && fr.height ? fr.top : r.bottom;
-      return { cx: r.left + r.width / 2, bottom: Math.max(0, innerHeight - line), foot: !!(fr && fr.height) };
+      const cx = r.left + r.width / 2, tw = Math.max(0, w || 0), H = 40;
+      let top = Math.max(0, r.top) + MSH.TOAST.sheetTop;
+      const box = { l: cx - tw / 2, r: cx + tw / 2, t: top, b: top + H };
+      const hit = (b) => b.left < box.r && b.right > box.l && b.top < box.b && b.bottom > box.t;
+      toastObstacles(sr).forEach((o) => { if (o.parts.some(hit)) top = Math.max(top, o.row.bottom + 8); });
+      return { cx, top, kind: 'sheet', w: r.width };
+    }
+    let pop = null; try { pop = openPopupEl(); } catch (e) { pop = null; }
+    if (pop) {
+      const c = pop.querySelector && (pop.querySelector('.bubble-pop-up-container') || pop);
+      const r = (c || pop).getBoundingClientRect(), r0 = pop.getBoundingClientRect();
+      if (r0.width && r0.height) return { cx: r0.left + r0.width / 2, top: Math.max(0, Math.min(r0.top, r.top)) + MSH.TOAST.sheetTop, kind: 'popup', w: r0.width };
     }
     return null;
   };
@@ -1222,20 +1264,23 @@
       Object.assign(sp.style, { display: 'block', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(35,35,35,0.22)', borderTopColor: 'var(--gray000,#232323)', boxSizing: 'border-box' });
       if (sp.animate) sp.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity });
     }
-    // plassering: over navbaren, eller 16 px over bunnlinjen til åpent ark
-    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0, A = MSH.toastAnchor();
-    const cx = A ? A.cx : R.left + rx + (R.width - rx) / 2;
-    const bottom = A ? (A.foot ? `${Math.round(A.bottom + 16)}px` : `calc(${Math.round(A.bottom + 16)}px + env(safe-area-inset-bottom, 0px))`) : `calc(${T.bottom}px + env(safe-area-inset-bottom, 0px))`;
-    t.dataset.anchor = A ? 'sheet' : 'nav';
+    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0;
     Object.assign(t.style, {
-      position: 'fixed', left: cx + 'px', bottom, top: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
-      display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, (A ? R.width : R.width - rx) - 32)}px`,
+      position: 'fixed', bottom: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, R.width - rx - 32)}px`,
       whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 13px ${MSH.FONT}`, letterSpacing: '0',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 100%', willChange: 'transform, opacity',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 0', willChange: 'transform, opacity',
     });
+    // plassering: øverst i dashbordflaten, eller 12 px under toppkanten til åpent ark/popup (bredden måles først)
+    const A = MSH.toastAnchor(t.offsetWidth);
+    const cx = A ? A.cx : R.left + rx + (R.width - rx) / 2;
+    if (A && A.w) t.style.maxWidth = `${Math.max(120, Math.min(A.w, R.width) - 32)}px`;
+    t.style.left = cx + 'px';
+    t.style.top = A ? `${Math.round(A.top)}px` : `calc(${Math.max(0, Math.round(R.top))}px + ${T.top}px + env(safe-area-inset-top, 0px))`;
+    t.dataset.anchor = A ? A.kind : 'dash';
     const IN = `opacity 180ms ${T.ease}, transform 180ms ${T.ease}`;
     if (fresh) {
-      t.style.transition = 'none'; t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+      t.style.transition = 'none'; t.style.opacity = '0'; t.style.transform = `translateX(-50%) translateY(${T.dy}px) scale(.96)`;
       void t.offsetWidth; // start fra inn-tilstanden
     }
     t.style.transition = IN; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0) scale(1)';
@@ -1249,7 +1294,7 @@
     clearTimeout(t.__hide);
     t.__out = true;
     t.style.transition = `opacity 160ms ${MSH.TOAST.ease}, transform 160ms ${MSH.TOAST.ease}`;
-    t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+    t.style.opacity = '0'; t.style.transform = `translateX(-50%) translateY(${MSH.TOAST.dy}px) scale(.96)`;
     t.__rm = setTimeout(() => { if (t.__out) t.remove(); }, 180);
   };
 
@@ -2065,7 +2110,7 @@
         MSH.haptic('medium');
         if (this.onHold && this.onHold(el.dataset.ent, el) !== undefined) return;
         MSH.moreInfo(this, el.dataset.ent);
-      }, 520);
+      }, this.holdMs || 520); // kort kan sette egen holdetid (Innstillinger: 500 ms, fiks 29.2)
     }
     _cancelHold() { if (this._hold) { clearTimeout(this._hold); this._hold = null; } }
     onAction(name, el, e) {
@@ -2096,8 +2141,8 @@
   MSH.spacingSchema = (D) => {
     D = { ...MSH.SPACING, ...(D || {}) };
     return { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.pad_bottom != null ? cc.pad_bottom : D.pad_bottom} px i bunnen`, fields: [
-      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
       { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: D.pad_bottom, presets: [[0, 'Ingen 0'], [24, 'Standard 24'], [60, 'Litt 60'], [150, 'Stor 150']] },
     ] };
   };

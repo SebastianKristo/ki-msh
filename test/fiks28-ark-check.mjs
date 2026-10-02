@@ -4,7 +4,8 @@
 //         Bubble-popup, ellers 540 px sentrert), full bredde på mobil, radius 28 28 0 0, #282828, håndtak 40×5 #545454,
 //         fast header + fanelinje, inn-animasjon translateY(100%) → 0 280 ms, dra ned på håndtaket lukker
 //         (Tilpass-menyen, Tilpass Hjem, Tilpass Innstillinger, Tilpass Tesla, Tilpass klima, Tilpass vær)
-//   28.9  felles toast-pille: stil, plassering (over navbaren / 16 px over arkets bunnlinje), animasjon, erstatning,
+//   28.9  felles toast-pille: stil, plassering (31.6: øverst – top 16 + safe-area i dashbordflaten / 12 px under toppkanten
+//         til åpent ark eller popup, aldri oppå tittel/Ferdig), animasjon ovenfra, erstatning,
 //         varighet (1,8 s / feil 3 s), ikon (check / spinner / error rødt), toasts: false, ingen ha-toast/hass-notification
 //   28.10 ki-spacing-editor (Rom v4 «Mellomrom»): rad-layout på 390 px (etikett på én linje, verdi til høyre, slider i full
 //         bredde under, chips under), chips/slider virker (Fiks 11: bare vannrett drag), brukt i Innstillinger → Avansert,
@@ -172,6 +173,7 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
 
   /* ---------------- 28.9 · toast */
   await closeAll();
+  await p.evaluate(() => { if (location.hash) history.replaceState(null, '', location.pathname); window.__bc.toggleAttribute('hidden-pop', true); });
   const T1 = await p.evaluate(async () => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const t = MSH.toast('Lagret');
@@ -181,12 +183,22 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
     const D = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0, nav = deep('nav.nb').getBoundingClientRect();
     return { op0, tf0, op: cs.opacity, h: Math.round(r.height), pad: cs.padding, rad: cs.borderRadius, bg: cs.backgroundColor, col: cs.color, fs: cs.fontSize, fw: cs.fontWeight, ff: cs.fontFamily, ws: cs.whiteSpace, sh: cs.boxShadow, gap: cs.gap, disp: cs.display, ai: cs.alignItems,
       trans: cs.transition, pe: cs.pointerEvents, z: cs.zIndex, ic: !!ic, icon: ic && ic.querySelector('ha-icon') && ic.querySelector('ha-icon').getAttribute('icon'), icW: ic && Math.round(ic.getBoundingClientRect().width),
-      cx: Math.round(r.left + r.width / 2), expCx: Math.round(D.left + rx + (D.width - rx) / 2), bottomGap: Math.round(innerHeight - r.bottom), navTop: Math.round(nav.top), toastBottom: Math.round(r.bottom), txt: t.textContent, inRoot: t.getRootNode().host && t.getRootNode().host.localName };
+      cx: Math.round(r.left + r.width / 2), expCx: Math.round(D.left + rx + (D.width - rx) / 2), top: Math.round(r.top), dTop: Math.round(D.top), anchor: t.dataset.anchor, navTop: Math.round(nav.top), toastBottom: Math.round(r.bottom), txt: t.textContent, inRoot: t.getRootNode().host && t.getRootNode().host.localName };
   });
   ok(`${vn} 28.9 pille: 40 px, padding 0 16 0 12 (ikon), r20, #e1e1e1 / #232323, 13/500, nowrap, skygge 0 10 30 rgba(0,0,0,.4), flex gap 6`, T1.h === 40 && T1.pad === '0px 16px 0px 12px' && T1.rad === '20px' && T1.bg === 'rgb(225, 225, 225)' && T1.col === 'rgb(35, 35, 35)' && T1.fs === '13px' && T1.fw === '500' && /Space Grotesk/.test(T1.ff) && T1.ws === 'nowrap' && /rgba\(0, 0, 0, 0\.4\) 0px 10px 30px/.test(T1.sh) && T1.gap === '6px' && T1.disp === 'flex' && T1.ai === 'center', T1);
   ok(`${vn} 28.9 «Lagret» → check-ikon 18 px`, T1.ic && T1.icon === 'mdi:check' && T1.icW === 18, T1);
-  ok(`${vn} 28.9 plassering: sentrert i dashbordflaten, bottom 110 px (over navbaren), i ki-overlay-root, z 60, pointer-events none`, near(T1.cx, T1.expCx, 2) && T1.bottomGap === 110 && (vn === 'pc' || T1.toastBottom <= T1.navTop) && T1.inRoot === 'ki-overlay-root' && T1.z === '60' && T1.pe === 'none', T1);
-  ok(`${vn} 28.9 inn-animasjon: opacity 0→1 + translateY(8px) scale(.96) → 0/1 på 180 ms cubic-bezier(.2,.8,.2,1)`, T1.op0 === '0' && /matrix\(0\.96, 0, 0, 0\.96, [-\d.]+, 8\)/.test(T1.tf0) && T1.op === '1' && /0\.18s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/.test(T1.trans), { op0: T1.op0, tf0: T1.tf0, op: T1.op, trans: T1.trans });
+  ok(`${vn} 31.6 plassering: øverst (top 16 + safe-area), sentrert i dashbordflaten, i ki-overlay-root, z 60, pointer-events none`, near(T1.cx, T1.expCx, 2) && T1.top === T1.dTop + 16 && T1.anchor === 'dash' && T1.toastBottom < T1.navTop && T1.inRoot === 'ki-overlay-root' && T1.z === '60' && T1.pe === 'none', T1);
+  ok(`${vn} 31.6 inn-animasjon ovenfra: opacity 0→1 + translateY(-8px) scale(.96) → 0/1 på 180 ms cubic-bezier(.2,.8,.2,1)`, T1.op0 === '0' && /matrix\(0\.96, 0, 0, 0\.96, [-\d.]+, -8\)/.test(T1.tf0) && T1.op === '1' && /0\.18s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/.test(T1.trans), { op0: T1.op0, tf0: T1.tf0, op: T1.op, trans: T1.trans });
+  // 31.6: åpen Bubble-popup → 12 px under popupens toppkant
+  const T1b = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    MSH.toastHide(); await wait(250);
+    location.hash = '#settings'; window.__bc.toggleAttribute('hidden-pop', false); await wait(150);
+    const t = MSH.toast('Lagret'); await wait(300);
+    const r = t.getBoundingClientRect(), pr = window.__bc.querySelector('.pop').getBoundingClientRect();
+    return { top: Math.round(r.top), popTop: Math.round(pr.top), cx: Math.round(r.left + r.width / 2), popCx: Math.round(pr.left + pr.width / 2), anchor: t.dataset.anchor };
+  });
+  ok(`${vn} 31.6 åpen popup: 12 px under popupens toppkant, sentrert på popupen`, T1b.anchor === 'popup' && T1b.top === T1b.popTop + 12 && near(T1b.cx, T1b.popCx, 2), T1b);
   const T2 = await p.evaluate(async () => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const root = MSH.overlayRoot();
@@ -227,8 +239,12 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const ui = window.__inn.customize(); await wait(700);
     const t = MSH.toast('Lagret'); await wait(300);
-    const r = t.getBoundingClientRect(), sh = ui.overlay.root.querySelector('.sh').getBoundingClientRect(), tt = ui.editor.shadowRoot.querySelector('.ttl').getBoundingClientRect();
-    const out = { gap: Math.round(sh.bottom - r.bottom), cx: Math.round(r.left + r.width / 2), shCx: Math.round(sh.left + sh.width / 2), belowHeader: r.top > tt.bottom, anchor: t.dataset.anchor, z: getComputedStyle(t).zIndex };
+    const r = t.getBoundingClientRect(), sh = ui.overlay.root.querySelector('.sh').getBoundingClientRect(), ttl = ui.editor.shadowRoot.querySelector('.ttl');
+    // 31.6: aldri oppå tittelteksten eller knappene (Avbryt/Ferdig) i tittelraden
+    const rg = document.createRange(); rg.selectNodeContents(ttl.querySelector('.tt')); const tx = rg.getBoundingClientRect();
+    const hit = (b) => b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top;
+    const over = [tx, ...[...ttl.querySelectorAll('button')].map((x) => x.getBoundingClientRect())].some(hit);
+    const out = { top: Math.round(r.top), shTop: Math.round(sh.top), ttlBottom: Math.round(ttl.getBoundingClientRect().bottom), over, cx: Math.round(r.left + r.width / 2), shCx: Math.round(sh.left + sh.width / 2), anchor: t.dataset.anchor, z: getComputedStyle(t).zIndex };
     // Ferdig → «Lagret»-toasten kommer etter at arket lukkes, over navbaren
     MSH.toastHide(); await wait(250);
     const types = []; const mo = new MutationObserver(() => { const x = MSH.overlayRoot().querySelector('#msh-toast'); if (x && types[types.length - 1] !== x.dataset.type + ':' + x.textContent) types.push(x.dataset.type + ':' + x.textContent); });
@@ -241,7 +257,7 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
     MSH.toastHide(); await wait(250);
     return out;
   });
-  ok(`${vn} 28.9 med åpent ark: 16 px over arkets bunnlinje, sentrert på arket, under headeren`, T3.gap === 16 && near(T3.cx, T3.shCx, 2) && T3.belowHeader && T3.anchor === 'sheet', T3);
+  ok(`${vn} 31.6 med åpent ark: 12 px under arkets toppkant (under håndtaket) – eller rett under tittelraden hvis den ellers dekker tittel/Ferdig – sentrert på arket, z 60`, (T3.top === T3.shTop + 12 || T3.top === T3.ttlBottom + 8) && !T3.over && near(T3.cx, T3.shCx, 2) && T3.anchor === 'sheet' && T3.z === '60', T3);
   ok(`${vn} 28.9 Ferdig → «Lagrer …» (spinner) → «Lagret» (check) i samme pille`, T3.afterDone && /Lagret/.test(T3.afterDone.txt) && T3.types.some((x) => /^busy:Lagrer/.test(x)) && T3.types.some((x) => /^ok:Lagret/.test(x)), { after: T3.afterDone, types: T3.types });
 
   /* ---------------- 28.10 · mellomrom-rader */

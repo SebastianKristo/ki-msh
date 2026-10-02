@@ -1,12 +1,12 @@
-/*! KI MSH 1.3.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
+/*! KI MSH 1.4.0 – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */
 (function () { try {
-  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.3.0") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.3.0" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
+  if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== "1.4.0") console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + "1.4.0" + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
   var cs = document.currentScript && document.currentScript.src; // klassisk <script>; som modul (HA-ressurs): ressurslisten
   var urls = cs ? [cs] : (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(function (e) { return e.name; }).filter(function (u) { return /ki-msh(\.min)?\.js/.test(u); });
-  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.3.0"; });
-  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.3.0" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.3.0" + ' på ressursen og tøm cachen (se README).');
+  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\d+\.\d+/.test(v) && v !== "1.4.0"; });
+  if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + "1.4.0" + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + "1.4.0" + ' på ressursen og tøm cachen (se README).');
 } catch (e) { /* */ } })();
-window.KI_MSH_VERSION = "1.3.0";
+window.KI_MSH_VERSION = "1.4.0";
 
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
@@ -2093,6 +2093,18 @@ try {
       Object.assign(l.style, { left: (x - r.left) / k - op.clientLeft + op.scrollLeft + 'px', top: (y - r.top) / k - op.clientTop + op.scrollTop + 'px', width: w / k + 'px', height: h / k + 'px' });
       if (s.fw) s.fw.reset();
     };
+    // Glid linsen til el (ferske mål, f.eks. aktiv fane som ble bredere ved valg: ikon → ikon + navn) og fullfør etterpå.
+    // Er linsen allerede der (±1 px) → finish() straks.
+    s.glideTo = (el, ms = 180) => {
+      if (s.dead || s.fin) return;
+      const r = el && el.nodeType === 1 && el.isConnected ? el.getBoundingClientRect() : null;
+      const cur = l.getBoundingClientRect();
+      if (!r || !r.width || (Math.abs(r.left - cur.left) <= 1 && Math.abs(r.width - cur.width) <= 1 && Math.abs(r.top - cur.top) <= 1 && Math.abs(r.height - cur.height) <= 1)) { s.finish(); return; }
+      const e = `${ms}ms cubic-bezier(.3,.8,.3,1)`;
+      l.style.transition = `left ${e}, top ${e}, width ${e}, height ${e}`;
+      s.place(r.left, r.top, r.width, r.height);
+      s.timers.push(setTimeout(() => s.finish(), ms));
+    };
     s.finish = () => {
       if (s.fin || s.dead) return;
       s.fin = true;
@@ -2378,24 +2390,54 @@ try {
   //   icon: eget ikon (alle prefiks, M.icon) eller false (ingen). enabled: false → ingen toast (toasts: false i config;
   //         kallerens haptic beholdes). duration: ms (standard 1,8 s, feil 3 s, «Lagrer …» står til den erstattes, maks 20 s).
   //   Pille 40 px, padding 0 16 (med ikon 0 16 0 12), r20, #e1e1e1 / #232323 13/500, skygge 0 10 30 rgba(0,0,0,.4), gap 6.
-  //   Plassering: sentrert i dashbordflaten, bottom calc(110px + safe-area) over navbaren; mens et ark er åpent: 16 px over
-  //   arkets bunnlinje (bunnlinjen = arkets sticky .foot/[data-sheet-foot] når det har en, ellers arkets bunnkant).
+  //   Plassering (31.6 – øverst, som før 28.9): top calc(16px + safe-area-inset-top), sentrert i dashbordflaten (ikke i
+  //   vinduet, ikke over HA-sidebaren). Mens et ark eller en Bubble-popup er åpen: 12 px under arkets/popupens toppkant
+  //   (under håndtaket), over innholdet. Ville pillen da dekke tittelteksten eller knappene i arkets tittelrad (Avbryt/
+  //   Ferdig/status), flyttes den rett under tittelraden (+8 px) – aldri oppå tittel eller Ferdig.
   //   I ki-overlay-root (portalet ut av popupen), z 60 over ark (42/43) og navbar, pointer-events: none.
-  //   Inn: opacity 0→1 + translateY(8px)→0 + scale(.96)→1 på 180 ms cubic-bezier(.2,.8,.2,1); ut tilsvarende 160 ms.
+  //   Inn (ovenfra): opacity 0→1 + translateY(-8px)→0 + scale(.96)→1 på 180 ms cubic-bezier(.2,.8,.2,1); ut tilsvarende 160 ms.
   //   Ny toast erstatter den som vises (samme element, ikke stablet), og timeren starter på nytt.
-  MSH.TOAST = { ms: 1800, errMs: 3000, busyMs: 20000, ease: 'cubic-bezier(.2,.8,.2,1)', bottom: 110 };
+  MSH.TOAST = { ms: 1800, errMs: 3000, busyMs: 20000, ease: 'cubic-bezier(.2,.8,.2,1)', top: 16, sheetTop: 12, dy: -8 };
   const toastType = (text) => (/^\s*lagrer\b/i.test(text) ? 'busy' : /^\s*(lagret|lastet inn)\b/i.test(text) ? 'ok' : /^\s*(feil|kunne ikke|fikk ikke)\b/i.test(text) ? 'error' : '');
-  // Arket toasten skal stå over (siste åpne ark i ki-overlay-root), og dets bunnlinje i px fra vinduets bunn.
-  MSH.toastAnchor = function () {
+  // Hindringer i arkets tittelrad (tekstens faktiske bredde via Range, knapper/status) – dyp søk i arkets shadow-trær
+  const toastObstacles = (root) => {
+    const out = [];
+    const walk = (r, d) => {
+      if (!r || d > 4 || !r.querySelectorAll) return;
+      r.querySelectorAll('.ttl, [data-sheet-head]').forEach((row) => {
+        const rr = row.getBoundingClientRect();
+        if (!rr.height) return;
+        const parts = [];
+        row.querySelectorAll('.tt, h1, h2, .title').forEach((tt) => { try { const rg = document.createRange(); rg.selectNodeContents(tt); const b = rg.getBoundingClientRect(); if (b.width) parts.push(b); } catch (e) { /* */ } });
+        row.querySelectorAll('button, .stat.on, [data-a="save"], .done').forEach((x) => { const b = x.getBoundingClientRect(); if (b.width && b.height && getComputedStyle(x).visibility !== 'hidden') parts.push(b); });
+        out.push({ row: rr, parts });
+      });
+      r.querySelectorAll('*').forEach((e) => { if (e.shadowRoot) walk(e.shadowRoot, d + 1); });
+    };
+    walk(root, 0);
+    return out;
+  };
+  // Hva toasten skal festes til: øverste åpne ark (ki-overlay-root) → åpen Bubble-popup → dashbordflaten.
+  // → { cx, top (px fra vinduets topp) | null, kind: 'sheet' | 'popup' | 'dash', w }
+  MSH.toastAnchor = function (w) {
     const P = MSH.portals().filter((h) => h.isConnected && h.classList.contains('on') && h.shadowRoot);
     for (let k = P.length - 1; k >= 0; k--) {
       const sr = P[k].shadowRoot, sh = sr.querySelector('.sh');
       if (!sh) continue;
       const r = sh.getBoundingClientRect();
       if (!r.width || !r.height) continue;
-      const foot = sr.querySelector('.sh .foot, .sh [data-sheet-foot]'), fr = foot && foot.getBoundingClientRect();
-      const line = fr && fr.height ? fr.top : r.bottom;
-      return { cx: r.left + r.width / 2, bottom: Math.max(0, innerHeight - line), foot: !!(fr && fr.height) };
+      const cx = r.left + r.width / 2, tw = Math.max(0, w || 0), H = 40;
+      let top = Math.max(0, r.top) + MSH.TOAST.sheetTop;
+      const box = { l: cx - tw / 2, r: cx + tw / 2, t: top, b: top + H };
+      const hit = (b) => b.left < box.r && b.right > box.l && b.top < box.b && b.bottom > box.t;
+      toastObstacles(sr).forEach((o) => { if (o.parts.some(hit)) top = Math.max(top, o.row.bottom + 8); });
+      return { cx, top, kind: 'sheet', w: r.width };
+    }
+    let pop = null; try { pop = openPopupEl(); } catch (e) { pop = null; }
+    if (pop) {
+      const c = pop.querySelector && (pop.querySelector('.bubble-pop-up-container') || pop);
+      const r = (c || pop).getBoundingClientRect(), r0 = pop.getBoundingClientRect();
+      if (r0.width && r0.height) return { cx: r0.left + r0.width / 2, top: Math.max(0, Math.min(r0.top, r.top)) + MSH.TOAST.sheetTop, kind: 'popup', w: r0.width };
     }
     return null;
   };
@@ -2423,20 +2465,23 @@ try {
       Object.assign(sp.style, { display: 'block', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(35,35,35,0.22)', borderTopColor: 'var(--gray000,#232323)', boxSizing: 'border-box' });
       if (sp.animate) sp.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity });
     }
-    // plassering: over navbaren, eller 16 px over bunnlinjen til åpent ark
-    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0, A = MSH.toastAnchor();
-    const cx = A ? A.cx : R.left + rx + (R.width - rx) / 2;
-    const bottom = A ? (A.foot ? `${Math.round(A.bottom + 16)}px` : `calc(${Math.round(A.bottom + 16)}px + env(safe-area-inset-bottom, 0px))`) : `calc(${T.bottom}px + env(safe-area-inset-bottom, 0px))`;
-    t.dataset.anchor = A ? 'sheet' : 'nav';
+    const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0;
     Object.assign(t.style, {
-      position: 'fixed', left: cx + 'px', bottom, top: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
-      display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, (A ? R.width : R.width - rx) - 32)}px`,
+      position: 'fixed', bottom: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, R.width - rx - 32)}px`,
       whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 13px ${MSH.FONT}`, letterSpacing: '0',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 100%', willChange: 'transform, opacity',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 0', willChange: 'transform, opacity',
     });
+    // plassering: øverst i dashbordflaten, eller 12 px under toppkanten til åpent ark/popup (bredden måles først)
+    const A = MSH.toastAnchor(t.offsetWidth);
+    const cx = A ? A.cx : R.left + rx + (R.width - rx) / 2;
+    if (A && A.w) t.style.maxWidth = `${Math.max(120, Math.min(A.w, R.width) - 32)}px`;
+    t.style.left = cx + 'px';
+    t.style.top = A ? `${Math.round(A.top)}px` : `calc(${Math.max(0, Math.round(R.top))}px + ${T.top}px + env(safe-area-inset-top, 0px))`;
+    t.dataset.anchor = A ? A.kind : 'dash';
     const IN = `opacity 180ms ${T.ease}, transform 180ms ${T.ease}`;
     if (fresh) {
-      t.style.transition = 'none'; t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+      t.style.transition = 'none'; t.style.opacity = '0'; t.style.transform = `translateX(-50%) translateY(${T.dy}px) scale(.96)`;
       void t.offsetWidth; // start fra inn-tilstanden
     }
     t.style.transition = IN; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0) scale(1)';
@@ -2450,7 +2495,7 @@ try {
     clearTimeout(t.__hide);
     t.__out = true;
     t.style.transition = `opacity 160ms ${MSH.TOAST.ease}, transform 160ms ${MSH.TOAST.ease}`;
-    t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px) scale(.96)';
+    t.style.opacity = '0'; t.style.transform = `translateX(-50%) translateY(${MSH.TOAST.dy}px) scale(.96)`;
     t.__rm = setTimeout(() => { if (t.__out) t.remove(); }, 180);
   };
 
@@ -3266,7 +3311,7 @@ try {
         MSH.haptic('medium');
         if (this.onHold && this.onHold(el.dataset.ent, el) !== undefined) return;
         MSH.moreInfo(this, el.dataset.ent);
-      }, 520);
+      }, this.holdMs || 520); // kort kan sette egen holdetid (Innstillinger: 500 ms, fiks 29.2)
     }
     _cancelHold() { if (this._hold) { clearTimeout(this._hold); this._hold = null; } }
     onAction(name, el, e) {
@@ -3297,8 +3342,8 @@ try {
   MSH.spacingSchema = (D) => {
     D = { ...MSH.SPACING, ...(D || {}) };
     return { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.pad_bottom != null ? cc.pad_bottom : D.pad_bottom} px i bunnen`, fields: [
-      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
+      { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: D.gap, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: D.pad_top, presets: [[-20, 'Inntil −20'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']] },
       { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: D.pad_bottom, presets: [[0, 'Ingen 0'], [24, 'Standard 24'], [60, 'Litt 60'], [150, 'Stor 150']] },
     ] };
   };
@@ -3974,6 +4019,8 @@ try {
     fits: (T) => (T || []).length >= 4 && T.every((t) => t && t.icon),
   };
 
+  // Debug-modus (31.1): localStorage «ki:debug» = '1' eller ?ki_debug i adressen
+  M.debugOn = M.debugOn || (() => { try { return localStorage.getItem('ki:debug') === '1' || /[?&]ki_debug\b/.test(location.search); } catch (e) { return false; } });
   const ED_CSS = `
     :host{display:block;font-family:${M.FONT};color:#fafafa;--ed-bg:#2f2f2f}
     *{box-sizing:border-box}
@@ -4253,6 +4300,8 @@ try {
         if (!d.dataset || d.dataset.sec == null || this._open[d.dataset.sec] === d.open) return;
         this._open[d.dataset.sec] = d.open;
         if (this._uiKey) M.uiStore(this._uiKey + ':ed', { open: this._open });
+        // 31.1: lat seksjon (f.lazy) – innholdet tegnes først når den åpnes
+        if (d.open && d.querySelector && d.querySelector(':scope > .in > [data-lazy]')) this._render();
       }, true);
       this._bindSliders();
       this.shadowRoot.addEventListener('value-changed', (e) => {
@@ -4343,7 +4392,11 @@ try {
     }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }
-    setConfig(c) { this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render(); } // GUI-editoren: felles oppsett (uten enhetslaget)
+    setConfig(c) {
+      // 31.1: vakt mot løkken config-changed → HA setConfig → ny tegning: er configen den vi nettopp sendte ut, tegnes ikke arket på nytt
+      if (!this._inline && this._sisteUt && this._config) { let j = null; try { j = JSON.stringify(c); } catch (e) { /* */ } if (j === this._sisteUt) return; }
+      this._config = { ...(!this._inline && window.MSH.effectiveConfig ? window.MSH.effectiveConfig(c, null, { shared: true }) : c) }; this._render();
+    } // GUI-editoren: felles oppsett (uten enhetslaget)
     get schema() {
       const cls = this.cardClass;
       let s = cls && cls.schema;
@@ -4355,7 +4408,7 @@ try {
       if (!c.card_id) c.card_id = M.uid();
       c = clean(c);
       this._config = c;
-      if (!this._inline) { this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true })); if (M.store && c.card_id && M.store.card(c.card_id)) M.store.setCard(c.card_id, c); } // GUI ↔ egen editor
+      if (!this._inline) { try { this._sisteUt = JSON.stringify(c); } catch (e) { this._sisteUt = null; } this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: c }, bubbles: true, composed: true })); if (M.store && c.card_id && M.store.card(c.card_id)) M.store.setCard(c.card_id, c); } // GUI ↔ egen editor
       else this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit } })); // live; commit=false under slider-drag
       this._render();
     }
@@ -4363,7 +4416,14 @@ try {
       if (!this._config || !this._hass) return;
       if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return; // native velger har fokus (09-pickers) – tegnes ved blur
       const cls = this.cardClass || {};
-      const body = this.schema.map((f, i) => this._field(f, 'r' + i)).join('');
+      // 31.1: teller tegninger (ed.renders, MSH.renderStats) – logges i debug-modus (localStorage ki:debug = 1)
+      this.renders = (this.renders || 0) + 1;
+      const rk = 'msh-editor:' + (cls.cardName || this.localName);
+      (M.renderStats = M.renderStats || {})[rk] = (M.renderStats[rk] || 0) + 1;
+      if (M.debugOn && M.debugOn()) try { console.debug('[ki-msh] tegning', rk, this.renders); } catch (e) { /* */ }
+      let schema = [];
+      try { schema = this.schema; } catch (e) { console.error('[ki-msh] editor-skjema', e); schema = [{ type: 'info', label: 'Kunne ikke laste denne delen' }]; }
+      const body = schema.map((f, i) => this._safeField(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
         ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
@@ -4386,6 +4446,13 @@ try {
         if (el) { el.open = true; if (el.dataset.sec) this._open[el.dataset.sec] = true; el.scrollIntoView({ block: 'start' }); }
       }
     }
+    // 31.1: én seksjon/ett felt som kaster, stopper ikke hele arket
+    _safeField(f, key) {
+      try { return this._field(f, key); } catch (e) {
+        try { console.error('[ki-msh] editor-felt', f && (f.id || f.name || f.label), e); } catch (x) { /* */ }
+        return `<div class="small" data-key="err-${esc(key)}" style="padding:8px 6px;color:#f28073">Kunne ikke laste denne delen</div>`;
+      }
+    }
     _field(f, key) {
       const h = this._hass, c = this._config;
       const val = f.name ? get(c, f.name) : undefined;
@@ -4396,11 +4463,12 @@ try {
         case 'section': {
           const sk = f.id ? 'id:' + f.id : key; // stabil nøkkel for åpen-tilstanden
           // 28.10: «Mellomrom» = ÉN felles ki-spacing-editor for alle slider-radene (Rom v4), øvrige felt som før
-          const sp = this._inline && M.isSpacingSection(f), body = sp
-            ? M.spacingEditorHTML(f.fields, c, 'ksp-' + (f.id || key)) + (f.fields || []).map((x, j) => (x && x.type === 'range' ? '' : this._field(x, key + '_' + j))).join('')
-            : (f.fields || []).map((x, j) => this._field(x, key + '_' + j)).join('');
-          if (f.flat) return this._flat(f.label, f.meta, body, f.id, sp);
           const open = (!this._focused && this.focusSection && f.id === this.focusSection) || (this._open[sk] != null ? this._open[sk] : !!f.open);
+          const lazy = f.lazy && !f.flat && !open; // 31.1: lukket lat seksjon – feltene bygges ikke før den åpnes
+          const sp = this._inline && M.isSpacingSection(f), body = lazy ? '<div class="small" data-lazy="1" style="padding:4px 6px">Laster …</div>' : sp
+            ? M.spacingEditorHTML(f.fields, c, 'ksp-' + (f.id || key)) + (f.fields || []).map((x, j) => (x && x.type === 'range' ? '' : this._safeField(x, key + '_' + j))).join('')
+            : (f.fields || []).map((x, j) => this._safeField(x, key + '_' + j)).join('');
+          if (f.flat) return this._flat(f.label, f.meta, body, f.id, sp);
           return `<details class="sec" data-sec="${esc(sk)}" ${f.id ? `data-focus="${esc(f.id)}"` : ''} ${open ? 'open' : ''}><summary>${f.icon ? M.icon(f.icon, 20) : ''}${esc(f.label)}${f.meta ? `<span class="meta">${esc(typeof f.meta === 'function' ? (() => { try { return f.meta(h, c); } catch (e) { return ''; } })() : f.meta)}</span>` : ''}<span class="chev">${M.icon('mdi:chevron-down', 20)}</span></summary><div class="in">${body}</div></details>`;
         }
         case 'tabs': { // 19.20: { type:'tabs', id, sub, tabs:[{ key, label, icon, count, focus:[seksjons-id], fields }] }
@@ -4505,7 +4573,7 @@ try {
           return `<div class="small" style="padding:0 6px">${esc(f.label)}</div>`;
         case 'html': // egen HTML fra kortet (Fiks 17.22): f.html(hass, cfg, key, editor); knapper med data-a="fn" data-k=key → f.click(dataset, editor)
           (this._htmlF = this._htmlF || {})[key] = f;
-          try { return f.html(h, c, key, this) || ''; } catch (e) { return ''; }
+          try { return f.html(h, c, key, this) || ''; } catch (e) { try { console.error('[ki-msh] editor-html', e); } catch (x) { /* */ } return '<div class="small" style="padding:8px 6px;color:#f28073">Kunne ikke laste denne delen</div>'; }
         default:
           return '';
       }
@@ -5121,14 +5189,15 @@ try {
     ['#kamera', 'Kamera', 'mdi:cctv', 'msh-kamera-card'],
     ['#media', 'Media', 'mdi:cast', 'msh-media-card'],
     ['#klima', 'Klima', 'mdi:thermostat', 'msh-klima-card'],
-    ['#basseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'],
+    ['#badebasseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'], // fiks 30.1 – standard-hash #badebasseng; #basseng er alias (M.HASH_ALIAS, 40-basseng.js)
     ['#ruter', 'Ruter', 'mdi:bus', 'msh-ruter-card'],
     ['#vanning', 'Vanning', 'mdi:sprinkler', 'msh-vanning-card'],
     ['#sikkerhet', 'Sikkerhet', 'mdi:shield-home', 'msh-sikkerhet-card'],
     ['#vaer', 'Vær', 'mdi:weather-partly-cloudy', 'msh-vaer-card'],
     ['#lys', 'Lys', 'mdi:lightbulb-group', 'msh-lys-card'],
     ['#gjoremal', 'Gjøremål', 'mdi:format-list-checks', 'msh-gjoremal-card'],
-    ['#dorlas', 'Dørlås', 'mdi:lock', 'msh-las-card'], // fiks 16.7 – bare når lock.* finnes (M.popupNeeds)
+    ['#dorlas', 'Dørlås', 'mdi:lock', 'msh-las-card'], // fiks 16.7/32.1 – bare når lock.* finnes (M.popupNeeds); ÉN dørlås-popup (gamle migreres, 49-las.js)
+    ['#garasje', 'Garasje', 'mdi:garage', 'msh-garasje-card'], // fiks 32.2 – bare med cover.* device_class garage (M.popupNeeds, 62-garasje.js)
     ['#ringeklokke', 'Ringeklokke', 'mdi:doorbell-video', 'msh-ringeklokke-card'], // fiks 19.17 – bare med UniFi Protect-ringeklokke (M.popupNeeds)
     ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22/23.3 – fullskjerm-kart (M.POPUP_LOOK/M.POPUP_FORCE['#kart'], Bubble-header over kartet)
     ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
@@ -5140,8 +5209,16 @@ try {
     ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
     ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe
   ];
+  // Fiks 30.1 · gamle hasher som alias for ÉN popup: { '#basseng': '#badebasseng' } (satt i 40-basseng.js). Lenker,
+  // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
+  M.HASH_ALIAS = M.HASH_ALIAS || {};
+  M.canonHash = (h) => { const s = String(h == null ? '' : h).trim(); return M.HASH_ALIAS[s] || s; };
+  M.hashAliasesOf = (h) => Object.keys(M.HASH_ALIAS).filter((a) => M.HASH_ALIAS[a] === h);
+  // card_id for en funksjons-popup når den ikke er 'pop-' + hash (30.1: #badebasseng beholder 'pop-basseng' og oppsettet)
+  M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
+  M.popupCardId = (hash) => M.POPUP_CARD_ID[hash] || 'pop-' + String(hash).replace(/^#/, '');
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
-  M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
+  M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#garasje': (hass) => M.all(hass, 'cover', (st) => st.attributes.device_class === 'garage').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
   const needOk = (hash, hass) => !M.popupNeeds[hash] || !hass || M.popupNeeds[hash](hass);
   // Alle popups som kan velges som mål (navbar, «Mer», Hjem-kort popup_hash, prosa-bobler): [{ hash, name, icon, group, source }]
   // group: rom | fn | egne · source: auto | yaml | custom. Fra siste strategi-generering (MSH.popupReport); uten strategi
@@ -5152,7 +5229,7 @@ try {
     if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden }));
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
-    if (hass) M.areas(hass).forEach((a) => add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'));
+    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id]) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // 30.1: område «Basseng» = funksjons-popupen
     M.FUNCTION_POPUPS.forEach(([h, n, i]) => { if (needOk(h, hass)) add(h, n, i, 'fn', 'auto'); });
     if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
     const cp = (M.store && M.store.get('custom_popups')) || [];
@@ -5239,16 +5316,25 @@ try {
       else { view.cards = view.cards || []; target = view; }
       return target;
     };
-    const res = { created: [], updated: [] };
+    const res = { created: [], updated: [] }, drop = new Set();
     const S0 = (M.store && M.store.get()) || {}, gapFor = (hash) => M.headerGapOf(((S0.popups || {})[hash.slice(1)] || {}).header_gap, S0.popup_header_gap);
     const put = (hash, make, mainTag, extra) => {
       // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #badebasseng) tas over av den nye
-      const alias = () => { for (const h of Object.keys(M.POPUP_ALIAS || {})) { const A = M.POPUP_ALIAS[h], p = existing.get(h); if (A.to === hash && (!A.tag || A.tag === mainTag) && p && (!A.test || A.test(p))) { p.hash = hash; existing.delete(h); existing.set(hash, p); return p; } } return null; };
-      const cur = existing.get(hash) || alias();
+      // Fiks 30.1 · alle gamle popups under alias-hashene (f.eks. #basseng ved siden av #badebasseng): den første tas over
+      // (hvis hashen ikke finnes fra før), resten fjernes – nøyaktig ÉN popup per funksjon.
+      let took = null;
+      const gone = [];
+      Object.keys(M.POPUP_ALIAS || {}).forEach((h) => {
+        const A = M.POPUP_ALIAS[h], p = existing.get(h);
+        if (h === hash || A.to !== hash || (A.tag && A.tag !== mainTag) || !p || (A.test && !A.test(p))) return;
+        existing.delete(h);
+        if (!existing.get(hash) && !took) { p.hash = hash; existing.set(hash, p); took = p; } else { drop.add(p); gone.push(p); }
+      });
+      const cur = existing.get(hash);
       if (cur) {
-        const legacy = M.POPUP_LEGACY_CARD && typeof M.POPUP_LEGACY_CARD[hash] === 'function' ? M.POPUP_LEGACY_CARD[hash](cur, mainTag) : null; // gamle ki-kort → innstillinger i det nye kortet
+        const LC = M.POPUP_LEGACY_CARD && typeof M.POPUP_LEGACY_CARD[hash] === 'function' ? M.POPUP_LEGACY_CARD[hash] : null; // gamle ki-kort → innstillinger i det nye kortet
         const merged = mergeCards(cur.cards, mainTag);
-        if (legacy) Object.keys(legacy).forEach((k) => { if (k !== 'type' && k !== 'card_id' && merged[k] == null) merged[k] = legacy[k]; });
+        [cur, ...gone].forEach((pp) => { const legacy = LC ? LC(pp, mainTag) : null; if (legacy) Object.keys(legacy).forEach((k) => { if (k !== 'type' && k !== 'card_id' && merged[k] == null) merged[k] = legacy[k]; }); }); // 30.1: også fra fjernede alias-popups
         if (extra) Object.assign(merged, extra(merged));
         cur.cards = [merged];
         const fx = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash](cur) : null; // 23.3: #kart-unntaket også på eksisterende popup
@@ -5262,7 +5348,7 @@ try {
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === '#' + a.id && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });
@@ -5273,6 +5359,12 @@ try {
       const o = pid.split('.')[1], hash = '#person-' + o;
       put(hash, (card) => M.popupTemplateA({ name: M.name(hass, pid), icon: 'mdi:account', hash, card }), 'msh-person-card', (m) => (m.person ? {} : { person: pid }));
     });
+    if (drop.size) { // 30.1: gamle tvillinger/alias-popups ut av configen
+      const at = [];
+      walk(lc, (c, parent, key) => { if (drop.has(c) && Array.isArray(parent)) at.push([parent, key]); });
+      at.sort((x, y) => y[1] - x[1]).forEach(([arr, i]) => arr.splice(i, 1));
+      res.removed = [...drop].map((p) => p.hash);
+    }
     if (dryRun) return { ...res, config: lc };
     window.__kiSaving = M.saveSnapshot ? M.saveSnapshot() : null;
     try {
@@ -6319,7 +6411,9 @@ try {
     return out;
   }
   // Popup-valg fra «Tilpass Hjem» → Popups: nøkkel = hash uten # (eldre: med #)
-  const popOf = (user, hash) => { const P = (user && user.popups) || {}; return P[String(hash).replace(/^#/, '')] || P[hash] || null; };
+  // 30.1: også under en gammel alias-hash (ki-store popups.basseng → #badebasseng) til engangsmigreringen har flyttet den
+  const hashKeys = (hash) => [hash, ...(M.hashAliasesOf ? M.hashAliasesOf(hash) : [])];
+  const popOf = (user, hash) => { const P = (user && user.popups) || {}; for (const h of hashKeys(String(hash))) { const v = P[String(h).replace(/^#/, '')] || P[h]; if (v) return v; } return null; };
   const plainVar = (col) => { const m = /^var\((--[\w-]+)\s*,[^)]*\)$/.exec(String(col || '').trim()); return m ? `var(${m[1]})` : col; };
 
   // Rom (sortert etter etasje, deltil navn)
@@ -6339,7 +6433,7 @@ try {
    * Mangler entitetene viser kortet tom-tilstanden (aldri skjult popup). */
   // Popups som lages når noe peker på dem (navbarens innebygde knapper, Hjem-flis, snarveier), også uten entiteter –
   // kortene viser da tom-tilstand i stedet for at knappen peker på en popup som ikke finnes.
-  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#basseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
+  M.REF_POPUPS = M.REF_POPUPS || { '#ruter': { nav: 'ruter', tile: 'ruter' }, '#vanning': { nav: 'vanning' }, '#media': { nav: 'media' }, '#klima': { nav: 'klima' }, '#badebasseng': { nav: 'basseng' }, '#gjoremal': { nav: 'gjoremal' } };
   const hasStr = (o, v, d) => (d > 12 || o == null ? false : typeof o === 'string' ? o.trim() === v : typeof o === 'object' ? Object.values(o).some((x) => hasStr(x, v, (d || 0) + 1)) : false);
   function popupRefs(hash, config, user) {
     const R = M.REF_POPUPS[hash];
@@ -6348,13 +6442,14 @@ try {
     const nav = { ...(config.navbar || {}), ...(cards[I.navbar] || {}) };
     const B = nav.buttons || {}, own = B[R.nav] || {}, hidden = Array.isArray(nav.hidden) ? nav.hidden : [];
     // knappens mål: tap.navigation_path (fiks 15.6) eller den eldre hash-nøkkelen
-    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? String(t.navigation_path).trim() : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? t.trim() : ''; return b.hash != null && b.hash !== '' ? '#' + String(b.hash).trim().replace(/^#/, '') : null; };
+    const C = (h) => (M.canonHash ? M.canonHash(h) : h); // 30.1: #basseng (alias) peker på #badebasseng
+    const target = (b) => { if (!b) return null; const t = b.tap; if (t && typeof t === 'object') return t.action === 'navigate' && /^#/.test(String(t.navigation_path || '')) ? C(String(t.navigation_path).trim()) : ''; if (typeof t === 'string' && t.trim()) return /^#/.test(t.trim()) ? C(t.trim()) : ''; return b.hash != null && b.hash !== '' ? C('#' + String(b.hash).trim().replace(/^#/, '')) : null; };
     const ot = target(own), oh = ot == null ? hash : ot;
     if (R.nav && !hidden.includes(R.nav) && oh === hash) return true; // navbarens innebygde knapp (bar/«Mer»)
     if (Object.keys(B).some((k) => B[k] && !hidden.includes(k) && target(B[k]) === hash)) return true;
     const faner = { ...(((config.home || {}).cards || {}).faner || {}), ...(cards[I.faner] || {}) };
     if (R.tile && faner.overrides && faner.overrides[R.tile]) return true; // Hjem-flis med valgt entitet
-    return hasStr(cards, hash) || hasStr(config.home, hash);
+    return [hash, ...(M.hashAliasesOf ? M.hashAliasesOf(hash) : [])].some((h) => hasStr(cards, h) || hasStr(config.home, h));
   }
   M.popupRefs = popupRefs;
   // Funksjons-popups: når det finnes entiteter for dem (entiteter.md), eller noe peker på dem (M.REF_POPUPS)
@@ -6367,13 +6462,14 @@ try {
       '#klima': () => has(['climate', 'fan']),
       '#kamera': () => has('camera'),
       '#sikkerhet': () => has(['alarm_control_panel', 'lock']),
-      '#basseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|baseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']) || !!(M.bassengLegacy && M.bassengLegacy(config)), // fiks 26.14: også den gamle importerte #badebasseng
+      '#badebasseng': () => !!M.findArea(hass, 'basseng', 'pool') || rx(/basseng|baseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']) || !!(M.bassengLegacy && M.bassengLegacy(config)), // fiks 26.14/30.1: også en gammel importert #basseng/#badebasseng
       '#ruter': () => plat('entur', 'entur_public_transport', 'entur_sx'),
       '#vanning': () => has('valve') || plat('opensprinkler') || rx(/vanning|sprinkler|drypp|irrigation/, ['switch', 'valve', 'input_boolean']),
       '#vaer': () => has('weather'),
       '#lys': () => has('light'),
       '#gjoremal': () => has('todo'),
       '#dorlas': () => has('lock'), // fiks 16.7
+      '#garasje': () => has('cover', (st) => st.attributes.device_class === 'garage'), // fiks 32.2: garasjeport(er)
       '#ringeklokke': () => plat('unifiprotect') && !!(M.ringFind && M.ringFind(hass)), // fiks 19.17: binary_sensor.*_doorbell (unifiprotect)
       '#energi': () => has('sensor', (s) => ['energy', 'power', 'water'].includes(s.attributes.device_class)), // fiks 21.1: energi-/effekt-/vannmålere (Energi-oppsettet)
       '#kart': () => ['person', 'device_tracker'].some((d) => M.all(hass, d).some((id) => hass.states[id].attributes.latitude != null)), // fiks 20.22: personer/sporere med posisjon
@@ -6389,7 +6485,7 @@ try {
     const out = [];
     M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => {
       const key = hash.slice(1);
-      if (hide[key] === false) return;
+      if (hide[key] === false || (M.hashAliasesOf || (() => []))(hash).some((a) => hide[a.slice(1)] === false)) return; // 30.1: popups.basseng: false skjuler fortsatt
       if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
       if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
       const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA[hash] === 'function' ? M.POPUP_EXTRA[hash](config) : undefined; // 25.4: oppsett fra en importert popup (#soppel)
@@ -6512,10 +6608,11 @@ try {
       push('custom', r.cfg, i, isObj(c) && typeof c.yaml === 'string' ? { id: c.id, stored: 'yaml' } : {});
     });
     const YO = isObj(yamlOverrides) ? yamlOverrides : {}, SO = isObj(storeOverrides) ? storeOverrides : {}, UP = isObj(userPopups) ? userPopups : {};
-    const ovOf = (O, hash) => (Object.prototype.hasOwnProperty.call(O, hash) ? O[hash] : Object.prototype.hasOwnProperty.call(O, hash.slice(1)) ? O[hash.slice(1)] : undefined);
+    const own = (O, k) => Object.prototype.hasOwnProperty.call(O, k);
+    const ovOf = (O, hash) => { for (const h of hashKeys(hash)) { if (own(O, h)) return O[h]; if (own(O, h.slice(1))) return O[h.slice(1)]; } return undefined; }; // 30.1: alias-hash (#basseng) gjelder #badebasseng
     const winners = new Map();
     report.replaced = []; report.inactive = [];
-    const upOf = (hash) => UP[hash.slice(1)] || UP[hash] || null;
+    const upOf = (hash) => { for (const h of hashKeys(hash)) { const v = UP[h.slice(1)] || UP[h]; if (v) return v; } return null; };
     cand.forEach((list, hash) => {
       // høyest kilde vinner; innen samme kilde vinner første. Egen over auto, med mindre brukeren har valgt «Bruk autogenerert».
       // 23.8: en generert popup kan erstatte en egen/importert (MSH.POPUP_SUPERSEDE, f.eks. #kalender) – til brukeren velger «Bruk egen»
@@ -6563,7 +6660,7 @@ try {
       // Fiks 23.3 · popup-unntak som må overleve overstyringer/egne popups (#kart: margin_top 0, bg 0, fullskjerm – 51-kart.js)
       const force = M.POPUP_FORCE && typeof M.POPUP_FORCE[hash] === 'function' ? M.POPUP_FORCE[hash] : null;
       if (force && !hidden) { try { const fx = force(cfg); if (fx) cfg = fx; } catch (e) { console.warn('[ki-msh] popup', hash, e); } }
-      const up = UP[hash.slice(1)] || UP[hash];
+      const up = upOf(hash);
       if (!hidden && up && up.hidden) { hidden = true; hiddenBy = 'user'; }
       const view = cfg || {};
       report.entries.push({
@@ -6720,7 +6817,7 @@ try {
     const R = await registries(hass);
     const funcs = buildFunctionPopups(R, hass, config, user);
     const fHash = new Set(funcs.map((f) => f.hash));
-    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id)); // samme hash som en funksjon (f.eks. Basseng) → funksjons-popupen vinner
+    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id])); // samme hash som en funksjon (f.eks. Basseng) → funksjons-popupen vinner
     const uo = (hash) => popOf(user, hash) || {}; // «Tilpass Hjem» → Popups: navn/ikon/ikonfarge på genererte
     const I = M.CARD_IDS;
     const home = { type: 'custom:msh-hjem-card', card_id: I.home, ...(config.home || {}), cards: {
@@ -6741,7 +6838,7 @@ try {
       }),
       ...funcs.map((f) => {
         const o = uo(f.hash);
-        const p = M.popupTemplateA({ name: o.name || f.name, icon: o.icon || f.icon, hash: f.hash, card: { type: 'custom:' + f.tag, card_id: 'pop-' + f.hash.slice(1), ...(f.extra || {}) } });
+        const p = M.popupTemplateA({ name: o.name || f.name, icon: o.icon || f.icon, hash: f.hash, card: { type: 'custom:' + f.tag, card_id: M.popupCardId ? M.popupCardId(f.hash) : 'pop-' + f.hash.slice(1), ...(f.extra || {}) } });
         if (o.color) setIconColor(p, o.color);
         if (f.tap) p.tap_action = f.tap;
         return { group: 'fn', person: !!f.person, config: p };
@@ -6763,20 +6860,12 @@ try {
       const { header_gap: hg, ...rest } = p || {};
       return M.applyHeaderGap(rest, M.headerGapOf((uo(p.hash) || {}).header_gap, hg, S.popup_header_gap, config.popup_header_gap));
     });
-    // Fiks 28.14 · tvilling-hasher (MSH.POPUP_TWINS, f.eks. #badebasseng = samme ene msh-basseng-card som #basseng, samme card_id)
-    const twins = [];
-    Object.keys(M.POPUP_TWINS || {}).forEach((h) => {
-      const src = res.popups.find((p) => p && p.hash === h);
-      if (!src) return;
-      // tvillingen settes rett etter kilden (ikke bakerst – egne/importerte popups skal fortsatt ligge sist i stacken)
-      let at = res.popups.indexOf(src);
-      (M.POPUP_TWINS[h] || []).forEach((t) => { if ((config.popups || {})[t.slice(1)] !== false && !res.popups.some((p) => p && p.hash === t)) { twins.push(t); res.popups.splice(++at, 0, { ...clone(src), hash: t }); } });
-    });
-    if (res.report) res.report.twins = twins;
-    if (M.bassengMigrateStore) M.bassengMigrateStore(); // én gang: gamle basseng-kort i ki-store popup_overrides skrives om
+    // Fiks 30.1 · 28.14-tvillingene (MSH.POPUP_TWINS, #basseng + #badebasseng) er fjernet: nøyaktig ÉN popup per funksjon,
+    // gamle hasher er alias (MSH.HASH_ALIAS → history.replaceState). Engangsmigrering av ki-store (40-basseng.js):
+    if (M.bassengMigrateStore) M.bassengMigrateStore(hass); // én gang: gamle basseng-popups/-kort/-lenker i ki-store skrives om
     if (M.applyHeaderGap && res.report) { const fin = new Map(res.popups.map((p) => [p.hash, p])); res.report.entries.forEach((e) => { if (e.config && fin.has(e.hash)) e.config = fin.get(e.hash); }); } // rapporten viser den endelige popupen
     const shown = new Set(res.popups.map((p) => p.hash));
-    const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => f.hash.slice(1));
+    const fk = funcs.filter((f) => !f.person && f.hash !== '#settings' && shown.has(f.hash)).map((f) => ((M.REF_POPUPS[f.hash] || {}).nav || f.hash.slice(1))); // 30.1: #badebasseng = navbar-knappen «basseng»
     const navbar = { type: 'custom:msh-navbar-card', card_id: I.navbar, bar: fk.slice(0, 5), more: fk.slice(5), ...(config.navbar || {}) };
     return { title: 'Hjem', path: 'hjem', icon: 'mdi:home', panel: true, cards: [{ type: 'vertical-stack', cards: [home, navbar, ...res.popups] }] };
   };
@@ -7327,7 +7416,19 @@ try {
       this._hold(false);
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
-      if (st.lens) st.lens.finish();
+      if (st.lens) {
+        // Valgt fane kan endre mål når den blir aktiv (ikonfaner: ikon → ikon + navn) – vent til fanebyttet er tegnet
+        // (maks 3 frames), og la linsen gli til fanens endelige mål før den tones ut (ellers ender boblen på det gamle målet).
+        const L = st.lens, want = hit ? this.idOf(hit) : null;
+        let n = 0;
+        const go = () => {
+          if (L.dead || L.fin) return;
+          const a = this.activeBtn();
+          if (want != null && (!a || this.idOf(a) !== want) && n++ < 3) { requestAnimationFrame(go); return; }
+          if (L.glideTo) L.glideTo(a); else L.finish();
+        };
+        if (hit) { requestAnimationFrame(go); L.timers.push(setTimeout(() => L.finish(), 500)); } else L.finish(); // reserve: rAF kommer aldri
+      }
     }
   }
 
@@ -7669,6 +7770,748 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 06-appliance-icons.js', e); }
+
+/* ---- 06-varsling-kilde.js ---- */
+try {
+/* KI MSH · varslingskilden (fiks 29.1) – bryterne fra KI Varslinger og sikkerhet + KI Energi, funnet i entitetsregisteret.
+ *
+ * Datalogikken er flyttet UENDRET fra brukerens kort ki-cards/src/83-ki-varsling-card.js (KiVarslingCard._brytere,
+ * KI_VARS_TEKST, KI_VARS_IKON, erMaster, KiVarslingEditor._plattformer) og er den eneste kopien i ki-msh:
+ * msh-innstillinger-card (60-innstillinger.js) bruker bare denne modulen. ki-cards selv endres ikke (brukerens valg);
+ * test/innstillinger29-check.mjs laster ki-varsling-card ved siden av og sjekker at resultatet er identisk.
+ *
+ *   MSH.finnBrytere(hass, cfg) → [{ id, slug, kilde, plattform, enhet, navn, under, ikon, pa, borte }]
+ *     cfg = én ki-varsling-card-config: plattform, ekstra, master, ikke_master, kjente, enheter, ikke_enheter, bare,
+ *     skjul, navn, undertekst, ikoner, skille. Kilde = hass.entities/hass.devices (plattformen står bare der).
+ *   MSH.varslingPlattformer(hass) → [{ value, label, n, varsler }] – alle plattformer med switch/input_boolean, flest først
+ *   MSH.varslingSig(liste) → signatur av [id, pa] (tegn bare på endring)
+ *   MSH.KI_VARS_TEKST · MSH.KI_VARS_IKON · MSH.kiVarsIkon · MSH.kiVarsErMaster · MSH.KI_VARS_PLATTFORM
+ */
+(function () {
+  const M = window.MSH;
+  if (!M) return;
+
+  /* Flere integrasjoner kan ha varslingsbrytere. `ki_energi` legger alle sine på ÉN
+     enhet, i motsetning til `ki_notifications` som har én enhet per regel. */
+  const KI_VARS_PLATTFORM = ['ki_notifications', 'ki_energi'];
+
+  /* Navn og beskrivelse per regel, slik de sto i det håndskrevne oppsettet.
+     Integrasjonens egne navn er tekniske («Alarm - Alle varsler»), og disse er de som
+     faktisk forklarer hva bryteren gjør. `navn:` og `undertekst:` overstyrer. */
+  const KI_VARS_TEKST = [
+    [/vekking|vekke/, 'Vekking', 'Lys og lyd på vekketidspunkt', 'mdi:alarm'],
+    [/ansikt/, 'Ansiktsgjenkjenning', 'Låser opp ved gjenkjent ansikt', 'mdi:face-recognition'],
+    [/autolas|autolås/, 'Autolås', 'Låser døra automatisk etter lukking', 'mdi:lock-clock'],
+    [/fastkjort|fastkjørt/, 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', 'mdi:lock-alert'],
+    [/blink|dorlys|dørlys/, 'Dørlys', 'Blinker med lyset når døra åpnes', 'mdi:monitor-shimmer'],
+    [/familie|hjemme.?borte/, 'Hjemme / borte', 'Varsler når noen kommer eller drar', 'mdi:home-account'],
+    [/^alarm|alarm_/, 'Alarm', 'Aktiverer alarmsystemet', 'mdi:shield-home'],
+    [/heimdall|alarmo/, 'Heimdall', 'Synk mellom Heimdall og Alarmo', 'mdi:sync'],
+    [/ruter|skolen/, 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', 'mdi:bus-clock'],
+    [/planter/, 'Planter', 'Varsel når plantene trenger vann', 'mdi:flower-tulip'],
+    [/stovsug|støvsug/, 'Støvsuger', 'Varsel om feil og fullført runde', 'mdi:robot-vacuum'],
+    [/home.?assistant|oppstart|startet/, 'Home Assistant', 'Varsel etter omstart av HA', 'mdi:home-assistant'],
+    [/vaermelding|værmelding|vaer_ai/, 'Værmelding', 'Daglig værvarsel fra AI', 'mdi:weather-partly-cloudy'],
+    [/stromforbruk|strømforbruk|forbruk.?rapport/, 'Strømforbruk', 'Daglig rapport', 'mdi:chart-bar'],
+
+    /* KI Utelys. Tre brytere på samme enhet, som ellers ville hett det samme. */
+    [/ki_utelys_auto/, 'Utelys automatikk', 'Styrer utelysene etter solhøyden', 'mdi:lightbulb-auto'],
+    [/ki_utelys_morgen/, 'Utelys morgen', 'Lys om morgenen til det lysner', 'mdi:weather-sunset-up'],
+    [/ki_utelys_kveld/, 'Utelys kveld', 'Lys om kvelden når det blir mørkt', 'mdi:weather-sunset-down'],
+
+    /* KI Energi. Hovedbryteren først: den slår av alle de andre, og må ikke forveksles
+       med `ki_varsel_effekt`, som bare gjelder effektgrensen. */
+    [/\bki_energi_varsler\b/, 'Energivarsler', 'Hovedbryter for alle energivarsler', 'mdi:bell-outline'],
+    [/ki_varsel_effekt/, 'Effektgrense', 'Varsel når timen nærmer seg grensen', 'mdi:flash-alert'],
+    [/ki_varsel_hjemkomst/, 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', 'mdi:home-import-outline'],
+    [/ki_varsel_sommer/, 'Sommermodus', 'Varsel når sommermodus slår inn', 'mdi:white-balance-sunny'],
+    [/ki_varsel_vvb/, 'Varmtvann', 'Varsel om berederen og legionella', 'mdi:water-boiler'],
+    [/ki_varsel_hanklevarmer/, 'Håndklevarmer', 'Varsel om håndklevarmeren', 'mdi:radiator'],
+    [/ki_varsel_helg/, 'Bortemodus', 'Varsel når huset settes i bortemodus', 'mdi:bag-suitcase'],
+    [/ki_helg_spor_torsdag/, 'Spør torsdag', 'Spør om dere drar bort i helgen', 'mdi:calendar-question'],
+    [/ki_helg_spor_fredag/, 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', 'mdi:calendar-question'],
+  ];
+
+  /* Ikon gjettes fra navnet når integrasjonen ikke gir et. Rekkefølgen betyr noe:
+     «dorlas_fastkjort» skal treffe låsen, ikke varselet, så de mest spesifikke først. */
+  const KI_VARS_IKON = [
+    [/fastkjort|fastkj/, 'mdi:lock-alert'],
+    [/autolas|autolås/, 'mdi:lock-clock'],
+    [/las|lås|dor|dør/, 'mdi:door-closed-lock'],
+    [/alarm|heimdall|alarmo/, 'mdi:shield-home'],
+    [/ansikt|face/, 'mdi:face-recognition'],
+    [/familie|hjemme|borte|person/, 'mdi:home-account'],
+    [/stovsug|støvsug|vacuum/, 'mdi:robot-vacuum'],
+    [/vaer|vær|weather/, 'mdi:weather-partly-cloudy'],
+    [/ruter|buss|avgang/, 'mdi:bus-clock'],
+    [/strom|strøm|forbruk|energi/, 'mdi:chart-bar'],
+    [/oppstart|restart|startup/, 'mdi:restart'],
+    [/blink|lys|skjerm/, 'mdi:monitor-shimmer'],
+    [/rapport|daglig/, 'mdi:file-document-outline'],
+  ];
+
+  const kiVarsIkon = (tekst) => {
+    const t = String(tekst || '').toLowerCase();
+    for (const [m, ikon] of KI_VARS_IKON) if (m.test(t)) return ikon;
+    return 'mdi:bell-outline';
+  };
+
+  /* Hovedbryteren kjennes på navnet: «alle varsler», «aktivert», «varsling», eller
+     at den heter det samme som regelen. */
+  const erMaster = (b) => /alle[ _-]?varsler|_aktivert$|_varsling$|_aktiv$|_auto$|_automatikk$/.test(b.id)
+    || b.slug === b.enhet.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    || /^(alle varsler|aktivert|varsling|aktiv)$/i.test(b.under || '');
+
+  /* Bryterne fra integrasjonen, pluss det som er lagt til manuelt i `ekstra`.
+   *
+   * Vi går gjennom entitetsregisteret og ikke gjennom tilstandene, fordi registeret er
+   * det eneste stedet plattformen står. To brytere kan hete det samme og komme fra
+   * ulike integrasjoner.
+   *
+   * = KiVarslingCard._brytere() (setConfig: plattform-standard, this._plattformer = [].concat(c.plattform)). */
+  function finnBrytere(h, cfg) {
+    if (!h) return [];
+    const c = { plattform: KI_VARS_PLATTFORM, ...(cfg || {}) };
+    const plattformer = [].concat(c.plattform);
+    const reg = h.entities || {};
+    const dev = h.devices || {};
+    const skjul = new Set((c.skjul || []).map(String));
+    const ut = [];
+
+    const legg = (id, kilde) => {
+      const st = h.states[id];
+      if (!st) return;
+      const slug = id.split('.')[1] || id;
+      if (skjul.has(slug) || skjul.has(id)) return;
+      const e = reg[id] || {};
+      const enhet = (dev[e.device_id] || {}).name_by_user
+        || (dev[e.device_id] || {}).name || '';
+      const a = st.attributes || {};
+      const eget = (c.navn || {})[slug] || (c.navn || {})[id];
+      const egenUnder = (c.undertekst || {})[slug] || (c.undertekst || {})[id];
+
+      /* Navn og undertekst hentes som i template_toggle_card_small: `friendly_name`
+         deles på et skilletegn, navnet foran og beskrivelsen bak.
+         «Vekking - Lys og lyd på vekketidspunkt» blir to linjer. */
+      const skille = c.skille || '-';
+      const helt = a.friendly_name || slug;
+      const deler = helt.split(skille);
+      let navn = deler[0].trim() || slug;
+      let under = deler.length > 1 ? deler.slice(1).join(skille).trim() : '';
+
+      /* Uten skilletegn i navnet faller vi tilbake til enhetsnavnet som overskrift og
+         resten som beskrivelse — «Autolås Autolås» skal ikke stå to ganger. */
+      if (!under && enhet && helt.toLowerCase().startsWith(enhet.toLowerCase() + ' ')) {
+        navn = enhet;
+        under = helt.slice(enhet.length + 1).trim();
+      }
+      /* Kjente regler får navnet og forklaringen fra tabellen over. */
+      let kjentIkon = null;
+      if (c.kjente !== false) {
+        const n = `${slug} ${enhet} ${helt}`.toLowerCase();
+        for (const [m, kn, ku, ki] of KI_VARS_TEKST) {
+          if (!m.test(n)) continue;
+          navn = kn; under = ku; kjentIkon = ki; break;
+        }
+      }
+      if (eget) navn = eget;
+      if (egenUnder) under = egenUnder;
+      ut.push({
+        id, slug, kilde, plattform: (reg[id] || {}).platform || '',
+        enhet: enhet || 'Annet',
+        navn: navn.trim() || slug,
+        under,
+        ikon: (c.ikoner || {})[slug] || (c.ikoner || {})[id]
+          || kjentIkon || a.icon || kiVarsIkon(`${slug} ${navn}`),
+        pa: st.state === 'on',
+        borte: ['unavailable', 'unknown'].includes(st.state),
+      });
+    };
+
+    for (const [id, e] of Object.entries(reg)) {
+      if (!plattformer.includes(e.platform)) continue;
+      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
+      /* KI Energi har 206 entiteter på én enhet, og bare noen få er varslingsbrytere.
+         Resten er styring, og hører hjemme i klimakortet. */
+      if (e.platform === 'ki_energi' && !/varsel|varsler|spor_/.test(id)) continue;
+      legg(id, 'integrasjon');
+    }
+    for (const id of (c.ekstra || [])) legg(id, 'ekstra');
+
+    /* Én bryter per regel: hovedbryteren. Finner vi ingen, viser vi alle bryterne for
+     * den regelen. KI Energi (`ikke_master:`) har sidestilte brytere – alle beholdes. */
+    if (c.master !== false) {
+      const utenMaster = [].concat(c.ikke_master || ['ki_energi']);
+      const perEnhet = new Map();
+      for (const b of ut) {
+        if (b.kilde === 'ekstra' || utenMaster.includes(b.plattform)) continue;
+        if (!perEnhet.has(b.enhet)) perEnhet.set(b.enhet, []);
+        perEnhet.get(b.enhet).push(b);
+      }
+
+      const behold = new Set();
+      /* Brytere fra unntatte integrasjoner beholdes alltid. */
+      for (const b of ut) if (utenMaster.includes(b.plattform)) behold.add(b.id);
+      for (const [, liste] of perEnhet) {
+        if (liste.length <= 1) { liste.forEach((b) => behold.add(b.id)); continue; }
+        const m = liste.filter(erMaster);
+        (m.length ? m : liste).forEach((b) => behold.add(b.id));
+      }
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (ut[i].kilde !== 'ekstra' && !behold.has(ut[i].id)) ut.splice(i, 1);
+      }
+    }
+
+    /* Filtrering på ENHETSNAVN, ikke entitets-ID: delvis treff, uten hensyn til store bokstaver. */
+    const treff = (navn, liste) => liste.some((m) =>
+      String(navn).toLowerCase().includes(String(m).toLowerCase()));
+    if (c.enheter && c.enheter.length) {
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (!treff(ut[i].enhet, c.enheter) && ut[i].kilde !== 'ekstra') ut.splice(i, 1);
+      }
+    }
+    if (c.ikke_enheter && c.ikke_enheter.length) {
+      for (let i = ut.length - 1; i >= 0; i--) {
+        if (treff(ut[i].enhet, c.ikke_enheter)) ut.splice(i, 1);
+      }
+    }
+
+    /* `bare:` er motsatt av `skjul:` og styrer også rekkefølgen. */
+    const bare = (c.bare || []).map(String);
+    if (bare.length) {
+      const rang = new Map(bare.map((x, i) => [x, i]));
+      return ut
+        .filter((b) => rang.has(b.slug) || rang.has(b.id))
+        .sort((a, b) => (rang.get(a.slug) ?? rang.get(a.id))
+                      - (rang.get(b.slug) ?? rang.get(b.id)));
+    }
+    return ut.sort((a, b) => a.enhet.localeCompare(b.enhet, 'nb')
+      || a.navn.localeCompare(b.navn, 'nb'));
+  }
+
+  /* Alle plattformer som har brytere hos deg, med antall (= KiVarslingEditor._plattformer).
+     `varsler` = hvor mange som faktisk tas med (KI Energi: bare varslingsbryterne). */
+  const VENNLIG = { ki_notifications: 'KI Varslinger', ki_energi: 'KI Energi', ki_utelys: 'KI Utelys' };
+  function plattformNavn(h, p) {
+    if (VENNLIG[p]) return VENNLIG[p];
+    try { const t = h && h.localize && h.localize(`component.${p}.title`); if (t && t !== `component.${p}.title`) return t; } catch (e) { /* */ }
+    return p;
+  }
+  function varslingPlattformer(h) {
+    const reg = (h && h.entities) || {};
+    const teller = {}, varsler = {};
+    for (const [id, e] of Object.entries(reg)) {
+      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
+      if (!e || !e.platform) continue;
+      teller[e.platform] = (teller[e.platform] || 0) + 1;
+      if (e.platform !== 'ki_energi' || /varsel|varsler|spor_/.test(id)) varsler[e.platform] = (varsler[e.platform] || 0) + 1;
+    }
+    return Object.entries(teller)
+      .sort((a, b) => b[1] - a[1])
+      .map(([p, n]) => {
+        const v = varsler[p] || 0, navn = plattformNavn(h, p);
+        return { value: p, n, varsler: v, navn, label: `${navn} (${n}${v !== n ? ` · ${v} varsler` : ''})` };
+      });
+  }
+
+  M.KI_VARS_PLATTFORM = KI_VARS_PLATTFORM;
+  M.KI_VARS_TEKST = KI_VARS_TEKST;
+  M.KI_VARS_IKON = KI_VARS_IKON;
+  M.kiVarsIkon = kiVarsIkon;
+  M.kiVarsErMaster = erMaster;
+  M.finnBrytere = finnBrytere;
+  M.varslingPlattformer = varslingPlattformer;
+  M.varslingPlattformNavn = plattformNavn;
+  M.varslingSig = (L) => JSON.stringify((L || []).map((b) => [b.id, b.pa]));
+})();
+
+} catch (e) { console.error('[ki-msh] 06-varsling-kilde.js', e); }
+
+/* ---- 07-sikring.js ---- */
+try {
+/* KI MSH · felles byggeklosser for sikrings-popupene (Fiks 32.3): Dørlås (#dorlas, 49-las.js) og Garasje (#garasje,
+ * 62-garasje.js). Én kopi – begge kortene bruker disse, ingen egne varianter. Mål/farger 1:1 fra «Dørlås v2.dc.html» og
+ * «Garasjeport.dc.html».
+ *   MSH.sik.picker({ items, sel, gear, many })  velger: kort per lås/port (56 px, r 28, ikon-sirkel 40 i tilstandsfarge) + tannhjul
+ *   MSH.sik.hero({ name, chip, col, state, sub, right, bottom, gap })  toppkort-skallet (r 28, #3a3a3a, radial glød)
+ *   MSH.sik.badge(icon, col, spin)          56 px badge (snurrer mens låsen jobber)
+ *   MSH.sik.tiles([{ icon, val, label, col, act, ent, tint }])  tre statusfliser
+ *   MSH.sik.auto({ open, master, sub, rows })  sammenleggbar automatikk med hovedbryter (lukket som standard)
+ *   MSH.sik.history({ sum, filters, fsel, days, more, empty })  historikk-tidslinje
+ *   MSH.sik.sheet(card, { title, tabs, body, click, change, pick })  «Tilpass …»-arket (MSH.overlay tilpass + MSH.draftEditor)
+ *   MSH.sik.logbook / attrHistory (bare når popupen er åpen, 5 min cache) · person · method · autoFind · isOn · flip · master
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.sik) return;
+  const esc = M.esc;
+  const G = 'rgb(102 209 158)', O = 'rgb(242 181 115)', R = 'rgb(242 128 115)', Y = 'rgb(242 210 111)', B = 'rgb(115 185 242)', P = 'rgb(242 133 201)', GR = '#afafaf';
+  const PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+  const a = (c, x) => (/^rgb\(/.test(String(c)) ? String(c).replace(')', ` / ${x})`) : `color-mix(in srgb, ${c} ${Math.round(x * 100)}%, transparent)`);
+  const hm = (t) => { const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; };
+  const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  const isToday = (t) => dayKey(t) === dayKey(Date.now());
+  const isYday = (t) => dayKey(t) === dayKey(new Date(new Date().setHours(0, 0, 0, 0) - 3600000));
+  const dayLabel = (t) => { if (isToday(t)) return 'I dag'; if (isYday(t)) return 'I går'; const s = new Date(t).toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const when = (t) => (!t || isNaN(t) ? '–' : isToday(t) ? hm(t) : isYday(t) ? 'i går ' + hm(t) : new Date(t).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }) + ' ' + hm(t));
+  const durS = (ms) => { const m = Math.max(0, Math.floor(ms / 60000)); if (m < 60) return `${m} min`; const h = Math.floor(m / 60); if (h < 24) return m % 60 ? `${h} t ${m % 60} m` : `${h} t`; const d = Math.floor(h / 24); return h % 24 ? `${d} d ${h % 24} t` : `${d} d`; };
+  const dur = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); if (m < 60) return `${m} min`; const h = Math.floor(m / 60), r = m % 60; if (h < 24) return r ? `${h} t ${r} min` : `${h} t`; const d = Math.floor(h / 24); return `${d} d${h % 24 ? ` ${h % 24} t` : ''}`; };
+  const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${M.pad(s % 60)}`; };
+
+  /* ------------------------------------------------------------ velger + tannhjul */
+  // items: [{ id, name, icon, state, col }]. Velgeren vises bare med mer enn ett element – tannhjulet alltid (høyrestilt).
+  // 1–2: kortene deler bredden · 3+ (eller many: navnet ville blitt kuttet): raden scroller (kort ≥ 164 px, scroll-snap, fade).
+  // mode: 'eq' (deler bredden likt) → 'fit' (deler bredden etter navnelengde) → 'many' (scroll). Kortet går videre til neste
+  // trinn når et navn ville blitt kuttet (MSH.sik.pickerFits) – ingen navn kuttes ved 390 px, tannhjulet står alltid fast.
+  function picker({ items = [], sel, gear = 'Tilpass', mode } = {}) {
+    const m = items.length > 2 ? 'many' : mode || 'eq';
+    const row = items.length > 1 ? `<div class="sk-prow ${m}" data-key="sk-prow" role="tablist">${items.map((it) => {
+      const on = it.id === sel, c = it.col || GR;
+      return `<button class="sk-pc ${on ? 'on' : ''}" role="tab" aria-selected="${on}" data-act="pick" data-id="${esc(it.id)}" data-haptic="selection" data-key="pc-${esc(it.id)}">`
+        + `<span class="sk-pcc" style="background:${on ? c : a(c, 0.16)};color:${on ? '#232323' : c}">${M.icon(it.icon, 20)}</span>`
+        + `<span class="sk-pct"><span class="sk-pcn">${esc(it.name)}</span><span class="sk-pcs" style="color:${c}">${esc(it.state)}</span></span></button>`;
+    }).join('')}</div>` : '<span class="sk-pfill"></span>';
+    return `<div class="sk-pick" data-key="sk-pick">${row}<button class="sk-gear" data-act="customize" title="${esc(gear)}" aria-label="${esc(gear)}">${M.icon('mdi:cog', 24)}</button></div>`;
+  }
+  // false når et navn i velgeren er kuttet (bare for eq/fit – scroll-modus kutter aldri)
+  function pickerFits(root) {
+    const row = root && root.querySelector('.sk-prow:not(.many)');
+    if (!row) return true;
+    return [...row.querySelectorAll('.sk-pcn')].every((n) => n.scrollWidth <= n.clientWidth + 1);
+  }
+
+  /* ------------------------------------------------------------ toppkort-skallet */
+  function hero({ name, chip, col = GR, state, sub, right = '', bottom = '', gap = 10, key = 'sk-hero' } = {}) {
+    const cc = (chip && chip.col) || col;
+    return `<section class="sk-hero" data-key="${key}"><span class="sk-glow" style="background:radial-gradient(circle, ${a(col, 0.18)} 0%, transparent 70%)"></span>
+      <div class="sk-htop" style="gap:${gap}px"><div class="sk-hl">
+        <div class="sk-hn"><span class="sk-hname">${esc(name)}</span>${chip ? `<span class="sk-chip ${chip.blink ? 'blink' : ''}" style="background:${a(cc, 0.16)};color:${cc}">${M.icon(chip.icon, 14)}${esc(chip.text)}</span>` : ''}</div>
+        <span class="sk-hstate">${esc(state)}</span><span class="sk-hsub">${esc(sub)}</span></div>${right}</div>${bottom}</section>`;
+  }
+  const badge = (icon, col, spin, ent) => `<span class="sk-badge ${spin ? 'spin' : 'pop'}" ${ent ? `data-ent="${esc(ent)}"` : ''} style="background:${a(col, 0.16)};color:${col}">${M.icon(icon, 28)}</span>`;
+
+  /* ------------------------------------------------------------ statusfliser */
+  function tiles(list) {
+    return `<div class="sk-tiles" data-key="sk-tiles">${list.map((k, i) => {
+      const t = k.act ? 'button' : 'div';
+      return `<${t} class="sk-tile ${k.act ? 'act' : ''}" data-key="tile-${i}" ${k.act ? `data-act="${k.act}" data-haptic="${k.haptic || 'light'}"` : ''} ${k.id ? `data-id="${esc(k.id)}"` : ''} ${k.ent ? `data-ent="${esc(k.ent)}"` : ''} ${k.tint ? `style="background:${a(k.tint, 0.14)}"` : ''}>`
+        + `${M.icon(k.icon, 22, `color:${k.col || GR}`)}<span class="sk-tt"><span class="sk-tv num">${esc(k.val)}</span><span class="sk-tl">${esc(k.label)}</span></span></${t}>`;
+    }).join('')}</div>`;
+  }
+
+  /* ------------------------------------------------------------ automatikk (sammenleggbar, hovedbryter) */
+  // rows: [{ k, icon, label, sub, ent, on, mins: { opts, cur, disabled } }]. Hovedbryteren er en egen knapp (stopPropagation
+  // i kortet), så den påvirker aldri utfoldingen. Av → radene dempes (.4) og tar ikke imot trykk.
+  const swH = (on) => `<span class="sk-sw ${on ? 'on' : ''}"><i></i></span>`;
+  function auto({ open, master, sub, rows = [] } = {}) {
+    return `<section class="sk-auto" data-key="sk-auto"><div class="sk-ahd">
+      <button class="sk-atog" data-act="am-open" data-haptic="selection" aria-expanded="${!!open}"><span class="sk-ac" style="background:${master ? a(P, 0.18) : '#2f2f2f'};color:${master ? P : '#7f7f7f'}">${M.icon('mdi:auto-mode', 22)}</span>
+        <span class="sk-at"><span class="sk-atn">Automatikk</span><span class="sk-ats">${esc(sub)}</span></span><span class="sk-chev ${open ? 'up' : ''}">${M.icon('mdi:chevron-down', 22)}</span></button>
+      <button class="sk-sw sk-master ${master ? 'on' : ''}" data-act="am-master" data-haptic="medium" role="switch" aria-checked="${!!master}" title="Automatikk av/på" aria-label="Automatikk av/på"><i></i></button></div>
+      ${open ? `<div class="sk-alist ${master ? '' : 'off'}" data-key="sk-alist" ${master ? '' : 'aria-disabled="true"'}>${rows.map((r) => `<div class="sk-ar" data-key="ar-${r.k}">
+        <button class="sk-arb" data-act="am-row" data-k="${r.k}" data-haptic="selection" ${master ? '' : 'tabindex="-1"'} role="switch" aria-checked="${!!r.on}">${M.icon(r.icon, 22, 'color:#afafaf')}<span class="sk-at"><span class="sk-arl">${esc(r.label)}</span><span class="sk-ats">${esc(r.ent ? r.sub : 'Velg entitet')}</span></span>${r.ent ? swH(r.on) : `<span class="sk-miss">–</span>`}</button>
+        ${r.mins ? `<div class="sk-mins">${r.mins.opts.map((m) => `<button class="${m === r.mins.cur ? 'on' : ''}" data-act="am-min" data-k="${r.k}" data-v="${m}" data-haptic="selection" ${r.mins.disabled ? 'disabled' : ''}>${m} min</button>`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}
+    </section>`;
+  }
+
+  /* ------------------------------------------------------------ historikk-tidslinje */
+  // days: [{ key, label, rows: [{ key, time, title, col, kind: 'dot'|'ring'|'warn', who: { ini, col }, method: { icon, label }, extra }] }]
+  function hrow(h, first, last) {
+    const ring = h.kind === 'ring', warn = h.kind === 'warn';
+    const dot = `background:${ring ? '#3a3a3a' : h.col};${ring ? 'border:2px solid #7f7f7f;' : ''}box-shadow:0 0 0 4px #3a3a3a${warn ? `, 0 0 0 6px ${a(R, 0.3)}` : ''}`;
+    const meta = (h.who ? `<span class="sk-av" style="background:${h.who.col}">${esc(h.who.ini)}</span>` : '') + (h.method ? `<span class="sk-mc">${M.icon(h.method.icon, 13)}${esc(h.method.label)}</span>` : '') + (h.extra ? `<span class="sk-hx">${esc(h.extra)}</span>` : '');
+    return `<div class="sk-hr" data-key="${esc(h.key)}" data-kind="${esc(h.type || '')}"><span class="sk-ht num">${esc(h.time)}</span><span class="sk-hd"><span class="sk-l1" style="background:${first ? 'transparent' : '#4a4a4a'}"></span><span class="sk-l2" style="background:${last ? 'transparent' : '#4a4a4a'}"></span><span class="sk-dot" style="${dot}"></span></span>
+      <div class="sk-hb"><span class="sk-htt">${esc(h.title)}</span>${meta ? `<span class="sk-hm">${meta}</span>` : ''}</div></div>`;
+  }
+  function history({ sum = '', filters, fsel, days = [], more, empty = 'Ingen hendelser' } = {}) {
+    const fl = filters ? `<div class="sk-hf" data-key="sk-hf" data-glass-drag="x">${filters.map((f) => { const on = f.k === fsel; return `<button class="sk-fc ${on ? 'on' : ''} ${!on && f.warn && f.n ? 'warn' : ''}" data-act="h-filter" data-k="${f.k}" data-haptic="selection" aria-pressed="${on}">${M.icon(f.icon, 16)}${esc(f.label)}<span class="sk-fn">${f.n}</span></button>`; }).join('')}</div>` : '';
+    const body = days.map((d) => `<div class="sk-day" data-key="day-${esc(d.key)}"><span class="sk-dl">${esc(d.label)}</span>${d.rows.map((h, i) => hrow(h, i === 0, i === d.rows.length - 1)).join('')}</div>`).join('');
+    return `<section class="sk-hist" data-key="sk-hist"><div class="sk-hh"><span class="sk-cap">Historikk</span><span class="sk-hs">${esc(sum)}</span></div>${fl}
+      <div class="sk-hlist">${body || `<span class="sk-hnone">${esc(empty)}</span>`}</div>
+      ${more ? `<button class="sk-more" data-act="h-more" data-haptic="light">${esc(more.label)}${M.icon(more.up ? 'mdi:chevron-up' : 'mdi:chevron-down', 18)}</button>` : ''}</section>`;
+  }
+  // Hendelser (nyeste først) → dager med rader (mk(e) → rad)
+  function groupDays(evs, mk) {
+    const out = [];
+    evs.forEach((e) => { const k = dayKey(e.t); let d = out[out.length - 1]; if (!d || d.key !== k) { d = { key: k, label: dayLabel(e.t), rows: [] }; out.push(d); } d.rows.push(mk(e)); });
+    return out;
+  }
+
+  /* ------------------------------------------------------------ data: logbook + attributter (bare når popupen er åpen) */
+  const LB = new Map(), AH = new Map(), TTL = 300000;
+  function logbook(hass, ids, days = 7, force) {
+    ids = [...new Set((ids || []).filter(Boolean))].sort();
+    if (!ids.length || !hass || !hass.callWS) return Promise.resolve([]);
+    const key = ids.join(',') + '|' + days, c = LB.get(key);
+    if (c && !force && Date.now() - c.t < TTL) return c.p;
+    const p = Promise.resolve().then(() => hass.callWS({ type: 'logbook/get_events', start_time: new Date(Date.now() - days * 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: ids }))
+      .then((r) => (Array.isArray(r) ? r : []).filter((e) => e && e.entity_id && e.state != null && e.when != null)
+        .map((e) => ({ id: e.entity_id, state: String(e.state), t: typeof e.when === 'number' ? e.when * 1000 : new Date(e.when).getTime(), user: e.context_user_id || null, ctxEnt: e.context_entity_id || null, ctxName: e.context_entity_id_name || e.context_name || null, ctxDomain: e.context_domain || null }))
+        .sort((x, y) => y.t - x.t))
+      .catch(() => []);
+    LB.set(key, { t: Date.now(), p });
+    return p;
+  }
+  // Attributtene per tilstandsendring (changed_by, method, code_slot …) – låsene bare, 5 min cache
+  function attrHistory(hass, ids, days = 7) {
+    ids = [...new Set((ids || []).filter(Boolean))].sort();
+    if (!ids.length || !hass || !hass.callWS) return Promise.resolve({});
+    const key = ids.join(',') + '|' + days, c = AH.get(key);
+    if (c && Date.now() - c.t < TTL) return c.p;
+    const p = Promise.resolve().then(() => hass.callWS({ type: 'history/history_during_period', start_time: new Date(Date.now() - days * 86400000).toISOString(), entity_ids: ids, minimal_response: false, no_attributes: false, significant_changes_only: false }))
+      .then((r) => { const out = {}; ids.forEach((id) => { out[id] = ((r && r[id]) || []).map((x) => ({ t: ((x.lu || x.lc || 0) * 1000) || new Date(x.last_changed || x.last_updated || 0).getTime(), s: x.s != null ? String(x.s) : String(x.state), a: x.a || x.attributes || {} })).filter((x) => x.a && Object.keys(x.a).length); }); return out; })
+      .catch(() => ({}));
+    AH.set(key, { t: Date.now(), p });
+    return p;
+  }
+  const attrsAt = (AHmap, e) => { const L = (AHmap && AHmap[e.id]) || []; let best = null; L.forEach((x) => { if (x.s === e.state && Math.abs(x.t - e.t) < 5000 && (!best || Math.abs(x.t - e.t) < Math.abs(best.t - e.t))) best = x; }); return best ? best.a : null; };
+
+  /* ------------------------------------------------------------ person + metode */
+  const PAL = [P, 'rgb(182 155 242)', B, G, O, Y];
+  // key = context_user_id eller et navn (changed_by). Bare kjente personer/brukere gir en person.
+  function person(hass, key) {
+    if (!hass || !key) return null;
+    const ps = M.all(hass, 'person');
+    let id = ps.find((p) => hass.states[p].attributes.user_id === key);
+    if (!id) { const k = String(key).trim().toLowerCase(); id = ps.find((p) => M.name(hass, p).toLowerCase() === k || p.split('.')[1] === M.slug(key)); }
+    let name = id ? M.name(hass, id) : null;
+    if (!name && hass.user && hass.user.id === key) name = hass.user.name || null;
+    if (!name) return null;
+    const i = id ? ps.indexOf(id) : [...name].reduce((s, ch) => s + ch.charCodeAt(0), 0);
+    return { name, ini: name.trim().charAt(0).toUpperCase(), col: PAL[Math.abs(i) % PAL.length] };
+  }
+  const METHOD = {
+    code: ['mdi:dialpad', 'Kode'], app: ['mdi:cellphone', 'Appen'], auto: ['mdi:lock-clock', 'Autolås'], key: ['mdi:key-variant', 'Nøkkel'], face: ['mdi:face-recognition', 'Ansikt'],
+    away: ['mdi:walk', 'Alle dro'], night: ['mdi:weather-night', 'Nattlås'], sensor: ['mdi:access-point', 'Sensor'],
+    autoclose: ['mdi:timer-outline', 'Autolukk'], car: ['mdi:car-electric', 'Tesla'], remote: ['mdi:remote', 'Fjernkontroll'],
+  };
+  const mth = (k, label) => ({ k, icon: (METHOD[k] || ['mdi:robot'])[0], label: label || (METHOD[k] || [0, 'Automasjon'])[1] });
+  // Metode for en hendelse: attributtene (method, changed_by, code_slot) → automasjonen som utløste den → Appen (bruker).
+  // kind: 'lock' | 'garage'. Ukjent automasjon → automasjonsnavnet.
+  function method(hass, e, attrs, kind) {
+    const A = attrs || {}, t = `${A.method || ''} ${A.lock_source || ''} ${A.operation_source || ''} ${A.changed_by || ''}`.toLowerCase();
+    if (kind === 'lock') {
+      if ((A.code_slot != null && A.code_slot !== '' && Number(A.code_slot) !== 0) || /keypad|kode|code|pin|tastatur/.test(t)) return mth('code');
+      if (/face|ansikt/.test(t)) return mth('face');
+      if (/auto/.test(t)) return mth('auto');
+      if (/manual|manuell|n[oø]kkel|key|thumb|vri/.test(t)) return mth('key');
+      if (/\brf\b|app|remote|ble|bluetooth|wifi|digital|zigbee|z-?wave/.test(t)) return mth('app');
+    }
+    const ce = e && e.ctxEnt;
+    if (ce && /^(automation|script)\./.test(ce)) {
+      const n = String(e.ctxName || M.name(hass, ce) || ce), s = n.toLowerCase() + ' ' + ce;
+      if (kind === 'lock') { if (/autol[aå]s|auto.?lock|relock/.test(s)) return mth('auto'); if (/alle.?dr|borte|away|leav/.test(s)) return mth('away'); if (/natt|night/.test(s)) return mth('night'); if (/ansikt|face/.test(s)) return mth('face'); }
+      else { if (/autolukk|auto.?close|auto.?lukk/.test(s)) return mth('autoclose'); if (/tesla|ankom|arriv|bil\b|car/.test(s)) return mth('car'); if (/alle.?dr|borte|away|leav/.test(s)) return mth('away'); }
+      return { k: 'automation', icon: 'mdi:robot-outline', label: n };
+    }
+    if (e && e.user) return mth('app');
+    return kind === 'garage' ? mth('remote') : mth('app');
+  }
+
+  /* ------------------------------------------------------------ automatikk-brytere (KI Varslinger og sikkerhet, 29.1) */
+  // defs: [{ k, rx, not, fb(hass) }]. Overstyring ov[k] (entitet, 'none' = ingen) → MSH.finnBrytere (enhetsnavn/navn/slug) → fb.
+  function autoFind(hass, defs, ov) {
+    const L = hass && M.finnBrytere ? M.finnBrytere(hass) : [], out = {};
+    (defs || []).forEach((d) => {
+      const o = ov && ov[d.k];
+      if (o === 'none') { out[d.k] = null; return; }
+      if (o && hass.states[o]) { out[d.k] = o; return; }
+      const b = L.find((x) => { const t = `${x.enhet} ${x.navn} ${x.slug}`.toLowerCase(); return d.rx.test(t) && !(d.not && d.not.test(t)); });
+      out[d.k] = (b && b.id) || (d.fb ? d.fb(hass) : null) || null;
+    });
+    return out;
+  }
+  // Tall-entitet (minutter) på samme enhet som bryteren
+  function minsOn(hass, swId, rx) {
+    const e = swId && hass.entities && hass.entities[swId];
+    if (!e || !e.device_id) return null;
+    return Object.keys(hass.entities).find((x) => /^(number|input_number)\./.test(x) && hass.entities[x].device_id === e.device_id && hass.states[x] && (!rx || rx.test(x + ' ' + (hass.states[x].attributes.friendly_name || '')) || /min/.test(String(hass.states[x].attributes.unit_of_measurement || '')))) || null;
+  }
+  // Minutter fra en tall-entitet (s/h-enheter regnes om)
+  function minsOf(hass, id) {
+    const s = id && hass.states[id];
+    if (!s || !M.isNum(s.state)) return null;
+    const v = Number(s.state), u = String(s.attributes.unit_of_measurement || 'min');
+    return /^s/.test(u) ? Math.round(v / 60) : /^(h|t)/.test(u) ? v * 60 : v;
+  }
+  function setMins(hass, id, m) {
+    const s = id && hass.states[id];
+    if (!s) return Promise.resolve();
+    const u = String(s.attributes.unit_of_measurement || 'min'), A = s.attributes;
+    let v = /^s/.test(u) ? m * 60 : /^(h|t)/.test(u) ? m / 60 : m;
+    v = M.clamp(v, A.min != null ? Number(A.min) : -Infinity, A.max != null ? Number(A.max) : Infinity);
+    return M.call(hass, id.split('.')[0], 'set_value', { entity_id: id, value: v });
+  }
+
+  /* ------------------------------------------------------------ optimistisk av/på med tilbakerulling (27.6) */
+  const SYNC_MS = 10000;
+  function isOn(card, id) {
+    const s = card.hass && id && card.hass.states[id];
+    if (!s) return false;
+    const real = s.state === 'on', o = card._opt && card._opt[id];
+    if (o) { if (real === o.want) { clearTimeout(o.tm); delete card._opt[id]; return real; } return o.want; }
+    return real;
+  }
+  function flip(card, id, want) {
+    const h = card.hass, s = h && id && h.states[id];
+    if (!s || M.unavailable(s)) return;
+    if (want == null) want = !isOn(card, id);
+    card._opt = card._opt || {};
+    const old = card._opt[id];
+    if (old) clearTimeout(old.tm);
+    if ((s.state === 'on') === want) delete card._opt[id];
+    else {
+      const o = { want };
+      o.tm = setTimeout(() => { if (!card._opt || card._opt[id] !== o) return; delete card._opt[id]; M.haptic('warning'); M.toast(`Fikk ikke svar fra ${M.name(card.hass, id)} – rullet tilbake`); card.update(); }, M.sik.SYNC_MS);
+      card._opt[id] = o;
+    }
+    const p = M.call(h, 'homeassistant', want ? 'turn_on' : 'turn_off', { entity_id: id });
+    if (p && p.catch) p.catch(() => { const o = card._opt && card._opt[id]; if (o) { clearTimeout(o.tm); delete card._opt[id]; card.update(); } });
+    card.update();
+  }
+  // Hovedbryter: på = minst én bryter på. Av → husker hvilke som var på (ui.amMem) og slår alle av; på → slår de huskede
+  // (eller alle) på igjen. De enkelte valgene beholdes.
+  function masterOn(card, ids) { return ids.some((id) => isOn(card, id)); }
+  function master(card, ids) {
+    if (!ids.length) return;
+    const mem = { ...(card.ui.amMem || {}) };
+    if (masterOn(card, ids)) {
+      const was = ids.filter((id) => isOn(card, id));
+      mem.ids = was;
+      card.setUI({ amMem: mem }, true);
+      was.forEach((id) => flip(card, id, false));
+    } else {
+      const want = (mem.ids || []).filter((id) => ids.includes(id));
+      (want.length ? want : ids).forEach((id) => flip(card, id, true));
+    }
+  }
+  // Vist på/av for en rad: hovedbryter på → faktisk (optimistisk) tilstand; av → det som huskes
+  const rowOn = (card, id, mOn) => (mOn ? isOn(card, id) : ((card.ui.amMem || {}).ids || []).includes(id));
+
+  /* ------------------------------------------------------------ «Tilpass …»-arket */
+  // Ark 50 px fra toppen, til bunnen, samme høyde i alle faner (MSH.overlay tilpass: true). Utkast (MSH.draftEditor):
+  // endringer vises straks i popupen og lagres i kortets config ved Ferdig (rosa pille). Bakteppe/Esc = Avbryt.
+  //   o.tabs: [[k, label]] | () => …   o.body(tab, draft, api) → HTML   o.click(a, el, api)   o.change(el, api)   o.pick(el, value, api)
+  //   api: { st, D(), set(patch, haptic), path(p, v, haptic), draw() }   (undefined fjerner nøkkelen)
+  const setPath = (obj, p, v) => {
+    const ks = String(p).split('.'), out = { ...obj }; let cur = out;
+    for (let i = 0; i < ks.length - 1; i++) { cur[ks[i]] = { ...(cur[ks[i]] && typeof cur[ks[i]] === 'object' ? cur[ks[i]] : {}) }; cur = cur[ks[i]]; }
+    if (v === undefined) delete cur[ks[ks.length - 1]]; else cur[ks[ks.length - 1]] = v;
+    // tomme objekter ryddes bort
+    const prune = (o, path) => { if (!path.length) return; const [k, ...r] = path; if (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) { prune(o[k], r); if (!Object.keys(o[k]).length) delete o[k]; } };
+    prune(out, ks.slice(0, -1));
+    return out;
+  };
+  function sheet(card, o) {
+    if (card._sheet && card._sheet.ov && !card._sheet.ov.closed) return card._sheet;
+    let ov = null, box = null;
+    const st = { tab: o.tab || (typeof o.tabs === 'function' ? o.tabs() : o.tabs)[0][0], busy: false, pick: null };
+    const ctl = M.draftEditor(card, {
+      saveOpts: { scope: 'shared' },
+      banner: () => ov && ov.body,
+      alive: () => !ov || ov.host.isConnected,
+      close: () => ov && ov.close(),
+      onBusy: (b) => { st.busy = b; draw(); },
+      onReload: () => draw(),
+    });
+    const D = () => ctl.draft || {};
+    const api = {
+      st, D, ctl, card,
+      set(patch, hap) { if (st.busy) return; let n = { ...D() }; Object.keys(patch).forEach((k) => { n = setPath(n, k, patch[k]); }); ctl.set(n); if (hap) M.haptic(hap); draw(); },
+      draw: () => draw(),
+    };
+    api.path = (p, v, hap) => api.set({ [p]: v }, hap);
+    const draw = () => {
+      if (!ov || !box) return;
+      const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
+      const tabs = typeof o.tabs === 'function' ? o.tabs() : o.tabs;
+      M.morph(box, `<div class="sk-sh-hd"><span class="sk-sh-tt">${esc(o.title)}</span><button class="sk-ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+        <div class="sk-sh-tabs" role="tablist" data-glass-drag="x" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map(([k, l]) => `<button class="sk-sh-tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${esc(l)}</button>`).join('')}</div>
+        <div class="sk-sh-pane" data-tab="${st.tab}">${o.body(st.tab, D(), api)}</div>`);
+      if (sh) sh.scrollTop = top;
+      box.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = card.hass; if (!p.__op) { p.__op = 1; setTimeout(() => { try { p.open(); } catch (e) { /* */ } }, 0); } });
+    };
+    ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tall: true, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    box = document.createElement('div');
+    box.className = 'sk-sheet';
+    Object.defineProperty(box, '_config', { get: () => ctl.draft }); // utkastet (samme config som GUI-editoren, checklist)
+    ov.body.appendChild(box);
+    ov.root.addEventListener('click', (e) => {
+      const el = e.composedPath().find((n) => n && n.dataset && n.dataset.a);
+      if (!el || el.disabled) return;
+      const k = el.dataset.a;
+      if (k === 'done') { M.haptic('success'); return ctl.done(); }
+      if (k === 'tab') { if (el.dataset.k !== st.tab) { st.tab = el.dataset.k; st.pick = null; M.haptic('selection'); draw(); } return undefined; }
+      if (k === 'bytt') { st.pick = st.pick === el.dataset.k ? null : el.dataset.k; M.haptic('light'); return draw(); }
+      return o.click ? o.click(k, el, api) : undefined;
+    });
+    ov.root.addEventListener('change', (e) => { const t = e.composedPath()[0]; if (t && t.dataset && t.dataset.in && o.change) o.change(t, api); });
+    ov.root.addEventListener('value-changed', (e) => { const t = e.composedPath().find((n) => n && n.dataset && n.dataset.pk); if (!t || !o.pick) return; st.pick = null; o.pick(t, (e.detail || {}).value, api); });
+    if (M.glassDrag) setTimeout(() => { const t = ov.root.querySelector('.sk-sh-tabs'); if (t) M.glassDrag(t, { axis: 'x' }); }, 0);
+    card._sheet = { ov, st, box, api };
+    draw();
+    return card._sheet;
+  }
+  // Byggeklosser i arket
+  const shSw = (on, attrs) => `<button class="sk-sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" ${attrs || ''}><i></i></button>`;
+  const shSeg = (opts, cur, attrs) => `<div class="sk-seg" style="grid-template-columns:repeat(${opts.length},minmax(0,1fr))">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" aria-pressed="${String(v) === String(cur)}" ${attrs(v)}>${esc(l)}</button>`).join('')}</div>`;
+  const shSec = (cap, inner, cls) => `<section class="sk-sec ${cls || ''}">${cap ? `<span class="sk-cap">${esc(cap)}</span>` : ''}${inner}</section>`;
+  const shRow = ({ icon, label, sub, on, attrs }) => `<button class="sk-srow" ${attrs || ''} role="switch" aria-checked="${!!on}">${M.icon(icon, 22, 'color:#afafaf')}<span class="sk-at"><span class="sk-arl">${esc(label)}</span>${sub ? `<span class="sk-ats">${esc(sub)}</span>` : ''}</span>${swH(on)}</button>`;
+  // Entitetsrad: «Auto» (funnet selv) / «Valgt» (overstyrt) / «Mangler» + «Bytt» (innebygd søkbar velger)
+  function shEnt(api, { k, icon, label, id, own, auto, domains, deviceClass, noneLabel }) {
+    const chip = id ? (own ? ['Valgt', B] : ['Auto', G]) : ['Mangler', O];
+    const open = api.st.pick === k;
+    return `<div class="sk-ent" data-key="ent-${esc(k)}"><div class="sk-entr">${M.icon(icon, 18, 'color:#979797')}<span class="sk-at"><span class="sk-ats">${esc(label)}</span><span class="sk-eid">${esc(id || 'Velg entitet')}</span></span>
+      <span class="sk-echip" style="background:${a(chip[1], 0.18)};color:${chip[1]}">${chip[0]}</span><button class="sk-bytt" data-a="bytt" data-k="${esc(k)}" aria-expanded="${open}">Bytt</button></div>
+      ${open && M.entityPicker ? `<div class="sk-epk">${M.entityPicker.html({ key: 'pk-' + k, value: own || '', auto: auto || '', autoMode: true, domains, deviceClass, noneLabel, placeholder: 'Velg entitet', attrs: `data-pk="${esc(k)}"` })}</div>` : ''}</div>`;
+  }
+
+  /* ------------------------------------------------------------ CSS */
+  const CSS = `
+    .sk-wrap{display:flex;flex-direction:column;gap:var(--msh-gap, 8px)}
+    .num{font-variant-numeric:tabular-nums}
+    .sk-pick{display:flex;align-items:stretch;gap:8px}
+    .sk-pfill{flex:1}
+    .sk-prow{flex:1;min-width:0;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x pan-y;scroll-snap-type:x mandatory}
+    .sk-prow::-webkit-scrollbar{display:none}
+    .sk-prow.many{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);padding-right:24px}
+    .sk-pc{flex:1 1 0;min-width:0;height:56px;padding:0 12px 0 8px;border-radius:28px;display:flex;align-items:center;gap:8px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);scroll-snap-align:start;transition:background .2s,box-shadow .2s;text-align:left}
+    .sk-prow.fit .sk-pc{flex:1 1 auto}
+    .sk-prow.many .sk-pc{flex:0 0 auto;min-width:164px;max-width:280px}
+    .sk-pc.on{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1.5px ${P}}
+    .sk-pcc{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;transition:background .2s}
+    .sk-pct{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .sk-pcn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-pcs{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .sk-gear{width:56px;height:56px;border-radius:28px;flex:none;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center;color:var(--white,#fafafa)}
+    .sk-gear:active,.sk-pc:active,.sk-tile.act:active{transform:scale(.97)}
+    .sk-hero{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:18px;padding:18px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+    .sk-glow{position:absolute;top:-80px;right:-60px;width:240px;height:240px;border-radius:50%;pointer-events:none;transition:background .4s}
+    .sk-htop{position:relative;display:flex;align-items:flex-start}
+    .sk-hl{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+    .sk-hn{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .sk-hname{font-size:13px;color:var(--gray800,#afafaf)}
+    .sk-chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px 0 7px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap}
+    .sk-chip.blink ha-icon{animation:sk-blink 1s ease-in-out infinite}
+    .sk-hstate{font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1}
+    .sk-hsub{font-size:13px;color:var(--gray700,#979797)}
+    .sk-badge{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;transition:background .3s,color .3s}
+    .sk-badge.pop{animation:sk-pop .4s ease}
+    .sk-badge.spin ha-icon{animation:sk-spin 1s linear infinite}
+    .sk-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .sk-tile{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);min-width:0;text-align:left;transition:background .2s}
+    .sk-tt{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
+    .sk-tv{font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-tl{font-size:12px;color:var(--gray700,#979797)}
+    .sk-auto{display:flex;flex-direction:column;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+    .sk-ahd{display:flex;align-items:center;gap:12px;padding:0 16px 0 12px}
+    .sk-atog{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:72px;text-align:left}
+    .sk-ac{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;transition:background .2s}
+    .sk-at{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+    .sk-atn,.sk-arl{font-size:15px;font-weight:500}
+    .sk-ats{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-chev{display:inline-flex;color:var(--gray700,#979797);transition:transform .25s}
+    .sk-chev.up{transform:rotate(180deg)}
+    .sk-sw{position:relative;display:inline-block;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+    .sk-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--white,#fafafa);box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:left .2s}
+    .sk-sw.on{background:${PK}}
+    .sk-sw.on i{left:23px}
+    .sk-alist{padding:0 16px 6px;display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,0.06);transition:opacity .2s;animation:sk-fade .2s ease}
+    .sk-alist.off{opacity:.4;pointer-events:none}
+    .sk-ar{display:flex;flex-direction:column}
+    .sk-ar + .sk-ar{border-top:1px solid rgba(255,255,255,0.06)}
+    .sk-arb{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left}
+    .sk-arb>ha-icon{width:24px}
+    .sk-miss{font-size:13px;color:var(--gray600,#7f7f7f);flex:none;padding:0 6px}
+    .sk-mins{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;margin:0 0 12px 36px;border-radius:18px;background:var(--gray100,#2f2f2f)}
+    .sk-mins button{height:34px;border-radius:15px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);transition:background .2s}
+    .sk-mins button.on{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1.5px ${P};color:var(--white,#fafafa)}
+    .sk-mins button:disabled{opacity:.4}
+    .sk-hist{display:flex;flex-direction:column;gap:12px;padding:14px 0 10px;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+    .sk-hh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 16px}
+    .sk-cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
+    .sk-hs{font-size:12px;color:var(--gray700,#979797)}
+    .sk-hf{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 16px;touch-action:pan-x pan-y}
+    .sk-hf::-webkit-scrollbar{display:none}
+    .sk-fc{flex:none;height:34px;padding:0 6px 0 10px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--gray100,#2f2f2f);color:var(--gray900,#c7c7c7)}
+    .sk-fc.on{background:${PK};color:#2f2f2f}
+    .sk-fc.warn{color:${R}}
+    .sk-fn{min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--gray300,#404040)}
+    .sk-fc.on .sk-fn{background:rgba(47,47,47,0.14)}
+    .sk-hlist{display:flex;flex-direction:column;padding:0 16px}
+    .sk-day{display:flex;flex-direction:column}
+    .sk-dl{padding:6px 0 6px 60px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf)}
+    .sk-hr{display:grid;grid-template-columns:44px 16px minmax(0,1fr);column-gap:8px;align-items:stretch}
+    .sk-ht{padding-top:12px;font-size:13px;color:var(--gray700,#979797);text-align:right}
+    .sk-hd{position:relative;display:flex;justify-content:center}
+    .sk-l1{position:absolute;left:7px;top:0;height:14px;width:2px}
+    .sk-l2{position:absolute;left:7px;top:14px;bottom:0;width:2px}
+    .sk-dot{position:relative;z-index:1;margin-top:13px;width:12px;height:12px;border-radius:6px;box-sizing:border-box}
+    .sk-hb{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:8px 0;min-height:44px;min-width:0}
+    .sk-htt{font-size:14px;font-weight:500}
+    .sk-hm{display:flex;align-items:center;gap:6px;min-width:0}
+    .sk-av{width:18px;height:18px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:600;color:#232323}
+    .sk-mc{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px 0 6px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap;background:var(--gray100,#2f2f2f);color:var(--gray900,#c7c7c7);min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .sk-hx{font-size:11px;color:var(--gray600,#7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-hnone{padding:16px 0;text-align:center;font-size:13px;color:var(--gray700,#979797)}
+    .sk-more{margin:0 16px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14)}
+    @keyframes sk-spin{to{transform:rotate(360deg)}}
+    @keyframes sk-pop{0%{transform:scale(.9)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+    @keyframes sk-fade{from{opacity:0}}
+    @keyframes sk-blink{0%,100%{opacity:1}50%{opacity:.25}}
+    @media (prefers-reduced-motion: reduce){.sk-badge.spin ha-icon,.sk-chip.blink ha-icon,.sk-badge.pop{animation:none}}
+  `;
+  const SHEET_CSS = `
+    button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    input{font:inherit}
+    .sk-sheet{display:flex;flex-direction:column;gap:0;min-height:100%}
+    .sk-sh-hd{display:flex;align-items:center;gap:8px;padding:2px 6px 14px}
+    .sk-sh-tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em}
+    .sk-ok{${M.DONE_PILL}}
+    .sk-ok:disabled{opacity:.6}
+    .sk-sh-tabs{position:relative;display:grid;gap:2px;padding:4px;border-radius:24px;background:var(--ki-g-seg,var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);margin-bottom:10px;touch-action:pan-y}
+    .sk-sh-tab{height:40px;border-radius:20px;font-size:13px;font-weight:500;min-width:0;color:var(--gray900,#c7c7c7);transition:background .2s}
+    .sk-sh-tab.on{background:${PK};color:#2f2f2f}
+    .sk-sh-pane{display:flex;flex-direction:column;gap:8px;padding-bottom:40px}
+    .sk-sec{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:24px;background:var(--ki-g-row,var(--gray200,#3a3a3a))}
+    .sk-sec.rows{gap:0;padding:14px 16px 4px}
+    .sk-sec.rows>.sk-cap{padding-bottom:4px}
+    .sk-cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
+    .sk-note{font-size:12px;color:var(--gray600,#7f7f7f);line-height:1.45;padding:2px 8px 0}
+    .sk-sec .sk-note{padding:0}
+    .sk-note code{font-size:12px}
+    .sk-seg{display:grid;gap:2px;padding:3px;border-radius:20px;background:#282828}
+    .sk-seg button{height:36px;border-radius:17px;font-size:13px;font-weight:500;min-width:0;color:var(--gray900,#c7c7c7);transition:background .2s}
+    .sk-seg button.on{background:${PK};color:#2f2f2f}
+    .sk-srow{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left}
+    .sk-srow + .sk-srow{border-top:1px solid rgba(255,255,255,0.06)}
+    .sk-at{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+    .sk-arl{font-size:15px;font-weight:500}
+    .sk-ats{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-sw{position:relative;display:inline-block;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+    .sk-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--white,#fafafa);box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:left .2s}
+    .sk-sw.on{background:${PK}}
+    .sk-sw.on i{left:23px}
+    .sk-sw:disabled{opacity:.5}
+    .sk-lhd{display:flex;align-items:center;gap:10px}
+    .sk-in{flex:1;min-width:0;height:44px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#282828;color:#fafafa;font-size:15px;box-sizing:border-box}
+    .sk-ent{display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,0.06)}
+    .sk-entr{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 4px}
+    .sk-eid{font-size:13px;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-echip{height:20px;padding:0 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;flex:none}
+    .sk-bytt{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);display:flex;align-items:center;font-size:12px;font-weight:500;flex:none}
+    .sk-epk{padding:0 0 10px}
+  `;
+
+  M.sik = {
+    COL: { G, O, R, Y, B, P, GR, PK }, a, hm, when, dur, durS, mmss, dayKey, dayLabel, isToday, SYNC_MS,
+    picker, pickerFits, hero, badge, tiles, auto, history, groupDays, sw: swH,
+    logbook, attrHistory, attrsAt, person, method, METHOD, autoFind, minsOn, minsOf, setMins, isOn, flip, master, masterOn, rowOn,
+    sheet, setPath, shSw, shSeg, shSec, shRow, shEnt, CSS, SHEET_CSS,
+  };
+})();
+
+} catch (e) { console.error('[ki-msh] 07-sikring.js', e); }
 
 /* ---- 07-universal.js ---- */
 try {
@@ -9525,9 +10368,12 @@ try {
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
   // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
   // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
-  const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : '#' + id; h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
+  // Fiks 30.1: innebygd mål = standard-hashen (basseng → #badebasseng); gamle alias-hasher (#basseng) peker dit (M.canonHash)
+  const canon = (h) => (M.canonHash ? M.canonHash(h) : h);
+  const defHash = (id) => canon('#' + id);
+  const legacyHash = (N, id) => { const b = N.B[id] || {}; let h = b.hash != null && b.hash !== '' ? b.hash : b.custom ? '' : defHash(id); h = String(h || '').trim(); return h && h[0] !== '#' ? '#' + h : h; };
   const tapOf = (N, id) => { const b = N.B[id] || {}, t = M.tap && M.tap.norm(b.tap); if (t) return t; const h = legacyHash(N, id); return h ? { action: 'navigate', navigation_path: h } : null; };
-  const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? p : ''; };
+  const hashOf = (N, id) => { const t = tapOf(N, id), p = t && t.action === 'navigate' ? String(t.navigation_path || '') : ''; return p[0] === '#' ? canon(p) : ''; };
   const ruleHit = (x, st) => {
     if (!x || !x.entity || !st) return false;
     const s = String(st.state), op = x.op || '=';
@@ -10954,7 +11800,7 @@ try {
         if (t.dataset.nbicon) return this._btn(t.dataset.nbicon, { icon: v || undefined });
         const id = t.dataset.nbtap, isC = !!(norm(this._config).B[id] || {}).custom, tp = M.tap.norm(v);
         // Standard (innebygd '#<id>' / egen knapp uten handling) lagres ikke; ellers tap i HA-format, gammel hash fjernes
-        const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && tp.navigation_path === '#' + id);
+        const std = isC ? !tp || tp.action === 'none' : !tp || (tp.action === 'navigate' && canon(tp.navigation_path) === defHash(id));
         return this._btn(id, { tap: std ? undefined : tp, hash: undefined });
       });
     }
@@ -11059,7 +11905,7 @@ try {
             <input class="i36" data-nbf="rtext" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.text || '')}" placeholder="Tekst i varselet">
           </div>`;
         }).join('');
-        const tgt = [['', 'Ingen'], ...POPS.map(([k, , l]) => ['#' + k, l]), ...M.areas(h).map((a) => ['#' + a.id, a.name]), ...M.all(h, 'person').map((p) => ['#person-' + p.split('.')[1], 'Person · ' + M.name(h, p)])];
+        const tgt = [['', 'Ingen'], ...POPS.map(([k, , l]) => [defHash(k), l]), ...M.areas(h).map((a) => ['#' + a.id, a.name]), ...M.all(h, 'person').map((p) => ['#person-' + p.split('.')[1], 'Person · ' + M.name(h, p)])];
         (M.popupOptions ? M.popupOptions(h) : []).forEach((o) => { if (!tgt.some((t) => t[0] === o[0])) tgt.push(o); }); // egne popups
         const curH = hashOf(N, id);
         if (curH && !tgt.some((t) => t[0] === curH)) tgt.push([curH, curH]);
@@ -11255,7 +12101,7 @@ try {
         }
         if (f === 'hash') {
           const isC = !!(norm(this._config).B[id] || {}).custom;
-          return this._btn(id, { hash: !isC && v === '#' + id ? undefined : (v || (isC ? undefined : '')) });
+          return this._btn(id, { hash: !isC && canon(v) === defHash(id) ? undefined : (v || (isC ? undefined : '')) });
         }
         if (f === 'icon') return this._btn(id, { icon: v.trim() || undefined });
         if (f === 'label') return this._btn(id, { label: v.trim() || undefined });
@@ -12379,32 +13225,45 @@ try {
     return v === '' || v == null || !isFinite(n) ? G.def : Math.max(G.min, Math.min(G.max, n));
   };
 
-  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3) */
-  // servers: [{ name, icon, color, url_path, fallback_url, encode }]. Eldre { url: 'https://…' } → fallback_url.
+  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3 / 31.7) */
+  // servers: [{ name, icon, color, navigation_path, url }] (31.7, som HA-handlingene: navigation_path = lenken appen åpner,
+  // url = valgfri adresse i nettleser). Eldre nøkler leses fortsatt: url_path → navigation_path, fallback_url → url,
+  // url: 'homeassistant://…' → navigation_path.
+  const OLD_ICON = { oslo: 'mdi:city', toten: 'mdi:barn' };
   M.hjemServerNorm = function (r) {
     if (!r || typeof r !== 'object') return r;
-    const { url, ...o } = r;
-    if (url) {
-      if (/^homeassistant:\/\//i.test(url)) { if (!o.url_path) o.url_path = url; }
-      else if (!o.fallback_url) o.fallback_url = url;
-    }
+    const { url_path: up, fallback_url: fb, url, ...o } = r;
+    if (!o.navigation_path && up) o.navigation_path = up;
+    if (url && /^homeassistant:\/\//i.test(url)) { if (!o.navigation_path) o.navigation_path = url; }
+    else if (url) o.url = url;
+    if (!o.url && fb) o.url = fb;
+    // 31.7: standardstedene fra 21.4 (seedet med gamle ikoner) får de nye ikonene
+    const k = M.hjemPlaceKey ? M.hjemPlaceKey(o.name) : '';
+    if (OLD_ICON[k] && o.icon === OLD_ICON[k]) o.icon = (DEFAULT_SERVERS.find((x) => M.hjemPlaceKey(x.name) === k) || {}).icon || o.icon;
     return o;
   };
-  // Lenken HA-appen åpner: egen url_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet som standard)
+  // Lenken HA-appen åpner: navigation_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet: Strømstad → Str%C3%B8mstad)
+  M.hjemServerNav = (n, enc) => 'homeassistant://navigate/lovelace?server=' + (enc === false ? n : encodeURIComponent(n));
   M.hjemServerUrl = function (r) {
     r = M.hjemServerNorm(r) || {};
-    if (r.url_path) return String(r.url_path).trim();
+    if (r.navigation_path) return String(r.navigation_path).trim();
     const n = String(r.name || '').trim();
-    if (!n) return '';
-    return 'homeassistant://navigate/lovelace?server=' + (r.encode === false ? n : encodeURIComponent(n));
+    return n ? M.hjemServerNav(n, r.encode) : '';
   };
-  // Fiks 21.4 · standard steder (Hjem v3 SERVERS), rekkefølge Oslo, Toten, Strømstad. Skrives til config ÉN gang
-  // (servers + servers_init) ved første lasting – etter det er config sannheten (slettede kommer ikke tilbake).
-  // Tomme url_path/fallback_url → raden vises, trykk gir melding (ingen gjettede URL-er).
+  // «server=<navn>» som vises under navnet (fra lenken, dekodet; ellers navnet)
+  M.hjemServerParam = function (r) {
+    const u = M.hjemServerUrl(r), m = /[?&]server=([^&#]*)/.exec(u);
+    let v = m ? m[1] : String((r && r.name) || '');
+    try { v = decodeURIComponent(v); } catch (e) { /* */ }
+    return 'server=' + v;
+  };
+  // 31.7 · standard steder (Oslo, Toten, Strømstad – samme navn som i HA Companion-appens serverliste). Virker uten oppsett:
+  // navigation_path bytter server i appen og åpner samme dashbord. Skrives til config ÉN gang (servers + servers_init) ved
+  // første lasting – etter det er config sannheten (slettede kommer ikke tilbake); «Tilbakestill» gir de tre igjen.
   const DEFAULT_SERVERS = [
-    { name: 'Oslo', icon: 'mdi:city', color: 'var(--green, #66d19e)', url_path: '', fallback_url: '' },
-    { name: 'Toten', icon: 'mdi:barn', color: 'var(--yellow, #f2d26f)', url_path: '', fallback_url: '' },
-    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue, #73b9f2)', url_path: '', fallback_url: '' },
+    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)', navigation_path: M.hjemServerNav('Oslo') },
+    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', navigation_path: M.hjemServerNav('Toten') },
+    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)', navigation_path: M.hjemServerNav('Strømstad') },
   ];
   M.HJEM_DEFAULT_SERVERS = DEFAULT_SERVERS;
   M.hjemDefaultServers = () => DEFAULT_SERVERS.map((x) => ({ ...x }));
@@ -12414,9 +13273,11 @@ try {
     const l = Array.isArray(c.servers) ? c.servers : [];
     return !l.length && !c.servers_init ? M.hjemDefaultServers() : l;
   };
+  // Navigering (egen hjelper så testene kan fange den): window.location.href = lenken
+  M.hjemNavigate = M.hjemNavigate || ((u) => { window.location.href = u; });
   // Navn-sammenligning uten store/små bokstaver og uten aksenter (Strømstad = stromstad)
   M.hjemPlaceKey = (v) => String(v || '').trim().toLowerCase().replace(/ø/g, 'o').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  M.hjemServerHasUrl = (r) => { r = M.hjemServerNorm(r) || {}; return !!(String(r.url_path || '').trim() || String(r.fallback_url || '').trim()); };
+  M.hjemServerHasUrl = (r) => !!M.hjemServerUrl(r);
   // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
   M.hjemIsApp = function () {
     try {
@@ -13074,7 +13935,7 @@ try {
             return this._render();
           }
           case 'x-tok': { const cur = String(this._val(d.name) || ''); const v = d.pre === '1' ? d.v + cur : `${cur} ${d.v}`.trim(); return this._set(d.name, v); }
-          case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
+          case 'x-btn': { const bf = this._btns[d.k]; if (bf && bf.run) { try { bf.run(this._hass, this._config, this); } catch (x) { M.toast('Feil: ' + x.message); } } return; }
           default:
         }
       }
@@ -13677,20 +14538,20 @@ try {
             { type: 'text', name: 'this_server.name', label: 'Navn på dette stedet', auto: (h, cc) => (cc && cc.place_name) || (h && h.config && h.config.location_name) || 'Hjem', help: 'Vises øverst i «Bytt sted» som «Du er her», og som tittel i «Sted»-oppsettet. Står samme navn i listen under, skjules det der.' },
             { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
             { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
-            { type: 'rows', name: 'servers', label: 'Bytt sted – andre Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
-              help: 'Trykk bytter server i Home Assistant-appen (homeassistant://navigate/lovelace?server=<navn>, samme navn som i appens serverliste). I nettleser brukes «Adresse i nettleser» hvis den er satt, ellers vises en melding.',
+            { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
+              help: 'Trykk bytter server i Home Assistant-appen (navigation_path, standard homeassistant://navigate/lovelace?server=<navn> – samme navn som i appens serverliste, URL-kodet). I nettleser brukes «Adresse i nettleser» (url) hvis den er satt, ellers vises en melding. Stedet som matcher Home Assistant-navnet (location_name) vises øverst som «Du er her».',
               norm: (list, cc) => (list.length ? list : M.hjemServers(cc)).map((r) => M.hjemServerNorm(r)),
-              title: (r) => r.name || 'Nytt sted', sub: (r) => (M.hjemServerHasUrl(r) ? M.hjemServerUrl(r) : 'Mangler adresse'),
+              title: (r) => r.name || 'Nytt sted', sub: (r) => (r.name ? M.hjemServerParam(r) : 'Mangler navn'),
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
               fields: [
                 { type: 'text', name: 'name', label: 'Navn (som i appens serverliste)' },
                 { type: 'icon', name: 'icon', label: 'Ikon' },
                 { type: 'color', name: 'color', label: 'Farge' },
-                { type: 'text', name: 'url_path', label: 'Lenke (url_path)', auto: (r) => M.hjemServerUrl({ ...r, url_path: '' }) || 'homeassistant://navigate/lovelace?server=…', help: 'Lenken HA-appen åpner, f.eks. homeassistant://navigate/lovelace?server=<navn>. Er både denne og «Adresse i nettleser» tomme, gir trykk en melding om å legge inn adresse.' },
-                { type: 'boolean', name: 'encode', label: 'URL-kod navnet (Strømstad → Str%C3%B8mstad)', default: true, help: 'Av: navnet brukes slik det er skrevet. Prøv av hvis appen ikke finner serveren.', rowWhen: (r) => !r.url_path },
-                { type: 'text', name: 'fallback_url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
+                { type: 'text', name: 'navigation_path', label: 'Lenke i appen (navigation_path)', auto: (r) => (r.name ? M.hjemServerNav(String(r.name).trim(), r.encode) : 'homeassistant://navigate/lovelace?server=…'), help: 'Tom = homeassistant://navigate/lovelace?server=<navn> (navnet URL-kodes: Strømstad → Str%C3%B8mstad).' },
+                { type: 'text', name: 'url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
               ] },
+            { type: 'button', icon: 'mdi:restore', label: 'Tilbakestill steder (Oslo, Toten, Strømstad)', run: (h, cc, ed) => { if (ed && ed._set) { M.haptic('light'); ed._set('servers', M.hjemDefaultServers()); } } },
           ] },
           // «Bytt entiteter»: vær + per person «· hjemme», «· søvn» og «Sone når borte» (samme people[]-felt som Personer).
           { type: 'section', id: 'overrides', label: 'Bytt entiteter', icon: 'mdi:swap-horizontal', fields: [
@@ -13711,7 +14572,7 @@ try {
     get cardSize() { return 2; }
     customize(focus) { return M.hjemCustomize(this, focus); }
     // Dette stedet (fiks 16.3): this_server { name, icon, color } (eldre place_name) → ellers stedet i listen med samme
-    // navn eller samme adresse (fallback_url-origin = location.origin / hassUrl) → ellers hass.config.location_name.
+    // navn → hass.config.location_name (31.7) → samme adresse (url-origin = location.origin / hassUrl, ?server=).
     // cur = indeksen til dette stedet i listen (skjules i menyen), -1 = ikke i listen.
     _server() {
       const c = this.config, h = this.hass;
@@ -13723,9 +14584,11 @@ try {
       const same = (x, y) => M.hjemPlaceKey(x) === M.hjemPlaceKey(y);
       let name = String(ts.name || c.place_name || '').trim();
       let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
-      if (cur < 0) cur = list.findIndex((x) => x.fallback_url && mine.includes(org(x.fallback_url)));
-      // Fiks 21.4: ingen this_server → stedet som matcher hass.config.location_name (uten case/aksenter); ingen treff → ingen markering
+      // 31.7: «Du er her» automatisk – hass.config.location_name (uten case, æ/ø/å normalisert), ellers URL-en
+      // (url-origin = location.origin / hassUrl, eller ?server=<navn> i adressen); ingen treff → ingen markering
       if (cur < 0 && !name && h && h.config && h.config.location_name) cur = list.findIndex((x) => same(x.name, h.config.location_name));
+      if (cur < 0 && !name) cur = list.findIndex((x) => x.url && mine.includes(org(x.url)));
+      if (cur < 0 && !name) { const m = /[?&]server=([^&#]*)/.exec(location.search || ''); if (m) { let v = m[1]; try { v = decodeURIComponent(v); } catch (e) { /* */ } cur = list.findIndex((x) => same(x.name, v)); } }
       if (!name) name = cur >= 0 ? list[cur].name : (h && h.config && h.config.location_name) || 'Hjem';
       const cs = cur >= 0 ? list[cur] : {};
       let host = location.hostname || '';
@@ -13945,11 +14808,13 @@ try {
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
       const hc = M.color(S.color, C.green);
-      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i>Denne serveren · ${esc(S.host)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:#232323')}</span></div>`;
+      const herePar = S.cur >= 0 ? M.hjemServerParam(S.list[S.cur]) : 'server=' + S.name;
+      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i class="srv">Du er her · ${esc(herePar)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:#232323')}</span></div>`;
+      // 31.7: hver rad = navn + «server=<navn>» under (monospace 11 px #7f7f7f, som Hjem v3)
       const rows = S.list.map((v, i) => {
         if (i === S.cur) return '';
         const col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm">${esc(v.name)}</span>${M.icon('chevron_right', 20, 'color:#979797')}</button>`;
+        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm"><b>${esc(v.name)}</b><i class="srv">${esc(M.hjemServerParam(v))}</i></span>${M.icon('chevron_right', 20, 'color:#979797')}</button>`;
       }).join('');
       const css = `.bg{background:transparent}
         .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 18px 40px rgba(0,0,0,0.5);
@@ -13967,7 +14832,10 @@ try {
         .sv:hover{background:rgba(255,255,255,0.06)}
         .sv:active{transform:scale(.98)}
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
-        .nm{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+        .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .srv{font-style:normal;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sv{height:58px}
         .none{padding:8px 10px 6px;font-size:12px;color:#7f7f7f}`;
       const html = `<span class="hd">Bytt sted</span>${top}${rows ? `<span class="sep"></span>${rows}` : '<span class="none">Legg til steder i Tilpass header → Steder</span>'}`;
       const ov = M.overlay({ html, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
@@ -13981,25 +14849,15 @@ try {
         if (v) this._goServer(v);
       });
     }
-    // Bytt server: i HA-appen via HAs url-handling (hass-action → tap_action: url, som brukerens eget oppsett),
-    // i nettleser: fallback_url hvis satt, ellers melding. Aldri location.href til en http-adresse.
+    // 31.7 · Bytt server: i HA-appen window.location.href = navigation_path (appen bytter server og åpner samme dashbord).
+    // I nettleser (ikke appen): serverens url hvis den er satt, ellers toast. En vanlig http(s)-lenke i navigation_path virker overalt.
     _goServer(v) {
-      // Fiks 21.4: stedet mangler adresse (url_path og fallback_url tomme) → melding, ingen gjettet URL
-      if (!M.hjemServerHasUrl(v)) { M.hjemToast(this, 'Legg inn adresse i Tilpass header → Steder'); return 'missing'; }
-      const url = M.hjemServerUrl(v), fb = String((M.hjemServerNorm(v) || {}).fallback_url || '').trim();
-      const deep = /^homeassistant:\/\//i.test(url);
-      if (!url || (deep && !M.hjemIsApp())) {
-        if (fb) { window.open(fb, '_self'); return 'fallback'; }
-        M.hjemToast(this, 'Bytte sted virker i Home Assistant-appen');
-        return 'toast';
-      }
-      const config = { tap_action: { action: 'url', url_path: url } };
-      if (this.isConnected && document.querySelector('home-assistant')) {
-        this.dispatchEvent(new CustomEvent('hass-action', { bubbles: true, composed: true, detail: { config, action: 'tap' } }));
-        return 'hass-action';
-      }
-      window.open(url, '_self');
-      return 'open';
+      const n = M.hjemServerNorm(v) || {}, nav = M.hjemServerUrl(n), web = String(n.url || '').trim();
+      const deep = /^homeassistant:\/\//i.test(nav);
+      if (nav && (M.hjemIsApp() || !deep)) { M.hjemNavigate(nav); return 'app'; }
+      if (web) { M.hjemNavigate(web); return 'url'; }
+      M.hjemToast(this, 'Bytte av server virker bare i Home Assistant-appen');
+      return 'toast';
     }
     // Person-hurtigarket (fiks 16.14): Hjemme/Borte styrer people[].home, Våken/Sover styrer people[].sleep (toveis).
     // Aktivt segment = entitetens faktiske tilstand (live). Trykk/dra → optimistisk bytte + tjenestekall; har entiteten
@@ -15535,7 +16393,8 @@ try {
   // Mangler en nøkkel: ikon → typens veksling (ellers som kortet), kort → typens popup (ellers more-info),
   // hold på kortet → more-info, hold på ikonet → ingen.
   const DEF_TAP = {
-    lock: { ic: { action: 'toggle' }, card: { action: 'toggle' }, hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } },
+    lock: { ic: { action: 'toggle' }, card: NAV('#dorlas'), hold_ic: NAV('#dorlas'), hold_card: { action: 'more-info' } }, // 32.3: kortet åpner #dorlas
+    garage: { ic: { action: 'toggle' }, card: NAV('#garasje'), hold_card: { action: 'more-info' } }, // 32.3: kortet åpner #garasje
     alarm: { ic: { action: 'toggle' }, card: NAV('#sikkerhet') },
     cam: { card: CAM_NAV }, // fiks 19.3: trykk → kamera-dashbordet (ikonet følger kortet), hold → more-info
     jul: { ic: { action: 'none' }, card: { action: 'none' } },
@@ -16145,6 +17004,7 @@ try {
               ] : [{ type: 'text', name: P + '.sub', label: 'Undertekst', placeholder: KINDS[kd][1] }]),
               ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
               ...stFields(hass, c, k, kd, P),
+              ...(kd === 'lock' || kd === 'garage' ? [{ type: 'hash', name: P + '.popup_hash', label: 'Popup (popup_hash) · trykk på kortet', placeholder: kd === 'lock' ? '#dorlas' : '#garasje' }] : []), // 32.3
               ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, labels: TAP_LABELS, ...(kd === 'cam' && w === 'card' ? { auto: (h, cc) => camTapShown(cc, k) } : {}), stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
           }
           out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
@@ -16154,7 +17014,7 @@ try {
           } });
           return { type: 'section', id: 'tile-' + k, label: L, icon: kindIcon(k, c), fields: out };
         };
-        const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk låser/låser opp, hold på ikonet åpner #dorlas, hold på kortet viser detaljer.' }];
+        const tapF = [{ type: 'info', label: 'Tomt felt = standard. Dørlås: trykk på ikonet låser/låser opp, trykk på kortet og hold på ikonet åpner #dorlas, hold på kortet viser detaljer. Garasjeport: ikonet åpner/lukker, kortet åpner #garasje.' }];
         const onHjem = HT0 ? avail.filter((k) => tileSlot(c, HT0, k) !== 'off' && !(get(c, 'tile_hidden.hjem') || []).includes(k)) : [];
         ZONES.forEach(([sl, lab]) => {
           const inZ = onHjem.filter((k) => tileSlot(c, HT0, k) === sl), zf = [];
@@ -16596,6 +17456,7 @@ try {
       const c = this.config, kd = kindOf(c, id), cfg = tileCfg(c, id);
       let a = cfg[TAP_KEYS[w]];
       if (a == null || a === '') a = w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action;
+      if ((a == null || a === '') && w === 'card' && cfg.popup_hash) a = NAV('#' + String(cfg.popup_hash).trim().replace(/^#/, '')); // 32.3: tile_cfg.<id>.popup_hash
       a = M.tap ? M.tap.norm(a) : null;
       if (a) return a;
       const tp = get(c, 'tap.' + id) || {};
@@ -16616,6 +17477,7 @@ try {
     // #dorlas finnes bare når det er lås(er) (og popupen ikke er skjult) – ellers faller ikon-holdet tilbake til more-info
     _hasPopup(hash) {
       if (hash === '#dorlas' && !M.all(this.hass, 'lock').length) return false;
+      if (hash === '#garasje' && !M.all(this.hass, 'cover', (st) => st.attributes.device_class === 'garage').length) return false;
       const R = M.popupReport;
       if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((e) => e.hash === hash && !e.hidden);
       return true;
@@ -16627,6 +17489,7 @@ try {
       if (a.action === 'more-info') { const e = a.entity || ent; if (e) M.moreInfo(this, e); return; }
       if (a.action === 'navigate' && /^#/.test(a.navigation_path) && !this._hasPopup(a.navigation_path)) { if (ent) M.moreInfo(this, ent); return; }
       if (a.action === 'navigate' && a.navigation_path === '#dorlas' && ent && /^lock\./.test(ent)) M.lasPick = ent; // popupen viser låsen på flisen
+      if (a.action === 'navigate' && a.navigation_path === '#garasje' && ent && /^cover\./.test(ent)) M.garasjePick = ent; // 32.3: popupen viser porten på flisen
       if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
       if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }
@@ -18690,8 +19553,9 @@ try {
         <div class="g2"><div class="fld"><span class="fl">Navn</span><input class="in" data-in="tename" data-k="${esc(k)}" value="${esc(cfg.name || '')}" placeholder="${esc(K[1])}"></div>
           <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="tesub" data-k="${esc(k)}" value="${esc(cfg.sub || '')}" placeholder="${esc(kd === 'lock' ? 'Dørlås / Inngang' : K[1])}"></div></div>
         <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${icf}</div>
+        ${kd === 'lock' || kd === 'garage' ? `<div class="fld"><span class="fl">Popup (popup_hash) · trykk på kortet</span><input class="in" data-in="tepop" data-k="${esc(k)}" value="${esc(cfg.popup_hash || '')}" placeholder="${kd === 'lock' ? '#dorlas' : '#garasje'}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>` : ''}
         ${taps}
-        ${cfg.entity || cfg.name || cfg.icon || cfg.sub || H.TAP_FIELDS.some(([w]) => cur(w)) ? `<button class="o34 press" style="align-self:flex-start" data-a="tereset" data-k="${esc(k)}">${ic('mdi:restore', 16)} Standard for flisen</button>` : ''}`;
+        ${cfg.entity || cfg.name || cfg.icon || cfg.sub || cfg.popup_hash || H.TAP_FIELDS.some(([w]) => cur(w)) ? `<button class="o34 press" style="align-self:flex-start" data-a="tereset" data-k="${esc(k)}">${ic('mdi:restore', 16)} Standard for flisen</button>` : ''}`;
     }
     // «+ Legg til» → velg type → velg entitet («Automatisk» = autokonfig). Flere av samme type er lov (lock_2 …).
     _tileAdd(m) {
@@ -19638,7 +20502,7 @@ try {
         case 'teactf': return this._actSet(d.k, d.f, trim || undefined);
         case 'teactnum': return this._actSet(d.k, d.f, Number(v) === 2 ? undefined : Number(v));
         case 'teacttf': return this._trigSet(d.k, (L) => { if (L[+d.i]) L[+d.i][d.f] = trim || undefined; });
-        case 'tename': case 'tesub': case 'teiconraw': return this._teSet(d.k, { tename: 'name', tesub: 'sub', teiconraw: 'icon' }[k], trim);
+        case 'tename': case 'tesub': case 'teiconraw': case 'tepop': return this._teSet(d.k, { tename: 'name', tesub: 'sub', teiconraw: 'icon', tepop: 'popup_hash' }[k], trim);
         case 'tfra': case 'ttil': {
           if (!u.sel) return;
           const m = this._model();
@@ -21655,8 +22519,8 @@ try {
       const L = h && area ? M.roomLists(h, area, c) : null;
       const out = [
         { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
-          { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: SPACING.pad_top, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
+          { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
+          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: SPACING.pad_top, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
           { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [60, 'Litt 60'], [150, 'Standard 150'], [300, 'Maks 300']] },
         ] },
         { type: 'section', id: 'look', label: 'Utseende', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
@@ -23129,7 +23993,7 @@ try {
 
 /* ---- 40-basseng.js ---- */
 try {
-/* Basseng-popup (#basseng + #badebasseng). Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14). Basseng v3 er utgått
+/* Basseng-popup #badebasseng (alias #basseng, fiks 30.1). Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14/30.1). Basseng v3 er utgått
  * (bare den gamle localStorage-nøkkelen basseng-v3-cfg leses én gang for migrering).
  * ÉTT kort i popupen: msh-basseng-card tegner toppkort (msh-basseng-hero-card, innebygd via MSH.HEROES) → prosalinje
  * «Vannet er …» → glass-faner (Oversikt · Varme · Klor · Spreder) → innholdet i fanen (Oversikt: hurtigknapper Lys ·
@@ -24058,40 +24922,57 @@ try {
   }
   M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
 
-  /* ------------------------------------------------------------ popup #basseng · importert #badebasseng (fiks 26.14) */
-  // Strategien lager #basseng med ÉTT msh-basseng-card. En importert/egen popup med de gamle kortene (ki-basseng-card,
-  // ki-basseng-hero-card, gap-card, `hurtig:`) – også under #badebasseng – erstattes av den genererte (MSH.POPUP_ALIAS
-  // flytter #badebasseng til #basseng, MSH.POPUP_SUPERSEDE lar den genererte vinne til brukeren velger «Bruk egen»).
-  // Navn og hurtig-/rolle-entitetene flyttes inn i kortet (POPUP_EXTRA) og migreres der én gang til overrides/include.
-  const PHASH = '#basseng', OLD_HASH = ['#badebasseng', '#pool', '#svommebasseng'];
+  /* ------------------------------------------------------------ popup #badebasseng · alias #basseng (fiks 26.14/28.14/30.1) */
+  // Fiks 30.1 · nøyaktig ÉN bassengpopup: strategien lager #badebasseng med ÉTT msh-basseng-card (card_id pop-basseng, som
+  // før – oppsettet beholdes). #basseng (og #pool/#svommebasseng) er bare alias: hashchange/location-changed dit →
+  // history.replaceState til #badebasseng (gamle lenker, navbar-config og varsler virker). 28.14-tvillingen (en kopi av
+  // popupen på #badebasseng ved siden av #basseng) er fjernet. En importert/egen popup med de gamle kortene – på en av
+  // hashene – erstattes av den genererte (MSH.POPUP_ALIAS flytter alias-hashen til #badebasseng, MSH.POPUP_SUPERSEDE lar
+  // den genererte vinne til brukeren velger «Bruk egen»), og fjernes fra ki-store én gang (M.bassengMigrateStore).
+  const PHASH = '#badebasseng', OLD_HASH = ['#basseng', '#pool', '#svommebasseng'], ALL_HASH = [PHASH, ...OLD_HASH];
+  M.HASH_ALIAS = M.HASH_ALIAS || {};
+  OLD_HASH.forEach((h) => { M.HASH_ALIAS[h] = PHASH; });
+  M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
+  M.POPUP_CARD_ID[PHASH] = 'pop-basseng';
+  M.BASSENG_HASH = PHASH;
   const KEEP = ['navn', 'name', 'hurtig', 'varmepumpe', 'pumpe', 'lys', 'stillemodus', 'stikkontakt', 'vanntemp', 'ute', 'pooltak', 'forvalg', 'overrides', 'exclude', 'include', 'area'];
   const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
   const popLists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
-  const isLegacyPop = (cfg) => !!cfg && typeof cfg === 'object' && [PHASH, ...OLD_HASH].includes(String(cfg.hash || '').trim().replace(/^#?/, '#')) && M.bassengLegacyTest(cfg);
+  const hashN = (cfg) => { const s = String((cfg && cfg.hash) || '').trim(); return s ? s.replace(/^#?/, '#') : ''; };
+  const hasMainC = (cfg) => cardsDeep(cfg && cfg.cards).some((c) => tagOfC(c) === 'msh-basseng-card');
+  // Ser ut som en bassengpopup: gamle/nye bassengkort, eller navn/ikon/innhold om basseng (f.eks. decluttering-maler)
+  const POOLISH_RX = /basseng|baseng|pool|sv[øo]mme/i;
+  const poolish = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || hasMainC(cfg) || POOLISH_RX.test(`${cfg.name || ''} ${cfg.icon || ''}`) || (() => { try { return POOLISH_RX.test(JSON.stringify(cfg.cards || [])); } catch (e) { return false; } })());
+  // Gammel bassengpopup: på en alias-hash (#basseng …) og basseng-aktig, eller på #badebasseng med de gamle kortene
+  const isLegacyPop = (cfg) => { const h = hashN(cfg); return OLD_HASH.includes(h) ? poolish(cfg) : h === PHASH && M.bassengLegacyTest(cfg); };
+  M.bassengIsOldPopup = isLegacyPop;
+  const extraOf = (cfg) => {
+    const card = M.bassengLegacyCard(cfg) || cardsDeep(cfg && cfg.cards).find((c) => tagOfC(c) === 'msh-basseng-card') || {}, out = {};
+    KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
+    return out;
+  };
   M.bassengExtra = function (config) {
     for (const L of popLists(config)) for (const e of (Array.isArray(L) ? L : [])) {
       const cfg = cfgOf(e);
       if (!isLegacyPop(cfg)) continue;
-      const card = M.bassengLegacyCard(cfg) || {}, out = {};
-      KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
+      const out = extraOf(cfg);
       if (Object.keys(out).length) return out;
     }
     return undefined;
   };
   M.bassengLegacy = (config) => popLists(config).some((L) => (Array.isArray(L) ? L : []).some((e) => isLegacyPop(cfgOf(e))));
   M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
-  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) };
+  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) || (!hasMainC(cfg) && poolish(cfg)) };
   M.POPUP_EXTRA = M.POPUP_EXTRA || {};
   M.POPUP_EXTRA[PHASH] = (config) => M.bassengExtra(config);
   M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
   M.POPUP_LEGACY_CARD[PHASH] = (popup, tag) => (tag === 'msh-basseng-card' && M.bassengLegacyTest(popup) ? M.bassengLegacyCard(popup) : null); // manuelt dashbord (M.buildPopups)
   M.POPUP_ALIAS = M.POPUP_ALIAS || {};
-  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => M.bassengLegacyTest(cfg) }; });
+  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => poolish(cfg) }; });
   /* Fiks 28.14 · gamle kort i en importert/overstyrt popup (strategi-YAML custom_popups, ki-store custom_popups/
    * popup_overrides): ki-basseng-card, ki-basseng-hero-card, msh-basseng-hero-card og gap-card → ÉTT msh-basseng-card med
    * innstillingene fra de gamle kortene (M.bassengLegacyCard). Andre egne kort i popupen røres ikke. null = ingenting å gjøre.
-   * Strategien kaller den for hver popup med hash #basseng/#badebasseng (MSH.POPUP_MIGRATE), og popup_overrides i ki-store
-   * skrives om én gang (M.bassengMigrateStore). */
+   * Strategien kaller den for popupen #badebasseng (MSH.POPUP_MIGRATE). */
   const isGapC = (c) => tagOfC(c) === 'gap-card';
   const isPoolC = (c) => LEG_TAGS.includes(tagOfC(c)) || isGapC(c) || tagOfC(c) === 'msh-basseng-card';
   const onlyPool = (c) => isPoolC(c) || (Array.isArray(c && c.cards) && c.cards.length > 0 && c.cards.every(onlyPool));
@@ -24108,46 +24989,189 @@ try {
     return { ...cfg, cards: rest };
   };
   M.POPUP_MIGRATE = M.POPUP_MIGRATE || {};
-  [PHASH, ...OLD_HASH].forEach((h) => { M.POPUP_MIGRATE[h] = (cfg, gen) => M.bassengMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null); });
-  M.bassengMigrateStore = function () {
+  M.POPUP_MIGRATE[PHASH] = (cfg, gen) => M.bassengMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null);
+
+  /* Fiks 30.1 · engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering;
+   * merket i ki-store `migrations.basseng30` (kjører aldri igjen) og logget i konsollen:
+   *   1. custom_popups: gamle bassengpopups (#basseng/#pool/#svommebasseng, eller #badebasseng med gamle kort) fjernes;
+   *      innstillingene (navn, hurtig, roller …) flyttes til kortets config (cards.pop-basseng, bare nøkler som mangler).
+   *   2. popup_overrides: #basseng/basseng → #badebasseng/badebasseng; gamle kort (ki-basseng-*, gap-card) → ÉTT kort.
+   *   3. popups (Tilpass Hjem → Popups: navn/ikon/farge/skjult/header_gap): basseng → badebasseng.
+   *   4. Lenker i alle kortconfiger (navbar, Hjem-kort, prosa-piller, varsler): '#basseng' → '#badebasseng'.
+   *   5. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js fjernes (lovelace/resources/delete).
+   * Service worker-/nettleser-cachen for de gamle filene tømmes ved hver oppstart (M.bassengClearCache). */
+  const MIG_KEY = 'migrations.basseng30';
+  const OLD_FILE_RX = /(^|\/)ki-basseng(-hero)?-card\.js(\?|$)/;
+  const swapHash = (o, d = 0) => {
+    if (d > 14 || o == null) return { v: o, n: 0 };
+    if (typeof o === 'string') { const t = o.trim(); return OLD_HASH.includes(t) ? { v: PHASH, n: 1 } : { v: o, n: 0 }; }
+    if (Array.isArray(o)) { let n = 0; const v = o.map((x) => { const r = swapHash(x, d + 1); n += r.n; return r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
+    if (typeof o === 'object') { let n = 0; const v = {}; Object.keys(o).forEach((k) => { const r = swapHash(o[k], d + 1); n += r.n; v[k] = r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
+    return { v: o, n: 0 };
+  };
+  M.bassengMigrateStore = function (hass) {
     if (M._poolStoreMig || !M.store || !M.store.loaded || typeof M.store.get !== 'function') return false;
     M._poolStoreMig = true;
+    if (M.store.get(MIG_KEY)) return false;
+    const log = [];
+    // 1 · custom_popups
+    const CP = M.store.get('custom_popups');
+    let extra = {};
+    if (Array.isArray(CP)) {
+      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!isLegacyPop(cfg)) return true; extra = { ...extraOf(cfg), ...extra }; log.push('custom_popups ' + hashN(cfg) + ' fjernet'); return false; });
+      if (keep.length !== CP.length) M.store.set('custom_popups', keep);
+    }
+    if (Object.keys(extra).length) {
+      const id = 'pop-basseng', cur = M.store.get('cards.' + id) || {}, add = {};
+      Object.keys(extra).forEach((k) => { if (cur[k] == null) add[k] = extra[k]; });
+      if (Object.keys(add).length) { M.store.set('cards.' + id, { ...cur, ...add }); log.push('innstillinger (' + Object.keys(add).join(', ') + ') → cards.' + id); }
+    }
+    // 2 · popup_overrides
     const O = M.store.get('popup_overrides');
-    if (!O || typeof O !== 'object') return false;
-    const n = { ...O };
-    let ch = false;
-    Object.keys(O).forEach((k) => {
-      const ov = O[k];
-      if (![PHASH, ...OLD_HASH].includes('#' + String(k).replace(/^#/, '')) || !ov || typeof ov !== 'object') return;
-      const fx = ov.replace && ov.config ? M.bassengMigratePopup(ov.config) : M.bassengMigratePopup(ov);
-      if (!fx) return;
-      n[k] = ov.replace && ov.config ? { ...ov, config: fx } : fx;
-      ch = true;
-    });
-    if (!ch) return false;
-    M.store.set('popup_overrides', n);
-    console.info('[ki-msh] Basseng: gamle kort (ki-basseng-card/hero/gap-card) i popup_overrides er migrert til ÉTT msh-basseng-card');
+    if (O && typeof O === 'object') {
+      const n = { ...O };
+      let ch = false;
+      Object.keys(O).forEach((k) => {
+        const h = '#' + String(k).replace(/^#/, ''), ov = O[k];
+        if (!ALL_HASH.includes(h)) return;
+        let v = ov;
+        if (ov && typeof ov === 'object') {
+          const fx = ov.replace && ov.config ? M.bassengMigratePopup(ov.config) : M.bassengMigratePopup(ov);
+          if (fx) { v = ov.replace && ov.config ? { ...ov, config: { ...fx, hash: PHASH } } : fx; ch = true; log.push('popup_overrides ' + k + ': gamle kort → ÉTT msh-basseng-card'); }
+          else if (ov.replace && ov.config && ov.config.hash && OLD_HASH.includes(hashN(ov.config))) { v = { ...ov, config: { ...ov.config, hash: PHASH } }; ch = true; }
+        }
+        if (h !== PHASH) {
+          const nk = String(k)[0] === '#' ? PHASH : PHASH.slice(1);
+          delete n[k];
+          if (!(nk in n) && !(PHASH in n) && !(PHASH.slice(1) in n)) { n[nk] = v; log.push('popup_overrides ' + k + ' → ' + nk); } else log.push('popup_overrides ' + k + ' fjernet (' + nk + ' finnes)');
+          ch = true;
+        } else n[k] = v;
+      });
+      if (ch) M.store.set('popup_overrides', n);
+    }
+    // 3 · popups.<key>
+    const P = M.store.get('popups');
+    if (P && typeof P === 'object') {
+      const n = { ...P };
+      let ch = false;
+      OLD_HASH.forEach((h) => [h, h.slice(1)].forEach((k) => {
+        if (!(k in n)) return;
+        const tk = PHASH.slice(1), v = { ...(n[k] || {}) };
+        if (v.prefer === 'custom' && !(M.store.get('custom_popups') || []).some((e) => hashN(cfgOf(e)) === PHASH)) delete v.prefer;
+        if (!n[tk] && Object.keys(v).length) n[tk] = v;
+        delete n[k]; ch = true; log.push('popups.' + k + ' → popups.' + tk);
+      }));
+      if (ch) M.store.set('popups', n);
+    }
+    // 4 · lenker i kortconfigene
+    const CD = M.store.get('cards');
+    if (CD && typeof CD === 'object') { const r = swapHash(CD); if (r.n) { M.store.set('cards', r.v); log.push(r.n + ' lenke(r) #basseng → #badebasseng i kortconfigene'); } }
+    M.store.set(MIG_KEY, { at: new Date().toISOString(), log }, { immediate: true });
+    console.info('[ki-msh] Basseng-migrering (fiks 30.1) kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
+    // 5 · gamle Lovelace-ressurser (bare admin)
+    if (hass && hass.user && hass.user.is_admin && hass.callWS) {
+      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er fjernet (gammelt kort)')))))
+        .catch((e) => console.warn('[ki-msh] Basseng: kunne ikke rydde Lovelace-ressursene (YAML-modus?)', e && (e.message || e.code)));
+    }
     return true;
   };
-  // Hasher strategien lager i tillegg som alias for en generert popup (f.eks. #badebasseng → samme kort som #basseng)
-  M.POPUP_TWINS = M.POPUP_TWINS || {};
-  M.POPUP_TWINS[PHASH] = ['#badebasseng'];
-  // Lenker/knapper som fortsatt peker på #badebasseng åpner #basseng (bare når ingen popup har den gamle hashen)
+  // Service worker-/Cache Storage: fjern de gamle filene (ki-basseng-card.js, ki-basseng-hero-card.js) fra alle cacher.
+  M.bassengClearCache = function () {
+    try {
+      if (!window.caches || !caches.keys) return Promise.resolve(0);
+      return caches.keys().then((ks) => Promise.all(ks.map((k) => caches.open(k).then((c) => c.keys().then((reqs) => Promise.all(reqs.filter((r) => OLD_FILE_RX.test(new URL(r.url).pathname)).map((r) => c.delete(r))))))))
+        .then((a) => { const n = a.flat().filter(Boolean).length; if (n) console.info('[ki-msh] Basseng: ' + n + ' gamle filer fjernet fra service worker-cachen'); return n; })
+        .catch(() => 0);
+    } catch (e) { return Promise.resolve(0); }
+  };
+
+  /* Fiks 30.1 · alias-elementer for gammel config: `type: custom:ki-basseng-card` / `custom:ki-basseng-hero-card` rendrer
+   * msh-basseng-card med samme config (+ én advarsel i konsollen). Hero-aliaset rendrer ingenting når det står i samme
+   * popup som et bassengkort. Defineres bare hvis taggen ikke finnes, og litt etter oppstart, så en gammel ki-cards-ressurs
+   * som fortsatt lastes ikke krasjer (HA tegner kortet på nytt når elementet blir definert). */
+  const warned = new Set();
+  const deepFind = (root, self, d = 0) => {
+    if (!root || d > 10 || !root.querySelectorAll) return false;
+    for (const e of root.querySelectorAll('*')) {
+      if (e !== self && !self.contains(e) && ['msh-basseng-card', 'ki-basseng-card'].includes(e.localName) && !(e.parentNode && e.parentNode.host === self)) return true;
+      if (e.shadowRoot && e !== self && deepFind(e.shadowRoot, self, d + 1)) return true;
+    }
+    return false;
+  };
+  const popupOfEl = (el) => { let n = el; for (let i = 0; i < 60 && n; i++) { if (n.localName === 'bubble-card' || (n.classList && n.classList.contains('bubble-pop-up-container'))) return n; n = n.parentNode || n.host; } return null; };
+  // samme popup = nærmeste Bubble-popup over elementet; uten popup (vanlig visning): kortene i samme stack/rot
+  M.bassengHeroBeside = (el) => { const p = popupOfEl(el); if (p) return deepFind(p, el) || deepFind(p.shadowRoot, el); const r = el.getRootNode && el.getRootNode(); return !!r && r !== document && deepFind(r, el); };
+  const aliasClass = (tag, hero) => class extends HTMLElement {
+    static getStubConfig() { return { card_id: 'pop-basseng' }; }
+    setConfig(c) {
+      this._cfg = { ...(c || {}), type: 'custom:msh-basseng-card' };
+      if (!warned.has(tag)) { warned.add(tag); console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-basseng-card${hero ? ' (ingenting hvis popupen allerede har et bassengkort)' : ''}. Bytt til «type: custom:msh-basseng-card» i popupen ${PHASH}.`); }
+      if (this._inner) this._inner.setConfig(this._cfg);
+      else if (this.isConnected) this._mount();
+    }
+    set hass(h) { this._hass = h; if (this._inner) this._inner.hass = h; }
+    get hass() { return this._hass; }
+    connectedCallback() { this.style.display = 'block'; this._mount(); }
+    getCardSize() { return this._inner && this._inner.getCardSize ? this._inner.getCardSize() : hero ? 0 : 10; }
+    getGridOptions() { return { columns: 'full' }; }
+    _mount() {
+      if (!this._cfg || this._inner) return;
+      const make = () => {
+        if (this._inner || !this.isConnected) return;
+        const el = document.createElement('msh-basseng-card');
+        try { el.setConfig(this._cfg); } catch (e) { console.warn('[ki-msh]', tag, e); return; }
+        if (this._hass) el.hass = this._hass;
+        this._inner = el;
+        this.appendChild(el);
+      };
+      if (!hero) return make();
+      // hero: vent til nabokortene er tegnet; står et bassengkort i samme popup → ingenting
+      this.style.display = 'none';
+      clearTimeout(this._t);
+      const check = (n) => {
+        if (!this.isConnected) return;
+        if (M.bassengHeroBeside(this)) { this._beside = true; if (this._inner) { this._inner.remove(); this._inner = null; } return; }
+        if (n > 0) { this._t = setTimeout(() => check(n - 1), 250); return; }
+        this._beside = false; this.style.display = 'block'; make();
+      };
+      this._t = setTimeout(() => check(3), 0);
+    }
+    disconnectedCallback() { clearTimeout(this._t); }
+  };
+  M.bassengDefineAliases = function () {
+    [['ki-basseng-card', false], ['ki-basseng-hero-card', true]].forEach(([tag, hero]) => {
+      if (customElements.get(tag)) return;
+      try { customElements.define(tag, aliasClass(tag, hero)); } catch (e) { /* definert av en annen ressurs i mellomtiden */ }
+    });
+  };
+
   if (!window.__mshPoolHash) {
     window.__mshPoolHash = true;
-    const hasPopup = (hash) => {
+    setTimeout(() => M.bassengDefineAliases(), 1500);
+    setTimeout(() => M.bassengClearCache(), 3000);
+    // #basseng (alias) → #badebasseng, med mindre en helt annen (ikke-basseng) popup bruker den gamle hashen
+    const ownPopupAt = (hash) => {
       const R = M.popupReport;
-      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden) || (Array.isArray(R.twins) && R.twins.includes(hash));
+      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden);
       let found = false;
-      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.hash === hash) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && hashN(c) === hash && !poolish(c)) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
       w(document, 0);
       return found;
     };
-    window.addEventListener('hashchange', () => {
+    M.bassengRedirect = function () {
       const h = location.hash;
-      if (!OLD_HASH.includes(h) || hasPopup(h) || !hasPopup(PHASH)) return;
-      try { history.replaceState(history.state, '', location.pathname + location.search + PHASH); window.dispatchEvent(new HashChangeEvent('hashchange')); window.dispatchEvent(new CustomEvent('location-changed')); } catch (x) { /* */ }
-    });
+      if (!OLD_HASH.includes(h) || ownPopupAt(h)) return false;
+      try {
+        const old = location.href;
+        history.replaceState(history.state, '', location.pathname + location.search + PHASH);
+        window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: old, newURL: location.href }));
+        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+        return true;
+      } catch (x) { return false; }
+    };
+    // capture: før Bubble Card leser hashen
+    ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => M.bassengRedirect(), true));
+    setTimeout(() => M.bassengRedirect(), 0);
   }
 })();
 
@@ -28360,8 +29384,8 @@ try {
   // 17.28 · Mellomrom (samme komponent og felter som Rom: gap, pad_top, pad_bottom; MSH._applySpacing + MSH.popupBottomPad)
   const SPACING = { gap: 16, pad_top: 20, pad_bottom: 40 };
   const SPACING_FIELDS = [
-    { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: SPACING.gap, presets: [[8, 'Tett 8'], [16, 'Standard 16'], [24, 'Luftig 24']] },
-    { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 120, default: SPACING.pad_top, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']], help: 'Negativ verdi trekker innholdet opp mot popup-headeren' },
+    { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: SPACING.gap, presets: [[8, 'Tett 8'], [16, 'Standard 16'], [24, 'Luftig 24']] },
+    { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -4, max: 60, default: SPACING.pad_top, presets: [[-4, 'Inntil −4'], [6, 'Tett 6'], [20, 'Standard 20'], [44, 'Luftig 44']], help: 'Negativ verdi trekker innholdet opp mot popup-headeren' },
     { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 160, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [40, 'Standard 40'], [96, 'Stor 96']], help: 'Kommer i tillegg til navbaren og safe area' },
   ];
   M.KLIMA_SPACING = SPACING;
@@ -29696,9 +30720,9 @@ try {
             { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           ] },
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${gapOf(cc)} px mellom`, fields: [
-            { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 48, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
+            { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
             { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']], help: 'Tomt = som «Mellom seksjonene»' },
-            { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 120, default: -10, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [20, 'Luftig 20']] },
+            { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: -10, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [20, 'Luftig 20']] },
             { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: 150, presets: [[40, 'Liten 40'], [150, 'Standard 150'], [220, 'Stor 220']] },
           ] },
           { type: 'section', id: 'tabs', label: 'Faner', icon: 'mdi:tab', meta: () => `${tabs.filter(([k]) => !(c.hidden_tabs || []).includes(k)).length} av ${tabs.length} vises`, fields: [
@@ -30808,16 +31832,35 @@ try {
     if (a.app_id || a.app_name) return 'tv';
     return 'musikk';
   }
+  // 31.1: mellomlagret per (config-objekt, hass, withHidden) – editoren kaller dette for hver spiller/seksjon i én tegning,
+  // så uten minne ble arbeidet O(spillere²) per tegning.
+  // Minnet gjelder bare innenfor samme synkrone tegning (epoke = mikrooppgave), så endringer i hass.states på stedet ses alltid.
+  const MP_MEMO = new WeakMap();
+  let EPOCH = 0, epQ = false;
+  const epoch = () => { if (!epQ) { epQ = true; queueMicrotask(() => { EPOCH++; epQ = false; }); } return EPOCH; };
   M.mediaPlayers = function (hass, cfg, withHidden) {
     cfg = cfg || {};
     if (!hass) return { tv: [], musikk: [], all: [] };
+    const mm = MP_MEMO.get(cfg), wk = withHidden ? 1 : 0, ep = epoch();
+    const same = mm && mm.h === hass && mm.e === ep;
+    if (same && mm[wk]) return mm[wk];
+    const res = mediaPlayers0(hass, cfg, withHidden);
+    const slot = same ? mm : { h: hass, e: ep };
+    slot[wk] = res; MP_MEMO.set(cfg, slot);
+    return res;
+  };
+  function mediaPlayers0(hass, cfg, withHidden) {
     const aIdx = {};
     M.areas(hass).forEach((a, i) => { aIdx[a.id] = i; });
     const ids = M.applyLists(cfg, 'spillere', M.all(hass, 'media_player'));
-    const out = ids.filter((id) => hass.states[id]).map((id) => {
-      const s = hass.states[id], pc = pcfgOf(cfg, id), area = M.areaOf(hass, id);
-      const kind = pc.type && pc.type !== 'auto' ? pc.type : autoKind(hass, id);
-      return { id, obj: obj(id), kind, auto: autoKind(hass, id), area, areaName: area ? M.areaName(hass, area) : null, name: pc.name || s.attributes.friendly_name || obj(id), pc };
+    // 31.1: «Mediaspiller» per kilde (players.<obj>.entity) – kilden (obj = config-nøkkel) bruker en annen media_player.
+    // En spiller som er valgt som mediaspiller for en annen kilde, vises ikke i tillegg som egen kilde.
+    const entOf = (id) => { const e = pcfgOf(cfg, id).entity; return typeof e === 'string' && e !== id && /^media_player\./.test(e) && hass.states[e] ? e : null; };
+    const used = new Set(ids.map(entOf).filter(Boolean));
+    const out = ids.filter((id) => hass.states[id] && (entOf(id) || !used.has(id))).map((id) => {
+      const pc = pcfgOf(cfg, id), eid = entOf(id) || id, s = hass.states[eid], area = M.areaOf(hass, eid);
+      const kind = pc.type && pc.type !== 'auto' ? pc.type : autoKind(hass, eid);
+      return { id: eid, obj: obj(id), slot: id, kind, auto: autoKind(hass, eid), area, areaName: area ? M.areaName(hass, area) : null, name: pc.name || s.attributes.friendly_name || obj(eid), pc };
     }).filter((p) => (withHidden || p.kind !== 'skjul') && (!cfg.area || p.area === cfg.area));
     const ai = (p) => (p.area ? (aIdx[p.area] != null ? aIdx[p.area] : 98) : 99);
     out.sort((a, b) => ai(a) - ai(b) || a.name.localeCompare(b.name, 'nb'));
@@ -30836,7 +31879,7 @@ try {
     };
     const tv = pick('tv'), musikk = pick('musikk');
     return { tv, musikk, all: withHidden ? base : base.filter((p) => tv.includes(p) || musikk.includes(p)) };
-  };
+  }
   const tabOrder = (cfg) => {
     const k = TABS.map((t) => t[0]);
     const o = Array.isArray(cfg.tab_order) ? cfg.tab_order.filter((x) => k.includes(x)) : [];
@@ -30844,7 +31887,7 @@ try {
     const hid = cfg.hidden_tabs || [], v = o.filter((x) => !hid.includes(x));
     return { all: o, vis: v.length ? v : o };
   };
-  const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + p.obj] ? 'remote.' + p.obj : null);
+  const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + obj(p.id)] ? 'remote.' + obj(p.id) : null);
   const REMOTE = {
     apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', mic: 'voice', hold: { command: 'home', hold_secs: 1 } },
     google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', mic: 'SEARCH', hold: { command: 'KEYCODE_HOME', hold_secs: 1 } },
@@ -30945,11 +31988,16 @@ try {
   // Liste for spilleren: config (også tom liste = brukeren har fjernet alt) ellers autokonfig
   const listOf = (hass, p, kind) => (Array.isArray(p.pc[kind]) ? p.pc[kind].filter((x) => x && typeof x === 'object') : LISTS[kind](hass, p));
   // Media-nettleseren: Favoritter (Squeezebox/LMS, Music Assistant …) per spiller, mellomlagret 60 s. cb kalles når svaret kommer.
+  /* 31.1 · ÅRSAK TIL FRYSEN: editoren sendte en NY tilbakekalling (lukking) per spiller ved hver tegning. Mens svarene
+   * var underveis havnet alle disse i cbs-settene (Set dedupliserer ikke nye lukkinger), og hvert svar tegnet arket
+   * like mange ganger som det var tegninger siden – og hver av de tegningene la til nye kall i de andre spillernes sett.
+   * Med N spillere ≈ 2^N tegninger (målt: 4 spillere → 513 tegninger / 33 s; 10 spillere → hovedtråden låst > 5 min).
+   * Nå: kalleren sender en STABIL tilbakekalling (én per editor), og editoren slår sammen tegninger (rAF). */
   const FAV = {};
   const favorites = (hass, id, cb) => {
     const f = FAV[id];
     if (f && (f.busy || Date.now() - f.t < 60000)) { if (f.busy && cb) f.cbs.add(cb); return f.list; }
-    if (!hass || !hass.callWS) return null;
+    if (!hass || !hass.callWS) return f ? f.list || [] : [];
     const o = FAV[id] = { t: Date.now(), list: f ? f.list : null, busy: true, cbs: new Set(cb ? [cb] : []) };
     const ws = (x) => hass.callWS({ type: 'media_player/browse_media', entity_id: id, ...(x || {}) });
     const done = (list) => { o.list = list; o.busy = false; o.t = Date.now(); o.cbs.forEach((c) => { try { c(); } catch (e) { /* */ } }); o.cbs.clear(); };
@@ -31135,7 +32183,7 @@ try {
   const volSensor = (hass, p) => {
     if (!hass) return null;
     const d = sameDevice(hass, p.id, 'sensor').find((x) => /_volume(_level)?$/.test(x));
-    return d || (hass.states['sensor.' + p.obj + '_volume'] ? 'sensor.' + p.obj + '_volume' : null);
+    return d || (hass.states['sensor.' + obj(p.id) + '_volume'] ? 'sensor.' + obj(p.id) + '_volume' : null);
   };
   // Estimert TV-volum ved knapp-volum (±2 per kommando), per TV i localStorage (UI-tilstand, ikke config)
   const EST_KEY = 'ki:media:vol_est';
@@ -31219,7 +32267,8 @@ try {
       return `<div class="f" style="background:transparent;padding:0">${seg}</div>
         <div class="sec" style="display:flex;flex-direction:column;gap:6px;padding:12px"><div class="line" style="padding:2px 4px 4px">${M.icon('mdi:sort', 20)}<span style="flex:1;font-size:14px;font-weight:500">Rekkefølge</span><span class="small">${L.length} ${tl}</span></div>
           ${L.length ? L.map(row).join('') : `<div class="small" style="padding:4px">Ingen ${tl} funnet</div>`}
-          <div class="small" style="padding:2px 4px">Nr. 1 vises når fanen åpnes. Øye = vis/skjul i karusellen, piler = rekkefølge.</div></div>`;
+          <div class="small" style="padding:2px 4px">Nr. 1 vises når fanen åpnes. Øye = vis/skjul i karusellen, piler = rekkefølge.</div></div>
+        <datalist id="mm-ic" data-key="mm-ic" data-nomorph></datalist>`;
     },
   });
 
@@ -31287,11 +32336,28 @@ try {
           if (v) L[i][dd.f] = v; else delete L[i][dd.f];
           edPut(ed, Q, dd.mm, L);
         });
+        // 31.1: ikonforslag lastes først når et ikonfelt får fokus (og ved skriving), høyst 40 treff i én felles datalist.
+        // Lytterne legges til én gang per editor (ikke per tegning).
+        const sug = (t) => {
+          const dl = ed.shadowRoot.getElementById('mm-ic');
+          if (!dl || !M.iconPicker || !M.iconPicker.search) return;
+          const q = String(t.value || '').trim(), my = (ed.__icQ = q);
+          clearTimeout(ed.__icT);
+          ed.__icT = setTimeout(() => M.iconPicker.search(q.replace(/^mdi:/, ''), null).then((L) => {
+            if (ed.__icQ !== my) return;
+            dl.innerHTML = (L || []).slice(0, 40).map((x) => `<option value="${esc(x)}"></option>`).join('');
+          }).catch(() => { /* ingen forslag */ }), q ? 120 : 0);
+        };
+        const isIc = (t) => t && t.dataset && t.dataset.mm && t.dataset.f === 'icon';
+        ed.shadowRoot.addEventListener('focusin', (e) => { if (isIc(e.target)) sug(e.target); });
+        ed.shadowRoot.addEventListener('input', (e) => { if (isIc(e.target)) sug(e.target); });
       }
       const btn = (op, kind, i, extra, inner, title, cls) => `<button class="${cls || 'ib'}" data-a="fn" data-k="${key}" data-po="${esc(P.obj)}" data-kind="${kind}" data-op="${op}" data-i="${i}" ${extra || ''} ${title ? `title="${esc(title)}" aria-label="${esc(title)}"` : ''}>${inner}</button>`;
-      const inp = (kind, i, f, v, ph, st) => `<input class="inp" data-mm="${kind}" data-po="${esc(P.obj)}" data-i="${i}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" autocapitalize="off" autocorrect="off" spellcheck="false" style="height:34px;font-size:13px;min-width:0;background:#282828;${st || ''}">`;
+      const inp = (kind, i, f, v, ph, st) => `<input class="inp" data-mm="${kind}" data-po="${esc(P.obj)}" data-i="${i}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${f === 'icon' ? 'list="mm-ic" autocomplete="off"' : ''} autocapitalize="off" autocorrect="off" spellcheck="false" style="height:34px;font-size:13px;min-width:0;background:#282828;${st || ''}">`;
       const lab = (t, x) => `<label style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="hl" style="font-size:11px;color:#979797">${esc(t)}</span>${x}</label>`;
-      const favs = !tv ? favorites(h, P.id, () => ed && ed._render && ed._render()) : null;
+      // Stabil tilbakekalling per editor + samlet tegning (rAF): ett svar → høyst én ny tegning (31.1)
+      if (ed && !ed.__favCb) ed.__favCb = () => { if (ed.__favRaf) return; ed.__favRaf = requestAnimationFrame(() => { ed.__favRaf = 0; if (ed.isConnected && ed._render) ed._render(); }); };
+      const favs = !tv ? favorites(h, P.id, ed && ed.__favCb) : null;
       const row = (kind, x, i, n) => {
         const open = ED_ROW === `${P.obj}:${kind}:${i}`;
         const ic = x.icon || (kind === 'apps' ? 'apps' : kind === 'inputs' ? 'mdi:video-input-hdmi' : x.type === 'source' ? 'mdi:import' : 'radio');
@@ -31345,12 +32411,46 @@ try {
     },
   });
 
+  /* 31.1 · «Mediaspiller» per kilde (Media v4 cfgSrc/cfgMus · mpOpts): native <select> over en rad (cast · entity_id · ▾).
+   * Listen over media_player.* beregnes ÉN gang per editor (ed.__mpOpts) – ikke per spiller og tegning.
+   * Lagres som players.<obj>.entity (tom = kildens egen spiller); editoren lagrer via data-name. */
+  const mpOptsOf = (ed, h) => {
+    if (ed && ed.__mpOpts && ed.__mpOptsH === (h && h.states ? Object.keys(h.states).length : 0)) return ed.__mpOpts;
+    const L = M.all(h, 'media_player').map((id) => [id, M.name(h, id)]).sort((a, b) => a[1].localeCompare(b[1], 'nb'));
+    if (ed) { ed.__mpOpts = L; ed.__mpOptsH = Object.keys(h.states).length; }
+    return L;
+  };
+  const mpField = (p) => ({
+    type: 'html',
+    html: (h, c, key, ed) => {
+      if (!h) return '';
+      const name = `players.${p.obj}.entity`, cur = ((((c || {}).players || {})[p.obj]) || {}).entity || '';
+      const own = p.slot || p.id, shown = cur || own;
+      const opts = mpOptsOf(ed, h);
+      const o = [`<option value="" ${cur ? '' : 'selected'}>Standard · ${esc(M.name(h, own))} · ${esc(own)}</option>`,
+        ...(cur && !opts.some((x) => x[0] === cur) ? [[cur, cur]] : []).concat(opts.filter((x) => x[0] !== own)).map(([id, n]) => `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(n)} · ${esc(id)}</option>`)].join('');
+      return `<div class="f" data-key="mp-${esc(p.obj)}" style="gap:6px"><span class="hl" style="font-size:12px;color:#979797">Mediaspiller</span>
+        <div style="position:relative;display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#2f2f2f">${M.icon('mdi:cast', 18, 'color:#afafaf')}
+          <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(shown)}</span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}
+          <select data-name="${esc(name)}" aria-label="Mediaspiller for ${esc(p.name)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px">${o}</select></div></div>`;
+    },
+  });
+  // Seksjon per spiller tegnes bare når den er åpen (lazy) – lister, source_list, favoritter og velgere for lukkede
+  // spillere bygges ikke. Feil i én spiller gir «Kunne ikke laste denne delen» i stedet for et halvt tegnet ark.
+  const failSec = (p, e) => { try { console.error('[msh-media] editor', p && p.id, e); } catch (x) { /* */ } return { type: 'section', id: 'p_' + (p && p.obj), lazy: true, icon: 'mdi:alert-circle-outline', label: ((p && p.name) || '–') + ' · Kunne ikke laste denne delen', fields: [{ type: 'info', label: 'Kunne ikke laste denne delen' }] }; };
   const baseSchema = (h, c, common) => {
     c = c || {};
-    const P = h ? M.mediaPlayers(h, c, true).all : [], tab = ED_TAB;
+    let P = [];
+    try { P = h ? M.mediaPlayers(h, c, true).all : []; } catch (e) { console.error('[msh-media] spillere', e); }
+    const tab = ED_TAB;
     return [
       orderField(),
-      ...P.filter((p) => tabOf(p) === tab).map((p) => {
+      ...P.filter((p) => tabOf(p) === tab).map((p) => { try { return playerSec(h, c, p); } catch (e) { return failSec(p, e); } }),
+      ...commonSchema(common),
+    ];
+  };
+  const playerSec = (h, c, p) => {
+    {
         const b = `players.${p.obj}`, tv = p.kind === 'tv';
         const fields = [
           { type: 'select', name: b + '.type', label: 'Type', options: [['auto', 'Auto'], ['tv', 'TV'], ['musikk', 'Musikk'], ['skjul', 'Skjul']], default: 'auto', help: 'Auto: ' + (p.auto === 'tv' ? 'TV' : 'Musikk') },
@@ -31392,8 +32492,10 @@ try {
           { type: 'entity', name: `watch_time.${p.obj}.i_dag`, label: 'Seertid i dag (Album-kortet)', domains: ['sensor'], auto: () => wy.i_dag || '' },
           { type: 'entity', name: `watch_time.${p.obj}.maned`, label: 'Seertid denne måneden (Album-kortet)', domains: ['sensor'], auto: () => wy.maned || '' },
         );
-        return { type: 'section', id: 'p_' + p.obj, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, fields };
-      }),
+        return { type: 'section', id: 'p_' + p.obj, lazy: true, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, meta: p.id, fields: [mpField(p), ...fields] };
+    }
+  };
+  const commonSchema = (common) => [
       { type: 'info', label: 'Felles for begge faner' },
       ...(common || []),
       { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
@@ -31406,7 +32508,6 @@ try {
       { type: 'boolean', name: 'remote_swipe', label: 'Sveip på styreflaten', default: true, help: 'Dra på fjernkontrollens runde flate for Opp/Ned/Venstre/Høyre (én kommando per 34 px)' },
       { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
     ];
-  };
 
   class MediaBase extends M.Card {
     connectedCallback() {
@@ -36215,9 +37316,10 @@ try {
         const t = new Date(f.datetime).getTime(), cd = sceneOf(f.condition, f.is_daytime != null ? !f.is_daytime : isNight(t, sun));
         const pp = num(f.precipitation_probability), mm = num(f.precipitation), T = num(f.temperature);
         let body;
-        if (metric === 'temp') body = `${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}<span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span>`;
+        // 31.3: fast kolonnehøyde (152 px) i alle fanene – Temperatur: ikon, % og grader i en flex:1-boks (space-evenly)
+        if (metric === 'temp') body = `<span class="htb"><span class="hic">${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}</span><span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span></span>`;
         else if (metric === 'rain') body = `<span class="rbx"><i class="l1"></i><i class="l2"></i><i class="rf" style="height:${mm ? Math.max(6, Math.min(100, (mm / 1.5) * 100)).toFixed(0) + '%' : '0'}"></i></span><span class="hmm">${mm ? nf(mm) : '0'} ${esc(pu)}</span><span class="hpr">${M.icon('mdi:water', 14, `color:${BLUE}`)}${pp != null ? Math.round(pp) + '%' : '–'}</span>`;
-        else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span><span class="hwsp"></span>`;
+        else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span>`; // 31.3: ingen 58 px-spacer – grafen ligger absolutt nederst
         return `<div class="hc" data-key="hc${i}"><span class="ht${i ? '' : ' now'}">${tlab(f, i)}</span>${body}</div>`;
       }).join('');
       let chart = '';
@@ -36444,32 +37546,35 @@ try {
         .scene .hcard{padding:14px 0 12px;display:flex;flex-direction:column;gap:12px}
         .scene .hhd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px}
         .scene .hti{display:flex;flex-direction:column;min-width:0}
-        .scene .htt{font-size:15px;font-weight:500}
-        .scene .hsub{font-size:12px;color:#a8a8a8}
+        .scene .htt{font-size:15px;font-weight:500;height:20px;line-height:20px}
+        .scene .hsub{font-size:12px;color:#a8a8a8;height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* 31.3: undertittelen brytes aldri (samme høyde i alle fanene) */
         .scene .mpill{display:flex;gap:2px;padding:2px;border-radius:999px;background:#303030;touch-action:pan-y;user-select:none;-webkit-user-select:none;position:relative;flex:none}
         .scene .mb{width:40px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:transparent;color:#bdbdbd;transition:background .3s,color .3s}
         .scene .mb.on{background:${PINK160};color:${INK}}
         .scene .mpill .gd-lens{position:absolute;z-index:3;pointer-events:none}
-        .scene .hsc{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 8px;overscroll-behavior-x:contain}
+        /* 31.3 · «Neste timer»: fast høyde i px (ingen prosent/auto, ingen line-height fra fontmetrikk) – lik i alle tre fanene,
+           på iOS WebKit og Chrome; ingen høydeanimasjon ved fanebytte */
+        .scene .hsc{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 8px;overscroll-behavior-x:contain;height:152px;box-sizing:content-box;transition:none}
         .scene .hsc::-webkit-scrollbar,.scene .d3::-webkit-scrollbar{display:none}
-        .scene .hin{position:relative;width:max-content}
-        .scene .hrow{display:flex}
-        .scene .hc{flex:none;width:56px;display:flex;flex-direction:column;align-items:center;gap:6px}
-        .scene .ht{font-size:13px;font-weight:400;color:#a8a8a8}
+        .scene .hin{position:relative;width:max-content;height:152px}
+        .scene .hrow{display:flex;height:152px;align-items:flex-start}
+        .scene .hc{flex:none;width:56px;height:152px;min-height:152px;max-height:152px;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:16px}
+        .scene .ht{flex:none;font-size:13px;font-weight:400;color:#a8a8a8;height:16px;line-height:16px}
+        .scene .htb{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly}
+        .scene .hic{display:block;width:26px;height:26px;line-height:0}
         .scene .ht.now{font-weight:600;color:#fafafa}
-        .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px}
-        .scene .hv{font-size:17px;font-weight:500}
-        .scene .rbx{position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
+        .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px;line-height:14px}
+        .scene .hv{font-size:17px;font-weight:500;height:20px;line-height:20px}
+        .scene .rbx{flex:none;position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
         .scene .rbx i{position:absolute;left:0;right:0}
         .scene .rbx .l1,.scene .rbx .l2{border-top:1px dashed #4a4a4a}
         .scene .rbx .l1{top:33%}.scene .rbx .l2{top:66%}
         .scene .rbx .rf{bottom:0;background:${BLUE};border-radius:6px 6px 0 0}
-        .scene .hmm{font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums}
-        .scene .hpr{display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
-        .scene .hw{display:flex;flex-direction:column;align-items:center;margin-top:6px}
-        .scene .hwv{font-size:19px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
-        .scene .hwg{font-size:11px;color:#a8a8a8}
-        .scene .hwsp{height:58px}
+        .scene .hmm{flex:none;font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums;height:14px;line-height:14px}
+        .scene .hpr{flex:none;display:flex;align-items:center;gap:1px;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;height:18px;line-height:18px}
+        .scene .hw{flex:none;display:flex;flex-direction:column;align-items:center;margin-top:6px}
+        .scene .hwv{font-size:19px;font-weight:500;height:21px;line-height:21px;font-variant-numeric:tabular-nums}
+        .scene .hwg{font-size:11px;color:#a8a8a8;height:13px;line-height:13px}
         .scene .wch{position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block}
         .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair}
         .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}
@@ -36831,48 +37936,52 @@ ${VE}`;
 
 /* ---- 49-las.js ---- */
 try {
-/* msh-las-card · Dørlås-popup #dorlas (fiks 16.7). Visuelt språk: Sikkerhet v3.dc.html (popup #282828, kort #3a3a3a,
- * indre flater #2f2f2f) + Hjem v3 lås-arket (ikon-sirkel med ring, pille-knapp).
- * Seksjoner (ett kort i popupen): [segment når flere låser] → hero (lås-ikon i sirkel grønn/oransje/rød, status 32 px,
- * «Låst av Rune · 12:39», stor pille «Lås opp» rosa gradient / «Lås» grå) → batteri og siste kontakt → automatikk
- * (bare det som finnes) → siste 10 hendelser (logbook/get_events når popupen åpnes).
- * Opplåsing krever bekreftelse: hold pillen i 1 s (ring rundt ikonet) eller PIN (tastatur portalt ut av popupen via
- * MSH.overlay) når låsen har code_format (confirm: auto | hold | pin).
- * Autokonfig: alle lock.* (exclude/include.laser), batteri = battery_level-attributt eller batterisensor på samme enhet,
- * auto-lås = number/input_number (+ switch) på samme enhet med «auto lock / autolås / relock» i navnet, «Lås når alle
- * drar» / «Lås om natten» = automation/input_boolean/switch med lås + borte/natt i navnet. Ingen gjettede ID-er –
- * finnes ingenting, skjules raden. Overstyring per lås: locks_cfg.<objekt>.{name, battery, auto_lock, auto_lock_switch},
- * globalt: overrides.away_lock / overrides.night_lock.
- * MSH.lockUnlock(card, id, { name, toast }) – felles opplåsing (PIN når låsen krever kode), brukes også av Hjem-flisen.
+/* msh-las-card · Dørlås-popup #dorlas (Fiks 32.1, erstatter 16.7). Fasit: «Dørlås v2.dc.html». ÉTT kort i popupen.
+ * Rekkefølge: låsvelger + tannhjul (MSH.sik.picker) → toppkort (MSH.sik.hero: navn + chip, tilstand 44/300, «Låst av X · 21:04»,
+ * badge 56 px som snurrer mens låsen jobber, opplåsingsspor 64 px: Dra / Hold / Trykk) → statusfliser (Dør, Batteri, Autolås)
+ * → Automatikk (MSH.sik.auto, sammenleggbar med hovedbryter) → Historikk-tidslinje (MSH.sik.history, logbook/get_events
+ * bare når popupen er åpen). «Tilpass dørlås» (MSH.sik.sheet): Låser · Seksjoner · Historikk – alt i config, og de samme
+ * valgene finnes i GUI-editoren (schema).
+ * Autokonfig (ingen gjettede ID-er, «–»/«Velg entitet» når noe mangler): alle lock.* (exclude/include.laser), dørsensor =
+ * binary_sensor door/opening på samme enhet eller i samme område, batteri = battery_level eller batterisensor på enheten,
+ * automatikk = bryterne fra KI Varslinger og sikkerhet (MSH.finnBrytere, enhetsnavn Autolås / Fastkjørt lås / Lås når alle
+ * drar / Nattlås), ellers låsens egen auto-lås-bryter og automasjoner med lås + borte/natt i navnet. overrides.{auto_lock,
+ * away_lock, night_lock, jam_alert} overstyrer, locks_cfg.<objekt>.{name, hidden, door, battery, auto_lock} per lås.
+ * MSH.lockUnlock(card, id, { name, toast }) – felles opplåsing (PIN når låsen krever kode), brukes også av Hjem-flisen og
+ * Ringeklokke. MSH.lasAuto(hass, cfg) → { locks, vis, away, night }.
+ * Den gamle dørlås-popupen (16.7-oppsett, importerte popups med gamle lås-kort, gamle hasher #las/#lock …) migreres til
+ * dette ene kortet: MSH.POPUP_ALIAS / POPUP_SUPERSEDE / POPUP_MIGRATE (samme metode som 28.14/30.1).
  */
 (function () {
-  const M = window.MSH, esc = M.esc, C = M.C;
-  const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
-  const GREEN = C.green, ORANGE = C.orange, RED = C.red;
+  const M = window.MSH, esc = M.esc, S = M.sik;
+  const { G, O, R, GR, PK } = S.COL;
   const AUTO_RX = /auto.?(re)?lock|autol[aå]s|auto.?l[aå]s|relock/i;
   const LOCK_RX = /l[aå]s|lock/i;
   const AWAY_RX = /borte|away|alle.?dra|leav|ingen.?hjemme|nobody/i;
   const NIGHT_RX = /natt|night|kveld|bedtime|leggetid/i;
-  const HOLD_MS = 1000;
-  const hm = (t) => { const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; };
-  const when = (t) => {
-    if (!t || isNaN(t)) return '–';
-    const d = new Date(t), now = new Date();
-    if (d.toDateString() === now.toDateString()) return hm(t);
-    if (d.toDateString() === new Date(now.getTime() - 86400000).toDateString()) return 'i går ' + hm(t);
-    return d.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }) + ' ' + hm(t);
-  };
-  const STATUS = { locked: 'Låst', unlocked: 'Ulåst', locking: 'Låser …', unlocking: 'Låser opp …', jammed: 'Satt fast', open: 'Åpen', opening: 'Åpner …' };
-  const VERB = { locked: 'Låst', unlocked: 'Låst opp', open: 'Åpnet', jammed: 'Satt fast' };
-  const colorOf = (v) => (v === 'jammed' ? RED : v === 'locked' || v === 'locking' ? GREEN : /^(unlocked|unlocking|open|opening)$/.test(v) ? ORANGE : 'var(--gray600, #7f7f7f)');
+  const GARAGE_RX = /garasje|garage|\bport\b/;
+  const HOLD_MS = 900, ARM = 0.92;
   const txt = (hass, id) => id + ' ' + String((hass.states[id] && hass.states[id].attributes.friendly_name) || '');
   const devEnts = (hass, id) => {
     const e = hass.entities && hass.entities[id];
     if (!e || !e.device_id) return [];
     return Object.keys(hass.entities).filter((x) => x !== id && hass.entities[x].device_id === e.device_id && hass.states[x]);
   };
-  const real = (hass, id) => (id && hass.states[id] ? id : null);
+  const real = (hass, id) => (id && id !== 'none' && hass.states[id] ? id : null);
+  const DOOR_DC = ['door', 'opening'];
+  const norm = (s) => M.slug(s).replace(/_/g, ' ');
 
+  // Dørsensor for en lås: samme enhet → samme område (best navnetreff først)
+  function doorAuto(hass, id) {
+    const st = hass.states[id], dev = devEnts(hass, id).filter((x) => x.startsWith('binary_sensor.') && DOOR_DC.includes(hass.states[x].attributes.device_class));
+    if (dev.length) return dev[0];
+    const area = M.areaOf(hass, id);
+    if (!area) return null;
+    const L = M.all(hass, 'binary_sensor', (s, x) => DOOR_DC.includes(s.attributes.device_class) && M.areaOf(hass, x) === area);
+    const ln = norm((st && st.attributes.friendly_name) || id.split('.')[1]);
+    const sc = (x) => { const n = norm(M.name(hass, x)); return n === ln ? 0 : n.includes(ln) || ln.includes(n) ? 1 : ln.split(' ').some((w) => w.length > 2 && n.includes(w)) ? 2 : 3; };
+    return L.sort((a, b) => sc(a) - sc(b) || a.localeCompare(b))[0] || null;
+  }
   // Autokonfig for én lås (overstyring i locks_cfg.<objekt>)
   function lockInfo(hass, cfg, id) {
     const st = hass.states[id] || null, obj = id.split('.')[1], o = ((cfg.locks_cfg || {})[obj]) || {};
@@ -36883,20 +37992,33 @@ try {
     else if (st && M.isNum(st.attributes.battery_level)) bat = Math.round(Number(st.attributes.battery_level));
     const autoNum = real(hass, o.auto_lock) || dev.find((x) => /^(number|input_number)\./.test(x) && AUTO_RX.test(txt(hass, x))) || null;
     const autoSw = real(hass, o.auto_lock_switch) || dev.find((x) => /^(switch|input_boolean)\./.test(x) && AUTO_RX.test(txt(hass, x))) || null;
+    const dAuto = doorAuto(hass, id), door = o.door === 'none' ? null : real(hass, o.door) || dAuto;
     const name = o.name || (st && st.attributes.friendly_name) || obj.replace(/_/g, ' ');
-    return { id, obj, st, name, bat, batId, autoNum, autoSw, code: !!(st && st.attributes.code_format) };
+    return { id, obj, st, name, bat, batId, autoNum, autoSw, door, doorAuto: dAuto, doorOwn: real(hass, o.door), hidden: !!o.hidden, code: !!(st && st.attributes.code_format) };
   }
-  // «Lås når alle drar» / «Lås om natten»: overstyring eller entitet med lås + borte/natt i navnet
-  function findRule(hass, cfg, key, rx) {
-    const ov = cfg.overrides && cfg.overrides[key];
-    if (ov) return real(hass, ov);
-    return Object.keys(hass.states).filter((id) => /^(automation|input_boolean|switch)\./.test(id) && LOCK_RX.test(txt(hass, id)) && rx.test(txt(hass, id)) && !AUTO_RX.test(txt(hass, id))).sort()[0] || null;
+  // «Lås når alle drar» / «Nattlås» uten KI Varslinger: automation/input_boolean/switch med lås + borte/natt i navnet
+  function findRule(hass, rx) {
+    return Object.keys(hass.states).filter((id) => /^(automation|input_boolean|switch)\./.test(id) && LOCK_RX.test(txt(hass, id)) && rx.test(txt(hass, id)) && !AUTO_RX.test(txt(hass, id)) && !GARAGE_RX.test(txt(hass, id).toLowerCase())).sort()[0] || null;
   }
+  // Automatikk-radene (32.1): KI Varslinger og sikkerhet (finnBrytere) → reserve. ov = overrides
+  const AUTO_DEFS = [
+    { k: 'auto', ov: 'auto_lock', rx: /autol[aå]s|auto.?lock|relock/, not: GARAGE_RX },
+    { k: 'away', ov: 'away_lock', rx: /(l[aå]s|lock).*(alle.?dr|borte|away|leav)|(alle.?dr|borte|away|leav).*(l[aå]s|lock)/, not: GARAGE_RX, fb: (h) => findRule(h, AWAY_RX) },
+    { k: 'night', ov: 'night_lock', rx: /nattl[aå]s|natt|night/, not: GARAGE_RX, fb: (h) => findRule(h, NIGHT_RX) },
+    { k: 'jam', ov: 'jam_alert', rx: /fastkj|jam/, not: GARAGE_RX },
+  ];
+  M.lasAutos = function (hass, cfg) {
+    const ov = (cfg && cfg.overrides) || {}, o2 = {};
+    AUTO_DEFS.forEach((d) => { if (ov[d.ov]) o2[d.k] = ov[d.ov]; });
+    return S.autoFind(hass, AUTO_DEFS, o2);
+  };
   M.lasAuto = function (hass, cfg) {
     cfg = cfg || {};
-    if (!hass) return { locks: [], away: null, night: null };
+    if (!hass) return { locks: [], vis: [], away: null, night: null };
     const locks = M.applyLists(cfg, 'laser', M.all(hass, 'lock')).filter((id) => hass.states[id]);
-    return { locks, away: findRule(hass, cfg, 'away_lock', AWAY_RX), night: findRule(hass, cfg, 'night_lock', NIGHT_RX) };
+    const vis = locks.filter((id) => !((cfg.locks_cfg || {})[id.split('.')[1]] || {}).hidden);
+    const au = M.lasAutos(hass, cfg);
+    return { locks, vis: vis.length ? vis : locks.slice(0, 1), away: au.away, night: au.night };
   };
 
   /* ------------------------------------------------------------ PIN-tastatur (portalt ut av popupen, fallgruve 1) */
@@ -36920,7 +38042,7 @@ try {
     .k{width:68px;height:68px;border-radius:34px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;transition:transform .1s,background .1s;touch-action:manipulation}
     .k:active{transform:scale(0.92);background:var(--gray400,#545454)}
     .k.ic{background:transparent;color:var(--gray800,#afafaf)}
-    .ok{width:100%;height:52px;border-radius:26px;background:${PINK};color:#2f2f2f;font-size:15px;font-weight:600}
+    .ok{width:100%;height:52px;border-radius:26px;background:${PK};color:#2f2f2f;font-size:15px;font-weight:600}
     .ok:disabled{opacity:.4}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     @keyframes msh-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(6px)}40%{transform:translateX(-6px)}60%{transform:translateX(4px)}80%{transform:translateX(-3px)}}
@@ -36978,276 +38100,495 @@ try {
     const hass = (card && card.hass) || M.lastHass, st = hass && hass.states[id];
     if (!st) return null;
     const nm = o.name || st.attributes.friendly_name || 'Dørlås', toast = o.toast || ((t) => M.toast(t));
-    const call = (code) => hass.callService('lock', 'unlock', code ? { entity_id: id, code } : { entity_id: id }).then(() => { M.haptic('success'); toast(`${nm} låst opp`); return true; });
+    const call = (code) => hass.callService('lock', 'unlock', code ? { entity_id: id, code } : { entity_id: id }).then(() => { if (o.onSent) o.onSent(); else M.haptic('success'); toast(`${nm} låst opp`); return true; });
     if (st.attributes.code_format || o.pin) {
       return M.lockPad({ title: `Lås opp ${nm.toLowerCase() === 'dørlås' ? 'døren' : nm}`, len: codeLen(st.attributes.code_format, o.codeLength), submit: (code) => call(code).catch(() => { M.haptic('failure'); return false; }) });
     }
     return call().catch((e) => { M.haptic('failure'); M.toast('Feil: ' + (e && e.message ? e.message : e)); return false; });
   };
 
-  /* ------------------------------------------------------------ kort */
-  const SEC = [['battery', 'Batteri og tilkobling'], ['auto', 'Automatikk'], ['log', 'Siste hendelser']];
+  /* ------------------------------------------------------------ kortet */
+  const VERB = { locked: 'Låst', unlocked: 'Låst opp', open: 'Åpnet', jammed: 'Fastkjørt' };
+  const KIND = { locked: 'lock', unlocked: 'unlock', open: 'unlock', jammed: 'jam' };
+  const EVT = { lock: ['Låst', G], unlock: ['Låst opp', O], door: ['Døra åpnet', '#979797'], jam: ['Fastkjørt', R] };
+  const FIL = [['alle', 'Alle', 'mdi:format-list-bulleted', () => true], ['lock', 'Låst', 'mdi:lock', (e) => e.kind === 'lock'], ['unlock', 'Opplåst', 'mdi:lock-open-variant', (e) => e.kind === 'unlock'], ['jam', 'Varsler', 'mdi:alert', (e) => e.kind === 'jam']];
+  const UNLOCK = [['dra', 'Dra'], ['hold', 'Hold'], ['trykk', 'Trykk']];
+  const UNL_NOTE = { dra: 'Dra knotten helt til høyre for å låse opp. Hindrer opplåsing ved et uhell.', hold: 'Hold inne i 0,9 s. Sporet fylles mens du holder.', trykk: 'Ett trykk låser opp. Raskest, men uten bekreftelse.' };
+  const COUNTS = [4, 6, 10, 20];
+  const MINS = [1, 2, 5, 10];
+  const on = (c, k) => c[k] !== false;
+
   class Las extends M.Card {
     static get cardName() { return 'Dørlås'; }
-    static get defaults() { return { confirm: 'auto', toasts: true }; }
-    static get uiPersist() { return ['sel']; }
+    static get defaults() { return { unlock: 'dra', hist_count: 6, toasts: true }; }
+    static get uiPersist() { return ['sel', 'amOpen', 'amMem']; }
     static getStubConfig() { return { card_id: M.uid(), ...this.defaults }; }
     static get schema() {
       return (h, c) => {
         const A = h ? M.lasAuto(h, c) : { locks: [] };
+        const au = h ? M.lasAutos(h, { ...c, overrides: {} }) : {};
         return [
-          { type: 'lists', label: 'Låser', lists: (hh) => [{ key: 'laser', label: 'Låser (flere = segment øverst)', ids: M.all(hh, 'lock'), domains: ['lock'] }] },
+          { type: 'lists', label: 'Låser', lists: (hh) => [{ key: 'laser', label: 'Låser (flere = velger øverst)', ids: M.all(hh, 'lock'), domains: ['lock'] }] },
           ...A.locks.map((id) => {
             const x = lockInfo(h, c, id), P = `locks_cfg.${x.obj}`;
             return { type: 'section', id: 'lock-' + x.obj, label: 'Lås · ' + x.name, icon: 'mdi:lock', fields: [
               { type: 'text', name: P + '.name', label: 'Navn', placeholder: (x.st && x.st.attributes.friendly_name) || x.obj },
+              { type: 'boolean', name: P + '.hidden', label: 'Skjul i velgeren', default: false },
+              { type: 'entity', name: P + '.door', label: 'Dørsensor', domains: ['binary_sensor'], auto: () => x.doorAuto },
               { type: 'entity', name: P + '.battery', label: 'Batterisensor', domain: 'sensor', device_class: 'battery', auto: () => (x.batId || (x.bat != null ? id + ' (battery_level)' : null)) },
-              { type: 'entity', name: P + '.auto_lock', label: 'Auto-lås etter (minutter)', domains: ['number', 'input_number'], auto: () => x.autoNum },
-              { type: 'entity', name: P + '.auto_lock_switch', label: 'Auto-lås av/på', domains: ['switch', 'input_boolean'], auto: () => x.autoSw },
+              { type: 'entity', name: P + '.auto_lock', label: 'Autolås-tid (minutter)', domains: ['number', 'input_number'], auto: () => x.autoNum },
             ] };
           }),
-          { type: 'overrides', label: 'Automatikk', fields: [
-            { name: 'away_lock', label: 'Lås når alle drar', domains: ['automation', 'input_boolean', 'switch'], auto: (hh, cc) => findRule(hh, { ...cc, overrides: {} }, 'away_lock', AWAY_RX) },
-            { name: 'night_lock', label: 'Lås om natten', domains: ['automation', 'input_boolean', 'switch'], auto: (hh, cc) => findRule(hh, { ...cc, overrides: {} }, 'night_lock', NIGHT_RX) },
-          ] },
-          { type: 'section', id: 'confirm', label: 'Opplåsing', icon: 'mdi:lock-open-check-outline', fields: [
-            { type: 'select', name: 'confirm', label: 'Bekreftelse', options: [['auto', 'Automatisk – PIN når låsen krever kode, ellers hold'], ['hold', 'Hold i 1 sekund'], ['pin', 'PIN-kode']], default: 'auto' },
+          { type: 'section', id: 'secs', label: 'Seksjoner', icon: 'mdi:view-grid-outline', fields: [
+            { type: 'boolean', name: 'show_status', label: 'Status · dør, batteri, autolås', default: true },
+            { type: 'boolean', name: 'show_auto', label: 'Automatikk', default: true },
+            { type: 'boolean', name: 'show_hist', label: 'Historikk', default: true },
+            { type: 'select', name: 'unlock', label: 'Opplåsing', options: UNLOCK, default: 'dra' },
+            { type: 'info', label: 'Dra: knotten dras helt til høyre · Hold: 0,9 s · Trykk: ett trykk. Krever låsen kode (code_format), vises PIN-tastaturet etterpå.' },
             { type: 'select', name: 'code_length', label: 'PIN-lengde', options: [['auto', 'Fra låsen (code_format)'], [4, '4 siffer'], [6, '6 siffer']], default: 'auto' },
-            { type: 'info', label: 'Koden sendes med lock.unlock og lagres ikke i dashbordet.' },
           ] },
-          { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Rekkefølge på seksjoner (toppkortet er alltid først)', options: SEC },
+          { type: 'section', id: 'hist', label: 'Historikk', icon: 'mdi:history', fields: [
+            { type: 'select', name: 'hist_count', label: 'Antall hendelser', options: COUNTS.map((n) => [n, String(n)]), default: 6 },
+            { type: 'boolean', name: 'hist_all', label: 'Alle låser (ellers bare valgt lås)', default: true },
+            { type: 'boolean', name: 'hist_door', label: 'Dør åpnet/lukket (fra dørsensoren)', default: true },
+            { type: 'boolean', name: 'hist_who', label: 'Hvem (navn og bilde når det er kjent)', default: true },
+            { type: 'boolean', name: 'hist_method', label: 'Metode (kode, app, nøkkel, autolås …)', default: true },
+          ] },
+          { type: 'overrides', id: 'autos', label: 'Automatikk', fields: [
+            { name: 'auto_lock', label: 'Autolås', domains: ['switch', 'input_boolean', 'automation'], auto: () => au.auto },
+            { name: 'away_lock', label: 'Lås når alle drar', domains: ['automation', 'input_boolean', 'switch'], auto: () => au.away },
+            { name: 'night_lock', label: 'Nattlås', domains: ['automation', 'input_boolean', 'switch'], auto: () => au.night },
+            { name: 'jam_alert', label: 'Varsle ved fastkjørt lås', domains: ['switch', 'input_boolean', 'automation'], auto: () => au.jam },
+          ] },
           { type: 'section', id: 'view', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (toast)', default: true }] },
         ];
       };
     }
     get cardSize() { return 8; }
-    customize(focus, opts) { return super.customize(focus, { title: 'Tilpass dørlås', ...(opts || {}) }); }
+    customize(focus) { return openSheet(this, focus); }
     onOpen() {
-      // Åpnet fra en Dørlås-flis på Hjem (hold på ikonet): vis den låsen
-      if (M.lasPick) { const id = M.lasPick; M.lasPick = null; if (M.lasAuto(this.hass, this.config).locks.includes(id) && id !== this.ui.sel) this.setUI({ sel: id }); }
+      // Åpnet fra en Dørlås-flis på Hjem: vis den låsen
+      if (M.lasPick) { const id = M.lasPick; M.lasPick = null; if (M.lasAuto(this.hass, this.config).vis.includes(id) && id !== this.ui.sel) this.setUI({ sel: id }); }
       this._loadLog();
+      clearInterval(this._tick);
+      this._tick = setInterval(() => { if (this._countdown && !this._busy) this.update(); }, 1000); // «Låses om 1:58» – bare mens popupen er åpen
     }
-    onClose() { this._stopHold(); }
+    onClose() { clearInterval(this._tick); this._tick = 0; this._endDrag(true); }
+    disconnectedCallback() { super.disconnectedCallback(); clearInterval(this._tick); this._tick = 0; }
     _toast(t) { if (this.config.toasts !== false) M.toast(t); }
-    _cur(A) { const L = A.locks; if (!L.length) return null; const i = L.indexOf(this.ui.sel); return L[i >= 0 ? i : 0]; }
-    // Hvem gjorde siste endring: changed_by-attributtet, ellers person fra logbook (context_user_id)
-    _who(e) {
-      if (!e) return '';
-      if (e.user) { const p = M.all(this.hass, 'person').find((id) => this.hass.states[id].attributes.user_id === e.user); if (p) return M.name(this.hass, p); if (this.hass.user && this.hass.user.id === e.user) return this.hass.user.name || 'Deg'; }
-      if (e.ctxEnt && this.hass.states[e.ctxEnt]) return M.name(this.hass, e.ctxEnt);
-      return e.ctxName || '';
-    }
+    _cur(A) { const L = A.vis; if (!L.length) return null; const i = L.indexOf(this.ui.sel); return L[i >= 0 ? i : 0]; }
+    // Logbook for låsene + dørsensorene (alle synlige, så filtrene ikke henter på nytt). Bare når popupen er åpen (fallgruve 8).
     async _loadLog() {
-      const A = M.lasAuto(this.hass, this.config);
-      if (!A.locks.length || !this.hass || !this.hass.callWS) return;
-      try {
-        const r = await this.hass.callWS({ type: 'logbook/get_events', start_time: new Date(Date.now() - 7 * 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: A.locks });
-        this._log = (Array.isArray(r) ? r : []).filter((e) => e && e.entity_id && e.state != null && e.when != null)
-          .map((e) => ({ id: e.entity_id, state: String(e.state), t: typeof e.when === 'number' ? e.when * 1000 : new Date(e.when).getTime(), user: e.context_user_id || null, ctxEnt: e.context_entity_id || null, ctxName: e.context_name || e.context_entity_id_name || null }));
-        this._logT = Date.now();
-      } catch (e) { this._log = []; this._logT = 0; }
+      const h = this.hass, A = M.lasAuto(h, this.config);
+      if (!A.vis.length || !h || !h.callWS) return;
+      const doors = A.vis.map((id) => lockInfo(h, this.config, id).door).filter(Boolean);
+      const [L, AH] = await Promise.all([S.logbook(h, [...A.vis, ...doors], 7), S.attrHistory(h, A.vis, 7)]);
+      this._log = L; this._ah = AH; this._logT = Date.now();
       this.update();
     }
-    _events(id, st) {
-      const raw = (this._log || []).filter((e) => e.id === id);
-      if (this._log && st && st.last_changed) { const t = new Date(st.last_changed).getTime(); if (t > (this._logT || 0) - 1000) raw.push({ id, state: st.state, t }); }
-      const seen = new Set(), out = [];
-      raw.sort((a, b) => b.t - a.t).forEach((e) => {
-        if (!VERB[e.state]) return;
-        const k = `${e.state}|${Math.round(e.t / 2000)}`;
-        if (seen.has(k)) return;
-        seen.add(k);
-        out.push(e);
-      });
-      return out.slice(0, 10);
+    // Ventende handling (optimistisk, 27.6): vises straks, success når låsen svarer, tilbakerulling etter 10 s
+    _setPend(id, want) {
+      this._pend = this._pend || {};
+      const old = this._pend[id];
+      if (old) clearTimeout(old.tm);
+      const p = { want, t: Date.now() };
+      p.tm = setTimeout(() => {
+        if (!this._pend || this._pend[id] !== p) return;
+        delete this._pend[id];
+        M.haptic('warning');
+        M.toast(`Fikk ikke svar fra ${M.name(this.hass, id)} – rullet tilbake`);
+        this.update();
+      }, S.SYNC_MS);
+      this._pend[id] = p;
+      this.update();
     }
-    _mode(x) { const c = this.config.confirm || 'auto'; return c === 'pin' || (c === 'auto' && x.code) ? 'pin' : 'hold'; }
+    _busyOf(x) {
+      const v = x.st ? x.st.state : '', p = this._pend && this._pend[x.id];
+      if (p) {
+        if (v === p.want) { clearTimeout(p.tm); delete this._pend[x.id]; M.haptic('success'); this._toast(`${x.name} ${p.want === 'locked' ? 'låst' : 'låst opp'}`); }
+        else if (v === 'jammed') { clearTimeout(p.tm); delete this._pend[x.id]; M.haptic('failure'); }
+        else return p.want === 'locked' ? 'locking' : 'unlocking';
+      }
+      return v === 'locking' || v === 'unlocking' ? v : null;
+    }
+    _person(e, attrs) {
+      if (e.user) { const p = S.person(this.hass, e.user); if (p) return p; }
+      const cb = attrs && attrs.changed_by;
+      return cb ? S.person(this.hass, cb) : null;
+    }
+    // Hendelser for historikken (nyeste først)
+    _events(A, x) {
+      const c = this.config, h = this.hass, L = this._log;
+      if (!L) return null;
+      const ids = on(c, 'hist_all') ? A.vis : [x.id];
+      const doorOf = new Map();
+      if (on(c, 'hist_door')) ids.forEach((id) => { const d = lockInfo(h, c, id).door; if (d) doorOf.set(d, id); });
+      const out = [], last = {};
+      const raw = L.slice();
+      // Live-endringer etter hentingen (state-objektet er nyere enn logbook-svaret)
+      ids.forEach((id) => { const st = h.states[id]; if (st && st.last_changed) { const t = new Date(st.last_changed).getTime(); if (t > (this._logT || 0) - 1000 && !raw.some((e) => e.id === id && e.state === st.state && Math.abs(e.t - t) < 5000)) raw.unshift({ id, state: st.state, t, user: (st.context && st.context.user_id) || null, live: true }); } });
+      raw.sort((p, q) => q.t - p.t).forEach((e) => {
+        let kind = null, lock = e.id;
+        if (ids.includes(e.id)) kind = KIND[e.state];
+        else if (doorOf.has(e.id) && e.state === 'on') { kind = 'door'; lock = doorOf.get(e.id); }
+        if (!kind) return;
+        const k = `${e.id}|${kind}|${Math.round(e.t / 2000)}`;
+        if (last[k]) return;
+        last[k] = 1;
+        out.push({ ...e, kind, lock });
+      });
+      return out;
+    }
     render() {
       const c = this.config, hass = this.hass, A = M.lasAuto(hass, c);
       A.locks.forEach((id) => this.s(id));
-      if (!A.locks.length) return `<div class="wrap">${this._hero(null)}${M.emptyState('Fant ingen dørlås (lock.*)', 'entities')}</div>`;
+      if (!A.locks.length) return `<div class="sk-wrap">${S.picker({ items: [], gear: 'Tilpass dørlås' })}${this._hero(null)}${M.emptyState('Fant ingen dørlås (lock.*)', 'lock')}</div>`;
       const id = this._cur(A), x = lockInfo(hass, c, id);
-      [x.batId, x.autoNum, x.autoSw, A.away, A.night].forEach((e) => e && this.s(e));
-      const seg = A.locks.length > 1 ? `<div class="seg" role="tablist" data-glass-drag="x">${A.locks.map((l) => { const on = l === id, y = lockInfo(hass, c, l), v = y.st ? y.st.state : ''; return `<button class="sg ${on ? 'on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active="1"' : ''} data-act="pick" data-id="${esc(l)}" data-haptic="selection" data-key="sg-${esc(l)}"><span class="sd" style="background:${colorOf(v)}"></span>${esc(y.name)}</button>`; }).join('')}</div>` : '';
-      const sec = {};
-      const col = (p) => (p < 15 ? RED : p < 30 ? ORANGE : GREEN);
-      const contact = x.st ? x.st.last_reported || x.st.last_updated : null;
-      sec.battery = `<section class="sec"><div class="cap">Batteri og tilkobling</div><div class="box">
-          <div class="row" ${x.batId ? `data-ent="${esc(x.batId)}"` : ''}>${M.icon(x.bat == null ? 'mdi:battery-unknown' : x.bat < 15 ? 'mdi:battery-alert-variant-outline' : 'mdi:battery-high', 20, `color:${x.bat == null ? 'var(--gray700,#979797)' : col(x.bat)}`)}<span class="rl">Batteri</span>
-            ${x.bat != null ? `<span class="bb"><span style="width:${M.clamp(x.bat, 0, 100)}%;background:${col(x.bat)}"></span></span>` : ''}<span class="rv num" style="${x.bat != null ? `color:${col(x.bat)}` : ''}">${x.bat != null ? x.bat + ' %' : '–'}</span></div>
-          <div class="row">${M.icon(x.st && M.unavailable(x.st) ? 'mdi:lan-disconnect' : 'mdi:access-point', 20, 'color:var(--gray700,#979797)')}<span class="rl">Siste kontakt</span><span class="rv">${x.st && M.unavailable(x.st) ? 'Utilgjengelig' : contact ? esc(M.relTime(contact)) : '–'}</span></div>
-        </div></section>`;
-      const rows = [];
-      if (x.autoNum || x.autoSw) {
-        const ns = x.autoNum ? hass.states[x.autoNum] : null, nv = ns && M.isNum(ns.state) ? Number(ns.state) : null;
-        const u = ns ? String(ns.attributes.unit_of_measurement || 'min') : 'min', mins = nv == null ? null : /^s/.test(u) ? Math.round(nv / 60 * 10) / 10 : /^h|^t/.test(u) ? nv * 60 : nv;
-        const on = x.autoSw ? M.isOn(hass.states[x.autoSw]) : nv != null && nv > 0;
-        rows.push(`<div class="row" data-key="ar-auto">${M.icon('mdi:lock-clock', 20, 'color:var(--gray700,#979797)')}<span class="rl">Lås automatisk${mins != null ? ` etter ${M.nf(mins, mins % 1 ? 1 : 0)} min` : ''}</span>
-          ${x.autoNum ? `<span class="stp"><button data-act="num" data-d="-1" data-haptic="selection" title="Kortere">${M.icon('mdi:minus', 18)}</button><button data-act="num" data-d="1" data-haptic="selection" title="Lengre">${M.icon('mdi:plus', 18)}</button></span>` : ''}
-          ${x.autoSw ? `<button class="tg ${on ? 'on' : ''}" data-act="sw" data-id="${esc(x.autoSw)}" data-haptic="selection" role="switch" aria-checked="${on}"><span></span></button>` : ''}</div>`);
-      }
-      [[A.away, 'Lås når alle drar', 'mdi:home-export-outline'], [A.night, 'Lås om natten', 'mdi:weather-night']].forEach(([e, l, icn]) => {
-        if (!e) return;
-        const on = M.isOn(hass.states[e]);
-        rows.push(`<div class="row" data-key="ar-${esc(e)}" data-ent="${esc(e)}">${M.icon(icn, 20, 'color:var(--gray700,#979797)')}<span class="rl">${esc(l)}</span><button class="tg ${on ? 'on' : ''}" data-act="sw" data-id="${esc(e)}" data-haptic="selection" role="switch" aria-checked="${on}"><span></span></button></div>`);
-      });
-      sec.auto = rows.length ? `<section class="sec"><div class="cap">Automatikk</div><div class="box">${rows.join('')}</div></section>` : '';
-      const ev = this._events(id, x.st);
-      sec.log = `<section class="sec"><div class="cap">Siste hendelser</div><div class="log">${ev.length ? ev.map((e, i) => {
-          const cl = e.state === 'locked' ? GREEN : e.state === 'jammed' ? RED : ORANGE, who = this._who(e);
-          return `<div class="ev" data-key="ev-${i}"><div class="evl"><span class="evd" style="background:${cl}"></span><span class="evline" style="background:${i < ev.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
-            <div class="evb"><div class="col" style="gap:2px"><div style="font-size:14px">${esc(VERB[e.state])}</div><div class="evw">${esc(who || x.name)}</div></div><div class="evw num">${esc(when(e.t))}</div></div></div>`;
-        }).join('') : `<div class="evw" style="padding:0 0 4px">${this._log ? 'Ingen hendelser siste uke' : 'Henter …'}</div>`}</div></section>`;
-      const keys = SEC.map((s) => s[0]);
-      let order = Array.isArray(c.sections) ? c.sections.filter((k) => keys.includes(k)) : [];
-      keys.forEach((k) => { if (!order.includes(k)) order.push(k); });
-      const hid = new Set(c.hidden_sections || []);
-      return `<div class="wrap">${seg}${this._hero(x)}${order.filter((k) => !hid.has(k)).map((k) => sec[k] || '').join('')}</div>`;
+      [x.batId, x.autoNum, x.autoSw, x.door].forEach((e) => e && this.s(e));
+      const items = A.vis.map((l) => { const y = lockInfo(hass, c, l), v = y.st ? y.st.state : '', b = this._busyOf(y), lk = v === 'locked'; return { id: l, name: y.name, icon: lk ? 'mdi:lock' : v === 'jammed' ? 'mdi:lock-alert' : 'mdi:lock-open-variant', state: b === 'unlocking' ? 'Låser opp …' : b === 'locking' ? 'Låser …' : !y.st || M.unavailable(y.st) ? '–' : lk ? 'Låst' : v === 'jammed' ? 'Fastkjørt' : 'Ulåst', col: b ? GR : lk ? G : v === 'jammed' ? R : O }; });
+      const au = this._autos(x);
+      this._countdown = false;
+      const sec = [S.picker({ items, sel: id, gear: 'Tilpass dørlås', mode: this._pickMode })];
+      sec.push(this._hero(x, au));
+      if (on(c, 'show_status')) sec.push(this._tiles(x, au));
+      if (on(c, 'show_auto')) sec.push(this._auto(x, au));
+      if (on(c, 'show_hist')) sec.push(this._hist(A, x));
+      return `<div class="sk-wrap">${sec.join('')}</div>`;
     }
-    // Toppkortet (alltid synlig; mangler lås → «–» og «Velg entitet»)
-    _hero(x) {
-      const v = x && x.st ? x.st.state : '', un = !x || !x.st || M.unavailable(x.st), col = un ? 'var(--gray600, #7f7f7f)' : colorOf(v);
-      const locked = v === 'locked' || v === 'locking';
-      const status = un ? '–' : STATUS[v] || v;
-      let sub = x ? (un ? 'Utilgjengelig' : '') : 'Ingen lås valgt';
-      if (x && !un) {
-        const last = this._events(x.id, x.st)[0];
-        const by = x.st.attributes.changed_by ? String(x.st.attributes.changed_by) : last && last.state === v ? this._who(last) : '';
-        sub = [VERB[v] ? `${VERB[v]}${by ? ' av ' + by : ''}` : x.name, when(new Date(x.st.last_changed).getTime())].join(' · ');
+    // Automatikk for valgt lås: KI Varslinger/overstyring → låsens egen auto-lås-bryter
+    _autos(x) {
+      const h = this.hass, F = M.lasAutos(h, this.config);
+      const ids = { auto: F.auto || x.autoSw, away: F.away, night: F.night, jam: F.jam };
+      Object.values(ids).forEach((e) => e && this.s(e));
+      const numId = x.autoNum || (ids.auto ? S.minsOn(h, ids.auto, AUTO_RX) : null);
+      if (numId) this.s(numId);
+      const all = Object.values(ids).filter(Boolean), mOn = S.masterOn(this, all);
+      return { ids, all, mOn, numId, mins: S.minsOf(h, numId), autoOn: !!ids.auto && mOn && S.isOn(this, ids.auto) };
+    }
+    _hero(x, au) {
+      if (!x) return S.hero({ name: 'Dørlås', state: '–', sub: 'Velg entitet', col: GR, right: S.badge('mdi:lock-question', GR), bottom: this._track(null) });
+      const v = x.st ? x.st.state : '', un = !x.st || M.unavailable(x.st), busy = un ? null : this._busyOf(x), lk = v === 'locked', jam = v === 'jammed';
+      const col = un || busy ? GR : lk ? G : jam ? R : O;
+      const door = x.door && this.hass.states[x.door], dOpen = door && door.state === 'on';
+      const chip = un ? { text: 'Utilgjengelig', icon: 'mdi:lan-disconnect' } : busy ? { text: 'Jobber', icon: 'mdi:sync' } : jam ? { text: 'Fastkjørt', icon: 'mdi:alert' } : lk ? { text: 'Sikret', icon: 'mdi:shield-check' } : { text: dOpen ? 'Døra står åpen' : 'Døra er lukket', icon: 'mdi:door' };
+      const state = un ? '–' : busy === 'unlocking' ? 'Låser opp …' : busy === 'locking' ? 'Låser …' : lk ? 'Låst' : jam ? 'Fastkjørt' : 'Ulåst';
+      let sub = un ? 'Utilgjengelig' : 'Venter på låsen';
+      if (!un && !busy) {
+        const t = new Date(x.st.last_changed).getTime();
+        const cb = x.st.attributes.changed_by ? String(x.st.attributes.changed_by) : '';
+        let by = cb ? ((S.person(this.hass, cb) || {}).name || cb) : '';
+        if (!by && this._log) {
+          const e = this._log.find((y) => y.id === x.id && y.state === v);
+          if (e) { const p = this._person(e, S.attrsAt(this._ah, e)); by = p ? p.name : S.method(this.hass, e, S.attrsAt(this._ah, e), 'lock').label; }
+        }
+        sub = `${VERB[v] || state}${by ? ' av ' + by : ''} · ${S.when(t)}`;
       }
-      const mode = x ? this._mode(x) : 'hold', holding = !!this._lh;
-      const btn = !x || un ? `<button class="pill gray" disabled>–</button>`
-        : locked ? `<button class="pill pink" data-act="main" data-id="${esc(x.id)}" data-haptic="light">${M.icon(mode === 'pin' ? 'mdi:dialpad' : 'mdi:lock-open-variant', 22)}Lås opp</button>`
-          : `<button class="pill gray" data-act="main" data-id="${esc(x.id)}" data-haptic="success">${M.icon('mdi:lock', 22)}Lås</button>`;
-      const hint = !x || un ? '' : locked ? (mode === 'pin' ? 'Krever PIN-kode' : holding ? 'Hold …' : 'Hold inne i 1 sekund for å låse opp') : v === 'jammed' ? 'Låsen har satt seg fast – prøv å låse igjen' : 'Trykk for å låse';
-      return `<section class="hero" data-key="hero">
-        <button class="gear" data-act="customize" title="Tilpass dørlås">${M.icon('mdi:cog', 22)}</button>
-        <div class="orb ${holding ? 'holding' : ''}" ${x && x.st ? `data-ent="${esc(x.id)}"` : ''} style="--lc:${col}">
-          <svg class="ring" viewBox="0 0 108 108" aria-hidden="true"><circle cx="54" cy="54" r="51" pathLength="100"></circle></svg>
-          ${M.icon(un ? 'mdi:lock-question' : v === 'jammed' ? 'mdi:lock-alert' : locked ? 'mdi:lock' : 'mdi:lock-open-variant', 40, `color:${col}`)}</div>
-        <div class="st">${esc(status)}</div>
-        <div class="by">${esc(sub)}</div>
-        ${btn}
-        <div class="hint">${esc(hint)}</div>
-      </section>`;
+      const badge = S.badge(un ? 'mdi:lock-question' : busy ? 'mdi:loading' : lk ? 'mdi:lock' : jam ? 'mdi:lock-alert' : 'mdi:lock-open-variant', col, !!busy, x.st ? x.id : null);
+      return S.hero({ name: x.name, chip: { ...chip, col }, col, state, sub, right: badge, bottom: this._track(x, { busy, lk, un, col }) });
+    }
+    // Opplåsingssporet (64 px): Dra / Hold / Trykk. Ulåst → ett trykk låser. touch-action:none + stopPropagation (fallgruve 2).
+    _track(x, s) {
+      const mode = UNLOCK.some((u) => u[0] === this.config.unlock) ? this.config.unlock : 'dra';
+      if (!x || !s || s.un) return `<div class="lk-track off" data-key="lk-track" style="--f:0"><span class="lk-fill"></span><span class="lk-label plain">–</span><span class="lk-knob" style="background:#545454">${M.icon('mdi:lock-question', 26)}</span></div>`;
+      const { busy, lk } = s, f = lk && !busy ? 0 : 1;
+      const text = busy ? (busy === 'unlocking' ? 'Låser opp …' : 'Låser …') : lk ? (mode === 'dra' ? 'Dra for å låse opp' : mode === 'hold' ? 'Hold for å låse opp' : 'Trykk for å låse opp') : 'Trykk for å låse';
+      const shimmer = lk && !busy;
+      return `<div class="lk-track ${mode} ${lk ? 'locked' : 'open'} ${busy ? 'busy' : ''}" data-key="lk-track" data-id="${esc(x.id)}" data-mode="${mode}" role="button" aria-label="${esc(text)}" style="--f:${f};--fillc:${shimmer ? S.a(O, 0.22) : S.a(s.col, 0.18)}">
+        <span class="lk-fill"></span><span class="lk-label ${shimmer ? 'shim' : 'plain'}">${esc(text)}</span>
+        <span class="lk-knob ${shimmer && mode === 'dra' ? 'nudge' : ''}" style="background:${busy ? '#545454' : lk ? G : O}">${M.icon(busy ? 'mdi:loading' : lk ? 'mdi:lock' : 'mdi:lock-open-variant', 26, busy ? 'animation:sk-spin 1s linear infinite' : '')}</span></div>`;
+    }
+    _tiles(x, au) {
+      const h = this.hass, door = x.door && h.states[x.door], dOpen = door && door.state === 'on';
+      const bat = x.bat, lk = x.st && x.st.state === 'locked';
+      let aVal = '–', aLab = 'Autolås', aCol = GR;
+      if (au.ids.auto) {
+        if (!au.autoOn) aVal = 'Av';
+        else if (lk || !x.st || M.unavailable(x.st)) aVal = au.mins != null ? `${M.nf(au.mins)} min` : 'På';
+        else if (au.mins != null) {
+          const t0 = Math.max(new Date(x.st.last_changed).getTime(), door && !dOpen ? new Date(door.last_changed).getTime() : 0);
+          aVal = S.mmss(au.mins * 60 - (Date.now() - t0) / 1000); aLab = 'Låses om'; aCol = O; this._countdown = true;
+        } else aVal = 'På';
+      }
+      return S.tiles([
+        { icon: dOpen ? 'mdi:door-open' : 'mdi:door', val: door && !M.unavailable(door) ? (dOpen ? 'Åpen' : 'Lukket') : '–', label: 'Dør', col: dOpen ? O : GR, ent: x.door },
+        { icon: bat == null ? 'mdi:battery-unknown' : bat < 50 ? 'mdi:battery-30' : 'mdi:battery-70', val: bat == null ? '–' : bat + ' %', label: 'Batteri', col: bat == null ? GR : bat < 30 ? R : bat < 50 ? O : GR, ent: x.batId },
+        { icon: 'mdi:timer-outline', val: aVal, label: aLab, col: aCol, ent: au.numId || au.ids.auto },
+      ]);
+    }
+    _auto(x, au) {
+      const mOn = au.mOn, row = (k) => au.ids[k] ? S.rowOn(this, au.ids[k], mOn) : false, n = au.all.length;
+      const nOn = au.all.filter((id) => S.isOn(this, id)).length;
+      const sub = !n ? 'Ingen automatikk funnet' : !mOn ? 'Av · ingen automatikk kjører' : `${nOn} av ${n} på${au.autoOn && au.mins != null ? ` · autolås ${M.nf(au.mins)} min` : ''}`;
+      const aOn = row('auto');
+      const rows = [
+        { k: 'auto', icon: 'mdi:lock-clock', label: 'Autolås', sub: aOn ? (au.mins != null ? `Låser ${M.nf(au.mins)} min etter at døra lukkes` : 'Låser etter at døra lukkes') : 'Av', ent: au.ids.auto, on: aOn, mins: aOn && au.numId ? { opts: MINS, cur: au.mins } : null },
+        { k: 'away', icon: 'mdi:walk', label: 'Lås når alle drar', sub: 'Når siste person forlater hjemmet', ent: au.ids.away, on: row('away') },
+        { k: 'night', icon: 'mdi:weather-night', label: 'Nattlås', sub: 'Låser kl. 23:00 hvis ulåst', ent: au.ids.night, on: row('night') },
+        { k: 'jam', icon: 'mdi:bell-alert', label: 'Varsle ved fastkjørt lås', sub: 'Push med bilde fra inngangskamera', ent: au.ids.jam, on: row('jam') },
+      ];
+      return S.auto({ open: !!this.ui.amOpen, master: mOn, sub, rows });
+    }
+    _hist(A, x) {
+      const c = this.config, h = this.hass, evs = this._events(A, x);
+      if (!evs) return S.history({ sum: '', days: [], empty: 'Henter …' });
+      const fk = FIL.some((f) => f[0] === this.ui.hf) ? this.ui.hf : 'alle', fx = FIL.find((f) => f[0] === fk)[3];
+      const cnt = COUNTS.includes(Number(c.hist_count)) ? Number(c.hist_count) : 6;
+      const list = evs.filter(fx), hn = this.ui.hn && this.ui.hnF === fk ? this.ui.hn : cnt, shown = list.slice(0, hn);
+      const multi = on(c, 'hist_all') && A.vis.length > 1, who = on(c, 'hist_who'), meth = on(c, 'hist_method');
+      const days = S.groupDays(shown, (e) => {
+        const [title, col] = EVT[e.kind], attrs = S.attrsAt(this._ah, e);
+        const p = who && e.kind !== 'door' ? this._person(e, attrs) : null;
+        const m = e.kind === 'door' ? { icon: S.METHOD.sensor[0], label: S.METHOD.sensor[1] } : S.method(h, e, attrs, 'lock');
+        const lbl = p ? (meth ? `${p.name} · ${m.label}` : p.name) : m.label;
+        return { key: `ev-${e.id}-${e.t}`, type: e.kind, time: S.hm(e.t), title, col, kind: e.kind === 'door' ? 'ring' : e.kind === 'jam' ? 'warn' : 'dot', who: p, method: meth || p ? { icon: m.icon, label: lbl } : null, extra: multi ? '· ' + lockInfo(h, c, e.lock).name : '' };
+      });
+      const filters = FIL.map(([k, label, icon, fn]) => ({ k, label, icon, n: evs.filter(fn).length, warn: k === 'jam' }));
+      const nToday = evs.filter((e) => e.kind === 'unlock' && S.isToday(e.t)).length;
+      const more = list.length > cnt ? { label: hn < list.length ? `Vis ${list.length - hn} til` : 'Vis færre', up: hn >= list.length } : null;
+      return S.history({ sum: `${nToday} opplåsing${nToday === 1 ? '' : 'er'} i dag`, filters, fsel: fk, days, more, empty: 'Ingen hendelser i dette filteret' });
     }
     onAction(name, el, ev) {
-      const d = el.dataset, hass = this.hass;
-      if (name === 'pick') { if (d.id && d.id !== this.ui.sel) this.setUI({ sel: d.id }); return; }
-      if (name === 'main') {
-        const x = lockInfo(hass, this.config, d.id), v = x.st ? x.st.state : '';
-        if (v === 'locked' || v === 'locking') {
-          if (this._mode(x) === 'pin') return M.lockUnlock(this, x.id, { name: x.name, pin: true, codeLength: this.config.code_length, toast: (t) => this._toast(t) });
-          return this._toast('Hold inne i 1 sekund for å låse opp');
-        }
-        return M.call(hass, 'lock', 'lock', { entity_id: x.id }).then(() => this._toast(`${x.name} låst`)).catch(() => {});
+      const d = el.dataset, h = this.hass, c = this.config;
+      if (name === 'pick') { if (d.id && d.id !== this.ui.sel) { this._endDrag(true); this.setUI({ sel: d.id }); } return undefined; }
+      if (name === 'am-open') return this.setUI({ amOpen: !this.ui.amOpen });
+      const x = () => lockInfo(h, c, this._cur(M.lasAuto(h, c)));
+      if (name === 'am-master') { if (ev) ev.stopPropagation(); const au = this._autos(x()); return S.master(this, au.all); }
+      if (name === 'am-row') {
+        const au = this._autos(x()), id = au.ids[d.k];
+        if (!id) return M.openEditor(this, { cardClass: this.constructor, focus: 'autos' });
+        return S.flip(this, id);
       }
-      if (name === 'sw') {
-        const id = d.id, dom = id.split('.')[0], on = M.isOn(hass.states[id]);
-        if (dom === 'automation') return M.call(hass, 'automation', on ? 'turn_off' : 'turn_on', { entity_id: id });
-        return M.call(hass, dom, on ? 'turn_off' : 'turn_on', { entity_id: id });
-      }
-      if (name === 'num') {
-        const A = M.lasAuto(hass, this.config), x = lockInfo(hass, this.config, this._cur(A));
-        const ns = x.autoNum && hass.states[x.autoNum];
-        if (!ns) return;
-        const a = ns.attributes, step = Number(a.step) || 1, cur = M.isNum(ns.state) ? Number(ns.state) : Number(a.min) || 0;
-        const nv = M.clamp(cur + Number(d.d) * step, a.min != null ? Number(a.min) : -Infinity, a.max != null ? Number(a.max) : Infinity);
-        return M.call(hass, x.autoNum.split('.')[0], 'set_value', { entity_id: x.autoNum, value: nv });
+      if (name === 'am-min') { const au = this._autos(x()); return au.numId ? S.setMins(h, au.numId, Number(d.v)) : undefined; }
+      if (name === 'h-filter') return this.setUI({ hf: d.k, hn: 0, hnF: d.k });
+      if (name === 'h-more') {
+        const A = M.lasAuto(h, c), evs = this._events(A, x()) || [], fk = this.ui.hf || 'alle', fx = (FIL.find((f) => f[0] === fk) || FIL[0])[3], n = evs.filter(fx).length;
+        const cnt = COUNTS.includes(Number(c.hist_count)) ? Number(c.hist_count) : 6, hn = this.ui.hn && this.ui.hnF === fk ? this.ui.hn : cnt;
+        return this.setUI({ hn: hn < n ? n : cnt, hnF: fk });
       }
       return super.onAction(name, el, ev);
     }
+    _lock(id) {
+      const y = lockInfo(this.hass, this.config, id);
+      M.haptic('medium');
+      this._setPend(id, 'locked');
+      M.call(this.hass, 'lock', 'lock', { entity_id: id }).catch(() => { if (this._pend && this._pend[id]) { clearTimeout(this._pend[id].tm); delete this._pend[id]; this.update(); } });
+      return y;
+    }
+    _unlock(id) {
+      const y = lockInfo(this.hass, this.config, id);
+      M.haptic('medium');
+      if (y.code) return M.lockUnlock(this, id, { name: y.name, codeLength: this.config.code_length, toast: (t) => this._toast(t), onSent: () => this._setPend(id, 'unlocked') });
+      this._setPend(id, 'unlocked');
+      return this.hass.callService('lock', 'unlock', { entity_id: id }).catch((e) => { if (this._pend && this._pend[id]) { clearTimeout(this._pend[id].tm); delete this._pend[id]; } M.haptic('failure'); M.toast('Feil: ' + (e && e.message ? e.message : e)); this.update(); });
+    }
     afterRender() {
-      const seg = this.shadowRoot.querySelector('.seg');
-      if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x' });
-      const b = this.shadowRoot.querySelector('.pill.pink');
-      if (b && !b.__h) {
-        b.__h = true;
-        M.guardDrag(b, 'none');
-        b.addEventListener('pointerdown', (e) => { if (e.button) return; this._startHold(b.dataset.id, e); });
-        b.addEventListener('pointermove', (e) => { if (this._lh && Math.hypot(e.clientX - this._lh.x, e.clientY - this._lh.y) > 12) this._stopHold(); });
-        ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => b.addEventListener(t, () => this._stopHold()));
-        b.addEventListener('contextmenu', (e) => e.preventDefault());
-      }
+      const sr = this.shadowRoot;
+      // 1–2 låser: kuttes et navn ved denne bredden → scroll-modus (aldri kuttede navn, tannhjulet alltid synlig)
+      const w = Math.round(this.getBoundingClientRect().width);
+      if (w && this._pickW !== w) { this._pickW = w; if (this._pickMode && this._pickMode !== 'eq') { this._pickMode = 'eq'; this.update(); return; } }
+      if (this._pickMode !== 'many' && !S.pickerFits(sr)) { this._pickMode = this._pickMode === 'fit' ? 'many' : 'fit'; this.update(); }
+      const tr = sr.querySelector('.lk-track');
+      if (tr && !tr.__b) this._bindTrack(tr);
+      const hf = sr.querySelector('.sk-hf');
+      if (hf && M.glassDrag && !hf.__g) { hf.__g = 1; }
     }
-    // Hold 1 s på «Lås opp» (ring rundt ikonet fylles 0 → 100 %) → lås opp. Slipper man før, skjer ingenting.
-    _startHold(id, e) {
-      const x = lockInfo(this.hass, this.config, id);
-      if (!x.st || x.st.state !== 'locked' || this._mode(x) === 'pin') return;
-      this._stopHold(true);
-      const h = (this._lh = { id, x: e.clientX, y: e.clientY });
-      const orb = this.shadowRoot.querySelector('.orb');
-      if (orb) { void orb.offsetWidth; orb.classList.add('holding'); }
-      const ht = this.shadowRoot.querySelector('.hint');
-      if (ht) ht.textContent = 'Hold …';
-      h.t = setTimeout(() => {
-        if (this._lh !== h) return;
-        this._lh = null;
-        this._swallow = true;
-        setTimeout(() => { this._swallow = false; }, 600);
-        M.lockUnlock(this, id, { name: x.name, toast: (t) => this._toast(t) });
-        this.update();
-      }, HOLD_MS);
+    _bindTrack(tr) {
+      tr.__b = true;
+      const stop = (e) => e.stopPropagation();
+      ['touchstart', 'touchmove', 'touchend'].forEach((t) => tr.addEventListener(t, stop, { passive: true }));
+      tr.addEventListener('contextmenu', (e) => e.preventDefault());
+      const st = () => { const id = tr.dataset.id, s = id && this.hass.states[id]; return { id, mode: tr.dataset.mode, lk: tr.classList.contains('locked'), busy: tr.classList.contains('busy') || !s || M.unavailable(s) }; };
+      tr.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        if (e.button) return;
+        const s = st();
+        if (s.busy || !s.lk || s.mode === 'trykk') return;
+        this._endDrag(true);
+        try { tr.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+        const g = { tr, id: s.id, mode: s.mode, sx: e.clientX, w: Math.max(1, tr.getBoundingClientRect().width - 64), f: 0, armed: false };
+        this._drag = g; this._busy = true;
+        tr.classList.add('drag');
+        M.haptic('selection');
+        if (s.mode === 'hold') {
+          tr.classList.add('holding');
+          const t0 = Date.now();
+          g.iv = setInterval(() => { const v = Math.min(1, (Date.now() - t0) / HOLD_MS); this._setF(g, v); if (v >= 1) { this._endDrag(false); this._swallowT = Date.now(); this._unlock(g.id); } }, 30);
+        }
+      });
+      tr.addEventListener('pointermove', (e) => {
+        const g = this._drag;
+        if (!g || g.tr !== tr || g.mode !== 'dra') return;
+        e.stopPropagation();
+        const v = M.clamp((e.clientX - g.sx) / g.w, 0, 1);
+        if (v >= ARM && !g.armed) M.haptic('medium');
+        this._setF(g, v);
+      });
+      const up = (e) => {
+        const g = this._drag;
+        if (!g || g.tr !== tr) return;
+        e.stopPropagation();
+        const done = g.mode === 'dra' && g.f >= ARM;
+        if (g.mode === 'dra' && g.f > 0.04) this._swallowT = Date.now();
+        this._endDrag(!done);
+        if (done) this._unlock(g.id);
+      };
+      tr.addEventListener('pointerup', up);
+      tr.addEventListener('pointercancel', up);
+      tr.addEventListener('lostpointercapture', up);
+      tr.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this._swallowT && Date.now() - this._swallowT < 500) return;
+        const s = st();
+        if (s.busy) return;
+        if (!s.lk) return this._lock(s.id);
+        if (s.mode === 'trykk') return this._unlock(s.id);
+        if (s.mode === 'dra') { tr.classList.remove('hint'); void tr.offsetWidth; tr.classList.add('hint'); }
+        return undefined;
+      });
     }
-    _stopHold(quiet) {
-      const h = this._lh;
-      if (!h) return;
-      clearTimeout(h.t);
-      this._lh = null;
-      const orb = this.shadowRoot.querySelector('.orb');
-      if (orb) orb.classList.remove('holding');
-      if (!quiet) this.update();
+    _setF(g, v) {
+      g.f = v;
+      g.tr.style.setProperty('--f', String(v));
+      const arm = v >= ARM;
+      if (arm !== g.armed) { g.armed = arm; g.tr.classList.toggle('arm', arm); }
+    }
+    // Avslutt drag/hold. reset: knotten glir tilbake (ingen opplåsing)
+    _endDrag(reset) {
+      const g = this._drag;
+      if (!g) return;
+      this._drag = null;
+      clearInterval(g.iv);
+      g.tr.classList.remove('drag', 'holding', 'arm');
+      if (reset) g.tr.style.setProperty('--f', '0');
+      this._busy = false;
+      this.update();
     }
     get styles() {
-      return `
-        .wrap{display:flex;flex-direction:column;gap:var(--msh-gap, 22px)}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:26px;position:relative;touch-action:pan-y;background:var(--gray100,#2f2f2f);overflow-x:auto;scrollbar-width:none}
-        .seg::-webkit-scrollbar{display:none}
-        .sg{flex:1 0 auto;height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s}
-        .sg.on{background:${C.accent};color:var(--gray100,#2f2f2f)}
-        .sd{width:8px;height:8px;border-radius:4px;flex:none}
-        .hero{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 18px 20px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
-        .gear{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,0.1);color:var(--gray1000,#e1e1e1)}
-        .orb{position:relative;width:108px;height:108px;border-radius:54px;display:grid;place-items:center;margin-bottom:8px;background:color-mix(in srgb, var(--lc) 18%, transparent);box-shadow:0 12px 30px color-mix(in srgb, var(--lc) 22%, transparent);transition:background .4s,box-shadow .4s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-        .ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
-        .ring circle{fill:none;stroke:var(--lc);stroke-width:3;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:opacity .15s}
-        .orb.holding .ring circle{opacity:1;stroke:${ORANGE};stroke-dashoffset:0;transition:stroke-dashoffset ${HOLD_MS}ms linear,opacity .15s}
-        .st{font-size:32px;font-weight:500;letter-spacing:-0.02em;line-height:1.15}
-        .by{font-size:13px;color:var(--gray700,#979797);text-align:center}
-        .pill{margin-top:14px;width:100%;max-width:320px;height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:600;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .15s,opacity .2s}
-        .pill:active{transform:scale(.98)}
-        .pill.pink{background:${PINK};color:#2f2f2f;touch-action:none}
-        .pill.gray{background:var(--gray400,#545454);color:var(--white,#fafafa)}
-        .pill:disabled{opacity:.45}
-        .hint{min-height:16px;font-size:12px;color:var(--gray600,#7f7f7f);text-align:center}
-        .sec{display:flex;flex-direction:column;gap:8px}
-        .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:0 4px}
-        .box{display:flex;flex-direction:column;padding:4px 16px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-        .row{display:flex;align-items:center;gap:12px;min-height:54px}
-        .row + .row{border-top:1px solid rgba(255,255,255,0.05)}
-        .rl{flex:1;min-width:0;font-size:14px}
-        .rv{font-size:14px;color:var(--gray800,#afafaf);white-space:nowrap}
-        .bb{width:56px;height:8px;border-radius:4px;background:var(--gray100,#2f2f2f);overflow:hidden;flex:none}
-        .bb span{display:block;height:100%;border-radius:4px}
-        .stp{display:flex;gap:6px;flex:none}
-        .stp button{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:var(--gray300,#404040)}
-        .stp button:active{background:#4a4a4a}
-        .tg{position:relative;width:48px;height:28px;border-radius:14px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-        .tg span{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--white,#fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
-        .tg.on{background:${GREEN}}
-        .tg.on span{transform:translateX(20px)}
-        .log{display:flex;flex-direction:column;padding-left:4px}
-        .ev{display:flex;gap:14px;align-items:stretch}
-        .evl{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}
-        .evd{width:9px;height:9px;border-radius:5px;margin-top:5px;flex:none}
-        .evline{flex:1;width:1px;margin-top:4px}
-        .evb{flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px}
-        .evw{font-size:12px;color:var(--gray600,#7f7f7f)}
+      return `${S.CSS}
+        .lk-track{position:relative;height:64px;border-radius:32px;overflow:hidden;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
+        .lk-track.locked.dra:not(.busy){cursor:grab}
+        .lk-track.busy,.lk-track.off{cursor:default}
+        .lk-fill{position:absolute;left:0;top:0;bottom:0;width:calc(64px + (100% - 64px) * var(--f));border-radius:32px;background:var(--fillc,transparent);transition:width .35s cubic-bezier(.2,.8,.2,1),background .3s}
+        .lk-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;pointer-events:none}
+        .lk-track.locked .lk-label{padding-left:48px}
+        .lk-track.open .lk-label{padding-right:48px}
+        .lk-label.plain{color:var(--gray1000,#e1e1e1)}
+        .lk-label.shim{color:transparent;background-image:linear-gradient(90deg,#7f7f7f 0%,#7f7f7f 40%,#fafafa 50%,#7f7f7f 60%,#7f7f7f 100%);background-size:260px 100%;-webkit-background-clip:text;background-clip:text;animation:lk-shimmer 2.4s linear infinite}
+        .lk-track.drag .lk-label{opacity:max(0, calc(1 - var(--f) * 1.6))}
+        .lk-knob{position:absolute;top:4px;left:calc(4px + (100% - 64px) * var(--f));width:56px;height:56px;border-radius:28px;display:grid;place-items:center;color:#232323;box-shadow:0 6px 16px rgba(0,0,0,0.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s;pointer-events:none}
+        .lk-knob.nudge{animation:lk-nudge 3.2s ease-in-out 1s infinite}
+        .lk-track.drag .lk-knob{animation:none}
+        .lk-track.drag:not(.holding) .lk-fill,.lk-track.drag:not(.holding) .lk-knob{transition:background .2s}
+        .lk-track.holding .lk-fill,.lk-track.holding .lk-knob{transition:none}
+        .lk-track.arm .lk-knob{background:${O} !important}
+        .lk-track.hint .lk-knob{animation:lk-nudge .9s ease-in-out}
+        @keyframes lk-nudge{0%,70%,100%{transform:translateX(0)}80%{transform:translateX(6px)}90%{transform:translateX(0)}95%{transform:translateX(3px)}}
+        @keyframes lk-shimmer{0%{background-position:-160px 0}100%{background-position:260px 0}}
+        @media (prefers-reduced-motion: reduce){.lk-knob.nudge,.lk-label.shim{animation:none}}
       `;
     }
   }
+
+  /* ------------------------------------------------------------ «Tilpass dørlås» (Låser · Seksjoner · Historikk) */
+  function openSheet(card, focus) {
+    const TABS = [['locks', 'Låser'], ['secs', 'Seksjoner'], ['hist', 'Historikk']];
+    return S.sheet(card, {
+      title: 'Tilpass dørlås', tabs: TABS, tab: TABS.some((t) => t[0] === focus) ? focus : 'locks',
+      body(tab, _d, api) {
+        const h = card.hass, D = api.D;
+        if (tab === 'locks') {
+          const A = M.lasAuto(h, D()), nVis = A.locks.filter((id) => !lockInfo(h, D(), id).hidden).length;
+          return `${A.locks.map((id) => {
+            const x = lockInfo(h, D(), id), vis = !x.hidden;
+            return `<section class="sk-sec" data-key="lk-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:lock', 22, 'color:#afafaf')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input>
+              ${S.shSw(vis, `data-a="vis" data-obj="${esc(x.obj)}" title="Vis / skjul" aria-label="Vis i velgeren" ${vis && nVis < 2 ? 'aria-disabled="true"' : ''}`)}</div>
+              ${S.shEnt(api, { k: 'lock:' + x.obj, icon: 'mdi:lock', label: 'Lås', id, own: (D().include && (D().include.laser || []).includes(id)) ? id : '', auto: id, domains: 'lock' })}
+              ${S.shEnt(api, { k: 'door:' + x.obj, icon: 'mdi:door', label: 'Dørsensor', id: x.door, own: x.doorOwn, auto: x.doorAuto, domains: 'binary_sensor', deviceClass: 'door,opening', noneLabel: 'Ingen dørsensor' })}</section>`;
+          }).join('') || `<section class="sk-sec"><span class="sk-note">Fant ingen lås (lock.*).</span></section>`}
+            <span class="sk-note">Låsene finnes selv fra <code>lock.*</code> og dørsensoren i samme område. Skjulte låser vises ikke i velgeren.</span>`;
+        }
+        if (tab === 'secs') {
+          const u = UNLOCK.some((x) => x[0] === D().unlock) ? D().unlock : 'dra';
+          return `${S.shSec('Seksjoner', [['show_status', 'mdi:view-grid-outline', 'Status · dør, batteri, autolås'], ['show_auto', 'mdi:tune', 'Automatikk'], ['show_hist', 'mdi:history', 'Historikk']].map(([k, icon, label]) => S.shRow({ icon, label, on: on(D(), k), attrs: `data-a="bool" data-k="${k}"` })).join(''), 'rows')}
+            ${S.shSec('Opplåsing', `${S.shSeg(UNLOCK, u, (v) => `data-a="unl" data-v="${v}"`)}<span class="sk-note">${esc(UNL_NOTE[u])}</span>`)}`;
+        }
+        const n = COUNTS.includes(Number(D().hist_count)) ? Number(D().hist_count) : 6;
+        return `${S.shSec('Antall hendelser', S.shSeg(COUNTS.map((x) => [x, String(x)]), n, (v) => `data-a="cnt" data-v="${v}"`))}
+          ${S.shSec('Vis i historikken', [['hist_all', 'mdi:lock', 'Alle låser', 'Ellers bare valgt lås'], ['hist_door', 'mdi:door-open', 'Dør åpnet/lukket', 'Fra dørsensoren'], ['hist_who', 'mdi:account', 'Hvem', 'Navn og bilde når det er kjent'], ['hist_method', 'mdi:dialpad', 'Metode', 'Kode, app, nøkkel, autolås …']].map(([k, icon, label, sub]) => S.shRow({ icon, label, sub, on: on(D(), k), attrs: `data-a="bool" data-k="${k}"` })).join(''), 'rows')}`;
+      },
+      click(a, el, api) {
+        const D = api.D(), h = card.hass;
+        if (a === 'bool') { const k = el.dataset.k; return api.path(k, on(D, k) ? false : undefined, 'selection'); }
+        if (a === 'unl') return api.path('unlock', el.dataset.v === 'dra' ? undefined : el.dataset.v, 'selection');
+        if (a === 'cnt') return api.path('hist_count', Number(el.dataset.v), 'selection');
+        if (a === 'vis') {
+          const obj = el.dataset.obj, A = M.lasAuto(h, D), x = lockInfo(h, D, 'lock.' + obj);
+          const nVis = A.locks.filter((id) => !lockInfo(h, D, id).hidden).length;
+          if (!x.hidden && nVis < 2) { M.haptic('warning'); M.toast('Minst én lås må være synlig'); return undefined; }
+          return api.path(`locks_cfg.${obj}.hidden`, x.hidden ? undefined : true, 'selection');
+        }
+        return undefined;
+      },
+      change(t, api) {
+        if (t.dataset.in === 'name') { const obj = t.dataset.obj, st = card.hass.states['lock.' + obj], v = t.value.trim(); api.path(`locks_cfg.${obj}.name`, !v || (st && v === st.attributes.friendly_name) ? undefined : v); }
+      },
+      pick(t, v, api) {
+        const [kind, obj] = String(t.dataset.pk).split(':'), D = api.D();
+        if (kind === 'door') return api.path(`locks_cfg.${obj}.door`, v || undefined, 'selection');
+        if (kind === 'lock') {
+          const old = 'lock.' + obj;
+          if (!v || v === 'none' || v === old) return undefined;
+          const ex = [...new Set([...(D.exclude || []).filter((x) => x !== v), old])];
+          const inc = [...new Set([...((D.include || {}).laser || []).filter((x) => x !== old), v])];
+          return api.set({ exclude: ex, 'include.laser': inc }, 'selection');
+        }
+        return undefined;
+      },
+    });
+  }
+
   if (M.POPUP_CARDS && !M.POPUP_CARDS.includes('msh-las-card')) M.POPUP_CARDS.push('msh-las-card'); // «Mellomrom» i editoren
-  M.define('msh-las-card', Las, 'MSH Dørlås', 'Dørlås-popup (#dorlas): status, lås/lås opp med hold eller PIN, batteri, automatikk og siste hendelser.');
+  M.define('msh-las-card', Las, 'MSH Dørlås', 'Dørlås-popup (#dorlas): låsvelger, toppkort med dra/hold/trykk for å låse opp, status, automatikk og historikk.');
+
+  /* ------------------------------------------------------------ én dørlås-popup (32.1 · samme metode som 28.14/30.1) */
+  // Gamle/importerte dørlås-popuper (#dorlas med andre kort, eller gamle hasher) erstattes av den genererte #dorlas med ÉTT
+  // msh-las-card. Lenker til de gamle hashene åpner #dorlas.
+  const HASH = '#dorlas', OLD = ['#las', '#lock', '#laas', '#dorlaas', '#doerlas', '#doorlock'];
+  const tagOf = (c) => String((c && c.type) || '').replace('custom:', '');
+  const deepCards = (cards) => { const out = []; const w = (L) => (L || []).forEach((c) => { if (!c || typeof c !== 'object') return; out.push(c); if (Array.isArray(c.cards)) w(c.cards); if (c.card) w([c.card]); }); w(cards); return out; };
+  const lockish = (c) => /lock|las|l[aå]s|dorlas|keymaster/i.test(tagOf(c)) || /"lock\.[a-z0-9_]+"/.test(JSON.stringify(c));
+  // Gammel popup = kortene er ikke nøyaktig ÉTT msh-las-card, og minst ett av dem handler om lås
+  M.lasLegacyTest = (cfg) => { if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards)) return false; const one = cfg.cards.length === 1 && tagOf(cfg.cards[0]) === 'msh-las-card'; return !one && deepCards(cfg.cards).some((c) => tagOf(c) !== 'msh-las-card' && lockish(c)); };
+  M.lasMigratePopup = function (cfg, want) {
+    if (!M.lasLegacyTest(cfg)) return null;
+    const own = deepCards(cfg.cards).find((c) => tagOf(c) === 'msh-las-card');
+    const w = want && typeof want === 'object' ? want : { type: 'custom:msh-las-card' };
+    return { ...cfg, cards: [{ ...w, ...(own || {}), type: 'custom:msh-las-card', card_id: (own && own.card_id) || w.card_id || 'pop-dorlas' }] };
+  };
+  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
+  M.POPUP_SUPERSEDE[HASH] = { name: 'Dørlås', test: (cfg) => M.lasLegacyTest(cfg) };
+  M.POPUP_MIGRATE = M.POPUP_MIGRATE || {};
+  M.POPUP_MIGRATE[HASH] = (cfg, gen) => M.lasMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null);
+  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
+  OLD.forEach((h) => { M.POPUP_ALIAS[h] = { to: HASH, tag: 'msh-las-card', test: (cfg) => deepCards(cfg && cfg.cards).some(lockish) }; });
+  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
+  if (!M.POPUP_LEGACY_CARD[HASH]) M.POPUP_LEGACY_CARD[HASH] = () => null;
+  if (!window.__mshLasHash) {
+    window.__mshLasHash = true;
+    const hasPopup = (hash) => {
+      const Rp = M.popupReport;
+      if (Rp && Array.isArray(Rp.entries) && Rp.entries.length) return Rp.entries.some((x) => x.hash === hash && !x.hidden);
+      let found = false;
+      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.hash === hash) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+      w(document, 0);
+      return found;
+    };
+    window.addEventListener('hashchange', () => {
+      const h = location.hash;
+      if (!OLD.includes(h) || hasPopup(h) || !hasPopup(HASH)) return;
+      try { history.replaceState(history.state, '', location.pathname + location.search + HASH); window.dispatchEvent(new HashChangeEvent('hashchange')); window.dispatchEvent(new CustomEvent('location-changed')); } catch (x) { /* */ }
+    });
+  }
 })();
 
 } catch (e) { console.error('[ki-msh] 49-las.js', e); }
@@ -40673,17 +42014,19 @@ try {
     ['basseng', 'Basseng', 'mdi:pool', (h) => { const a = M.findArea(h, 'basseng', 'pool'), r = rx(h, /basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']); return [a || r ? Math.max(r, 1) : 0, a ? M.areaName(h, a) + (r ? ' · ' + pl(r, 'entitet', 'entiteter') : '') : pl(r, 'entitet', 'entiteter')]; }],
   ];
   const FNK = FN.map((f) => f[0]);
-  const fnOf = (k) => FN.find((f) => f[0] === k);
+  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (basseng → badebasseng, M.canonHash); navbar-id-en er fortsatt «basseng»
+  const pk = (k) => (M.canonHash ? M.canonHash('#' + k).slice(1) : k);
+  const fnOf = (k) => FN.find((f) => f[0] === k) || FN.find((f) => pk(f[0]) === pk(k));
   const NAV_CAT = ['vanning', 'media', 'klima', 'basseng', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
   const areaDevs = (h, a) => { const D = Object.values((h && h.devices) || {}).filter((d) => d && d.area_id === a).length; return D || M.areaEntities(h, a).length; };
 
   /* ------------------------------------------------------------ config-oppslag (samme kilder som de fulle arkene) */
-  const popCfg = (k) => sget('popups.' + k) || {};
+  const popCfg = (k) => sget('popups.' + pk(k)) || {};
   // = «Tilpass Hjem» → Popups (_popSet): tomme felt fjernes, tomt objekt slettes
   const popSet = (k, patch) => {
     const cur = { ...popCfg(k), ...patch };
     Object.keys(cur).forEach((x) => { if (cur[x] === undefined || cur[x] === null || cur[x] === false || cur[x] === '') delete cur[x]; });
-    return put('popups.' + k, Object.keys(cur).length ? cur : undefined);
+    return put('popups.' + pk(k), Object.keys(cur).length ? cur : undefined);
   };
   const roomCol = (h, a) => sget('rooms.' + a + '.look.col') || popCfg(a).color || (M.romColor ? M.romColor(a, h) : 'var(--orange)');
   const roomColSet = (a, c) => { put('rooms.' + a + '.look.col', c); if (popCfg(a).color) popSet(a, { color: c }); };
@@ -41365,7 +42708,7 @@ try {
           const I = M.CARD_IDS || {};
           if (id === I.navbar) return emit({ editor: 'navbar' });
           if (id === I.header) return emit({ editor: 'header' });
-          if (/^pop-/.test(id)) { const f = (M.FUNCTION_POPUPS || []).find((x) => x[0] === '#' + id.slice(4)); if (f) return emit({ editor: 'card', tag: f[3], card_id: id }); }
+          if (/^pop-/.test(id)) { const f = (M.FUNCTION_POPUPS || []).find((x) => (M.popupCardId ? M.popupCardId(x[0]) : 'pop-' + x[0].slice(1)) === id); if (f) return emit({ editor: 'card', tag: f[3], card_id: id }); }
           return emit({ editor: 'home' });
         }
         case 'export': {
@@ -47219,40 +48562,38 @@ try {
 
 /* ---- 60-innstillinger.js ---- */
 try {
-/* KI MSH · Innstillinger (#settings, msh-innstillinger-card) – fiks 25.5 + 26.15 + 27.5–27.7, fasit design/Innstillinger v2.dc.html.
+/* KI MSH · Innstillinger (#settings, msh-innstillinger-card) – fiks 25.5 + 26.15 + 27.5–27.7 + 29, fasit design/Innstillinger v2.dc.html.
  * Étt kort i Bubble-popupen #settings (mal A).
  *
  * #settings (fiks 26.15): brukerens importerte ki-cards-popup «Innstillinger» (gap-card + ki-natt-card + ki-tabs-card med
  * ki-varsling-card) erstattes av DETTE kortet: MSH.POPUP_SUPERSEDE['#settings'] gjør den importerte popupen inaktiv
  * («Erstattet av Innstillinger», «Bruk egen» i Egne popups gir den tilbake), og MSH.POPUP_EXTRA['#settings'] flytter
  * oppsettet over (MSH.innstExtra): ki-natt-card natt → natt, helg (privatmodus-bryter) → privat, vekking → vekking;
- * ki-tabs-card tabs[i] (ki-varsling-card) → tabs[i] { key, title, filter }; ekstra → rows.include (+ rows.move),
- * skjul → rows.exclude, navn/undertekst/ikoner → rows.names/subs/icons. Strategien (04-strategy) genererer #settings med
- * dette kortet (card_id pop-innstillinger). Dashbordinnstillingene (msh-settings-card) ligger nederst under «Dashbord».
+ * ki-tabs-card tabs[i] (ki-varsling-card) → faner[i] med ki-varsling-card-configen 1:1 (fiks 29). Strategien
+ * (04-strategy) genererer #settings med dette kortet (card_id pop-innstillinger). Dashbordinnstillingene
+ * (msh-settings-card) ligger nederst under «Dashbord».
  *
- * 27.5 · KUN VARSLER: listen viser bare varsel-brytere fra KI Varslinger og sikkerhet (ki_notifications, én rad per regel =
- *   hovedbryteren, erMaster), varslingsbryterne i KI Energi og input_boolean.varsel_*. Automasjoner (vekking, ansikt,
- *   autolås, dørlys, utelys), alarm-/synk-brytere (Heimdall/Alarmo) og andre entiteter vises IKKE.
- *   Fanene er varsel-KATEGORIER: Sikkerhet · Hjem · Strøm (standard). Kategori per regel: attributtet kategori/category →
- *   KI_VARS_TEKST → nøkkelord (KI_VARS_KAT: kamera, klima, hvitevarer, batteri, sikkerhet, strøm) → Hjem.
- *   Kategorier uten egen fane vises i standardfanen (Kamera → Sikkerhet, resten → Hjem).
- * 27.7 · EGNE FANER: custom_tabs: [{ key, name, icon, source }] – source = kategori i KI Varslinger (autooppdaget, med
- *   antall regler); fanen viser kategoriens varsel-brytere live, nye regler dukker opp av seg selv. Slettes/omorganiseres
- *   som de andre (rekkefølge/skjult i tabs[]). Fanelinjen tåler 4+ faner (teksten krymper, > 4 → vannrett scroll).
+ * 29 · RADENE KOMMER FRA KILDEN: MSH.finnBrytere() (src/06-varsling-kilde.js = datalogikken fra ki-varsling-card, uendret).
+ *   Én fane = én ki-varsling-card-config: faner: [{ key, name, icon, hidden?, plattform, enheter, ikke_enheter, bare, ekstra,
+ *   skjul?, master?, kjente?, sok? }]. Standard (som designet): Sikkerhet = ki_notifications med enheter autolås, fastkjørt,
+ *   dørlys, alarm, Heimdall, ansikt · Hjem = ki_notifications unntatt de samme (ukjente regler havner her) · Strøm = alt fra
+ *   ki_energi (bare varslingsbryterne, sidestilte = alle vises). Ingen mock, ingen faste entitets-ID-er.
+ *   Tilpass → Faner: per fane Integrasjoner (alle plattformer med switch/input_boolean, flest først), Bare disse / Ikke disse
+ *   (enhetsnavn, «Viser N brytere» live), Ekstra brytere (switch/input_boolean/automation, søk), Visning (hovedbryter,
+ *   kjente navn, søkefelt) – også i «Legg til fane». GUI-editoren: ett ha-form med ett expandable per fane (samme felt som
+ *   KiVarslingEditor) + ekko-vakt. Tomt: «Fant ingen brytere fra valgte integrasjoner» + «Velg integrasjoner».
+ *   Trykk på rad = toggle (optimistisk + tilbakerulling som 27.6), hold 500 ms = more-info.
  * 27.6 · TOPPKORTET: nattmodus av → to kort (Nattmodus · Privatmodus). Nattmodus på → «God natt»-kortet (184 px), og om
- *   morgenen (nattmodus av, kl. 05–11 eller etter vekketid) → «God morgen» med soloppgang (himmel natt-lilla → morgen,
- *   sola stiger 2,6 s, fugler). Trykk på HELE kortet slår nattmodus av/på; chipsene har egen handling. Optimistisk UI:
- *   kortet byttes straks, «Synker …» til hass bekrefter, ellers tilbakerulling etter 10 s (MSH.innstSyncMs) + melding –
- *   også for privatmodus. Privatmodus-kortet: kamera på veggfeste (top 74 px) – av: camscan + lyskjegle + blinkende REC;
- *   på: vipper ned 38° (spring), lokket glir over linsen, REC slukker, lås «lockpop» + ring (bare transform/opacity).
+ *   morgenen (nattmodus av, kl. 05–11 eller etter vekketid) → «God morgen» med soloppgang. Trykk på HELE kortet slår
+ *   nattmodus av/på; chipsene har egen handling. Optimistisk UI: «Synker …» til hass bekrefter, ellers tilbakerulling etter
+ *   10 s (MSH.innstSyncMs) + melding – også for privatmodus og radene.
  * Config:
  *   natt · privat · vekking (entitetene i toppkortet)
- *   tabs: [{ key, title?, hidden?, filter?: { enheter, ikke_enheter, plattform } }]  (sikkerhet · hjem · strom · egne)
- *   custom_tabs: [{ key, name, icon, source }]
- *   rows: { exclude: [device_id|entity_id], move: { id: fane }, include: [entity_id], names, subs, icons, order: { fane: [id] } }
+ *   faner (over) – eldre nøkler leses og migreres ved første lagring: tabs [{ key, title, hidden, filter }],
+ *   custom_tabs [{ key, name, icon, source }], tab_order/tab_hidden/tab_names, rows.include/include (→ faner[].ekstra)
+ *   rows: { exclude: [device_id|entity_id], move: { id: fane }, names, subs, icons, order: { fane: [id] } }  (rowHid/rowOrder)
  *   tab_labels (icon = ikon + tekst (standard) | name = tekst | ikon = ikoner) · start_tab · sok · show_summary (true) ·
  *   av_forst · haptikk · scene (auto | morgen | dag = kun kort | natt) · animasjoner (true) · dashbord (true) · gap · pad_*
- * Eldre nøkler leses fortsatt: tab_order/tab_hidden/tab_names, faner automasjoner → sikkerhet og varsler → hjem.
  */
 (function () {
   const M = window.MSH;
@@ -47261,87 +48602,61 @@ try {
   M.innstNow = M.innstNow || (() => new Date()); // klokka (testene kan sette den)
   if (M.innstSyncMs == null) M.innstSyncMs = 10000; // tilbakerulling når hass ikke bekrefter
 
-  /* ============================================================ KI Varslinger og sikkerhet (fra ki-cards 83-ki-varsling-card.js) */
-  const KI_VARS_PLATTFORM = ['ki_notifications', 'ki_energi'];
-  /* Navn, beskrivelse, ikon og kategori per regel (ki-varsling-card: KI_VARS_TEKST). Kategori 'auto' = automasjon eller
-     synk (ikke et varsel) → vises ikke (27.5). */
-  const KI_VARS_TEKST = [
-    [/vekking|vekke/, 'Vekking', 'Lys og lyd på vekketidspunkt', 'mdi:alarm', 'auto'],
-    [/ansikt/, 'Ansiktsgjenkjenning', 'Låser opp ved gjenkjent ansikt', 'mdi:face-recognition', 'auto'],
-    [/autolas|autolås/, 'Autolås', 'Låser døra automatisk etter lukking', 'mdi:lock-clock', 'auto'],
-    [/fastkjort|fastkjørt/, 'Fastkjørt lås', 'Varsel hvis låsen ikke går i lås', 'mdi:lock-alert', 'sikkerhet'],
-    [/blink|dorlys|dørlys/, 'Dørlys', 'Blinker med lyset når døra åpnes', 'mdi:monitor-shimmer', 'auto'],
-    [/dor_?last|dør_?låst|dor_?apnet|dør låst|dørlås|dorlas/, 'Dør låst/åpnet', 'Varsel med kamerabilde', 'mdi:door-closed-lock', 'sikkerhet'],
-    [/ringeklokke|doorbell/, 'Ringeklokke', 'Varsel med bilde når noen ringer', 'mdi:doorbell', 'sikkerhet'],
-    [/familie|hjemme.?borte/, 'Hjemme / borte', 'Varsler når noen kommer eller drar', 'mdi:home-account', 'hjem'],
-    [/^alarm|alarm_/, 'Alarm', 'Varsel når alarmen går eller endres', 'mdi:shield-home', 'sikkerhet'],
-    [/heimdall|alarmo/, 'Heimdall', 'Synk mellom Heimdall og Alarmo', 'mdi:sync', 'auto'],
-    [/ruter|skolen/, 'Ruter fra skolen', 'Avgangstider hjem etter forelesning', 'mdi:bus-clock', 'hjem'],
-    [/planter/, 'Planter', 'Varsel når plantene trenger vann', 'mdi:flower-tulip', 'hjem'],
-    [/stovsug|støvsug/, 'Støvsuger', 'Varsel om feil og fullført runde', 'mdi:robot-vacuum', 'hjem'],
-    [/home.?assistant|oppstart|startet/, 'Home Assistant', 'Varsel etter omstart av HA', 'mdi:home-assistant', 'hjem'],
-    [/vaermelding|værmelding|vaer_ai/, 'Værmelding', 'Daglig værvarsel fra AI', 'mdi:weather-partly-cloudy', 'hjem'],
-    [/stromforbruk|strømforbruk|forbruk.?rapport/, 'Strømforbruk', 'Daglig rapport', 'mdi:chart-bar', 'strom'],
-    /* KI Utelys – automatikk, ikke varsler */
-    [/ki_utelys/, 'Utelys', 'Styrer utelysene etter solhøyden', 'mdi:lightbulb-auto', 'auto'],
-    /* KI Energi. Hovedbryteren først. */
-    [/\bki_energi_varsler\b/, 'Energivarsler', 'Hovedbryter for alle energivarsler', 'mdi:bell-outline', 'strom'],
-    [/ki_varsel_effekt/, 'Effektgrense', 'Varsel når timen nærmer seg grensen', 'mdi:flash-alert', 'strom'],
-    [/ki_varsel_hjemkomst/, 'Hjemkomst', 'Varsel når huset varmes opp før dere kommer', 'mdi:home-import-outline', 'strom'],
-    [/ki_varsel_sommer/, 'Sommermodus', 'Varsel når sommermodus slår inn', 'mdi:white-balance-sunny', 'strom'],
-    [/ki_varsel_vvb/, 'Varmtvann', 'Varsel om berederen og legionella', 'mdi:water-boiler', 'strom'],
-    [/ki_varsel_hanklevarmer/, 'Håndklevarmer', 'Varsel om håndklevarmeren', 'mdi:radiator', 'strom'],
-    [/ki_varsel_helg/, 'Bortemodus', 'Varsel når huset settes i bortemodus', 'mdi:bag-suitcase', 'strom'],
-    [/ki_helg_spor_torsdag/, 'Spør torsdag', 'Spør om dere drar bort i helgen', 'mdi:calendar-question', 'strom'],
-    [/ki_helg_spor_fredag/, 'Spør fredag', 'Spør igjen fredag hvis du ikke svarte', 'mdi:calendar-question', 'strom'],
-  ];
-  // Kategori fra nøkkelord når regelen er ukjent (rekkefølgen betyr noe: kamera før sikkerhet)
-  const KI_VARS_KAT = [
-    [/kamera|camera|bevegelse|motion|pakke|ukjent.?person|person.?alert/, 'kamera'],
-    [/fukt|humid|vindu|frost|temperatur|klima|ventilasjon/, 'klima'],
-    [/vaskemaskin|torketrommel|tørketrommel|oppvask|hvitevare/, 'hvitevarer'],
-    [/batteri|battery|offline|svarer.?ikke/, 'batteri'],
-    [/alarm|lås|_las|dor|dør|ringeklokke|innbrudd|royk|røyk|lekk|sikkerhet/, 'sikkerhet'],
-    [/strom|strøm|energi|effekt/, 'strom'],
-  ];
-  const KI_VARS_IKON = [
-    [/fastkjort|fastkj/, 'mdi:lock-alert'], [/autolas|autolås/, 'mdi:lock-clock'], [/las|lås|dor|dør/, 'mdi:door-closed-lock'],
-    [/alarm|heimdall|alarmo/, 'mdi:shield-home'], [/ansikt|face/, 'mdi:face-recognition'], [/familie|hjemme|borte|person/, 'mdi:home-account'],
-    [/stovsug|støvsug|vacuum/, 'mdi:robot-vacuum'], [/vaer|vær|weather/, 'mdi:weather-partly-cloudy'], [/ruter|buss|avgang/, 'mdi:bus-clock'],
-    [/strom|strøm|forbruk|energi/, 'mdi:chart-bar'], [/oppstart|restart|startup/, 'mdi:restart'], [/bevegelse|motion/, 'mdi:walk'],
-    [/pakke/, 'mdi:package-variant-closed'], [/fukt|humid/, 'mdi:water-percent'], [/vindu/, 'mdi:window-open-variant'], [/frost/, 'mdi:snowflake'],
-    [/vaskemaskin/, 'mdi:washing-machine'], [/torketrommel|tørketrommel/, 'mdi:tumble-dryer'], [/oppvask/, 'mdi:dishwasher'], [/batteri|battery/, 'mdi:battery-alert'],
-    [/kamera|camera/, 'mdi:cctv'], [/rapport|daglig/, 'mdi:file-document-outline'],
-  ];
-  const kiVarsIkon = (tekst) => { const t = String(tekst || '').toLowerCase(); for (const [m, ikon] of KI_VARS_IKON) if (m.test(t)) return ikon; return 'mdi:bell-outline'; };
-  // Hovedbryteren i en regel (ki-varsling-card, uendret)
-  const erMaster = (b) => /alle[ _-]?varsler|_aktivert$|_varsling$|_aktiv$|_auto$|_automatikk$/.test(b.id)
-    || b.slug === b.enhet.toLowerCase().replace(/[^a-z0-9]+/g, '_')
-    || /^(alle varsler|aktivert|varsling|aktiv)$/i.test(b.under || '');
-  M.KI_VARS_TEKST = KI_VARS_TEKST;
-  M.kiVarsErMaster = erMaster;
-
-  /* ============================================================ kategorier og faner */
+  /* ============================================================ faner (29.2: én fane = én ki-varsling-card-config) */
+  const finn = (h, c) => (M.finnBrytere ? M.finnBrytere(h, c) : []);
+  const erMaster = (b) => (M.kiVarsErMaster ? M.kiVarsErMaster(b) : false);
   const slugOf = (t) => String(t || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').map(String) : v != null && v !== '' && typeof v !== 'object' ? [String(v)] : []);
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const BUILTIN = { sikkerhet: ['Sikkerhet', 'mdi:shield'], hjem: ['Hjem', 'mdi:home'], strom: ['Strøm', 'mdi:lightning-bolt'] };
-  const KAT = { ...BUILTIN, kamera: ['Kamera', 'mdi:video'], klima: ['Klima', 'mdi:thermostat'], hvitevarer: ['Hvitevarer', 'mdi:washing-machine'], batteri: ['Batteri', 'mdi:battery-alert'] };
-  const KAT_TAB = { kamera: 'sikkerhet' }; // kategorier uten egen fane: Kamera → Sikkerhet, resten → Hjem
-  const katName = (k) => (KAT[k] ? KAT[k][0] : String(k || '').replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase()));
-  const katIcon = (k) => (KAT[k] ? KAT[k][1] : 'mdi:bell-outline');
-  const katTab = (k) => (BUILTIN[k] ? k : KAT_TAB[k] || 'hjem');
+  // Kjente regler i Sikkerhet (enhetsnavn, delvis treff som ki-varsling-card); Hjem = resten av KI Varslinger
+  const DEF_SIK = ['Autolås', 'Fastkjørt', 'Dørlys', 'Alarm', 'Heimdall', 'Ansikt'];
+  const DEF_FILTER = { sikkerhet: { plattform: ['ki_notifications'], enheter: DEF_SIK }, hjem: { plattform: ['ki_notifications'], ikke_enheter: DEF_SIK }, strom: { plattform: ['ki_energi'] } };
+  const LIST_KEYS = ['plattform', 'enheter', 'ikke_enheter', 'bare', 'ekstra', 'skjul'];
+  const BOOL_KEYS = ['master', 'kjente', 'sok'];
+  const plattformNavn = (h, p) => (M.varslingPlattformNavn ? M.varslingPlattformNavn(h, p) : p);
+  // 27.7-kategorier (custom_tabs.source) → enhetsnavn-ord (migrering)
+  const SRC_ORD = { kamera: ['Kamera', 'Bevegelse', 'Pakke'], klima: ['Fukt', 'Vindu', 'Frost', 'Temperatur', 'Klima'], hvitevarer: ['Vaskemaskin', 'Tørketrommel', 'Oppvask'], batteri: ['Batteri'], sikkerhet: DEF_SIK };
+  const KAT_NAVN = { kamera: ['Kamera', 'mdi:video'], klima: ['Klima', 'mdi:thermostat'], hvitevarer: ['Hvitevarer', 'mdi:washing-machine'], batteri: ['Batteri', 'mdi:battery-alert'] };
+  const katName = (k) => (KAT_NAVN[k] ? KAT_NAVN[k][0] : String(k || '').replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase()));
   // Eldre fane-nøkler (25.5/26.15): automasjoner → sikkerhet, varsler → hjem
   const LEGACY = { automasjoner: 'sikkerhet', varsler: 'hjem', auto: 'sikkerhet', push: 'hjem', energi: 'strom' };
   const LEGACY_TITLE = /^(automasjoner|varsler)$/i;
   const keyOf = (k) => (k == null ? k : LEGACY[k] || String(k));
   const edOrder = (keys, saved) => { const o = (Array.isArray(saved) ? saved : []).map(keyOf).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return [...new Set(o)]; };
-  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').map(String) : []);
-  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const hasFilter = (f) => !!f && ['enheter', 'ikke_enheter', 'plattform'].some((k) => arr(f[k]).length);
-  // Egne faner (27.7): custom_tabs [{ key, name, icon, source }]
-  const customTabs = (c) => (Array.isArray(c.custom_tabs) ? c.custom_tabs : []).filter((t) => t && t.key && t.source).map((t) => ({ key: String(t.key), name: String(t.name || katName(t.source)), icon: String(t.icon || katIcon(t.source)), source: String(t.source) }));
-  // Fanene: tabs[] (rekkefølge/skjult/tittel) + custom_tabs – ellers 25.5-nøklene tab_order/tab_hidden/tab_names.
-  function tabDefs(c) {
-    const CT = customTabs(c), cmap = new Map(CT.map((t) => [t.key, t]));
+  const hasSrc = (t) => ['plattform', 'enheter', 'ikke_enheter', 'bare'].some((k) => t[k] !== undefined);
+  // Én fane, renset: lister som arrays, brytere som true/false/undefined, navn/ikon fra standardfanen
+  function normFane(t) {
+    const k = String(t.key), o = { key: k, name: String(t.name || t.title || ''), icon: String(t.icon || ''), hidden: !!t.hidden };
+    LIST_KEYS.forEach((x) => { if (t[x] !== undefined && t[x] !== null) o[x] = arr(t[x]); });
+    BOOL_KEYS.forEach((x) => { if (t[x] === false) o[x] = false; });
+    if (BUILTIN[k] && !hasSrc(o)) Object.assign(o, JSON.parse(JSON.stringify(DEF_FILTER[k])));
+    return o;
+  }
+  // Catch-all-faner (uten enheter/bare) gir fra seg enhetene en egen fane tar (ikke_enheter) – ingen dobbeltrader
+  function claim(F, t) {
+    const E = arr(t.enheter);
+    if (!E.length) return F;
+    const P = arr(t.plattform).length ? arr(t.plattform) : M.KI_VARS_PLATTFORM || [];
+    return F.map((x) => {
+      if (x.key === t.key || arr(x.enheter).length || arr(x.bare).length) return x;
+      const XP = x.plattform !== undefined ? arr(x.plattform) : M.KI_VARS_PLATTFORM || [];
+      if (!XP.some((p) => P.includes(p))) return x;
+      const I = arr(x.ikke_enheter);
+      E.forEach((e) => { if (!I.some((y) => y.toLowerCase() === e.toLowerCase())) I.push(e); });
+      return { ...x, ikke_enheter: I };
+    });
+  }
+  function release(F, t) {
+    const E = arr(t.enheter).map((e) => e.toLowerCase());
+    if (!E.length) return F;
+    const keep = new Set(F.filter((x) => x.key !== t.key).flatMap((x) => arr(x.enheter).map((e) => e.toLowerCase())));
+    return F.map((x) => (x.key === t.key || x.ikke_enheter === undefined ? x : { ...x, ikke_enheter: arr(x.ikke_enheter).filter((e) => !E.includes(e.toLowerCase()) || keep.has(e.toLowerCase())) }));
+  }
+  // Eldre oppsett (25.5–28): tabs[] + custom_tabs (+ filter) → faner
+  function legacyFaner(c) {
+    const CT = (Array.isArray(c.custom_tabs) ? c.custom_tabs : []).filter((t) => t && t.key && t.source), cmap = new Map(CT.map((t) => [String(t.key), t]));
     let L;
     if (Array.isArray(c.tabs) && c.tabs.length) {
       L = c.tabs.filter((t) => t && t.key).map((t) => { const k = keyOf(t.key), legacy = k !== String(t.key); let title = t.title ? String(t.title) : ''; if (legacy && LEGACY_TITLE.test(title)) title = ''; return { key: k, title, hidden: !!t.hidden, filter: hasFilter(t.filter) ? t.filter : null, icon: t.icon || '' }; });
@@ -47349,131 +48664,126 @@ try {
     const seen = new Set();
     L = L.filter((t) => (seen.has(t.key) || !(BUILTIN[t.key] || cmap.has(t.key) || t.filter) ? false : seen.add(t.key)));
     Object.keys(BUILTIN).forEach((k) => { if (!seen.has(k)) { seen.add(k); L.push({ key: k, title: '', hidden: false, filter: null, icon: '' }); } });
-    CT.forEach((t) => { if (!seen.has(t.key)) { seen.add(t.key); L.push({ key: t.key, title: '', hidden: false, filter: null, icon: '' }); } });
-    return L.map((t) => { const ct = cmap.get(t.key) || null; return { ...t, builtin: !!BUILTIN[t.key], custom: !!ct, source: ct ? ct.source : null, name: t.title || (ct ? ct.name : BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: ct ? ct.icon : t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') }; });
+    CT.forEach((t) => { if (!seen.has(String(t.key))) { seen.add(String(t.key)); L.push({ key: String(t.key), title: '', hidden: false, filter: null, icon: '' }); } });
+    let F = L.map((t) => {
+      const ct = cmap.get(t.key), f = t.filter || {};
+      if (ct) { const src = String(ct.source); return { key: t.key, name: String(ct.name || katName(src)), icon: String(ct.icon || (KAT_NAVN[src] ? KAT_NAVN[src][1] : 'mdi:bell-outline')), hidden: t.hidden, plattform: ['ki_notifications'], enheter: [...(SRC_ORD[src] || [katName(src)])] }; }
+      const o = { key: t.key, name: t.title || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab'), hidden: t.hidden };
+      if (BUILTIN[t.key]) Object.assign(o, JSON.parse(JSON.stringify(DEF_FILTER[t.key])));
+      if (arr(f.plattform).length) o.plattform = arr(f.plattform);
+      if (arr(f.enheter).length || arr(f.ikke_enheter).length) { delete o.enheter; delete o.ikke_enheter; if (arr(f.enheter).length) o.enheter = arr(f.enheter); if (arr(f.ikke_enheter).length) o.ikke_enheter = arr(f.ikke_enheter); }
+      return o;
+    });
+    CT.forEach((t) => { const x = F.find((y) => y.key === String(t.key)); if (x && !x.hidden) F = claim(F, x); });
+    return F;
   }
-  const tabsOut = (defs) => defs.map((t) => { const o = { key: t.key }; if (t.title) o.title = t.title; if (t.hidden) o.hidden = true; if (hasFilter(t.filter)) o.filter = t.filter; return o; });
-  const visTabs = (c) => { const D = tabDefs(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
-  const tabDef = (c, k) => tabDefs(c).find((t) => t.key === keyOf(k)) || null;
-  // rows (26.15) – ellers 25.5-nøklene include/exclude per fane
+  // Fanene (29.2): faner[] – ellers migrert fra de eldre nøklene. Ekstra rader fra 26.15 (rows.include + move) → ekstra.
+  const fmemo = new WeakMap();
+  function fanerOf(c) {
+    c = c || {};
+    if (fmemo.has(c)) return fmemo.get(c);
+    let F;
+    if (Array.isArray(c.faner) && c.faner.some((t) => t && t.key != null)) { const seen = new Set(); F = c.faner.filter((t) => t && t.key != null && !seen.has(String(t.key)) && seen.add(String(t.key))).map(normFane); }
+    else F = legacyFaner(c);
+    const r = obj(c.rows), inc = [...arr(r.include)], mv = { ...obj(r.move) };
+    if (!c.rows) Object.entries(obj(c.include)).forEach(([t, L]) => arr(L).forEach((id) => { if (!inc.includes(id)) inc.push(id); mv[id] = t; }));
+    inc.forEach((id) => { const k = keyOf(mv[id]), t = F.find((x) => x.key === k) || F[0]; if (t && !arr(t.ekstra).includes(id)) t.ekstra = [...arr(t.ekstra), id]; });
+    F = F.map((t) => ({ ...t, builtin: !!BUILTIN[t.key], custom: !BUILTIN[t.key], name: t.name || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') }));
+    fmemo.set(c, F);
+    return F;
+  }
+  // Til config: samme nøkler som ki-varsling-card (plattform alltid med, standardverdier ut)
+  const fanerOut = (F) => F.map((t) => {
+    const o = { key: t.key, name: t.name || (BUILTIN[t.key] ? BUILTIN[t.key][0] : t.key), icon: t.icon || (BUILTIN[t.key] ? BUILTIN[t.key][1] : 'mdi:tab') };
+    if (t.hidden) o.hidden = true;
+    o.plattform = t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])];
+    ['enheter', 'ikke_enheter', 'bare', 'ekstra', 'skjul'].forEach((x) => { if (arr(t[x]).length) o[x] = arr(t[x]); });
+    BOOL_KEYS.forEach((x) => { if (t[x] === false) o[x] = false; });
+    return o;
+  });
+  M.innstFaner = fanerOf;
+  M.innstFanerOut = fanerOut;
+  const visTabs = (c) => { const D = fanerOf(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
+  const tabDef = (c, k) => fanerOf(c).find((t) => t.key === keyOf(k)) || null;
+  // Kortnivå-valg som gjelder alle faner + fanens egne nøkler → én ki-varsling-card-config
+  const CARD_KEYS = ['skille', 'kjente', 'master', 'ikke_master', 'navn', 'undertekst', 'ikoner', 'skjul'];
+  function faneCfg(c, t) {
+    const o = {};
+    CARD_KEYS.forEach((k) => { if (c[k] != null) o[k] = c[k]; });
+    LIST_KEYS.forEach((k) => { if (t[k] !== undefined) o[k] = k === 'skjul' ? [...arr(o.skjul), ...arr(t.skjul)] : arr(t[k]); });
+    BOOL_KEYS.forEach((k) => { if (t[k] === false) o[k] = false; });
+    return o;
+  }
+  M.innstFaneCfg = faneCfg;
+  // rows (26.15) – rad-overstyringer oppå kilden (rowHid/rowOrder/navn/ikon/flytt); 25.5-nøklene exclude per fane leses
   function rowsCfg(c) {
     const r = obj(c.rows), order = {};
     Object.entries(obj(r.order)).forEach(([k, v]) => { const kk = keyOf(k); if (!order[kk]) order[kk] = v; });
     const o = { exclude: arr(r.exclude), move: { ...obj(r.move) }, include: arr(r.include), names: obj(r.names), subs: obj(r.subs), icons: obj(r.icons), order };
-    if (!c.rows) {
-      Object.entries(obj(c.include)).forEach(([t, L]) => arr(L).forEach((id) => { if (!o.include.includes(id)) o.include.push(id); o.move[id] = t; }));
-      Object.values(obj(c.exclude)).forEach((L) => arr(L).forEach((id) => { if (!o.exclude.includes(id)) o.exclude.push(id); }));
-    }
+    if (!c.rows) Object.values(obj(c.exclude)).forEach((L) => arr(L).forEach((id) => { if (!o.exclude.includes(id)) o.exclude.push(id); }));
     return o;
   }
-  const rowsOut = (W) => { const o = {}; Object.keys(W).forEach((k) => { const x = W[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) o[k] = x; }); return Object.keys(o).length ? o : undefined; };
+  const rowsOut = (W) => { const o = {}; Object.keys(W).forEach((k) => { if (k === 'include') return; const x = W[k]; if (Array.isArray(x) ? x.length : Object.keys(x).length) o[k] = x; }); return Object.keys(o).length ? o : undefined; };
   const pick = (O, r) => { for (const k of [r.key, r.id, r.dev, r.slug]) if (k && O[k] != null && O[k] !== '') return O[k]; return undefined; };
   const inList = (L, r) => [r.key, r.id, r.dev, r.slug].some((k) => k && L.includes(k));
   const moveTab = (v) => (v == null || v === '' ? null : keyOf(String(v)));
 
-  /* ============================================================ regler (én rad per regel, bare varsler) */
+  /* ============================================================ radene (kilde: MSH.finnBrytere per fane) */
   let memo = null;
-  function rules(h, c) {
-    if (!h) return [];
-    if (memo && memo.s === h.states && memo.e === h.entities && memo.d === h.devices && memo.c === c) return memo.r;
-    const R = rowsCfg(c), reg = h.entities || {}, dev = h.devices || {}, ut = [];
-    const legg = (id, kilde) => {
-      const st = h.states[id];
-      if (!st || ut.some((b) => b.id === id)) return;
-      const slug = id.split('.')[1] || id;
-      const e = reg[id] || {}, D = dev[e.device_id] || {};
-      const enhet = D.name_by_user || D.name || '';
-      const a = st.attributes || {};
-      // friendly_name deles på « - »: navnet foran, beskrivelsen bak («Alarm - Alle varsler»)
-      const helt = a.friendly_name || slug, deler = helt.split(' - ');
-      let navn = deler[0].trim() || slug, under = deler.length > 1 ? deler.slice(1).join(' - ').trim() : '';
-      if (!under && enhet && helt.toLowerCase().startsWith(enhet.toLowerCase() + ' ')) { navn = enhet; under = helt.slice(enhet.length + 1).trim(); }
-      const n = `${slug} ${enhet} ${helt}`.toLowerCase();
-      let kjentIkon = null, kat = null;
-      for (const [m, kn, ku, ki, kk] of KI_VARS_TEKST) {
-        if (!m.test(n)) continue;
-        kat = kk;
-        if (c.kjente !== false) { navn = kn; under = ku; kjentIkon = ki; }
-        break;
-      }
-      if (kat === 'auto' && kilde !== 'ekstra') return; // automasjon / synk – ikke et varsel (27.5)
-      if (kat === 'auto') kat = null;
-      const ak = a.kategori || a.category || a.gruppe;
-      if (ak) kat = slugOf(ak) || kat;
-      if (e.platform === 'ki_energi') kat = 'strom';
-      if (!kat) for (const [m, kk] of KI_VARS_KAT) if (m.test(n)) { kat = kk; break; }
-      ut.push({ id, slug, kilde, plattform: e.platform || '', dev: e.device_id || null, enhet: enhet || 'Annet', navn: navn.trim() || enhet || slug, under, ikon: kjentIkon || a.icon || kiVarsIkon(`${slug} ${navn}`), cat: kat || 'hjem' });
-    };
-    for (const [id, e] of Object.entries(reg)) {
-      if (!e || !KI_VARS_PLATTFORM.includes(e.platform)) continue;
-      if (!id.startsWith('switch.') && !id.startsWith('input_boolean.')) continue;
-      if (e.platform === 'ki_energi' && !/varsel|varsler|spor_/.test(id)) continue; // bare varslingsbryterne i KI Energi
-      legg(id, 'integrasjon');
-    }
-    // input_boolean.varsel_* (varsel-regler som hjelpere, uansett integrasjon)
-    Object.keys(h.states).filter((id) => /^input_boolean\.varsel_/.test(id)).sort().forEach((id) => legg(id, 'integrasjon'));
-    R.include.forEach((id) => legg(id, 'ekstra'));
-    // Én bryter per regel: hovedbryteren (ki-varsling-card). KI Energi og regler uten enhet: ingen sammenslåing.
-    const perEnhet = new Map();
-    if (c.master !== false) {
-      const fri = (b) => b.kilde === 'ekstra' || b.plattform === 'ki_energi' || !b.dev;
-      for (const b of ut) { if (fri(b)) continue; if (!perEnhet.has(b.dev)) perEnhet.set(b.dev, []); perEnhet.get(b.dev).push(b); }
-      const behold = new Set(ut.filter(fri).map((b) => b.id));
-      for (const [, liste] of perEnhet) { const m = liste.length > 1 ? liste.filter(erMaster) : liste; (m.length ? m : liste).forEach((b) => behold.add(b.id)); }
-      for (let i = ut.length - 1; i >= 0; i--) if (!behold.has(ut[i].id)) ut.splice(i, 1);
-    }
+  function compute(h, c) {
+    if (!h) return { F: fanerOf(c), per: new Map(), rows: [], byId: new Map() };
+    if (memo && memo.s === h.states && memo.e === h.entities && memo.d === h.devices && memo.c === c) return memo.x;
+    const F = fanerOf(c), R = rowsCfg(c), reg = h.entities || {}, per = new Map(), byId = new Map();
+    F.forEach((t) => {
+      const L = finn(h, faneCfg(c, t));
+      per.set(t.key, L.map((b) => b.id));
+      L.forEach((b) => { if (!byId.has(b.id)) byId.set(b.id, { ...b, tabs: [] }); byId.get(b.id).tabs.push(t.key); });
+    });
     const perDev = new Map();
-    ut.forEach((b) => { if (b.dev && b.kilde !== 'ekstra') perDev.set(b.dev, (perDev.get(b.dev) || 0) + 1); });
-    const out = ut.map((b) => {
-      const r = { ...b, key: b.kilde !== 'ekstra' && b.dev && perDev.get(b.dev) === 1 ? b.dev : b.id, all: b.dev ? Object.keys(reg).filter((x) => reg[x] && reg[x].device_id === b.dev) : [b.id] };
-      r.tab = katTab(b.cat);
-      r.name = pick(R.names, r) || r.navn; r.sub = pick(R.subs, r) || r.under; r.icon = pick(R.icons, r) || r.ikon;
+    byId.forEach((b) => { const d = (reg[b.id] && reg[b.id].device_id) || null; b.dev = d; if (d && b.kilde !== 'ekstra') perDev.set(d, (perDev.get(d) || 0) + 1); });
+    byId.forEach((b, id) => {
+      const r = b;
+      r.key = b.kilde !== 'ekstra' && b.dev && perDev.get(b.dev) === 1 ? b.dev : b.id;
+      r.all = b.dev ? Object.keys(reg).filter((x) => reg[x] && reg[x].device_id === b.dev) : [b.id];
+      r.name = pick(R.names, r) || b.navn; r.sub = pick(R.subs, r) || b.under; r.icon = pick(R.icons, r) || b.ikon;
       r.hidden = inList(R.exclude, r);
       r.move = moveTab(pick(R.move, r));
       r.master = erMaster(b) || /\bki_energi_varsler\b/.test(b.id);
-      return r;
+      byId.set(id, r);
     });
-    memo = { s: h.states, e: h.entities, d: h.devices, c, r: out };
-    return out;
+    const x = { F, per, rows: [...byId.values()], byId };
+    memo = { s: h.states, e: h.entities, d: h.devices, c, x };
+    return x;
   }
+  const rules = (h, c) => compute(h, c).rows;
   M.innstRules = rules;
-  const ruleSig = (h, c) => rules(h, c).map((r) => r.id + ':' + r.cat).join(',');
-  // Kategoriene i KI Varslinger (autooppdaget) med antall regler – til «Legg til fane»
-  function kategorier(h, c) {
-    const n = new Map();
-    const seen = new Set();
-    rules(h, c).filter((r) => r.kilde === 'integrasjon').forEach((r) => { const g = r.cat + '|' + (r.dev || r.id); if (seen.has(g)) return; seen.add(g); n.set(r.cat, (n.get(r.cat) || 0) + 1); });
-    return [...n.entries()].map(([key, count]) => ({ key, count, name: katName(key), icon: katIcon(key) })).sort((a, b) => a.name.localeCompare(b.name, 'nb'));
-  }
-  M.innstKategorier = kategorier;
-  const treff = (navn, liste) => liste.some((m) => String(navn).toLowerCase().includes(String(m).toLowerCase()));
-  function inTab(r, t, own) {
-    if (r.move) return r.move === t.key;
-    if (t.source) return r.cat === t.source;
-    if (hasFilter(t.filter)) {
-      const f = t.filter, P = arr(f.plattform), E = arr(f.enheter), I = arr(f.ikke_enheter);
-      if (P.length && r.kilde !== 'ekstra' && !P.includes(r.plattform)) return false;
-      if (E.length && r.kilde !== 'ekstra' && !treff(r.enhet, E)) return false;
-      if (I.length && treff(r.enhet, I)) return false;
-      return true;
-    }
-    if (!t.builtin || own.has(r.cat)) return false; // kategorien har egen (synlig) fane
-    return r.tab === t.key;
-  }
-  // Radene i en fane: autokonfig + include − exclude, i lagret rekkefølge (rows.order) – ellers hovedbryter først og alfabetisk
+  // Signaturen til det åpne Tilpass-arket: brytersettet (id) per fane + plattformene i registeret
+  const ruleSig = (h, c) => { const X = compute(h, c); return [...X.per.entries()].map(([k, L]) => k + ':' + L.join('+')).join('|') + '#' + (M.varslingPlattformer ? M.varslingPlattformer(h).map((p) => p.label).join(',') : ''); };
+  // Kortets signatur: [id, pa] (+ borte) for alle rader – registerendringer tegner bare når denne endres
+  const cardSig = (h, c) => JSON.stringify(rules(h, c).map((r) => [r.id, r.pa, r.borte, r.tabs.join()]));
+  // Radene i en fane: kilden (+ flyttet hit) − skjult, i lagret rekkefølge (rows.order) – ellers kildens rekkefølge,
+  // KI Energis hovedbryter øverst
   function tabRows(h, c, key, opts) {
-    const D = tabDefs(c), t = D.find((x) => x.key === keyOf(key));
+    const X = compute(h, c), t = X.F.find((x) => x.key === keyOf(key));
     if (!t) return [];
-    const R = rowsCfg(c), own = new Set(D.filter((x) => x.custom && !x.hidden).map((x) => x.source));
-    let L = rules(h, c).filter((r) => inTab(r, t, own));
+    const moved = (r) => (r.move && X.F.some((x) => x.key === r.move) ? r.move : null);
+    let L = (X.per.get(t.key) || []).map((id) => X.byId.get(id)).filter((r) => r && (!moved(r) || moved(r) === t.key));
+    X.rows.forEach((r) => { if (moved(r) === t.key && !L.includes(r)) L.push(r); });
     if (!(opts && opts.withHidden)) L = L.filter((r) => !r.hidden);
-    L.sort((a, b) => (b.master && b.plattform === 'ki_energi') - (a.master && a.plattform === 'ki_energi') || a.name.localeCompare(b.name, 'nb'));
-    const O = arr(R.order[t.key]);
+    if (!arr(t.bare).length) L = L.map((r, i) => [r, i]).sort((a, b) => (b[0].master && b[0].plattform === 'ki_energi') - (a[0].master && a[0].plattform === 'ki_energi') || a[1] - b[1]).map((x) => x[0]);
+    const O = arr(rowsCfg(c).order[t.key]);
     if (O.length) { const rank = new Map(O.map((k, i) => [k, i])); const rk = (r) => (rank.has(r.key) ? rank.get(r.key) : rank.has(r.id) ? rank.get(r.id) : 1e6); L = L.slice().sort((a, b) => rk(a) - rk(b)); }
     return L;
   }
   M.innstRows = tabRows;
-  M.innstTabs = tabDefs;
+  M.innstTabs = fanerOf;
+  // Enhetene (= regler) fra valgte integrasjoner, med antall brytere – «Legg til fane» (29.3)
+  function enheterOf(h, cfg) {
+    const n = new Map();
+    finn(h, { plattform: cfg.plattform, master: cfg.master, ikke_master: cfg.ikke_master, kjente: cfg.kjente }).forEach((b) => { if (b.kilde !== 'integrasjon') return; const e = n.get(b.enhet) || { enhet: b.enhet, n: 0, ikon: b.ikon }; e.n++; n.set(b.enhet, e); });
+    return [...n.values()].sort((a, b) => b.n - a.n || a.enhet.localeCompare(b.enhet, 'nb'));
+  }
+  M.innstEnheter = enheterOf;
 
   /* ============================================================ toppkortets entiteter */
   const pickFirst = (h, ids) => ids.find((id) => h && h.states[id]) || null;
@@ -47512,7 +48822,7 @@ try {
     return null;
   };
   function migrate(cfg) {
-    const out = {}, tabs = [], R = { exclude: [], move: {}, include: [], names: {}, subs: {}, icons: {} };
+    const out = {}, faner = [];
     const find = (o, re, d, acc) => { if (!o || typeof o !== 'object' || d > 12) return acc; if (Array.isArray(o)) { o.forEach((x) => find(x, re, d + 1, acc)); return acc; } if (re.test(String(o.type || ''))) acc.push(o); Object.values(o).forEach((x) => { if (x && typeof x === 'object') find(x, re, d + 1, acc); }); return acc; };
     const natt = find(cfg, /^custom:ki-natt-card$/, 0, [])[0];
     if (natt) {
@@ -47522,22 +48832,22 @@ try {
       if (natt.vekking) out.vekking = natt.vekking;
     }
     const tc = find(cfg, /^custom:ki-tabs-card$/, 0, [])[0];
-    const used = new Set();
+    const used = new Set(), R = { names: {}, subs: {}, icons: {} };
+    // Fiks 29: hver ki-varsling-card blir én fane med samme nøkler (plattform, enheter, ikke_enheter, bare, ekstra, skjul …)
     (tc && Array.isArray(tc.tabs) ? tc.tabs : []).forEach((t, i) => {
       const v = find(t, /^custom:ki-varsling-card$/, 0, [])[0];
       if (!v) return;
       let key = tabKeyOf(t.title, v);
       if (!key || used.has(key)) key = 'fane_' + (String(t.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || i);
       used.add(key);
-      const o = { key };
-      if (t.title && (!BUILTIN[key] || (t.title !== BUILTIN[key][0] && !LEGACY_TITLE.test(String(t.title))))) o.title = String(t.title);
-      if (!BUILTIN[key]) { const f = {}; ['enheter', 'ikke_enheter', 'plattform'].forEach((k) => { const L = arr([].concat(v[k] || [])); if (L.length) f[k] = L; }); if (Object.keys(f).length) o.filter = f; }
-      tabs.push(o);
-      arr(v.ekstra).forEach((id) => { if (!R.include.includes(id)) R.include.push(id); R.move[id] = key; });
-      arr(v.skjul).forEach((s) => { if (!R.exclude.includes(s)) R.exclude.push(s); });
+      const o = { key, name: t.title && !LEGACY_TITLE.test(String(t.title)) ? String(t.title) : BUILTIN[key] ? BUILTIN[key][0] : String(t.title || key), icon: t.icon || (BUILTIN[key] ? BUILTIN[key][1] : 'mdi:tab') };
+      LIST_KEYS.forEach((k) => { if (v[k] != null && arr([].concat(v[k])).length) o[k] = arr([].concat(v[k])); });
+      if (!o.plattform) o.plattform = [...(M.KI_VARS_PLATTFORM || [])];
+      BOOL_KEYS.forEach((k) => { if (v[k] === false) o[k] = false; });
+      faner.push(o);
       Object.assign(R.names, obj(v.navn)); Object.assign(R.subs, obj(v.undertekst)); Object.assign(R.icons, obj(v.ikoner));
     });
-    if (tabs.length) out.tabs = tabs;
+    if (faner.length) out.faner = faner;
     const rows = rowsOut(R);
     if (rows) out.rows = rows;
     return out;
@@ -47665,10 +48975,42 @@ try {
     .ientp .edq{height:40px;border-radius:12px;background:#3a3a3a}
     .ihit{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%;box-sizing:border-box}
     .ihit.on{background:#3a3a3a}
-    .ihit .nm b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+    .ihit .nm b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* 29.3 · per fane: Integrasjoner · Bare/Ikke disse · Ekstra brytere · Visning (arkstil: indre flate #282828, rader med bryter) */
+    .ifp{display:flex;flex-direction:column;gap:8px;padding:2px 0 14px}
+    .ifs{display:flex;flex-direction:column;padding:4px 14px 8px;border-radius:18px;background:#282828}
+    .ifs>.lb{font-size:12px;color:#979797;padding:8px 0 6px}
+    .iprow{display:flex;align-items:center;gap:12px;min-height:52px}
+    .iprow + .iprow{border-top:1px solid rgba(255,255,255,.06)}
+    .iprow .ipn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+    .iprow .ipn b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iprow .ipn i{font-style:normal;font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iprow .sw{width:44px;height:26px;border-radius:13px;background:#545454;flex:none}
+    .iprow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
+    .iprow .sw.on{background:var(--pink,#f285c9)}.iprow .sw.on::after{transform:translateX(18px)}
+    .ifs .inm{background:#3a3a3a}
+    .icount{font-size:12px;color:rgb(242 133 201);padding:8px 0 2px}
+    .ixch{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px}
+    .ixch:empty{display:none}
+    .ixch button{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;font-size:12px;display:flex;align-items:center;gap:4px;max-width:100%}
+    .ixch button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ifs .edq{background:#3a3a3a}
+    .ifs .nts{margin:0 -10px}
+    .ifs .nti{padding:2px 0 6px}
+    .ntp .ifp{padding:0}
+    .ntp .ifs{background:#3a3a3a}
+    .ntp .ifs .inm,.ntp .ifs .edq{background:#282828}
+    .ntp .ifs .ntsrc.on{background:#545454}`;
   let innSheet = null;
-  const ntOf = (ed) => { const id = cid(ed); if (!NT.has(id)) NT.set(id, { open: false, src: '', name: '', icon: TICONS[0] }); return NT.get(id); };
-  const ntOk = (N) => !!(N.src && String(N.name || '').trim());
+  const NY = '__ny'; // «Legg til fane»-utkastet (29.3) bruker samme panel som en fane
+  const EXPF = new Map(); // åpent fanepanel per kort
+  const ntOf = (ed) => { const id = cid(ed); if (!NT.has(id)) NT.set(id, { open: false, key: NY, name: '', icon: TICONS[0], plattform: ['ki_notifications'], enheter: [], ikke_enheter: [], ekstra: [] }); return NT.get(id); };
+  const ntOk = (N) => !!String(N.name || '').trim();
+  const liste = (t) => String(t || '').split(',').map((x) => x.trim()).filter(Boolean);
+  // Fanen et felt gjelder: utkastet eller en fane i config
+  const faneAv = (ed, k) => (k === NY ? ntOf(ed) : fanerOf(ed._config || {}).find((t) => t.key === k));
+  const telle = (ed, t) => (ed._hass ? finn(ed._hass, faneCfg(ed._config || {}, t)).length : 0);
+  const visesTxt = (n) => `Viser ${n} ${n === 1 ? 'bryter' : 'brytere'}`;
   function innKit(ed) {
     if (!ed || !ed.shadowRoot) return;
     if (M.edKit) M.edKit(ed);
@@ -47677,32 +49019,38 @@ try {
     try { if (!innSheet) { innSheet = new CSSStyleSheet(); innSheet.replaceSync(INN_CSS); } if (!R.adoptedStyleSheets.includes(innSheet)) R.adoptedStyleSheets = [...R.adoptedStyleSheets, innSheet]; } catch (e) { /* eldre nettleser */ }
     if (ed.__innKit) return;
     ed.__innKit = true;
-    // Navn på ny fane: per tastetrykk i tilstanden (ingen ny tegning – feltet beholder fokus), knappen følger med
+    // Per tastetrykk (ingen ny tegning – feltet beholder fokus): navn på ny fane, og «Viser N brytere» for Bare/Ikke disse
     R.addEventListener('input', (e) => {
       const t = e.target;
-      if (!t.dataset || t.dataset.inn !== 'ntname') return;
-      e.stopPropagation();
-      const N = ntOf(ed); N.name = t.value;
-      const b = R.querySelector('.ntgo'); if (b) { b.classList.toggle('on', ntOk(N)); b.toggleAttribute('disabled', !ntOk(N)); }
+      if (!t.dataset || t.dataset.inn == null) return;
+      if (t.dataset.inn === 'ntname') {
+        e.stopPropagation();
+        const N = ntOf(ed); N.name = t.value;
+        const b = R.querySelector('.ntgo'); if (b) { b.classList.toggle('on', ntOk(N)); b.toggleAttribute('disabled', !ntOk(N)); }
+        return;
+      }
+      if (t.dataset.inn === 'fenh' || t.dataset.inn === 'fikke') {
+        e.stopPropagation();
+        const k = t.dataset.v, f = faneAv(ed, k);
+        if (!f) return;
+        const d = { ...f, [t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter']: liste(t.value) };
+        const el = R.querySelector(`.icount[data-v="${CSS.escape ? CSS.escape(k) : k}"]`);
+        if (el) el.textContent = visesTxt(telle(ed, d));
+      }
     }, true);
-    // Navnefelt, ikon og filter i radene lagres ved «change» (ikke per tastetrykk – feltet beholder fokus)
+    // Navnefelt, ikon og filter lagres ved «change» (ikke per tastetrykk – feltet beholder fokus)
     R.addEventListener('change', (e) => {
       const t = e.target;
       if (!t.dataset || t.dataset.inn == null) return;
       e.stopPropagation();
       const cc = ed._config || {}, v = String(t.value || '').trim(), k = t.dataset.v;
       if (t.dataset.inn === 'ntname') { ntOf(ed).name = t.value; return; }
-      if (t.dataset.inn === 'tname') {
-        const CT = customTabs(cc);
-        if (CT.some((x) => x.key === k)) return setCfg(ed, { custom_tabs: CT.map((x) => (x.key === k ? { ...x, name: v || katName(x.source) } : x)) });
-        const D = tabDefs(cc).map((x) => (x.key === k ? { ...x, title: v && !(BUILTIN[k] && v === BUILTIN[k][0]) ? v : '' } : x));
-        return ed._set('tabs', tabsOut(D));
-      }
+      if (t.dataset.inn === 'tname') return saveFaner(ed, fanerOf(cc).map((x) => (x.key === k ? { ...x, name: v || (BUILTIN[k] ? BUILTIN[k][0] : x.name) } : x)));
       if (t.dataset.inn === 'rname' || t.dataset.inn === 'ricon') return setRows(ed, (R2) => { const O = t.dataset.inn === 'rname' ? R2.names : R2.icons; if (v) O[k] = v; else delete O[k]; });
       if (t.dataset.inn === 'fenh' || t.dataset.inn === 'fikke') {
-        const L = v.split(',').map((x) => x.trim()).filter(Boolean), f = t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter';
-        const D = tabDefs(cc).map((x) => { if (x.key !== k) return x; const F = { ...obj(x.filter) }; if (L.length) F[f] = L; else delete F[f]; return { ...x, filter: F }; });
-        return ed._set('tabs', tabsOut(D));
+        const f = t.dataset.inn === 'fenh' ? 'enheter' : 'ikke_enheter', L = liste(v);
+        if (k === NY) { ntOf(ed)[f] = L; return ed._render(); }
+        return editFane(ed, k, (x) => { const o = { ...x }; if (L.length) o[f] = L; else delete o[f]; return o; });
       }
     }, true);
   }
@@ -47715,9 +49063,111 @@ try {
     ed._set(last, o[last]);
   }
   function rowsWork(cc) { const R = rowsCfg(cc); return { exclude: [...R.exclude], move: { ...R.move }, include: [...R.include], names: { ...R.names }, subs: { ...R.subs }, icons: { ...R.icons }, order: { ...R.order } }; }
-  function setRows(ed, fn) { const W = rowsWork(ed._config || {}); fn(W); ed._set('rows', rowsOut(W)); }
-  const curTab = (ed, c) => { const T = tabDefs(c), v = RT.get(cid(ed)); return T.some((t) => t.key === v) ? v : (T[0] || {}).key; };
-  const sw = (key, op, v, on, label) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}"></button>`;
+  // Fanene lagres alltid som faner[] – første lagring migrerer de eldre nøklene (tabs/custom_tabs/tab_*/rows.include) én gang
+  function saveFaner(ed, F, extra) {
+    const cc = ed._config || {}, o = { faner: fanerOut(F) };
+    ['tabs', 'custom_tabs', 'tab_order', 'tab_hidden', 'tab_names', 'include'].forEach((k) => { if (cc[k] !== undefined) o[k] = undefined; });
+    const R = obj(cc.rows);
+    if (arr(R.include).length) { const W = rowsWork(cc); W.include.forEach((id) => { delete W.move[id]; }); o.rows = rowsOut(W); }
+    Object.assign(o, extra || {});
+    setCfg(ed, o);
+  }
+  // Én fane endres: enheter den gir fra seg/tar fra catch-all-fanene (Hjem) følger med
+  function editFane(ed, k, fn) {
+    let F = fanerOf(ed._config || {});
+    const old = F.find((x) => x.key === k);
+    if (!old) return undefined;
+    const nu = fn(old);
+    if (JSON.stringify(arr(old.enheter)) !== JSON.stringify(arr(nu.enheter)) || JSON.stringify(arr(old.plattform)) !== JSON.stringify(arr(nu.plattform))) { F = release(F, old); F = F.map((x) => (x.key === k ? nu : x)); F = claim(F, nu); }
+    else F = F.map((x) => (x.key === k ? nu : x));
+    return saveFaner(ed, F);
+  }
+  // Rad-overstyringer (rows). Står det eldre rows.include/include igjen, migreres fanene samtidig (→ faner[].ekstra).
+  function setRows(ed, fn) {
+    const cc = ed._config || {}, W = rowsWork(cc); fn(W);
+    if (arr(obj(cc.rows).include).length || cc.include) { W.include.forEach((id) => { delete W.move[id]; }); return saveFaner(ed, fanerOf(cc), { rows: rowsOut(W) }); }
+    return ed._set('rows', rowsOut(W));
+  }
+  const curTab = (ed, c) => { const T = fanerOf(c), v = RT.get(cid(ed)); return T.some((t) => t.key === v) ? v : (T[0] || {}).key; };
+  const sw = (key, op, v, on, label, p) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}"${p != null ? ` data-p="${esc(p)}"` : ''}></button>`;
+  const iconChips = (key, op, v, cur) => { const icons = TICONS.includes(cur) || !cur ? TICONS : [...TICONS, cur]; return `<div class="nti">${icons.map((ic) => `<button class="${cur === ic ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" data-ic="${esc(ic)}" aria-label="${esc(ic)}">${M.icon(ic, 20)}</button>`).join('')}${M.iconPicker ? `<button data-a="fn" data-k="${key}" data-op="${op}pick" data-v="${esc(v)}" aria-label="Velg et annet ikon">${M.icon('mdi:dots-horizontal', 20)}</button>` : ''}</div>`; };
+  // 29.3 · panelet for én fane (eller «Legg til fane»-utkastet): Integrasjoner · Bare/Ikke disse · Ekstra brytere · Visning
+  function fanePanel(hh, cc, key, ed, t) {
+    const k = t.key, ny = k === NY, ek = esc(k);
+    const P = t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])];
+    const PL = hh && M.varslingPlattformer ? M.varslingPlattformer(hh) : [];
+    P.forEach((p) => { if (!PL.some((x) => x.value === p)) PL.push({ value: p, label: `${plattformNavn(hh, p)} (0)` }); });
+    const plat = PL.map((p) => `<div class="iprow" data-key="ip-${ek}-${esc(p.value)}"><span class="ipn"><b>${esc(p.label)}</b><i>${esc(p.value)}</i></span>${sw(key, 'fplat', k, P.includes(p.value), p.label, p.value)}</div>`).join('') || '<div class="iempty">Fant ingen integrasjoner med brytere</div>';
+    let enh = '';
+    if (ny && hh) {
+      const K = enheterOf(hh, t), sel = arr(t.enheter);
+      enh = `<div class="ifs" data-key="ifs-enh"><span class="lb">Regler og enheter fra valgte integrasjoner</span><div class="nts">${K.length ? K.map((x) => { const on = sel.includes(x.enhet); return `<button class="ntsrc ${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nenh" data-v="${NY}" data-x="${esc(x.enhet)}" aria-pressed="${on}">${M.icon(x.ikon, 20, 'color:#afafaf')}<span class="nm"><b>${esc(x.enhet)}</b><i>${x.n} ${x.n === 1 ? 'bryter' : 'brytere'}</i></span>${M.icon('mdi:check', 20, `color:rgb(102 209 158);opacity:${on ? 1 : 0}`)}</button>`; }).join('') : '<div class="iempty">Fant ingen brytere fra valgte integrasjoner</div>'}</div></div>`;
+    }
+    const X = arr(t.ekstra), qk = 'inn-x-' + k, q = String(ed.__edQ[qk] || '').trim().toLowerCase(), qs = q.replace(/ /g, '_');
+    const hits = q && hh ? Object.keys(hh.states).filter((id) => ['switch', 'input_boolean', 'automation'].includes(id.split('.')[0]) && !X.includes(id) && (id.includes(qs) || String(hh.states[id].attributes.friendly_name || '').toLowerCase().includes(q))).sort().slice(0, 6) : [];
+    const vis = [['master', 'Bare hovedbryter per regel', 'Én bryter per regel i KI Varslinger'], ['kjente', 'Kjente navn', 'Forklarende navn og ikoner for kjente regler'], ['sok', 'Søkefelt', 'Søk over listen i fanen']];
+    return `<div class="ifp" data-key="ifp-${ek}">
+      <div class="ifs" data-key="ifs-plat"><span class="lb">Integrasjoner</span>${plat}</div>
+      ${enh}
+      <div class="ifs" data-key="ifs-filter"><span class="lb">Bare disse (enhetsnavn, skilt med komma)</span><input class="inm full" data-inn="fenh" data-v="${ek}" value="${esc(arr(t.enheter).join(', '))}" placeholder="Alle" aria-label="Bare disse" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="lb">Ikke disse</span><input class="inm full" data-inn="fikke" data-v="${ek}" value="${esc(arr(t.ikke_enheter).join(', '))}" placeholder="Ingen" aria-label="Ikke disse" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="icount" data-v="${ek}" data-key="icount-${ek}" aria-live="polite">${esc(visesTxt(hh ? finn(hh, faneCfg(cc, t)).length : 0))}</span></div>
+      <div class="ifs" data-key="ifs-ekstra"><span class="lb">Ekstra brytere</span><div class="ixch">${X.map((id) => `<button data-a="fn" data-k="${key}" data-op="xrm" data-v="${ek}" data-x="${esc(id)}" aria-label="Fjern ${esc(id)}"><span>${esc(hh && hh.states[id] ? M.name(hh, id) : id)}</span>${M.icon('mdi:close', 16)}</button>`).join('')}</div>
+        <div class="edq">${M.icon('mdi:magnify', 18, 'color:#979797')}<input data-edq="${esc(qk)}" value="${esc(ed.__edQ[qk] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits.map((id) => `<button class="ihit" data-a="fn" data-k="${key}" data-op="xadd" data-v="${ek}" data-x="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 18, 'color:#979797')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span></button>`).join('') || (q ? '<div class="iempty">Ingen treff</div>' : '')}</div>
+      <div class="ifs" data-key="ifs-vis"><span class="lb">Visning</span>${vis.map(([p, l, hl]) => `<div class="iprow"><span class="ipn"><b>${esc(l)}</b><i style="font-family:inherit">${esc(hl)}</i></span>${sw(key, 'fvis', k, t[p] !== false, l, p)}</div>`).join('')}</div>
+      ${ny ? '' : `<div class="ifs" data-key="ifs-ikon"><span class="lb">Ikon</span>${iconChips(key, 'ticon', k, t.icon)}</div>`}
+    </div>`;
+  }
+  // GUI-editoren (29.3): ett ha-form med ett expandable per fane – samme felt som KiVarslingEditor. Ekko-vakt: f.data settes
+  // tilbake etter value-changed, og når HA sender samme config tilbake bygges ingenting om (avkrysning/markør står).
+  const hafData = (F) => Object.fromEntries(F.map((t) => ['f_' + t.key, { plattform: t.plattform !== undefined ? arr(t.plattform) : [...(M.KI_VARS_PLATTFORM || [])], enheter: arr(t.enheter).join(', '), ikke_enheter: arr(t.ikke_enheter).join(', '), ekstra: arr(t.ekstra), master: t.master !== false, kjente: t.kjente !== false, sok: t.sok !== false }]));
+  const HAF_LABEL = { plattform: 'Integrasjoner', enheter: 'Bare disse (skilt med komma)', ikke_enheter: 'Ikke disse (skilt med komma)', ekstra: 'Ekstra brytere', master: 'Bare hovedbryteren per regel', kjente: 'Kjente navn', sok: 'Søkefelt' };
+  function mountForm(ed) {
+    const slot = ed.shadowRoot && ed.shadowRoot.querySelector('.ihaf');
+    if (!slot || !ed._hass) return;
+    const F = fanerOf(ed._config || {}), h = ed._hass;
+    const opts = (M.varslingPlattformer ? M.varslingPlattformer(h) : []).map((p) => ({ value: p.value, label: p.label }));
+    F.forEach((t) => arr(t.plattform).forEach((p) => { if (!opts.some((o) => o.value === p)) opts.push({ value: p, label: `${plattformNavn(h, p)} (0)` }); }));
+    const schema = F.map((t) => ({ name: 'f_' + t.key, type: 'expandable', title: t.name, icon: t.icon, schema: [
+      { name: 'plattform', selector: { select: { multiple: true, mode: 'list', options: opts } } },
+      { name: 'enheter', selector: { text: {} } },
+      { name: 'ikke_enheter', selector: { text: {} } },
+      { name: 'ekstra', selector: { entity: { multiple: true, domain: ['switch', 'input_boolean', 'automation'] } } },
+      { name: 'master', selector: { boolean: {} } },
+      { name: 'kjente', selector: { boolean: {} } },
+      { name: 'sok', selector: { boolean: {} } },
+    ] }));
+    let f = slot.querySelector('ha-form');
+    if (!f) {
+      f = document.createElement('ha-form');
+      f.computeLabel = (x) => HAF_LABEL[x.name] || x.title || x.name;
+      f.addEventListener('value-changed', (e) => {
+        e.stopPropagation();
+        const v = (e.detail && e.detail.value) || {}, cur = fanerOf(ed._config || {});
+        let F2 = cur.map((t) => {
+          const d = v['f_' + t.key];
+          if (!d) return t;
+          const o = { ...t, plattform: arr(d.plattform), ekstra: arr(d.ekstra) }, E = liste(d.enheter), I = liste(d.ikke_enheter);
+          if (E.length) o.enheter = E; else delete o.enheter;
+          if (I.length) o.ikke_enheter = I; else delete o.ikke_enheter;
+          ['master', 'kjente', 'sok'].forEach((k) => { if (d[k] === false) o[k] = false; else delete o[k]; });
+          return o;
+        });
+        F2 = F2.map((t) => ({ ...t }));
+        // Skjemaet MÅ få verdiene tilbake (ha-form styres av data) – som skrevet, så tekstfeltet ikke mister komma/markør
+        f.data = { ...hafData(F2), ...v };
+        ed.__hafOut = JSON.stringify(hafData(F2));
+        saveFaner(ed, F2);
+      });
+      slot.appendChild(f);
+    }
+    f.hass = h;
+    const sj = JSON.stringify(schema);
+    if (f.__sj !== sj) { f.__sj = sj; f.schema = schema; }
+    const data = hafData(F), dj = JSON.stringify(data);
+    if (ed.__hafOut !== dj) { ed.__hafOut = dj; f.data = data; } // samme config tilbake fra HA → ingen ombygging
+  }
   function editorSchema(h0, cfg0) {
     const handle = () => (M.edHandle ? M.edHandle() : '');
     // Forhåndsvisning (27.5): fanelinjen + tannhjul live, ikke trykkbar
@@ -47726,70 +49176,107 @@ try {
       const V = visTabs(cc), st = keyOf(cc.start_tab), cur = V.some((t) => t.key === st) ? st : V[0].key;
       return `<div class="pvw" data-key="pvw"><div class="pvb">${tabBar(cc, V, cur, { preview: true })}</div></div>`;
     } };
-    // Faner: dra-håndtak, ikon, navnefelt i raden, søppelkasse (egne faner), bryter = vis/skjul; «Legg til fane» nederst
+    // Faner: dra-håndtak, ikon (→ fanepanelet), navnefelt, søppelkasse (egne faner), bryter = vis/skjul; «Legg til fane» nederst
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
-      ed.__edDrop['inn-tab'] = (o) => { const D = tabDefs(ed._config || cc), by = new Map(D.map((t) => [t.key, t])); ed._set('tabs', tabsOut(o.map((k) => by.get(k)).filter(Boolean))); };
-      const D = tabDefs(cc), N = ntOf(ed);
-      const rows = D.map((t) => `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<span class="iic">${M.icon(t.icon, 22)}</span>
-          <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(t.custom ? t.name : t.title)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.name)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
-          ${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>`).join('');
+      ed.__edDrop['inn-tab'] = (o) => { const D = fanerOf(ed._config || cc), by = new Map(D.map((t) => [t.key, t])); saveFaner(ed, o.map((k) => by.get(k)).filter(Boolean)); };
+      const D = fanerOf(cc), N = ntOf(ed), open = EXPF.get(cid(ed));
+      const rows = D.map((t) => `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="texp" data-v="${esc(t.key)}" aria-expanded="${open === t.key}" aria-label="Integrasjoner og filter for ${esc(t.name)}">${M.icon(t.icon, 22)}</button>
+          <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(BUILTIN[t.key] && t.name === BUILTIN[t.key][0] ? '' : t.name)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.name)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
+          ${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>${open === t.key ? fanePanel(hh, cc, key, ed, t) : ''}`).join('');
       let panel = '';
       if (N.open) {
-        const have = new Set(D.map((t) => (t.custom ? t.source : t.key)));
-        const K = hh ? kategorier(hh, cc).filter((k) => !have.has(k.key)) : [];
-        const ok = ntOk(N), icons = TICONS.includes(N.icon) || !N.icon ? TICONS : [...TICONS, N.icon];
-        panel = `<div class="ntp" data-key="ntp"><span class="ntl">Varsler fra KI Varslinger</span>
-          <div class="nts">${K.length ? K.map((k) => `<button class="ntsrc ${N.src === k.key ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="ntsrc" data-v="${esc(k.key)}" aria-pressed="${N.src === k.key}">${M.icon(k.icon, 20, 'color:#afafaf')}<span class="nm"><b>${esc(k.name)}</b><i>${k.count} ${k.count === 1 ? 'regel' : 'regler'}</i></span>${M.icon('mdi:check', 20, `color:rgb(102 209 158);opacity:${N.src === k.key ? 1 : 0}`)}</button>`).join('') : '<div class="iempty">Fant ingen flere kategorier i KI Varslinger</div>'}</div>
+        const ok = ntOk(N);
+        panel = `<div class="ntp" data-key="ntp"><span class="ntl">Ny fane</span>
           <input class="ntn" data-inn="ntname" value="${esc(N.name)}" placeholder="Navn på fanen" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <div class="nti">${icons.map((ic) => `<button class="${N.icon === ic ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nticon" data-v="${esc(ic)}" aria-label="${esc(ic)}">${M.icon(ic, 20)}</button>`).join('')}${M.iconPicker ? `<button data-a="fn" data-k="${key}" data-op="ntpick" data-v="" aria-label="Velg et annet ikon">${M.icon('mdi:dots-horizontal', 20)}</button>` : ''}</div>
+          ${iconChips(key, 'nticon', NY, N.icon)}
+          ${fanePanel(hh, cc, key, ed, N)}
           <button class="ntgo ${ok ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="ntadd" data-v="" ${ok ? '' : 'disabled'}>Legg til fane</button></div>`;
       }
       return `<div class="ilist">${rows}</div><button class="iadd" data-a="fn" data-k="${key}" data-op="ntopen" data-v="" aria-expanded="${N.open}">${M.icon('mdi:plus-circle', 22)}<span>Legg til fane</span></button>${panel}`;
     }, click: (dd, ed) => {
-      const cc = ed._config || {}, N = ntOf(ed);
+      const cc = ed._config || {}, N = ntOf(ed), k = dd.v, id = cid(ed);
+      const draft = (fn) => { fn(N); return ed._render(); };
+      if (dd.op === 'texp') { M.haptic('selection'); if (EXPF.get(id) === k) EXPF.delete(id); else EXPF.set(id, k); return ed._render(); }
       if (dd.op === 'teye') {
-        const D = tabDefs(cc), t = D.find((x) => x.key === dd.v);
-        if (!t) return;
-        if (!t.hidden && D.filter((x) => !x.hidden).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
+        const D = fanerOf(cc), t = D.find((x) => x.key === k);
+        if (!t) return undefined;
+        if (!t.hidden && D.filter((x) => !x.hidden).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return undefined; }
         M.haptic('selection');
-        return ed._set('tabs', tabsOut(D.map((x) => (x.key === dd.v ? { ...x, hidden: !x.hidden } : x))));
+        return saveFaner(ed, D.map((x) => (x.key === k ? { ...x, hidden: !x.hidden } : x)));
       }
       if (dd.op === 'tdel') {
         M.haptic('medium');
-        const CT = customTabs(cc).filter((x) => x.key !== dd.v), W = rowsWork(cc);
-        delete W.order[dd.v]; Object.keys(W.move).forEach((k) => { if (W.move[k] === dd.v) delete W.move[k]; });
-        return setCfg(ed, { rows: rowsOut(W), tabs: tabsOut(tabDefs(cc).filter((x) => x.key !== dd.v)), custom_tabs: CT.length ? CT : undefined });
+        let F = fanerOf(cc); const t = F.find((x) => x.key === k);
+        if (!t) return undefined;
+        F = release(F, t).filter((x) => x.key !== k);
+        const W = rowsWork(cc); delete W.order[k]; Object.keys(W.move).forEach((x) => { if (W.move[x] === k) delete W.move[x]; }); W.include = [];
+        if (EXPF.get(id) === k) EXPF.delete(id);
+        return saveFaner(ed, F, { rows: rowsOut(W) });
       }
-      if (dd.op === 'ntopen') { M.haptic('light'); NT.set(cid(ed), { open: !N.open, src: '', name: '', icon: TICONS[0] }); return ed._render(); }
-      if (dd.op === 'ntsrc') {
+      if (dd.op === 'fplat') {
         M.haptic('selection');
-        const named = String(N.name || '').trim() && N.name !== katName(N.src);
-        N.src = dd.v; if (!named) { N.name = katName(dd.v); N.icon = katIcon(dd.v); }
-        return ed._render();
+        const tog = (L) => { const S = new Set(L); if (S.has(dd.p)) S.delete(dd.p); else S.add(dd.p); return [...S]; };
+        if (k === NY) return draft((x) => { x.plattform = tog(arr(x.plattform)); x.enheter = arr(x.enheter).filter((e) => enheterOf(ed._hass, x).some((y) => y.enhet === e)); });
+        return editFane(ed, k, (x) => ({ ...x, plattform: tog(x.plattform !== undefined ? arr(x.plattform) : [...(M.KI_VARS_PLATTFORM || [])]) }));
       }
-      if (dd.op === 'nticon') { M.haptic('selection'); N.icon = dd.v; return ed._render(); }
-      if (dd.op === 'ntpick' && M.iconPicker) { M.iconPicker.open({ value: N.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) { N.icon = v; ed._render(); } } }); return; }
+      if (dd.op === 'fvis') {
+        M.haptic('selection');
+        const flip = (x) => { const o = { ...x }; if (o[dd.p] === false) delete o[dd.p]; else o[dd.p] = false; return o; };
+        if (k === NY) return draft((x) => { Object.assign(x, flip(x)); if (x[dd.p] !== false) delete x[dd.p]; });
+        return editFane(ed, k, flip);
+      }
+      if (dd.op === 'xadd' || dd.op === 'xrm') {
+        M.haptic(dd.op === 'xadd' ? 'success' : 'selection');
+        ed.__edQ['inn-x-' + k] = '';
+        const upd = (L) => (dd.op === 'xadd' ? [...L.filter((x) => x !== dd.x), dd.x] : L.filter((x) => x !== dd.x));
+        if (k === NY) return draft((x) => { x.ekstra = upd(arr(x.ekstra)); });
+        return editFane(ed, k, (x) => { const o = { ...x, ekstra: upd(arr(x.ekstra)) }; if (!o.ekstra.length) delete o.ekstra; return o; });
+      }
+      if (dd.op === 'ticon') { M.haptic('selection'); return editFane(ed, k, (x) => ({ ...x, icon: dd.ic })); }
+      if (dd.op === 'ticonpick' && M.iconPicker) { const t = faneAv(ed, k); M.iconPicker.open({ value: t && t.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) editFane(ed, k, (x) => ({ ...x, icon: v })); } }); return undefined; }
+      if (dd.op === 'ntopen') { M.haptic('light'); NT.delete(id); const n = ntOf(ed); n.open = !N.open; return ed._render(); }
+      if (dd.op === 'nticon') { M.haptic('selection'); return draft((x) => { x.icon = dd.ic; }); }
+      if (dd.op === 'nticonpick' && M.iconPicker) { M.iconPicker.open({ value: N.icon, title: 'Ikon for fanen', onPick: (v) => { if (v) { N.icon = v; ed._render(); } } }); return undefined; }
+      if (dd.op === 'nenh') {
+        M.haptic('selection');
+        return draft((x) => {
+          const E = arr(x.enheter), on = E.includes(dd.x);
+          x.enheter = on ? E.filter((e) => e !== dd.x) : [...E, dd.x];
+          if (!on && !String(x.name || '').trim()) { x.name = dd.x; const hit = enheterOf(ed._hass, x).find((y) => y.enhet === dd.x); if (hit && hit.ikon) x.icon = hit.ikon; }
+        });
+      }
       if (dd.op === 'ntadd') {
-        if (!ntOk(N)) return;
+        if (!ntOk(N)) return undefined;
         M.haptic('success');
-        const D = tabDefs(cc), base = 'v_' + (slugOf(N.src) || 'fane');
-        let k = base, i = 2; while (D.some((t) => t.key === k)) k = base + '_' + i++;
-        const CT = [...customTabs(cc), { key: k, name: String(N.name).trim(), icon: N.icon || katIcon(N.src), source: N.src }];
-        NT.delete(cid(ed));
-        return setCfg(ed, { custom_tabs: CT, tabs: [...tabsOut(D), { key: k }] });
+        let F = fanerOf(cc);
+        const base = 'f_' + (slugOf(N.name) || 'fane');
+        let nk = base, i = 2; while (F.some((t) => t.key === nk)) nk = base + '_' + i++;
+        const t = { key: nk, name: String(N.name).trim(), icon: N.icon || 'mdi:bell', plattform: arr(N.plattform) };
+        ['enheter', 'ikke_enheter', 'ekstra'].forEach((x) => { if (arr(N[x]).length) t[x] = arr(N[x]); });
+        BOOL_KEYS.forEach((x) => { if (N[x] === false) t[x] = false; });
+        F = claim([...F, t], t);
+        NT.delete(id);
+        return saveFaner(ed, F);
       }
+      return undefined;
     } };
-    // Rader: undersegment (fane) + rader for valgt fane (dra, ikon → flytt/ikon, navnefelt, bryter = exclude) + «Legg til rad»
+    // GUI-editoren: ha-form per fane (bare i HAs visuelle editor – arket har panelet over)
+    const gui = { type: 'html', html: (hh, cc, key, ed) => {
+      if (ed._inline || !customElements.get('ha-form')) return '';
+      Promise.resolve().then(() => mountForm(ed));
+      return '<div class="ihaf" data-key="ihaf" data-nomorph></div>';
+    } };
+    // Rader: undersegment (fane) + rader for valgt fane (dra, ikon → flytt/ikon, navnefelt, bryter = skjul) + «Legg til rad»
     const radSeg = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
       const tab = curTab(ed, cc);
-      return `<div class="chips sg tsub" role="tablist">${tabDefs(cc).map((t) => `<button class="chip ${t.key === tab ? 'on' : ''}" role="tab" aria-selected="${t.key === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${esc(t.key)}"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
-    }, click: (dd, ed) => { if (dd.op === 'rtab') { M.haptic('selection'); RT.set(cid(ed), dd.v); EXP.delete(cid(ed)); ADD.delete(cid(ed)); return ed._render(); } } };
+      return `<div class="chips sg tsub" role="tablist">${fanerOf(cc).map((t) => `<button class="chip ${t.key === tab ? 'on' : ''}" role="tab" aria-selected="${t.key === tab}" data-a="fn" data-k="${key}" data-op="rtab" data-v="${esc(t.key)}"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
+    }, click: (dd, ed) => { if (dd.op === 'rtab') { M.haptic('selection'); RT.set(cid(ed), dd.v); EXP.delete(cid(ed)); ADD.delete(cid(ed)); return ed._render(); } return undefined; } };
     const rader = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
       if (!hh) return '';
-      const id = cid(ed), tab = curTab(ed, cc), R = rowsCfg(cc), T = tabDefs(cc);
+      const id = cid(ed), tab = curTab(ed, cc), R = rowsCfg(cc), T = fanerOf(cc);
       if (!tab) return '<div class="iempty">Ingen faner med rader.</div>';
       ed.__edDrop['inn-row'] = (o) => setRows(ed, (W) => { W.order = { ...W.order, [tab]: o }; });
       const L = tabRows(hh, cc, tab, { withHidden: true }), open = EXP.get(id);
@@ -47799,18 +49286,18 @@ try {
             <span class="lb">Navn</span><input class="inm full" data-inn="rname" data-v="${esc(r.key)}" value="${esc(R.names[r.key] || '')}" placeholder="${esc(r.navn)}" aria-label="Navn på raden" autocapitalize="off" autocorrect="off" spellcheck="false">
             <span class="lb">Flytt til</span><div class="ichips">${T.map((t) => `<button class="${t.key === tab ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="rmove" data-v="${esc(r.key)}" data-t="${esc(t.key)}">${esc(t.name)}</button>`).join('')}</div>
             <span class="lb">Ikon</span><input class="inm full" data-inn="ricon" data-v="${esc(r.key)}" value="${esc(R.icons[r.key] || '')}" placeholder="${esc(r.ikon)}" autocapitalize="off" autocorrect="off" spellcheck="false">
-            <span class="imeta">${esc(r.id)}${r.enhet && r.kilde !== 'ekstra' ? ' · ' + esc(r.enhet) : ''} · ${esc(katName(r.cat))}${r.all.length > 1 ? ` · ${r.all.length} entiteter (hold på raden i popupen for resten)` : ''}</span>
+            <span class="imeta">${esc(r.id)}${r.kilde !== 'ekstra' ? ' · ' + esc(r.enhet) + ' · ' + esc(plattformNavn(hh, r.plattform)) : ' · ekstra'}${r.all.length > 1 ? ` · ${r.all.length} entiteter (hold på raden i popupen for resten)` : ''}</span>
             ${own ? `<div class="ichips"><button data-a="fn" data-k="${key}" data-op="rrm" data-v="${esc(r.id)}">Fjern raden</button></div>` : ''}</div>` : '';
         return `<div class="irow ${r.hidden ? 'off' : ''}" data-edk="${esc(r.key)}" data-elist="inn-row" data-key="ir-${esc(r.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="rexp" data-v="${esc(r.key)}" aria-expanded="${open === r.key}" aria-label="Navn, fane og ikon">${M.icon(r.icon, 20)}</button>
           <button class="itx" data-a="fn" data-k="${key}" data-op="rexp" data-v="${esc(r.key)}"><b>${esc(r.name)}</b><i>${esc(r.id)}</i></button>
           ${sw(key, 'reye', r.key, !r.hidden, (r.hidden ? 'Vis ' : 'Skjul ') + r.name)}</div>${sub}`;
       }).join('');
-      // «Legg til rad»: bare brytere (input_boolean/switch) – automasjoner og skript hører ikke hjemme blant varslene
+      // «Legg til rad» = fanens Ekstra brytere (switch/input_boolean/automation, som ki-varsling-card)
       const q = (ed.__edQ['inn-q'] || '').trim().toLowerCase(), have = new Set(L.map((r) => r.id));
-      const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['input_boolean', 'switch'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
-      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter varsel-bryter" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['input_boolean', 'switch', 'automation'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
+      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
         ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>` : '';
-      const none = !rules(hh, cc).some((r) => r.kilde === 'integrasjon') ? 'Fant ingen varsler fra KI Varslinger og sikkerhet' : 'Ingen rader i denne fanen ennå.';
+      const none = !rules(hh, cc).length ? 'Fant ingen brytere fra valgte integrasjoner' : 'Ingen rader i denne fanen ennå.';
       return `<div class="ilist">${rows || `<div class="iempty">${esc(none)}</div>`}${add}</div>
         <button class="ibtn" data-a="fn" data-k="${key}" data-op="radd-open" data-v="">${M.icon(ADD.has(id) ? 'mdi:close' : 'mdi:plus', 20)}${ADD.has(id) ? 'Lukk' : 'Legg til rad'}</button>
         ${arr(R.order[tab]).length ? `<button class="ibtn" data-a="fn" data-k="${key}" data-op="rsort" data-v="">${M.icon('mdi:sort-alphabetical-ascending', 18)}Automatisk rekkefølge</button>` : ''}`;
@@ -47821,30 +49308,16 @@ try {
       if (dd.op === 'rmove') {
         M.haptic('selection'); EXP.delete(id);
         const r = rules(ed._hass, cc).find((x) => x.key === dd.v);
-        return setRows(ed, (W) => { [dd.v, r && r.id, r && r.dev, r && r.slug].forEach((k) => { if (k) delete W.move[k]; }); const def = r && r.tab; if (!r || dd.t !== def || r.kilde === 'ekstra' || tabDefs(cc).some((t) => (t.key === def && hasFilter(t.filter)) || (t.custom && r.cat === t.source))) W.move[dd.v] = dd.t; });
+        return setRows(ed, (W) => { [dd.v, r && r.id, r && r.dev, r && r.slug].forEach((k) => { if (k) delete W.move[k]; }); if (!r || !r.tabs.includes(dd.t)) W.move[dd.v] = dd.t; });
       }
-      if (dd.op === 'rrm') { M.haptic('selection'); EXP.delete(id); return setRows(ed, (W) => { W.include = W.include.filter((x) => x !== dd.v); delete W.move[dd.v]; delete W.names[dd.v]; delete W.icons[dd.v]; }); }
+      if (dd.op === 'rrm') { M.haptic('selection'); EXP.delete(id); return editFane(ed, tab, (x) => { const o = { ...x, ekstra: arr(x.ekstra).filter((e) => e !== dd.v) }; if (!o.ekstra.length) delete o.ekstra; return o; }); }
       if (dd.op === 'radd-open') { M.haptic('selection'); ed.__edQ['inn-q'] = ''; if (ADD.has(id)) ADD.delete(id); else ADD.add(id); return ed._render(); }
-      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; ADD.delete(id); return setRows(ed, (W) => { if (!W.include.includes(dd.v)) W.include.push(dd.v); W.move[dd.v] = tab; }); }
+      if (dd.op === 'radd') { M.haptic('success'); ed.__edQ['inn-q'] = ''; ADD.delete(id); return editFane(ed, tab, (x) => ({ ...x, ekstra: [...arr(x.ekstra).filter((e) => e !== dd.v), dd.v] })); }
       if (dd.op === 'rsort') { M.haptic('selection'); return setRows(ed, (W) => { const O = { ...W.order }; delete O[tab]; W.order = O; }); }
-    } };
-    // Filter for valgt fane (samme som ki-varsling-card: enheter / ikke_enheter / plattform) – lagres i tabs[i].filter
-    const filter = { type: 'html', html: (hh, cc, key, ed) => {
-      innKit(ed);
-      const tab = curTab(ed, cc), t = tab && tabDef(cc, tab);
-      if (!t) return '';
-      const F = obj(t.filter), P = arr(F.plattform);
-      return `<div class="ifld"><span class="lb">Bare regler med navn som inneholder (kommaseparert)</span><input class="inm full" data-inn="fenh" data-v="${esc(tab)}" value="${esc(arr(F.enheter).join(', '))}" placeholder="Automatisk fordeling" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        <div class="ifld"><span class="lb">Ikke regler med navn som inneholder</span><input class="inm full" data-inn="fikke" data-v="${esc(tab)}" value="${esc(arr(F.ikke_enheter).join(', '))}" placeholder="Ingen" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        <div class="ifld"><span class="lb">Integrasjoner</span><div class="ichips">${KI_VARS_PLATTFORM.map((p) => `<button class="${P.includes(p) ? 'on' : ''}" aria-pressed="${P.includes(p)}" data-a="fn" data-k="${key}" data-op="fplat" data-v="${esc(tab)}" data-p="${p}">${esc({ ki_notifications: 'KI Varslinger', ki_energi: 'KI Energi' }[p])}</button>`).join('')}</div></div>`;
-    }, click: (dd, ed) => {
-      if (dd.op !== 'fplat') return;
-      M.haptic('selection');
-      const D = tabDefs(ed._config || {}).map((x) => { if (x.key !== dd.v) return x; const F = { ...obj(x.filter) }, P = new Set(arr(F.plattform)); if (P.has(dd.p)) P.delete(dd.p); else P.add(dd.p); if (P.size) F.plattform = [...P]; else delete F.plattform; return { ...x, filter: F }; });
-      return ed._set('tabs', tabsOut(D));
+      return undefined;
     } };
     const reset = { type: 'html', html: (hh, cc, key) => `<button class="ireset" data-a="fn" data-k="${key}" data-op="reset" data-v="">Tilbakestill til standard</button>`,
-      click: (dd, ed) => { if (dd.op !== 'reset') return; M.haptic('medium'); const cc = ed._config || {}, id = cc.card_id || M.uid(); NT.delete(cid(ed)); RT.delete(cid(ed)); ed._config = { type: cc.type || 'custom:msh-innstillinger-card', card_id: id }; ed._set('card_id', id); } };
+      click: (dd, ed) => { if (dd.op !== 'reset') return; M.haptic('medium'); const cc = ed._config || {}, id = cc.card_id || M.uid(); NT.delete(cid(ed)); RT.delete(cid(ed)); EXPF.delete(cid(ed)); ed._config = { type: cc.type || 'custom:msh-innstillinger-card', card_id: id }; ed._set('card_id', id); } };
     // Entiteter (designet): ikon, navn, entitet (mono) / «Velg entitet» (rosa), chevron → søk med forslag (✓ = valgt).
     // Autokonfig vises som «… · automatisk»; «Automatisk» i lista fjerner overstyringen.
     const entiteter = { type: 'html', html: (hh, cc, key, ed) => {
@@ -47875,17 +49348,16 @@ try {
       { type: 'tabs', id: 'innstillinger', tabs: [
         { key: 'faner', label: 'Faner', focus: ['faner', 'visning', 'forhandsvisning'], fields: [
           { type: 'section', id: 'forhandsvisning', label: 'Forhåndsvisning', fields: [preview] },
-          { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner] },
+          { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner, gui] },
           { type: 'section', id: 'visning', label: '', fields: [
             { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Ikon + tekst'], ['name', 'Tekst'], ['ikon', 'Ikoner']], default: 'icon' },
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: tabDefs(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
+            { type: 'select', name: 'start_tab', label: 'Startfane', options: fanerOf(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
           ] },
         ] },
-        { key: 'rader', label: 'Rader', focus: ['rader', 'filter'], fields: [
+        { key: 'rader', label: 'Rader', focus: ['rader'], fields: [
           radSeg,
           { type: 'section', id: 'oppsummering', label: '', fields: [summary] },
           { type: 'section', id: 'rader', label: 'Rader · dra for rekkefølge', fields: [rader] },
-          { type: 'section', id: 'filter', label: 'Filter for fanen', fields: [filter] },
         ] },
         { key: 'entiteter', label: 'Entiteter', focus: ['entiteter'], fields: [{ type: 'section', id: 'entiteter', label: 'Toppkort', fields: [entiteter] }] },
         { key: 'avansert', label: 'Avansert', focus: ['avansert', 'spacing'], fields: [
@@ -47978,6 +49450,14 @@ try {
     // Soloppgangen (28.6) spilles bare én gang per åpning: neste åpning starter den på nytt
     onClose() { this._ui = { ...this._ui, q: '' }; this._riseAt = 0; clearTimeout(this._riseT); const sc = this.shadowRoot && this.shadowRoot.querySelector('.sc.rise'); if (sc) sc.classList.remove('rise'); }
     onOpen() { this._riseAt = 0; this.update(); }
+    get holdMs() { return 500; } // 29.2: hold 500 ms = more-info (som ki-varsling-card)
+    // Registeret endres ofte i HA: tegn bare når bryterne ([id, på] per fane) faktisk endres (29.1 «Live»)
+    _changed(o, n) {
+      if (o.areas === n.areas && o.states === n.states && (o.entities !== n.entities || o.devices !== n.devices) && this._vsig != null) {
+        try { if (cardSig(n, this.config) === this._vsig) return false; } catch (e) { /* tegn */ }
+      }
+      return super._changed(o, n);
+    }
     get tab() { const V = visTabs(this.config).map((t) => t.key), t = keyOf(this.ui.tab || this.config.start_tab); return V.includes(t) ? t : V[0]; }
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
     get _anim() { return this.config.animasjoner !== false; }
@@ -47988,8 +49468,8 @@ try {
       if (ui && ui.editor && this.hass) ui.editor.__innSig = ruleSig(this.hass, ui.editor._config || this.config);
       return ui;
     }
-    // 28.5: åpent Tilpass-ark får fersk hass – nye regler/kategorier i KI Varslinger dukker opp i «Legg til fane» og Rader
-    // uten reload. Ny tegning bare når regelsettet (id + kategori) faktisk endres.
+    // 28.5/29: åpent Tilpass-ark får fersk hass – nye regler/brytere/integrasjoner dukker opp i fanepanelet, «Legg til fane»
+    // og Rader uten reload. Ny tegning bare når brytersettet per fane (eller plattformlisten) faktisk endres.
     _edLive(h) {
       const ui = this._edUi, ed = ui && ui.editor;
       if (!ed || !h) return;
@@ -48007,7 +49487,8 @@ try {
       if (!this._opt || !h) return;
       Object.keys(this._opt).forEach((id) => { const o = this._opt[id], s = h.states[id]; if (s && (s.state === 'on') === o.want) { clearTimeout(o.tm); delete this._opt[id]; } });
     }
-    _flip(id) {
+    // svc = 'toggle' for radene (29.2: trykk = toggle), ellers turn_on/turn_off (toppkortet)
+    _flip(id, svc) {
       const h = this.hass, s = h && id && h.states[id];
       if (!s || M.unavailable(s)) return;
       this._opt = this._opt || {};
@@ -48025,7 +49506,7 @@ try {
         }, M.innstSyncMs);
         this._opt[id] = o;
       }
-      const p = M.call(h, 'homeassistant', want ? 'turn_on' : 'turn_off', { entity_id: id });
+      const p = M.call(h, 'homeassistant', svc || (want ? 'turn_on' : 'turn_off'), { entity_id: id });
       if (p && p.catch) p.catch(() => { const o = this._opt && this._opt[id]; if (o) { clearTimeout(o.tm); delete this._opt[id]; this.update(); } });
       this.update();
     }
@@ -48105,32 +49586,34 @@ try {
         <div class="stx"><span class="k">${esc(kicker)}</span><span class="gt">${night ? 'God natt' : 'God morgen'}</span>${sub ? `<span class="k">${esc(sub)}</span>` : ''}${pend ? SYNC : ''}</div>
         <div class="chips">${chip(E.natt, nS, nua, nOn, 'n', 'mdi:moon-waning-crescent', nOn ? 'Natt på' : 'Natt av', 'medium')}${chip(E.privat, pS, pua, pOk, 'p', pOk ? 'mdi:video-off' : 'mdi:video', pOk ? 'Privat på' : 'Kamera på', 'medium')}</div></div>`;
     }
+    // 29.2: tom kilde → aldri mock; «Velg integrasjoner» åpner fanepanelet (29.3) for denne fanen
     _empty(tab) {
-      const h = this.hass, R = rules(h, this.config), d = tabDef(this.config, tab);
-      const txt = !R.some((r) => r.kilde === 'integrasjon' && r.plattform !== 'ki_energi') && tab !== 'strom' ? 'Fant ingen varsler fra KI Varslinger og sikkerhet'
-        : tab === 'strom' && !R.some((r) => r.plattform === 'ki_energi') ? 'Fant ingen varsler fra KI Energi'
-          : d && d.custom ? `Ingen varsler i kategorien ${katName(d.source)}` : 'Ingen varsler i denne fanen';
-      return `<div class="empty">${M.icon('mdi:bell-off-outline', 22)}<span>${esc(txt)}</span><button class="pick press" data-act="customize" data-section="rader" ${this._hp('light')}>${M.icon('mdi:plus', 18)}Velg entiteter</button></div>`;
+      const d = tabDef(this.config, tab), src = this.hass ? finn(this.hass, faneCfg(this.config, d || {})).length : 0;
+      const txt = !src ? 'Fant ingen brytere fra valgte integrasjoner' : 'Alle bryterne i fanen er skjult';
+      return `<div class="empty" data-key="empty">${M.icon('mdi:bell-off-outline', 22)}<span>${esc(txt)}</span><button class="pick press" data-act="pickint" data-v="${esc(tab)}" ${this._hp('light')}>${M.icon('mdi:tune-variant', 18)}Velg integrasjoner</button></div>`;
     }
     _list(tab) {
-      const c = this.config, h = this.hass, all = tabRows(h, c, tab);
+      const c = this.config, h = this.hass, all = tabRows(h, c, tab), d = tabDef(c, tab) || {};
       all.forEach((r) => this.s(r.id));
       if (!all.length) return this._empty(tab);
+      const pa = (r) => this._on(r.id, h.states[r.id]);
       const q = (this.ui.q || '').trim().toLowerCase();
       let L = q ? all.filter((r) => `${r.name} ${r.sub} ${r.enhet} ${r.id}`.toLowerCase().includes(q)) : all;
-      if (c.av_forst) L = [...L.filter((r) => !isOn(h.states[r.id])), ...L.filter((r) => isOn(h.states[r.id]))];
-      const on = all.filter((r) => isOn(h.states[r.id])).length, allOn = on === all.length;
-      const search = c.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
+      if (c.av_forst) L = [...L.filter((r) => !pa(r)), ...L.filter((r) => pa(r))];
+      const on = all.filter(pa).length, allOn = on === all.length;
+      const search = c.sok !== false && d.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
       const head = c.show_summary !== false ? `<div class="cnt" data-key="cnt"><span class="num">${on} av ${all.length} på</span><button class="all press" data-act="all" data-v="${allOn ? 'off' : 'on'}" ${this._hp('medium')}>${allOn ? 'Slå alle av' : 'Slå alle på'}</button></div>` : '';
       const rows = L.map((r, k) => {
-        const s = h.states[r.id], o = isOn(s), un = M.unavailable(s);
+        const s = h.states[r.id], o = pa(r), un = !s || M.unavailable(s);
         const sub = un ? 'Svarer ikke' : r.sub || '–';
-        return `<button class="pr press ${o ? '' : 'off'}" style="animation-delay:${k * 25}ms" data-key="r-${esc(r.key)}" data-act="tg" data-id="${esc(r.id)}" data-ent="${esc(r.id)}" role="switch" aria-checked="${o}" ${this._hp('selection')} ${un ? 'disabled' : ''}>
+        // trykk = toggle (optimistisk), hold 500 ms = more-info (data-ent), borte = dempet + «Svarer ikke»
+        return `<button class="pr press ${o ? '' : 'off'} ${un ? 'borte' : ''} ${this._pend(r.id) ? 'pend' : ''}" style="animation-delay:${k * 25}ms" data-key="r-${esc(r.key)}" data-act="tg" data-id="${esc(r.id)}" data-ent="${esc(r.id)}" role="switch" aria-checked="${o}" ${un ? 'aria-disabled="true"' : ''} ${this._hp('selection')}>
           <span class="pi">${M.icon(r.icon, 22)}</span>
           <span class="pt"><b>${esc(r.name)}</b><i>${o || un ? esc(sub) : 'Av · ' + esc(sub)}</i></span>
           <span class="sw ${o ? 'on' : ''}"></span></button>`;
       }).join('');
-      return `${search}<div class="lst">${head}${rows || '<div class="none">Ingen treff</div>'}</div>`;
+      this._vsig = cardSig(h, c);
+      return `${search}<div class="lst" data-key="lst">${head}${rows || '<div class="none">Ingen treff</div>'}</div>`;
     }
     onInput(name, el) { if (name === 'q') this.setUI({ q: el.value }); }
     onAction(name, el, ev) {
@@ -48139,11 +49622,12 @@ try {
         case 'tab': return this.setUI({ tab: d.v, q: '' });
         case 'night': return this._flip(ents(this.hass, this.config).natt);
         case 'priv': return this._flip(ents(this.hass, this.config).privat);
-        case 'tg': return d.id ? M.call(this.hass, 'homeassistant', 'toggle', { entity_id: d.id }) : undefined;
+        case 'tg': return d.id ? this._flip(d.id, 'toggle') : undefined; // 29.2: optimistisk + tilbakerulling (27.6)
+        case 'pickint': { const ui = this.customize('faner'); if (ui && ui.editor) { EXPF.set(cid(ui.editor), keyOf(d.v)); if (ui.editor._render) ui.editor._render(); } return undefined; }
         case 'qclr': return this.setUI({ q: '' });
         case 'all': {
           const c = this.config, h = this.hass;
-          const L = tabRows(h, c, this.tab).filter((r) => !M.unavailable(h.states[r.id])).map((r) => r.id);
+          const L = tabRows(h, c, this.tab).filter((r) => h.states[r.id] && !M.unavailable(h.states[r.id])).map((r) => r.id);
           if (L.length) return M.call(h, 'homeassistant', d.v === 'off' ? 'turn_off' : 'turn_on', { entity_id: L });
           return undefined;
         }
@@ -48151,11 +49635,14 @@ try {
       }
     }
     afterRender() {
-      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs[]), sideveis dra = Liquid Glass-valg; tannhjulet står fast
+      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner[]), sideveis dra = Liquid Glass-valg; tannhjulet står fast
       if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.bar:not(.pv)>.tabs[role="tablist"]'), {
-        active: () => this.tab, order: () => tabDefs(this.config).map((t) => t.key),
-        save: (full) => { const D = tabDefs(this.config); return M.mshPatchConfig(this, { tabs: tabsOut(full.map((k) => D.find((t) => t.key === k)).filter(Boolean)) }); },
+        active: () => this.tab, order: () => fanerOf(this.config).map((t) => t.key),
+        save: (full) => { const D = fanerOf(this.config); return M.mshPatchConfig(this, { faner: fanerOut(full.map((k) => D.find((t) => t.key === k)).filter(Boolean)), tabs: undefined, custom_tabs: undefined, tab_order: undefined, tab_hidden: undefined, tab_names: undefined }); },
       });
+      // Fallgruve 2: trykk/hold på radene skal ikke nå Bubble Cards swipe-to-close (scroll i listen virker som før)
+      const lst = this.shadowRoot.querySelector('.lst');
+      if (lst && !lst.__mshStop) { lst.__mshStop = true; ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => lst.addEventListener(t, (e) => e.stopPropagation(), { passive: true })); }
       // «Dashbord» nederst: dashbordets innstillinger (msh-settings-card) bygd inn – de forsvinner ikke fra #settings
       const slot = this.shadowRoot.querySelector('.dash');
       if (slot) {
@@ -48276,8 +49763,9 @@ try {
         .lst{display:flex;flex-direction:column;gap:8px}
         .cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 0;font-size:13px;color:#afafaf;white-space:nowrap}
         .all{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);color:#fafafa;font-size:12px;font-weight:500;white-space:nowrap;flex:none}
-        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--gray200,#3a3a3a);text-align:left;animation:fade .3s ease both}
-        .pr[disabled]{opacity:.5}
+        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--gray200,#3a3a3a);text-align:left;animation:fade .3s ease backwards}
+        .pr{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .pr.borte{opacity:.45}
         .pi{width:58px;height:58px;border-radius:29px;flex:none;display:grid;place-items:center;background:#4a4a4a;color:#e1e1e1;transition:background .25s,color .25s}
         .pr.off .pi{background:rgb(242 128 115 / .16);color:var(--red,#f28073)}
         .pt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -49119,6 +50607,381 @@ try {
 
 } catch (e) { console.error('[ki-msh] 61-varmepumpe.js', e); }
 
+/* ---- 62-garasje.js ---- */
+try {
+/* msh-garasje-card · Garasje-popup #garasje (Fiks 32.2). Fasit: «Garasjeport.dc.html». ÉTT kort i popupen.
+ * Autogenereres når det finnes cover.* med device_class: garage (én eller to porter).
+ * Rekkefølge: portvelger + tannhjul (MSH.sik.picker – én port: bare tannhjulet, høyrestilt) → toppkort (MSH.sik.hero: navn +
+ * chip Sikret / Lukkes om N min / I bevegelse (blinkende ikon), tilstand 44/300, portillustrasjon 118 × 104 i CSS der porten
+ * har høyden 100 − current_position %, gult lys ovenfra når garasjelyset er på, Åpne · Stopp · Lukk) → statusfliser (Lys,
+ * Bevegelse, Lukket i / Åpen i) → Automatikk (MSH.sik.auto: Autolukk 5/10/15/30 min, Lukk når alle drar, Åpne når Tesla
+ * kommer, Varsle hvis åpen etter 22:00) → Historikk (MSH.sik.history: Åpnet med «Åpen i X», Lukket, Åpen etter 22:00).
+ * «Åpne krever» (Tilpass → Sikkerhet): Ett trykk / To trykk (første trykk gjør Åpne oransje i 3 s) / Kun hjemme.
+ * Autokonfig: lys = light.* og bevegelse = binary_sensor motion/occupancy i portens område; doors_cfg.<objekt>.{name, light,
+ * motion} overstyrer ('none' = ingen). Automatikk fra KI Varslinger og sikkerhet (MSH.finnBrytere), overrides.{auto_close,
+ * away_close, arrive_open, night_alert}. Ingen gjettede ID-er – «–» når noe mangler.
+ */
+(function () {
+  const M = window.MSH, esc = M.esc, S = M.sik;
+  const { G, O, R, Y, GR, PK } = S.COL;
+  const HASH = '#garasje';
+  const GAR_RX = /garasje|garage|\bport\b/;
+  const MINS = [5, 10, 15, 30];
+  const real = (hass, id) => (id && id !== 'none' && hass.states[id] ? id : null);
+  const txt = (hass, id) => (id + ' ' + String((hass.states[id] && hass.states[id].attributes.friendly_name) || '')).toLowerCase();
+  const on = (c, k) => c[k] !== false;
+  const covers = (hass) => M.all(hass, 'cover', (s) => s.attributes.device_class === 'garage');
+  M.garasjeHas = (hass) => covers(hass).length > 0;
+  const findAuto = (rx) => (hass) => Object.keys(hass.states).filter((id) => /^(automation|input_boolean|switch)\./.test(id) && GAR_RX.test(txt(hass, id)) && rx.test(txt(hass, id))).sort()[0] || null;
+  const DEFS = [
+    { k: 'auto', ov: 'auto_close', rx: /autolukk|auto.?close|auto.?lukk/, fb: findAuto(/autolukk|auto.?close|auto.?lukk/) },
+    { k: 'away', ov: 'away_close', rx: /(garasje|garage|port).*(alle.?dr|borte|away|leav)|(alle.?dr|borte|away|leav).*(garasje|garage|port)/, fb: findAuto(/alle.?dr|borte|away|leav/) },
+    { k: 'arrive', ov: 'arrive_open', rx: /tesla|ankomst|arriv|(bil|car).*(kommer|hjem)/, fb: findAuto(/tesla|ankom|arriv|kommer/) },
+    { k: 'night', ov: 'night_alert', rx: /(garasje|garage|port).*(22|natt|night|kveld|etter)|(22|natt|night|kveld).*(garasje|garage|port)|[aå]pen.?etter/, fb: findAuto(/22|natt|night|kveld|[aå]pen.?etter/) },
+  ];
+  M.garasjeAutos = function (hass, cfg) {
+    const ov = (cfg && cfg.overrides) || {}, o2 = {};
+    DEFS.forEach((d) => { if (ov[d.ov]) o2[d.k] = ov[d.ov]; });
+    return S.autoFind(hass, DEFS, o2);
+  };
+  M.garasjeAuto = function (hass, cfg) {
+    if (!hass) return { doors: [] };
+    return { doors: M.applyLists(cfg || {}, 'porter', covers(hass)).filter((id) => hass.states[id]).slice(0, 2) };
+  };
+  // Autokonfig for én port
+  function doorInfo(hass, cfg, id) {
+    const st = hass.states[id] || null, obj = id.split('.')[1], o = ((cfg.doors_cfg || {})[obj]) || {}, area = M.areaOf(hass, id);
+    const pref = (L) => L.sort((a, b) => (GAR_RX.test(txt(hass, b)) ? 1 : 0) - (GAR_RX.test(txt(hass, a)) ? 1 : 0) || a.localeCompare(b))[0] || null;
+    const lightAuto = area ? pref(M.all(hass, 'light', (s, x) => M.areaOf(hass, x) === area)) : null;
+    const motionAuto = area ? pref(M.all(hass, 'binary_sensor', (s, x) => ['motion', 'occupancy', 'presence'].includes(s.attributes.device_class) && M.areaOf(hass, x) === area)) : null;
+    const light = o.light === 'none' ? null : real(hass, o.light) || lightAuto, motion = o.motion === 'none' ? null : real(hass, o.motion) || motionAuto;
+    const cp = st && st.attributes.current_position, hasPos = cp != null && M.isNum(cp);
+    const v = st ? st.state : '';
+    const pos = hasPos ? M.clamp(Number(cp), 0, 100) : v === 'open' ? 100 : v === 'closed' ? 0 : null;
+    return { id, obj, st, v, name: o.name || (st && st.attributes.friendly_name) || obj.replace(/_/g, ' '), light, lightAuto, lightOwn: real(hass, o.light), motion, motionAuto, motionOwn: real(hass, o.motion), hasPos, pos };
+  }
+  const someoneHome = (hass) => M.all(hass, 'person').some((p) => hass.states[p].state === 'home') || M.all(hass, 'device_tracker', (s, id) => /tesla|bil\b|car/.test(txt(hass, id))).some((d) => hass.states[d].state === 'home');
+  const CONF = [['ingen', 'Ett trykk'], ['to', 'To trykk'], ['borte', 'Kun hjemme']];
+  const CONF_NOTE = { ingen: 'Porten åpnes med ett trykk.', to: 'Første trykk gjør «Åpne» oransje, andre trykk innen 3 s åpner.', borte: 'Åpne er bare tilgjengelig når noen er hjemme eller Tesla er nær.' };
+
+  class Garasje extends M.Card {
+    static get cardName() { return 'Garasje'; }
+    static get defaults() { return { open_confirm: 'ingen', toasts: true }; }
+    static get uiPersist() { return ['sel', 'amOpen', 'amMem']; }
+    static getStubConfig() { return { card_id: M.uid(), ...this.defaults }; }
+    static get schema() {
+      return (h, c) => {
+        const A = h ? M.garasjeAuto(h, c) : { doors: [] }, au = h ? M.garasjeAutos(h, { ...c, overrides: {} }) : {};
+        return [
+          { type: 'lists', label: 'Porter', lists: (hh) => [{ key: 'porter', label: 'Garasjeporter (maks to)', ids: covers(hh), domains: ['cover'] }] },
+          ...A.doors.map((id) => {
+            const x = doorInfo(h, c, id), P = `doors_cfg.${x.obj}`;
+            return { type: 'section', id: 'door-' + x.obj, label: 'Port · ' + x.name, icon: 'mdi:garage', fields: [
+              { type: 'text', name: P + '.name', label: 'Navn', placeholder: (x.st && x.st.attributes.friendly_name) || x.obj },
+              { type: 'entity', name: P + '.light', label: 'Lys', domains: ['light', 'switch'], auto: () => x.lightAuto },
+              { type: 'entity', name: P + '.motion', label: 'Bevegelse', domains: ['binary_sensor'], auto: () => x.motionAuto },
+            ] };
+          }),
+          { type: 'section', id: 'secs', label: 'Seksjoner', icon: 'mdi:view-grid-outline', fields: [
+            { type: 'boolean', name: 'show_status', label: 'Status · lys, bevegelse, tid', default: true },
+            { type: 'boolean', name: 'show_auto', label: 'Automatikk', default: true },
+            { type: 'boolean', name: 'show_hist', label: 'Historikk', default: true },
+          ] },
+          { type: 'section', id: 'safe', label: 'Sikkerhet', icon: 'mdi:shield-lock-outline', fields: [
+            { type: 'select', name: 'open_confirm', label: 'Åpne krever', options: CONF, default: 'ingen' },
+            { type: 'info', label: 'To trykk: første trykk gjør «Åpne» oransje, andre trykk innen 3 s åpner. Kun hjemme: Åpne er bare tilgjengelig når noen er hjemme eller Tesla er nær.' },
+          ] },
+          { type: 'overrides', id: 'autos', label: 'Automatikk', fields: [
+            { name: 'auto_close', label: 'Autolukk', domains: ['switch', 'input_boolean', 'automation'], auto: () => au.auto },
+            { name: 'away_close', label: 'Lukk når alle drar', domains: ['automation', 'input_boolean', 'switch'], auto: () => au.away },
+            { name: 'arrive_open', label: 'Åpne når Tesla kommer', domains: ['automation', 'input_boolean', 'switch'], auto: () => au.arrive },
+            { name: 'night_alert', label: 'Varsle hvis åpen etter 22:00', domains: ['automation', 'input_boolean', 'switch'], auto: () => au.night },
+          ] },
+          { type: 'section', id: 'view', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (toast)', default: true }] },
+        ];
+      };
+    }
+    get cardSize() { return 8; }
+    customize(focus) { return openSheet(this, focus); }
+    onOpen() {
+      if (M.garasjePick) { const id = M.garasjePick; M.garasjePick = null; if (M.garasjeAuto(this.hass, this.config).doors.includes(id) && id !== this.ui.sel) this.setUI({ sel: id }); }
+      this._loadLog();
+      clearInterval(this._tick);
+      this._tick = setInterval(() => this.update(), 30000); // «Åpen i 2 min» / «Lukkes om N min» – bare mens popupen er åpen
+    }
+    onClose() { clearInterval(this._tick); this._tick = 0; this._disarm(); }
+    disconnectedCallback() { super.disconnectedCallback(); clearInterval(this._tick); this._tick = 0; }
+    afterRender() {
+      const w = Math.round(this.getBoundingClientRect().width);
+      if (w && this._pickW !== w) { this._pickW = w; if (this._pickMode && this._pickMode !== 'eq') { this._pickMode = 'eq'; this.update(); return; } }
+      if (this._pickMode !== 'many' && !S.pickerFits(this.shadowRoot)) { this._pickMode = this._pickMode === 'fit' ? 'many' : 'fit'; this.update(); }
+    }
+    _toast(t) { if (this.config.toasts !== false) M.toast(t); }
+    _cur(A) { const L = A.doors; if (!L.length) return null; const i = L.indexOf(this.ui.sel); return L[i >= 0 ? i : 0]; }
+    async _loadLog() {
+      const h = this.hass, A = M.garasjeAuto(h, this.config);
+      if (!A.doors.length || !h || !h.callWS) return;
+      this._log = await S.logbook(h, A.doors, 3);
+      this._logT = Date.now();
+      this.update();
+    }
+    // Bevegelse: HA (opening/closing) eller ventende trykk (optimistisk, tilbakerulling etter 10 s). success når porten er ferdig.
+    _mov(x) {
+      const v = x.v, p = this._pend && this._pend[x.id];
+      const ha = v === 'opening' ? 'up' : v === 'closing' ? 'down' : null;
+      if (p) {
+        const target = p.want === 'up' ? 'open' : 'closed';
+        if (v === target && (p.moved || !x.hasPos || x.pos === (p.want === 'up' ? 100 : 0))) { clearTimeout(p.tm); delete this._pend[x.id]; M.haptic('success'); this._toast(`${x.name} ${p.want === 'up' ? 'åpnet' : 'lukket'}`); return null; }
+        if (ha === p.want) { if (!p.moved) { p.moved = true; clearTimeout(p.tm); } return ha; }
+        if (!p.moved) return p.want;
+        delete this._pend[x.id];
+      }
+      return ha;
+    }
+    _status(x, mov) {
+      if (!x.st || M.unavailable(x.st)) return 'un';
+      if (x.hasPos) return x.pos <= 0 ? 'closed' : x.pos >= 100 ? 'open' : 'part';
+      return x.v === 'closed' ? 'closed' : x.v === 'open' ? 'open' : mov === 'up' ? 'closed' : mov === 'down' ? 'open' : 'part';
+    }
+    _autos() {
+      const h = this.hass, ids = M.garasjeAutos(h, this.config);
+      Object.values(ids).forEach((e) => e && this.s(e));
+      const numId = ids.auto ? S.minsOn(h, ids.auto, /lukk|close|min|tid|time/) : null;
+      if (numId) this.s(numId);
+      const all = Object.values(ids).filter(Boolean), mOn = S.masterOn(this, all);
+      return { ids, all, mOn, numId, mins: S.minsOf(h, numId), autoOn: !!ids.auto && mOn && S.isOn(this, ids.auto) };
+    }
+    render() {
+      const c = this.config, hass = this.hass, A = M.garasjeAuto(hass, c);
+      A.doors.forEach((id) => this.s(id));
+      if (!A.doors.length) return `<div class="sk-wrap">${S.picker({ items: [], gear: 'Tilpass garasje' })}${this._hero(null)}${M.emptyState('Fant ingen garasjeport (cover.* med device_class: garage)', 'doors')}</div>`;
+      const id = this._cur(A), x = doorInfo(hass, c, id);
+      [x.light, x.motion].forEach((e) => e && this.s(e));
+      const items = A.doors.map((d) => { const y = doorInfo(hass, c, d), m = this._mov(y), s = this._status(y, m); const col = m || s === 'part' ? Y : s === 'closed' ? G : s === 'open' ? O : GR; return { id: d, name: y.name, icon: s === 'closed' ? 'mdi:garage' : 'mdi:garage-open', state: m === 'up' ? 'Åpner …' : m === 'down' ? 'Lukker …' : this._lbl(y, s), col }; });
+      const au = this._autos();
+      const sec = [S.picker({ items, sel: id, gear: 'Tilpass garasje', mode: this._pickMode }), this._hero(x, au)];
+      if (on(c, 'show_status')) sec.push(this._tiles(x));
+      if (on(c, 'show_auto')) sec.push(this._auto(au));
+      if (on(c, 'show_hist')) sec.push(this._hist(A));
+      return `<div class="sk-wrap">${sec.join('')}</div>`;
+    }
+    _lbl(x, s) { return s === 'un' ? '–' : s === 'closed' ? 'Lukket' : s === 'open' ? 'Åpen' : x.pos != null ? `Åpen ${Math.round(x.pos)} %` : 'Delvis åpen'; }
+    _lastBy(x, state) {
+      const e = this._log && this._log.find((y) => y.id === x.id && y.state === state);
+      if (!e) return '';
+      const p = e.user ? S.person(this.hass, e.user) : null;
+      return p ? p.name : S.method(this.hass, e, null, 'garage').label;
+    }
+    _hero(x, au) {
+      const door = (pos, lit, slow) => `<div class="gp-door" data-key="gp-door"><div class="gp-open"><span class="gp-light" style="background:radial-gradient(80% 60% at 50% 0%, ${lit ? 'rgb(242 210 111 / 0.45)' : 'rgb(255 255 255 / 0.06)'} 0%, transparent 70%)"></span><span class="gp-car"></span><span class="gp-panel ${slow || ''}" style="height:${pos}%"></span></div></div>`;
+      if (!x) return S.hero({ name: 'Garasje', state: '–', sub: 'Velg entitet', col: GR, gap: 14, right: door(100, false), bottom: this._ctl(null) });
+      const mov = this._mov(x), s = this._status(x, mov), col = s === 'un' ? GR : mov || s === 'part' ? Y : s === 'closed' ? G : O;
+      const lit = !!(x.light && S.isOn(this, x.light));
+      let chip;
+      if (s === 'un') chip = { text: 'Utilgjengelig', icon: 'mdi:lan-disconnect' };
+      else if (mov) chip = { text: 'I bevegelse', icon: 'mdi:sync', blink: true };
+      else if (s === 'closed') chip = { text: 'Sikret', icon: 'mdi:shield-check' };
+      else if (au.autoOn && au.mins != null) { const left = Math.max(0, Math.ceil(au.mins - (Date.now() - new Date(x.st.last_changed).getTime()) / 60000)); chip = { text: `Lukkes om ${left} min`, icon: 'mdi:timer-outline' }; }
+      else chip = { text: 'Står åpen', icon: 'mdi:timer-outline' };
+      const state = s === 'un' ? '–' : mov === 'up' ? 'Åpner …' : mov === 'down' ? 'Lukker …' : this._lbl(x, s);
+      let sub;
+      if (s === 'un') sub = 'Utilgjengelig';
+      else if (mov) sub = x.hasPos ? `${Math.round(x.pos)} % åpen` : 'Venter på porten';
+      else { const by = this._lastBy(x, x.v); sub = `${s === 'closed' ? 'Lukket' : 'Åpnet'}${by ? ' av ' + by : ''} · ${S.when(new Date(x.st.last_changed).getTime())}`; }
+      // Porten: høyde 100 − current_position %. Uten posisjon og i bevegelse glir den mot målet (langsom overgang).
+      const pos = x.hasPos ? x.pos : mov === 'up' ? 100 : mov === 'down' ? 0 : s === 'closed' ? 0 : s === 'open' ? 100 : 50;
+      return S.hero({ name: x.name, chip: { ...chip, col }, col, state, sub, gap: 14, right: door(100 - pos, lit, !x.hasPos && mov ? 'slow' : ''), bottom: this._ctl(x, mov, s) });
+    }
+    // Åpne · Stopp · Lukk (56 px, Stopp 64 px rund – rød mens porten går). Aktiv retning rosa. «To trykk»: Åpne oransje i 3 s.
+    _ctl(x, mov, s) {
+      const conf = CONF.some((k) => k[0] === this.config.open_confirm) ? this.config.open_confirm : 'ingen';
+      const un = !x || s === 'un', armed = !!(x && this._arm && this._arm.id === x.id);
+      const away = conf === 'borte' && !someoneHome(this.hass);
+      const oDis = un || (s === 'open' && !mov) || away, cDis = un || (s === 'closed' && !mov);
+      const big = (act, bg, dis) => (act ? `background:${bg};color:#232323;box-shadow:none` : `background:#2f2f2f;color:${dis ? '#696969' : '#fafafa'};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)`);
+      return `<div class="gp-ctl" data-key="gp-ctl">
+        <button class="gp-b" ${x ? 'data-act="g-open" data-haptic="off"' : ''} style="${big(mov === 'up' || armed, armed ? O : PK, oDis)}" ${oDis ? 'aria-disabled="true"' : ''} title="${away ? 'Bare når noen er hjemme' : 'Åpne'}">${M.icon('mdi:arrow-up', 22)}Åpne</button>
+        <button class="gp-stop" ${x ? 'data-act="g-stop" data-haptic="off"' : ''} title="Stopp" aria-label="Stopp" style="background:${mov ? R : '#2f2f2f'};color:${mov ? '#232323' : '#696969'};box-shadow:${mov ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.06)'}" ${mov ? '' : 'aria-disabled="true"'}>${M.icon('mdi:stop', 24)}</button>
+        <button class="gp-b" ${x ? 'data-act="g-close" data-haptic="off"' : ''} style="${big(mov === 'down', PK, cDis)}" ${cDis ? 'aria-disabled="true"' : ''}>${M.icon('mdi:arrow-down', 22)}Lukk</button></div>
+        ${armed ? '<span class="gp-conf">Trykk «Åpne» igjen for å bekrefte</span>' : away && !un ? '<span class="gp-conf">Åpne er bare tilgjengelig når noen er hjemme</span>' : ''}`;
+    }
+    _tiles(x) {
+      const h = this.hass, L = x.light && h.states[x.light], lit = !!(L && S.isOn(this, x.light)), mo = x.motion && h.states[x.motion], mov = this._mov(x), s = this._status(x, mov);
+      const since = x.st ? Date.now() - new Date(x.st.last_changed).getTime() : null;
+      return S.tiles([
+        { icon: 'mdi:lightbulb', val: L && !M.unavailable(L) ? (lit ? 'På' : 'Av') : '–', label: 'Lys', col: lit ? Y : GR, tint: lit ? Y : null, act: L ? 'g-light' : null, id: x.light, ent: x.light },
+        { icon: 'mdi:motion-sensor', val: mo && !M.unavailable(mo) ? (mo.state === 'on' ? 'Bevegelse' : 'Ingen') : '–', label: 'Bevegelse', col: mo && mo.state === 'on' ? O : GR, ent: x.motion },
+        { icon: 'mdi:clock-outline', val: since == null || s === 'un' ? '–' : S.durS(since), label: s === 'closed' ? 'Lukket i' : 'Åpen i', col: s === 'closed' || s === 'un' ? GR : O },
+      ]);
+    }
+    _auto(au) {
+      const mOn = au.mOn, row = (k) => (au.ids[k] ? S.rowOn(this, au.ids[k], mOn) : false), n = au.all.length;
+      const nOn = au.all.filter((id) => S.isOn(this, id)).length;
+      const sub = !n ? 'Ingen automatikk funnet' : !mOn ? 'Av · ingen automatikk kjører' : `${nOn} av ${n} på${au.autoOn && au.mins != null ? ` · autolukk ${M.nf(au.mins)} min` : ''}`;
+      const aOn = row('auto');
+      return S.auto({ open: !!this.ui.amOpen, master: mOn, sub, rows: [
+        { k: 'auto', icon: 'mdi:timer-outline', label: 'Autolukk', sub: aOn ? (au.mins != null ? `Lukker etter ${M.nf(au.mins)} min åpen` : 'Lukker porten automatisk') : 'Av', ent: au.ids.auto, on: aOn, mins: aOn && au.numId ? { opts: MINS, cur: au.mins } : null },
+        { k: 'away', icon: 'mdi:walk', label: 'Lukk når alle drar', sub: 'Når siste person forlater hjemmet', ent: au.ids.away, on: row('away') },
+        { k: 'arrive', icon: 'mdi:car-electric', label: 'Åpne når Tesla kommer', sub: 'Innen 150 m fra hjemmet', ent: au.ids.arrive, on: row('arrive') },
+        { k: 'night', icon: 'mdi:bell-alert', label: 'Varsle hvis åpen etter 22:00', sub: 'Push med knapp for å lukke', ent: au.ids.night, on: row('night') },
+      ] });
+    }
+    // Hendelser (nyeste først): Åpnet (med «Åpen i X»), Lukket og «Åpen etter 22:00» (porten stod åpen over kl. 22)
+    _events(A) {
+      const L = this._log;
+      if (!L) return null;
+      const h = this.hass, out = [];
+      A.doors.forEach((id) => {
+        const raw = L.filter((e) => e.id === id && (e.state === 'open' || e.state === 'closed'));
+        const st = h.states[id];
+        if (st && st.last_changed) { const t = new Date(st.last_changed).getTime(); if ((st.state === 'open' || st.state === 'closed') && t > (this._logT || 0) - 1000 && !raw.some((e) => e.state === st.state && Math.abs(e.t - t) < 5000)) raw.unshift({ id, state: st.state, t, user: (st.context && st.context.user_id) || null }); }
+        const asc = raw.slice().sort((p, q) => p.t - q.t).filter((e, i, arr) => !i || arr[i - 1].state !== e.state);
+        asc.forEach((e, i) => {
+          if (e.state === 'open') {
+            const nx = asc.slice(i + 1).find((y) => y.state === 'closed'), end = nx ? nx.t : Date.now();
+            out.push({ ...e, kind: 'open', dur: nx ? `Åpen i ${S.dur(end - e.t)}` : 'Står åpen' });
+            const d = new Date(e.t); d.setHours(22, 0, 0, 0);
+            for (let w = d.getTime(); w < end; w += 86400000) if (w > e.t) out.push({ id, state: 'warn', t: w, kind: 'warn', close: nx || null, dur: nx ? 'Stod åpen – lukket' : 'Står fortsatt åpen' });
+          } else out.push({ ...e, kind: 'close' });
+        });
+      });
+      return out.sort((p, q) => q.t - p.t);
+    }
+    _hist(A) {
+      const h = this.hass, evs = this._events(A);
+      if (!evs) return S.history({ days: [], empty: 'Henter …' });
+      const two = evs.filter((e) => e.t >= new Date(new Date().setHours(0, 0, 0, 0) - 86400000).getTime()); // I dag og I går
+      const multi = A.doors.length > 1, T = { open: ['Åpnet', O], close: ['Lukket', G], warn: ['Åpen etter 22:00', R] };
+      const days = S.groupDays(two, (e) => {
+        const [ttl, col] = T[e.kind], src = e.kind === 'warn' ? e.close : e, m = src ? S.method(h, src, null, 'garage') : null;
+        const name = doorInfo(h, this.config, e.id).name;
+        return { key: `ev-${e.id}-${e.kind}-${e.t}`, type: e.kind, time: S.hm(e.t), title: multi ? `${ttl} · ${name}` : ttl, col, kind: e.kind === 'warn' ? 'warn' : 'dot', method: m ? { icon: m.icon, label: m.label } : null, extra: e.dur || '' };
+      });
+      const n = evs.filter((e) => e.kind === 'open' && S.isToday(e.t)).length;
+      return S.history({ sum: `${n} åpning${n === 1 ? '' : 'er'} i dag`, days, empty: 'Ingen hendelser i dag eller i går' });
+    }
+    _setPend(id, want) {
+      this._pend = this._pend || {};
+      const old = this._pend[id];
+      if (old) clearTimeout(old.tm);
+      const p = { want, moved: false };
+      p.tm = setTimeout(() => { if (!this._pend || this._pend[id] !== p || p.moved) return; delete this._pend[id]; M.haptic('warning'); M.toast(`Fikk ikke svar fra ${M.name(this.hass, id)} – rullet tilbake`); this.update(); }, S.SYNC_MS);
+      this._pend[id] = p;
+      this.update();
+    }
+    _disarm() { if (this._arm) { clearTimeout(this._arm.tm); this._arm = null; } }
+    onAction(name, el, ev) {
+      const d = el.dataset, h = this.hass, c = this.config;
+      if (name === 'pick') { if (d.id && d.id !== this.ui.sel) { this._disarm(); this.setUI({ sel: d.id }); } return undefined; }
+      if (name === 'am-open') return this.setUI({ amOpen: !this.ui.amOpen });
+      if (name === 'am-master') { if (ev) ev.stopPropagation(); return S.master(this, this._autos().all); }
+      if (name === 'am-row') { const id = this._autos().ids[d.k]; if (!id) return M.openEditor(this, { cardClass: this.constructor, focus: 'autos' }); return S.flip(this, id); }
+      if (name === 'am-min') { const au = this._autos(); return au.numId ? S.setMins(h, au.numId, Number(d.v)) : undefined; }
+      if (name === 'g-light') { if (d.id) S.flip(this, d.id); return undefined; }
+      const A = M.garasjeAuto(h, c), id = this._cur(A);
+      if (!id) return super.onAction(name, el, ev);
+      const x = doorInfo(h, c, id), mov = this._mov(x), s = this._status(x, mov);
+      if (name === 'g-open') {
+        if (s === 'un' || mov === 'up' || (s === 'open' && !mov)) return undefined;
+        const conf = c.open_confirm || 'ingen';
+        if (conf === 'borte' && !someoneHome(h)) { M.haptic('warning'); this._toast('Åpne er bare tilgjengelig når noen er hjemme'); return undefined; }
+        if (conf === 'to' && !(this._arm && this._arm.id === id)) {
+          M.haptic('medium');
+          this._disarm();
+          this._arm = { id, tm: setTimeout(() => { this._arm = null; this.update(); }, 3000) };
+          return this.update();
+        }
+        this._disarm();
+        M.haptic('medium');
+        this._setPend(id, 'up');
+        return M.call(h, 'cover', 'open_cover', { entity_id: id }).catch(() => { if (this._pend) delete this._pend[id]; this.update(); });
+      }
+      if (name === 'g-close') {
+        if (s === 'un' || mov === 'down' || (s === 'closed' && !mov)) return undefined;
+        this._disarm();
+        M.haptic('medium');
+        this._setPend(id, 'down');
+        return M.call(h, 'cover', 'close_cover', { entity_id: id }).catch(() => { if (this._pend) delete this._pend[id]; this.update(); });
+      }
+      if (name === 'g-stop') {
+        if (!mov) return undefined;
+        M.haptic('heavy');
+        if (this._pend && this._pend[id]) { clearTimeout(this._pend[id].tm); delete this._pend[id]; }
+        this._stopped = { id, t: Date.now() };
+        M.call(h, 'cover', 'stop_cover', { entity_id: id }).catch(() => {});
+        return this.update();
+      }
+      return super.onAction(name, el, ev);
+    }
+    get styles() {
+      return `${S.CSS}
+        .gp-door{position:relative;width:118px;height:104px;flex:none;border-radius:16px 16px 6px 6px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);padding:10px 10px 0;box-sizing:border-box}
+        .gp-open{position:relative;width:100%;height:100%;border-radius:8px 8px 0 0;overflow:hidden;background:#1a1a1a}
+        .gp-light{position:absolute;inset:0;transition:background .4s}
+        .gp-car{position:absolute;left:14px;right:14px;bottom:6px;height:22px;border-radius:10px 10px 4px 4px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+        .gp-panel{position:absolute;left:0;right:0;top:0;background:repeating-linear-gradient(180deg,#5a5a5a 0px,#5a5a5a 12px,#454545 12px,#454545 14px);box-shadow:0 2px 0 #2a2a2a,0 6px 14px rgba(0,0,0,0.4);transition:height .6s linear}
+        .gp-panel.slow{transition:height 14s linear}
+        .gp-ctl{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:8px}
+        .gp-b{height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;transition:background .2s,color .2s}
+        .gp-b[aria-disabled="true"],.gp-stop[aria-disabled="true"]{cursor:default}
+        .gp-stop{height:56px;width:64px;border-radius:28px;display:grid;place-items:center;transition:background .2s}
+        .gp-b:not([aria-disabled="true"]):active,.gp-stop:not([aria-disabled="true"]):active{transform:scale(.97)}
+        .gp-conf{position:relative;font-size:12px;color:var(--gray700,#979797);text-align:center;margin-top:-8px}
+      `;
+    }
+  }
+
+  /* ------------------------------------------------------------ «Tilpass garasje» (Port(er) · Seksjoner · Sikkerhet) */
+  function openSheet(card, focus) {
+    const tabs = () => [['doors', M.garasjeAuto(card.hass, (card._sheet && card._sheet.api.D()) || card.config).doors.length > 1 ? 'Porter' : 'Port'], ['secs', 'Seksjoner'], ['safe', 'Sikkerhet']];
+    return S.sheet(card, {
+      title: 'Tilpass garasje', tabs, tab: ['doors', 'secs', 'safe'].includes(focus) ? focus : 'doors',
+      body(tab, D, api) {
+        const h = card.hass;
+        if (tab === 'doors') {
+          const A = M.garasjeAuto(h, D);
+          return `${A.doors.map((id) => {
+            const x = doorInfo(h, D, id);
+            return `<section class="sk-sec" data-key="gd-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:garage', 22, 'color:#afafaf')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input></div>
+              ${S.shEnt(api, { k: 'door:' + x.obj, icon: 'mdi:garage', label: 'Port', id, own: ((D.include || {}).porter || []).includes(id) ? id : '', auto: id, domains: 'cover' })}
+              ${S.shEnt(api, { k: 'light:' + x.obj, icon: 'mdi:lightbulb', label: 'Lys', id: x.light, own: x.lightOwn, auto: x.lightAuto, domains: 'light,switch', noneLabel: 'Ingen lys' })}
+              ${S.shEnt(api, { k: 'motion:' + x.obj, icon: 'mdi:motion-sensor', label: 'Bevegelse', id: x.motion, own: x.motionOwn, auto: x.motionAuto, domains: 'binary_sensor', deviceClass: 'motion,occupancy,presence', noneLabel: 'Ingen bevegelsessensor' })}</section>`;
+          }).join('') || `<section class="sk-sec"><span class="sk-note">Fant ingen garasjeport.</span></section>`}
+            <span class="sk-note">Portene finnes selv fra <code>cover.*</code> med <code>device_class: garage</code>. Lys og bevegelse hentes fra samme område. Én eller to porter støttes.</span>`;
+        }
+        if (tab === 'secs') return S.shSec('Seksjoner', [['show_status', 'mdi:view-grid-outline', 'Status · lys, bevegelse, tid'], ['show_auto', 'mdi:tune', 'Automatikk'], ['show_hist', 'mdi:history', 'Historikk']].map(([k, icon, label]) => S.shRow({ icon, label, on: on(D, k), attrs: `data-a="bool" data-k="${k}"` })).join(''), 'rows');
+        const cf = CONF.some((k) => k[0] === D.open_confirm) ? D.open_confirm : 'ingen';
+        return S.shSec('Åpne krever', `${S.shSeg(CONF, cf, (v) => `data-a="conf" data-v="${v}"`)}<span class="sk-note">${esc(CONF_NOTE[cf])}</span>`);
+      },
+      click(a, el, api) {
+        const D = api.D();
+        if (a === 'bool') { const k = el.dataset.k; return api.path(k, on(D, k) ? false : undefined, 'selection'); }
+        if (a === 'conf') return api.path('open_confirm', el.dataset.v === 'ingen' ? undefined : el.dataset.v, 'selection');
+        return undefined;
+      },
+      change(t, api) {
+        if (t.dataset.in === 'name') { const obj = t.dataset.obj, st = card.hass.states['cover.' + obj], v = t.value.trim(); api.path(`doors_cfg.${obj}.name`, !v || (st && v === st.attributes.friendly_name) ? undefined : v); }
+      },
+      pick(t, v, api) {
+        const [kind, obj] = String(t.dataset.pk).split(':'), D = api.D();
+        if (kind === 'light' || kind === 'motion') return api.path(`doors_cfg.${obj}.${kind}`, v || undefined, 'selection');
+        if (kind === 'door') {
+          const old = 'cover.' + obj;
+          if (!v || v === 'none' || v === old) return undefined;
+          return api.set({ exclude: [...new Set([...(D.exclude || []).filter((x) => x !== v), old])], 'include.porter': [...new Set([...((D.include || {}).porter || []).filter((x) => x !== old), v])] }, 'selection');
+        }
+        return undefined;
+      },
+    });
+  }
+
+  if (M.POPUP_CARDS && !M.POPUP_CARDS.includes('msh-garasje-card')) M.POPUP_CARDS.push('msh-garasje-card'); // «Mellomrom» i editoren
+  M.define('msh-garasje-card', Garasje, 'MSH Garasje', 'Garasje-popup (#garasje): portvelger, toppkort med portillustrasjon og Åpne/Stopp/Lukk, status, automatikk og historikk.');
+  M.GARASJE_HASH = HASH;
+})();
+
+} catch (e) { console.error('[ki-msh] 62-garasje.js', e); }
+
 /* ---- 99-ui-persist.js ---- */
 try {
 /* KI MSH · UI-tilstand som skal overleve en rebuild (lagres i localStorage ki:<card_id>:ui, aldri i Lovelace).
@@ -49144,4 +51007,4 @@ try {
 
 } catch (e) { console.error('[ki-msh] 99-ui-persist.js', e); }
 
-console.info('%c KI MSH %c 1.3.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');
+console.info('%c KI MSH %c 1.4.0 ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');

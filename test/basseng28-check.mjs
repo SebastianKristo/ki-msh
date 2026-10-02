@@ -1,5 +1,6 @@
-// Fiks 28.14 · Basseng: HA skal aldri vise den gamle popupen.
-//   Strategien lager #basseng OG #badebasseng med ÉTT msh-basseng-card (samme card_id); gamle kort (ki-basseng-card,
+// Fiks 28.14 · Basseng: HA skal aldri vise den gamle popupen. (Oppdatert i fiks 30.1: nøyaktig ÉN popup, #badebasseng;
+//   #basseng er bare alias – 28.14-tvillingen er fjernet. Se test/basseng30-check.mjs.)
+//   Strategien lager #badebasseng med ÉTT msh-basseng-card (card_id pop-basseng); gamle kort (ki-basseng-card,
 //   ki-basseng-hero-card, msh-basseng-hero-card, gap-card) i importerte/overstyrte popups (strategi-YAML custom_popups og
 //   popup_overrides, ki-store custom_popups/popup_overrides) migreres; ki-store popup_overrides skrives om én gang.
 //   Bundelen refererer ikke Basseng v3, og versjonen/ressurs-URL-sjekken er på plass.
@@ -49,10 +50,10 @@ const A = await p.evaluate(async (LEGACY_CARDS) => {
   M.store.set = set0;
   return { hashes: pool.map((c) => c.hash), cards: pool.map((c) => c.cards.map((x) => x.type)), ids: pool.map((c) => c.cards[0].card_id), navn: pool.map((c) => c.cards[0].navn), json: JSON.stringify(pool), st: st1, writes, twins: M.popupReport.twins, entries: M.popupReport.entries.filter((e) => /basseng/.test(e.hash)).map((e) => e.hash) };
 }, LEGACY_CARDS);
-ok('A · strategien lager #basseng OG #badebasseng, hver med ÉTT msh-basseng-card (samme card_id pop-basseng)', A.hashes.join() === '#basseng,#badebasseng' && A.cards.every((c) => c.join() === 'custom:msh-basseng-card') && A.ids.every((x) => x === 'pop-basseng'), A);
+ok('A · strategien lager bare #badebasseng med ÉTT msh-basseng-card (card_id pop-basseng) – også med en overstyring på #basseng', A.hashes.join() === '#badebasseng' && A.cards.every((c) => c.join() === 'custom:msh-basseng-card') && A.ids.every((x) => x === 'pop-basseng'), A);
 ok('A · gamle kort i ki-store popup_overrides migreres (navn fra hero-kortet med), ingen gap-card/ki-basseng-*/hero-kort', !OLD.test(A.json) && A.navn.every((x) => x === 'Bassenget'), A.json);
-ok('A · ki-store popup_overrides skrives om én gang (bare #basseng endres, andre overstyringer beholdes)', A.st['#basseng'].cards.length === 1 && A.st['#basseng'].cards[0].type === 'custom:msh-basseng-card' && A.st['#vanning'].name === 'Vanning X' && A.writes === 0, A.st);
-ok('A · #badebasseng er en tvilling (ikke en egen rad i Tilpass Hjem → Popups)', (A.twins || []).join() === '#badebasseng' && A.entries.join() === '#basseng', A);
+ok('A · ki-store popup_overrides skrives om én gang (#basseng → #badebasseng med ÉTT kort, andre overstyringer beholdes)', !A.st['#basseng'] && A.st['#badebasseng'].cards.length === 1 && A.st['#badebasseng'].cards[0].type === 'custom:msh-basseng-card' && A.st['#vanning'].name === 'Vanning X' && A.writes === 0, A.st);
+ok('A · ingen tvilling (30.1): én rad #badebasseng i Tilpass Hjem → Popups', !(A.twins || []).length && A.entries.join() === '#badebasseng', A);
 await p.close();
 
 /* ---------------- B · strategi-YAML: custom_popups #badebasseng og popup_overrides replace med gamle kort */
@@ -70,16 +71,16 @@ const B = await p.evaluate(async (LEGACY_CARDS) => {
   d = await S.generate({ popup_overrides: { '#basseng': { replace: true, config: { ...legacy, hash: '#basseng', cards: [{ type: 'custom:ki-basseng-card', navn: 'Pool' }, { type: 'custom:gap-card' }, { type: 'markdown', content: 'egen' }] } } } }, h);
   pool = d.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up' && /basseng/.test(c.hash));
   out.rep = { hashes: pool.map((c) => c.hash), cards: pool.map((c) => c.cards.map((x) => x.type).join('+')), json: JSON.stringify(pool), navn: pool[0] && pool[0].cards[0].navn };
-  // 3) «popups: { badebasseng: false }» skjuler bare tvillingen
-  d = await S.generate({ popups: { badebasseng: false } }, h);
+  // 3) «popups: { basseng: false }» (gammel nøkkel = alias) skjuler den ene popupen
+  d = await S.generate({ popups: { basseng: false } }, h);
   out.hide = d.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up' && /basseng/.test(c.hash)).map((c) => c.hash);
   // 4) uten gamle kort: ingen migrering (null)
-  out.none = M.bassengMigratePopup({ hash: '#basseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] });
+  out.none = M.bassengMigratePopup({ hash: '#badebasseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] });
   return out;
 }, LEGACY_CARDS);
-ok('B · YAML custom_popups #badebasseng med gamle kort → #basseng + #badebasseng med ÉTT msh-basseng-card (navn med)', B.yaml.hashes.join() === '#basseng,#badebasseng' && B.yaml.cards.every((c) => c === 'custom:msh-basseng-card') && !OLD.test(B.yaml.json) && B.yaml.navn === 'Bassenget', B.yaml);
+ok('B · YAML custom_popups #badebasseng med gamle kort → bare #badebasseng med ÉTT msh-basseng-card (navn med)', B.yaml.hashes.join() === '#badebasseng' && B.yaml.cards.every((c) => c === 'custom:msh-basseng-card') && !OLD.test(B.yaml.json) && B.yaml.navn === 'Bassenget', B.yaml);
 ok('B · YAML popup_overrides (replace) med gamle kort → msh-basseng-card; egne kort (markdown) beholdes', B.rep.cards[0] === 'custom:msh-basseng-card+markdown' && !OLD.test(B.rep.json) && B.rep.navn === 'Pool', B.rep);
-ok('B · popups.badebasseng: false skjuler bare tvillingen; popup uten gamle kort røres ikke', B.hide.join() === '#basseng' && B.none === null, B);
+ok('B · popups.basseng: false (alias) skjuler bassengpopupen; popup uten gamle kort røres ikke', B.hide.join() === '' && B.none === null, B);
 await p.close();
 
 /* ---------------- C · #badebasseng rendres som v4a (toppkort + 4 faner) på mobil og PC */

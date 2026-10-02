@@ -44,16 +44,35 @@
     if (a.app_id || a.app_name) return 'tv';
     return 'musikk';
   }
+  // 31.1: mellomlagret per (config-objekt, hass, withHidden) – editoren kaller dette for hver spiller/seksjon i én tegning,
+  // så uten minne ble arbeidet O(spillere²) per tegning.
+  // Minnet gjelder bare innenfor samme synkrone tegning (epoke = mikrooppgave), så endringer i hass.states på stedet ses alltid.
+  const MP_MEMO = new WeakMap();
+  let EPOCH = 0, epQ = false;
+  const epoch = () => { if (!epQ) { epQ = true; queueMicrotask(() => { EPOCH++; epQ = false; }); } return EPOCH; };
   M.mediaPlayers = function (hass, cfg, withHidden) {
     cfg = cfg || {};
     if (!hass) return { tv: [], musikk: [], all: [] };
+    const mm = MP_MEMO.get(cfg), wk = withHidden ? 1 : 0, ep = epoch();
+    const same = mm && mm.h === hass && mm.e === ep;
+    if (same && mm[wk]) return mm[wk];
+    const res = mediaPlayers0(hass, cfg, withHidden);
+    const slot = same ? mm : { h: hass, e: ep };
+    slot[wk] = res; MP_MEMO.set(cfg, slot);
+    return res;
+  };
+  function mediaPlayers0(hass, cfg, withHidden) {
     const aIdx = {};
     M.areas(hass).forEach((a, i) => { aIdx[a.id] = i; });
     const ids = M.applyLists(cfg, 'spillere', M.all(hass, 'media_player'));
-    const out = ids.filter((id) => hass.states[id]).map((id) => {
-      const s = hass.states[id], pc = pcfgOf(cfg, id), area = M.areaOf(hass, id);
-      const kind = pc.type && pc.type !== 'auto' ? pc.type : autoKind(hass, id);
-      return { id, obj: obj(id), kind, auto: autoKind(hass, id), area, areaName: area ? M.areaName(hass, area) : null, name: pc.name || s.attributes.friendly_name || obj(id), pc };
+    // 31.1: «Mediaspiller» per kilde (players.<obj>.entity) – kilden (obj = config-nøkkel) bruker en annen media_player.
+    // En spiller som er valgt som mediaspiller for en annen kilde, vises ikke i tillegg som egen kilde.
+    const entOf = (id) => { const e = pcfgOf(cfg, id).entity; return typeof e === 'string' && e !== id && /^media_player\./.test(e) && hass.states[e] ? e : null; };
+    const used = new Set(ids.map(entOf).filter(Boolean));
+    const out = ids.filter((id) => hass.states[id] && (entOf(id) || !used.has(id))).map((id) => {
+      const pc = pcfgOf(cfg, id), eid = entOf(id) || id, s = hass.states[eid], area = M.areaOf(hass, eid);
+      const kind = pc.type && pc.type !== 'auto' ? pc.type : autoKind(hass, eid);
+      return { id: eid, obj: obj(id), slot: id, kind, auto: autoKind(hass, eid), area, areaName: area ? M.areaName(hass, area) : null, name: pc.name || s.attributes.friendly_name || obj(eid), pc };
     }).filter((p) => (withHidden || p.kind !== 'skjul') && (!cfg.area || p.area === cfg.area));
     const ai = (p) => (p.area ? (aIdx[p.area] != null ? aIdx[p.area] : 98) : 99);
     out.sort((a, b) => ai(a) - ai(b) || a.name.localeCompare(b.name, 'nb'));
@@ -72,7 +91,7 @@
     };
     const tv = pick('tv'), musikk = pick('musikk');
     return { tv, musikk, all: withHidden ? base : base.filter((p) => tv.includes(p) || musikk.includes(p)) };
-  };
+  }
   const tabOrder = (cfg) => {
     const k = TABS.map((t) => t[0]);
     const o = Array.isArray(cfg.tab_order) ? cfg.tab_order.filter((x) => k.includes(x)) : [];
@@ -80,7 +99,7 @@
     const hid = cfg.hidden_tabs || [], v = o.filter((x) => !hid.includes(x));
     return { all: o, vis: v.length ? v : o };
   };
-  const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + p.obj] ? 'remote.' + p.obj : null);
+  const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + obj(p.id)] ? 'remote.' + obj(p.id) : null);
   const REMOTE = {
     apple: { hw: 'Apple TV', holdLabel: 'Kontrollsenter', up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'top_menu', play: 'play_pause', mic: 'voice', hold: { command: 'home', hold_secs: 1 } },
     google: { hw: 'Google TV', holdLabel: 'Dashbord', up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU', play: 'MEDIA_PLAY_PAUSE', mic: 'SEARCH', hold: { command: 'KEYCODE_HOME', hold_secs: 1 } },
@@ -181,11 +200,16 @@
   // Liste for spilleren: config (også tom liste = brukeren har fjernet alt) ellers autokonfig
   const listOf = (hass, p, kind) => (Array.isArray(p.pc[kind]) ? p.pc[kind].filter((x) => x && typeof x === 'object') : LISTS[kind](hass, p));
   // Media-nettleseren: Favoritter (Squeezebox/LMS, Music Assistant …) per spiller, mellomlagret 60 s. cb kalles når svaret kommer.
+  /* 31.1 · ÅRSAK TIL FRYSEN: editoren sendte en NY tilbakekalling (lukking) per spiller ved hver tegning. Mens svarene
+   * var underveis havnet alle disse i cbs-settene (Set dedupliserer ikke nye lukkinger), og hvert svar tegnet arket
+   * like mange ganger som det var tegninger siden – og hver av de tegningene la til nye kall i de andre spillernes sett.
+   * Med N spillere ≈ 2^N tegninger (målt: 4 spillere → 513 tegninger / 33 s; 10 spillere → hovedtråden låst > 5 min).
+   * Nå: kalleren sender en STABIL tilbakekalling (én per editor), og editoren slår sammen tegninger (rAF). */
   const FAV = {};
   const favorites = (hass, id, cb) => {
     const f = FAV[id];
     if (f && (f.busy || Date.now() - f.t < 60000)) { if (f.busy && cb) f.cbs.add(cb); return f.list; }
-    if (!hass || !hass.callWS) return null;
+    if (!hass || !hass.callWS) return f ? f.list || [] : [];
     const o = FAV[id] = { t: Date.now(), list: f ? f.list : null, busy: true, cbs: new Set(cb ? [cb] : []) };
     const ws = (x) => hass.callWS({ type: 'media_player/browse_media', entity_id: id, ...(x || {}) });
     const done = (list) => { o.list = list; o.busy = false; o.t = Date.now(); o.cbs.forEach((c) => { try { c(); } catch (e) { /* */ } }); o.cbs.clear(); };
@@ -371,7 +395,7 @@
   const volSensor = (hass, p) => {
     if (!hass) return null;
     const d = sameDevice(hass, p.id, 'sensor').find((x) => /_volume(_level)?$/.test(x));
-    return d || (hass.states['sensor.' + p.obj + '_volume'] ? 'sensor.' + p.obj + '_volume' : null);
+    return d || (hass.states['sensor.' + obj(p.id) + '_volume'] ? 'sensor.' + obj(p.id) + '_volume' : null);
   };
   // Estimert TV-volum ved knapp-volum (±2 per kommando), per TV i localStorage (UI-tilstand, ikke config)
   const EST_KEY = 'ki:media:vol_est';
@@ -455,7 +479,8 @@
       return `<div class="f" style="background:transparent;padding:0">${seg}</div>
         <div class="sec" style="display:flex;flex-direction:column;gap:6px;padding:12px"><div class="line" style="padding:2px 4px 4px">${M.icon('mdi:sort', 20)}<span style="flex:1;font-size:14px;font-weight:500">Rekkefølge</span><span class="small">${L.length} ${tl}</span></div>
           ${L.length ? L.map(row).join('') : `<div class="small" style="padding:4px">Ingen ${tl} funnet</div>`}
-          <div class="small" style="padding:2px 4px">Nr. 1 vises når fanen åpnes. Øye = vis/skjul i karusellen, piler = rekkefølge.</div></div>`;
+          <div class="small" style="padding:2px 4px">Nr. 1 vises når fanen åpnes. Øye = vis/skjul i karusellen, piler = rekkefølge.</div></div>
+        <datalist id="mm-ic" data-key="mm-ic" data-nomorph></datalist>`;
     },
   });
 
@@ -523,11 +548,28 @@
           if (v) L[i][dd.f] = v; else delete L[i][dd.f];
           edPut(ed, Q, dd.mm, L);
         });
+        // 31.1: ikonforslag lastes først når et ikonfelt får fokus (og ved skriving), høyst 40 treff i én felles datalist.
+        // Lytterne legges til én gang per editor (ikke per tegning).
+        const sug = (t) => {
+          const dl = ed.shadowRoot.getElementById('mm-ic');
+          if (!dl || !M.iconPicker || !M.iconPicker.search) return;
+          const q = String(t.value || '').trim(), my = (ed.__icQ = q);
+          clearTimeout(ed.__icT);
+          ed.__icT = setTimeout(() => M.iconPicker.search(q.replace(/^mdi:/, ''), null).then((L) => {
+            if (ed.__icQ !== my) return;
+            dl.innerHTML = (L || []).slice(0, 40).map((x) => `<option value="${esc(x)}"></option>`).join('');
+          }).catch(() => { /* ingen forslag */ }), q ? 120 : 0);
+        };
+        const isIc = (t) => t && t.dataset && t.dataset.mm && t.dataset.f === 'icon';
+        ed.shadowRoot.addEventListener('focusin', (e) => { if (isIc(e.target)) sug(e.target); });
+        ed.shadowRoot.addEventListener('input', (e) => { if (isIc(e.target)) sug(e.target); });
       }
       const btn = (op, kind, i, extra, inner, title, cls) => `<button class="${cls || 'ib'}" data-a="fn" data-k="${key}" data-po="${esc(P.obj)}" data-kind="${kind}" data-op="${op}" data-i="${i}" ${extra || ''} ${title ? `title="${esc(title)}" aria-label="${esc(title)}"` : ''}>${inner}</button>`;
-      const inp = (kind, i, f, v, ph, st) => `<input class="inp" data-mm="${kind}" data-po="${esc(P.obj)}" data-i="${i}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" autocapitalize="off" autocorrect="off" spellcheck="false" style="height:34px;font-size:13px;min-width:0;background:#282828;${st || ''}">`;
+      const inp = (kind, i, f, v, ph, st) => `<input class="inp" data-mm="${kind}" data-po="${esc(P.obj)}" data-i="${i}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${f === 'icon' ? 'list="mm-ic" autocomplete="off"' : ''} autocapitalize="off" autocorrect="off" spellcheck="false" style="height:34px;font-size:13px;min-width:0;background:#282828;${st || ''}">`;
       const lab = (t, x) => `<label style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="hl" style="font-size:11px;color:#979797">${esc(t)}</span>${x}</label>`;
-      const favs = !tv ? favorites(h, P.id, () => ed && ed._render && ed._render()) : null;
+      // Stabil tilbakekalling per editor + samlet tegning (rAF): ett svar → høyst én ny tegning (31.1)
+      if (ed && !ed.__favCb) ed.__favCb = () => { if (ed.__favRaf) return; ed.__favRaf = requestAnimationFrame(() => { ed.__favRaf = 0; if (ed.isConnected && ed._render) ed._render(); }); };
+      const favs = !tv ? favorites(h, P.id, ed && ed.__favCb) : null;
       const row = (kind, x, i, n) => {
         const open = ED_ROW === `${P.obj}:${kind}:${i}`;
         const ic = x.icon || (kind === 'apps' ? 'apps' : kind === 'inputs' ? 'mdi:video-input-hdmi' : x.type === 'source' ? 'mdi:import' : 'radio');
@@ -581,12 +623,46 @@
     },
   });
 
+  /* 31.1 · «Mediaspiller» per kilde (Media v4 cfgSrc/cfgMus · mpOpts): native <select> over en rad (cast · entity_id · ▾).
+   * Listen over media_player.* beregnes ÉN gang per editor (ed.__mpOpts) – ikke per spiller og tegning.
+   * Lagres som players.<obj>.entity (tom = kildens egen spiller); editoren lagrer via data-name. */
+  const mpOptsOf = (ed, h) => {
+    if (ed && ed.__mpOpts && ed.__mpOptsH === (h && h.states ? Object.keys(h.states).length : 0)) return ed.__mpOpts;
+    const L = M.all(h, 'media_player').map((id) => [id, M.name(h, id)]).sort((a, b) => a[1].localeCompare(b[1], 'nb'));
+    if (ed) { ed.__mpOpts = L; ed.__mpOptsH = Object.keys(h.states).length; }
+    return L;
+  };
+  const mpField = (p) => ({
+    type: 'html',
+    html: (h, c, key, ed) => {
+      if (!h) return '';
+      const name = `players.${p.obj}.entity`, cur = ((((c || {}).players || {})[p.obj]) || {}).entity || '';
+      const own = p.slot || p.id, shown = cur || own;
+      const opts = mpOptsOf(ed, h);
+      const o = [`<option value="" ${cur ? '' : 'selected'}>Standard · ${esc(M.name(h, own))} · ${esc(own)}</option>`,
+        ...(cur && !opts.some((x) => x[0] === cur) ? [[cur, cur]] : []).concat(opts.filter((x) => x[0] !== own)).map(([id, n]) => `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(n)} · ${esc(id)}</option>`)].join('');
+      return `<div class="f" data-key="mp-${esc(p.obj)}" style="gap:6px"><span class="hl" style="font-size:12px;color:#979797">Mediaspiller</span>
+        <div style="position:relative;display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#2f2f2f">${M.icon('mdi:cast', 18, 'color:#afafaf')}
+          <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(shown)}</span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}
+          <select data-name="${esc(name)}" aria-label="Mediaspiller for ${esc(p.name)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px">${o}</select></div></div>`;
+    },
+  });
+  // Seksjon per spiller tegnes bare når den er åpen (lazy) – lister, source_list, favoritter og velgere for lukkede
+  // spillere bygges ikke. Feil i én spiller gir «Kunne ikke laste denne delen» i stedet for et halvt tegnet ark.
+  const failSec = (p, e) => { try { console.error('[msh-media] editor', p && p.id, e); } catch (x) { /* */ } return { type: 'section', id: 'p_' + (p && p.obj), lazy: true, icon: 'mdi:alert-circle-outline', label: ((p && p.name) || '–') + ' · Kunne ikke laste denne delen', fields: [{ type: 'info', label: 'Kunne ikke laste denne delen' }] }; };
   const baseSchema = (h, c, common) => {
     c = c || {};
-    const P = h ? M.mediaPlayers(h, c, true).all : [], tab = ED_TAB;
+    let P = [];
+    try { P = h ? M.mediaPlayers(h, c, true).all : []; } catch (e) { console.error('[msh-media] spillere', e); }
+    const tab = ED_TAB;
     return [
       orderField(),
-      ...P.filter((p) => tabOf(p) === tab).map((p) => {
+      ...P.filter((p) => tabOf(p) === tab).map((p) => { try { return playerSec(h, c, p); } catch (e) { return failSec(p, e); } }),
+      ...commonSchema(common),
+    ];
+  };
+  const playerSec = (h, c, p) => {
+    {
         const b = `players.${p.obj}`, tv = p.kind === 'tv';
         const fields = [
           { type: 'select', name: b + '.type', label: 'Type', options: [['auto', 'Auto'], ['tv', 'TV'], ['musikk', 'Musikk'], ['skjul', 'Skjul']], default: 'auto', help: 'Auto: ' + (p.auto === 'tv' ? 'TV' : 'Musikk') },
@@ -628,8 +704,10 @@
           { type: 'entity', name: `watch_time.${p.obj}.i_dag`, label: 'Seertid i dag (Album-kortet)', domains: ['sensor'], auto: () => wy.i_dag || '' },
           { type: 'entity', name: `watch_time.${p.obj}.maned`, label: 'Seertid denne måneden (Album-kortet)', domains: ['sensor'], auto: () => wy.maned || '' },
         );
-        return { type: 'section', id: 'p_' + p.obj, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, fields };
-      }),
+        return { type: 'section', id: 'p_' + p.obj, lazy: true, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, meta: p.id, fields: [mpField(p), ...fields] };
+    }
+  };
+  const commonSchema = (common) => [
       { type: 'info', label: 'Felles for begge faner' },
       ...(common || []),
       { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
@@ -642,7 +720,6 @@
       { type: 'boolean', name: 'remote_swipe', label: 'Sveip på styreflaten', default: true, help: 'Dra på fjernkontrollens runde flate for Opp/Ned/Venstre/Høyre (én kommando per 34 px)' },
       { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
     ];
-  };
 
   class MediaBase extends M.Card {
     connectedCallback() {

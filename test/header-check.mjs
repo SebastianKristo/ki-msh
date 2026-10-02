@@ -268,7 +268,8 @@ for (const w of [360, 393, 412, 430]) {
   const fs1 = await hdrFs();
   ok(Math.abs(fs1 - 30 * 0.72) < 0.6 && fs0 > fs1, `19.13 headeren følger profilen live: ${fs0} → ${fs1}`);
   ok(r.closed.v === '44' && r.closed.pv === '412px' && /Arver fra kortets oppsett/.test(r.closed.help) && r.closed.opts.includes('● Pixel Fold (åpen) · denne'), `19.13 Fold lukket arver: ${JSON.stringify(r.closed)}`);
-  ok(r.users.join(',') === '● Sebastian,Alle brukere', `19.13 brukere (admin): ${r.users}`);
+  // personer med user_id i mocken (49-las gir også Cybele en bruker) – innlogget først, «Alle brukere» sist
+  ok(r.users[0] === '● Sebastian' && r.users[r.users.length - 1] === 'Alle brukere' && r.users.slice(1, -1).every((u) => !/^●/.test(u)), `19.13 brukere (admin): ${r.users}`);
   ok(r.gui, '19.13 GUI-editoren mangler bruker-/enhetsvelgeren');
   // bretting uten reload: 884 → 412 (fold_closed: standard) → 884 (fold_open: 30 px · 0,72)
   await p.setViewportSize({ width: 412, height: 915 }); await p.waitForTimeout(600);

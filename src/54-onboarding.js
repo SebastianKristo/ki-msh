@@ -67,17 +67,19 @@
     ['basseng', 'Basseng', 'mdi:pool', (h) => { const a = M.findArea(h, 'basseng', 'pool'), r = rx(h, /basseng|pool/, ['sensor', 'switch', 'climate', 'water_heater']); return [a || r ? Math.max(r, 1) : 0, a ? M.areaName(h, a) + (r ? ' · ' + pl(r, 'entitet', 'entiteter') : '') : pl(r, 'entitet', 'entiteter')]; }],
   ];
   const FNK = FN.map((f) => f[0]);
-  const fnOf = (k) => FN.find((f) => f[0] === k);
+  // Fiks 30.1: popup-nøkkel = standard-hashen uten # (basseng → badebasseng, M.canonHash); navbar-id-en er fortsatt «basseng»
+  const pk = (k) => (M.canonHash ? M.canonHash('#' + k).slice(1) : k);
+  const fnOf = (k) => FN.find((f) => f[0] === k) || FN.find((f) => pk(f[0]) === pk(k));
   const NAV_CAT = ['vanning', 'media', 'klima', 'basseng', 'ruter', 'gjoremal', 'kart', 'energi']; // navbarens innebygde knapper
   const areaDevs = (h, a) => { const D = Object.values((h && h.devices) || {}).filter((d) => d && d.area_id === a).length; return D || M.areaEntities(h, a).length; };
 
   /* ------------------------------------------------------------ config-oppslag (samme kilder som de fulle arkene) */
-  const popCfg = (k) => sget('popups.' + k) || {};
+  const popCfg = (k) => sget('popups.' + pk(k)) || {};
   // = «Tilpass Hjem» → Popups (_popSet): tomme felt fjernes, tomt objekt slettes
   const popSet = (k, patch) => {
     const cur = { ...popCfg(k), ...patch };
     Object.keys(cur).forEach((x) => { if (cur[x] === undefined || cur[x] === null || cur[x] === false || cur[x] === '') delete cur[x]; });
-    return put('popups.' + k, Object.keys(cur).length ? cur : undefined);
+    return put('popups.' + pk(k), Object.keys(cur).length ? cur : undefined);
   };
   const roomCol = (h, a) => sget('rooms.' + a + '.look.col') || popCfg(a).color || (M.romColor ? M.romColor(a, h) : 'var(--orange)');
   const roomColSet = (a, c) => { put('rooms.' + a + '.look.col', c); if (popCfg(a).color) popSet(a, { color: c }); };
@@ -759,7 +761,7 @@
           const I = M.CARD_IDS || {};
           if (id === I.navbar) return emit({ editor: 'navbar' });
           if (id === I.header) return emit({ editor: 'header' });
-          if (/^pop-/.test(id)) { const f = (M.FUNCTION_POPUPS || []).find((x) => x[0] === '#' + id.slice(4)); if (f) return emit({ editor: 'card', tag: f[3], card_id: id }); }
+          if (/^pop-/.test(id)) { const f = (M.FUNCTION_POPUPS || []).find((x) => (M.popupCardId ? M.popupCardId(x[0]) : 'pop-' + x[0].slice(1)) === id); if (f) return emit({ editor: 'card', tag: f[3], card_id: id }); }
           return emit({ editor: 'home' });
         }
         case 'export': {

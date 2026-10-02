@@ -1,4 +1,4 @@
-// Fiks 26.14 · Basseng (#basseng / importert #badebasseng): ÉTT kort msh-basseng-card – toppkort → prosalinje → faner
+// Fiks 26.14 · Basseng (#badebasseng, alias #basseng – 30.1): ÉTT kort msh-basseng-card – toppkort → prosalinje → faner
 // → innhold; hurtigknapper Lys · Pumpe · Varme · Stille (lyd av) · Stikkontakt autokonfigurert etter rolle-tabellen,
 // overrides/exclude/include, migrering av `hurtig:`/navn/hero-kort og basseng-v3-cfg, strategien (alias #badebasseng),
 // bunnluft uten gap-card og «Tilpass basseng» ↔ getConfigElement.   node test/basseng26-check.mjs  (SHOTS=<mappe>)
@@ -130,44 +130,46 @@ ok('E · basseng-v3-cfg → overrides/controls/hidden_controls/tabs/vals/anim i 
   N.overrides.spr === 'switch.hage_spreder' && N.overrides.klor_calendar === 'calendar.klor' && N.controls.join() === 'pump,light,quiet' && N.hidden_controls.join() === 'light' && N.tabs[0] === 'klor' && N.vals.turnovers === '4' && N.vals.price_ctrl === false && N.anim === false, N);
 await p.close();
 
-// ================================================================ F · strategien: importert #badebasseng → #basseng med ÉTT kort
+// ================================================================ F · strategien: importert #basseng/#badebasseng → ÉN popup #badebasseng (30.1)
 p = await page({}, {});
 let S = await p.evaluate(() => {
   const M = window.MSH;
-  const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', name: 'Badebasseng', icon: 'mdi:pool', button_type: 'name', popup_mode: 'x', sub_button: { main: [], bottom: [] },
+  const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Badebasseng', icon: 'mdi:pool', button_type: 'name', popup_mode: 'x', sub_button: { main: [], bottom: [] },
     cards: [{ type: 'custom:gap-card', height: 10 }, { type: 'custom:ki-basseng-hero-card', navn: 'Bassenget' }, { type: 'custom:gap-card' }, { type: 'custom:ki-basseng-card', hero: false, hurtig: [{ entity: 'light.bassenglys', navn: 'Lys' }, { entity: 'switch.bassengpumpe' }, { entity: 'switch.baseng_stikkontakt' }] }] };
   const cfg = { custom_popups: [legacy] };
-  const extra = M.POPUP_EXTRA['#basseng'](cfg);
-  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#basseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng', ...(extra || {}) } });
+  const extra = M.POPUP_EXTRA['#badebasseng'](cfg);
+  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#badebasseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng', ...(extra || {}) } });
   const r = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: cfg.custom_popups });
   const out = r.popups.filter((x) => /basseng/.test(x.hash));
   return { hashes: out.map((x) => x.hash), cards: out[0] && out[0].cards.map((c) => c.type), card: out[0] && out[0].cards[0], extra, inactive: r.report.inactive, gap: JSON.stringify(out).includes('gap-card'), legacyWhen: M.bassengLegacy(cfg) };
 });
-ok('F · importert #badebasseng erstattes: én popup #basseng med ÉTT msh-basseng-card, ingen gap-card', S.hashes.join() === '#basseng' && S.cards.join() === 'custom:msh-basseng-card' && !S.gap, S);
+ok('F · importert #basseng erstattes: én popup #badebasseng med ÉTT msh-basseng-card, ingen gap-card', S.hashes.join() === '#badebasseng' && S.cards.join() === 'custom:msh-basseng-card' && !S.gap, S);
 ok('F · navn og hurtig flyttes fra de gamle kortene til kortet (migreres der)', S.extra && S.extra.navn === 'Bassenget' && Array.isArray(S.extra.hurtig) && S.card.navn === 'Bassenget' && S.legacyWhen, S.extra);
 S = await p.evaluate(() => {
   const M = window.MSH;
-  const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', cards: [{ type: 'custom:ki-basseng-card' }] };
-  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#basseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng' } });
+  const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', cards: [{ type: 'custom:ki-basseng-card' }] };
+  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#badebasseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng' } });
   const r = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: [legacy], userPopups: { basseng: { prefer: 'custom' } } });
-  const own = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', cards: [{ type: 'markdown', content: 'x' }] };
+  const own = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Notater', cards: [{ type: 'markdown', content: 'x' }] };
   const r2 = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: [own] });
-  return { pref: r.popups.filter((x) => x.hash === '#basseng').map((x) => x.cards[0].type), own: r2.popups.map((x) => x.hash).filter((h) => /basseng/.test(h)) };
+  return { pref: r.popups.filter((x) => /basseng/.test(x.hash)).map((x) => x.hash + ':' + x.cards[0].type), own: r2.popups.map((x) => x.hash).filter((h) => /basseng/.test(h)) };
 });
 // Fiks 28.14: også «Bruk egen» får de gamle kortene (ki-basseng-card/hero/gap-card) migrert til ÉTT msh-basseng-card
-ok('F · «Bruk egen» beholder egen popup (gamle kort migrert til msh-basseng-card); en helt annen #badebasseng røres ikke', S.pref.join() === 'custom:msh-basseng-card' && S.own.join() === '#basseng,#badebasseng', S);
-// manuelt dashbord (M.buildPopups): #badebasseng tas over som #basseng med ett kort
+ok('F · «Bruk egen» (gammel nøkkel basseng) beholder egen popup på #badebasseng (gamle kort migrert); en helt annen #basseng røres ikke', S.pref.join() === '#badebasseng:custom:msh-basseng-card' && S.own.join() === '#badebasseng,#basseng', S);
+// manuelt dashbord (M.buildPopups): gammel #basseng + 28.14-tvilling #badebasseng → ÉN popup #badebasseng
 S = await p.evaluate(async () => {
   const M = window.MSH, h = window.__h;
-  const lc = { views: [{ title: 'Hjem', type: 'sections', sections: [{ type: 'grid', cards: [{ type: 'custom:msh-hjem-card' }, { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', name: 'Badebasseng', cards: [{ type: 'custom:gap-card' }, { type: 'custom:ki-basseng-hero-card', navn: 'Bassenget' }, { type: 'custom:ki-basseng-card', hurtig: [{ entity: 'switch.bassengpumpe' }] }] }] }] }] };
+  const lc = { views: [{ title: 'Hjem', type: 'sections', sections: [{ type: 'grid', cards: [{ type: 'custom:msh-hjem-card' },
+    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Badebasseng', cards: [{ type: 'custom:gap-card' }, { type: 'custom:ki-basseng-hero-card', navn: 'Bassenget' }, { type: 'custom:ki-basseng-card', hurtig: [{ entity: 'switch.bassengpumpe' }] }] },
+    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', name: 'Basseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] }] }] }] };
   const old = h.callWS;
   h.callWS = (m) => (m.type === 'lovelace/config' ? Promise.resolve(JSON.parse(JSON.stringify(lc))) : old(m));
   const r = await M.buildPopups(h, { dryRun: true });
   h.callWS = old;
   const pops = []; JSON.stringify(r.config, (k, v) => { if (v && v.card_type === 'pop-up' && /basseng/.test(v.hash)) pops.push(v); return v; });
-  return pops.map((x) => ({ hash: x.hash, cards: x.cards.map((c) => c.type), navn: x.cards[0].navn, hurtig: !!x.cards[0].hurtig }));
+  return pops.map((x) => ({ hash: x.hash, cards: x.cards.map((c) => c.type), navn: x.cards[0].navn, hurtig: !!x.cards[0].hurtig, id: x.cards[0].card_id }));
 });
-ok('F · manuelt dashbord: #badebasseng blir #basseng med ÉTT kort (navn/hurtig med)', S.length === 1 && S[0].hash === '#basseng' && S[0].cards.join() === 'custom:msh-basseng-card' && S[0].navn === 'Bassenget' && S[0].hurtig, S);
+ok('F · manuelt dashbord: gammel #basseng + tvilling #badebasseng → ÉN popup #badebasseng med ÉTT kort (navn/hurtig med)', S.length === 1 && S[0].hash === '#badebasseng' && S[0].cards.join() === 'custom:msh-basseng-card' && S[0].navn === 'Bassenget' && S[0].hurtig && S[0].id === 'pop-basseng', S);
 await p.close();
 
 // ================================================================ G · editorene og bunnluft
