@@ -892,6 +892,18 @@
       Object.assign(l.style, { left: (x - r.left) / k - op.clientLeft + op.scrollLeft + 'px', top: (y - r.top) / k - op.clientTop + op.scrollTop + 'px', width: w / k + 'px', height: h / k + 'px' });
       if (s.fw) s.fw.reset();
     };
+    // Glid linsen til el (ferske mål, f.eks. aktiv fane som ble bredere ved valg: ikon → ikon + navn) og fullfør etterpå.
+    // Er linsen allerede der (±1 px) → finish() straks.
+    s.glideTo = (el, ms = 180) => {
+      if (s.dead || s.fin) return;
+      const r = el && el.nodeType === 1 && el.isConnected ? el.getBoundingClientRect() : null;
+      const cur = l.getBoundingClientRect();
+      if (!r || !r.width || (Math.abs(r.left - cur.left) <= 1 && Math.abs(r.width - cur.width) <= 1 && Math.abs(r.top - cur.top) <= 1 && Math.abs(r.height - cur.height) <= 1)) { s.finish(); return; }
+      const e = `${ms}ms cubic-bezier(.3,.8,.3,1)`;
+      l.style.transition = `left ${e}, top ${e}, width ${e}, height ${e}`;
+      s.place(r.left, r.top, r.width, r.height);
+      s.timers.push(setTimeout(() => s.finish(), ms));
+    };
     s.finish = () => {
       if (s.fin || s.dead) return;
       s.fin = true;

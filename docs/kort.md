@@ -103,7 +103,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `this_server.name` | Navn på dette stedet | Steder |
 | `this_server.icon` | Ikon for dette stedet · icon | Steder |
 | `this_server.color` | Farge for dette stedet · color | Steder |
-| `servers` | Bytt sted – andre Home Assistant-servere · rows | Steder |
+| `servers` | Bytt sted – Home Assistant-servere · rows | Steder |
 | `overrides.weather` | Vær · entity | Bytt entiteter |
 | `people.0.home` | Cybele · hjemme · entity | Bytt entiteter |
 | `people.0.sleep` | Cybele · søvn · entity | Bytt entiteter |
@@ -370,6 +370,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.lock.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
 | `tile_cfg.lock.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
 | `tile_cfg.lock.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
+| `tile_cfg.lock.popup_hash` | Popup (popup_hash) · trykk på kortet · hash | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
@@ -472,6 +473,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.garage.state_text.unavailable.sub` | unavailable · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
 | `tile_cfg.garage.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
 | `tile_cfg.garage.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport › Tekst per tilstand |
+| `tile_cfg.garage.popup_hash` | Popup (popup_hash) · trykk på kortet · hash | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
 | `tile_cfg.garage.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Ikke på Hjem › Garasjeport |
@@ -1545,23 +1547,32 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 
 ## `msh-las-card`
 
-Dørlås-popup (#dorlas): status, lås/lås opp med hold eller PIN, batteri, automatikk og siste hendelser.
+Dørlås-popup (#dorlas): låsvelger, toppkort med dra/hold/trykk for å låse opp, status, automatikk og historikk.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `exclude · include.{laser}` | skjul / legg til |  |
 | `locks_cfg.bod.name` | Navn | Lås · Boddør |
+| `locks_cfg.bod.hidden` | Skjul i velgeren · boolean | Lås · Boddør |
+| `locks_cfg.bod.door` | Dørsensor · entity | Lås · Boddør |
 | `locks_cfg.bod.battery` | Batterisensor · entity | Lås · Boddør |
-| `locks_cfg.bod.auto_lock` | Auto-lås etter (minutter) · entity | Lås · Boddør |
-| `locks_cfg.bod.auto_lock_switch` | Auto-lås av/på · entity | Lås · Boddør |
+| `locks_cfg.bod.auto_lock` | Autolås-tid (minutter) · entity | Lås · Boddør |
 | `locks_cfg.inngangsdor.name` | Navn | Lås · Inngangsdør |
+| `locks_cfg.inngangsdor.hidden` | Skjul i velgeren · boolean | Lås · Inngangsdør |
+| `locks_cfg.inngangsdor.door` | Dørsensor · entity | Lås · Inngangsdør |
 | `locks_cfg.inngangsdor.battery` | Batterisensor · entity | Lås · Inngangsdør |
-| `locks_cfg.inngangsdor.auto_lock` | Auto-lås etter (minutter) · entity | Lås · Inngangsdør |
-| `locks_cfg.inngangsdor.auto_lock_switch` | Auto-lås av/på · entity | Lås · Inngangsdør |
-| `overrides.{away_lock, night_lock}` | bytt entitet |  |
-| `confirm` | Bekreftelse (auto \| hold \| pin) | Opplåsing |
-| `code_length` | PIN-lengde (auto \| 4 \| 6) | Opplåsing |
-| `sections · hidden_sections` | rekkefølge/synlighet: battery, auto, log |  |
+| `locks_cfg.inngangsdor.auto_lock` | Autolås-tid (minutter) · entity | Lås · Inngangsdør |
+| `show_status` | Status · dør, batteri, autolås · boolean | Seksjoner |
+| `show_auto` | Automatikk · boolean | Seksjoner |
+| `show_hist` | Historikk · boolean | Seksjoner |
+| `unlock` | Opplåsing (dra \| hold \| trykk) | Seksjoner |
+| `code_length` | PIN-lengde (auto \| 4 \| 6) | Seksjoner |
+| `hist_count` | Antall hendelser (4 \| 6 \| 10 \| 20) | Historikk |
+| `hist_all` | Alle låser (ellers bare valgt lås) · boolean | Historikk |
+| `hist_door` | Dør åpnet/lukket (fra dørsensoren) · boolean | Historikk |
+| `hist_who` | Hvem (navn og bilde når det er kjent) · boolean | Historikk |
+| `hist_method` | Metode (kode, app, nøkkel, autolås …) · boolean | Historikk |
+| `overrides.{auto_lock, away_lock, night_lock, jam_alert}` | bytt entitet |  |
 | `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
@@ -1666,3 +1677,23 @@ Varmepumpe-popup (#varmepumpe): NIBE S/F-serien via nibe_heatpump / myUplink –
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 
+
+## `msh-garasje-card`
+
+Garasje-popup (#garasje): portvelger, toppkort med portillustrasjon og Åpne/Stopp/Lukk, status, automatikk og historikk.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{porter}` | skjul / legg til |  |
+| `doors_cfg.garasjeport.name` | Navn | Port · Garasjeport |
+| `doors_cfg.garasjeport.light` | Lys · entity | Port · Garasjeport |
+| `doors_cfg.garasjeport.motion` | Bevegelse · entity | Port · Garasjeport |
+| `show_status` | Status · lys, bevegelse, tid · boolean | Seksjoner |
+| `show_auto` | Automatikk · boolean | Seksjoner |
+| `show_hist` | Historikk · boolean | Seksjoner |
+| `open_confirm` | Åpne krever (ingen \| to \| borte) | Sikkerhet |
+| `overrides.{auto_close, away_close, arrive_open, night_alert}` | bytt entitet |  |
+| `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |

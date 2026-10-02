@@ -2093,6 +2093,18 @@ try {
       Object.assign(l.style, { left: (x - r.left) / k - op.clientLeft + op.scrollLeft + 'px', top: (y - r.top) / k - op.clientTop + op.scrollTop + 'px', width: w / k + 'px', height: h / k + 'px' });
       if (s.fw) s.fw.reset();
     };
+    // Glid linsen til el (ferske mål, f.eks. aktiv fane som ble bredere ved valg: ikon → ikon + navn) og fullfør etterpå.
+    // Er linsen allerede der (±1 px) → finish() straks.
+    s.glideTo = (el, ms = 180) => {
+      if (s.dead || s.fin) return;
+      const r = el && el.nodeType === 1 && el.isConnected ? el.getBoundingClientRect() : null;
+      const cur = l.getBoundingClientRect();
+      if (!r || !r.width || (Math.abs(r.left - cur.left) <= 1 && Math.abs(r.width - cur.width) <= 1 && Math.abs(r.top - cur.top) <= 1 && Math.abs(r.height - cur.height) <= 1)) { s.finish(); return; }
+      const e = `${ms}ms cubic-bezier(.3,.8,.3,1)`;
+      l.style.transition = `left ${e}, top ${e}, width ${e}, height ${e}`;
+      s.place(r.left, r.top, r.width, r.height);
+      s.timers.push(setTimeout(() => s.finish(), ms));
+    };
     s.finish = () => {
       if (s.fin || s.dead) return;
       s.fin = true;
@@ -7404,7 +7416,19 @@ try {
       this._hold(false);
       if (this.o.onGlassEnd) this.o.onGlassEnd(hit, commit);
       if (hit) { hapLater('light'); this.o.onSelect(this.idOf(hit)); } else if (this.o.card && this.o.card.update) this.o.card.update();
-      if (st.lens) st.lens.finish();
+      if (st.lens) {
+        // Valgt fane kan endre mål når den blir aktiv (ikonfaner: ikon → ikon + navn) – vent til fanebyttet er tegnet
+        // (maks 3 frames), og la linsen gli til fanens endelige mål før den tones ut (ellers ender boblen på det gamle målet).
+        const L = st.lens, want = hit ? this.idOf(hit) : null;
+        let n = 0;
+        const go = () => {
+          if (L.dead || L.fin) return;
+          const a = this.activeBtn();
+          if (want != null && (!a || this.idOf(a) !== want) && n++ < 3) { requestAnimationFrame(go); return; }
+          if (L.glideTo) L.glideTo(a); else L.finish();
+        };
+        if (hit) { requestAnimationFrame(go); L.timers.push(setTimeout(() => L.finish(), 500)); } else L.finish(); // reserve: rAF kommer aldri
+      }
     }
   }
 
