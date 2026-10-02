@@ -21146,6 +21146,8 @@ try {
       // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
+      // Fiks 33.4: «Fanehøyde i popups» – global standard (ki-store ui.popup_tab_height) for alle popups på «Følg global»
+      const ptRow = M.tabH ? `<div class="tset" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
       // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
       const hOn = M.hapticOff ? !M.hapticOff() : true;
       const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
@@ -21164,7 +21166,7 @@ try {
           <div class="fld"><span class="fl">Høyde${pl}</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
           <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
         </div>
-        ${gaRow}${hapRow}${rows}
+        ${ptRow}${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <span class="hint">Dra fanene for å endre rekkefølgen. Etasjer fra Home Assistant dukker opp automatisk.</span>`;
     }
@@ -21399,6 +21401,8 @@ try {
     /* ======================================================== handlinger */
     _bind() {
       const r = this.root;
+      // Fiks 33.4: global fanehøyde (felles felt, MSH.tabH) – i utkastet (Ferdig lagrer, Avbryt ruller tilbake); slider live
+      if (M.tabH) M.tabH.bindEditor(r, { set: (v, commit) => { M.tabH.setGlobal(v); if (commit) this.render(); } });
       r.addEventListener('click', (e) => this._click(e));
       r.addEventListener('change', (e) => this._input(e, 'change'));
       r.addEventListener('input', (e) => this._input(e, 'input'));
@@ -36980,6 +36984,8 @@ try {
   // hvit/svart etter regel 4/3 (WA/KA). Linjefargene (badger) beholdes. Mørk modus = som før.
   const TH = M.theme || {};
   const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  // Tekst på tone-pille: mørknet aksent blandes ytterligere med svart i lys modus (--ki-accent-mix 60 %) → ≥ 4,5:1
+  const ATP = (c) => `color-mix(in srgb, ${AT(c)} var(--ki-accent-mix, 100%), black)`;
   const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
   const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0/max(var(--ki-ka-min,0),calc(${a}*var(--ki-ka-k,1))))`);
@@ -37444,7 +37450,7 @@ try {
     _chip(ledig, cls = 'go') {
       if (this.config.go_now === false || ledig == null) return '';
       const [t, col] = goOf(ledig);
-      return `<span class="${cls}" style="color:${AT(col)};background:${TONE(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
+      return `<span class="${cls}" style="color:${ATP(col)};background:${TONE(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
     }
     _occ(occ) {
       const l = OCC[occ];
@@ -37805,7 +37811,7 @@ try {
         .pnx{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pv{flex:none;height:34px;padding:0 12px 0 10px;border-radius:17px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
         .sep{color:var(--ki-text-3, var(--gray600,#7f7f7f));font-size:14px}
-        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${AT(C.green)};background:${TONE(C.green, 0.16)}}
+        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${ATP(C.green)};background:${TONE(C.green, 0.16)}}
         .atot{font-size:17px;font-weight:600}
         .aarr{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .atxt{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
@@ -37879,11 +37885,15 @@ try {
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const VERSION = window.KI_MSH_VERSION || '?';
-  if (!M.__vaerLogged) { M.__vaerLogged = true; console.info('%c ki-weather-card %c msh-vaer-card ' + VERSION + ' ', 'background:#73b9f2;color:#10202c;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px'); }
+  if (!M.__vaerLogged) { M.__vaerLogged = true; console.info('%c ki-weather-card %c msh-vaer-card ' + VERSION + ' ', 'background:#73b9f2;color:#10202c;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px'); } // ki-hex-ok: konsollmerke
   M.VAER_VERSION = VERSION;
-  const SUNY = C.yellow, CLOUD = 'var(--gray900, #c7c7c7)', MOON = 'var(--gray700, #979797)', RAIN = C.blue;
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4), aksent som tekst/ikon (pkt. 6), tone-bakgrunn (pkt. 5); mørk = uendret
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // ukjente farger beholdes
+  const TONE = (c, a) => (M.theme && M.theme.tone ? M.theme.tone(c, undefined, a).bg : M.alpha(c, a));
+  const SUNY = C.yellow, CLOUD = 'var(--ki-text-1, var(--gray900, #c7c7c7))', MOON = 'var(--ki-text-mid, var(--gray700, #979797))', RAIN = C.blue;
   // intern nøkkel → [Material-ikon, etikett, farge]
-  const WX = { sun: ['clear_day', 'Sol', SUNY], moon: ['bedtime', 'Klarvær', MOON], part: ['partly_cloudy_day', 'Delvis skyet', SUNY], partn: ['partly_cloudy_night', 'Delvis skyet', MOON], cloud: ['cloud', 'Overskyet', CLOUD], rain: ['rainy', 'Regn', RAIN], sleet: ['weather_mix', 'Sludd', C.lightBlue], snow: ['weather_snowy', 'Snø', 'var(--white, #fafafa)'], fog: ['foggy', 'Tåke', CLOUD], thunder: ['thunderstorm', 'Torden', SUNY], wind: ['air', 'Kraftig vind', RAIN] };
+  const WX = { sun: ['clear_day', 'Sol', SUNY], moon: ['bedtime', 'Klarvær', MOON], part: ['partly_cloudy_day', 'Delvis skyet', SUNY], partn: ['partly_cloudy_night', 'Delvis skyet', MOON], cloud: ['cloud', 'Overskyet', CLOUD], rain: ['rainy', 'Regn', RAIN], sleet: ['weather_mix', 'Sludd', C.lightBlue], snow: ['weather_snowy', 'Snø', 'var(--ki-text, var(--white, #fafafa))'], fog: ['foggy', 'Tåke', CLOUD], thunder: ['thunderstorm', 'Torden', SUNY], wind: ['air', 'Kraftig vind', RAIN] };
   // «Forhåndsvis vær» i «Tilpass været» (lagres ikke)
   const PREVIEW = ['sun', 'part', 'cloud', 'rain', 'sleet', 'snow', 'fog', 'thunder', 'wind'];
   // HA-condition → [nøkkel, norsk etikett]
@@ -37911,7 +37921,7 @@ try {
   const hm = (t) => { const d = new Date(t); return `${M.pad(d.getHours())}:${M.pad(d.getMinutes())}`; };
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const wd = (t) => new Date(t).toLocaleDateString('nb-NO', { weekday: 'short' }).replace('.', '');
-  const wxIcon = (icon, size, color, extra = '') => M.icon(icon, size, `color:${color};animation:${WXANIM[icon] || 'none'};${extra}`);
+  const wxIcon = (icon, size, color, extra = '') => M.icon(icon, size, `color:${AT(color)};animation:${WXANIM[icon] || 'none'};${extra}`);
   const compass = (b) => {
     if (b == null || b === '') return '';
     if (!M.isNum(b)) return String(b).replace(/W/g, 'V').replace(/E/g, 'Ø');
@@ -37998,9 +38008,9 @@ try {
   const moonDisc = (p, size) => {
     const a = 2 * Math.PI * p, cs = Math.cos(a), rx = Math.abs(50 * cs).toFixed(2), wax = p < 0.5, id = 'mf' + (++moonSeq % 1000);
     const d = wax ? `M50,0 A50,50 0 0 1 50,100 A${rx},50 0 0 ${cs > 0 ? 0 : 1} 50,0Z` : `M50,0 A50,50 0 0 0 50,100 A${rx},50 0 0 ${cs > 0 ? 1 : 0} 50,0Z`;
-    return `<svg class="moon" data-phase="${p}" data-wax="${wax ? 1 : 0}" viewBox="0 0 100 100" style="width:${size}px;height:${size}px;clip-path:circle(50%)" aria-hidden="true"><defs><radialGradient id="${id}d" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2c2e36"/><stop offset="1" stop-color="#15161b"/></radialGradient><radialGradient id="${id}l" cx="${wax ? 62 : 38}%" cy="38%" r="70%"><stop offset="0" stop-color="#fffaea"/><stop offset=".65" stop-color="#e9e3d2"/><stop offset="1" stop-color="#c9c1ab"/></radialGradient><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.2"/></filter></defs><circle cx="50" cy="50" r="50" fill="url(#${id}d)"/><path class="lit" d="${d}" fill="url(#${id}l)" filter="url(#${id}b)"/></svg>`;
+    return `<svg class="moon" data-phase="${p}" data-wax="${wax ? 1 : 0}" viewBox="0 0 100 100" style="width:${size}px;height:${size}px;clip-path:circle(50%)" aria-hidden="true"><defs><radialGradient id="${id}d" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2c2e36"/><stop offset="1" stop-color="#15161b"/></radialGradient><radialGradient id="${id}l" cx="${wax ? 62 : 38}%" cy="38%" r="70%"><stop offset="0" stop-color="#fffaea"/><stop offset=".65" stop-color="#e9e3d2"/><stop offset="1" stop-color="#c9c1ab"/></radialGradient><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.2"/></filter></defs><circle cx="50" cy="50" r="50" fill="url(#${id}d)"/><path class="lit" d="${d}" fill="url(#${id}l)" filter="url(#${id}b)"/></svg>`; // ki-hex-ok: måneillustrasjon
   };
-  const uvOf = (v) => (v == null ? ['–', 'var(--gray600, #7f7f7f)'] : v < 1 ? ['Svært lav', C.green] : v < 3 ? ['Lav', C.green] : v < 6 ? ['Moderat', C.yellow] : v < 8 ? ['Høy', C.orange] : v < 11 ? ['Svært høy', C.red] : ['Ekstrem', C.purple]);
+  const uvOf = (v) => (v == null ? ['–', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] : v < 1 ? ['Svært lav', C.green] : v < 3 ? ['Lav', C.green] : v < 6 ? ['Moderat', C.yellow] : v < 8 ? ['Høy', C.orange] : v < 11 ? ['Svært høy', C.red] : ['Ekstrem', C.purple]);
   // Værbakgrunn i toppkortet (heroFx): regn, snø, sludd, tåkebånd, lyn-blink, solstråler, skyer, vindstriper.
   const heroFx = (k) => {
     const P = [], rnd = (i) => (i * 37) % 100;
@@ -38011,12 +38021,12 @@ try {
     if (k === 'sleet') { drops(14, M.alpha(C.blue, 0.5), 0.8); flakes(12, 3.4); }
     if (k === 'snow') flakes(28, 4.2);
     if (k === 'fog') [18, 62, 108, 150].forEach((y, i) => P.push(['f', `left:-30%;top:${y}px;width:160%;height:36px;border-radius:18px;background:linear-gradient(90deg, transparent, rgba(220,220,220,0.16), rgba(220,220,220,0.22), transparent);filter:blur(6px);animation:wx-fog ${7 + i * 1.5}s ease-in-out ${-i * 2}s infinite alternate`]));
-    if (k === 'thunder') P.push(['b', 'inset:0;background:rgba(255,255,240,0.5);animation:wx-bolt 4.5s linear infinite']);
+    if (k === 'thunder') P.push(['b', 'inset:0;background:rgba(255,255,240,0.5);animation:wx-bolt 4.5s linear infinite']); // ki-hex-ok: værscene/illustrasjon (mørk øy)
     if (k === 'sun') {
       P.push(['sr', `right:-60px;top:-60px;width:300px;height:300px;border-radius:150px;background:radial-gradient(circle, ${M.alpha(SUNY, 0.28)}, transparent 65%);animation:wx-ray 5s ease-in-out infinite`]);
       P.push(['sb', `right:-150px;top:-150px;width:480px;height:480px;border-radius:240px;background:repeating-conic-gradient(from 0deg, ${M.alpha(SUNY, 0.1)} 0deg 6deg, transparent 6deg 22deg);-webkit-mask:radial-gradient(circle, #000 20%, transparent 62%);mask:radial-gradient(circle, #000 20%, transparent 62%);animation:wx-rays 60s linear infinite`]);
     }
-    if (k === 'part' || k === 'cloud' || k === 'partn') [[-10, 20, 220], [40, 90, 260]].forEach(([x, y, w], i) => P.push(['c', `left:${x}%;top:${y}px;width:${w}px;height:70px;border-radius:35px;background:rgba(255,255,255,${k === 'cloud' ? 0.07 : 0.05});filter:blur(10px);animation:wx-drift ${8 + i * 3}s ease-in-out infinite`]));
+    if (k === 'part' || k === 'cloud' || k === 'partn') [[-10, 20, 220], [40, 90, 260]].forEach(([x, y, w], i) => P.push(['c', `left:${x}%;top:${y}px;width:${w}px;height:70px;border-radius:35px;background:rgba(255,255,255,${k === 'cloud' ? 0.07 : 0.05});filter:blur(10px);animation:wx-drift ${8 + i * 3}s ease-in-out infinite`])); // ki-hex-ok: værscene/illustrasjon (mørk øy)
     if (k === 'wind') for (let i = 0; i < 7; i++) P.push(['w', `left:0;top:${20 + i * 24}px;width:${90 + (i % 3) * 40}px;height:2px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(220,230,245,0.45), transparent);animation:wx-wind ${(1.4 + (i % 4) * 0.3).toFixed(1)}s linear ${(-i * 0.4).toFixed(1)}s infinite`]);
     return P.map(([t, s]) => `<span data-fx="${t}" style="position:absolute;${s}"></span>`).join('');
   };
@@ -38062,7 +38072,7 @@ try {
     if (M.isNum(s)) return M.clamp(Math.round(Number(s)), 0, 4);
     return /ekstrem|extreme|very.?high/.test(s) ? 4 : /kraftig|severe|high|høy/.test(s) ? 3 : /moderat|moderate|middels|medium/.test(s) ? 2 : /beskjeden|low|lav|lite/.test(s) ? 1 : 0;
   };
-  const PL = [['Ingen', 'var(--gray600, #7f7f7f)'], ['Beskjeden', C.green], ['Moderat', C.yellow], ['Kraftig', C.orange], ['Ekstrem', C.red]];
+  const PL = [['Ingen', 'var(--ki-text-3, var(--gray600, #7f7f7f))'], ['Beskjeden', C.green], ['Moderat', C.yellow], ['Kraftig', C.orange], ['Ekstrem', C.red]];
   const POLLEN = [[/hassel|hazel/, 'Hassel', 'nature'], [/(^|_|\s)or($|_|\s)|alder|older/, 'Or', 'forest'], [/salix|selje|willow|vier/, 'Salix', 'spa'], [/bjork|bjørk|birch/, 'Bjørk', 'park'], [/gress|grass/, 'Gress', 'grass'], [/burot|mugwort|artemisia/, 'Burot', 'eco']];
 
   /* ================================================================ toppkort (hero) */
@@ -38098,7 +38108,7 @@ try {
       const wind = num(A.wind_speed) != null ? `${f1(A.wind_speed)} ${wu} ${compass(A.wind_bearing)}`.trim() : `– ${wu}`;
       const rain = H[0] && num(H[0].precipitation) != null ? `${f1(H[0].precipitation)} ${pu}` : `– ${pu}`;
       const uv = uvSt && M.isNum(uvSt.state) ? num(uvSt.state) : num(A.uv_index) != null ? num(A.uv_index) : H[0] && num(H[0].uv_index) != null ? num(H[0].uv_index) : null;
-      const col = cond ? cond.color : 'var(--gray600, #7f7f7f)';
+      const col = cond ? cond.color : 'var(--ki-text-3, var(--gray600, #7f7f7f))';
       const fxOn = c.hero_fx !== false; // 17.30 B: «Bakgrunnsanimasjon» av → ingen partikler/bevegelige lag
       const slides = [];
       slides.push(`<div class="sl now" data-key="s0" data-fxk="${cond ? cond.key : ''}" ${a.weather ? `data-ent="${esc(a.weather)}"` : ''}>
@@ -38112,7 +38122,7 @@ try {
         const uvL = uvOf(uv);
         const X = [['mdi:weather-sunset-up', sun ? hm(sun.rise) : '–', C.orange, 'Soloppgang'], ['mdi:weather-sunset-down', sun ? hm(sun.set) : '–', C.pink, 'Solnedgang'], ['bedtime', moon.name, MOON, 'Månefase'], ['light_mode', uv != null ? `UV ${uvL[0].toLowerCase()} (${f1(uv)})` : 'UV –', SUNY, 'UV']];
         slides.push(`<div class="sl ex" data-key="s1"><span class="pl" style="padding:0 8px">Andre varsler</span>
-          <div class="exg">${X.map(([ic, lab, co, al], i) => `<div class="ext" data-key="x${i}" aria-label="${al}">${M.icon(ic, 30, `color:${co};animation:${i === 2 ? WXANIM.bedtime : i === 3 ? 'wx-spin 24s linear infinite' : 'none'}`)}<span>${esc(lab)}</span></div>`).join('')}</div></div>`);
+          <div class="exg">${X.map(([ic, lab, co, al], i) => `<div class="ext" data-key="x${i}" aria-label="${al}">${M.icon(ic, 30, `color:${AT(co)};animation:${i === 2 ? WXANIM.bedtime : i === 3 ? 'wx-spin 24s linear infinite' : 'none'}`)}<span>${esc(lab)}</span></div>`).join('')}</div></div>`);
       }
       if (c.show_pollen !== false) {
         const src = a.pollen.length ? (h.states[a.pollen[0]].attributes.attribution || (/naaf/.test((M.regEntry(h, a.pollen[0]) || {}).platform || '') ? 'NAAF' : '')) : '';
@@ -38125,7 +38135,7 @@ try {
         found.filter((f) => !f.std).forEach((f) => P.push(f));
         const shown = found.length > 6 ? found.slice(0, 6) : P.slice(0, 6);
         slides.push(`<div class="sl po" data-key="s2"><span class="ph"><span class="pl">Pollen i dag</span>${found.length ? `<span class="src ell">${esc(String(src || '').slice(0, 24))}</span>` : `<button class="src lnk" data-act="customize" data-section="overrides" data-haptic="selection">Velg sensorer</button>`}</span>
-          <div class="pg">${shown.map((p, i) => { const L = p.lv == null ? ['–', 'var(--gray600, #7f7f7f)'] : PL[p.lv]; return `<div class="pt" ${p.id ? `data-ent="${esc(p.id)}"` : ''} data-key="p${i}-${esc(p.id || p.name)}">${M.icon(p.icon, 20, `color:${L[1]}`)}<span class="col" style="min-width:0"><span class="pn ell">${esc(p.name)}</span><span style="font-size:10px;color:${L[1]}">${L[0]}</span></span></div>`; }).join('')}</div></div>`);
+          <div class="pg">${shown.map((p, i) => { const L = p.lv == null ? ['–', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] : PL[p.lv]; return `<div class="pt" ${p.id ? `data-ent="${esc(p.id)}"` : ''} data-key="p${i}-${esc(p.id || p.name)}">${M.icon(p.icon, 20, `color:${AT(L[1])}`)}<span class="col" style="min-width:0"><span class="pn ell">${esc(p.name)}</span><span style="font-size:10px;color:var(--ki-text-2, ${L[1]})">${L[0]}</span></span></div>`; }).join('')}</div></div>`);
       }
       const cur = Math.min(this.ui.hero || 0, slides.length - 1);
       return `<section class="hero">
@@ -38153,27 +38163,27 @@ try {
       return `${KEYFRAMES}
         .hero{display:flex;flex-direction:column;align-items:center;gap:10px}
         .car{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0;overflow-anchor:none;border-radius:28px;overscroll-behavior-x:contain;touch-action:pan-x}
-        .sl{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always;min-height:190px;border-radius:28px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column}
+        .sl{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always;min-height:190px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column}
         .now{position:relative;padding:22px 24px;justify-content:space-between;overflow:hidden}
         .fx{position:absolute;inset:0;overflow:hidden;border-radius:28px;pointer-events:none}
-        .pl{position:relative;z-index:1;font-size:14px;color:var(--gray900,#c7c7c7);display:flex;align-items:center;gap:8px}
-        .pvt{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,0.12);color:var(--white,#fafafa)}
+        .pl{position:relative;z-index:1;font-size:14px;color:var(--ki-text-1, var(--gray900,#c7c7c7));display:flex;align-items:center;gap:8px}
+        .pvt{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px;background:${WA(0.12)};color:var(--ki-text, var(--white,#fafafa))}
         .tv{position:relative;z-index:1;display:flex;align-items:flex-end;gap:6px}
         .big{font-size:64px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-        .fl{font-size:15px;color:var(--gray800,#afafaf);padding-bottom:6px;white-space:nowrap}
-        .meta{position:relative;z-index:1;display:flex;gap:14px;font-size:14px;color:var(--gray900,#c7c7c7);white-space:nowrap}
+        .fl{font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf));padding-bottom:6px;white-space:nowrap}
+        .meta{position:relative;z-index:1;display:flex;gap:14px;font-size:14px;color:var(--ki-text-1, var(--gray900,#c7c7c7));white-space:nowrap}
         .hi{position:absolute;right:20px;top:50%;transform:translateY(-50%);line-height:0;pointer-events:none}
         .ex,.po{padding:20px 16px 16px}
         .ex{gap:14px}
         .po{gap:12px}
         .exg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--gray100,#2f2f2f);min-width:0}
-        .ext span{font-size:12px;color:var(--gray900,#c7c7c7);text-align:center;line-height:1.25;padding:0 4px}
+        .ext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:112px;border-radius:22px;background:var(--ki-surface-2, var(--gray100,#2f2f2f));min-width:0}
+        .ext span{font-size:12px;color:var(--ki-text-1, var(--gray900,#c7c7c7));text-align:center;line-height:1.25;padding:0 4px}
         .ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 8px}
-        .src{font-size:11px;color:var(--gray600,#7f7f7f)}
-        .lnk{color:var(--gray800,#afafaf);text-decoration:underline}
+        .src{font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .lnk{color:var(--ki-text-2, var(--gray800,#afafaf));text-decoration:underline}
         .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);min-width:0}
+        .pt{display:flex;align-items:center;gap:8px;height:53px;padding:0 10px;border-radius:18px;background:var(--ki-surface-2, var(--gray100,#2f2f2f));min-width:0}
         .pn{font-size:12px;font-weight:500}
       `;
     }
@@ -38197,7 +38207,7 @@ try {
     { type: 'boolean', name: 'show_extras', label: 'Toppkort side 2 · Andre varsler (sol, måne, UV)', default: true },
     { type: 'boolean', name: 'show_pollen', label: 'Toppkort side 3 · Pollen i dag', default: true },
   ];
-  const LV = { 1: ['Grønt', C.green], 2: ['Gult', C.yellow], 3: ['Oransje', C.orange], 4: ['Rødt', C.red], 5: ['Svart', 'var(--white, #fafafa)'] };
+  const LV = { 1: ['Grønt', C.green], 2: ['Gult', C.yellow], 3: ['Oransje', C.orange], 4: ['Rødt', C.red], 5: ['Svart', 'var(--white, #fafafa)'] }; // ki-hex-ok: farevarselnivå (flate)
   const ATYPE = [[/snøskred|avalanche/, 'ac_unit'], [/skogbrann|forest.?fire|brann/, 'local_fire_department'], [/stormflo|storm.?surge|kyst|coast/, 'waves'], [/jord|landslide|skred/, 'mdi:landslide'], [/flom|flood/, 'flood'], [/ising|ice|polar/, 'severe_cold'], [/torden|lightning|thunder/, 'thunderstorm'], [/snø|snow|blowing/, 'weather_snowy'], [/regn|rain/, 'rainy'], [/vind|wind|gale|storm/, 'air']];
   const whenTxt = (t) => {
     if (!t || isNaN(t)) return '';
@@ -38292,10 +38302,10 @@ try {
     if (kind === 'Torden') { cloud(6, true, 0.75); rain(18, true); bolt(1, '62%', 110, 9, 1.2); bolt(2, '18%', 90, 13, 5.5); }
     if (kind === 'Sol') {
       const sx = '82%', sy = 90;
-      for (let i = 0; i < 6; i++) out.push(sp_(`left:${sx};top:${sy}px;width:900px;height:${26 + r() * 40}px;margin-top:-20px;transform-origin:0 50%;rotate:${100 + i * 16 + r() * 6}deg;background:linear-gradient(90deg, rgba(255,244,205,.35), rgba(255,244,205,0) 80%);filter:blur(8px);animation:beam ${14 + r() * 8}s ease-in-out ${-r() * 10}s infinite`, 'bm'));
-      out.push(sp_(`left:${sx};top:${sy}px;width:260px;height:260px;margin:-130px 0 0 -130px;border-radius:50%;background:radial-gradient(closest-side, #fffdf2 0%, rgba(255,241,190,.9) 16%, rgba(255,214,120,.35) 42%, transparent);animation:bloom 8s ease-in-out infinite`, 'sun'));
-      [[0.28, 38, 0.5], [0.5, 18, 0.35], [0.72, 64, 0.22]].forEach(([t, s, o], i) => out.push(sp_(`left:calc(${sx} - ${t * 300}px);top:${sy + t * 360}px;width:${s}px;height:${s}px;margin-left:${-s / 2}px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,236,190,${o}), rgba(170,210,255,${o / 2}) 70%, transparent);animation:flare ${6 + i * 2}s ease-in-out ${-i}s infinite`, 'lf')));
-      for (let i = 0; i < 14 * k; i++) { const d = 7 + r() * 6; out.push(sp_(`left:${r() * 100}%;top:${r() * 40}%;width:3px;height:3px;border-radius:50%;background:rgba(255,248,220,.9);filter:blur(.5px);animation:mote ${d}s ease-in-out ${-r() * d}s infinite`, 'a mt')); }
+      for (let i = 0; i < 6; i++) out.push(sp_(`left:${sx};top:${sy}px;width:900px;height:${26 + r() * 40}px;margin-top:-20px;transform-origin:0 50%;rotate:${100 + i * 16 + r() * 6}deg;background:linear-gradient(90deg, rgba(255,244,205,.35), rgba(255,244,205,0) 80%);filter:blur(8px);animation:beam ${14 + r() * 8}s ease-in-out ${-r() * 10}s infinite`, 'bm')); // ki-hex-ok: værscene/illustrasjon (mørk øy)
+      out.push(sp_(`left:${sx};top:${sy}px;width:260px;height:260px;margin:-130px 0 0 -130px;border-radius:50%;background:radial-gradient(closest-side, #fffdf2 0%, rgba(255,241,190,.9) 16%, rgba(255,214,120,.35) 42%, transparent);animation:bloom 8s ease-in-out infinite`, 'sun')); // ki-hex-ok: værscene/illustrasjon (mørk øy)
+      [[0.28, 38, 0.5], [0.5, 18, 0.35], [0.72, 64, 0.22]].forEach(([t, s, o], i) => out.push(sp_(`left:calc(${sx} - ${t * 300}px);top:${sy + t * 360}px;width:${s}px;height:${s}px;margin-left:${-s / 2}px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,236,190,${o}), rgba(170,210,255,${o / 2}) 70%, transparent);animation:flare ${6 + i * 2}s ease-in-out ${-i}s infinite`, 'lf'))); // ki-hex-ok: værscene/illustrasjon (mørk øy)
+      for (let i = 0; i < 14 * k; i++) { const d = 7 + r() * 6; out.push(sp_(`left:${r() * 100}%;top:${r() * 40}%;width:3px;height:3px;border-radius:50%;background:rgba(255,248,220,.9);filter:blur(.5px);animation:mote ${d}s ease-in-out ${-r() * d}s infinite`, 'a mt')); } // ki-hex-ok: værscene/illustrasjon (mørk øy)
       cloud(2, false, 0.28, 20);
     }
     if (kind === 'Skyet') { cloud(7, false, 0.4); cloud(3, true, 0.3); }
@@ -38303,8 +38313,8 @@ try {
       [[0.45, 1.5, 3, 22, 1], [0.75, 3, 5, 15, 0], [0.95, 5, 8, 10, 0]].forEach(([op, s0, s1, dur, blur], L) => {
         for (let i = 0; i < [40, 26, 10][L] * k; i++) { const s = s0 + r() * (s1 - s0), d = dur * sp * (0.8 + r() * 0.4), sw = 3 + r() * 3;
           let flake;
-          if (L === 2 && r() < 0.6) { const fs = 12 + r() * 6; flake = M.icon('mdi:snowflake', fs.toFixed(1), `display:block;color:rgba(255,255,255,${op});animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite;filter:drop-shadow(0 0 3px rgba(255,255,255,.5))`); }
-          else flake = `<span style="display:block;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,${op}) 40%, rgba(255,255,255,0));filter:${blur ? 'blur(1px)' : 'none'};animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite"></span>`;
+          if (L === 2 && r() < 0.6) { const fs = 12 + r() * 6; flake = M.icon('mdi:snowflake', fs.toFixed(1), `display:block;color:rgba(255,255,255,${op});animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite;filter:drop-shadow(0 0 3px rgba(255,255,255,.5))`); } // ki-hex-ok: værscene/illustrasjon (mørk øy)
+          else flake = `<span style="display:block;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,${op}) 40%, rgba(255,255,255,0));filter:${blur ? 'blur(1px)' : 'none'};animation:sway ${sw}s ease-in-out ${-r() * sw}s infinite"></span>`; // ki-hex-ok: værscene/illustrasjon (mørk øy)
           out.push(sp_(`left:${r() * 100}%;animation:fall ${d.toFixed(1)}s linear ${(-r() * d).toFixed(1)}s infinite`, 'a sn', flake)); } }); }
     if (kind === 'Natt') {
       for (let i = 0; i < 70 * k; i++) { const s = r() < 0.15 ? 2.5 : 1.5;
@@ -38321,7 +38331,7 @@ try {
     const clouds = (n, col, op) => { for (let i = 0; i < n; i++) { const w = 280 + r() * 200, d = 70 + r() * 60; out.push(sp_(`pointer-events:none;top:${r() * 30 - 10}%;left:0;width:${w}px;height:${w * 0.42}px;border-radius:50%;filter:blur(24px);background:radial-gradient(closest-side, rgba(${col},${op}), transparent);animation:drift ${d}s linear ${-r() * d}s infinite`, 'cl')); } };
     const streaks = (n) => { for (let i = 0; i < n * k; i++) { const d = 1.1 + r() * 1.4, w = 60 + r() * 110; out.push(sp_(`pointer-events:none;left:0;top:${5 + r() * 90}%;width:${w}px;height:1.5px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(235,240,248,.55), transparent);animation:streak ${d.toFixed(2)}s linear ${(-r() * d).toFixed(2)}s infinite`, 'a wd')); } };
     const drops = (n, len, op, dur, rot) => { for (let i = 0; i < n * k; i++) { const dd = dur * 3.2 * (0.85 + r() * 0.3); out.push(sp_(`pointer-events:none;left:${r() * 110 - 5}%;width:1.4px;height:${len}px;border-radius:1px;background:linear-gradient(transparent, rgba(215,228,242,${op}));transform:rotate(${rot}deg);animation:fall ${dd.toFixed(2)}s linear ${(-r() * dd).toFixed(2)}s infinite`, 'a rn')); } };
-    const pellets = (n) => { for (let i = 0; i < n * k; i++) { const s = 3 + r() * 3, dd = 2.2 * (0.8 + r() * 0.4); out.push(sp_(`pointer-events:none;left:${r() * 100}%;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff, rgba(210,225,240,.85));box-shadow:0 0 3px rgba(255,255,255,.6);animation:fall ${dd.toFixed(2)}s cubic-bezier(.5,0,1,1) ${(-r() * dd).toFixed(2)}s infinite`, 'a hl')); } };
+    const pellets = (n) => { for (let i = 0; i < n * k; i++) { const s = 3 + r() * 3, dd = 2.2 * (0.8 + r() * 0.4); out.push(sp_(`pointer-events:none;left:${r() * 100}%;width:${s}px;height:${s}px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff, rgba(210,225,240,.85));box-shadow:0 0 3px rgba(255,255,255,.6);animation:fall ${dd.toFixed(2)}s cubic-bezier(.5,0,1,1) ${(-r() * dd).toFixed(2)}s infinite`, 'a hl')); } }; // ki-hex-ok: værscene/illustrasjon (mørk øy)
     const fog = () => { for (let i = 0; i < 5; i++) { const d = 26 + r() * 20; out.push(sp_(`pointer-events:none;left:-20%;width:140%;top:${18 + i * 16}%;height:140px;background:linear-gradient(180deg, transparent, rgba(222,228,236,.34), transparent);filter:blur(16px);animation:fogmove ${d.toFixed(1)}s ease-in-out ${(-r() * d).toFixed(1)}s infinite`, 'fg')); } };
     const bolt = (x, dur, delay) => {
       out.push(`<svg class="a bo" viewBox="0 0 40 120" aria-hidden="true" style="position:absolute;pointer-events:none;left:${x};top:0;width:70px;height:300px;overflow:visible;filter:drop-shadow(0 0 6px #c9d2ff)"><path d="M22 0 L12 48 L22 50 L8 120 L30 44 L20 42 L28 0 Z" fill="#eef1ff" style="animation:flash ${dur}s linear ${delay}s infinite;opacity:0"></path></svg>`);
@@ -38368,12 +38378,14 @@ try {
   `;
   // 27.0 · faste kontroller (Vær v5 pickWrap/gearWrap): stedsvelger nede til venstre (meny åpner oppover) + tune nede til høyre
   const PINK160 = 'linear-gradient(160deg,#f28ac9,#f6c9c4)', INK = 'rgba(70,58,64,.95)';
+  // ikonfarge i stedsmenyen/arket (temafølgende; i Scene nullstilt av øya → #e6ebf1 / gul)
+  const icoColT = (k) => (k === 'sunny' ? `var(--ki-yellow-text, ${YEL})` : `var(--ki-text-1, ${ICO})`);
   const CTL_CSS = `
-    :host{position:absolute;left:0;right:0;bottom:0;height:0;z-index:6;pointer-events:none;display:block;font-family:${M.FONT};color:#fafafa;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+    :host{position:absolute;left:0;right:0;bottom:0;height:0;z-index:6;pointer-events:none;display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .b{position:absolute;bottom:var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px)));pointer-events:auto;height:48px;border-radius:24px;background:rgba(28,30,36,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s}
-    .b:hover{background:rgba(28,30,36,.88)}
+    .b{position:absolute;bottom:var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px)));pointer-events:auto;height:48px;border-radius:24px;background:var(--ki-glass, rgba(28,30,36,.72));-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid ${WA(0.12)};box-shadow:0 6px 24px ${BA(0.35)};display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;font-weight:500;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s}
+    .b:hover{background:var(--ki-surface, rgba(28,30,36,.88))}
     .b:active{transform:scale(.92)}
     .pl{left:var(--ctl-x, 16px);max-width:calc(100% - 100px)}
     .pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -38381,13 +38393,13 @@ try {
     .cv.up{transform:rotate(180deg)}
     .tn{right:var(--ctl-x, 16px);width:48px;padding:0;justify-content:center}
     .mbg{position:absolute;left:0;right:0;bottom:0;height:100vh;pointer-events:auto}
-    .mn{position:absolute;left:var(--ctl-x, 16px);bottom:calc(var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px))) + 56px);pointer-events:auto;width:270px;max-width:calc(100% - 32px);max-height:60vh;overflow:auto;border-radius:22px;background:rgba(36,38,44,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade .2s ease}
-    .mi{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 12px;border-radius:16px;text-align:left;color:#fafafa}
+    .mn{position:absolute;left:var(--ctl-x, 16px);bottom:calc(var(--ctl-b, calc(16px + env(safe-area-inset-bottom, 0px))) + 56px);pointer-events:auto;width:270px;max-width:calc(100% - 32px);max-height:60vh;overflow:auto;border-radius:22px;background:var(--ki-surface, rgba(36,38,44,.92));-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid ${WA(0.08)};box-shadow:0 12px 40px ${BA(0.45)};padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade .2s ease}
+    .mi{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 12px;border-radius:16px;text-align:left;color:var(--ki-text, #fafafa)}
     .mi.on{background:${PINK160};color:${INK}}
     .mc{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
     .mnm{font-size:15px;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .mid{font-size:10px;color:#a8a8a8;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
-    .mi.on .mid{color:rgba(70,58,64,.75)}
+    .mid{font-size:10px;color:var(--ki-text-mid, #a8a8a8);font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
+    .mi.on .mid{color:var(--ki-on-accent, rgba(70,58,64,.75))}
     .mt{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     @media (prefers-reduced-motion: reduce){.mn{animation:none}}
@@ -38478,15 +38490,15 @@ try {
       });
     }
     const btn = (op, i, label, ic, dis) => `<button class="chip" data-a="fn" data-k="${key}" data-op="${op}" data-i="${i}" aria-label="${esc(label)}" ${dis ? 'disabled' : ''}>${ic ? M.icon(ic, 18) : esc(label)}</button>`;
-    const rows = L.length ? L.map((p, i) => `<div class="col" data-key="vp-${i}" style="gap:6px;padding:8px 0;border-top:${i ? '1px solid rgba(255,255,255,.06)' : '0'}">
+    const rows = L.length ? L.map((p, i) => `<div class="col" data-key="vp-${i}" style="gap:6px;padding:8px 0;border-top:${i ? '1px solid ' + WA(0.06) : '0'}">
         <div class="line" style="gap:6px"><input class="inp" data-name="places.${i}.name" value="${esc(p.name || '')}" placeholder="${esc(M.name(h, p.entity))}" style="flex:1;min-width:0">
           ${btn('up', i, 'Flytt opp', 'mdi:arrow-up', i === 0)}${btn('down', i, 'Flytt ned', 'mdi:arrow-down', i === L.length - 1)}${btn('rm', i, `Fjern ${p.name || p.entity}`, 'mdi:delete-outline')}</div>
         ${hasSel ? `<ha-selector data-name="places.${i}.entity" data-nomorph data-selector="${sel}" data-label="Værmelding (weather.*)" data-helper=""></ha-selector>` : `<span class="small">${esc(p.entity)}</span>`}</div>`).join('')
       : '<div class="small">Bare Hjem (værmeldingen fra autokonfig) – legg til flere steder under.</div>';
     const add = hasSel
       ? `<ha-selector data-vpadd data-nomorph data-selector="${sel}" data-label="Legg til sted (søk etter weather.*)" data-helper="Navnet fylles med entitetens navn og kan endres over"></ha-selector>`
-      : `<div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--gray100,#2f2f2f)">
-        <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--gray100,#2f2f2f)">${all.map((id) => `<option value="${esc(id)}">${esc(M.name(h, id))} · ${esc(id)}</option>`).join('')}</select>
+      : `<div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">
+        <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${all.map((id) => `<option value="${esc(id)}">${esc(M.name(h, id))} · ${esc(id)}</option>`).join('')}</select>
         <button class="chip on" data-a="fn" data-k="${key}" data-op="add" ${all.length ? '' : 'disabled'}>Legg til sted</button></div>`;
     return `<div class="f" data-key="vp-${key}"><label>Steder</label>${rows}${add}</div>`;
   };
@@ -38626,7 +38638,7 @@ try {
       // 27.0: designets stedsmeny (Vær v5 ents): værikon, navn 15/500 + entitets-ID (mono 10 px), temperatur nå; valgt = rosa
       const item = (p, i) => {
         const on = i === i0, so = p.entity && h ? h.states[p.entity] : null, cd = sceneOf(so ? so.state : null, night), t = so ? num(so.attributes.temperature) : null;
-        return `<button class="mi${on ? ' on' : ''}" role="menuitemradio" aria-checked="${on}" data-a="pick" data-i="${i}">${M.icon(cd.icon, 22, `color:${on ? INK : icoCol(cd.key)}`)}<span class="mc"><span class="mnm">${esc(p.name)}</span><span class="mid">${esc(p.entity || '–')}</span></span><span class="mt">${t != null ? Math.round(t) : '–'}°</span></button>`;
+        return `<button class="mi${on ? ' on' : ''}" role="menuitemradio" aria-checked="${on}" data-a="pick" data-i="${i}">${M.icon(cd.icon, 22, `color:${on ? INK : icoColT(cd.key)}`)}<span class="mc"><span class="mnm">${esc(p.name)}</span><span class="mid">${esc(p.entity || '–')}</span></span><span class="mt">${t != null ? Math.round(t) : '–'}°</span></button>`;
       };
       const html = `<style>${CTL_CSS}</style>
         ${this._ctlMenu ? `<div class="mbg" data-a="close"></div><div class="mn" role="menu">${L.map(item).join('')}</div>` : ''}
@@ -38833,24 +38845,24 @@ try {
         const nOn = AL.filter((x) => !x.future).length, nFut = AL.length - nOn;
         const sum = [nOn ? `${nOn} pågår` : '', nFut ? `${nFut} ventet` : ''].filter(Boolean).join(' · ');
         sec.alerts = `<section class="sec">
-          <div class="ah"><span class="row" style="gap:6px;font-size:13px;color:var(--gray700,#979797)">${M.icon('warning', 16)}Farevarsler · ${sum}</span>
+          <div class="ah"><span class="row" style="gap:6px;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))">${M.icon('warning', 16)}Farevarsler · ${sum}</span>
             <span class="row">${AL.map((x, i) => `<span class="ac" data-key="ac${i}" style="background:${LV[x.lv][1]};margin-left:${i ? -7 : 0}px;z-index:${10 - i}">${M.icon(x.icon, 15)}</span>`).join('')}</span></div>
           ${AL.map((x) => {
             const col = LV[x.lv][1], open = ui.alertOpen === x.key;
-            return `<button class="al${open ? ' open' : ''}" data-act="alert" data-k="${esc(x.key)}" data-key="${esc(x.key)}" data-ent="${esc(x.ent)}" data-haptic="selection" aria-expanded="${open}" style="background:${M.alpha(col, 0.12)};box-shadow:inset 0 0 0 1px ${M.alpha(col, 0.35)}">
+            return `<button class="al${open ? ' open' : ''}" data-act="alert" data-k="${esc(x.key)}" data-key="${esc(x.key)}" data-ent="${esc(x.ent)}" data-haptic="selection" aria-expanded="${open}" style="background:${TONE(col, 0.12)};box-shadow:inset 0 0 0 1px ${M.alpha(col, 0.35)}">
               <span class="row" style="align-items:flex-start;gap:12px;width:100%">
                 <span class="aiw" style="background:${col}">${M.icon(x.icon, 22)}</span>
                 <span class="grow col" style="gap:3px;text-align:left">
-                  <span class="row" style="gap:6px;flex-wrap:wrap"><span class="lb" style="background:${M.alpha(col, 0.22)};color:${col}">${LV[x.lv][0]} nivå</span><span style="font-size:11px;color:${x.future ? 'var(--gray700, #979797)' : 'var(--white, #fafafa)'}">${esc(x.status)}</span></span>
+                  <span class="row" style="gap:6px;flex-wrap:wrap"><span class="lb" style="background:${TONE(col, 0.22)};color:var(--ki-text, ${col})">${LV[x.lv][0]} nivå</span><span style="font-size:11px;color:${x.future ? 'var(--ki-text-mid, var(--gray700, #979797))' : 'var(--ki-text, var(--white, #fafafa))'}">${esc(x.status)}</span></span>
                   <span style="font-size:14px;font-weight:600;line-height:1.3">${esc(x.title)}</span>
-                  <span style="font-size:12px;color:var(--gray700,#979797)">${esc([whenTxt(x.from), whenTxt(x.to)].filter(Boolean).join(' – ') || '–')}</span>
+                  <span style="font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))">${esc([whenTxt(x.from), whenTxt(x.to)].filter(Boolean).join(' – ') || '–')}</span>
                 </span>
-                <span class="chev">${M.icon('expand_more', 22, `color:var(--gray700, #979797);transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span>
+                <span class="chev">${M.icon('expand_more', 22, `color:var(--ki-text-mid, var(--gray700, #979797));transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span>
               </span>
               ${open ? `<span class="ax">
-                ${x.text ? `<span style="font-size:13px;color:var(--gray1000,#e1e1e1);line-height:1.45;text-wrap:pretty">${esc(x.text)}</span>` : ''}
-                ${x.blocks.map((b) => `<span class="col" style="gap:3px"><span style="font-size:11px;color:var(--gray600,#7f7f7f)">${esc(b[0])}</span><span style="font-size:13px;color:var(--gray900,#c7c7c7);line-height:1.45;text-wrap:pretty">${esc(b[1])}</span></span>`).join('')}
-                <span class="row" style="justify-content:space-between;gap:10px;font-size:11px;color:var(--gray600,#7f7f7f)"><span class="ell">${esc(x.src)}</span>${x.url ? `<a class="map" href="${esc(x.url)}" target="_blank" rel="noopener">Åpne kart${M.icon('open_in_new', 14)}</a>` : ''}</span>
+                ${x.text ? `<span style="font-size:13px;color:var(--ki-text-1, var(--gray1000,#e1e1e1));line-height:1.45;text-wrap:pretty">${esc(x.text)}</span>` : ''}
+                ${x.blocks.map((b) => `<span class="col" style="gap:3px"><span style="font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">${esc(b[0])}</span><span style="font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7));line-height:1.45;text-wrap:pretty">${esc(b[1])}</span></span>`).join('')}
+                <span class="row" style="justify-content:space-between;gap:10px;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))"><span class="ell">${esc(x.src)}</span>${x.url ? `<a class="map" href="${esc(x.url)}" target="_blank" rel="noopener">Åpne kart${M.icon('open_in_new', 14)}</a>` : ''}</span>
               </span>` : ''}
             </button>`;
           }).join('')}
@@ -38875,7 +38887,7 @@ try {
         }
         const d = smooth(P), cur = G[sel];
         sec.hours += `<section class="gr">
-          <div class="gh"><span class="row" style="gap:6px;font-size:12px;color:var(--gray700,#979797)">${M.icon('thermometer', 16)}Temperatur · neste 24 t</span><span class="num" style="font-size:14px;font-weight:500">${cur ? `${f1(cur.v)}° · ${sel ? 'kl ' + hm(cur.t) : 'nå'}` : '–'}</span></div>
+          <div class="gh"><span class="row" style="gap:6px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))">${M.icon('thermometer', 16)}Temperatur · neste 24 t</span><span class="num" style="font-size:14px;font-weight:500">${cur ? `${f1(cur.v)}° · ${sel ? 'kl ' + hm(cur.t) : 'nå'}` : '–'}</span></div>
           <div class="gw"><svg viewBox="0 0 300 100" preserveAspectRatio="none"><path d="${d} L300,100 L0,100Z" style="fill:${M.alpha(SUNY, 0.18)};stroke:none"></path><path class="sm" d="${d}" fill="none" style="stroke:${SUNY};stroke-width:2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
             ${G.length > 1 && sc0 != null ? `<div class="gc" style="left:${(sel / (G.length - 1)) * 100}%"></div>` : ''}<div class="scrub" data-scrub="kg" data-n="${G.length}"></div></div>
         </section>`;
@@ -38893,12 +38905,12 @@ try {
         ];
         return `<button class="day${open ? ' open' : ''}" data-act="day" data-k="${esc(key)}" data-key="${esc(key)}" data-haptic="selection" aria-expanded="${open}">
           <span class="row" style="width:100%">
-            <span class="grow col" style="gap:4px;text-align:left"><span style="font-size:14px;color:var(--gray900,#c7c7c7)">${esc(cap(t.toLocaleDateString('nb-NO', { weekday: 'long' })))}</span>
+            <span class="grow col" style="gap:4px;text-align:left"><span style="font-size:14px;color:var(--ki-text-1, var(--gray900,#c7c7c7))">${esc(cap(t.toLocaleDateString('nb-NO', { weekday: 'long' })))}</span>
               <span class="row" style="align-items:baseline;gap:8px"><span class="dhi num">${num(f.temperature) != null ? f1(f.temperature) : '–'}°</span><span class="dlo num">${f.templow != null ? f1(f.templow) + '°' : ''}</span></span>
-              <span class="row" style="gap:12px;font-size:13px;color:var(--gray900,#c7c7c7)"><span>${esc(cd.label)}</span><span>${num(f.precipitation) != null ? `${f1(f.precipitation)} ${esc(pu)}` : ''}</span></span></span>
+              <span class="row" style="gap:12px;font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7))"><span>${esc(cd.label)}</span><span>${num(f.precipitation) != null ? `${f1(f.precipitation)} ${esc(pu)}` : ''}</span></span></span>
             ${wxIcon(cd.icon, 64, cd.color)}
           </span>
-          ${open ? `<span class="dm">${more.map(([l, v]) => `<span class="col" style="gap:2px;text-align:left;min-width:0"><span style="font-size:11px;color:var(--gray600,#7f7f7f)">${l}</span><span class="ell" style="font-size:14px;font-weight:500">${esc(v)}</span></span>`).join('')}</span>` : ''}
+          ${open ? `<span class="dm">${more.map(([l, v]) => `<span class="col" style="gap:2px;text-align:left;min-width:0"><span style="font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">${l}</span><span class="ell" style="font-size:14px;font-weight:500">${esc(v)}</span></span>`).join('')}</span>` : ''}
         </button>`;
       }).join('') : `<div class="day ph">${esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? 'Ingen dagsprognose' : 'Henter prognose …')}</div>`;
       // Detaljkort (2×N, høyde 164, radius 28)
@@ -38921,16 +38933,16 @@ try {
       const mk = (p) => (p == null ? '' : `<span class="mk" style="left:${p.toFixed(1)}%"></span>`);
       const T = {
         sky: `<section class="tl"><span class="th">${M.icon('cloud', 16)}Skydekke</span><span class="tvv">${cc != null ? Math.round(cc) + '<small> %</small>' : '–'}</span><span class="ts">${ccL}</span><div class="bar"><span style="width:${cc || 0}%"></span></div></section>`,
-        wind: `<section class="tl"><button class="wd" data-act="winddir" data-haptic="selection" aria-label="Vindretning ${esc(compass(A.wind_bearing) || '–')}"><span class="arr" style="transform:rotate(${bear != null ? (bear + 180) % 360 : 0}deg);opacity:${bear != null ? 1 : 0.3}">${M.icon('navigation', 20, `color:${C.blue}`)}</span></button>
+        wind: `<section class="tl"><button class="wd" data-act="winddir" data-haptic="selection" aria-label="Vindretning ${esc(compass(A.wind_bearing) || '–')}"><span class="arr" style="transform:rotate(${bear != null ? (bear + 180) % 360 : 0}deg);opacity:${bear != null ? 1 : 0.3}">${M.icon('navigation', 20, `color:${AT(C.blue)}`)}</span></button>
           <span class="th">${M.icon('air', 16)}Vind</span><span class="tvv">${ws != null ? f1(ws) : '–'}</span><span class="ts" style="margin-top:auto">${esc(wu)}${bear != null || A.wind_bearing ? ' · ' + (ui.windDeg && bear != null ? Math.round(bear) + '°' : compass(A.wind_bearing)) : ''}</span></section>`,
-        gust: `<section class="tl" style="background:${M.alpha(C.purple, 0.16)};box-shadow:inset 0 0 0 1px ${M.alpha(C.purple, 0.35)}"><span class="th" style="color:var(--gray900,#c7c7c7)">${M.icon('storm', 16, `color:${C.purple}`)}Vindkast</span><span class="tvv">${gust != null ? f1(gust) : '–'}</span><span class="ts" style="margin-top:auto">${esc(wu)}${gust != null && ws != null ? ` · ${f1(Math.max(0, gust - ws))} over snitt` : ''}</span></section>`,
+        gust: `<section class="tl" style="background:${TONE(C.purple, 0.16)};box-shadow:inset 0 0 0 1px ${M.alpha(C.purple, 0.35)}"><span class="th" style="color:var(--ki-text-1, var(--gray900,#c7c7c7))">${M.icon('storm', 16, `color:${AT(C.purple)}`)}Vindkast</span><span class="tvv">${gust != null ? f1(gust) : '–'}</span><span class="ts" style="margin-top:auto">${esc(wu)}${gust != null && ws != null ? ` · ${f1(Math.max(0, gust - ws))} over snitt` : ''}</span></section>`,
         sun: `<section class="tl"><span class="th">${M.icon('wb_twilight', 16)}Sol opp og ned</span>
           <span class="row" style="justify-content:space-between;gap:6px"><span class="tvm num">↑ ${sun ? hm(sun.rise) : '–'}</span><span class="tvm num">↓ ${sun ? hm(sun.set) : '–'}</span></span>
           <div class="bar sun" style="margin-top:auto">${sunBar}${mk(dpos(Date.now()))}</div>
-          <span class="ts" style="font-size:11px;color:var(--gray600,#7f7f7f)">${dayLen != null ? `Dagslengde ${Math.floor(dayLen / 60)} t ${Math.round(dayLen % 60)} min` : 'Dagslengde –'}${sun && sun.elev != null ? ` · ${M.nf(sun.elev, 0)}°` : ''}</span></section>`,
+          <span class="ts" style="font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">${dayLen != null ? `Dagslengde ${Math.floor(dayLen / 60)} t ${Math.round(dayLen % 60)} min` : 'Dagslengde –'}${sun && sun.elev != null ? ` · ${M.nf(sun.elev, 0)}°` : ''}</span></section>`,
         hum: `<section class="tl" style="position:relative;overflow:hidden"><span style="position:absolute;left:0;right:0;bottom:0;height:${hum != null ? M.clamp(hum, 0, 100) : 0}%;background:linear-gradient(180deg, ${M.alpha(C.blue, 0.22)}, ${M.alpha(C.blue, 0.08)})"></span>
-          <span class="th" style="position:relative;color:var(--gray900,#c7c7c7)">${M.icon('humidity_percentage', 16, `color:${C.blue}`)}Fukt</span><span class="tvv" style="position:relative">${hum != null ? Math.round(hum) + '<small> %</small>' : '–'}</span><span class="ts" style="position:relative;margin-top:auto">Duggpunkt ${dew != null ? f1(dew) + tu : '–'}</span></section>`,
-        uv: `<section class="tl"><span class="th">${M.icon('light_mode', 16, `color:${SUNY}`)}UV-indeks</span><span class="tvv">${uv != null ? f1(uv) : '–'}</span><span style="font-size:12px;font-weight:600;color:${uvL[1]}">${uvL[0]}</span>
+          <span class="th" style="position:relative;color:var(--ki-text-1, var(--gray900,#c7c7c7))">${M.icon('humidity_percentage', 16, `color:${AT(C.blue)}`)}Fukt</span><span class="tvv" style="position:relative">${hum != null ? Math.round(hum) + '<small> %</small>' : '–'}</span><span class="ts" style="position:relative;margin-top:auto">Duggpunkt ${dew != null ? f1(dew) + tu : '–'}</span></section>`,
+        uv: `<section class="tl"><span class="th">${M.icon('light_mode', 16, `color:${AT(SUNY)}`)}UV-indeks</span><span class="tvv">${uv != null ? f1(uv) : '–'}</span><span style="font-size:12px;font-weight:600;color:${AT(uvL[1])}">${uvL[0]}</span>
           <div class="bar uvs" style="margin-top:auto">${mk(uvPos)}</div></section>`,
         press: `<section class="tl"><span class="th">${M.icon('compress', 16)}Trykk</span><span class="tvv">${pr != null ? Math.round(pr) : '–'}<small> ${esc(prU)}</small></span>
           <span class="ts row" style="gap:4px">${M.icon(trend[1], 16)}${trend[0]}</span><div class="bar prs" style="margin-top:auto">${mk(prPos)}</div></section>`,
@@ -38938,17 +38950,17 @@ try {
           const R = H.length ? R24 : Array(24).fill(0), sr = ui.scr && ui.scr.k === 'rn' ? Math.min(ui.scr.i, R.length - 1) : null;
           const P = R.map((v, i) => [(i / Math.max(1, R.length - 1)) * 100, 40 - (v / rMax) * 36]), d = smooth(P);
           const tt = sr != null && H[sr] ? `kl ${M.pad(new Date(H[sr].datetime).getHours())} · ${f1(R[sr])} ${pu}` : 'Neste 24 timer';
-          return `<section class="tl"><span class="th">${M.icon('water_drop', 16, `color:${C.blue}`)}Nedbør</span><span class="tvv">${rain24 != null ? f1(rain24) : '–'}<small> ${esc(pu)}</small></span>
+          return `<section class="tl"><span class="th">${M.icon('water_drop', 16, `color:${AT(C.blue)}`)}Nedbør</span><span class="tvv">${rain24 != null ? f1(rain24) : '–'}<small> ${esc(pu)}</small></span>
           <div class="rb"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><path d="${d} L100,40 L0,40Z" style="fill:${M.alpha(C.blue, 0.35)}"></path><path class="sm" d="${d}" fill="none" style="stroke:${RAIN};stroke-width:2" vector-effect="non-scaling-stroke"></path></svg>${sr != null ? `<span class="gc" style="left:${P[sr][0]}%"></span>` : ''}<span class="scrub" data-scrub="rn" data-n="${R.length}"></span></div><span class="ts num">${esc(tt)}</span></section>`;
         })(),
-        moon: `<section class="tl mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th">${M.icon('bedtime', 16)}Månefase</span>${moon.none ? '<svg class="moon" style="width:64px;height:64px"><circle cx="32" cy="32" r="32" fill="#404040"/></svg>' : moonDisc(moon.p, 64)}<span class="ts" style="margin-top:auto">${esc(moon.name)}</span></section>`,
+        moon: `<section class="tl mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th">${M.icon('bedtime', 16)}Månefase</span>${moon.none ? '<svg class="moon" style="width:64px;height:64px"><circle cx="32" cy="32" r="32" style="fill:var(--ki-surface-2, #404040)"/></svg>' : moonDisc(moon.p, 64)}<span class="ts" style="margin-top:auto">${esc(moon.name)}</span></section>`,
       };
       const scene = stilOf(c) === 'scene';
       const tord = orderOf(scene ? [...TK, 'moon'] : TK, c.tile_order || c.tiles), thid = new Set(c.hidden_tiles || []);
       const tl = tord.filter((k) => !thid.has(k));
       // Fliser: hold inne ~420 ms og dra for å bytte plass (26.25) – lagres i tile_order
       sec.tiles = tl.length ? `<div class="tiles${this._tmode ? ' tmode' : ''}" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T[k]}</div>`).join('')}</div>` : '';
-      sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? '<svg class="moon" style="width:56px;height:56px"><circle cx="28" cy="28" r="28" fill="#404040"/></svg>' : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--gray700,#979797)">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
+      sec.moon = `<section class="mn" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}>${moon.none ? '<svg class="moon" style="width:56px;height:56px"><circle cx="28" cy="28" r="28" style="fill:var(--ki-surface-2, #404040)"/></svg>' : moonDisc(moon.p, 56)}<span class="col" style="gap:2px"><span style="font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))">Månefase</span><span style="font-size:16px;font-weight:500">${esc(moon.name)}</span></span></section>`;
       const hid = hiddenOf(c);
       const empty = !st ? M.emptyState(a.weather ? `Fant ikke ${a.weather}` : 'Fant ingen weather.*', 'overrides') : '';
       if (scene) return this._scene({ c, h, a, st, A, sunSt, sun, H, Dl, loaded, wu, pu, sec, hid, empty, X: { ws, gust, bear, hum, dew, uv, pr, prU, trend, rain24, moon } });
@@ -39041,7 +39053,7 @@ try {
           const mmTxt = on ? `${M.pad(k * 3)}: ${seg[k] ? nf(seg[k]) : '0'} ${pu}` : `${nf(mm)} ${pu}`, pTxt = on ? (segP[k] != null ? segP[k] + '%' : '–') : (p != null ? Math.round(p) + '%' : '–');
           return `<div class="rrow" data-key="rd${i}"><span class="dn">${esc(dname(t))}</span>
             <span class="rsg" data-scrub="rd${i}" data-n="8" data-mode="col">${seg.map((v, j) => `<span class="rs${j >= 2 && j < 6 ? ' d' : ''}${(on ? j === k : isT && j === curB) ? ' o' : ''}${on && j === k ? ' k' : ''}"><i style="height:${v ? Math.min(100, (v / 0.6) * 25 + 10).toFixed(0) + '%' : '0'}"></i></span>`).join('')}</span>
-            <span class="rmm num" style="width:${on ? 96 : 52}px;color:${(on ? seg[k] : mm) ? '#fafafa' : '#6a6a6a'}">${esc(mmTxt)}</span><span class="rpp num" style="color:${(on ? seg[k] : p) ? BLUE : '#6a6a6a'}">${pTxt}</span></div>`;
+            <span class="rmm num" style="width:${on ? 96 : 52}px;color:${(on ? seg[k] : mm) ? '#fafafa' : '#6a6a6a'}">${esc(mmTxt)}</span><span class="rpp num" style="color:${(on ? seg[k] : p) ? BLUE : '#6a6a6a'}">${pTxt}</span></div>`; // ki-hex-ok: værscene/illustrasjon (mørk øy)
         }).join('')}</section>`;
       } else if (metric === 'wind') {
         const rows = days.map((f) => { const B = blocks8(new Date(f.datetime)), dw = num(f.wind_speed), dg = num(f.wind_gust_speed);
@@ -39056,7 +39068,7 @@ try {
           const loW = r.ok ? Math.round(Math.min(...r.s.filter((v) => v != null))) : null, hiW = r.ok ? Math.round(Math.max(...gv)) : null;
           const txt = k == null ? `${loW != null ? `${loW}–${hiW}` : '–'} <span>${esc(wu)}</span>` : `${M.pad(k * 3)}: ${ws1(r.s[k])} <span>/${ws1(r.g[k])}</span>`;
           return `<div class="rrow" data-key="wd${i}"><span class="dn">${esc(dname(t))}</span>
-            <span class="wdc" data-scrub="wd${i}" data-n="8"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><rect x="33" y="0" width="34" height="30" fill="rgba(255,255,255,.04)"></rect>${r.ok ? `<path class="sm" d="${smooth(gv.map((v, j) => [sx(j), sy(v)]))} L100,30 L0,30 Z" fill="rgba(95,201,196,.22)"></path><path class="sm" d="${smooth(sv.map((v, j) => [sx(j), sy(v)]))}" fill="none" stroke="rgb(95 201 196)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>` : ''}</svg>
+            <span class="wdc" data-scrub="wd${i}" data-n="8"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><rect x="33" y="0" width="34" height="30" fill="rgba(255,255,255,.04)"></rect>${r.ok ? `<path class="sm" d="${smooth(gv.map((v, j) => [sx(j), sy(v)]))} L100,30 L0,30 Z" fill="rgba(95,201,196,.22)"></path><path class="sm" d="${smooth(sv.map((v, j) => [sx(j), sy(v)]))}" fill="none" stroke="rgb(95 201 196)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>` : ''}</svg><!-- ki-hex-ok: værscene (mørk øy) -->
             ${k != null ? `<span class="wdm" style="left:${sx(k).toFixed(1)}%"></span>` : ''}</span><span class="wdt num">${txt}</span></div>`;
         }).join('')}</section>`;
       } else {
@@ -39100,7 +39112,7 @@ try {
         return best; })();
       const tile = (icon, l, v, u, k, sub, scale) => `<div class="g tl2 tg"><span class="th2">${M.icon(icon, 15)}${esc(l)}</span><span class="tv2"><span class="tvb">${v}</span><span class="tvu">${v === '–' ? '' : esc(u || '')}</span></span><span class="tk">${esc(k || '')}</span>${scale || ''}<span class="tsb">${esc(sub || '')}</span></div>`;
       const track = (g, mark) => `<span class="ttr" style="background:${g}">${mark}</span>`;
-      const dotMk = (p) => (p == null ? '' : `<span style="position:absolute;top:-2px;left:calc(${p.toFixed(1)}% - 5px);width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d"></span>`);
+      const dotMk = (p) => (p == null ? '' : `<span style="position:absolute;top:-2px;left:calc(${p.toFixed(1)}% - 5px);width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d"></span>`); // ki-hex-ok: værscene/illustrasjon (mørk øy)
       const today24 = H.filter((f) => new Date(f.datetime).toDateString() === today0).map((f) => num(f.uv_index)).filter((v) => v != null);
       const uvMax = today24.length ? Math.max(...today24) : null;
       const app = num(A.apparent_temperature), feelsSub = app == null || temp == null ? '' : Math.abs(app - temp) < 1 ? 'Samme som faktisk temperatur.' : app < temp ? 'Føles kaldere enn faktisk temperatur.' : 'Føles varmere enn faktisk temperatur.';
@@ -39112,20 +39124,20 @@ try {
         sun: `<div class="g tl2"><span class="th2">${M.icon('mdi:weather-sunset', 15)}Soloppgang</span><span class="sbig num">${sun ? hm(sun.rise) : '–'}</span>
           <svg class="sarc" viewBox="0 0 140 60" aria-hidden="true"><path d="M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50" fill="none" stroke="#555" stroke-width="2"></path><line x1="0" y1="36" x2="140" y2="36" stroke="#6a6a6a" stroke-width="1"></line><circle cx="${sunPt[0].toFixed(1)}" cy="${sunPt[1].toFixed(1)}" r="5" fill="#303030" stroke="rgb(242 210 111)" stroke-width="2"></circle></svg>
           <span class="tfoot">Solnedgang ${sun ? hm(sun.set) : '–'}</span></div>`,
-        moon: `<div class="g tl2 mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th2">${M.icon('mdi:weather-night', 15)}${esc(X.moon.name)}</span>${X.moon.none ? '<svg class="moon" style="width:84px;height:84px;align-self:center"><circle cx="42" cy="42" r="42" fill="#404040"/></svg>' : moonDisc(X.moon.p, 84)}</div>`,
+        moon: `<div class="g tl2 mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th2">${M.icon('mdi:weather-night', 15)}${esc(X.moon.name)}</span>${X.moon.none ? '<svg class="moon" style="width:84px;height:84px;align-self:center"><circle cx="42" cy="42" r="42" fill="#404040"/></svg>' : moonDisc(X.moon.p, 84)}</div>`, // ki-hex-ok: værscene/illustrasjon (mørk øy)
         uv: tile('mdi:weather-sunny', 'UV-indeks', X.uv != null ? String(Math.round(X.uv)) : '–', '', X.uv != null ? uvOf(X.uv)[0] : '', uvMax != null ? `${uvOf(uvMax)[0]} resten av dagen.` : '', track('linear-gradient(90deg,#6fd29a,#f2c94c,#f0a36b,#f07070,#c97ae0)', dotMk(X.uv != null ? M.clamp(X.uv / 11, 0, 1) * 100 : null))),
         feels: tile('mdi:thermometer', 'Føles som', app != null ? Math.round(app) + '°' : '–', '', '', feelsSub),
         rain: tile('mdi:water', 'Nedbør', H.length ? nf(r6) : '–', pu, 'neste 6 t', X.rain24 != null ? `${nf(X.rain24)} ${pu} ventet neste døgn.` : ''),
         vis: tile('mdi:eye', 'Sikt', vis != null ? nf(vis) : '–', visU, '', vis == null ? '' : vis >= 10 ? 'God sikt.' : vis >= 4 ? 'Moderat sikt.' : 'Dårlig sikt.'),
         hum: tile('mdi:water-percent', 'Luftfuktighet', X.hum != null ? String(Math.round(X.hum)) : '–', '%', '', X.dew != null ? `Duggpunkt ${Math.round(X.dew)}° nå.` : ''),
-        press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')),
+        press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')), // ki-hex-ok: værscene/illustrasjon (mørk øy)
       };
       const tord = orderOf(STK, raw.tile_order || raw.tiles), thid = new Set(raw.hidden_tiles || []), tl = tord.filter((k) => !thid.has(k));
       if (tl.length) S.tiles = `<div class="tiles stiles${this._tmode ? ' tmode' : ''}" data-tiles>${tl.map((k) => `<div class="tw" data-key="t-${k}" data-tile="${k}">${T2[k]}</div>`).join('')}</div>`;
       const plat = (M.regEntry(h, a.weather) || {}).platform || '', attr = String(A.attribution || '');
       const src = plat === 'met' || /met\.no|yr\b|norwegian meteorological/i.test(attr) ? 'Yr / MET Norge' : attr;
       const blocks = ['now', 'alerts', 'hours', 'days', 'tiles'].filter((k) => S[k] && !hid.has(k)).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${S[k]}</div>`);
-      return `<div class="wrap scene" data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
+      return `<div class="wrap scene" data-ki-island data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
     }
     onAction(name, el, ev) {
       if (name === 'alert') { if (ev.composedPath().some((n) => n.tagName === 'A')) return; return this.setUI({ alertOpen: this.ui.alertOpen === el.dataset.k ? null : el.dataset.k }); }
@@ -39150,46 +39162,46 @@ try {
         .vh-slot{display:block;margin:0}
         .sec{gap:8px}
         .ah{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 6px}
-        .ac{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;color:#282828;box-shadow:0 0 0 2px #282828;position:relative}
+        .ac{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;color:var(--ki-on-accent, #282828);box-shadow:0 0 0 2px var(--ki-popup, #282828);position:relative}
         .al{display:flex;flex-direction:column;padding:14px 16px;border-radius:24px;width:100%;text-align:left}
-        .aiw{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;color:#282828}
+        .aiw{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;color:var(--ki-on-accent, #282828)}
         .chev{flex:none;line-height:0}
         .lb{font-size:11px;font-weight:600;padding:2px 8px;border-radius:8px}
-        .ax{display:flex;flex-direction:column;gap:10px;width:100%;padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.06);text-align:left}
-        .map{display:flex;align-items:center;gap:4px;color:var(--gray800,#afafaf);text-decoration:none;white-space:nowrap}
+        .ax{display:flex;flex-direction:column;gap:10px;width:100%;padding-top:12px;margin-top:12px;border-top:1px solid ${WA(0.06)};text-align:left}
+        .map{display:flex;align-items:center;gap:4px;color:var(--ki-text-2, var(--gray800,#afafaf));text-decoration:none;white-space:nowrap}
         .hrs{width:100%;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain;margin:0;padding:0;border-radius:24px}
-        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0;scroll-snap-align:start}
-        .hb.first .ht{color:var(--white,#fafafa);font-weight:600}
-        .hb.ph,.day.ph{width:100%;height:auto;min-height:72px;justify-content:center;font-size:13px;color:var(--gray700,#979797)}
-        .ht{font-size:13px;color:var(--gray800,#afafaf)}
+        .hb{flex:none;width:92px;height:172px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 0;scroll-snap-align:start}
+        .hb.first .ht{color:var(--ki-text, var(--white,#fafafa));font-weight:600}
+        .hb.ph,.day.ph{width:100%;height:auto;min-height:72px;justify-content:center;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .ht{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .htv{font-size:24px;font-weight:300;letter-spacing:-0.02em}
-        .hx{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:var(--gray700,#979797)}
-        .hx .hr{color:${RAIN}}
-        .gr{border-radius:28px;background:var(--gray200,#3a3a3a);padding:16px 0 0;overflow:hidden}
+        .hx{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .hx .hr{color:${AT(RAIN)}}
+        .gr{border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));padding:16px 0 0;overflow:hidden}
         .gh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 8px}
         .gw{position:relative;height:100px}
         .gw svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
         .gc{position:absolute;top:0;bottom:0;border-left:1px dashed ${M.alpha(SUNY, 0.6)};pointer-events:none}
         .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
-        .day{display:flex;flex-direction:column;padding:18px 24px;border-radius:28px;background:var(--gray200,#3a3a3a);width:100%}
+        .day{display:flex;flex-direction:column;padding:18px 24px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));width:100%}
         .dhi{font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1}
-        .dlo{font-size:15px;color:var(--gray600,#7f7f7f)}
-        .dm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;padding-top:14px;margin-top:14px;border-top:1px solid rgba(255,255,255,0.06)}
+        .dlo{font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .dm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;padding-top:14px;margin-top:14px;border-top:1px solid ${WA(0.06)}}
         .tiles{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
         .tw{min-width:0}
-        .tl{position:relative;display:flex;flex-direction:column;gap:6px;height:164px;padding:16px;border-radius:28px;background:var(--gray200,#3a3a3a);overflow:hidden}
-        .th{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray700,#979797);padding-right:36px}
+        .tl{position:relative;display:flex;flex-direction:column;gap:6px;height:164px;padding:16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
+        .th{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));padding-right:36px}
         .tvv{font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1;white-space:nowrap}
-        .tvv small{font-size:14px;color:var(--gray700,#979797);letter-spacing:0}
+        .tvv small{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));letter-spacing:0}
         .tvm{font-size:20px;font-weight:400;letter-spacing:-0.02em}
-        .ts{font-size:12px;color:var(--gray900,#c7c7c7)}
-        .bar{position:relative;height:6px;border-radius:3px;background:var(--gray300,#404040);margin-top:auto;flex:none}
-        .bar>span:not(.mk){position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--gray900,#c7c7c7)}
+        .ts{font-size:12px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .bar{position:relative;height:6px;border-radius:3px;background:var(--ki-surface-3, var(--gray300,#404040));margin-top:auto;flex:none}
+        .bar>span:not(.mk){position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--ki-text-2, var(--gray900,#c7c7c7))}
         .bar.sun>.sb{background:linear-gradient(90deg, ${M.alpha(SUNY, 0.55)}, ${SUNY}, ${M.alpha(SUNY, 0.55)})}
         .bar.uvs{background:linear-gradient(90deg, ${C.green} 0 18%, ${C.yellow} 18% 45%, ${C.orange} 45% 64%, ${C.red} 64% 91%, ${C.purple} 91%)}
-        .bar.prs{background:linear-gradient(90deg, ${M.alpha(C.blue, 0.35)}, var(--gray400,#545454) 50%, ${M.alpha(SUNY, 0.4)})}
-        .mk{position:absolute;top:-4px;width:4px;height:14px;margin-left:-2px;border-radius:2px;background:var(--white,#fafafa);box-shadow:0 0 0 2px var(--gray200,#3a3a3a)}
-        .wd{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:18px;background:var(--gray300,#404040);display:grid;place-items:center}
+        .bar.prs{background:linear-gradient(90deg, ${M.alpha(C.blue, 0.35)}, var(--ki-ctrl, var(--gray400,#545454)) 50%, ${M.alpha(SUNY, 0.4)})}
+        .mk{position:absolute;top:-4px;width:4px;height:14px;margin-left:-2px;border-radius:2px;background:var(--ki-text, var(--white,#fafafa));box-shadow:0 0 0 2px var(--ki-surface, var(--gray200,#3a3a3a))}
+        .wd{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center}
         .wd:active{transform:scale(.92)}
         .arr{line-height:0;transition:transform .4s;display:inline-flex}
         .rb{position:relative;flex:1;min-height:28px;margin-top:4px}
@@ -39198,7 +39210,7 @@ try {
         .tiles{position:relative}
         .tw{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
         .tw.lift{z-index:5;transition:none}
-        .tw.lift>*{box-shadow:0 18px 40px rgba(0,0,0,.45)}
+        .tw.lift>*{box-shadow:0 18px 40px ${BA(0.45)}}
         .tmode .tw{touch-action:none;cursor:grab}
         .tmode .tw.lift{cursor:grabbing}
         .tmode .tw:not(.lift)>*{animation:vwig .32s ease-in-out infinite alternate;transform-origin:50% 50%}
@@ -39208,11 +39220,11 @@ try {
         .mnt .moon{margin:6px 0 0}
         .ctl-slot{display:block;position:sticky;bottom:var(--vaer-ctl-b, calc(16px + env(safe-area-inset-bottom, 0px)));z-index:6;height:48px;margin-top:-4px;flex:none;pointer-events:none}
         /* ---- stil «scene» (26.24/26.25 + 27, Vær v5): scenen ligger i popup-laget; kortene er var(--card) + blur(18px) */
-        :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)}
-        .scene{position:relative;gap:10px;color:#fafafa}
+        :host([data-scene]){--vaer-t2:rgba(255,255,255,.72);--vaer-t3:rgba(255,255,255,.55);--gray600:rgba(255,255,255,.6);--gray700:rgba(255,255,255,.72);--gray800:rgba(255,255,255,.8);--gray900:rgba(255,255,255,.9)} /* ki-hex-ok: værscene (mørk øy) */
+        .scene{position:relative;gap:10px;color:#fafafa} /* ki-hex-ok: værscene (mørk øy) */
         .scn-slot{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:28px;overflow:hidden}
         .scene>.blk{position:relative;z-index:1;gap:10px}
-        .scene .g{background:var(--vaer-card,rgba(30,36,46,.42));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-radius:24px;color:#fafafa}
+        .scene .g{background:var(--vaer-card,rgba(30,36,46,.42));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-radius:24px;color:#fafafa} /* ki-hex-ok: værscene (mørk øy) */
         .scene .snw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0 22px;text-align:center}
         .scene .sloc{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:600;letter-spacing:.08em;color:#e6ebf1;max-width:100%}
         .scene .stp{font-size:96px;font-weight:300;letter-spacing:-0.04em;line-height:1;padding-left:18px}
@@ -39225,11 +39237,11 @@ try {
         .scene .salti{font-size:15px;font-weight:500}
         .scene .sals{font-size:12px;color:#a8a8a8}
         .scene .sal .chev{line-height:0;flex:none}
-        .scene .salx{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);animation:fade .3s ease}
-        .scene .salx .tx{font-size:14px;line-height:1.5;color:#e1e1e1;text-wrap:pretty}
+        .scene .salx{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);animation:fade .3s ease} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .salx .tx{font-size:14px;line-height:1.5;color:#e1e1e1;text-wrap:pretty} /* ki-hex-ok: værscene (mørk øy) */
         .scene .salx .tx b{font-weight:500}
         .scene .salsrc{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#8a8a8a;letter-spacing:.04em}
-        .scene .salsrc .map{color:#afafaf;letter-spacing:0}
+        .scene .salsrc .map{color:#afafaf;letter-spacing:0} /* ki-hex-ok: værscene (mørk øy) */
         .scene .hcard{padding:14px 0 12px;display:flex;flex-direction:column;gap:12px}
         .scene .hhd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px}
         .scene .hti{display:flex;flex-direction:column;min-width:0}
@@ -39249,7 +39261,7 @@ try {
         .scene .ht{flex:none;font-size:13px;font-weight:400;color:#a8a8a8;height:16px;line-height:16px}
         .scene .htb{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly}
         .scene .hic{display:block;width:26px;height:26px;line-height:0}
-        .scene .ht.now{font-weight:600;color:#fafafa}
+        .scene .ht.now{font-weight:600;color:#fafafa} /* ki-hex-ok: værscene (mørk øy) */
         .scene .hp{font-size:12px;font-weight:500;color:${BLUE};height:14px;line-height:14px}
         .scene .hv{font-size:17px;font-weight:500;height:20px;line-height:20px}
         .scene .rbx{flex:none;position:relative;width:36px;height:72px;border-radius:10px;background:#303030;overflow:hidden;margin-top:4px}
@@ -39264,12 +39276,12 @@ try {
         .scene .hwg{font-size:11px;color:#a8a8a8;height:13px;line-height:13px}
         .scene .wch{position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block}
         .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair}
-        .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}
+        .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none} /* ki-hex-ok: værscene (mørk øy) */
         .scene .wtip{position:absolute;bottom:62px;width:140px;text-align:center;padding:4px 8px;border-radius:10px;background:rgba(20,22,28,.85);font-size:12px;font-weight:500;white-space:nowrap;pointer-events:none;box-sizing:border-box}
         .scene .hph{padding:0 16px 4px;font-size:13px;color:#a8a8a8}
         .scene .dcard{padding:4px 16px}
         .scene .dl{display:flex;flex-direction:column}
-        .scene .dw{display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,.07)}
+        .scene .dw{display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,.07)} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dw:first-child{border-top:none}
         .scene .dr{display:flex;align-items:center;gap:8px;min-height:52px;width:100%;text-align:left;cursor:pointer}
         .scene .dn{width:44px;flex:none;font-size:15px;font-weight:500}
@@ -39278,33 +39290,33 @@ try {
         .scene .dlo{width:30px;flex:none;text-align:right;font-size:15px;color:#a8a8a8}
         .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:#2a2a2a;margin:0 4px;min-width:0}
         .scene .dbar{position:absolute;top:0;bottom:0;border-radius:3px}
-        .scene .ddot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d}
+        .scene .ddot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dhi{width:30px;flex:none;text-align:right;font-size:15px;font-weight:500;letter-spacing:0;line-height:normal}
         .scene .dr .chev{width:18px;flex:none;display:grid;place-items:center;line-height:0}
         .scene .dx{display:flex;flex-direction:column;gap:12px;padding:4px 0 16px;animation:vxh .3s ease;overflow:hidden}
         .scene .dsen{margin:0;font-size:15px;line-height:1.5;color:#e6ebf1;text-wrap:pretty;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .scene .d3{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin:0 -4px;padding:0 4px;overscroll-behavior-x:contain}
-        .scene .d3 .hs{flex:1 0 52px;padding:10px 0;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;gap:6px}
+        .scene .d3 .hs{flex:1 0 52px;padding:10px 0;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;gap:6px} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dht{font-size:12px;color:#a8a8a8}
         .scene .dhv{font-size:15px;font-weight:500}
         .scene .dhp{font-size:11px;font-weight:500;color:${BLUE};min-height:13px}
         .scene .dgr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-        .scene .dc{padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:3px;min-width:0}
+        .scene .dc{padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:3px;min-width:0} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dcl{display:flex;align-items:center;gap:5px;font-size:11px;color:#a8a8a8;white-space:nowrap}
         .scene .dcv{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .scene .rrow{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid rgba(255,255,255,.07)}
+        .scene .rrow{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid rgba(255,255,255,.07)} /* ki-hex-ok: værscene (mørk øy) */
         .scene .rrow:first-child{border-top:none}
         .scene .rsg{flex:1;display:flex;gap:3px;height:26px;align-items:stretch;min-width:0;touch-action:none;cursor:crosshair}
         .scene .rs{flex:1;position:relative;border-radius:3px;overflow:hidden;background:#353535;transition:transform .12s}
         .scene .rs.d{background:#4a4a4a}
-        .scene .rs.o{outline:1.5px solid #fafafa}
+        .scene .rs.o{outline:1.5px solid #fafafa} /* ki-hex-ok: værscene (mørk øy) */
         .scene .rs.k{transform:scaleY(1.12)}
         .scene .rs i{position:absolute;left:0;right:0;bottom:0;background:${BLUE}}
         .scene .rmm{flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap;transition:width .15s}
         .scene .rpp{width:40px;flex:none;text-align:right;font-size:15px;font-weight:500}
         .scene .wdc{position:relative;flex:1;min-width:0;height:30px;touch-action:none;cursor:crosshair}
         .scene .wdc svg{width:100%;height:30px;display:block;border-radius:6px;background:#333}
-        .scene .wdm{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none}
+        .scene .wdm{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none} /* ki-hex-ok: værscene (mørk øy) */
         .scene .wdt{width:88px;flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap}
         .scene .wdt span{font-weight:400;color:#a8a8a8}
         .scene .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -39338,7 +39350,7 @@ try {
         @keyframes vxh{from{opacity:0;max-height:0;transform:translateY(6px)}to{opacity:1;max-height:640px;transform:none}}
         @media (prefers-reduced-motion: reduce){.scene .dx,.scene .salx{animation:none}}
         ${V5_KF}
-        .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .mn{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .moon{position:relative;flex:none;border-radius:50%;overflow:hidden;display:block}
       `;
     }
@@ -39356,10 +39368,15 @@ try {
 .bubble-pop-up[data-ki-vaer="scene"]{background:transparent!important;--bubble-pop-up-background-color:transparent;--bubble-pop-up-main-background-color:transparent;box-shadow:none!important;border:none!important;overflow:hidden}
 .bubble-pop-up[data-ki-vaer="scene"] .bubble-pop-up-background{background:none!important;display:none!important}
 .bubble-pop-up[data-ki-vaer="scene"] #header-container,.bubble-pop-up[data-ki-vaer="scene"] #header-container > div > div,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header-container,.bubble-pop-up[data-ki-vaer="scene"] .bubble-header{background:transparent!important;box-shadow:none!important;border:none!important}
-.bubble-pop-up[data-ki-vaer="scene"] .bubble-name{color:#fff!important;text-shadow:0 1px 6px rgba(0,0,0,.3)}
+.bubble-pop-up[data-ki-vaer="scene"] .bubble-name{color:#fff!important;text-shadow:0 1px 6px rgba(0,0,0,.3)} /* ki-hex-ok: headeren over værscenen (mørk øy) */
 .bubble-pop-up[data-ki-vaer="scene"] .bubble-close-button{background-color:rgba(28,30,36,.55)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:#fff!important}
 .bubble-pop-up[data-ki-vaer="scene"] > .bubble-pop-up-container{background:transparent!important}
 .bubble-pop-up[data-ki-vaer="scene"] > .bubble-header-container::after{display:none!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light]{--bubble-pop-up-background-color:transparent!important;--bubble-pop-up-main-background-color:transparent!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] #header-container > div > div{background:transparent!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] .bubble-name{color:#fff!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] #header-container .bubble-close-button{background-color:rgba(28,30,36,.55)!important;color:#fff!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] .bubble-close-button svg{fill:#fff!important}
 .bubble-pop-up[data-ki-vaer] > .bubble-pop-up-container{-webkit-mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important;mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important}
 ${VE}`;
   const vaerStyles = (prev) => {
@@ -39390,11 +39407,11 @@ ${VE}`;
     const cur = M.vaerStil ? M.vaerStil() : 'scene', PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
     const prev = (k) => (k === 'scene'
       ? '<span style="display:block;height:34px;border-radius:10px;background:linear-gradient(180deg,#2c3846,#586575);position:relative;overflow:hidden"><i style="position:absolute;left:25%;top:4px;width:1.5px;height:10px;background:rgba(210,228,255,.9);transform:rotate(10deg)"></i><i style="position:absolute;left:60%;top:12px;width:1.5px;height:10px;background:rgba(210,228,255,.9);transform:rotate(10deg)"></i><b style="position:absolute;left:5px;right:5px;bottom:5px;height:9px;border-radius:4px;background:rgba(40,48,58,.6)"></b></span>'
-      : '<span style="display:grid;grid-template-columns:1fr 1fr;gap:3px;height:34px;padding:4px;border-radius:10px;background:#282828"><b style="grid-column:span 2;border-radius:4px;background:#3a3a3a"></b><b style="border-radius:4px;background:#3a3a3a"></b><b style="border-radius:4px;background:#3a3a3a"></b></span>');
+      : '<span style="display:grid;grid-template-columns:1fr 1fr;gap:3px;height:34px;padding:4px;border-radius:10px;background:var(--ki-popup, #282828)"><b style="grid-column:span 2;border-radius:4px;background:var(--ki-surface, #3a3a3a)"></b><b style="border-radius:4px;background:var(--ki-surface, #3a3a3a)"></b><b style="border-radius:4px;background:var(--ki-surface, #3a3a3a)"></b></span>');
     return `<div class="msh-vsm" data-key="vsm" style="display:flex;flex-direction:column;gap:6px">
-      <div style="font-size:13px;color:var(--gray700,#979797);padding:0 4px">Vær · stil</div>
-      <div role="radiogroup" data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--gray100,#2f2f2f)">${STIL.map(([k, l]) => { const on = k === cur; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="${k}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? '#2f2f2f' : 'var(--gray800,#afafaf)'}">${prev(k)}<span>${l}</span></button>`; }).join('')}</div>
-      <div style="font-size:12px;color:var(--gray600,#7f7f7f);padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div></div>`;
+      <div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px">Vær · stil</div>
+      <div role="radiogroup" data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${STIL.map(([k, l]) => { const on = k === cur; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="${k}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${prev(k)}<span>${l}</span></button>`; }).join('')}</div>
+      <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div></div>`;
   };
 
   /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */
@@ -39447,7 +39464,7 @@ ${VE}`;
       if (!all.length) return '<span class="none">Ingen treff</span>';
       return all.map((id) => {
         const s0 = h.states[id], cd = sceneOf(s0 && s0.state, false), t = s0 ? num(s0.attributes.temperature) : null, u = used.has(id);
-        return `<button class="cd${st.ent === id ? ' on' : ''}${u ? ' used' : ''}" data-a="cand" data-k="${esc(id)}" ${u ? 'disabled aria-disabled="true"' : ''} aria-pressed="${st.ent === id}">${M.icon(cd.icon, 18, `color:${icoCol(cd.key)}`)}<span class="cdc"><span class="cdn ell">${esc(fname(id))}</span><span class="cdi ell">${esc(id)}${u ? ' · lagt til' : ''}</span></span><span class="cdt">${t != null ? Math.round(t) + '°' : '–'}</span></button>`;
+        return `<button class="cd${st.ent === id ? ' on' : ''}${u ? ' used' : ''}" data-a="cand" data-k="${esc(id)}" ${u ? 'disabled aria-disabled="true"' : ''} aria-pressed="${st.ent === id}">${M.icon(cd.icon, 18, `color:${icoColT(cd.key)}`)}<span class="cdc"><span class="cdn ell">${esc(fname(id))}</span><span class="cdi ell">${esc(id)}${u ? ' · lagt til' : ''}</span></span><span class="cdt">${t != null ? Math.round(t) + '°' : '–'}</span></button>`;
       }).join('');
     };
     const addOk = () => !!(st.ent && st.name.trim());
@@ -39465,18 +39482,18 @@ ${VE}`;
         <span class="cap">Steder · hold og dra for rekkefølge</span>
         <div class="plist" data-plist>${L.map((p, i) => `<div class="pr" data-prow data-i="${i}" data-key="pl-${esc(p.entity)}">
             <span class="hdl" data-drag="${i}" aria-label="Dra for å endre rekkefølge">${M.icon('mdi:drag', 22)}</span>
-            <button class="pe" data-a="edit" data-k="${i}" aria-label="Bytt entitet for ${esc(p.name || p.entity)}">${M.icon('mdi:map-marker', 20, 'color:#afafaf')}<span class="col grow" style="min-width:0;line-height:1.25"><span class="rl ell">${esc(p.name || fname(p.entity))}</span><span class="rs ell">${esc(p.auto ? `${p.entity} · automatisk` : p.entity)}</span></span></button>
+            <button class="pe" data-a="edit" data-k="${i}" aria-label="Bytt entitet for ${esc(p.name || p.entity)}">${M.icon('mdi:map-marker', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0;line-height:1.25"><span class="rl ell">${esc(p.name || fname(p.entity))}</span><span class="rs ell">${esc(p.auto ? `${p.entity} · automatisk` : p.entity)}</span></span></button>
             ${L.length > 1 ? `<button class="x" data-a="rm" data-k="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">${M.icon('mdi:delete', 20)}</button>` : ''}</div>`).join('')}
           <button class="padd" data-a="openadd" aria-expanded="${st.adding}">${M.icon('mdi:map-marker-plus', 20)}<span>${st.edit != null ? 'Bytt entitet' : 'Legg til sted'}</span></button>
           ${st.adding ? `<div class="add">
             <input class="in" data-in="name" placeholder="Navn, f.eks. Hytta" value="${esc(st.name)}" autocomplete="off">
             <span class="lab">Vær-entitet</span>
-            <div class="sr">${M.icon('mdi:magnify', 18, 'color:#7f7f7f')}<input data-in="q" placeholder="Søk etter sted eller weather.* …" value="${esc(st.q)}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+            <div class="sr">${M.icon('mdi:magnify', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-in="q" placeholder="Søk etter sted eller weather.* …" value="${esc(st.q)}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
             <div class="cands">${candsHTML()}</div>
             <button class="addb${addOk() ? ' on' : ''}" data-a="add" ${addOk() ? '' : 'disabled'}>${M.icon(st.edit != null ? 'mdi:check' : 'mdi:plus', 18)}${st.edit != null ? 'Lagre' : 'Legg til'}</button></div>` : ''}</div>
         <span class="cap">Seksjoner</span>
-        <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}">${M.icon(ic, 20, 'color:#afafaf')}<span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
-          <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:#afafaf')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
+        <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}">${M.icon(ic, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
+          <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
         <span class="cap">Fliser</span>
         <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
@@ -39566,54 +39583,54 @@ ${VE}`;
     .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:10px;padding-top:2px}
     .vaer-sheet>*{flex:none;min-width:0}
     .hd{display:flex;align-items:center;gap:12px;padding:4px 4px 6px}
-    .hic{width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#2f2f2f;display:grid;place-items:center;flex:none}
+    .hic{width:44px;height:44px;border-radius:22px;background:var(--ki-pill-bg, #e1e1e1);color:var(--ki-pill-fg, #2f2f2f);display:grid;place-items:center;flex:none}
     .tt{flex:1;min-width:0;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ok{height:44px;padding:0 20px;border-radius:22px;background:${PINKG};color:#3a3a3a;font-size:15px;font-weight:600;flex:none}
+    .ok{height:44px;padding:0 20px;border-radius:22px;background:${PINKG};color:var(--ki-on-accent, #3a3a3a);font-size:15px;font-weight:600;flex:none}
     .ok:active,.nb:active,.more:active,.x:active,.addb:active{transform:scale(.95)}
-    .cap{font-size:12px;color:#979797;padding:8px 6px 0}
-    .stl{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px;background:#3a3a3a;position:relative;touch-action:pan-y}
-    .sto{height:44px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:#fafafa;transition:background .2s,color .2s}
-    .sto.on{background:${PINKG};color:#3a3a3a}
+    .cap{font-size:12px;color:var(--ki-text-mid, #979797);padding:8px 6px 0}
+    .stl{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, #3a3a3a);position:relative;touch-action:pan-y}
+    .sto{height:44px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--ki-text, #fafafa);transition:background .2s,color .2s}
+    .sto.on{background:${PINKG};color:var(--ki-on-accent, #3a3a3a)}
     .stl .gd-lens{position:absolute;z-index:3;pointer-events:none}
-    .plist{flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden}
-    .pr{display:flex;align-items:center;gap:12px;min-height:60px;padding:0 8px 0 16px;border-bottom:1px solid rgba(255,255,255,.05);position:relative;background:transparent;transition:transform .15s,background .15s,box-shadow .15s}
-    .pr.drag{z-index:2;background:#404040;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:scale(1.02)}
-    .hdl{width:32px;height:48px;margin-left:-10px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f;user-select:none;-webkit-user-select:none}
+    .plist{flex:none;display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, #3a3a3a);overflow:hidden}
+    .pr{display:flex;align-items:center;gap:12px;min-height:60px;padding:0 8px 0 16px;border-bottom:1px solid ${WA(0.05)};position:relative;background:transparent;transition:transform .15s,background .15s,box-shadow .15s}
+    .pr.drag{z-index:2;background:var(--ki-surface-2, #404040);border-radius:18px;box-shadow:0 8px 24px ${BA(0.4)};transform:scale(1.02)}
+    .hdl{width:32px;height:48px;margin-left:-10px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:var(--ki-text-3, #7f7f7f);user-select:none;-webkit-user-select:none}
     .dragging .hdl{cursor:grabbing}
     .pe{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:56px;text-align:left}
     .rl{font-size:15px}
-    .rs{font-size:11px;color:#979797;font-family:ui-monospace,monospace}
-    .rs2{font-size:12px;color:#979797}
-    .x{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:#afafaf;flex:none}
-    .padd{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;color:rgb(242 133 201);font-size:15px;font-weight:500}
-    .add{display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 8px 8px;border-radius:20px;background:#404040;animation:vsf .2s ease}
-    .in{height:48px;border-radius:16px;border:0;outline:0;background:#2f2f2f;color:#fafafa;font:inherit;font-size:15px;padding:0 14px}
-    .lab{font-size:12px;color:#979797;padding:2px 4px 0}
-    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:#2f2f2f}
-    .sr input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:#fafafa;font:inherit;font-size:14px;padding:0}
+    .rs{font-size:11px;color:var(--ki-text-mid, #979797);font-family:ui-monospace,monospace}
+    .rs2{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .x{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--ki-text-2, #afafaf);flex:none}
+    .padd{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;color:var(--ki-pink-text, rgb(242 133 201));font-size:15px;font-weight:500}
+    .add{display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 8px 8px;border-radius:20px;background:var(--ki-surface-2, #404040);animation:vsf .2s ease}
+    .in{height:48px;border-radius:16px;border:0;outline:0;background:var(--ki-surface, #2f2f2f);color:var(--ki-text, #fafafa);font:inherit;font-size:15px;padding:0 14px}
+    .lab{font-size:12px;color:var(--ki-text-mid, #979797);padding:2px 4px 0}
+    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:var(--ki-surface, #2f2f2f)}
+    .sr input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--ki-text, #fafafa);font:inherit;font-size:14px;padding:0}
     .cands{display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto;overscroll-behavior:contain}
-    .cd{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:16px;text-align:left;color:#e1e1e1;background:transparent;flex:none}
-    .cd.on{background:#545454}
+    .cd{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:16px;text-align:left;color:var(--ki-text-1, #e1e1e1);background:transparent;flex:none}
+    .cd.on{background:var(--ki-ctrl, #545454)}
     .cd.used{opacity:.4;cursor:default}
     .cdc{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .cdn{font-size:13px}
-    .cdi{font-size:11px;color:#979797;font-family:ui-monospace,monospace}
-    .cdt{font-size:13px;color:#c7c7c7;flex:none}
-    .none{padding:10px;font-size:12px;color:#7f7f7f}
-    .addb{height:48px;border-radius:24px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;background:#404040;color:#7f7f7f}
-    .addb.on{background:${PINKG};color:#3a3a3a}
-    .rows{flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden}
-    .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-top:1px solid rgba(255,255,255,.05)}
+    .cdi{font-size:11px;color:var(--ki-text-mid, #979797);font-family:ui-monospace,monospace}
+    .cdt{font-size:13px;color:var(--ki-text-1, #c7c7c7);flex:none}
+    .none{padding:10px;font-size:12px;color:var(--ki-text-3, #7f7f7f)}
+    .addb{height:48px;border-radius:24px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--ki-surface, #404040);color:var(--ki-text-3, #7f7f7f)}
+    .addb.on{background:${PINKG};color:var(--ki-on-accent, #3a3a3a)}
+    .rows{flex:none;display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, #3a3a3a);overflow:hidden}
+    .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-top:1px solid ${WA(0.05)}}
     .r>.rl{flex:1;min-width:0}
-    .tsw{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
-    .tsw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+    .tsw{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
+    .tsw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:left .2s}
     .tsw.on{background:${PINKG}}
     .tsw.on i{left:23px}
-    .tbox{flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:#3a3a3a}
-    .tnote{font-size:14px;color:#c7c7c7;line-height:1.4;text-wrap:pretty}
-    .nb{height:44px;border-radius:22px;background:#404040;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+    .tbox{flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .tnote{font-size:14px;color:var(--ki-text-1, #c7c7c7);line-height:1.4;text-wrap:pretty}
+    .nb{height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
     .nb:disabled{opacity:.5}
-    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;margin-top:2px;border-radius:22px;background:#3a3a3a;font-size:14px;font-weight:500;color:#c7c7c7}
+    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;margin-top:2px;border-radius:22px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;color:var(--ki-text-1, #c7c7c7)}
     @keyframes vsf{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     @media (prefers-reduced-motion: reduce){.add{animation:none}}
   `;
@@ -42591,6 +42608,8 @@ try {
   // etter regel 4/3 (WA/KA). Grafer: linje/fyll i aksent, markør --ki-text-2, tomme spor --ki-surface-3. Mørk = som før.
   const TH = M.theme || {};
   const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  // Tekst på tone-pille: mørknet aksent blandes ytterligere med svart i lys modus (--ki-accent-mix 60 %) → ≥ 4,5:1
+  const ATP = (c) => `color-mix(in srgb, ${AT(c)} var(--ki-accent-mix, 100%), black)`;
   const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
   const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const SECS = [['house', 'Huset'], ['tiles', 'Snarveier'], ['power', 'Strøm'], ['price', 'Strømpriser'], ['top', 'Toppforbrukere'], ['water', 'Vann']];
@@ -43213,7 +43232,7 @@ try {
       }
       const busy = !D && R.loaded && (R.grid_in.length || R.power);
       return `<section class="sec">
-        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${AT(C.blue)}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${ATP(C.blue)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
           <div class="ph2"><div class="big">${M.icon('mdi:flash', 22, `color:${C.blue}`)}<span class="num"><b>${fKwh(imp)}</b> kWh</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Importert${busy ? ' · henter …' : ''}</span>
@@ -50809,7 +50828,8 @@ try {
     ${P}.tb .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis}
     ${P}.tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${P}.tabs.many .tb{flex:1 0 auto;min-width:60px;padding:0 ${TV('tp', 10)}}
-    ${P}.gear{width:calc(${TV('th', 48)} + 8px);height:calc(${TV('th', 48)} + 8px);border-radius:calc(${TV('th', 48)} / 2 + 4px);flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}`;
+    ${P}.gear{width:calc(${TV('th', 48)} + 8px);height:calc(${TV('th', 48)} + 8px);border-radius:calc(${TV('th', 48)} / 2 + 4px);flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
+    ${P}.bar:has(.tabs.m-b) .gear{width:calc(${TV('th2', 48)} + 8px);height:calc(${TV('th2', 48)} + 8px);border-radius:calc(${TV('th2', 48)} / 2 + 4px)}`;
 
   /* ============================================================ editoren (Tilpass Innstillinger + GUI) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');

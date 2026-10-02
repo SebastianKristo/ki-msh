@@ -266,7 +266,7 @@
         found.filter((f) => !f.std).forEach((f) => P.push(f));
         const shown = found.length > 6 ? found.slice(0, 6) : P.slice(0, 6);
         slides.push(`<div class="sl po" data-key="s2"><span class="ph"><span class="pl">Pollen i dag</span>${found.length ? `<span class="src ell">${esc(String(src || '').slice(0, 24))}</span>` : `<button class="src lnk" data-act="customize" data-section="overrides" data-haptic="selection">Velg sensorer</button>`}</span>
-          <div class="pg">${shown.map((p, i) => { const L = p.lv == null ? ['–', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] : PL[p.lv]; return `<div class="pt" ${p.id ? `data-ent="${esc(p.id)}"` : ''} data-key="p${i}-${esc(p.id || p.name)}">${M.icon(p.icon, 20, `color:${AT(L[1])}`)}<span class="col" style="min-width:0"><span class="pn ell">${esc(p.name)}</span><span style="font-size:10px;color:${AT(L[1])}">${L[0]}</span></span></div>`; }).join('')}</div></div>`);
+          <div class="pg">${shown.map((p, i) => { const L = p.lv == null ? ['–', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] : PL[p.lv]; return `<div class="pt" ${p.id ? `data-ent="${esc(p.id)}"` : ''} data-key="p${i}-${esc(p.id || p.name)}">${M.icon(p.icon, 20, `color:${AT(L[1])}`)}<span class="col" style="min-width:0"><span class="pn ell">${esc(p.name)}</span><span style="font-size:10px;color:var(--ki-text-2, ${L[1]})">${L[0]}</span></span></div>`; }).join('')}</div></div>`);
       }
       const cur = Math.min(this.ui.hero || 0, slides.length - 1);
       return `<section class="hero">
@@ -339,7 +339,6 @@
     { type: 'boolean', name: 'show_pollen', label: 'Toppkort side 3 · Pollen i dag', default: true },
   ];
   const LV = { 1: ['Grønt', C.green], 2: ['Gult', C.yellow], 3: ['Oransje', C.orange], 4: ['Rødt', C.red], 5: ['Svart', 'var(--white, #fafafa)'] }; // ki-hex-ok: farevarselnivå (flate)
-  const LVT = (c) => (/--white/.test(c) ? 'var(--ki-text, var(--white, #fafafa))' : AT(c)); // nivåfarge som tekst
   const ATYPE = [[/snøskred|avalanche/, 'ac_unit'], [/skogbrann|forest.?fire|brann/, 'local_fire_department'], [/stormflo|storm.?surge|kyst|coast/, 'waves'], [/jord|landslide|skred/, 'mdi:landslide'], [/flom|flood/, 'flood'], [/ising|ice|polar/, 'severe_cold'], [/torden|lightning|thunder/, 'thunderstorm'], [/snø|snow|blowing/, 'weather_snowy'], [/regn|rain/, 'rainy'], [/vind|wind|gale|storm/, 'air']];
   const whenTxt = (t) => {
     if (!t || isNaN(t)) return '';
@@ -531,7 +530,7 @@
     .mc{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
     .mnm{font-size:15px;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .mid{font-size:10px;color:var(--ki-text-mid, #a8a8a8);font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
-    .mi.on .mid{color:rgba(70,58,64,.75)}
+    .mi.on .mid{color:var(--ki-on-accent, rgba(70,58,64,.75))}
     .mt{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     @media (prefers-reduced-motion: reduce){.mn{animation:none}}
@@ -985,7 +984,7 @@
               <span class="row" style="align-items:flex-start;gap:12px;width:100%">
                 <span class="aiw" style="background:${col}">${M.icon(x.icon, 22)}</span>
                 <span class="grow col" style="gap:3px;text-align:left">
-                  <span class="row" style="gap:6px;flex-wrap:wrap"><span class="lb" style="background:${TONE(col, 0.22)};color:${LVT(col)}">${LV[x.lv][0]} nivå</span><span style="font-size:11px;color:${x.future ? 'var(--ki-text-mid, var(--gray700, #979797))' : 'var(--ki-text, var(--white, #fafafa))'}">${esc(x.status)}</span></span>
+                  <span class="row" style="gap:6px;flex-wrap:wrap"><span class="lb" style="background:${TONE(col, 0.22)};color:var(--ki-text, ${col})">${LV[x.lv][0]} nivå</span><span style="font-size:11px;color:${x.future ? 'var(--ki-text-mid, var(--gray700, #979797))' : 'var(--ki-text, var(--white, #fafafa))'}">${esc(x.status)}</span></span>
                   <span style="font-size:14px;font-weight:600;line-height:1.3">${esc(x.title)}</span>
                   <span style="font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))">${esc([whenTxt(x.from), whenTxt(x.to)].filter(Boolean).join(' – ') || '–')}</span>
                 </span>

@@ -135,7 +135,7 @@ for (const [name, tag, hash, extra, focus, hasGear] of list) {
   for (const H of [32, 56]) {
     await page.evaluate(async (H) => { await setCfg({ tab_height: H }); }, H);
     const before = await page.evaluate(() => { const t = T(); return t.items().map((b) => t.idOf(b)); });
-    const pts = await page.evaluate(() => { const t = T(), its = t.items(); const c = (b) => { b.scrollIntoView({ block: 'center', inline: 'nearest' }); const q = b.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; }; const a = c(its[0]); const z = c(its[its.length - 1]); return { a, z, n: its.length }; });
+    const pts = await page.evaluate(async () => { const t = T(), its = t.items(); its[0].scrollIntoView({ block: 'center', inline: 'nearest' }); t.row.scrollLeft = 0; await wait(150); const q = its[0].getBoundingClientRect(), rr = t.row.getBoundingClientRect(), l = its[its.length - 1].getBoundingClientRect(); return { a: { x: q.left + q.width / 2, y: q.top + q.height / 2 }, z: { x: Math.min(l.left + l.width / 2, rr.right - 14) }, n: its.length }; });
     await page.mouse.move(pts.a.x, pts.a.y); await page.mouse.down(); await page.waitForTimeout(520);
     for (let i = 1; i <= 10; i++) { await page.mouse.move(pts.a.x + ((pts.z.x - pts.a.x) * i) / 10, pts.a.y); await page.waitForTimeout(25); }
     await page.mouse.up(); await page.waitForTimeout(700);

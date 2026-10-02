@@ -7,7 +7,7 @@
 //      – Bubble-headeren lys (navn mørkt, lukk-knapp lys) – unntak: Vær «Scene» (mørk øy bak hele popupen, lys header-tekst)
 //      – mørke øyer: Vær-scenen (data-ki-island, lys tekst), kamerabilder/-plassholdere mørke
 //  · mørk modus: tilbake fra lys uten reload = samme farger; med TEMA_BASE=<bundel bygd fra før-koden> sammenlignes ALLE
-//    beregnede farger (color/bakgrunn/kant/skygge/fill/stroke) element for element i popupen og arkene (som tema34-check)
+//    beregnede farger (color/bakgrunn/kant/skygge/fill/stroke) element for element i popupen og arkene (som tema34-check); elementer som bare finnes i én av bundlene (andre fikser) listes, men sammenlignes ikke
 // Kjør: node test/tema35-popups-a-check.mjs   (ONLY=vaer|kamera|kart|kalender|rolf, VP=mobil|PC, SHOT_DIR=<mappe>)
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -247,7 +247,8 @@ for (const vp of VPS) {
         if (B) {
           const b0 = await SNAP(B.page), mb = new Map(b0);
           const diff = d0.filter(([p, v]) => mb.has(p) && mb.get(p) !== v).map(([p, v]) => [p.slice(-90), mb.get(p).slice(0, 160), v.slice(0, 160)]);
-          ok(`${lb} · mørk = før (element for element, ${d0.length} el.)`, !diff.length && Math.abs(d0.length - b0.length) <= 2, { n: [d0.length, b0.length], diff: diff.slice(0, 4) });
+          const ma = new Map(d0), only = [...d0.filter(([p]) => !mb.has(p)).map(([p]) => '+' + p.slice(-80)), ...b0.filter(([p]) => !ma.has(p)).map(([p]) => '-' + p.slice(-80))];
+          ok(`${lb} · mørk = før (element for element, ${d0.length} el.)`, !diff.length, { n: [d0.length, b0.length], diff: diff.slice(0, 4), only: only.slice(0, 4) });
         }
         await A.page.evaluate(() => window.__theme(true));
         const L = await LIGHT(A.page, {});
