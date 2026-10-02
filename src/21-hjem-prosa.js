@@ -46,8 +46,8 @@
     // fs = null → automatisk størrelse etter kortets bredde (PROSA_AUTO_FS)
     return { fs: n(c && c.prose_font_size, null, F.min, F.max), lh: n(c && c.prose_line_height, L.default, L.min, L.max) };
   }
-  const PCOL = { hvit: '#fafafa', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
-  const PSW = [['hvit', 'var(--gray1000, #e1e1e1)', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
+  const PCOL = { hvit: 'var(--ki-surface, #fafafa)', gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue, rosa: C.pink };
+  const PSW = [['hvit', 'var(--ki-surface, var(--gray1000, #e1e1e1))', 'Hvit'], ['auto', `conic-gradient(${C.green}, ${C.yellow}, ${C.red}, ${C.green})`, 'Auto etter verdi'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   // «Ved trykk» for en setning: tap (HA-format) → ellers gamle link/act 'more' (bakoverkompatibelt)
   function tapOf(p) {
     if (!p) return null;
@@ -379,7 +379,7 @@
       const [pre, post] = tmpl(o.tekst || SEC_TXT[k], o.felt);
       const I = iconOf(o.ikon, o.ikonSt);
       (items[k] = items[k] || []).push({ sec: k, j, pre: pre.trim() ? pre.trim() + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post.replace(/^\s+/, '')) + ' ' : ' ', hasChip: true,
-        chip: o.chip, dot: o.dot || null, emoji: I.ic, appl: I.appl, iconEnd: o.ikon_plassering === 'slutt', anim: o.animasjon || '', bg: o.bg || '#fafafa', id: o.id || null, tap: true, act: o.act || null, hold: o.hold || null });
+        chip: o.chip, dot: o.dot || null, emoji: I.ic, appl: I.appl, iconEnd: o.ikon_plassering === 'slutt', anim: o.animasjon || '', bg: o.bg || 'var(--ki-surface, #fafafa)', id: o.id || null, tap: true, act: o.act || null, hold: o.hold || null });
     };
     // vær
     const V = secOf(c, 'vaer');
@@ -488,7 +488,7 @@
     const once = (p) => { const k = p.src; if (!FIXED.includes(k)) return true; if (seen.has(k)) return false; seen.add(k); return true; };
     const vis = rows.map((p, i) => ({ p, i })).filter(({ p }) => p && !p.hidden && test(p) && once(p)).map(({ p, i }) => {
       const post = fill(p.post), sv = valOf(p);
-      const bg = p.color === 'auto' ? (sv && sv[2]) || '#fafafa' : PCOL[p.color] || M.color(p.color, '#fafafa');
+      const bg = p.color === 'auto' ? (sv && sv[2]) || 'var(--ki-surface, #fafafa)' : PCOL[p.color] || M.color(p.color, 'var(--ki-surface, #fafafa)');
       return { i, row: p, pre: p.pre ? fill(p.pre) + ' ' : '', post: post ? (/^[.,!?:;]/.test(post) ? post : ' ' + post) + ' ' : ' ', hasChip: (p.src || 'none') !== 'none',
         chip: p.src === 'text' ? fill(p.fmt) : fill(String(p.fmt || '{v}').replace(/\{v\}/g, sv ? sv[0] : '–')),
         dot: p.icon === 'dot' ? (sv && sv[2]) || C.green : null, emoji: p.icon && p.icon !== 'dot' ? p.icon : '', bg, id: sv ? sv[3] : null, tap: !!((p.act && p.act !== 'more') || (tapOf(p) && tapOf(p).action !== 'none')) };
@@ -542,17 +542,17 @@
   M.prosaHTML = prosaHTML;
   // Samme utseende i kortet, i GUI-editorens forhåndsvisning og i «Tilpass Hjem» → Tekst (00-base legger font på :host).
   M.PROSA_CSS = `
-    .pz{margin:0;padding:4px 0 0 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;overflow-wrap:break-word;color:var(--gray1000-white,#fafafa)}
+    .pz{margin:0;padding:4px 0 0 0;font-family:${M.FONT};font-weight:400;letter-spacing:-0.01em;overflow-wrap:break-word;color:var(--ki-text-2, var(--gray1000-white,#fafafa))}
     /* Pille: 1,6em høy av 0,8em tekst (≈ 0,82 × linjehøyden 1,55) – endrer ikke linjerytmen */
-    .pz .chip{display:inline-flex;align-items:center;gap:8px;height:1.6em;margin:0;padding:0 .55em;border:0;border-radius:999px;box-shadow:none;background:#fafafa;color:#2f2f2f;font:inherit;font-size:.8em;font-weight:600;line-height:1;letter-spacing:0;white-space:nowrap;vertical-align:.08em;font-variant-numeric:tabular-nums;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
+    .pz .chip{display:inline-flex;align-items:center;gap:8px;height:1.6em;margin:0;padding:0 .55em;border:0;border-radius:999px;box-shadow:var(--ki-pill-sh, none);background:var(--ki-surface, #fafafa);color:var(--ki-on-accent, #2f2f2f);font:inherit;font-size:.8em;font-weight:600;line-height:1;letter-spacing:0;white-space:nowrap;vertical-align:.08em;font-variant-numeric:tabular-nums;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .3s}
     .pz .chip.press:active{transform:scale(.96)}
-    .pz .chip ha-icon{color:#2f2f2f;--mdc-icon-size:.9em !important;width:.9em !important;height:.9em !important}
+    .pz .chip ha-icon{color:var(--ki-on-accent, #2f2f2f);--mdc-icon-size:.9em !important;width:.9em !important;height:.9em !important}
     .pz .chip .em{font-size:.9em;line-height:1;flex:none}
     .pz .dot{width:.42em;height:.42em;border-radius:50%;flex:none;transition:background .3s}
     .pz .pzg{white-space:nowrap}
     /* Fiks 20.9: delen som redigeres (forhåndsvisningen i editorene); skjult av betingelsen → gjennomstreket og svak */
     .pz .pzm{background:rgb(242 133 201 / 0.14);box-shadow:0 .1em 0 rgb(242 133 201 / 0.55);border-radius:.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .2s}
-    .pz .pzm.off{text-decoration:line-through;text-decoration-color:rgb(250 250 250 / 0.6);opacity:.5}
+    .pz .pzm.off{text-decoration:line-through;text-decoration-color:color-mix(in srgb, var(--ki-text, #fafafa) 60%, transparent);opacity:.5}
     .pz .chip svg.ma{width:1em;height:1em;flex:none}
     .pz .chip .an{display:inline-flex;line-height:0}
     .pz .an-hopp{animation:pz-hopp 1.6s ease-in-out infinite}
@@ -585,7 +585,7 @@
       off = sel;
       R = compute(h, { ...cc, prose: R.rows.map((p, i) => (i === sel ? { ...p, cop: 'alltid', hidden: undefined } : p)) });
     }
-    if (!R.vis.length) return '<span style="color:#7f7f7f">Ingen setninger vises nå</span>';
+    if (!R.vis.length) return '<span style="color:var(--ki-text-3, #7f7f7f)">Ingen setninger vises nå</span>';
     const act = o.act ? ` data-a="${esc(o.act)}"` : '';
     return prosaHTML(R.vis, (v) => (v.sec
       ? `<span class="chip" style="background:${v.bg}">${chipHTML(v)}</span>`
@@ -594,8 +594,8 @@
   };
   // Sticky boks øverst i arket: «FORHÅNDSVISNING · LIVE» + prosaen (maks 34vh, egen scroll). o.style = ekstra stil på .pz.
   M.PROSA_PREV_CSS = `
-    .xpz{position:sticky;top:calc(var(--ki-grab-h, 0px) - 12px);z-index:5;padding:10px 16px 14px;margin:0 0 12px;border-radius:24px;background:#232323;box-shadow:0 12px 14px -2px var(--ki-sheet-bg, #282828);font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size}
-    .xpzl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;color:#979797;margin:0 0 6px;font-family:${M.FONT}}
+    .xpz{position:sticky;top:calc(var(--ki-grab-h, 0px) - 12px);z-index:5;padding:10px 16px 14px;margin:0 0 12px;border-radius:24px;background:var(--ki-bg, #232323);box-shadow:0 12px 14px -2px var(--ki-sheet-bg, #282828);font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size}
+    .xpzl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--ki-text-mid, #979797);margin:0 0 6px;font-family:${M.FONT}}
     .xpzd{width:7px;height:7px;border-radius:50%;background:${C.green};box-shadow:0 0 6px ${C.green};flex:none}
     .xpzb{max-height:34vh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}
     .xpzb::-webkit-scrollbar{display:none}
@@ -874,7 +874,7 @@
       const P = plantInfo(h, PL, (id) => this.s(id)), btns = P.steder.map((p) => p.btn).filter(Boolean);
       if (!btns.length) { M.hjemToast(this, 'Fant ingen «alle vannet»-knapp i KI Planter'); return; }
       const sheet = M.hjemSheet(this, {
-        render: () => `<div class="orb" style="background:${M.alpha(C.green, 0.2)};box-shadow:0 0 0 6px var(--gray200,#3a3a3a)">${M.icon('mdi:watering-can', 40, `color:${C.green}`)}</div>
+        render: () => `<div class="orb" style="background:${M.alpha(C.green, 0.2)};box-shadow:0 0 0 6px var(--ki-surface, var(--gray200,#3a3a3a))">${M.icon('mdi:watering-can', 40, `color:var(--ki-green-text, ${C.green})`)}</div>
           <div class="nm"><b>Merk alle som vannet?</b><span>${esc(P.label)}${P.steder.length > 1 ? ' · ' + esc(listTxt(P.steder.map((x) => x.sted))) : ''}</span></div>
           <div class="opts"><button class="opt" data-a="close">Avbryt</button><button class="opt" data-a="ok" data-haptic="off" style="background:${C.green};color:#12291d;font-weight:600">Alle vannet</button></div>`,
         onAct: (a) => {

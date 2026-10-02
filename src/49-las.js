@@ -86,25 +86,25 @@
   /* ------------------------------------------------------------ PIN-tastatur (portalt ut av popupen, fallgruve 1) */
   const PAD_CSS = `
     .bg{background:rgba(10,10,12,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-    .sh{left:16px;right:16px;padding:22px 20px 20px;border-radius:34px;background:var(--gray200,#3a3a3a);box-shadow:0 20px 50px rgba(0,0,0,0.55);scrollbar-width:none}
+    .sh{left:16px;right:16px;padding:22px 20px 20px;border-radius:34px;background:var(--ki-surface, #3a3a3a);box-shadow:0 20px 50px rgba(0,0,0,0.55);scrollbar-width:none}
     .sh::-webkit-scrollbar{display:none}
     .pad{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px}
-    .x{position:absolute;top:-8px;right:-6px;width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
+    .x{position:absolute;top:-8px;right:-6px;width:40px;height:40px;border-radius:20px;background:var(--ki-surface-2, #404040);display:grid;place-items:center;color:var(--ki-text-1, #c7c7c7)}
     .hd{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-    .iw{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(242,181,115,0.2);color:var(--orange,#f2b573)}
+    .iw{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(242,181,115,0.2);color:var(--ki-orange-text, var(--orange,#f2b573))}
     .tt{font-size:20px;font-weight:600}
-    .msg{font-size:13px;color:var(--gray700,#979797)}
-    .msg.err{color:var(--red,#f28073);font-weight:600}
+    .msg{font-size:13px;color:var(--ki-text-mid, #979797)}
+    .msg.err{color:var(--ki-red-text, var(--red,#f28073));font-weight:600}
     .dots{display:flex;gap:16px;height:16px;align-items:center}
     .dots.err{animation:msh-shake .36s cubic-bezier(.36,.07,.19,.97)}
-    .dot{width:14px;height:14px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--gray600,#7f7f7f);transition:background .12s}
-    .dot.on{background:var(--white,#fafafa);box-shadow:none}
+    .dot{width:14px;height:14px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--ki-text-3, #7f7f7f);transition:background .12s}
+    .dot.on{background:var(--ki-text, #fafafa);box-shadow:none}
     .dots.err .dot{background:var(--red,#f28073);box-shadow:none}
     .keys{display:grid;grid-template-columns:repeat(3,68px);gap:10px 20px}
-    .k{width:68px;height:68px;border-radius:34px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;transition:transform .1s,background .1s;touch-action:manipulation}
-    .k:active{transform:scale(0.92);background:var(--gray400,#545454)}
-    .k.ic{background:transparent;color:var(--gray800,#afafaf)}
-    .ok{width:100%;height:52px;border-radius:26px;background:${PK};color:#2f2f2f;font-size:15px;font-weight:600}
+    .k{width:68px;height:68px;border-radius:34px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;transition:transform .1s,background .1s;touch-action:manipulation}
+    .k:active{transform:scale(0.92);background:var(--ki-ctrl, #545454)}
+    .k.ic{background:transparent;color:var(--ki-text-2, #afafaf)}
+    .ok{width:100%;height:52px;border-radius:26px;background:${PK};color:var(--ki-on-accent, #2f2f2f);font-size:15px;font-weight:600}
     .ok:disabled{opacity:.4}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     @keyframes msh-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(6px)}40%{transform:translateX(-6px)}60%{transform:translateX(4px)}80%{transform:translateX(-3px)}}
@@ -172,7 +172,7 @@
   /* ------------------------------------------------------------ kortet */
   const VERB = { locked: 'Låst', unlocked: 'Låst opp', open: 'Åpnet', jammed: 'Fastkjørt' };
   const KIND = { locked: 'lock', unlocked: 'unlock', open: 'unlock', jammed: 'jam' };
-  const EVT = { lock: ['Låst', G], unlock: ['Låst opp', O], door: ['Døra åpnet', '#979797'], jam: ['Fastkjørt', R] };
+  const EVT = { lock: ['Låst', G], unlock: ['Låst opp', O], door: ['Døra åpnet', 'var(--ki-text-mid, #979797)'], jam: ['Fastkjørt', R] };
   const FIL = [['alle', 'Alle', 'mdi:format-list-bulleted', () => true], ['lock', 'Låst', 'mdi:lock', (e) => e.kind === 'lock'], ['unlock', 'Opplåst', 'mdi:lock-open-variant', (e) => e.kind === 'unlock'], ['jam', 'Varsler', 'mdi:alert', (e) => e.kind === 'jam']];
   const UNLOCK = [['dra', 'Dra'], ['hold', 'Hold'], ['trykk', 'Trykk']];
   const UNL_NOTE = { dra: 'Dra knotten helt til høyre for å låse opp. Hindrer opplåsing ved et uhell.', hold: 'Hold inne i 0,9 s. Sporet fylles mens du holder.', trykk: 'Ett trykk låser opp. Raskest, men uten bekreftelse.' };
@@ -351,13 +351,13 @@
     // Opplåsingssporet (64 px): Dra / Hold / Trykk. Ulåst → ett trykk låser. touch-action:none + stopPropagation (fallgruve 2).
     _track(x, s) {
       const mode = UNLOCK.some((u) => u[0] === this.config.unlock) ? this.config.unlock : 'dra';
-      if (!x || !s || s.un) return `<div class="lk-track off" data-key="lk-track" style="--f:0"><span class="lk-fill"></span><span class="lk-label plain">–</span><span class="lk-knob" style="background:#545454">${M.icon('mdi:lock-question', 26)}</span></div>`;
+      if (!x || !s || s.un) return `<div class="lk-track off" data-key="lk-track" style="--f:0"><span class="lk-fill"></span><span class="lk-label plain">–</span><span class="lk-knob" style="background:var(--ki-ctrl, #545454)">${M.icon('mdi:lock-question', 26)}</span></div>`;
       const { busy, lk } = s, f = lk && !busy ? 0 : 1;
       const text = busy ? (busy === 'unlocking' ? 'Låser opp …' : 'Låser …') : lk ? (mode === 'dra' ? 'Dra for å låse opp' : mode === 'hold' ? 'Hold for å låse opp' : 'Trykk for å låse opp') : 'Trykk for å låse';
       const shimmer = lk && !busy;
       return `<div class="lk-track ${mode} ${lk ? 'locked' : 'open'} ${busy ? 'busy' : ''}" data-key="lk-track" data-id="${esc(x.id)}" data-mode="${mode}" role="button" aria-label="${esc(text)}" style="--f:${f};--fillc:${shimmer ? S.a(O, 0.22) : S.a(s.col, 0.18)}">
         <span class="lk-fill"></span><span class="lk-label ${shimmer ? 'shim' : 'plain'}">${esc(text)}</span>
-        <span class="lk-knob ${shimmer && mode === 'dra' ? 'nudge' : ''}" style="background:${busy ? '#545454' : lk ? G : O}">${M.icon(busy ? 'mdi:loading' : lk ? 'mdi:lock' : 'mdi:lock-open-variant', 26, busy ? 'animation:sk-spin 1s linear infinite' : '')}</span></div>`;
+        <span class="lk-knob ${shimmer && mode === 'dra' ? 'nudge' : ''}" style="background:${busy ? 'var(--ki-ctrl, #545454)' : lk ? G : O}">${M.icon(busy ? 'mdi:loading' : lk ? 'mdi:lock' : 'mdi:lock-open-variant', 26, busy ? 'animation:sk-spin 1s linear infinite' : '')}</span></div>`;
     }
     _tiles(x, au) {
       const h = this.hass, door = x.door && h.states[x.door], dOpen = door && door.state === 'on';
@@ -527,17 +527,17 @@
     }
     get styles() {
       return `${S.CSS}
-        .lk-track{position:relative;height:64px;border-radius:32px;overflow:hidden;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
+        .lk-track{position:relative;height:64px;border-radius:32px;overflow:hidden;background:var(--ki-surface-3, #2f2f2f);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
         .lk-track.locked.dra:not(.busy){cursor:grab}
         .lk-track.busy,.lk-track.off{cursor:default}
         .lk-fill{position:absolute;left:0;top:0;bottom:0;width:calc(64px + (100% - 64px) * var(--f));border-radius:32px;background:var(--fillc,transparent);transition:width .35s cubic-bezier(.2,.8,.2,1),background .3s}
         .lk-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;pointer-events:none}
         .lk-track.locked .lk-label{padding-left:48px}
         .lk-track.open .lk-label{padding-right:48px}
-        .lk-label.plain{color:var(--gray1000,#e1e1e1)}
-        .lk-label.shim{color:transparent;background-image:linear-gradient(90deg,#7f7f7f 0%,#7f7f7f 40%,#fafafa 50%,#7f7f7f 60%,#7f7f7f 100%);background-size:260px 100%;-webkit-background-clip:text;background-clip:text;animation:lk-shimmer 2.4s linear infinite}
+        .lk-label.plain{color:var(--ki-text-1, #e1e1e1)}
+        .lk-label.shim{color:transparent;background-image:linear-gradient(90deg,var(--ki-text-3, #7f7f7f) 0%,var(--ki-text-3, #7f7f7f) 40%,var(--ki-text, #fafafa) 50%,var(--ki-text-3, #7f7f7f) 60%,var(--ki-text-3, #7f7f7f) 100%);background-size:260px 100%;-webkit-background-clip:text;background-clip:text;animation:lk-shimmer 2.4s linear infinite}
         .lk-track.drag .lk-label{opacity:max(0, calc(1 - var(--f) * 1.6))}
-        .lk-knob{position:absolute;top:4px;left:calc(4px + (100% - 64px) * var(--f));width:56px;height:56px;border-radius:28px;display:grid;place-items:center;color:#232323;box-shadow:0 6px 16px rgba(0,0,0,0.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s;pointer-events:none}
+        .lk-knob{position:absolute;top:4px;left:calc(4px + (100% - 64px) * var(--f));width:56px;height:56px;border-radius:28px;display:grid;place-items:center;color:var(--ki-on-accent, #232323);box-shadow:0 6px 16px rgba(0,0,0,0.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s;pointer-events:none}
         .lk-knob.nudge{animation:lk-nudge 3.2s ease-in-out 1s infinite}
         .lk-track.drag .lk-knob{animation:none}
         .lk-track.drag:not(.holding) .lk-fill,.lk-track.drag:not(.holding) .lk-knob{transition:background .2s}
@@ -562,7 +562,7 @@
           const A = M.lasAuto(h, D()), nVis = A.locks.filter((id) => !lockInfo(h, D(), id).hidden).length;
           return `${A.locks.map((id) => {
             const x = lockInfo(h, D(), id), vis = !x.hidden;
-            return `<section class="sk-sec" data-key="lk-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:lock', 22, 'color:#afafaf')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input>
+            return `<section class="sk-sec" data-key="lk-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:lock', 22, 'color:var(--ki-text-2, #afafaf)')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input>
               ${S.shSw(vis, `data-a="vis" data-obj="${esc(x.obj)}" title="Vis / skjul" aria-label="Vis i velgeren" ${vis && nVis < 2 ? 'aria-disabled="true"' : ''}`)}</div>
               ${S.shEnt(api, { k: 'lock:' + x.obj, icon: 'mdi:lock', label: 'Lås', id, own: (D().include && (D().include.laser || []).includes(id)) ? id : '', auto: id, domains: 'lock' })}
               ${S.shEnt(api, { k: 'door:' + x.obj, icon: 'mdi:door', label: 'Dørsensor', id: x.door, own: x.doorOwn, auto: x.doorAuto, domains: 'binary_sensor', deviceClass: 'door,opening', noneLabel: 'Ingen dørsensor' })}</section>`;

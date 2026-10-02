@@ -153,58 +153,58 @@
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
     /* arket: flex-kolonne, ingen egen scroll – bare .sc scroller */
-    .sh.tp{display:flex;flex-direction:column;overflow:hidden;padding:0;border-radius:38px 38px 0 0;box-shadow:0 -20px 50px rgba(0,0,0,0.5)}
-    :host(:not([data-glass])) .sh.tp{background:#282828}
+    .sh.tp{display:flex;flex-direction:column;overflow:hidden;padding:0;border-radius:38px 38px 0 0;box-shadow:0 -20px 50px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))))}
+    :host(:not([data-glass])) .sh.tp{background:var(--ki-popup, #282828)}
     .sh.tp>.gz{position:relative;top:auto;flex:none;height:auto;margin:0;padding:8px 0 0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
-    .sh.tp>.gz .grab{width:36px;height:5px;border-radius:3px;background:#545454}
+    .sh.tp>.gz .grab{width:36px;height:5px;border-radius:3px;background:var(--ki-ctrl, #545454)}
     .sh.tp>.body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
     .body>*{flex:none}
     .hd{display:flex;align-items:center;gap:8px;padding:10px 18px 12px}
     .hd .tt{flex:1;min-width:0;display:flex;flex-direction:column}
-    .hd .tt b{font-size:22px;font-weight:600;color:#fafafa;line-height:1.25}
-    .hd .tt i{font-style:normal;font-size:12px;color:#979797}
-    .hd .x{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#3a3a3a;color:#fafafa;flex:none}
+    .hd .tt b{font-size:22px;font-weight:600;color:var(--ki-text, #fafafa);line-height:1.25}
+    .hd .tt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
+    .hd .x{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);flex:none}
     .top{display:flex;flex-direction:column;gap:10px;padding:0 14px 10px}
-    .sr{display:flex;align-items:center;gap:10px;height:46px;padding:0 8px 0 16px;border-radius:23px;background:#3a3a3a;color:#fafafa}
-    .sr input{flex:1;min-width:0;height:100%;font-size:15px;color:#fafafa}
-    .sr input::placeholder,.own input::placeholder{color:#7f7f7f}
-    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
+    .sr{display:flex;align-items:center;gap:10px;height:46px;padding:0 8px 0 16px;border-radius:23px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa)}
+    .sr input{flex:1;min-width:0;height:100%;font-size:15px;color:var(--ki-text, #fafafa)}
+    .sr input::placeholder,.own input::placeholder{color:var(--ki-text-3, #7f7f7f)}
+    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}
     .sr .qx[hidden]{display:none}
-    .flt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:#3a3a3a;touch-action:pan-y}
+    .flt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface, #3a3a3a);touch-action:pan-y}
     .flt button{height:36px;border-radius:18px;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;color:#c7c7c7;transition:background .2s}
-    .flt button.on{background:${GRAD};color:#2f2f2f}
+    .flt button.on{background:${GRAD};color:var(--ki-on-accent, #2f2f2f)}
     /* 30.2 · scrollområdet er en vanlig BLOKK (ikke flex/grid) med ÉN indre flex-wrapper uten høydegrense */
     .body>.sc{display:block;flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;padding:0 14px calc(40px + env(safe-area-inset-bottom, 0px))}
     .sc::-webkit-scrollbar{display:none}
     .scw{display:flex;flex-direction:column;gap:8px}
     .grs{display:contents}
-    .lb{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 6px 0}
-    .gb{display:flex;flex-direction:column;border-radius:22px;background:#3a3a3a;overflow:hidden}
-    .pr{flex:none;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px 8px 10px;text-align:left;width:100%;color:#fafafa}
-    .pr+.pr{border-top:1px solid rgba(255,255,255,0.06)}
-    .pr.on{background:#404040}
-    .pr:active{background:rgba(255,255,255,0.06)}
-    .pr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#2f2f2f;color:#e1e1e1}
+    .lb{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);padding:8px 6px 0}
+    .gb{display:flex;flex-direction:column;border-radius:22px;background:var(--ki-surface, #3a3a3a);overflow:hidden}
+    .pr{flex:none;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px 8px 10px;text-align:left;width:100%;color:var(--ki-text, #fafafa)}
+    .pr+.pr{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .pr.on{background:var(--ki-surface-2, #404040)}
+    .pr:active{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .pr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-3, #2f2f2f);color:var(--ki-text-1, #e1e1e1)}
     .pr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .pr .nm b{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pr .h{font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pr .h{font-size:12px;color:var(--ki-text-mid, #979797);font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .pr .ck{opacity:0;color:${PK};flex:none}
     .pr.on .ck{opacity:1}
-    .none{padding:20px 6px;font-size:14px;color:#979797;text-align:center}
-    .cust{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:22px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14);margin-top:4px;text-align:left;width:100%;color:#fafafa}
+    .none{padding:20px 6px;font-size:14px;color:var(--ki-text-mid, #979797);text-align:center}
+    .cust{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:22px;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));margin-top:4px;text-align:left;width:100%;color:var(--ki-text, #fafafa)}
     .cust .nm{flex:1;display:flex;flex-direction:column}
     .cust .nm b{font-size:14px;font-weight:500}
-    .cust .nm i{font-style:normal;font-size:12px;color:#979797}
+    .cust .nm i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     .own{display:flex;flex-direction:column;gap:8px}
     .own[hidden]{display:none}
     .own .ln{display:flex;gap:8px;align-items:center}
-    .own .hf{flex:1;min-width:0;display:flex;align-items:center;height:48px;border-radius:16px;background:#3a3a3a;padding:0 14px;gap:2px}
-    .own .hf span{font:15px ui-monospace,Menlo,monospace;color:#7f7f7f}
-    .own input{flex:1;min-width:0;height:100%;color:#fafafa;font:15px ui-monospace,Menlo,monospace}
-    .own .ok{height:48px;padding:0 18px;border-radius:24px;background:${GRAD};color:#2f2f2f;font-weight:600;font-size:14px;flex:none}
+    .own .hf{flex:1;min-width:0;display:flex;align-items:center;height:48px;border-radius:16px;background:var(--ki-surface, #3a3a3a);padding:0 14px;gap:2px}
+    .own .hf span{font:15px ui-monospace,Menlo,monospace;color:var(--ki-text-3, #7f7f7f)}
+    .own input{flex:1;min-width:0;height:100%;color:var(--ki-text, #fafafa);font:15px ui-monospace,Menlo,monospace}
+    .own .ok{height:48px;padding:0 18px;border-radius:24px;background:${GRAD};color:var(--ki-on-accent, #2f2f2f);font-weight:600;font-size:14px;flex:none}
     .wr{display:flex;align-items:center;gap:6px;font-size:12px;color:#f2c073;padding:0 2px;min-height:16px}
     .wr.okc{color:#66d19e}
-    :host([data-glass]) .sr,:host([data-glass]) .flt,:host([data-glass]) .gb,:host([data-glass]) .hd .x,:host([data-glass]) .own .hf{background:rgba(0,0,0,0.25)}
+    :host([data-glass]) .sr,:host([data-glass]) .flt,:host([data-glass]) .gb,:host([data-glass]) .hd .x,:host([data-glass]) .own .hf{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
   `;
   // Åpent modalt <dialog> (HAs GUI-editor i top-layer) rundt elementet → arket legges inni dialogen, ellers er det inert
   const modalOf = (el) => {
@@ -224,11 +224,11 @@
     const S = M.overlay({ css: PSHEET_CSS, maxWidth: 540, tilpass: true, html: `
       <div class="hd" data-sheet-head><span class="tt"><b>${esc(o.title || 'Velg popup')}</b><i>${all.length} popups i dashbordet</i></span><button class="x" data-p="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 22)}</button></div>
       <div class="top">
-        <div class="sr">${M.icon('mdi:magnify', 20, 'color:#979797')}<input class="q" placeholder="Søk navn eller #hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm" hidden>${M.icon('mdi:close-circle', 18)}</button></div>
+        <div class="sr">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-mid, #979797)')}<input class="q" placeholder="Søk navn eller #hash" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm" hidden>${M.icon('mdi:close-circle', 18)}</button></div>
         <div class="flt" role="tablist" data-glass-drag="x">${[['alle', 'Alle'], ['rom', 'Rom'], ['fn', 'Funksjoner'], ['imp', 'Importert']].map(([k, l]) => `<button class="${k === 'alle' ? 'on' : ''}" data-p="f" data-v="${k}" role="tab" aria-selected="${k === 'alle'}">${l}</button>`).join('')}</div>
       </div>
       <div class="sc"><div class="scw"><div class="grs"></div>
-        <button class="cust" data-p="custom">${M.icon('mdi:pound', 20, 'color:#afafaf')}<span class="nm"><b>Bruk egen hash</b><i>For popups som ikke finnes ennå</i></span>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button>
+        <button class="cust" data-p="custom">${M.icon('mdi:pound', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>Bruk egen hash</b><i>For popups som ikke finnes ennå</i></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-mid, #979797)')}</button>
         <div class="own" ${cur && !known(cur) ? '' : 'hidden'}><div class="ln"><div class="hf"><span>#</span><input class="oh" placeholder="tesla" value="${esc(cur && !known(cur) ? cur.slice(1) : '')}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div><button class="ok" data-p="own">Bruk</button></div><div class="wr">${cur && !known(cur) ? M.icon('mdi:alert', 16) + MISSING + ' – lagres likevel' : ''}</div></div>
       </div></div>` });
     const R = S.root, qi = R.querySelector('.q'), sc = R.querySelector('.sc'), grs = R.querySelector('.grs'), oh = R.querySelector('.oh'), wr = R.querySelector('.wr'), own = R.querySelector('.own'), qx = R.querySelector('.qx');
@@ -248,7 +248,7 @@
       const hits = all.filter((p) => (filt === 'alle' || p.group === filt) && (!q || fold(`${p.name} ${p.hash} ${(p.aliases || []).join(' ')}`).includes(q)));
       const row = (p) => {
         const on = p.hash === cur || p.hash === curC, col = p.color;
-        return `<button class="pr ${on ? 'on' : ''}" data-v="${esc(p.hash)}" aria-pressed="${on}"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p.icon || 'mdi:card-outline', 20)}</span><span class="nm"><b>${esc(p.name)}</b><span class="h">${esc(p.hash)}${p.hidden ? ' · skjult' : ''}</span></span><span class="ck">${M.icon('mdi:check-circle', 22)}</span></button>`;
+        return `<button class="pr ${on ? 'on' : ''}" data-v="${esc(p.hash)}" aria-pressed="${on}"><span class="ci" ${col ? `style="background:${esc(col)};color:var(--ki-on-accent, #2f2f2f)"` : ''}>${M.icon(p.icon || 'mdi:card-outline', 20)}</span><span class="nm"><b>${esc(p.name)}</b><span class="h">${esc(p.hash)}${p.hidden ? ' · skjult' : ''}</span></span><span class="ck">${M.icon('mdi:check-circle', 22)}</span></button>`;
       };
       grs.innerHTML = Object.keys(PGROUPS).map((g) => { const L = hits.filter((p) => p.group === g); return L.length ? `<span class="lb" data-g="${g}">${PGROUPS[g]} · ${L.length}</span><div class="gb">${L.map(row).join('')}</div>` : ''; }).join('')
         || `<span class="none">${qs ? `Ingen popup heter «${esc(qs)}»` : 'Ingen popups i dette dashbordet'}</span>`;
@@ -297,20 +297,20 @@
 
   /* ------------------------------------------------------------ <msh-popup-field> (popup_hash-felt) */
   const PF_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa);min-width:0}
     *{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     .f{display:flex;align-items:center;gap:6px;min-width:0}
-    .pk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-if-bg,var(--msh-tp-bg,#232323));text-align:left}
+    .pk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-if-bg,var(--msh-tp-bg,var(--ki-bg, #232323)));text-align:left}
     .pk:active{transform:scale(.99)}
-    .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1}
+    .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1)}
     .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .nm b{font-weight:500;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:12px;line-height:1.2;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm i{font-style:normal;font-size:12px;line-height:1.2;color:var(--ki-text-mid, #979797);font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .nm i.w{color:#f2c073}
-    .nm.ph b{color:#979797}
-    .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
-    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#979797}
+    .nm.ph b{color:var(--ki-text-mid, #979797)}
+    .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
+    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}
   `;
   // Feltet (fasit: «Popup»-feltet i Handlingsvelger.dc.html): ikon-sirkel (romfarge), navn, #hash og «Bytt ›» → arket.
   // × (når en verdi er satt og feltet har standard) tømmer til standard. value-changed { value: '#hash' | '' }
@@ -342,7 +342,7 @@
       const v = this.value, ph = normHash(this.getAttribute('placeholder')), h = v || ph;
       const p = h ? popupOf(h, this._hass) : null, col = p && p.color;
       const sub = v ? (p ? v : `${v} · ${MISSING}`) : ph ? `Standard · ${ph}` : 'Alle popups i dashbordet';
-      const html = `<style>${PF_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg popup"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, h ? '' : 'opacity:.55')}</span>`
+      const html = `<style>${PF_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg popup"><span class="ci" ${col ? `style="background:${esc(col)};color:var(--ki-on-accent, #2f2f2f)"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22, h ? '' : 'opacity:.55')}</span>`
         + `<span class="nm${h ? '' : ' ph'}"><b>${esc(p ? p.name : v || 'Velg popup …')}</b><i class="${v && !p ? 'w' : ''}">${esc(sub)}</i></span><span class="by">Bytt${M.icon('mdi:chevron-right', 18)}</span></button>`
         + `${v && ph ? `<button class="x" data-p="x" title="Tilbake til standard">${M.icon('mdi:close', 18)}</button>` : ''}</div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
@@ -402,7 +402,7 @@
 
   /* ------------------------------------------------------------ <msh-tap-picker> · handlingsvelgeren (Fiks 30.3) */
   const CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa);min-width:0}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
@@ -410,56 +410,56 @@
     .w{display:flex;flex-direction:column;gap:14px}
     .sel{display:flex;flex-direction:column;gap:8px}
     .grid{display:grid;gap:6px}
-    .tl{height:76px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--msh-tp-bg,#232323);color:#c7c7c7;min-width:0;padding:0 4px;transition:background .2s,box-shadow .2s}
-    .tl .ti{color:#979797;transition:color .2s;display:inline-flex}
+    .tl{height:76px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--msh-tp-bg,var(--ki-bg, #232323));color:#c7c7c7;min-width:0;padding:0 4px;transition:background .2s,box-shadow .2s}
+    .tl .ti{color:var(--ki-text-mid, #979797);transition:color .2s;display:inline-flex}
     .tl .tn{font-size:13px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tl.on{background:#404040;box-shadow:inset 0 0 0 1.5px ${PK};color:#fafafa}
+    .tl.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px ${PK};color:var(--ki-text, #fafafa)}
     .tl.on .ti{color:${PK}}
     .tl:active{transform:scale(.97)}
-    .sub{font-size:12px;color:#7f7f7f;padding:0 2px;line-height:1.4}
-    .lst{display:flex;flex-direction:column;padding:4px;border-radius:18px;background:var(--msh-tp-bg,#232323)}
+    .sub{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 2px;line-height:1.4}
+    .lst{display:flex;flex-direction:column;padding:4px;border-radius:18px;background:var(--msh-tp-bg,var(--ki-bg, #232323))}
     .lr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:14px;text-align:left;width:100%;transition:background .2s}
-    .lr.on{background:#404040}
-    .lr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#404040;color:#e1e1e1}
-    .lr.on .ci{background:${GRAD};color:#2f2f2f}
+    .lr.on{background:var(--ki-surface-2, #404040)}
+    .lr .ci{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #404040);color:var(--ki-text-1, #e1e1e1)}
+    .lr.on .ci{background:${GRAD};color:var(--ki-on-accent, #2f2f2f)}
     .lr .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .lr .nm b{font-size:14px;font-weight:500}
-    .lr .nm i{font-style:normal;font-size:12px;color:#979797}
+    .lr .nm i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     .lr .ck{color:${PK};opacity:0;transition:opacity .2s;flex:none}
     .lr.on .ck{opacity:1}
     .fld{display:flex;flex-direction:column;gap:8px;animation:tpfade .2s ease both}
-    .cap{font-size:12px;color:#979797;padding:0 2px}
-    .pf{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-tp-bg,#232323);text-align:left;width:100%}
+    .cap{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 2px}
+    .pf{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-tp-bg,var(--ki-bg, #232323));text-align:left;width:100%}
     .pf:active{transform:scale(.99)}
-    .pf .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1}
+    .pf .ci{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1)}
     .pf .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .pf .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pf .nm i{font-style:normal;font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pf .nm.ph b{color:#979797}
-    .pf .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
-    .hf{display:flex;align-items:center;height:48px;border-radius:16px;background:var(--msh-tp-bg,#232323);padding:0 14px;gap:2px}
-    .hf span{font:15px ui-monospace,Menlo,monospace;color:#7f7f7f}
-    .hf input{flex:1;min-width:0;height:100%;color:#fafafa;font:15px ui-monospace,Menlo,monospace}
-    .in{height:48px;width:100%;border-radius:16px;padding:0 14px;background:var(--msh-tp-bg,#232323);color:#fafafa;font-size:15px}
+    .pf .nm i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);font-family:ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pf .nm.ph b{color:var(--ki-text-mid, #979797)}
+    .pf .by{height:32px;padding:0 6px 0 12px;border-radius:16px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:2px;font-size:13px;font-weight:500;flex:none}
+    .hf{display:flex;align-items:center;height:48px;border-radius:16px;background:var(--msh-tp-bg,var(--ki-bg, #232323));padding:0 14px;gap:2px}
+    .hf span{font:15px ui-monospace,Menlo,monospace;color:var(--ki-text-3, #7f7f7f)}
+    .hf input{flex:1;min-width:0;height:100%;color:var(--ki-text, #fafafa);font:15px ui-monospace,Menlo,monospace}
+    .in{height:48px;width:100%;border-radius:16px;padding:0 14px;background:var(--msh-tp-bg,var(--ki-bg, #232323));color:var(--ki-text, #fafafa);font-size:15px}
     .in.mono{font:15px ui-monospace,Menlo,monospace}
-    .in::placeholder,.hf input::placeholder{color:#7f7f7f}
+    .in::placeholder,.hf input::placeholder{color:var(--ki-text-3, #7f7f7f)}
     textarea.in{height:auto;min-height:72px;padding:10px 14px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;cursor:text;-webkit-user-select:text;user-select:text;outline:none;border:0}
     .msg{display:flex;align-items:center;gap:6px;font-size:12px;padding:0 2px}
     .msg.ok{color:#66d19e} .msg.warn{color:#f2c073}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
-    .chips button{height:34px;padding:0 12px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--msh-tp-bg,#232323);color:#c7c7c7;max-width:100%}
+    .chips button{height:34px;padding:0 12px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--msh-tp-bg,var(--ki-bg, #232323));color:#c7c7c7;max-width:100%}
     .chips button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .chips button.on{background:${GRAD};color:#2f2f2f}
-    .tg{display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:16px;background:var(--msh-tp-bg,#232323);width:100%}
+    .chips button.on{background:${GRAD};color:var(--ki-on-accent, #2f2f2f)}
+    .tg{display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:16px;background:var(--msh-tp-bg,var(--ki-bg, #232323));width:100%}
     .tg .t{flex:1;text-align:left;font-size:14px}
-    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
+    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
     .trk.on{background:${PK}}
-    .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}
+    .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .trk.on i{left:21px}
-    .hint{font-size:13px;color:#979797;line-height:1.45;padding:0 2px}
-    .hint b{color:#fafafa;font-weight:500}
+    .hint{font-size:13px;color:var(--ki-text-mid, #979797);line-height:1.45;padding:0 2px}
+    .hint b{color:var(--ki-text, #fafafa);font-weight:500}
     .hint.warn{color:#f2c073}
-    .tst{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%;min-width:0}
+    .tst{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%;min-width:0}
     .tst span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
     .tst:active{transform:scale(.98)}
     ha-selector{display:block}
@@ -575,7 +575,7 @@
       const h = this.hass, cur = hashOf(v);
       if (mode === 'popup') {
         const p = popupOf(cur, h), col = p && p.color, n = popupList(h).length;
-        return `<span class="cap">Popup</span><button class="pf" data-p="open"><span class="ci" ${col ? `style="background:${esc(col)};color:#2f2f2f"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22)}</span><span class="nm${p || cur ? '' : ' ph'}"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i>${esc(p ? p.hash : cur || n + ' popups i dashbordet')}</i></span><span class="by">${cur ? 'Bytt' : 'Velg'}${M.icon('mdi:chevron-right', 18)}</span></button>`;
+        return `<span class="cap">Popup</span><button class="pf" data-p="open"><span class="ci" ${col ? `style="background:${esc(col)};color:var(--ki-on-accent, #2f2f2f)"` : ''}>${M.icon(p ? p.icon || 'mdi:card-outline' : 'mdi:card-search-outline', 22)}</span><span class="nm${p || cur ? '' : ' ph'}"><b>${esc(p ? p.name : cur || 'Velg popup …')}</b><i>${esc(p ? p.hash : cur || n + ' popups i dashbordet')}</i></span><span class="by">${cur ? 'Bytt' : 'Velg'}${M.icon('mdi:chevron-right', 18)}</span></button>`;
       }
       if (mode === 'hash') {
         const p = popupOf(cur, h);

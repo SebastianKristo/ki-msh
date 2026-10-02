@@ -51,7 +51,8 @@
   // Fiks 17.10: sonene i «Snarveier» (fast rekkefølge) og typene i +-rutenettet
   const ZONES = [['L-top', 'Venstre · over rommene'], ['R-top', 'Høyre · over rommene'], ['L-bottom', 'Venstre · under rommene'], ['R-bottom', 'Høyre · under rommene']];
   const ZADD = [['link', 'mdi:link-variant', 'Snarvei'], ['lock', 'key', 'Dørlås'], ['alarm', 'shield', 'Alarm'], ['cam', 'videocam', 'Kamera'], ['todo', 'handyman', 'Gjøremål'], ['ruter', 'tram', 'Ruter'], ['garage', 'garage', 'Garasje'], ['tv', 'tv', 'TV'], ['vacr', 'robot_2', 'Støvsuger'], ['dish', 'dishwasher_gen', 'Oppvask'], ['wash', 'local_laundry_service', 'Vaskemaskin'], ['dry', 'dry_cleaning', 'Tørketrommel'], ['jul', 'park', 'Jul']];
-  const TSW = [['ingen', '#545454', 'Grå'], ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
+  const TSW = [['ingen', '#545454', 'Grå'], // ki-hex-ok: fargevelger-palett
+    ['gronn', C.green, 'Grønn'], ['gul', C.yellow, 'Gul'], ['oransje', C.orange, 'Oransje'], ['rod', C.red, 'Rød'], ['bla', C.blue, 'Blå'], ['rosa', C.pink, 'Rosa']];
   const SZ = { S: 'Liten', M: 'Medium', L: 'Stor' }, SZH = { S: 38, M: 72, L: 110 };
   const outdoorFloor = (f) => ([M.slug(f.name), M.slug(f.floor_id)].some((x) => OUT_RX.test(x)) ? 1 : 0);
   const customTabs = (c) => String(c.custom_tabs || '').split(',').map((x) => x.trim()).filter(Boolean).map((l) => ({ id: 'c_' + M.slug(l), label: l, view: 'liste', kind: 'custom' }));
@@ -133,7 +134,7 @@
     ['mdi:theater', 'kino hjemmekino'], ['mdi:gamepad-variant', 'spill gaming'], ['mdi:dumbbell', 'trening gym'], ['mdi:warehouse', 'bod lager'], ['mdi:package-variant', 'bod boks'], ['mdi:home-roof', 'loft tak'], ['mdi:home-floor-b', 'kjeller'], ['mdi:home-variant', 'hytte hus'], ['mdi:home', 'hjem hus'], ['mdi:fireplace', 'peis'], ['mdi:paw', 'dyr hund katt'], ['mdi:music', 'musikk'], ['mdi:piano', 'piano musikk'], ['mdi:bookshelf', 'bibliotek bøker'], ['mdi:hammer-wrench', 'verksted verktøy'], ['mdi:lightning-bolt', 'strøm teknisk'], ['mdi:texture-box', 'rom område']];
   const COLS = ['var(--green)', 'var(--blue)', 'var(--orange)', 'var(--yellow)', 'var(--pink)', 'var(--red)', 'var(--purple)', 'var(--light-blue)', 'var(--gray1000)'];
   const ALLCOLS = () => [...M.THEME_COLORS.map(([k, hex, l]) => ['var(--' + k + ')', hex, l]), ...M.HA_COLORS.map(([k, hex, l]) => ['var(--' + k + '-color)', hex, 'HA · ' + (l || k)])];
-  const toHex = (v) => { const r = M.resolveColor(M.color(v, v) || ''); if (/^#[0-9a-f]{6}$/i.test(r)) return r; const m = String(r).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/); return m ? '#' + [m[1], m[2], m[3]].map((x) => (+x).toString(16).padStart(2, '0')).join('') : '#ffffff'; };
+  const toHex = (v) => { const r = M.resolveColor(M.color(v, v) || ''); if (/^#[0-9a-f]{6}$/i.test(r)) return r; const m = String(r).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/); return m ? '#' + [m[1], m[2], m[3]].map((x) => (+x).toString(16).padStart(2, '0')).join('') : '#ffffff'; }; // ki-hex-ok: logikk (hex-konvertering)
   const sameCol = (a, b) => !!a && !!b && (a === b || M.color(a, a) === M.color(b, b));
 
   /* ------------------------------------------------------------ stil */
@@ -151,241 +152,241 @@
     .ed>.seg.itabs{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) + 51px);z-index:5;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
     @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
-    .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500}
-    .done{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2f2f2f;font-size:14px;font-weight:600}
-    .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-    .seg>button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf;transition:background .2s,color .2s}
-    .on-pk{background:${PINK} !important;color:#2f2f2f !important}
+    .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500}
+    .done{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:var(--ki-on-accent, #2f2f2f);font-size:14px;font-weight:600}
+    .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .seg>button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:var(--ki-text-2, #afafaf);transition:background .2s,color .2s}
+    .on-pk{background:${PINK} !important;color:var(--ki-on-accent, #2f2f2f) !important}
     ${M.iconTabs ? M.iconTabs.css('.seg.itabs') : ''}
-    .ct{justify-self:start;touch-action:pan-y;overscroll-behavior-x:contain;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);max-width:100%;overflow-x:auto;scrollbar-width:none;cursor:pointer}
+    .ct{justify-self:start;touch-action:pan-y;overscroll-behavior-x:contain;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));max-width:100%;overflow-x:auto;scrollbar-width:none;cursor:pointer}
     .ct::-webkit-scrollbar{display:none}
     .ct .tg{position:relative;display:grid;width:max-content;min-width:max-content;grid-auto-columns:1fr}
     .ct .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${PINK};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
-    .ct.drag .ind{background:linear-gradient(180deg,rgba(255,255,255,0.3),rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6),inset 0 -1px 1px rgba(255,255,255,0.15),inset 0 0 0 .5px rgba(255,255,255,0.35),0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s}
-    .ct .tb{position:relative;z-index:1;display:grid;place-items:center;padding:0 18px;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:500;white-space:nowrap;color:#afafaf;transition:color .25s}
-    .ct .tb.on{color:#2f2f2f}
-    .ct.drag .tb.on{color:#afafaf}
+    .ct.drag .ind{background:linear-gradient(180deg,rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.3*var(--ki-wa-k,1)),var(--ki-wa-max,1))),rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1))));box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.6*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 -1px 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.15*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 .5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 8px 20px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s}
+    .ct .tb{position:relative;z-index:1;display:grid;place-items:center;padding:0 18px;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:500;white-space:nowrap;color:var(--ki-text-2, #afafaf);transition:color .25s}
+    .ct .tb.on{color:var(--ki-on-accent, #2f2f2f)}
+    .ct.drag .tb.on{color:var(--ki-text-2, #afafaf)}
     .ct .tb.near{color:#fff !important}
     .ct .tb.dim{opacity:.4;text-decoration:line-through}
-    .tgl{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 0 16px;border-radius:24px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;width:100%;text-align:left}
-    .trk{display:block;position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:#545454;transition:background .2s}
+    .tgl{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 0 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500;width:100%;text-align:left}
+    .trk{display:block;position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
     .trk::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#c7c7c7;transition:left .2s,background .2s}
     .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
-    .trk.on::after{left:21px;background:#2f2f2f}
+    .trk.on::after{left:21px;background:var(--ki-surface-3, #2f2f2f)}
     .trk.big{width:52px;height:32px;border-radius:16px}
     .trk.big::after{width:26px;height:26px;border-radius:13px}
     .trk.big.on::after{left:23px}
     .trk.off{opacity:.4}
-    .gr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border-radius:26px;background:var(--gray000,#232323)}
+    .gr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border-radius:26px;background:var(--ki-bg, var(--gray000,#232323))}
     .gc{display:flex;flex-direction:column;gap:6px;min-width:0}
-    .gct{font-size:11px;color:#7f7f7f;padding:0 4px 2px}
+    .gct{font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 4px 2px}
     .gh{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#696969;padding:4px 4px 0;white-space:nowrap}
-    .gh::before,.gh::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.08)}
+    .gh::before,.gh::after{content:'';flex:1;height:1px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .gh.eh{display:none}
     .gr.dnd .gh.eh{display:flex}
-    .gh.hov{color:${PK}}
+    .gh.hov{color:${M.theme ? M.theme.accentText(PK) : PK}}
     .gh.hov::before,.gh.hov::after{background:${PK}}
     .it{display:flex;flex-direction:column;box-sizing:border-box;width:100%;min-width:0;text-align:left;cursor:grab;touch-action:pan-y;transition:box-shadow .15s,opacity .15s}
     .it .l1{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
     .it .nm{flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .it .tsub{display:block;width:100%;min-width:0;padding-left:22px;box-sizing:border-box;font-size:11px;line-height:1.25;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .bdg{flex:none;display:flex;align-items:center;gap:2px;font-size:9px;font-weight:600;padding:2px 6px 2px 4px;border-radius:8px;background:#2a2a2a;color:#979797;white-space:nowrap}
+    .it .tsub{display:block;width:100%;min-width:0;padding-left:22px;box-sizing:border-box;font-size:11px;line-height:1.25;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .bdg{flex:none;display:flex;align-items:center;gap:2px;font-size:9px;font-weight:600;padding:2px 6px 2px 4px;border-radius:8px;background:#2a2a2a;color:var(--ki-text-mid, #979797);white-space:nowrap}
     .bdg.sw{background:rgb(242 133 201 / 0.18);color:rgb(242 170 215)}
-    .bdg.ss{background:var(--gray200,#3a3a3a);color:#979797}
+    .bdg.ss{background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, #979797)}
     .tv{display:flex;align-items:baseline;gap:4px;padding-left:2px}
     .tv .b{font-weight:300;letter-spacing:-0.03em;line-height:1}
-    .tv .s{font-size:10px;color:#7f7f7f}
+    .tv .s{font-size:10px;color:var(--ki-text-3, #7f7f7f)}
     .it.src{opacity:.35}
     .it.hov-t{box-shadow:inset 0 3px 0 ${PK} !important}
     .it.hov-b{box-shadow:inset 0 -3px 0 ${PK} !important}
-    .add{height:36px;border-radius:14px;display:grid;place-items:center;color:#7f7f7f;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
-    .add.on,.gc.hov>.add{color:${PK};box-shadow:inset 0 0 0 1.5px ${PK}}
-    .ghost{position:fixed;left:0;top:0;z-index:20;pointer-events:none;opacity:.94;box-shadow:0 14px 34px rgba(0,0,0,0.55);transform-origin:center;will-change:transform}
-    .pnl{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    .add{height:36px;border-radius:14px;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f);box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .add.on,.gc.hov>.add{color:${M.theme ? M.theme.accentText(PK) : PK};box-shadow:inset 0 0 0 1.5px ${PK}}
+    .ghost{position:fixed;left:0;top:0;z-index:20;pointer-events:none;opacity:.94;box-shadow:0 14px 34px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.55*var(--ki-ka-k,1))));transform-origin:center;will-change:transform}
+    .pnl{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .pnl.pk{gap:8px;padding:14px}
     .ln{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .lb{font-size:13px;color:#afafaf}
+    .lb{font-size:13px;color:var(--ki-text-2, #afafaf)}
     .lb2{display:flex;flex-direction:column;gap:1px}
-    .sub{font-size:11px;color:#7f7f7f}
+    .sub{font-size:11px;color:var(--ki-text-3, #7f7f7f)}
     .ph{display:flex;align-items:center;gap:10px;min-width:0}
     .ph .n{flex:1;min-width:0;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .red{height:36px;padding:0 12px 0 10px;border-radius:18px;flex:none;background:rgb(242 128 115 / 0.2);color:rgb(242 128 115);display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500}
-    .ud{display:flex;border-radius:18px;background:var(--gray100,#2f2f2f);padding:2px}
+    .ud{display:flex;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));padding:2px}
     .ud>button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center}
-    .b36{height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--gray100,#2f2f2f);display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500;white-space:nowrap}
-    .ss{display:flex;gap:2px;padding:3px;border-radius:18px;background:var(--gray100,#2f2f2f)}
-    .ss>button{height:32px;padding:0 12px;border-radius:16px;font-size:13px;font-weight:500;white-space:nowrap;color:#afafaf}
-    .ss.sm{border-radius:15px;background:var(--gray000,#232323)}
+    .b36{height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500;white-space:nowrap}
+    .ss{display:flex;gap:2px;padding:3px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .ss>button{height:32px;padding:0 12px;border-radius:16px;font-size:13px;font-weight:500;white-space:nowrap;color:var(--ki-text-2, #afafaf)}
+    .ss.sm{border-radius:15px;background:var(--ki-bg, var(--gray000,#232323))}
     .ss.sm>button{height:28px;padding:0 10px;border-radius:13px;font-size:12px}
-    .sep{padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:10px}
-    .pv{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#232323;box-shadow:0 0 0 1px rgba(255,255,255,0.08)}
+    .sep{padding-top:10px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:flex;flex-direction:column;gap:10px}
+    .pv{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:var(--ki-on-accent, #232323);box-shadow:0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ttl{font-size:13px;font-weight:500}
-    .note{font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .std{height:28px;padding:0 10px;border-radius:14px;background:var(--gray000,#232323);font-size:11px;color:#afafaf;flex:none}
-    .srch{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:var(--gray000,#232323)}
-    .srch input{flex:1;min-width:0;height:100%;background:transparent;color:#fafafa;font-size:13px}
+    .note{font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .std{height:28px;padding:0 10px;border-radius:14px;background:var(--ki-bg, var(--gray000,#232323));font-size:11px;color:var(--ki-text-2, #afafaf);flex:none}
+    .srch{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323))}
+    .srch input{flex:1;min-width:0;height:100%;background:transparent;color:var(--ki-text, #fafafa);font-size:13px}
     .icg{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
-    .icg>button{aspect-ratio:1;border-radius:12px;display:grid;place-items:center;background:var(--gray000,#232323);color:#c7c7c7}
-    .useq{height:36px;border-radius:12px;background:var(--gray000,#232323);display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#c7c7c7}
+    .icg>button{aspect-ratio:1;border-radius:12px;display:grid;place-items:center;background:var(--ki-bg, var(--gray000,#232323));color:#c7c7c7}
+    .useq{height:36px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#c7c7c7}
     .cols{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .cl{width:30px;height:30px;border-radius:15px;flex:none}
-    .cl.on{box-shadow:0 0 0 3px #2f2f2f,0 0 0 5px #fafafa}
-    .cw{position:relative;width:30px;height:30px;border-radius:15px;display:grid;place-items:center;cursor:pointer;overflow:hidden;color:#232323;flex:none}
+    .cl.on{box-shadow:0 0 0 3px var(--ki-surface-3, #2f2f2f),0 0 0 5px var(--ki-text, #fafafa)}
+    .cw{position:relative;width:30px;height:30px;border-radius:15px;display:grid;place-items:center;cursor:pointer;overflow:hidden;color:var(--ki-on-accent, #232323);flex:none}
     .cw input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0;padding:0}
     .chs{display:flex;gap:6px;flex-wrap:wrap}
-    .crr{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:var(--gray100,#2f2f2f)}
+    .crr{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .crh{display:flex;align-items:center;gap:8px;min-height:32px}
-    .crb{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,0.08);color:#979797}
+    .crb{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-mid, #979797)}
     .crb.on{background:rgb(115 217 140 / 0.18);color:#8fd9a8}
-    .crib{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#afafaf;background:rgba(255,255,255,0.06)}
-    .crc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.45;border-radius:12px;padding:10px 12px;background:var(--gray000,#232323);color:#fafafa;border:0;resize:vertical;width:100%;box-sizing:border-box;white-space:pre}
-    .cre{font-size:12px;color:var(--red,#f28073)}
+    .crib{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-2, #afafaf);background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .crc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.45;border-radius:12px;padding:10px 12px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);border:0;resize:vertical;width:100%;box-sizing:border-box;white-space:pre}
+    .cre{font-size:12px;color:var(--ki-red-text, var(--red,#f28073))}
     .crp{height:30px;font-size:12px}
-    .b34{height:34px;padding:0 12px;border-radius:17px;background:var(--gray000,#232323);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#c7c7c7}
-    .b34.on{color:${PK};box-shadow:inset 0 0 0 1px rgb(242 133 201 / 0.5)}
+    .b34{height:34px;padding:0 12px;border-radius:17px;background:var(--ki-bg, var(--gray000,#232323));display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#c7c7c7}
+    .b34.on{color:${M.theme ? M.theme.accentText(PK) : PK};box-shadow:inset 0 0 0 1px rgb(242 133 201 / 0.5)}
     .allc{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
     .allc>button{aspect-ratio:1;border-radius:50%}
-    .allc>button.on{box-shadow:0 0 0 2px #2f2f2f,0 0 0 4px #fafafa}
-    .hint{font-size:12px;color:#7f7f7f;padding:0 6px;line-height:1.4}
-    .pkc{height:36px;padding:0 14px 0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;background:#545454;font-size:13px;font-weight:500;white-space:nowrap}
-    .pkt{font-size:13px;color:#afafaf}
-    .pks{font-size:11px;color:#979797;padding-top:4px}
-    .ac{display:flex;align-items:center;gap:12px;height:56px;padding:0 14px 0 16px;border-radius:28px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);width:100%}
-    .ac.open{background:var(--gray200,#3a3a3a)}
+    .allc>button.on{box-shadow:0 0 0 2px var(--ki-surface-3, #2f2f2f),0 0 0 4px var(--ki-text, #fafafa)}
+    .hint{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 6px;line-height:1.4}
+    .pkc{height:36px;padding:0 14px 0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;background:var(--ki-ctrl, #545454);font-size:13px;font-weight:500;white-space:nowrap}
+    .pkt{font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .pks{font-size:11px;color:var(--ki-text-mid, #979797);padding-top:4px}
+    .ac{display:flex;align-items:center;gap:12px;height:56px;padding:0 14px 0 16px;border-radius:28px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
+    .ac.open{background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .ac .at{flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600}
-    .ac .am{font-size:12px;color:#979797;white-space:nowrap}
+    .ac .am{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap}
     .ac .ch{transition:transform .25s}
     .ac.open .ch{transform:rotate(180deg)}
-    .box{display:flex;flex-direction:column;gap:12px;padding:12px 14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    .box{display:flex;flex-direction:column;gap:12px;padding:12px 14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .box.t6{gap:6px;padding:12px}
-    .c34{height:34px;padding:0 8px 0 10px;border-radius:17px;background:#545454;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
-    .o34{height:34px;padding:0 12px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);color:#afafaf}
-    .tr{display:flex;align-items:center;gap:4px;padding:0 8px 0 14px;border-radius:26px;background:var(--gray100,#2f2f2f)}
-    .tr.open{background:#545454}
+    .c34{height:34px;padding:0 8px 0 10px;border-radius:17px;background:var(--ki-ctrl, #545454);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
+    .o34{height:34px;padding:0 12px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-2, #afafaf)}
+    .tr{display:flex;align-items:center;gap:4px;padding:0 8px 0 14px;border-radius:26px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .tr.open{background:var(--ki-ctrl, #545454)}
     .tr .tm{flex:1;min-width:0;height:52px;display:flex;align-items:center;gap:10px;text-align:left}
     .tr .tt{display:flex;flex-direction:column;gap:1px;min-width:0}
     .tr .tt b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tr .tt i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .sq{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:var(--gray000,#232323);color:#fafafa}
-    .sq.no{background:transparent;color:#545454;pointer-events:none}
+    .tr .tt i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sq{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa)}
+    .sq.no{background:transparent;color:var(--ki-text-lo, #545454);pointer-events:none}
     .sq.del{background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)}
-    .swg{height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 8px 0 14px;border-radius:23px;background:var(--gray100,#2f2f2f);font-size:14px;font-weight:500;width:100%;text-align:left}
+    .swg{height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 8px 0 14px;border-radius:23px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));font-size:14px;font-weight:500;width:100%;text-align:left}
     .fld{display:flex;flex-direction:column;gap:6px;min-width:0}
-    .fl{font-size:12px;color:#979797}
-    .in{height:44px;border-radius:14px;padding:0 14px;background:var(--gray000,#232323);color:#fafafa;font-size:15px;min-width:0;width:100%}
+    .fl{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .in{height:44px;border-radius:14px;padding:0 14px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);font-size:15px;min-width:0;width:100%}
     .in.s{height:36px;border-radius:10px;padding:0 10px;font-size:13px}
     .in.t{height:40px;font-size:15px;font-weight:500;padding:0 12px}
     select.in{padding:0 12px;font-size:14px;color-scheme:dark;appearance:auto}
     .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .ted{display:flex;flex-direction:column;gap:10px;padding:12px;margin:2px 0 6px;border-radius:22px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
-    .ted .tap{background:var(--gray200,#3a3a3a);gap:8px}
+    .ted{display:flex;flex-direction:column;gap:10px;padding:12px;margin:2px 0 6px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ted .tap{background:var(--ki-surface, var(--gray200,#3a3a3a));gap:8px}
     /* fiks 17.10 · soner i «Snarveier» */
-    .zn{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:22px;background:var(--gray100,#2f2f2f)}
+    .zn{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .zh{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 0 0 2px}
     .zm{width:30px;height:30px;flex:none;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 4px 1fr;gap:2px}
-    .zm i{border-radius:3px;background:#545454}
+    .zm i{border-radius:3px;background:var(--ki-ctrl, #545454)}
     .zm i.on{background:var(--pink,#f285c9)}
-    .zm b{grid-column:1 / 3;border-radius:2px;background:#7f7f7f;margin:1px 3px}
+    .zm b{grid-column:1 / 3;border-radius:2px;background:var(--ki-text-3, #7f7f7f);margin:1px 3px}
     .zh .zt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .zh .zt b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .zh .zt i{font-style:normal;font-size:11px;color:#979797}
-    .zsw{height:28px;padding:0 10px;border-radius:14px;flex:none;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#afafaf;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
+    .zh .zt i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797)}
+    .zsw{height:28px;padding:0 10px;border-radius:14px;flex:none;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--ki-text-2, #afafaf);box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .zsw.on{background:rgb(102 209 158 / 0.18);color:rgb(102 209 158);box-shadow:inset 0 0 0 1.5px rgb(102 209 158 / 0.5)}
-    .zad{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:#fafafa;transition:transform .2s,background .2s}
-    .zad.on{transform:rotate(45deg);background:var(--pink,#f285c9);color:#2f2f2f}
+    .zad{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa);transition:transform .2s,background .2s}
+    .zad.on{transform:rotate(45deg);background:var(--pink,#f285c9);color:var(--ki-on-accent, #2f2f2f)}
     .zgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
-    .zgr>button{height:64px;border-radius:16px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:500;color:#e1e1e1}
-    .zemp{font-size:12px;color:#7f7f7f;padding:6px 4px 4px}
-    .zr{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 6px;border-radius:26px;background:var(--gray200,#3a3a3a);touch-action:pan-y}
+    .zgr>button{height:64px;border-radius:16px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:500;color:var(--ki-text-1, #e1e1e1)}
+    .zemp{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:6px 4px 4px}
+    .zr{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 6px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));touch-action:pan-y}
     .zr.open{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
     .zr .zrm{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;height:40px}
-    .zr .zc{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;color:#fafafa}
+    .zr .zc{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;color:var(--ki-text, #fafafa)}
     .zr .tt{display:flex;flex-direction:column;gap:1px;min-width:0}
     .zr .tt b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .zr .tt i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .zr .tt i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .zud{display:flex;flex-direction:column;flex:none}
     .zud>button{width:28px;height:18px;display:grid;place-items:center;color:#c7c7c7}
-    .zud>button.no{color:#545454;pointer-events:none}
-    .zch{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;color:#979797;transition:transform .2s}
+    .zud>button.no{color:var(--ki-text-lo, #545454);pointer-events:none}
+    .zch{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;color:var(--ki-text-mid, #979797);transition:transform .2s}
     .zr.open .zch{transform:rotate(180deg)}
     .zpg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .zpg>button{height:36px;border-radius:12px;background:var(--gray000,#232323);font-size:13px;font-weight:500;color:#afafaf}
-    .zpg>button.on{background:var(--pink,#f285c9);color:#2f2f2f}
-    .zpg>span{grid-column:1 / 3;height:24px;border-radius:8px;border:1.5px dashed #545454;display:grid;place-items:center;font-size:11px;color:#7f7f7f}
+    .zpg>button{height:36px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf)}
+    .zpg>button.on{background:var(--pink,#f285c9);color:var(--ki-on-accent, #2f2f2f)}
+    .zpg>span{grid-column:1 / 3;height:24px;border-radius:8px;border:1.5px dashed var(--ki-ctrl, #545454);display:grid;place-items:center;font-size:11px;color:var(--ki-text-3, #7f7f7f)}
     .zdel{height:44px;width:100%;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;background:rgb(242 128 115 / 0.16);color:rgb(242 128 115);font-size:14px;font-weight:500}
     .ach{display:flex;flex-wrap:wrap;gap:6px}
-    .ach>button{height:32px;padding:0 12px;border-radius:16px;font-size:12px;font-weight:500;background:var(--gray000,#232323);color:#afafaf}
-    .ach>button.on{background:var(--pink,#f285c9);color:#2f2f2f}
-    .asec{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--gray200,#3a3a3a)}
-    .trg{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--gray100,#2f2f2f)}
-    .tap{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:18px;background:var(--gray100,#2f2f2f)}
+    .ach>button{height:32px;padding:0 12px;border-radius:16px;font-size:12px;font-weight:500;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text-2, #afafaf)}
+    .ach>button.on{background:var(--pink,#f285c9);color:var(--ki-on-accent, #2f2f2f)}
+    .asec{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .trg{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .tap{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .tap .th{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
-    .chip{height:32px;padding:0 12px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
-    .tok{height:26px;padding:0 9px;border-radius:13px;background:#545454;font-size:11px;white-space:nowrap;color:#afafaf}
+    .chip{height:32px;padding:0 12px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
+    .tok{height:26px;padding:0 9px;border-radius:13px;background:var(--ki-ctrl, #545454);font-size:11px;white-space:nowrap;color:var(--ki-text-2, #afafaf)}
     .toks{display:flex;gap:4px;flex-wrap:wrap;max-height:88px;overflow-y:auto;scrollbar-width:none}
-    .sw34{width:34px;height:34px;border-radius:17px;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2)}
-    .sw34.on{box-shadow:0 0 0 2px #3a3a3a,0 0 0 4px #fafafa}
-    .tabr{display:flex;flex-direction:column;gap:10px;padding:10px;border-radius:22px;background:var(--gray200,#3a3a3a);touch-action:pan-y}
+    .sw34{width:34px;height:34px;border-radius:17px;flex:none;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.2*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .sw34.on{box-shadow:0 0 0 2px var(--ki-surface, #3a3a3a),0 0 0 4px var(--ki-text, #fafafa)}
+    .tabr{display:flex;flex-direction:column;gap:10px;padding:10px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));touch-action:pan-y}
     .tabr.hid{opacity:.55}
     .tabr .l{display:flex;align-items:center;gap:4px}
     .tabr .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-    .rs{margin-left:auto;height:32px;padding:0 4px 0 10px;border-radius:16px;display:flex;align-items:center;gap:2px;font-size:13px;color:#afafaf}
-    .bat{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:16px;background:var(--gray000,#232323)}
-    .bsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:var(--gray100,#2f2f2f)}
-    .bsr input{flex:1;min-width:0;height:100%;background:transparent;color:#fafafa;font-size:13px}
+    .rs{margin-left:auto;height:32px;padding:0 4px 0 10px;border-radius:16px;display:flex;align-items:center;gap:2px;font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .bat{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:16px;background:var(--ki-bg, var(--gray000,#232323))}
+    .bsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .bsr input{flex:1;min-width:0;height:100%;background:transparent;color:var(--ki-text, #fafafa);font-size:13px}
     .bsg{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 8px;border-radius:12px;width:100%;text-align:left}
     input[type=range]{width:100%;accent-color:${PK};cursor:pointer}
-    .big52{height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
-    .tset{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    .big52{height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
+    .tset{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     /* Fiks 31.4 · Fanestil: forhåndsvisning (boks #232323 r18) med valgt stil live (CSS fra 24-hjem-faner.js, prefiks hts-/mtb-) */
-    .fsp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:var(--gray000,#232323);overflow:hidden;min-width:0}
-    .fsp .fspl{font-size:11px;font-weight:500;letter-spacing:0.08em;color:#7f7f7f}
-    .fsp .fsph{font-size:11px;color:#7f7f7f;line-height:1.4}
+    .fsp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:var(--ki-bg, var(--gray000,#232323));overflow:hidden;min-width:0}
+    .fsp .fspl{font-size:11px;font-weight:500;letter-spacing:0.08em;color:var(--ki-text-3, #7f7f7f)}
+    .fsp .fsph{font-size:11px;color:var(--ki-text-3, #7f7f7f);line-height:1.4}
     .fsp [data-a="fsprev"]{cursor:pointer}
     ${M.HJEM_TABS_CSS || ''}
-    .o36{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
-    .stp{display:flex;align-items:center;gap:2px;padding:3px;border-radius:18px;background:var(--gray000,#232323);flex:none}
+    .o36{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
+    .stp{display:flex;align-items:center;gap:2px;padding:3px;border-radius:18px;background:var(--ki-bg, var(--gray000,#232323));flex:none}
     .stp>button{width:30px;height:30px;border-radius:15px;display:grid;place-items:center;color:#c7c7c7}
     .stp>span{min-width:48px;text-align:center;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
     .pgs{display:flex;gap:6px;flex-wrap:wrap}
-    .pg{height:40px;padding:0 16px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;background:var(--gray200,#3a3a3a);color:#fafafa}
-    .pg.on{background:#fafafa;color:#232323}
+    .pg{height:40px;padding:0 16px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa)}
+    .pg.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323)}
     .pl{display:flex;flex-direction:column;gap:6px}
-    .pr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 10px 8px 12px;border-radius:24px;background:var(--gray200,#3a3a3a);width:100%;text-align:left}
+    .pr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 10px 8px 12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));width:100%;text-align:left}
     .pr.hid{opacity:.55}
-    .pr .pi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;color:#232323}
+    .pr .pi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;color:var(--ki-on-accent, #232323)}
     .pr .pn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .pr .pn b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pr .pn i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pe{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--gray300,#404040)}
-    .pe .in{background:#282828}
-    .pv2{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#232323}
-    .prev{padding:14px 16px;border-radius:24px;background:var(--gray000,#232323);font-size:16px;line-height:1.95}
-    .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:#232323;font-weight:600;font-size:15px;vertical-align:middle;white-space:nowrap;line-height:1}
-    .pc ha-icon{color:#232323}
+    .pr .pn i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pe{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .pe .in{background:var(--ki-popup, #282828)}
+    .pv2{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:var(--ki-on-accent, #232323)}
+    .prev{padding:14px 16px;border-radius:24px;background:var(--ki-bg, var(--gray000,#232323));font-size:16px;line-height:1.95}
+    .pc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;color:var(--ki-on-accent, #232323);font-weight:600;font-size:15px;vertical-align:middle;white-space:nowrap;line-height:1}
+    .pc ha-icon{color:var(--ki-on-accent, #232323)}
     .pd{width:8px;height:8px;border-radius:4px;flex:none}
-    .pro{display:flex;align-items:center;gap:4px;padding:0 8px 0 16px;border-radius:26px;background:var(--gray200,#3a3a3a)}
-    .pro.open{background:#545454}
+    .pro{display:flex;align-items:center;gap:4px;padding:0 8px 0 16px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .pro.open{background:var(--ki-ctrl, #545454)}
     .pro.hid{opacity:.55}
     .tr.hid{opacity:.55}
     .pro .pm{flex:1;min-width:0;min-height:54px;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;padding:6px 0}
     .pro .pm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    .pro .pm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    .ped{display:flex;flex-direction:column;gap:16px;padding:14px;border-radius:22px;background:var(--gray200,#3a3a3a)}
-    .svc{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--gray100,#2f2f2f)}
-    .svc .sh2{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#7f7f7f}
-    .pink{height:42px;border-radius:21px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:#2f2f2f}
-    .rule{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:var(--gray100,#2f2f2f)}
+    .pro .pm i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .ped{display:flex;flex-direction:column;gap:16px;padding:14px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .svc{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .svc .sh2{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f)}
+    .pink{height:42px;border-radius:21px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .rule{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .rule .rh{display:flex;align-items:center;gap:6px}
-    .rsel{position:relative;flex:1;min-width:0;height:38px;border-radius:12px;background:var(--gray000,#232323);display:flex;align-items:center;gap:8px;padding:0 10px}
+    .rsel{position:relative;flex:1;min-width:0;height:38px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));display:flex;align-items:center;gap:8px;padding:0 10px}
     .rsel span{flex:1;font-size:13px;font-weight:500}
     .rsel select{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:16px}
-    .live{font-size:11px;font-weight:600;padding:4px 9px;border-radius:10px;background:var(--gray000,#232323);color:#7f7f7f;white-space:nowrap}
+    .live{font-size:11px;font-weight:600;padding:4px 9px;border-radius:10px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text-3, #7f7f7f);white-space:nowrap}
     .live.on{background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)}
     .dz34{width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)}
-    .o44{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
-    .dim{font-size:12px;color:#7f7f7f;padding:0 4px}
-    .kd{font-size:12px;color:#7f7f7f;padding:0 6px}
+    .o44{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
+    .dim{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 4px}
+    .kd{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 6px}
   `;
 
   /* ------------------------------------------------------------ arket */
@@ -602,7 +603,7 @@
       const secs = [['kort', 'Kort', 'mdi:view-dashboard'], ['faner', 'Faner', 'mdi:tab'], ['pop', 'Popups', 'mdi:dock-window'], ['tekst', 'Tekst', 'mdi:text']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="cancel">Avbryt</button><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done" ${this._busy ? 'disabled aria-busy' : ''}>${this._busy ? 'Lagrer …' : 'Ferdig'}</button></div>
-        ${M.openTilpassAlt ? `<button class="press" data-a="tall" data-key="tall" style="display:flex;align-items:center;gap:8px;justify-self:start;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:#fafafa;font-size:13px;font-weight:500">${ic('mdi:tune', 16)}Tilpass alt ›</button>` : ''}
+        ${M.openTilpassAlt ? `<button class="press" data-a="tall" data-key="tall" style="display:flex;align-items:center;gap:8px;justify-self:start;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:var(--ki-text, #fafafa);font-size:13px;font-weight:500">${ic('mdi:tune', 16)}Tilpass alt ›</button>` : ''}
         <div class="seg itabs" role="tablist" data-key="secs">${secs.map(([id, l, ic]) => M.iconTabs.btn({ label: l, icon: ic }, u.sec === id, `data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}"`, u.sec === id ? 'on-pk' : '')).join('')}</div>
         ${inner}
       </div>`;
@@ -661,13 +662,13 @@
         const kinds = m.avail.filter((k) => !has.has(k) && (!nq || (kindLabel(k, c) + ' ' + k).toLowerCase().includes(nq)));
         const DOM = { lock: 'lock', alarm_control_panel: 'alarm', camera: 'cam', todo: 'todo', vacuum: 'vacr', media_player: 'tv', cover: 'garage' };
         const ents = q && M.entitySearch ? M.entitySearch(hass, q, { domains: Object.keys(DOM) }).slice(0, 6) : [];
-        const row = (a, v, icn, col, title, sub) => `<button class="pkc press" data-a="hcadd" data-v="${esc(v)}" style="justify-content:flex-start">${ic(icn, 18, `color:${col}`)}<span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0"><span>${esc(title)}</span>${sub ? `<span style="font-size:11px;color:#c7c7c7;font-weight:400">${esc(sub)}</span>` : ''}</span></button>`;
+        const row = (a, v, icn, col, title, sub) => `<button class="pkc press" data-a="hcadd" data-v="${esc(v)}" style="justify-content:flex-start">${ic(icn, 18, `color:${M.theme ? M.theme.accentText(col) : col}`)}<span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0"><span>${esc(title)}</span>${sub ? `<span style="font-size:11px;color:#c7c7c7;font-weight:400">${esc(sub)}</span>` : ''}</span></button>`;
         search = `<div class="pnl pk" data-key="hcadd">
-          <div class="srch">${ic('search', 18, 'color:#7f7f7f')}<input data-in="hcq" value="${esc(u.hcQ || '')}" placeholder="Søk blant rom og enheter …"></div>
+          <div class="srch">${ic('search', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-in="hcq" value="${esc(u.hcQ || '')}" placeholder="Søk blant rom og enheter …"></div>
           ${rooms.length ? `<span class="pks">Rom</span><div class="chs">${rooms.map((a) => { const r = this._room(c, a.id) || { icon: a.icon || 'mdi:texture-box', col: C.white }; return row(a, 'rom:' + a.id, r.icon, r.col, a.name, a.floorName || ''); }).join('')}</div>` : ''}
-          ${kinds.length ? `<span class="pks">Snarveier og enheter</span><div class="chs">${kinds.map((k) => row(null, k, kindIcon(k, c), '#afafaf', kindLabel(k, c), '')).join('')}</div>` : ''}
-          ${ents.length ? `<span class="pks">Entiteter</span><div class="chs">${ents.map((x) => row(null, 'ent:' + x.id, M.domainIcon ? M.domainIcon(x.id, hass.states[x.id]) : 'mdi:link', '#afafaf', x.name, x.id)).join('')}</div>` : ''}
-          ${!rooms.length && !kinds.length && !ents.length ? '<span style="font-size:13px;color:#7f7f7f">Ingen treff</span>' : ''}
+          ${kinds.length ? `<span class="pks">Snarveier og enheter</span><div class="chs">${kinds.map((k) => row(null, k, kindIcon(k, c), 'var(--ki-text-2, #afafaf)', kindLabel(k, c), '')).join('')}</div>` : ''}
+          ${ents.length ? `<span class="pks">Entiteter</span><div class="chs">${ents.map((x) => row(null, 'ent:' + x.id, M.domainIcon ? M.domainIcon(x.id, hass.states[x.id]) : 'mdi:link', 'var(--ki-text-2, #afafaf)', x.name, x.id)).join('')}</div>` : ''}
+          ${!rooms.length && !kinds.length && !ents.length ? '<span style="font-size:13px;color:var(--ki-text-3, #7f7f7f)">Ingen treff</span>' : ''}
         </div>`;
       }
       return `<div class="box" data-key="hctools"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Kort på Hjem-fanen</span><span class="sub">${esc(info)}</span></span>
@@ -682,17 +683,17 @@
         const room = /^rom:/.test(x), a = room ? M.areas(hass).find((y) => y.id === x.slice(4)) : null;
         const r = room ? this._room(c, x.slice(4)) : null;
         const icn = room ? (r ? r.icon : 'mdi:texture-box') : kindIcon(x, c), nm = room ? (a ? a.name : x.slice(4)) : kindLabel(x, c);
-        return `<div class="tr" data-key="sg-${esc(x)}"><span class="tm">${ic(icn, 22, room && r ? `color:${r.col}` : '')}<span class="tt"><b>${esc(nm)}</b><i>${room ? 'Nytt rom' : 'Ny enhet'}</i></span></span>
+        return `<div class="tr" data-key="sg-${esc(x)}"><span class="tm">${ic(icn, 22, room && r ? `color:${M.theme ? M.theme.accentText(r.col) : r.col}` : '')}<span class="tt"><b>${esc(nm)}</b><i>${room ? 'Nytt rom' : 'Ny enhet'}</i></span></span>
           <button class="o34 press" data-a="hcadd" data-v="${esc(x)}">+ Legg til</button><button class="sq" data-a="hcno" data-v="${esc(x)}" title="Ikke foreslå igjen">${ic('close', 18)}</button></div>`;
       }).join('');
-      return `<div class="box t6" data-key="hcsug"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Forslag</span><span style="font-size:12px;color:#979797">${hc.suggest.length} nye</span></span>${rows}</div>`;
+      return `<div class="box t6" data-key="hcsug"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Forslag</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${hc.suggest.length} nye</span></span>${rows}</div>`;
     }
     // Aktuelt: dynamisk – velg hvilke typer som kan dukke opp (tabs.aktuelt.types), ikke enkeltkort.
     _aktPanel(m) {
       const on = M.aktTypes ? M.aktTypes(m.c) : [], T = (M.AKT_TYPES || []).filter(([k]) => k !== 'lights'); // 20.13: «Lys på i tomt rom» ga bare romkort
-      return `<div class="box t6" data-key="aktnorom" style="flex-direction:row;align-items:center;gap:10px">${ic('mdi:information-outline', 20, 'color:#979797;flex:none')}<span class="sub" style="line-height:1.4">Aktuelt viser ikke rom, bare kort som er aktive nå.</span></div>
+      return `<div class="box t6" data-key="aktnorom" style="flex-direction:row;align-items:center;gap:10px">${ic('mdi:information-outline', 20, 'color:var(--ki-text-mid, #979797);flex:none')}<span class="sub" style="line-height:1.4">Aktuelt viser ikke rom, bare kort som er aktive nå.</span></div>
         <div class="box t6" data-key="akttypes"><span style="display:flex;flex-direction:column;gap:2px;padding:2px 4px 4px"><span class="lb">Vises når det er aktuelt</span><span class="sub">Kortene dukker opp av seg selv og forsvinner når de ikke lenger er aktuelle.</span></span>
-          ${T.map(([k, l, icn]) => `<button class="tgl" data-a="akttype" data-v="${k}" data-h="selection" data-key="akt-${k}" style="background:var(--gray100,#2f2f2f)"><span style="display:flex;align-items:center;gap:10px">${ic(icn, 20, `color:${on.includes(k) ? '#fafafa' : '#696969'}`)}${esc(l)}</span>${this._sw(on.includes(k))}</button>`).join('')}</div>`;
+          ${T.map(([k, l, icn]) => `<button class="tgl" data-a="akttype" data-v="${k}" data-h="selection" data-key="akt-${k}" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))"><span style="display:flex;align-items:center;gap:10px">${ic(icn, 20, `color:${on.includes(k) ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}${esc(l)}</span>${this._sw(on.includes(k))}</button>`).join('')}</div>`;
     }
     // Kortene på Hjem (msh-hjem-card): øye per kort (cards skjules via hidden), gjøremål via show_todo.
     _blocks() {
@@ -701,11 +702,11 @@
       const n = BLOCKS.filter(([k]) => on(k)).length;
       const PAN = { soppel: () => this._trashPanel() }; // 24.4: oppsett-register for kortene på Hjem (nøkkel = blokk-nøkkelen)
       const rows = BLOCKS.map(([k, l, icn]) => { const ed = PAN[k] && this.u.blk === k;
-        return `<div class="tr ${on(k) ? '' : 'hid'}" data-key="blk-${k}"><span class="tm" ${PAN[k] ? `data-a="blked" data-v="${k}" style="cursor:pointer"` : ''}>${ic(icn, 22, `color:${on(k) ? '#fafafa' : '#696969'}`)}<span class="tt"><b>${esc(l)}</b><i>${on(k) ? 'Vises' : 'Skjult'}${k === 'gjoremal' ? ' · show_todo' : ''}</i></span></span>
-          ${PAN[k] ? `<button class="sq" data-a="blked" data-v="${k}" title="Oppsett" aria-expanded="${!!ed}">${ic(ed ? 'expand_less' : 'expand_more', 20, 'color:#979797')}</button>` : ''}
-          <button class="sq" data-a="blkeye" data-v="${k}" data-h="selection" title="${on(k) ? 'Skjul' : 'Vis'}">${ic(on(k) ? 'visibility' : 'visibility_off', 18, `color:${on(k) ? '#fafafa' : '#696969'}`)}</button></div>${ed ? PAN[k]() : ''}`; }).join('');
-      return `<div class="box t6" data-key="blocks"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Kort på Hjem</span><span style="font-size:12px;color:#979797">${n} av ${BLOCKS.length} vises</span></span>
-          <button class="tgl" data-a="showtodo" data-h="selection" style="background:var(--gray100,#2f2f2f)">Vis gjøremål${this._sw(todo)}</button>
+        return `<div class="tr ${on(k) ? '' : 'hid'}" data-key="blk-${k}"><span class="tm" ${PAN[k] ? `data-a="blked" data-v="${k}" style="cursor:pointer"` : ''}>${ic(icn, 22, `color:${on(k) ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span class="tt"><b>${esc(l)}</b><i>${on(k) ? 'Vises' : 'Skjult'}${k === 'gjoremal' ? ' · show_todo' : ''}</i></span></span>
+          ${PAN[k] ? `<button class="sq" data-a="blked" data-v="${k}" title="Oppsett" aria-expanded="${!!ed}">${ic(ed ? 'expand_less' : 'expand_more', 20, 'color:var(--ki-text-mid, #979797)')}</button>` : ''}
+          <button class="sq" data-a="blkeye" data-v="${k}" data-h="selection" title="${on(k) ? 'Skjul' : 'Vis'}">${ic(on(k) ? 'visibility' : 'visibility_off', 18, `color:${on(k) ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}</button></div>${ed ? PAN[k]() : ''}`; }).join('');
+      return `<div class="box t6" data-key="blocks"><span style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 4px"><span class="lb">Kort på Hjem</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${n} av ${BLOCKS.length} vises</span></span>
+          <button class="tgl" data-a="showtodo" data-h="selection" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))">Vis gjøremål${this._sw(todo)}</button>
           ${rows}</div>`;
     }
     /* ---------- 24.4 · «Søppelkort på Hjem» (Hjem v3 · ce.popTrash / TRASH_ACTS / trashCfg). Lagres i søppelkortets
@@ -715,7 +716,7 @@
       const c = this.S() || {}, hass = this.hass, st = (hass && hass.states) || {};
       const cur = (kind) => { const a = c[kind]; if (a && typeof a === 'object' && a.action) return M.tap ? M.tap.norm(a) : a; return kind === 'tap_action' && c.popup_hash ? { action: 'navigate', navigation_path: c.popup_hash } : null; };
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'service', 'none'];
-      const tp = (kind, lab, icn, std) => `<div class="tap" data-key="tr-tp-${kind}"><span class="th">${ic(icn, 20, 'color:#afafaf')}${esc(lab)}</span>
+      const tp = (kind, lab, icn, std) => `<div class="tap" data-key="tr-tp-${kind}"><span class="th">${ic(icn, 20, 'color:var(--ki-text-2, #afafaf)')}${esc(lab)}</span>
           ${M.tap ? M.tap.html({ key: 'tr-tpk-' + kind, value: cur(kind), modes, labels: { service: 'Tjeneste' }, stdHint: std, style: c.action_style, noneHint: kind === 'hold_action' ? 'Ingen handling ved hold.' : '', attrs: `data-in="trtap" data-w="${kind}"` }) : ''}</div>`;
       const RE = /s(ø|o)ppel|avfall|renovasjon|waste|garbage|trash/i;
       const sugg = (doms, cur2) => Object.keys(st).filter((id) => doms.includes(id.split('.')[0]) && id !== cur2 && RE.test(id + ' ' + ((st[id].attributes || {}).friendly_name || ''))).sort().slice(0, 6);
@@ -743,21 +744,21 @@
     }
     _roomIt(m, r) {
       const u = this.u, on = u.sel && u.sel.t === 'room' && u.sel.id === r.id, sz = r.size, kl = r.klima && sz !== 'S';
-      const st = `height:${SZH[sz]}px;border-radius:${sz === 'S' ? 18 : 16}px;justify-content:${sz === 'S' ? 'center' : 'flex-start'};gap:4px;padding:${sz === 'S' ? '0 8px 0 10px' : '9px 8px 9px 10px'};background:var(--gray200,#3a3a3a);box-shadow:${on ? `inset 0 0 0 2px ${PK}` : 'none'}`;
+      const st = `height:${SZH[sz]}px;border-radius:${sz === 'S' ? 18 : 16}px;justify-content:${sz === 'S' ? 'center' : 'flex-start'};gap:4px;padding:${sz === 'S' ? '0 8px 0 10px' : '9px 8px 9px 10px'};background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${on ? `inset 0 0 0 2px ${PK}` : 'none'}`;
       const bi = sz === 'S' ? 'crop_16_9' : sz === 'L' ? 'crop_portrait' : 'crop_square';
       const deg = (v) => (v == null ? '–' : M.nf(Math.round(v * 10) / 10, (Math.round(v * 10) / 10) % 1 ? 1 : 0));
       const big = sz !== 'S' ? `<span style="flex:1"></span><span class="tv"><span class="b num" style="font-size:${sz === 'L' ? 26 : 20}px">${r.temp != null ? deg(r.temp) + '°' : '–'}</span><span class="s num">${r.hum != null ? M.nf(r.hum, 0) + ' %' : ''}</span></span>` : '';
       return `<button class="it" data-drag="room" data-id="${esc(r.id)}" data-side="${m.sides[r.id]}" data-drop="room:${esc(r.id)}" data-a="selroom" data-v="${esc(r.id)}" data-key="r-${esc(r.id)}" style="${st}">
-        <span class="l1">${ic(r.icon, 16, `color:${r.col}`)}<span class="nm">${esc(r.name)}</span><span class="bdg">${ic(bi, 12)}${SZ[sz]}${kl ? ' · klima' : ''}</span></span>${big}</button>`;
+        <span class="l1">${ic(r.icon, 16, `color:${M.theme ? M.theme.accentText(r.col) : r.col}`)}<span class="nm">${esc(r.name)}</span><span class="bdg">${ic(bi, 12)}${SZ[sz]}${kl ? ' · klima' : ''}</span></span>${big}</button>`;
     }
     _tileIt(m, k) {
       const u = this.u, c = m.c, on = u.sel && u.sel.t === 'tile' && u.sel.id === k, st = m.stacked(k), so = seasonOk(c, m.t, k);
-      const bg = st ? 'linear-gradient(90deg, rgb(242 133 201 / 0.08), var(--gray100,#2f2f2f) 60%)' : 'var(--gray100,#2f2f2f)';
-      const sh = on ? `inset 0 0 0 2px ${PK}` : st ? 'inset 0 0 0 1px rgb(242 133 201 / 0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.12)';
+      const bg = st ? 'linear-gradient(90deg, rgb(242 133 201 / 0.08), var(--ki-surface, var(--gray100,#2f2f2f)) 60%)' : 'var(--ki-surface, var(--gray100,#2f2f2f))';
+      const sh = on ? `inset 0 0 0 2px ${PK}` : st ? 'inset 0 0 0 1px rgb(242 133 201 / 0.3)' : 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
       const badge = st ? `<span class="bdg sw">${ic('mdi:gesture-swipe-horizontal', 12)}Swipe</span>` : !so ? `<span class="bdg ss">${ic('mdi:calendar', 12)}Sesong</span>` : '';
       const sub = this._tileSub(m, k); // 17.11: undertekst (neste avgang, «Ingen bevegelse», «36 gjøremål» …)
       return `<button class="it" data-drag="tile" data-id="${esc(k)}" data-drop="tile:${esc(k)}" data-a="seltile" data-v="${esc(k)}" data-key="t-${esc(k)}" style="height:${sub ? 46 : 38}px;border-radius:${sub ? 23 : 19}px;justify-content:center;gap:${sub ? 1 : 6}px;padding:0 8px 0 10px;background:${bg};box-shadow:${sh}">
-        <span class="l1">${ic(kindIcon(k, c), 16, 'color:#afafaf')}<span class="nm">${esc(kindLabel(k, c))}</span>${badge}</span>${sub ? `<span class="tsub">${esc(sub)}</span>` : ''}</button>`;
+        <span class="l1">${ic(kindIcon(k, c), 16, 'color:var(--ki-text-2, #afafaf)')}<span class="nm">${esc(kindLabel(k, c))}</span>${badge}</span>${sub ? `<span class="tsub">${esc(sub)}</span>` : ''}</button>`;
     }
     // Flis-modellen fra en frakoblet faner-instans (samme tekst som på Hjem). Tittel + undertekst i én linje når tittelen er en verdi.
     _tileModelOf(m, k) {
@@ -781,15 +782,15 @@
       const list = [...hiddenIds, ...other];
       const chipR = (id) => { const a = M.areas(hass).find((x) => x.id === id) || { name: id }, r = this._room(c, id) || { icon: a.icon, col: C.white };
         const nm = t.kind === 'floor' && a.floor !== t.floor && a.floorName ? `${a.name} · ${a.floorName}` : a.name;
-        return `<button class="pkc press" data-a="addroom" data-v="${esc(id)}">${ic(r.icon, 18, `color:${r.col}`)}${esc(nm)}</button>`; };
+        return `<button class="pkc press" data-a="addroom" data-v="${esc(id)}">${ic(r.icon, 18, `color:${M.theme ? M.theme.accentText(r.col) : r.col}`)}${esc(nm)}</button>`; };
       const offK = m.avail.filter((k) => !m.en.includes(k));
       return `<div class="pnl pk" data-key="pick">
         <span class="pkt">Legg rom i ${sd === 'L' ? 'venstre' : 'høyre'} kolonne · også fra andre etasjer</span>
         <div class="chs">${list.map(chipR).join('')}</div>
-        ${list.length ? '' : '<span style="font-size:13px;color:#7f7f7f">Alle rom er allerede plassert på denne fanen</span>'}
+        ${list.length ? '' : '<span style="font-size:13px;color:var(--ki-text-3, #7f7f7f)">Alle rom er allerede plassert på denne fanen</span>'}
         <span class="pks">Snarveier</span>
-        <div class="chs">${offK.map((k) => `<button class="pkc press" data-a="addtile" data-v="${esc(k)}">${ic(kindIcon(k, c), 18, 'color:#afafaf')}${esc(kindLabel(k, c))}</button>`).join('')}
-          <button class="pkc press" data-a="addlink">${ic('mdi:link-variant', 18, 'color:#afafaf')}Ny snarvei (lenke)</button></div>
+        <div class="chs">${offK.map((k) => `<button class="pkc press" data-a="addtile" data-v="${esc(k)}">${ic(kindIcon(k, c), 18, 'color:var(--ki-text-2, #afafaf)')}${esc(kindLabel(k, c))}</button>`).join('')}
+          <button class="pkc press" data-a="addlink">${ic('mdi:link-variant', 18, 'color:var(--ki-text-2, #afafaf)')}Ny snarvei (lenke)</button></div>
       </div>`;
     }
     _roomPanel(m, r) {
@@ -797,7 +798,7 @@
       const sd = m.sides[r.id], ids = m.side(sd).map((x) => x.id), i = ids.indexOf(r.id), sz = r.size, can = r.can && sz !== 'S', kl = can && r.klima;
       const note = !r.thermo || r.set == null ? 'Ingen termostat i rommet' : sz === 'S' ? 'Kun på medium og store kort' : kl ? 'Vises på kortet' : 'Skjult';
       return `<div class="pnl" data-key="rp-${esc(r.id)}">
-        <div class="ph">${ic(r.icon, 24, `color:${r.col}`)}<span class="n">${esc(r.name)}</span><button class="red press" data-a="rhide">${ic(m.t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${m.t.hc ? 'Fjern' : 'Skjul'}</button></div>
+        <div class="ph">${ic(r.icon, 24, `color:${M.theme ? M.theme.accentText(r.col) : r.col}`)}<span class="n">${esc(r.name)}</span><button class="red press" data-a="rhide">${ic(m.t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${m.t.hc ? 'Fjern' : 'Skjul'}</button></div>
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="rmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="rmove" data-v="1" title="Flytt ned" ${i < ids.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="rswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
         <div class="ln"><span class="lb">Størrelse</span><div class="ss">${['S', 'M', 'L'].map((z) => `<button class="${sz === z ? 'on-pk' : ''}" data-a="rsize" data-v="${z}" data-h="selection">${SZ[z]}</button>`).join('')}</div></div>
         <div class="ln"><span class="lb2"><span class="lb">Klima-knapp</span><span class="sub">${note}</span></span><button data-a="rklima" data-h="selection" ${can ? '' : 'disabled'}>${this._sw(kl, true, !can)}</button></div>
@@ -819,11 +820,11 @@
       return `<div class="ph" style="gap:10px"><span class="pv" style="background:${col}">${ic(r.icon, 22)}</span>
           <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span class="ttl">Ikon og farge</span><span class="note">${esc(noteT)}</span></span>
           ${has ? '<button class="std" data-a="lookreset">Standard</button>' : ''}</div>
-        <div class="srch">${ic('search', 18, 'color:#7f7f7f')}<input data-in="icq" value="${esc(q0)}" placeholder="Søk ikon – sofa, seng, bad, garasje …"></div>
-        <div class="icg">${hits.slice(0, 24).map(([x]) => `<button data-a="lookicon" data-v="${esc(x)}" title="${esc(x)}" style="${x === r.icon ? `background:${col};color:#232323` : ''}">${ic(x, 18)}</button>`).join('')}</div>
+        <div class="srch">${ic('search', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-in="icq" value="${esc(q0)}" placeholder="Søk ikon – sofa, seng, bad, garasje …"></div>
+        <div class="icg">${hits.slice(0, 24).map(([x]) => `<button data-a="lookicon" data-v="${esc(x)}" title="${esc(x)}" style="${x === r.icon ? `background:${col};color:var(--ki-on-accent, #232323)` : ''}">${ic(x, 18)}</button>`).join('')}</div>
         ${slug && !hits.some((x) => x[0] === slug) ? `<button class="useq" data-a="lookicon" data-v="${esc(slug)}">${ic(slug, 18)}Bruk «${esc(q0)}» som ikon</button>` : ''}
         <div class="cols">${COLS.map((x) => `<button class="cl ${sameCol(x, rr.color) || (!rr.color && sameCol(x, r.baseCol)) ? 'on' : ''}" data-a="lookcol" data-v="${esc(x)}" title="${esc(x)}" style="background:${M.color(x, x)}"></button>`).join('')}
-          <label class="cw" title="Egen farge" style="background:${custom ? col : 'conic-gradient(rgb(242 128 115), rgb(242 210 111), rgb(102 209 158), rgb(115 185 242), rgb(173 153 230), rgb(242 133 201), rgb(242 128 115))'};${custom ? 'box-shadow:0 0 0 3px #2f2f2f,0 0 0 5px #fafafa' : ''}">${ic('colorize', 16)}<input type="color" data-in="lookhex" value="${toHex(col)}"></label></div>
+          <label class="cw" title="Egen farge" style="background:${custom ? col : 'conic-gradient(rgb(242 128 115), rgb(242 210 111), rgb(102 209 158), rgb(115 185 242), rgb(173 153 230), rgb(242 133 201), rgb(242 128 115))'};${custom ? 'box-shadow:0 0 0 3px var(--ki-surface-3, #2f2f2f),0 0 0 5px var(--ki-text, #fafafa)' : ''}">${ic('colorize', 16)}<input type="color" data-in="lookhex" value="${toHex(col)}"></label></div>
         <div class="chs"><button class="b34 ${u.allIc ? 'on' : ''}" data-a="allic">${ic('apps', 16)}Alle ikoner · mdi, phu …</button><button class="b34 ${u.allCol ? 'on' : ''}" data-a="allcol">${ic('palette', 16)}Tema- og HA-farger</button></div>
         ${allIc}${allCol}`;
     }
@@ -836,11 +837,11 @@
         const T = (M.BADGE_TYPES || []).find((b) => b[0] === x.type) || [x.type, x.type, 'rule', ''], on = hit(x), dis = own ? '' : 'disabled';
         const ops = x.type === 'entState' ? [['=', 'Er'], ['!=', 'Er ikke']] : [['>', 'Over'], ['<', 'Under'], ['=', 'Er']];
         return `<div class="rule" data-key="br-${esc(k)}"><div class="rh">
-            <div class="rsel">${ic(T[2], 18, 'color:#afafaf')}<span>${esc(T[1])}</span>${ic('expand_more', 18, 'color:#979797')}<select data-in="btype" data-k="${esc(k)}" ${dis}>${(M.BADGE_TYPES || []).map((b) => `<option value="${b[0]}" ${b[0] === x.type ? 'selected' : ''}>${esc(b[1])}</option>`).join('')}</select></div>
+            <div class="rsel">${ic(T[2], 18, 'color:var(--ki-text-2, #afafaf)')}<span>${esc(T[1])}</span>${ic('expand_more', 18, 'color:var(--ki-text-mid, #979797)')}<select data-in="btype" data-k="${esc(k)}" ${dis}>${(M.BADGE_TYPES || []).map((b) => `<option value="${b[0]}" ${b[0] === x.type ? 'selected' : ''}>${esc(b[1])}</option>`).join('')}</select></div>
             <span class="live ${on ? 'on' : ''}">${on ? 'Vises nå' : 'Skjult nå'}</span>
             ${own ? `<button class="dz34" data-a="bdel" data-k="${esc(k)}" title="Fjern">${ic('delete', 18)}</button>` : ''}</div>
           ${NUMB.includes(x.type) || x.type === 'entState' ? `<div style="display:flex;align-items:center;gap:6px"><div class="ss sm">${ops.map(([o, l]) => `<button class="${(x.op || (x.type === 'entState' ? '=' : '>')) === o ? 'on-pk' : ''}" data-a="bop" data-k="${esc(k)}" data-v="${esc(o)}" ${dis}>${l}</button>`).join('')}</div>
-            <input class="in s" style="flex:1;text-align:center" data-in="bval" data-k="${esc(k)}" value="${esc(x.val ?? '')}" ${dis} placeholder="${x.type === 'entState' ? 'on, open' : '0'}"><span style="font-size:12px;color:#979797;flex:none">${esc(T[3] || '')}</span></div>` : ''}
+            <input class="in s" style="flex:1;text-align:center" data-in="bval" data-k="${esc(k)}" value="${esc(x.val ?? '')}" ${dis} placeholder="${x.type === 'entState' ? 'on, open' : '0'}"><span style="font-size:12px;color:var(--ki-text-mid, #979797);flex:none">${esc(T[3] || '')}</span></div>` : ''}
           ${own && ENT.includes(x.type) ? `<input class="in s" data-in="bent" data-k="${esc(k)}" value="${esc(x.ent || '')}" placeholder="${['ent', 'entNum', 'entState'].includes(x.type) ? 'entity_id' : 'Kilde (tom = standard fra rommet)'}">` : ''}
           <input class="in s" data-in="btext" data-k="${esc(k)}" value="${esc(x.text || '')}" placeholder="Tekst i varselet" ${dis}></div>`;
       };
@@ -858,14 +859,14 @@
       const linkEd = link ? `
         <div class="fld"><span class="fl">Tittel</span><input class="in" data-in="ltitle" value="${esc(L.title || '')}" placeholder="Tittel"></div>
         <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="lsub" value="${esc(L.sub || '')}" placeholder="F.eks. {sensor.nordpool_kwh} nå"></div>
-        <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${M.iconPicker ? M.iconPicker.html({ key: 'lic-' + k, value: L.icon || '', placeholder: 'mdi:star', label: 'Ikon', attrs: 'data-in="licon" style="--msh-if-bg:var(--gray000,#232323)"' }) : `<div style="display:flex;gap:8px;align-items:center"><span class="pv2" style="background:var(--gray000,#232323);color:#fafafa">${ic(L.icon || 'mdi:star', 22)}</span><input class="in" style="flex:1" data-in="licon" value="${esc(L.icon || '')}" placeholder="mdi:star"></div>`}</div>
+        <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${M.iconPicker ? M.iconPicker.html({ key: 'lic-' + k, value: L.icon || '', placeholder: 'mdi:star', label: 'Ikon', attrs: 'data-in="licon" style="--msh-if-bg:var(--ki-bg, var(--gray000,#232323))"' }) : `<div style="display:flex;gap:8px;align-items:center"><span class="pv2" style="background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa)">${ic(L.icon || 'mdi:star', 22)}</span><input class="in" style="flex:1" data-in="licon" value="${esc(L.icon || '')}" placeholder="mdi:star"></div>`}</div>
         <div class="fld"><span class="fl">Farge</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${TSW.map(([v, col, l]) => `<button class="sw34 ${(L.color || 'ingen') === v ? 'on' : ''}" data-a="lcolor" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-        <div class="fld"><span class="fl">Trykk på kortet åpner popup</span>${M.popupPicker ? M.popupPicker.html({ key: 'lph-' + k, value: L.hash || '', label: 'Trykk på kortet åpner popup', attrs: 'data-in="lhash" style="--msh-if-bg:var(--gray000,#232323)"' }) : `<input class="in" data-in="lhash" value="${esc(L.hash || '')}" placeholder="#strom">`}</div>
+        <div class="fld"><span class="fl">Trykk på kortet åpner popup</span>${M.popupPicker ? M.popupPicker.html({ key: 'lph-' + k, value: L.hash || '', label: 'Trykk på kortet åpner popup', attrs: 'data-in="lhash" style="--msh-if-bg:var(--ki-bg, var(--gray000,#232323))"' }) : `<input class="in" data-in="lhash" value="${esc(L.hash || '')}" placeholder="#strom">`}</div>
         <div class="fld"><span class="fl">Entitet (ikon-trykk / mer info)</span><input class="in" data-in="lent" value="${esc(L.entity || '')}" placeholder="light.stue"></div>
         <div class="fld"><span class="fl">Trykk på ikonet</span><select class="in" data-in="lact">${[['toggle', 'Veksle entitet'], ['popup', 'Åpne popup'], ['more', 'Mer info'], ['none', 'Ingen']].map(([v, l]) => `<option value="${v}" ${(L.act || 'toggle') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>` : this._tileEdFields(m, k, 'p') + this._tileEdExtra(m, k, 'p');
       if (only) return linkEd; // 17.10: feltene i sone-editoren
       return `<div class="pnl" data-key="tp-${esc(k)}">
-        <div class="ph">${ic(kindIcon(k, c), 24, 'color:#afafaf')}<span class="n">${esc(kindLabel(k, c))}</span><button class="red press" data-a="thide">${ic(t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${t.hc ? 'Fjern' : 'Skjul'}</button></div>
+        <div class="ph">${ic(kindIcon(k, c), 24, 'color:var(--ki-text-2, #afafaf)')}<span class="n">${esc(kindLabel(k, c))}</span><button class="red press" data-a="thide">${ic(t.hc ? 'mdi:close' : 'mdi:eye-off', 18)}${t.hc ? 'Fjern' : 'Skjul'}</button></div>
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="tmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="tmove" data-v="1" title="Flytt ned" ${i < grp.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="tswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
         <div class="ln"><span class="lb">Over eller under rommene</span><div class="ss">${[['top', 'Over'], ['bottom', 'Under']].map(([v, l]) => `<button class="${pos === v ? 'on-pk' : ''}" data-a="tpos" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>
         <div class="ln"><span class="lb2"><span class="lb">Swipe</span><span class="sub">${stk ? 'Sveipes sammen med andre i samme plass' : m.slotAll(sl) ? 'Alle i plassen sveipes' : 'Sveip sammen med andre i samme plass'}</span></span><button data-a="tstack" data-h="selection">${this._sw(st || m.slotAll(sl), true)}</button></div>
@@ -899,7 +900,7 @@
         }
         return 'Standard: ' + H.tapLabel(a, w) + (w === 'hold_ic' && a && a.navigation_path === '#dorlas' ? ' (Dørlås-popupen; uten lås → more-info)' : ''); };
       const cur = (w) => cfg[H.TAP_KEYS[w]] || (w === 'hold_ic' ? cfg.icon_hold_action : w === 'hold_card' ? cfg.hold_action : cfg.tap_action) || null;
-      const taps = H.TAP_FIELDS.map(([w, lab]) => `<div class="tap" data-key="${pre}-tp-${esc(k)}-${w}"><span class="th">${ic(w === 'ic' ? 'radio_button_checked' : w === 'card' ? 'touch_app' : w === 'hold_ic' ? 'mdi:gesture-tap-hold' : 'mdi:hand-back-right-outline', 20, 'color:#afafaf')}${esc(lab)}</span>
+      const taps = H.TAP_FIELDS.map(([w, lab]) => `<div class="tap" data-key="${pre}-tp-${esc(k)}-${w}"><span class="th">${ic(w === 'ic' ? 'radio_button_checked' : w === 'card' ? 'touch_app' : w === 'hold_ic' ? 'mdi:gesture-tap-hold' : 'mdi:hand-back-right-outline', 20, 'color:var(--ki-text-2, #afafaf)')}${esc(lab)}</span>
           ${M.tap ? M.tap.html({ key: `${pre}-tpk-${k}-${w}`, value: cur(w) || (w === 'card' && H.kindOf(c, k) === 'cam' && H.camTapShown ? H.camTapShown(c, k) : null), modes: H.TAP_MODES, labels: H.TAP_LABELS, stdHint: std(w), style: c.action_style, noneHint: /^hold/.test(w) ? 'Ingen handling ved hold.' : '', attrs: `data-in="tetap" data-k="${esc(k)}" data-w="${w}"` }) : ''}</div>`).join('');
       return `${dom ? `<div class="fld"><span class="fl">Entitet · ${esc([].concat(dom).join(', '))}</span>${pk}</div>` : ''}
         <div class="g2"><div class="fld"><span class="fl">Navn</span><input class="in" data-in="tename" data-k="${esc(k)}" value="${esc(cfg.name || '')}" placeholder="${esc(K[1])}"></div>
@@ -915,10 +916,10 @@
       if (!u.tadd || !H) return '';
       if (u.tadd === 'types') {
         const kinds = KIND_ORDER.filter((kd) => H.TILE_DOM[kd]);
-        return `<div class="pnl pk" data-key="tadd"><span class="pkt">Velg type</span><div class="chs">${kinds.map((kd) => `<button class="pkc press" data-a="taddtype" data-v="${kd}">${ic(KINDS[kd][0], 18, 'color:#afafaf')}${esc(KINDS[kd][1])}</button>`).join('')}</div></div>`;
+        return `<div class="pnl pk" data-key="tadd"><span class="pkt">Velg type</span><div class="chs">${kinds.map((kd) => `<button class="pkc press" data-a="taddtype" data-v="${kd}">${ic(KINDS[kd][0], 18, 'color:var(--ki-text-2, #afafaf)')}${esc(KINDS[kd][1])}</button>`).join('')}</div></div>`;
       }
       const kd = u.tadd, dom = H.TILE_DOM[kd], au = m.E ? m.E[kd] : null, auto = au && typeof au === 'object' ? au.status : au;
-      return `<div class="pnl pk" data-key="tadd-${kd}"><span class="pkt">${ic(KINDS[kd][0], 18, 'color:#afafaf')} Ny ${esc(KINDS[kd][1].toLowerCase())} · velg entitet</span>
+      return `<div class="pnl pk" data-key="tadd-${kd}"><span class="pkt">${ic(KINDS[kd][0], 18, 'color:var(--ki-text-2, #afafaf)')} Ny ${esc(KINDS[kd][1].toLowerCase())} · velg entitet</span>
         ${M.entityPicker ? M.entityPicker.html({ key: 'tadd-pk-' + kd, value: '', auto: auto || '', autoMode: true, autoLabel: 'Automatisk', domains: [].concat(dom), attrs: `data-in="taddent" data-v="${kd}"` }) : ''}
         <button class="o34 press" style="align-self:flex-start" data-a="taddopen">Avbryt</button></div>`;
     }
@@ -940,7 +941,7 @@
     _teSet(k, f, v) { this.saveF({ [`tile_cfg.${k}.${f}`]: v === '' || v == null ? undefined : v }); }
     _acc(key, title, icon, meta) {
       const o = !!this.u.acc[key];
-      return `<button class="ac ${o ? 'open' : ''}" data-a="acc" data-v="${key}" data-key="ac-${key}">${ic(icon, 20, 'color:#afafaf')}<span class="at">${esc(title)}</span><span class="am">${esc(meta)}</span>${ic('expand_more', 22, 'color:#979797')}</button>`;
+      return `<button class="ac ${o ? 'open' : ''}" data-a="acc" data-v="${key}" data-key="ac-${key}">${ic(icon, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="at">${esc(title)}</span><span class="am">${esc(meta)}</span>${ic('expand_more', 22, 'color:var(--ki-text-mid, #979797)')}</button>`;
     }
     _accSwipe(m) {
       const S = get(m.c, `slides.${m.t.id}`) || {}, n = ['L', 'R'].reduce((a, sd) => a + Object.keys(S[sd] || {}).filter((k) => S[sd][k]).length, 0);
@@ -948,8 +949,8 @@
       if (this.u.acc.swipe) {
         body = `<div class="box" data-key="acb-swipe"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Swipe-kort</span><span class="sub">Ekstra kort du sveiper til etter rommene</span></span>
           ${[['L', 'Venstre karusell'], ['R', 'Høyre karusell']].map(([sd, l]) => { const cur = Object.keys(SLIDE_L).filter((k) => (S[sd] || {})[k]);
-            return `<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:#979797">${l}</span><div class="chs">
-              ${cur.map((k) => `<button class="c34 press" data-a="slide" data-s="${sd}" data-v="${k}" title="Fjern">${ic(SLIDE_L[k][0], 18)}${SLIDE_L[k][1]}${ic('close', 16, 'color:#979797')}</button>`).join('')}
+            return `<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${l}</span><div class="chs">
+              ${cur.map((k) => `<button class="c34 press" data-a="slide" data-s="${sd}" data-v="${k}" title="Fjern">${ic(SLIDE_L[k][0], 18)}${SLIDE_L[k][1]}${ic('close', 16, 'color:var(--ki-text-mid, #979797)')}</button>`).join('')}
               ${Object.keys(SLIDE_L).filter((k) => !cur.includes(k)).map((k) => `<button class="o34 press" data-a="slide" data-s="${sd}" data-v="${k}">+ ${SLIDE_L[k][1]}</button>`).join('')}</div>${this._carRules(m, sd)}</div>`; }).join('')}
           ${this._calRow(m)}</div>`;
       }
@@ -975,7 +976,7 @@
           ${ok.error ? `<span class="cre">Ugyldig YAML: ${esc(ok.error)} – regelen hoppes over</span>` : ''}
           <div class="chs">${pre.map(([v, l]) => `<button class="o34 press crp" data-a="crpre" data-s="${sd}" data-i="${i}" data-v="${v}">${esc(l)}</button>`).join('')}</div></div>`;
       }).join('');
-      return `<button class="tgl" data-a="cardots" data-s="${sd}" data-h="selection" role="switch" aria-checked="${dots}" data-key="cardots-${sd}" style="background:var(--gray100,#2f2f2f)">Vis prikker${this._sw(dots)}</button>
+      return `<button class="tgl" data-a="cardots" data-s="${sd}" data-h="selection" role="switch" aria-checked="${dots}" data-key="cardots-${sd}" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))">Vis prikker${this._sw(dots)}</button>
         <div class="fld" data-key="crl-${sd}"><span class="fl">Vis først når …</span>${rows}<button class="o34 press" style="align-self:flex-start" data-a="cradd" data-s="${sd}">+ Legg til regel</button></div>`;
     }
     // Fiks 17.10 · fire soner (Venstre/Høyre · over/under rommene) med mini-kart, Swipe-pille og +. Radene har bare ↑/↓ og
@@ -985,14 +986,14 @@
       const c = m.c, K = c.calendar || {}, u = this.u, all = M.all(this.hass, 'calendar'), sel = (Array.isArray(K.entities) ? K.entities : []).filter((x) => all.includes(x));
       const norm = M.hjemCalNorm || ((x) => x), ta = norm(K.tap_action), ha = norm(K.hold_action);
       const lab = (a, std) => (!a ? std : M.tap ? M.tap.label(a, this.hass) : a.action);
-      const row = `<div class="zr ${u.calEd ? 'open' : ''}" data-key="calrow" style="background:var(--gray100,#2f2f2f)"><button class="zrm" data-a="caled"><span class="zc" style="background:rgba(255,255,255,0.08)">${ic('calendar_month', 20)}</span><span class="tt"><b>Kalender</b><i>Trykk: ${esc(lab(ta, 'Standard'))} · Hold: ${esc(lab(ha, 'Ingen'))}</i></span></button><button class="zch" data-a="caled" title="Rediger">${ic('expand_more', 22)}</button></div>`;
+      const row = `<div class="zr ${u.calEd ? 'open' : ''}" data-key="calrow" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))"><button class="zrm" data-a="caled"><span class="zc" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('calendar_month', 20)}</span><span class="tt"><b>Kalender</b><i>Trykk: ${esc(lab(ta, 'Standard'))} · Hold: ${esc(lab(ha, 'Ingen'))}</i></span></button><button class="zch" data-a="caled" title="Rediger">${ic('expand_more', 22)}</button></div>`;
       if (!u.calEd) return row;
       const modes = ['std', 'popup', 'hash', 'path', 'url', 'more', 'none'];
-      const tp = (w, v, std) => `<div class="tap" data-key="cal-tp-${w}"><span class="th">${ic(w === 'tap' ? 'touch_app' : 'mdi:gesture-tap-hold', 20, 'color:#afafaf')}${w === 'tap' ? 'Trykk' : 'Hold'}</span>
+      const tp = (w, v, std) => `<div class="tap" data-key="cal-tp-${w}"><span class="th">${ic(w === 'tap' ? 'touch_app' : 'mdi:gesture-tap-hold', 20, 'color:var(--ki-text-2, #afafaf)')}${w === 'tap' ? 'Trykk' : 'Hold'}</span>
           ${M.tap ? M.tap.html({ key: 'cal-tpk-' + w, value: v, modes, stdHint: std, style: c.action_style, noneHint: w === 'hold' ? 'Ingen handling ved hold.' : '', attrs: `data-in="caltap" data-w="${w}"` }) : ''}</div>`;
       return row + `<div class="ted" data-key="cal-ed">${tp('tap', ta, 'Standard: kalender-arket (detaljer)')}${tp('hold', ha, 'Standard: ingen')}
           <div class="fld"><span class="fl">Kalendere · ${sel.length ? sel.length + ' valgt' : 'alle'}</span><div class="ach">${all.map((id) => `<button class="${!sel.length || sel.includes(id) ? 'on' : ''}" data-a="calent" data-v="${esc(id)}" data-h="selection">${esc(M.name(this.hass, id))}</button>`).join('') || '<span class="sub">Fant ingen calendar.*</span>'}</div></div>
-          <button class="tgl" data-a="calallday" data-h="selection" style="background:var(--gray200,#3a3a3a)">Ta med «Hele dagen»-hendelser${this._sw(K.all_day !== false)}</button></div>`;
+          <button class="tgl" data-a="calallday" data-h="selection" style="background:var(--ki-surface, var(--gray200,#3a3a3a))">Ta med «Hele dagen»-hendelser${this._sw(K.all_day !== false)}</button></div>`;
     }
     _accSnar(m) {
       const t = m.t;
@@ -1005,7 +1006,7 @@
       const map = `<span class="zm" aria-hidden="true">${['L-top', 'R-top'].map((z) => `<i class="${z === sl ? 'on' : ''}"></i>`).join('')}<b></b>${['L-bottom', 'R-bottom'].map((z) => `<i class="${z === sl ? 'on' : ''}"></i>`).join('')}</span>`;
       let add = '';
       if (open && u.tadd && u.tadd !== 'types') add = this._tileAdd(m);
-      else if (open) add = `<div class="zgr" data-key="zgr-${sl}">${ZADD.map(([v, icn, l]) => `<button class="press" data-a="zadd" data-z="${sl}" data-v="${v}">${ic(icn, 22, 'color:#afafaf')}${esc(l)}</button>`).join('')}</div>`;
+      else if (open) add = `<div class="zgr" data-key="zgr-${sl}">${ZADD.map(([v, icn, l]) => `<button class="press" data-a="zadd" data-z="${sl}" data-v="${v}">${ic(icn, 22, 'color:var(--ki-text-2, #afafaf)')}${esc(l)}</button>`).join('')}</div>`;
       return `<div class="zn" data-key="zn-${sl}"><div class="zh">${map}<span class="zt"><b>${esc(label)}</b><i>${n ? `${n} kort` : 'Tom'}</i></span>
           ${n >= 2 ? `<button class="zsw ${sw ? 'on' : ''}" data-a="swall" data-v="${sl}" data-h="selection">${ic('mdi:gesture-swipe-horizontal', 14)}Swipe</button>` : ''}
           <button class="zad ${open ? 'on' : ''}" data-a="zaddopen" data-v="${sl}" title="Legg til">${ic('mdi:plus', 20)}</button></div>
@@ -1016,7 +1017,7 @@
       const c = m.c, u = this.u, ed = u.ted === k, H = HT(), kd = H ? H.kindOf(c, k) : KINDS[k] ? k : null, L = kd ? null : (c.links || {})[k] || {};
       const col = L && L.color && L.color !== 'ingen' ? (TSW.find((x) => x[0] === L.color) || [])[1] : null;
       const sub = kd ? 'Live status' : L.sub || 'Snarvei';
-      const row = `<div class="zr ${ed ? 'open' : ''}" data-key="zr-${esc(k)}"><button class="zrm" data-a="tedit" data-v="${esc(k)}"><span class="zc" style="background:${col || 'rgba(255,255,255,0.08)'};${col ? 'color:#2f2f2f' : ''}">${ic(kindIcon(k, c), 20)}</span><span class="tt"><b>${esc(kindLabel(k, c))}</b><i>${esc(sub)}</i></span></button>
+      const row = `<div class="zr ${ed ? 'open' : ''}" data-key="zr-${esc(k)}"><button class="zrm" data-a="tedit" data-v="${esc(k)}"><span class="zc" style="background:${col || 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'};${col ? 'color:var(--ki-on-accent, #2f2f2f)' : ''}">${ic(kindIcon(k, c), 20)}</span><span class="tt"><b>${esc(kindLabel(k, c))}</b><i>${esc(sub)}</i></span></button>
           <span class="zud"><button class="${i > 0 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="-1" title="Flytt opp">${ic('expand_less', 18)}</button><button class="${i < n - 1 ? '' : 'no'}" data-a="tmove" data-k="${esc(k)}" data-v="1" title="Flytt ned">${ic('expand_more', 18)}</button></span>
           <button class="zch" data-a="tedit" data-v="${esc(k)}" title="Rediger">${ic('expand_more', 22)}</button></div>`;
       if (!ed) return row;
@@ -1048,8 +1049,8 @@
       const ST = cfg.state_text || {};
       const rows = H.stStates(this.hass, kd, ent, cfg).map((v) => {
         const D = H.stDefault(kd, v, nm), o = ST[v] || {}, ov = !!(o.title || o.sub), on = v === now;
-        return `<div class="stx" data-key="${pre}-stx-${K}-${esc(v)}" style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;background:var(--gray100,#2f2f2f)">
-            <span style="display:flex;align-items:center;gap:8px"><span style="height:24px;padding:0 10px;border-radius:12px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;${on ? 'background:var(--green,#8fd6a0);color:#232323' : 'background:rgba(255,255,255,0.08);color:#c7c7c7'}">${esc(v)}${on ? ' · nå' : ''}</span><span style="flex:1"></span>
+        return `<div class="stx" data-key="${pre}-stx-${K}-${esc(v)}" style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">
+            <span style="display:flex;align-items:center;gap:8px"><span style="height:24px;padding:0 10px;border-radius:12px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;${on ? 'background:var(--green,#8fd6a0);color:var(--ki-on-accent, #232323)' : 'background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:#c7c7c7'}">${esc(v)}${on ? ' · nå' : ''}</span><span style="flex:1"></span>
               ${ov ? `<button class="o34 press" data-a="testd" data-k="${K}" data-v="${esc(v)}">${ic('mdi:restore', 16)} Standard</button>` : ''}</span>
             <div class="g2"><input class="in" data-in="tefield" data-k="${K}" data-f="state_text.${esc(v)}.title" value="${esc(o.title || '')}" placeholder="${esc(D.title || 'Tittel')}" aria-label="Tittel · ${esc(v)}"><input class="in" data-in="tefield" data-k="${K}" data-f="state_text.${esc(v)}.sub" value="${esc(o.sub || '')}" placeholder="${esc(D.sub || 'Undertekst')}" aria-label="Undertekst · ${esc(v)}"></div></div>`;
       }).join('');
@@ -1064,7 +1065,7 @@
       const nx = cfg.show_next !== false;
       return `<div class="asec" data-key="${pre}-rut-${esc(k)}"><span class="ttl">Neste avgang</span>
           <div class="fld"><span class="fl">Avvik-sensor (valgfri)</span>${pk}</div>
-          <button class="tgl" data-a="teflag" data-k="${esc(k)}" data-f="show_next" data-v="${nx ? 0 : 1}" data-h="selection" style="background:var(--gray100,#2f2f2f)">Vis neste etter («, deretter 7 min»)${this._sw(nx)}</button>
+          <button class="tgl" data-a="teflag" data-k="${esc(k)}" data-f="show_next" data-v="${nx ? 0 : 1}" data-h="selection" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))">Vis neste etter («, deretter 7 min»)${this._sw(nx)}</button>
           <div class="fld"><span class="fl">Format · {route} {due_in} {delay} {next} {avvik}</span><input class="in" data-in="tefield" data-k="${esc(k)}" data-f="sub_format" value="${esc(cfg.sub_format || '')}" placeholder="Linje {route} om {due_in} min"></div></div>`;
     }
     _camEd(m, k, pre) {
@@ -1093,7 +1094,7 @@
           <div class="fld"><span class="fl">Farge</span><div class="allc">${ALLCOLS().map(([v, hex, l]) => `<button class="${sameCol(v, col) ? 'on' : ''}" data-a="teact" data-k="${K}" data-f="color" data-v="${esc(v)}" title="${esc(l)}" style="background:${M.color(v, hex)}"></button>`).join('')}</div>
             <label class="b36" style="align-self:flex-start;cursor:pointer">${ic('colorize', 16)}Egen farge<input type="color" data-in="teactf" data-k="${K}" data-f="color" value="${toHex(col)}" style="width:28px;height:22px;border:0;padding:0;background:none"></label></div>
           <div class="fld"><span class="fl">Ikon når aktiv</span>${icf}</div>
-          <button class="tgl" data-a="teactb" data-k="${K}" data-f="pulse" data-h="selection" style="background:var(--gray100,#2f2f2f)">Puls rundt ikonet${this._sw(!!a.pulse)}</button>
+          <button class="tgl" data-a="teactb" data-k="${K}" data-f="pulse" data-h="selection" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))">Puls rundt ikonet${this._sw(!!a.pulse)}</button>
           <div class="fld"><span class="fl">Undertekst · {tid} {siden} {entitet} {sone}</span><input class="in" data-in="teactf" data-k="${K}" data-f="sub_active" value="${esc(a.sub_active || '')}" placeholder="Bevegelse nå"><input class="in" data-in="teactf" data-k="${K}" data-f="sub_after" value="${esc(a.sub_after || '')}" placeholder="Bevegelse for {siden} siden"></div>
           <span class="fl">Ved aktivering</span>${seg('on_activate', CM.CAM_ACT, a.on_activate || 'none')}</div>`;
     }
@@ -1124,12 +1125,12 @@
           <div class="l"><input class="in t" style="flex:1" data-in="tlabel" data-k="${esc(t.id)}" value="${esc(t.label)}" placeholder="${esc(t.autoLabel)}">
             <button class="sq ${i > 0 ? '' : 'no'}" data-a="tabmv" data-k="${esc(t.id)}" data-v="-1">${ic('expand_less', 18)}</button>
             <button class="sq ${i < T.length - 1 ? '' : 'no'}" data-a="tabmv" data-k="${esc(t.id)}" data-v="1">${ic('expand_more', 18)}</button>
-            <button class="sq" data-a="tabeye" data-k="${esc(t.id)}" ${!t.hidden && visN <= 1 ? 'style="opacity:.4"' : ''}>${ic(t.hidden ? 'visibility_off' : 'visibility', 18, `color:${t.hidden ? '#696969' : '#fafafa'}`)}</button>
+            <button class="sq" data-a="tabeye" data-k="${esc(t.id)}" ${!t.hidden && visN <= 1 ? 'style="opacity:.4"' : ''}>${ic(t.hidden ? 'visibility_off' : 'visibility', 18, `color:${t.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
             ${custom ? `<button class="sq del" data-a="tabdel" data-k="${esc(t.id)}" title="Slett">${ic('delete', 18)}</button>` : ''}</div>
           <div class="v">${t.kind === 'batterier' ? '<span class="chip on-pk">Batterier</span>' : VIEWS.map(([v, l]) => `<button class="chip ${t.view === v ? 'on-pk' : ''}" data-a="tabview" data-k="${esc(t.id)}" data-v="${v}" data-h="selection">${l}</button>`).join('')}
             ${t.view !== 'batterier' ? `<button class="rs" data-a="tabcards" data-k="${esc(t.id)}">Rom og snarveier${ic('chevron_right', 18)}</button>` : ''}</div>
           ${t.kind === 'batterier' ? this._bat(c) : ''}
-          ${custom && M.iconPicker ? `<div class="fld"><span class="fl">Ikon (Glidende, Chips, To nivåer, Som popups)</span>${M.iconPicker.html({ key: 'tic-' + t.id, value: get(c, 'tab_icons.' + t.id) || '', placeholder: 'mdi:layers', label: 'Ikon', attrs: `data-in="tabicon" data-k="${esc(t.id)}" style="--msh-if-bg:var(--gray000,#232323)"` })}</div>` : ''}
+          ${custom && M.iconPicker ? `<div class="fld"><span class="fl">Ikon (Glidende, Chips, To nivåer, Som popups)</span>${M.iconPicker.html({ key: 'tic-' + t.id, value: get(c, 'tab_icons.' + t.id) || '', placeholder: 'mdi:layers', label: 'Ikon', attrs: `data-in="tabicon" data-k="${esc(t.id)}" style="--msh-if-bg:var(--ki-bg, var(--gray000,#232323))"` })}</div>` : ''}
         </div>`;
       }).join('');
       const opt = (key, v, l, curV) => `<button class="o36 ${curV === v ? 'on-pk' : ''}" data-a="tabset" data-k="${key}" data-v="${v}" data-h="selection">${l}</button>`;
@@ -1138,10 +1139,10 @@
           <div class="stp"><button data-a="tabstep" data-k="${pk}" data-v="-1" data-min="${min}" data-max="${max}" data-def="${def}">${ic('remove', 18)}</button><span>${v} px</span><button data-a="tabstep" data-k="${pk}" data-v="1" data-min="${min}" data-max="${max}" data-def="${def}">${ic('add', 18)}</button></div></div>`; };
       // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
-      const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:#979797">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
+      const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
       // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
       const hOn = M.hapticOff ? !M.hapticOff() : true;
-      const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? '#fafafa' : '#696969'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:#979797">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:#7f7f7f">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
+      const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
       // Fiks 20.8: Fanestil (høyde/bredde, tabSet) øverst → Liquid Glass-animasjon → fanene → «+ Ny fane»
       // Fiks 31.4: Stil (tab_style) + «Fanene viser» (tab_mode, Som popups) + forhåndsvisning øverst (Hjem v3 · fs/tabSet)
       const st = M.hjemTabStyle ? M.hjemTabStyle(c) : c.tab_style || 'pille', lf = this.fanerLive;
@@ -1174,12 +1175,12 @@
       const sug = M.all(hass, 'binary_sensor', (s, id) => (s.attributes.device_class === 'battery' || /batter/i.test(id)) && id !== cond && (!q || id.includes(q) || String(s.attributes.friendly_name || '').toLowerCase().includes(q) || q === 'binary_sensor.')).slice(0, 4);
       const state = al ? 'Vises alltid' : cond ? (on ? `Vises nå · ${cond} er på` : `Skjult · ${cond} er av`) : on ? `Vises nå · ${low} under ${lim} %` : `Skjult · ingen batterier under ${lim} %`;
       return `<div class="bat" data-key="bat">
-        <div style="display:flex;align-items:center;gap:8px">${ic(on ? 'visibility' : 'visibility_off', 18, `color:${on ? C.green : '#7f7f7f'}`)}<span style="flex:1;font-size:13px;color:#afafaf">${esc(state)}</span></div>
-        <div class="fld"><span class="fl">Vis fanen når denne er på</span><div class="bsr">${ic('search', 18, 'color:#7f7f7f')}<input data-in="bcond" value="${esc(cond)}" placeholder="Tom = når et batteri er under grensen"></div>
-          <div style="display:flex;flex-direction:column;gap:2px">${sug.map((id) => `<button class="bsg" data-a="bcond" data-v="${esc(id)}">${ic('battery_alert', 18, 'color:#afafaf')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500">${esc(M.name(hass, id))}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(id)}</span></span></button>`).join('')}</div></div>
+        <div style="display:flex;align-items:center;gap:8px">${ic(on ? 'visibility' : 'visibility_off', 18, `color:${on ? 'var(--ki-green-text, ' + C.green + ')' : 'var(--ki-text-3, #7f7f7f)'}`)}<span style="flex:1;font-size:13px;color:var(--ki-text-2, #afafaf)">${esc(state)}</span></div>
+        <div class="fld"><span class="fl">Vis fanen når denne er på</span><div class="bsr">${ic('search', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-in="bcond" value="${esc(cond)}" placeholder="Tom = når et batteri er under grensen"></div>
+          <div style="display:flex;flex-direction:column;gap:2px">${sug.map((id) => `<button class="bsg" data-a="bcond" data-v="${esc(id)}">${ic('battery_alert', 18, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500">${esc(M.name(hass, id))}</span><span style="font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(id)}</span></span></button>`).join('')}</div></div>
         <div class="fld"><div style="display:flex;justify-content:space-between"><span class="fl">Grense for lavt batteri</span><span class="num" style="font-size:13px;font-weight:500" data-lim>${lim} %</span></div><input type="range" min="5" max="60" step="5" value="${lim}" data-in="blimit"></div>
-        <div style="display:flex;align-items:center;gap:12px"><span style="flex:1;font-size:14px;font-weight:500">Liste</span><div class="ss" style="background:var(--gray200,#3a3a3a);border-radius:17px">${[['lav', 'Bare lave'], ['alle', 'Alle']].map(([v, l]) => `<button class="${show === v ? 'on-pk' : ''}" style="height:30px;border-radius:14px;font-size:12px" data-a="bshow" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>
-        <button style="display:flex;align-items:center;gap:12px;text-align:left;width:100%" data-a="balways" data-h="selection"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Vis alltid</span><span style="font-size:12px;color:#979797">Ignorer betingelsen</span></span><span class="trk ${al ? 'on' : ''}" style="${al ? 'background:' + C.green : ''}"></span></button>
+        <div style="display:flex;align-items:center;gap:12px"><span style="flex:1;font-size:14px;font-weight:500">Liste</span><div class="ss" style="background:var(--ki-surface, var(--gray200,#3a3a3a));border-radius:17px">${[['lav', 'Bare lave'], ['alle', 'Alle']].map(([v, l]) => `<button class="${show === v ? 'on-pk' : ''}" style="height:30px;border-radius:14px;font-size:12px" data-a="bshow" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>
+        <button style="display:flex;align-items:center;gap:12px;text-align:left;width:100%" data-a="balways" data-h="selection"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Vis alltid</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">Ignorer betingelsen</span></span><span class="trk ${al ? 'on' : ''}" style="${al ? 'background:' + C.green : ''}"></span></button>
       </div>`;
     }
 
@@ -1239,7 +1240,7 @@
       // Fiks 20.9: sticky live forhåndsvisning øverst (M.prosaPreviewHTML) – markerer åpen setning, oppdateres per tastetrykk
       const pzStyle = `font-size:${T0.fs != null ? T0.fs + 'em' : M.PROSA_AUTO_FS || 'clamp(22px, 7.4cqi, 34px)'};line-height:${T0.lh};padding:0`;
       const prev = M.prosaPreviewHTML ? M.prosaPreviewHTML(hass, this.P() || {}, { key: 'prev', sel: u.proseSel, act: 'pzsel', style: pzStyle })
-        : `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="${pzStyle}">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:#7f7f7f">Ingen setninger vises nå</span>'}</div></div>`;
+        : `<div class="prev" data-key="prev" style="font-size:var(--ha-font-size-m, 14px);line-height:normal;container-type:inline-size"><style>${M.PROSA_CSS || ''}</style><div class="pz" style="${pzStyle}">${R.vis.length && M.prosaHTML ? M.prosaHTML(R.vis, pill) : '<span style="color:var(--ki-text-3, #7f7f7f)">Ingen setninger vises nå</span>'}</div></div>`;
       const P = R.rows || [];
       const areas = M.areas(hass).slice(0, 8), persons = M.all(hass, 'person');
       const toks = [...TOK, ...areas.map((a) => a.id + '.temp'), ...persons.map((p) => p.split('.')[1] + '.hjemme')];
@@ -1250,7 +1251,7 @@
         const sub = op === 'alltid' ? 'Vises alltid' : `Når ${srcL(p.csrc || p.src).toLowerCase()} ${(OPS.find((o) => o[0] === op) || ['', ''])[1].toLowerCase()} ${p.cval || '…'} · ${R.test(p) ? 'vises nå' : 'skjult nå'}`;
         const row = `<div class="pro ${open ? 'open' : ''} ${p.hidden ? 'hid' : ''}" data-key="pro-${i}"><button class="pm" data-a="psel" data-i="${i}"><b>${esc(label)}</b><i>${esc(sub)}</i></button>
           <button class="sq ${i > 0 ? '' : 'no'}" data-a="pmv" data-i="${i}" data-v="-1">${ic('expand_less', 18)}</button><button class="sq ${i < P.length - 1 ? '' : 'no'}" data-a="pmv" data-i="${i}" data-v="1">${ic('expand_more', 18)}</button>
-          <button class="sq" data-a="peye" data-i="${i}">${ic(p.hidden ? 'visibility_off' : 'visibility', 18, `color:${p.hidden ? '#696969' : '#fafafa'}`)}</button>
+          <button class="sq" data-a="peye" data-i="${i}">${ic(p.hidden ? 'visibility_off' : 'visibility', 18, `color:${p.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
           <button class="sq del" data-a="pdel" data-i="${i}" title="Slett">${ic('delete', 18)}</button></div>`;
         if (!open) return row;
         const cur = R.valOf(p), cs = p.csrc || p.src;
@@ -1265,25 +1266,25 @@
             ${p.src === 'custom'
               ? M.entityPicker.html({ key: 'pk-ent-' + i, value: p.ent || '', placeholder: 'Velg entitet …', attrs: `data-in="pent" data-i="${i}" data-f="ent"` })
               : M.entityPicker.html({ key: 'pk-ovr-' + i, value: p.ent_override || '', auto: R.autoOf ? R.autoOf(p.src) || '' : '', autoMode: true, attrs: `data-in="pent" data-i="${i}" data-f="ent_override"` })}
-            ${cur ? `<span style="font-size:12px;color:#979797;padding:0 4px">Nå: <b style="font-weight:500;color:#fafafa">${esc(cur[0])}</b></span>` : `<span style="font-size:12px;color:#7f7f7f;padding:0 4px">${p.src === 'custom' && !p.ent ? 'Velg en entitet – {v} i boblen bruker den' : 'Fant ingen verdi – velg en entitet'}</span>`}</div>` : ''}
+            ${cur ? `<span style="font-size:12px;color:var(--ki-text-mid, #979797);padding:0 4px">Nå: <b style="font-weight:500;color:var(--ki-text, #fafafa)">${esc(cur[0])}</b></span>` : `<span style="font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 4px">${p.src === 'custom' && !p.ent ? 'Velg en entitet – {v} i boblen bruker den' : 'Fant ingen verdi – velg en entitet'}</span>`}</div>` : ''}
           ${(p.src || 'none') !== 'none' ? `<div class="fld"><span class="fl">${p.src === 'text' ? 'Tekst i boblen' : 'Visning i boblen · {v} er verdien'}</span><input class="in" data-in="pf" data-i="${i}" data-f="fmt" value="${esc(p.fmt || '')}"></div>` : ''}
           <div class="fld"><span class="fl">Tekst etter</span><input class="in" data-in="pf" data-i="${i}" data-f="post" value="${esc(p.post || '')}" placeholder="F.eks. i dag.">${tokHTML('post', i)}</div>
           <div class="fld"><span class="fl">Ikon i boblen</span><div class="chs" style="max-height:124px;overflow-y:auto;scrollbar-width:none">${PICONS.map(([v, l]) => `<button class="chip ${(p.icon || '') === v ? 'on-pk' : ''}" data-a="picon" data-i="${i}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
             <input class="in" data-in="pf" data-i="${i}" data-f="icon" value="${esc(p.icon === 'dot' ? '' : p.icon || '')}" placeholder="Eller skriv inn en emoji / mdi:ikon"></div>
           <div class="fld"><span class="fl">Farge · Auto følger verdien (pris, lås, alarm …)</span><div style="display:flex;gap:10px;flex-wrap:wrap;padding:2px">${PSW.map(([v, col, l]) => `<button class="sw34 ${(p.color || 'hvit') === v ? 'on' : ''}" data-a="pcol" data-i="${i}" data-v="${v}" title="${l}" style="background:${col}"></button>`).join('')}</div></div>
-          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, noneHint: 'Boblen gjør ingenting ved trykk.', attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:#232323"` }) : ''}</div>
+          <div class="fld" data-key="ptap-${i}"><span class="fl">Ved trykk</span>${M.tap ? M.tap.html({ key: 'ptapk-' + i, value: tapV || { action: 'none' }, modes: M.PROSA_TAP_MODES, noneHint: 'Boblen gjør ingenting ved trykk.', attrs: `data-in="ptap" data-i="${i}" style="--msh-tp-bg:var(--ki-bg, #232323)"` }) : ''}</div>
           <div class="fld"><span class="fl">Utfør også</span><select class="in" data-in="pact" data-i="${i}">${ACTS.filter(([v]) => v !== 'more' || p.act === 'more').map(([v, l]) => `<option value="${v}" ${(p.act || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
             ${p.act === 'service' ? `<div class="svc"><span class="sh2">${ic('terminal', 16)}Utfør handling</span>
               <input class="in" data-in="pf" data-i="${i}" data-f="svc" value="${esc(p.svc || '')}" placeholder="domene.tjeneste, f.eks. light.turn_on">
-              <span style="font-size:12px;color:#979797">Mål</span><input class="in" data-in="pf" data-i="${i}" data-f="target" value="${esc(p.target || '')}" placeholder="entity_id">
-              <span style="font-size:12px;color:#979797">Data</span><input class="in" data-in="pf" data-i="${i}" data-f="data" value="${esc(typeof p.data === 'object' ? JSON.stringify(p.data) : p.data || '')}" placeholder='{"brightness_pct": 60}'>
+              <span style="font-size:12px;color:var(--ki-text-mid, #979797)">Mål</span><input class="in" data-in="pf" data-i="${i}" data-f="target" value="${esc(p.target || '')}" placeholder="entity_id">
+              <span style="font-size:12px;color:var(--ki-text-mid, #979797)">Data</span><input class="in" data-in="pf" data-i="${i}" data-f="data" value="${esc(typeof p.data === 'object' ? JSON.stringify(p.data) : p.data || '')}" placeholder='{"brightness_pct": 60}'>
               <button class="pink press" data-a="ptest" data-i="${i}">${ic('play_arrow', 18)}Test handling</button></div>` : ''}</div>
           <div class="fld"><span class="fl">Vises</span><div class="chs">${OPS.map(([v, l]) => `<button class="chip ${op === v ? 'on-pk' : ''}" data-a="pop" data-i="${i}" data-v="${esc(v)}">${l}</button>`).join('')}</div></div>
           ${op !== 'alltid' ? `<div class="fld"><span class="fl">Når</span><select class="in" data-in="pcsrc" data-i="${i}">${SRC.filter((x) => R.S[x[0]] || x[0] === 'custom').map(([v, l]) => `<option value="${v}" ${cs === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
 </div>
             <div class="fld" data-key="pcent-${i}"><span class="fl">Entitet for betingelsen${cs === 'custom' ? ' · påkrevd' : ''}</span>
               ${M.entityPicker.html({ key: 'pk-cent-' + i, value: p.cent || '', auto: cs === 'custom' ? '' : (cs === p.src && p.ent_override) || (R.autoOf ? R.autoOf(cs) || '' : ''), autoMode: cs !== 'custom', autoLabel: cs === p.src ? 'Samme som boblen' : 'Automatisk', placeholder: 'Velg entitet …', attrs: `data-in="pent" data-i="${i}" data-f="cent"` })}</div>
-            <div class="fld"><span class="fl">Verdi</span><input class="in" data-in="pf" data-i="${i}" data-f="cval" value="${esc(p.cval || '')}" placeholder="F.eks. 1,5 eller låst"><span style="font-size:11px;color:#7f7f7f">${sv ? `${esc(srcL(cs))} er nå ${esc(sv[0])} · setningen ${R.test(p) ? 'vises' : 'skjules'}` : ''}</span></div>` : ''}
+            <div class="fld"><span class="fl">Verdi</span><input class="in" data-in="pf" data-i="${i}" data-f="cval" value="${esc(p.cval || '')}" placeholder="F.eks. 1,5 eller låst"><span style="font-size:11px;color:var(--ki-text-3, #7f7f7f)">${sv ? `${esc(srcL(cs))} er nå ${esc(sv[0])} · setningen ${R.test(p) ? 'vises' : 'skjules'}` : ''}</span></div>` : ''}
         </div>`;
         return row + ed;
       }).join('');
@@ -1310,7 +1311,7 @@
       const fr = (v - G.min) / (G.max - G.min);
       if (!this._pgBound) this._pgBind();
       return `<div class="fld" data-key="pgap"><div style="display:flex;justify-content:space-between;align-items:center"><span class="fl">Avstand til prosa</span><span class="pgv" style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">${v} px</span></div>
-          <div class="pgsl" data-v="${v}" style="position:relative;height:32px;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent"><div style="position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:#545454;overflow:hidden"><div class="pgfi" style="position:absolute;left:0;top:0;bottom:0;width:${(fr * 100).toFixed(2)}%;background:#afafaf"></div></div><div class="pgth" style="position:absolute;top:5px;left:calc((100% - 22px) * ${fr.toFixed(4)});width:22px;height:22px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .15s"></div>
+          <div class="pgsl" data-v="${v}" style="position:relative;height:32px;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent"><div style="position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:var(--ki-ctrl, #545454);overflow:hidden"><div class="pgfi" style="position:absolute;left:0;top:0;bottom:0;width:${(fr * 100).toFixed(2)}%;background:var(--ki-text-2, #afafaf)"></div></div><div class="pgth" style="position:absolute;top:5px;left:calc((100% - 22px) * ${fr.toFixed(4)});width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))));transition:transform .15s"></div>
             <input type="range" aria-label="Avstand til prosa" data-in="pgap" min="${G.min}" max="${G.max}" step="${G.step}" value="${v}" style="position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;pointer-events:none"></div>
           <div class="chs">${(M.HJEM_PROSE_GAP_PRESETS || []).map(([pv, l]) => `<button class="o36 ${pv === v ? 'on-pk' : ''}" data-a="pgap" data-v="${pv}" data-h="selection">${esc(l)}</button>`).join('')}</div>
           <span class="hint" style="padding:0 4px">Mellomrommet mellom headeren og prosaen. Minus trekker prosaen opp mot headeren.</span></div>`;

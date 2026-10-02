@@ -71,12 +71,12 @@ let L = await p.evaluate(() => {
   const sr = window.__c.shadowRoot, card = sr.querySelector('ha-card'), kids = [...card.children].map((e) => e.className || e.localName);
   const wrap = sr.querySelector('.wrap'), W = [...wrap.children].map((e) => e.className.split(' ').filter((x) => x !== 'press').join('.'));
   const hero = sr.querySelector('.msh-hero-slot msh-basseng-hero-card');
-  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('.ptop').textContent.replace(/\s+/g, ' ').trim(), tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
+  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), first: sr.querySelector('.wrap > .tabrow + *') && sr.querySelector('.wrap > .tabrow + *').localName, tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
 });
 ok('A · ett kort i popupen', L.inner.join() === 'msh-basseng-card', L.inner);
-ok('A · rekkefølge: toppkort → prosalinje → faner → innhold', L.kids[0] === 'msh-hero-slot' && L.hero && L.W[0].startsWith('prose') && L.W[1] === 'tabrow', L);
+ok('A · rekkefølge: toppkort → faner → Oversikt med setningen først (fiks 33.1)', L.kids[0] === 'msh-hero-slot' && L.hero && L.W[0] === 'tabrow' && L.first === 'p', L);
 ok('A · toppkortet viser vanntemperatur 26,4', /26,4/.test(L.heroT || ''), L.heroT);
-ok('A · prosalinje «Vannet er 26,4° og 1,6° under målet. Pumpa går nå.»', /Vannet er 26,4° og 1,6° under målet\. Pumpa går nå\./.test(L.prose), L.prose);
+ok('A · setningen «Vannet når 28° om ca X t Y min. Pumpa går nå.» (fiks 33.1)', /^Vannet når 28° om ca \d+ t \d+ min\. Pumpa går nå\.$/.test(L.prose), L.prose);
 ok('A · faner Oversikt · Varme · Klor skjules uten data (Klor/Spreder uten entiteter)', L.tabs.join('|') === 'Oversikt|Varme', L.tabs);
 ok('A · fyller bredden (390 px)', Math.abs(L.w - L.iw) <= 2, [L.w, L.iw]);
 let Q = await quick(p);
@@ -175,8 +175,8 @@ await p.close();
 
 // ---------------- tomt: ingen entiteter → «–» + Velg entitet, toppkortet vises likevel
 p = await page({ area: 'finnes_ikke' }, {});
-S = await p.evaluate(() => { const sr = window.__c.shadowRoot; const hero = sr.querySelector('msh-basseng-hero-card'); return { hero: !!hero && !!hero.shadowRoot.querySelector('.hero'), t: hero && hero.shadowRoot.querySelector('.t').textContent, prose: sr.querySelector('.ptop').textContent.replace(/\s+/g, ' ').trim(), q: sr.querySelectorAll('.ctl .tile').length, pick: !!sr.querySelector('.qempty [data-act="customize"]') }; });
-ok('H · uten entiteter: toppkort med «–», prosalinje «Vannet er –» + Velg entitet, ingen hurtigknapper', S.hero && /–/.test(S.t) && /Vannet er – \. ?Velg entitet|Vannet er –\. Velg entitet/.test(S.prose) && S.q === 0 && S.pick, S);
+S = await p.evaluate(() => { const sr = window.__c.shadowRoot; const hero = sr.querySelector('msh-basseng-hero-card'); return { hero: !!hero && !!hero.shadowRoot.querySelector('.hero'), t: hero && hero.shadowRoot.querySelector('.t').textContent, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), q: sr.querySelectorAll('.ctl .tile').length, pick: !!sr.querySelector('.qempty [data-act="customize"]') }; });
+ok('H · uten entiteter: toppkort med «–», setningen «Vannet når – om ca –.» (aldri skjult), ingen hurtigknapper + Velg entitet', S.hero && /–/.test(S.t) && S.prose === 'Vannet når – om ca –.' && S.q === 0 && S.pick, S);
 await p.close();
 
 ok('ingen sidefeil', !errs.length, errs);

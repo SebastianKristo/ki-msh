@@ -314,49 +314,49 @@
     .mini.exp{height:172px;border-radius:32px}
     .mrow.mx{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:10px 12px 12px}
     .mxt{display:flex;align-items:center;gap:8px;height:48px;flex:none;min-width:0}
-    .mseek{position:relative;height:40px;flex:none;border-radius:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,0.08);touch-action:none;-webkit-touch-callout:none}
-    .mini.glass .mseek{background:rgba(255,255,255,0.12)}
+    .mseek{position:relative;height:40px;flex:none;border-radius:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;background:rgb(0 0 0/0.08);touch-action:none;-webkit-touch-callout:none}
+    .mini.glass .mseek{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .mseek.dis{opacity:.5}
     .mseek .mskf{position:absolute;left:0;top:0;bottom:0;background:${C.pink};border-radius:20px 0 0 20px;pointer-events:none}
     .mseek span{position:relative;z-index:1;pointer-events:none}
     .mxb{display:flex;align-items:center;justify-content:space-between;height:46px;flex:none;padding:0 2px}
     .mxb .mvb:disabled{opacity:.35}
-    .mini.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
-    .mini.glass{background:${'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))'},rgba(40,40,44,0.5);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 18px 40px rgba(0,0,0,0.45)}
+    .mini.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
+    .mini.glass{background:${'linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06))'},var(--ki-glass, rgba(40,40,44,0.5));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25),0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))}
     .mini.off{opacity:0;pointer-events:none;--mo:24px}
     .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x}
     .msw::-webkit-scrollbar{display:none}
     .mrow{flex:none;width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;gap:8px;padding:8px 9px 8px 8px;min-width:0}
     .mhit{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;text-align:left;border-radius:24px}
-    .mart{position:relative;width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;color:#fafafa}
+    .mart{position:relative;width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;color:var(--ki-text, #fafafa)}
     .mart img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;animation:mshMiniFade .2s ease-out}
     .mtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .mtx b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
     .mtx i{font-style:normal;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;opacity:.62}
     .mvb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center}
-    .mpp{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;background:#fafafa;color:#232323;box-shadow:0 2px 8px rgba(0,0,0,0.18);transition:transform .12s}
+    .mpp{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323);box-shadow:0 2px 8px rgb(0 0 0/0.18);transition:transform .12s}
     .mpp:active,.mvb:active{transform:scale(.92)}
     /* Fiks 20.20: dra fra play/pause → ⏮/⏭ glir ut fra knappen til midten (± 62 px); fasit m.sk */
     .mpp{touch-action:none;-webkit-touch-callout:none}
     .msk{position:absolute;inset:0;pointer-events:none;z-index:3}
-    .mskb{position:absolute;width:46px;height:46px;border-radius:23px;display:grid;place-items:center;opacity:0;transform:translateX(0) scale(.4);transition:transform .22s ease,opacity .22s ease,background .15s;box-shadow:0 4px 14px rgba(0,0,0,0.3)}
-    .mini.white .mskb{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323)}
-    .mini.glass .mskb{background:rgba(58,58,62,0.94);color:#fafafa;box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),0 6px 16px rgba(0,0,0,0.4)}
+    .mskb{position:absolute;width:46px;height:46px;border-radius:23px;display:grid;place-items:center;opacity:0;transform:translateX(0) scale(.4);transition:transform .22s ease,opacity .22s ease,background .15s;box-shadow:0 4px 14px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))))}
+    .mini.white .mskb{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323))}
+    .mini.glass .mskb{background:var(--ki-surface, rgba(58,58,62,0.94));color:var(--ki-glass-fg, #fafafa);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),0 6px 16px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))}
     .msk.out .mskb{opacity:1;transform:translateX(var(--tx)) scale(1);transition:transform .38s cubic-bezier(.34,1.4,.64,1),opacity .2s ease,background .15s}
     .msk.out .mskb.dis{opacity:.35}
     .msk.rdy .mskb,.msk.cl .mskb{transition-delay:0s!important}
     .msk.rdy .mskb{transition:transform .15s ease,opacity .15s ease,background .15s}
-    .msk.out .mskb.on{transform:translateX(var(--tx)) scale(1.14);background:linear-gradient(135deg,#f7a8d9,${C.pink});color:#232323}
-    .mvp{position:relative;flex:1;min-width:0;height:40px;border-radius:20px;overflow:hidden;display:flex;align-items:center;touch-action:none;background:rgba(0,0,0,0.1)}
-    .mini.glass .mvp{background:rgba(255,255,255,0.12)}
+    .msk.out .mskb.on{transform:translateX(var(--tx)) scale(1.14);background:linear-gradient(135deg,#f7a8d9,${C.pink});color:var(--ki-on-accent, #232323)}
+    .mvp{position:relative;flex:1;min-width:0;height:40px;border-radius:20px;overflow:hidden;display:flex;align-items:center;touch-action:none;background:rgb(0 0 0/0.1)}
+    .mini.glass .mvp{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .mvf{position:absolute;left:0;top:0;bottom:0;background:${C.pink};border-radius:20px 0 0 20px;pointer-events:none}
     .mvl{position:relative;z-index:1;flex:1;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:14px;font-weight:600;pointer-events:none;white-space:nowrap}
     .mvp .mst{position:relative;z-index:1;width:36px;height:40px;flex:none;display:grid;place-items:center;touch-action:manipulation}
     .mvp.tvs{padding:0 3px;gap:4px}
     .mvp.tvs .mvf{display:none}
     .mvp.tvs .mvl{justify-content:center;padding:0 4px}
-    .mvp.tvs .mst{width:34px;height:34px;border-radius:17px;background:rgba(0,0,0,0.1)}
-    .mini.glass .mvp.tvs .mst{background:rgba(255,255,255,0.14)}
+    .mvp.tvs .mst{width:34px;height:34px;border-radius:17px;background:rgb(0 0 0/0.1)}
+    .mini.glass .mvp.tvs .mst{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .mvp.tvs .mst:active{transform:scale(.9)}
     .mdots{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);display:flex;gap:0;z-index:2}
     .mdots button{width:13px;height:9px;display:grid;place-items:center}
@@ -364,7 +364,7 @@
     .mdots button.on span{opacity:.9}
     @keyframes mshMiniFade{from{opacity:0}}
     @media (prefers-reduced-motion: reduce){.mini{transition:opacity .25s ease}.mini.off{--mo:0px}}
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:#2f2f2f}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:var(--ki-surface-3, #2f2f2f)}}
   `;
 
   /* ------------------------------------------------------------ CSS */
@@ -372,27 +372,27 @@
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
     nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:var(--ki-nav-bottom, 8px)}
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
-    nav.nb.white{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgba(0,0,0,0.35)}
-    nav.nb.glass{background:rgba(40,40,44,0.38);color:#fafafa;backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.25)}
+    nav.nb.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
+    nav.nb.glass{background:var(--ki-glass, rgba(40,40,44,0.38));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1)))),0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
     nav.nb.inline{position:relative;left:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0 auto}
     nav.nb.inline.row{width:100%!important;max-width:392px}
-    nav.nb .gl1{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06));pointer-events:none}
-    nav.nb .sheen{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(120px 60px at var(--lx,50%) 0%,rgba(255,255,255,0.28),transparent 70%)}
-    nav.nb .gl2{position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(255,255,255,0.08),inset 0 0 0 0.5px rgba(255,255,255,0.18);pointer-events:none}
+    nav.nb .gl1{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06));pointer-events:none}
+    nav.nb .sheen{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(120px 60px at var(--lx,50%) 0%,rgb(255 255 255/0.28),transparent 70%)}
+    nav.nb .gl2{position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgb(255 255 255/0.35),inset 0 -1px 0 rgb(255 255 255/0.08),inset 0 0 0 0.5px rgb(255 255 255/0.18);pointer-events:none}
     nav.nb .ind{position:absolute;border-radius:999px;pointer-events:none;transition:left .5s cubic-bezier(.34,1.4,.64,1),top .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),opacity .25s}
-    nav.nb.glass .ind{background:rgba(18,18,20,0.62);box-shadow:inset 0 2px 6px rgba(0,0,0,0.45),inset 0 -1px 0 rgba(255,255,255,0.06),inset 0 0 0 0.5px rgba(255,255,255,0.05);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    nav.nb.glass .ind{background:var(--ki-glass-ind, rgba(18,18,20,0.62));box-shadow:inset 0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1)))),inset 0 -1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
     nav.nb.white .ind{display:none}
     nav.nb .it{position:relative;z-index:1;min-width:0;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.34,1.8,.64,1),color .25s}
     nav.nb .it:active{transform:scale(.84)}
     nav.nb .it{-webkit-touch-callout:none}
     nav.nb.reord .it{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-    nav.nb.reord .it.lift{transition:none;z-index:5;background:rgba(255,255,255,0.92);color:#232323!important;box-shadow:0 8px 22px rgba(0,0,0,0.35)}
-    nav.nb.glass.reord .it.lift{background:rgba(255,255,255,0.28);color:#fafafa!important}
+    nav.nb.reord .it.lift{transition:none;z-index:5;background:var(--ki-surface, rgba(255,255,255,0.92));color:var(--ki-text, #232323)!important;box-shadow:0 8px 22px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
+    nav.nb.glass.reord .it.lift{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, #fafafa)!important}
     nav.nb.row .it{flex:1 1 0}
     nav.nb.rail .it{flex:none}
-    nav.nb.glass .it ha-icon{filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))}
+    nav.nb.glass .it ha-icon{filter:drop-shadow(0 1px 2px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1)))))}
     nav.nb .nm{white-space:nowrap;line-height:1.15}
-    nav.nb .od{position:absolute;left:calc(50% - 2.5px);bottom:4px;width:5px;height:5px;border-radius:3px;background:var(--gray000,#232323);pointer-events:none;z-index:2;transform:scale(0);transition:transform .3s cubic-bezier(.34,1.8,.64,1)}
+    nav.nb .od{position:absolute;left:calc(50% - 2.5px);bottom:4px;width:5px;height:5px;border-radius:3px;background:var(--ki-text, var(--gray000,#232323));pointer-events:none;z-index:2;transform:scale(0);transition:transform .3s cubic-bezier(.34,1.8,.64,1)}
     nav.nb.glass .od{background:${C.pink}}
     nav.nb .it.open .od{transform:scale(1)}
     nav.nb .dot{position:absolute;left:calc(50% + 5px);top:calc(50% - 16px);width:11px;height:11px;border-radius:6px;background:var(--red,#f28073);pointer-events:none;z-index:2}
@@ -402,10 +402,10 @@
     nav.nb.row.glass .dot{left:calc(50% + 4px);top:calc(50% - 20px);width:9px;height:9px;border-radius:5px}
     nav.nb.glass .od{display:none}
     nav.nb .gd-lens{position:absolute;z-index:3;pointer-events:none}
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:#2f2f2f}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:var(--ki-surface-3, #2f2f2f)}}
   `;
   const PORTAL_CSS = `
-    :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:#fafafa;font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+    :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:var(--ki-text, #fafafa);font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
     :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
     :host([data-vaer]) nav.nb,:host([data-vaer]) .mini{opacity:0 !important;pointer-events:none !important} /* 28.4: skjult mens #vaer er åpen */
@@ -416,27 +416,27 @@
     ${NAV_CSS}
     .mbg{position:fixed;inset:0;z-index:25}
     .mpos{position:fixed;z-index:26}
-    .mbox{min-width:176px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;padding:8px;border-radius:18px;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);box-shadow:0 18px 40px rgba(0,0,0,0.45);display:flex;flex-direction:column;touch-action:none;animation:mshMenu .22s ease-out}
+    .mbox{min-width:176px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;padding:8px;border-radius:18px;background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))));display:flex;flex-direction:column;touch-action:none;animation:mshMenu .22s ease-out}
     .mbox::-webkit-scrollbar{display:none}
     .mbox.ic{min-width:0;padding:6px;border-radius:26px}
     .mi{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .18s ease}
-    .mbox.reord .mi{transition:transform .18s ease}.mbox.reord .mi.lift{transition:none;z-index:5;background:rgba(255,255,255,0.92);color:#232323!important;box-shadow:0 8px 22px rgba(0,0,0,0.35)}
-    .mbox.glass.reord .mi.lift{background:rgba(255,255,255,0.28);color:#fafafa!important}
+    .mbox.reord .mi{transition:transform .18s ease}.mbox.reord .mi.lift{transition:none;z-index:5;background:var(--ki-surface, rgba(255,255,255,0.92));color:var(--ki-text, #232323)!important;box-shadow:0 8px 22px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
+    .mbox.glass.reord .mi.lift{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, #fafafa)!important}
     .mbox{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
     .mi{position:relative;height:50px;padding:0 14px 0 12px;border-radius:12px;display:flex;align-items:center;gap:14px;font-size:14px;font-weight:500;white-space:nowrap;flex:none}
     .mbox.ic .mi{width:50px;padding:0;border-radius:25px;justify-content:center}
-    .mi:hover{background:rgba(0,0,0,0.05)}
+    .mi:hover{background:rgb(0 0 0/0.05)}
     .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto}
     .mbox.ic .mi .mdot{position:absolute;right:9px;top:9px;margin:0}
-    .sep{flex:none;align-self:stretch;min-width:24px;height:1.5px;border-radius:1px;background:rgba(0,0,0,0.16);margin:8px 10px}
+    .sep{flex:none;align-self:stretch;min-width:24px;height:1.5px;border-radius:1px;background:rgb(0 0 0/0.16);margin:8px 10px}
     .mbox{position:relative}
     /* «Mer» i liquid glass (Fiks 3 · 7c): glassSurface('menu'), radius 32, bredde 64 (kun ikoner), ikoner #fafafa 22 */
     .mbox.glass{${M.glassSurface('menu')}border-radius:32px;padding:7px}
     .mbox.glass.ic{width:64px}
-    .mbox.glass .mi{color:#fafafa!important;border-radius:25px}
-    .mbox.glass .mi ha-icon{color:#fafafa!important}
-    .mbox.glass .mi:hover{background:rgba(255,255,255,0.08)}
-    .mbox.glass .sep{background:rgba(255,255,255,0.18)}
+    .mbox.glass .mi{color:var(--ki-text, #fafafa)!important;border-radius:25px}
+    .mbox.glass .mi ha-icon{color:var(--ki-text, #fafafa)!important}
+    .mbox.glass .mi:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .mbox.glass .sep{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     ${M.glassFallback('.mbox.glass', 'menu')}
     ${MINI_CSS}
     @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
@@ -639,7 +639,7 @@
         : `top:5px;bottom:5px;left:calc(14px + ${Math.max(0, act)} * ((100% - 28px) / ${N_}) - 6px);width:calc((100% - 28px) / ${N_} + 12px)`;
       const btns = items.map((it, i) => {
         const on = i === act;
-        const col = glass ? (on ? C.pink : '#fafafa') : 'var(--gray000,#232323)';
+        const col = glass ? (on ? (M.theme ? M.theme.accentText(C.pink) : C.pink) : 'var(--ki-glass-fg, #fafafa)') : 'var(--ki-text, var(--gray000,#232323))';
         return `<button class="it${i === open ? ' open' : ''}" data-key="${esc(it.id)}" data-act="go" data-id="${esc(it.id)}" data-haptic="${it.id === '__more' ? 'light' : 'selection'}" title="${esc(it.label + (it.badge ? ' · ' + it.badge : ''))}" aria-label="${esc(it.label)}" style="width:${rail ? SZ + 'px' : 'auto'};height:${itemH}px;gap:${gRow ? 0 : glass ? 3 : 1}px;color:${col};font-weight:${glass ? 600 : 500}">
           ${M.icon(it.icon, gRow ? 22 : rail ? 28 : 27)}
           ${names ? `<span class="nm" style="font-size:${gRow ? 11 : glass ? 13 : 9}px;font-weight:${glass ? 600 : 500};letter-spacing:${glass ? '-0.01em' : '0'}${gRow ? ';margin-top:2px' : ''}">${esc(it.label)}</span>` : ''}
@@ -669,20 +669,20 @@
         ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
-        <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:#7f7f7f;flex:none')}</button>`).join('')}</div>`;
+        <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
       // 28.8/28.11: geometrien (top 50 px, bunnforankret over navbaren, radius 28 28 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
-      const css = `.sh{background:var(--gray050,#282828)}
+      const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
         .tpd{${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille */
-        .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--gray200,#3a3a3a);overflow:hidden}
-        .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:#fafafa;border-top:1px solid rgba(255,255,255,0.06)}
+        .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
+        .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa);border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .tpr:first-child{border-top:0}
-        .tpr:active{background:rgba(255,255,255,0.04)}
-        .tpi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:#fafafa}
+        .tpr:active{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .tpi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}
         .tpx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .tpx b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .tpx i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
+        .tpx i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`;
       const ov = M.overlay({ html: html(), css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { this._tpSheet = null; } });
       ov.host.setAttribute('data-tilpass', '');
       ov.root.addEventListener('click', (e) => {
@@ -708,9 +708,9 @@
       if (c.admin_tools !== false) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
         // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus). Prikk = nye rom/funksjoner usjekket (23.7)
-        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--gray000,#232323)', 'mtool', M.tilpassAltDot && M.tilpassAltDot()));
+        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--ki-text, var(--gray000,#232323))', 'mtool', M.tilpassAltDot && M.tilpassAltDot()));
       }
-      const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--gray000,#232323)', 'go', this._badge(N, id)); }).join('');
+      const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--ki-text, var(--gray000,#232323))', 'go', this._badge(N, id)); }).join('');
       // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye
       const lift = !geo.rail && this._mShow ? (this._mHm || 64) + 10 : 0;
       let pos;
@@ -1106,7 +1106,7 @@
         } else mid = `<button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>`;
         if (this._mExp === id) return this._miniExpRow(id, s, a, art, name, sub, playing, tv);
         return `<div class="mrow" data-mid="${esc(id)}" data-key="mr_${esc(id)}">${mid}
-          <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" aria-label="${vol ? 'Lukk volum' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--red,#f28073)' : '')}</button>
+          <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" aria-label="${vol ? 'Lukk volum' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--ki-red-text, var(--red,#f28073))' : '')}</button>
           <button class="mpp" data-act="mplay" data-id="${esc(id)}" data-mhold="hide" aria-label="${playing ? 'Pause' : 'Spill'}">${M.icon(playing ? 'mdi:pause' : 'mdi:play', 26)}</button>
         </div>`;
       }).join('');
@@ -1558,8 +1558,8 @@
     get styles() {
       return `${NAV_CSS}
         :host{min-height:0}
-        .pv{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:24px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
-        .pvh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray700,#979797)}
+        .pv{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .pvh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
       `;
     }
   }
@@ -1570,90 +1570,90 @@
   if (!Base || customElements.get('msh-navbar-editor')) return;
   const ED_CSS = `
     .nbx{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-    .nbx .gt{font-size:13px;color:#979797;padding:6px 6px 0}
-    .nrow{display:flex;align-items:center;gap:6px;height:56px;padding:0 6px 0 16px;border-radius:28px;background:#3a3a3a;min-width:0}
+    .nbx .gt{font-size:13px;color:var(--ki-text-mid, #979797);padding:6px 6px 0}
+    .nrow{display:flex;align-items:center;gap:6px;height:56px;padding:0 6px 0 16px;border-radius:28px;background:var(--ki-surface, #3a3a3a);min-width:0}
     .nrow .lb{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .b36{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center}
-    .ud{display:flex;flex:none;border-radius:18px;background:#232323;padding:2px}
-    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#fafafa}
+    .ud{display:flex;flex:none;border-radius:18px;background:var(--ki-bg, #232323);padding:2px}
+    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text, #fafafa)}
     .ud button.off{opacity:.2;pointer-events:none}
-    .ned{display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:22px;background:#3a3a3a}
+    .ned{display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:22px;background:var(--ki-surface, #3a3a3a)}
     .fl{display:flex;flex-direction:column;gap:6px}
-    .cap{font-size:12px;color:#979797}
-    .i44{height:44px;border-radius:14px;padding:0 14px;background:#232323;color:#fafafa;font-size:15px;width:100%;min-width:0}
-    .icp{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#232323}
-    msh-icon-field{--msh-if-bg:#232323;--msh-if-ic:#3a3a3a} msh-tap-picker{--msh-tp-bg:#232323}
-    :host([glass]) msh-icon-field{--msh-if-bg:rgba(0,0,0,0.25);--msh-if-ic:rgba(255,255,255,0.12)} :host([glass]) msh-tap-picker{--msh-tp-bg:rgba(0,0,0,0.25)}
+    .cap{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .i44{height:44px;border-radius:14px;padding:0 14px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:15px;width:100%;min-width:0}
+    .icp{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-bg, #232323)}
+    msh-icon-field{--msh-if-bg:var(--ki-bg, #232323);--msh-if-ic:var(--ki-surface, #3a3a3a)} msh-tap-picker{--msh-tp-bg:var(--ki-bg, #232323)}
+    :host([glass]) msh-icon-field{--msh-if-bg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));--msh-if-ic:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)))} :host([glass]) msh-tap-picker{--msh-tp-bg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
     .ln{display:flex;gap:8px;align-items:center}
     .sug{display:flex;gap:6px;flex-wrap:wrap;max-height:124px;overflow-y:auto;scrollbar-width:none}
-    .chp{height:32px;padding:0 8px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:#545454;color:#fafafa}
-    .chp.on{background:${PINK};color:#2f2f2f}
-    .bdg{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08)}
+    .chp{height:32px;padding:0 8px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
+    .chp.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .bdg{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .bh{display:flex;align-items:center;gap:8px}
     .bh .t{flex:1;font-size:13px;font-weight:500}
-    .st{flex:none;font-size:11px;font-weight:600;padding:4px 9px;border-radius:10px;background:#232323;color:#7f7f7f;white-space:nowrap}
-    .st.red{background:${M.alpha(C.red, 0.2)};color:${C.red}}
-    .st.amb{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-    .rule{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:#2f2f2f}
+    .st{flex:none;font-size:11px;font-weight:600;padding:4px 9px;border-radius:10px;background:var(--ki-bg, #232323);color:var(--ki-text-3, #7f7f7f);white-space:nowrap}
+    .st.red{background:${M.alpha(C.red, 0.2)};color:${M.theme ? M.theme.accentText(C.red) : C.red}}
+    .st.amb{background:${M.alpha(C.orange, 0.2)};color:${M.theme ? M.theme.accentText(C.orange) : C.orange}}
+    .rule{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:var(--ki-surface-3, #2f2f2f)}
     .r1{display:flex;align-items:center;gap:6px}
-    .epk{flex:1;min-width:0;height:38px;border-radius:12px;background:#232323;display:flex;align-items:center;gap:8px;padding:0 10px}
+    .epk{flex:1;min-width:0;height:38px;border-radius:12px;background:var(--ki-bg, #232323);display:flex;align-items:center;gap:8px;padding:0 10px}
     .epk .v{flex:1;min-width:0;display:flex;flex-direction:column}
     .epk .v b{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .epk .v i{font-style:normal;font-size:10px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .d34{width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
-    .seg{display:flex;gap:2px;padding:3px;border-radius:15px;background:#232323;flex:none}
-    .seg button{height:28px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap;color:#afafaf}
-    .seg button.on{background:${PINK};color:#2f2f2f}
-    .i34{flex:1;min-width:0;height:34px;border-radius:10px;padding:0 10px;background:#232323;color:#fafafa;font-size:13px;text-align:center}
-    .i36{height:36px;border-radius:10px;padding:0 10px;background:#232323;color:#fafafa;font-size:13px;width:100%}
-    .rule .inp{height:36px;border-radius:10px;background:#232323;font-size:12px}
-    .hint{font-size:11px;color:#7f7f7f;line-height:1.4}
+    .epk .v i{font-style:normal;font-size:10px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .d34{width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${M.theme ? M.theme.accentText(C.red) : C.red}}
+    .seg{display:flex;gap:2px;padding:3px;border-radius:15px;background:var(--ki-bg, #232323);flex:none}
+    .seg button{height:28px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--ki-text-2, #afafaf)}
+    .seg button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .i34{flex:1;min-width:0;height:34px;border-radius:10px;padding:0 10px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:13px;text-align:center}
+    .i36{height:36px;border-radius:10px;padding:0 10px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:13px;width:100%}
+    .rule .inp{height:36px;border-radius:10px;background:var(--ki-bg, #232323);font-size:12px}
+    .hint{font-size:11px;color:var(--ki-text-3, #7f7f7f);line-height:1.4}
     .hint b{color:#c7c7c7;font-weight:600}
-    .ol{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)}
-    .s44{height:44px;width:100%;border-radius:14px;padding:0 12px;background:#232323;color:#fafafa;font-size:14px;color-scheme:dark;cursor:pointer}
-    .dlb{height:44px;border-radius:22px;background:${M.alpha(C.red, 0.2)};color:${C.red};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
-    .rsb{height:44px;border-radius:22px;background:#232323;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
-    .add{height:54px;border-radius:27px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
-    .tg{height:54px;padding:0 14px 0 16px;border-radius:27px;background:#3a3a3a;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;width:100%}
+    .ol{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .s44{height:44px;width:100%;border-radius:14px;padding:0 12px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:14px;color-scheme:dark;cursor:pointer}
+    .dlb{height:44px;border-radius:22px;background:${M.alpha(C.red, 0.2)};color:${M.theme ? M.theme.accentText(C.red) : C.red};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
+    .rsb{height:44px;border-radius:22px;background:var(--ki-bg, #232323);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
+    .add{height:54px;border-radius:27px;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
+    .tg{height:54px;padding:0 14px 0 16px;border-radius:27px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;width:100%}
     .tg .tx2{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left}
-    .tg .tx2 b{font-size:15px;font-weight:500} .tg .tx2 i{font-style:normal;font-size:12px;font-weight:400;color:#979797}
+    .tg .tx2 b{font-size:15px;font-weight:500} .tg .tx2 i{font-style:normal;font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)}
     .tg:has(.tx2){height:auto;min-height:62px;padding-top:8px;padding-bottom:8px;border-radius:24px;gap:10px}
-    .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:#545454;transition:background .2s}
+    .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
     .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
-    .trk.on .knb{left:23px;background:#2f2f2f}
-    .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a}
-    .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#3a3a3a}
+    .trk.on .knb{left:23px;background:var(--ki-surface-3, #2f2f2f)}
+    .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface, #3a3a3a)}
     .nbbot .ln{display:flex;align-items:center;gap:10px}
     .nbbot input[type=range]{flex:1;min-width:0;accent-color:#f285c9;touch-action:none;cursor:pointer}
-    .nbbot .nbbv{flex:none;min-width:48px;text-align:right;font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
+    .nbbot .nbbv{flex:none;min-width:48px;text-align:right;font-size:13px;color:var(--ki-text, #fafafa);font-variant-numeric:tabular-nums}
     .nbbot .rsb{flex:none;height:36px;padding:0 14px;border-radius:18px}
     :host([glass]) .nbbot{${M.glassSurface('row')}}
     /* Fiks 20.6: inni kortet «Plassering og oppførsel» (#3a3a3a) – rader på indre flate #404040, avstand-delen skilt med tynn linje */
-    .nbpl .tg,.nbpl .wseg{background:#404040}
+    .nbpl .tg,.nbpl .wseg{background:var(--ki-surface-2, #404040)}
     .nbpl .gt{padding:6px 4px 0}
-    .nbpl .gt.nbbl{font-size:12px;color:#979797;margin-top:6px;padding:12px 4px 0;border-top:1px solid rgba(255,255,255,0.06)}
+    .nbpl .gt.nbbl{font-size:12px;color:var(--ki-text-mid, #979797);margin-top:6px;padding:12px 4px 0;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .nbpl .nbbot{padding:4px 4px 0;background:none}
     :host([glass]) .nbpl .nbbot{background:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
-    .wseg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf}
-    .wseg button.on{background:${PINK};color:#2f2f2f}
+    .wseg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:var(--ki-text-2, #afafaf)}
+    .wseg button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .profs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .prof{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px;border-radius:26px;background:#3a3a3a;min-width:0}
+    .prof{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px;border-radius:26px;background:var(--ki-surface, #3a3a3a);min-width:0}
     .prof.on{box-shadow:inset 0 0 0 2px ${C.pink}}
     .pvw{display:flex;gap:10px;padding:12px 14px;border-radius:24px;max-width:100%;overflow:hidden}
-    .pvw.white{background:#e1e1e1;color:#232323}
-    .pvw.glass{background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06));color:#fafafa;box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),inset 0 0 0 0.5px rgba(255,255,255,0.2)}
+    .pvw.white{background:var(--ki-surface, #e1e1e1);color:var(--ki-text, #232323)}
+    .pvw.glass{background:linear-gradient(180deg,rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))));color:var(--ki-text, #fafafa);box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.2*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .pft{display:flex;align-items:center;justify-content:space-between;width:100%;gap:6px}
     .pft .x{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0}
-    .pft .x b{font-size:15px;font-weight:600} .pft .x i{font-style:normal;font-size:12px;color:#979797}
+    .pft .x b{font-size:15px;font-weight:600} .pft .x i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     /* Liquid glass (glassark, se 01-editor): rader/grupper = glassSurface('row'), spor/felt rgba(0,0,0,.25), aktivt segment = glassboble */
     :host([glass]) .nrow,:host([glass]) .ned,:host([glass]) .tg,:host([glass]) .prof,:host([glass]) .rule,:host([glass]) .rsb{${M.glassSurface('row')}}
     :host([glass]) .prof.on{box-shadow:inset 0 0 0 2px ${C.pink}}
-    :host([glass]) .seg,:host([glass]) .wseg,:host([glass]) .ud,:host([glass]) .i44,:host([glass]) .icp,:host([glass]) .epk,:host([glass]) .i34,:host([glass]) .i36,:host([glass]) .s44,:host([glass]) .st,:host([glass]) .rule .inp{background:rgba(0,0,0,0.25)}
+    :host([glass]) .seg,:host([glass]) .wseg,:host([glass]) .ud,:host([glass]) .i44,:host([glass]) .icp,:host([glass]) .epk,:host([glass]) .i34,:host([glass]) .i36,:host([glass]) .s44,:host([glass]) .st,:host([glass]) .rule .inp{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
     :host([glass]) .seg,:host([glass]) .wseg{touch-action:pan-y}
     :host([glass]) .seg button.on,:host([glass]) .wseg button.on{${M.GLASS_BUBBLE}}
-    :host([glass]) .seg button,:host([glass]) .wseg button,:host([glass]) .gt,:host([glass]) .cap,:host([glass]) .pft .x i{color:rgba(255,255,255,0.62)}
-    :host([glass]) .chp:not(.on),:host([glass]) .trk:not(.on){background:rgba(255,255,255,0.14)}
+    :host([glass]) .seg button,:host([glass]) .wseg button,:host([glass]) .gt,:host([glass]) .cap,:host([glass]) .pft .x i{color:var(--ki-text-2, rgba(255,255,255,0.62))}
+    :host([glass]) .chp:not(.on),:host([glass]) .trk:not(.on){background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
   `;
 
   class NavEditor extends Base {
@@ -1714,20 +1714,20 @@
       if (!M.kioskEntity) return '';
       const h = this._hass || {}, ent = M.kioskEntity(), s = h.states && h.states[ent], on = !!(s && s.state === 'on');
       const n = M.kioskCount ? M.kioskCount() : 0;
-      return `<style>.nbk{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:24px;background:#3a3a3a}
+      return `<style>.nbk{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
         .nbk .kr{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px;border-radius:18px;text-align:left;color:inherit;width:100%;box-sizing:border-box}
-        .nbk .kic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:#404040;color:#afafaf}
-        .nbk .kic.on{background:${PINK};color:#2f2f2f}
+        .nbk .kic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--ki-surface-2, #404040);color:var(--ki-text-2, #afafaf)}
+        .nbk .kic.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
         .nbk .kt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-        .nbk .kt b{font-size:15px;font-weight:500} .nbk .kt i{font-style:normal;font-size:12px;color:#979797;overflow-wrap:anywhere}
-        .nbk .ksep{height:1px;margin:0 10px;background:rgba(255,255,255,0.06)}
+        .nbk .kt b{font-size:15px;font-weight:500} .nbk .kt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);overflow-wrap:anywhere}
+        .nbk .ksep{height:1px;margin:0 10px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         :host([glass]) .nbk{${M.glassSurface('row')}}</style>
         <div class="nbx"><span class="gt">Kiosk-modus</span></div>
         <div class="nbk" data-key="nbkiosk">
           <div class="kr"><span class="kic ${on ? 'on' : ''}">${M.icon('mdi:fit-to-screen-outline', 22)}</span><span class="kt"><b>Kiosk-modus er ${on ? 'på' : 'av'}</b><i>${esc(ent)}${s ? '' : ' · finnes ikke'} · påvirker ${n} valg</i></span>
             <button class="trk ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Kiosk-modus" data-a="nbkiosk"><span class="knb"></span></button></div>
           <div class="ksep"></div>
-          <button class="kr" data-a="nbkset"><span class="kic">${M.icon('mdi:tune-variant', 22)}</span><span class="kt"><b>Kiosk-innstillinger</b><i>Hvem og hva</i></span>${M.icon('mdi:chevron-right', 22, 'color:#7f7f7f')}</button>
+          <button class="kr" data-a="nbkset"><span class="kic">${M.icon('mdi:tune-variant', 22)}</span><span class="kt"><b>Kiosk-innstillinger</b><i>Hvem og hva</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>
         </div>`;
     }
     _patch(obj) {
@@ -1759,9 +1759,9 @@
         let html = `<div class="nrow" data-key="r_${esc(id)}" style="opacity:${hid ? 0.55 : 1}">
           ${M.icon(icon, 22)}
           <span class="lb">${esc(label)}${R.length ? `<span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:${C.red};margin-left:6px;vertical-align:middle"></span>` : ''}</span>
-          <button class="b36" data-a="nbsel" data-id="${esc(id)}" title="Rediger">${M.icon('edit', 20, `color:${open ? C.pink : '#afafaf'}`)}</button>
+          <button class="b36" data-a="nbsel" data-id="${esc(id)}" title="Rediger">${M.icon('edit', 20, `color:${open ? C.pink : 'var(--ki-text-2, #afafaf)'}`)}</button>
           <div class="ud"><button class="${i > 0 ? '' : 'off'}" data-a="nbmv" data-k="${key}" data-i="${i}" data-d="-1" title="Flytt opp">${M.icon('expand_less', 20)}</button><button class="${i < list.length - 1 ? '' : 'off'}" data-a="nbmv" data-k="${key}" data-i="${i}" data-d="1" title="Flytt ned">${M.icon('expand_more', 20)}</button></div>
-          <button class="b36" data-a="nbhide" data-id="${esc(id)}" title="Vis / skjul">${M.icon(hid ? 'visibility_off' : 'visibility', 20, `color:${hid ? '#696969' : '#afafaf'}`)}</button>
+          <button class="b36" data-a="nbhide" data-id="${esc(id)}" title="Vis / skjul">${M.icon(hid ? 'visibility_off' : 'visibility', 20, `color:${hid ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text-2, #afafaf)'}`)}</button>
           <button class="b36" data-a="nbswap" data-id="${esc(id)}" data-k="${key}" title="${key === 'bar' ? 'Flytt til menyen' : 'Legg i navbaren'}">${M.icon(key === 'bar' ? 'do_not_disturb_on' : 'add_circle', 22, `color:${key === 'bar' ? C.red : C.green}`)}</button>
         </div>`;
         if (!open) return html;
@@ -1774,13 +1774,13 @@
           const unit = s && s.attributes.unit_of_measurement ? s.attributes.unit_of_measurement : '';
           return `<div class="rule" data-key="ru_${esc(id)}_${ri}">
             <div class="r1">
-              <div class="epk">${M.icon(x.entity ? M.domainIcon(x.entity, s) : 'sensors', 18, 'color:#afafaf')}<span class="v"><b>${esc(x.entity ? (s ? s.attributes.friendly_name || x.entity : x.entity) : 'Ikke valgt')}</b><i>${esc(x.entity ? x.entity + (s ? '' : ' · finnes ikke') : 'Velg entitet under')}</i></span></div>
+              <div class="epk">${M.icon(x.entity ? M.domainIcon(x.entity, s) : 'sensors', 18, 'color:var(--ki-text-2, #afafaf)')}<span class="v"><b>${esc(x.entity ? (s ? s.attributes.friendly_name || x.entity : x.entity) : 'Ikke valgt')}</b><i>${esc(x.entity ? x.entity + (s ? '' : ' · finnes ikke') : 'Velg entitet under')}</i></span></div>
               <span class="st ${hit ? 'amb' : ''}">${hit ? 'Slår til nå' : 'Ikke nå'}</span>
               <button class="d34" data-a="nbrdel" data-id="${esc(id)}" data-i="${ri}" title="Fjern">${M.icon('delete', 18)}</button>
             </div>
             ${this._search({ type: 'entity' }, `nbq_${id}_${ri}`, 'nbent', `${id}|${ri}`, x.entity ? 'Bytt entitet …' : 'Søk entitet …')}
             <div class="r1"><div class="seg">${OPS.map(([o, l]) => `<button class="${op === o ? 'on' : ''}" aria-selected="${op === o}" data-a="nbrop" data-id="${esc(id)}" data-i="${ri}" data-v="${esc(o)}">${l}</button>`).join('')}</div>
-              <input class="i34" data-nbf="rval" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.value ?? '')}" placeholder="${num ? '0' : 'on, open'}">${unit && num ? `<span style="font-size:12px;color:#979797;flex:none">${esc(unit)}</span>` : ''}</div>
+              <input class="i34" data-nbf="rval" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.value ?? '')}" placeholder="${num ? '0' : 'on, open'}">${unit && num ? `<span style="font-size:12px;color:var(--ki-text-mid, #979797);flex:none">${esc(unit)}</span>` : ''}</div>
             <span class="hint">${num ? 'Tallverdi – prikken vises når entiteten er over/under.' : 'Skill flere tilstander med komma – én av dem holder (||).'} Nå: <b>${esc(s ? M.fmtState(h, x.entity) + (num ? '' : ` (${s.state})`) : '–')}</b></span>
             <input class="i36" data-nbf="rtext" data-id="${esc(id)}" data-i="${ri}" value="${esc(x.text || '')}" placeholder="Tekst i varselet">
           </div>`;
@@ -1797,7 +1797,7 @@
     : `<div class="ln"><span class="icp">${M.icon(curIcon, 22)}</span><input class="i44" data-nbf="icon" data-id="${esc(id)}" value="${esc(b.icon || '')}" placeholder="${esc(base[0])}" style="flex:1"></div>`}
             <div class="sug">${sug.map((ic) => `<button class="chp ${curIcon === ic ? 'on' : ''}" data-a="nbicon" data-id="${esc(id)}" data-v="${esc(ic)}" title="${esc(ic)}">${M.icon(ic, 16)}</button>`).join('')}</div></div>
           <div class="bdg">
-            <div class="bh">${M.icon('circle', 18, `color:${C.red}`)}<span class="t">Badge · varselprikk</span><span class="st ${R.length && anyOn ? 'red' : ''}">${!R.length ? 'Ingen vilkår' : anyOn ? 'Vises nå' : 'Skjult nå'}</span></div>
+            <div class="bh">${M.icon('circle', 18, `color:${M.theme ? M.theme.accentText(C.red) : C.red}`)}<span class="t">Badge · varselprikk</span><span class="st ${R.length && anyOn ? 'red' : ''}">${!R.length ? 'Ingen vilkår' : anyOn ? 'Vises nå' : 'Skjult nå'}</span></div>
             ${rules}
             <button class="ol" data-a="nbradd" data-id="${esc(id)}">${M.icon('add', 20)}Legg til vilkår</button>
             <span class="hint">Prikken vises når minst ett vilkår slår til.</span>
@@ -1826,7 +1826,7 @@
         <span class="gt">Stil</span>
         <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
-          <span class="pft"><span class="x"><b>${l}</b><i>${sub}</i></span>${M.icon('check_circle', 24, `color:${C.pink};opacity:${style === k ? 1 : 0}`)}</span></button>`).join('')}</div>
+          <span class="pft"><span class="x"><b>${l}</b><i>${sub}</i></span>${M.icon('check_circle', 24, `color:${M.theme ? M.theme.accentText(C.pink) : C.pink};opacity:${style === k ? 1 : 0}`)}</span></button>`).join('')}</div>
         ${M.store ? `<button class="tg" data-a="nbtheme" data-v="${M.glassOn() ? 0 : 1}"><span class="tx2"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark · gjelder deg på alle enheter</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><span class="knb"></span></span></button>` : ''}
         <span class="gt">Mini-spiller</span>
         ${this._mini(c)}
@@ -1866,7 +1866,7 @@
       if (cond === 'entity') {
         const s = m.entity && h.states[m.entity], hit = mStateOk(m.state, s);
         html += `<div class="ned" data-key="nbm_ent">
-          <div class="r1"><div class="epk">${M.icon(m.entity ? M.domainIcon(m.entity, s) : 'toggle_on', 18, 'color:#afafaf')}<span class="v"><b>${esc(m.entity ? (s ? s.attributes.friendly_name || m.entity : m.entity) : 'Ikke valgt')}</b><i>${esc(m.entity ? m.entity + (s ? '' : ' · finnes ikke') : 'Velg entitet under')}</i></span></div>
+          <div class="r1"><div class="epk">${M.icon(m.entity ? M.domainIcon(m.entity, s) : 'toggle_on', 18, 'color:var(--ki-text-2, #afafaf)')}<span class="v"><b>${esc(m.entity ? (s ? s.attributes.friendly_name || m.entity : m.entity) : 'Ikke valgt')}</b><i>${esc(m.entity ? m.entity + (s ? '' : ' · finnes ikke') : 'Velg entitet under')}</i></span></div>
             <span class="st ${hit ? 'amb' : ''}">${hit ? 'Slår til nå' : 'Ikke nå'}</span></div>
           ${this._search({ type: 'entity' }, 'nbmq', 'nbment', 'mini', m.entity ? 'Bytt entitet …' : 'Søk entitet …')}
           <div class="fl"><span class="cap">Tilstand · skill flere med komma</span><input class="i44" data-nbf="mstate" value="${esc(m.state || 'on')}" placeholder="on"></div>

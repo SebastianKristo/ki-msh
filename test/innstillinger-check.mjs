@@ -1,6 +1,6 @@
 // Fiks 25.5 + 26.15 + 27 · Innstillinger (#settings, msh-innstillinger-card): autokonfig fra KI Varslinger og sikkerhet
 // (ki_notifications, én rad per regel via erMaster), Strøm fra ki_energi, toppkort (brukerens entiteter uten config),
-// animert Privatmodus-kort, tomtilstand, Dashbord-fanen (msh-settings-card), «Tilpass Innstillinger» etter designet
+// animert Privatmodus-kort, tomtilstand, ingen Dashbord-del (fiks 33.3), «Tilpass Innstillinger» etter designet
 // (tekstfaner, én flate, navnefelt + bryter i raden, riktige tellere) ↔ GUI-editor, overstyring rows.exclude/move/include,
 // migrering fra den importerte #settings (ki-natt-card + ki-tabs-card + ki-varsling-card) og strategien.
 // Fiks 27: designets kamera og Tilpass-ark (se også innstillinger27-check). Fiks 29: radene kommer fra MSH.finnBrytere
@@ -103,10 +103,10 @@ await click(p, '.tb[data-v="strom"]');
 const S = await p.evaluate(() => [...window.__c.shadowRoot.querySelectorAll('.lst .pr .pt b')].map((x) => x.textContent.trim()));
 ok('Strøm-fanen: 9 rader, Energivarsler øverst', S.length === 9 && S[0] === 'Energivarsler', S);
 await wait(p, 300);
-const DB = await p.evaluate(() => { const sr = window.__c.shadowRoot, d = sr.querySelector('.dash msh-settings-card'), gh = sr.querySelector('.gh[data-key="dash-h"]'); return { el: !!d, gh: gh && gh.textContent.trim(), after: !!(gh && sr.querySelector('.pane').compareDocumentPosition(gh) & 4), txt: d && d.shadowRoot && d.shadowRoot.textContent.replace(/\s+/g, ' ') }; });
-ok('«Dashbord» nederst: dashbordets innstillinger (msh-settings-card) – Tilpass Hjem/navbar/header, HA, Liquid Glass', DB.el && DB.gh === 'Dashbord' && DB.after && /Tilpass Hjem/.test(DB.txt) && /Tilpass navbar/.test(DB.txt) && /Home Assistant/.test(DB.txt), DB);
-await p.evaluate(() => window.__c.shadowRoot.querySelector('.dash').scrollIntoView());
-await shot(p, '2-dashbord');
+// Fiks 33.3: Dashbord-/Utseende-/Enheter-delen og fotteksten er fjernet – popupen slutter etter brytersettene
+const DB = await p.evaluate(() => { const sr = window.__c.shadowRoot, w = sr.querySelector('.wrap'); return { dash: !!sr.querySelector('.dash, msh-settings-card, .gh'), last: w.lastElementChild && w.lastElementChild.className, txt: sr.textContent }; });
+ok('33.3 · ingen DASHBORD/Utseende/Enheter/fottekst – popupen slutter med brytersettene', !DB.dash && /pane/.test(DB.last) && !/Liquid Glass|Tilpass Hjem|gjelder for deg|denne enheten/.test(DB.txt), { dash: DB.dash, last: DB.last });
+await shot(p, '2-slutt');
 await p.close();
 
 // ---------------------------------------------------------------- tomtilstand (integrasjonen mangler) + Animasjoner av

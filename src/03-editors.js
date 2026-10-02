@@ -70,15 +70,15 @@
   // Øverst i hver «Tilpass …»-meny: «Denne enheten · Alle enheter». Endrer MSH.store.scope og sender 'scope-change'.
   // Har enheten eget oppsett: chip «Eget oppsett», «Bruk felles oppsett» (bekreft) og «Kopier til alle».
   const SCOPE_CSS = `:host{display:block;margin:0 0 12px}
-    .seg{display:flex;padding:4px;border-radius:22px;background:var(--gray200,#3a3a3a);gap:4px}
-    .seg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-    .seg button.on{background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323)}
-    .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 4px 0;font-size:12px;color:var(--gray700,#979797)}
+    .seg{display:flex;padding:4px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));gap:4px}
+    .seg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+    .seg button.on{background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323))}
+    .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 4px 0;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
     .sub .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .chip{height:22px;padding:0 9px;border-radius:11px;background:rgb(115 185 242);color:#1f2a36;font-size:11px;font-weight:600;display:inline-flex;align-items:center}
     .act{display:flex;gap:6px;margin:8px 0 0}
-    .act button{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500}
-    .act button.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}`;
+    .act button{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));font-size:13px;font-weight:500}
+    .act button.warn{background:rgba(242,128,115,.18);color:var(--ki-red-text, var(--red,#f28073))}`;
   class ScopeBar extends HTMLElement {
     constructor() { super(); this.attachShadow({ mode: 'open' }); this.shadowRoot.addEventListener('click', (e) => this._click(e)); }
     connectedCallback() { this._off = M.store && M.store.subscribe(() => this._render()); this._render(); }
@@ -128,7 +128,7 @@
     get cardSize() { return 4; }
     render() {
       const u = this.hass.user || {};
-      const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:#7f7f7f')}</button>`;
+      const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
       return `<div class="st">
         <div class="grp">
           ${row('ed', 'mdi:view-dashboard-edit', 'Tilpass Hjem', 'Kort, faner, popups og tekst', 'data-e="home"')}
@@ -195,22 +195,22 @@
     }
     get styles() {
       return `.st{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .grp{border-radius:28px;background:var(--gray200,#3a3a3a);overflow:hidden}
+        .grp{border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
         .r{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:8px 16px;text-align:left}
-        .r+.r{border-top:1px solid rgba(255,255,255,.06)}
-        .ic{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
-        .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tx b{font-size:15px;font-weight:500}.tx i{font-style:normal;font-size:12px;color:var(--gray700,#979797)}
-        .who{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px}
-        .gh{font-size:13px;font-weight:500;color:var(--gray700,#979797);padding:8px 8px 0}
+        .r+.r{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .ic{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
+        .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tx b{font-size:15px;font-weight:500}.tx i{font-style:normal;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .who{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:4px 6px}
+        .gh{font-size:13px;font-weight:500;color:var(--ki-text-mid, var(--gray700,#979797));padding:8px 8px 0}
         .dv{cursor:default}.tx em{font-style:normal;font-size:11px;font-weight:600;padding:2px 7px;border-radius:9px;background:rgb(115 185 242);color:#1f2a36;margin-left:6px;vertical-align:1px}
         .dva{display:flex;gap:6px;flex:none}
-        .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
-        .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--gray400,#545454);transition:background .2s}
+        .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+        .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));transition:background .2s}
         .trk.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'}} /* Fiks 26: rosa brytere */
-        .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fafafa;transition:left .2s}
+        .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);transition:left .2s}
         .trk.on i{left:23px}
-        .sm.warn{background:rgba(242,128,115,.18);color:var(--red,#f28073)}
-        form.tx input{height:40px;border-radius:14px;background:var(--gray300,#404040);padding:0 12px;font-size:15px;width:100%}`;
+        .sm.warn{background:rgba(242,128,115,.18);color:var(--ki-red-text, var(--red,#f28073))}
+        form.tx input{height:40px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));padding:0 12px;font-size:15px;width:100%}`;
     }
   }
   M.define('msh-settings-card', Settings, 'MSH Innstillinger', 'Innhold i #settings-popupen: snarveier til Tilpass Hjem/navbar/header og HA-innstillinger.');

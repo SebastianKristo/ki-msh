@@ -59,27 +59,27 @@ const lad = () => p.evaluate(() => {
   const lim = q('.lim'), gap = q('.lgap'), mk = q('.lmk'), fill = q('.lbat'), R = (e) => e && e.getBoundingClientRect(), L = R(lim);
   return { card: { r: cs(q('.lc')).borderRadius, p: cs(q('.lc')).padding, g: cs(q('.lc')).rowGap }, st: q('.lt2').textContent, stfs: cs(q('.lt2')).fontSize, big: cs(q('.lc .big')).fontSize, ss: { h: Math.round(R(q('.ss')).height), bg: cs(q('.ss')).backgroundColor, t: q('.ss').textContent.trim() },
     lim: { h: Math.round(L.height), bg: cs(lim).backgroundColor, ta: cs(lim).touchAction }, fill: Math.round(R(fill).width / L.width * 100),
-    gap: gap ? { l: Math.round((R(gap).left - L.left) / L.width * 100), w: Math.round(R(gap).width / L.width * 100), img: cs(gap).backgroundImage, anim: cs(gap).animationName } : null,
+    gap: gap ? { l: Math.round((R(gap).left - L.left) / L.width * 100), w: Math.round(R(gap).width / L.width * 100), img: cs(gap).backgroundImage, bg: cs(gap).backgroundColor, anim: cs(gap).animationName } : null,
     mk: mk && { w: Math.round(R(mk).width), top: Math.round(R(mk).top - L.top), sh: cs(mk).boxShadow, x: Math.round((R(mk).left + R(mk).width / 2 - L.left) / L.width * 100) },
     pct: q('.lpct').textContent, chips: [...sr.querySelectorAll('.lchip')].map((c) => ({ t: c.textContent, h: Math.round(R(c).height), w: Math.round(R(c).width), r: cs(c).borderRadius, on: c.classList.contains('on'), bgi: cs(c).backgroundImage })) };
 });
 const L1 = await lad();
 ok('Ladekort: r28, padding 18/18/16, gap 14; status 13 px «Lader», effekt 40 px', L1.card.r === '28px' && L1.card.p === '18px 18px 16px' && L1.card.g === '14px' && L1.st === 'Lader' && L1.stfs === '13px' && L1.big === '40px', L1);
 ok('Ladekort: Stopp 44 px hvit mens den lader', L1.ss.h === 44 && L1.ss.bg === 'rgb(250, 250, 250)' && L1.ss.t === 'Stopp', L1.ss);
-ok('Ladestav: 56 px på #282828 (ikke grå), touch-action none, fyll til 64 %', L1.lim.h === 56 && L1.lim.bg === 'rgb(40, 40, 40)' && L1.lim.ta === 'none' && Math.abs(L1.fill - 64) <= 1, L1);
-ok('Ladestav: skravert felt 64 → 80 % som flyter (flow) mens den lader', L1.gap && Math.abs(L1.gap.l - 64) <= 1 && Math.abs(L1.gap.w - 16) <= 1 && /repeating-linear-gradient/.test(L1.gap.img) && L1.gap.anim === 'flow', L1.gap);
+ok('Ladestav: 56 px på #282828 (ikke grå), touch-action none, fyll til 64 %', L1.lim.h === 56 && /rgb\(40, 40, 40\)|0\.15[67]\d* 0\.15[67]/.test(L1.lim.bg) && L1.lim.ta === 'none' && Math.abs(L1.fill - 64) <= 1, L1);
+ok('Ladestav: jevnt felt 64 → 80 % (rgb(102 209 158 / .18), ingen skravering) med ladebølge chgFlow mens den lader (fiks 33.5)', L1.gap && Math.abs(L1.gap.l - 64) <= 1 && Math.abs(L1.gap.w - 16) <= 1 && !/repeating/.test(L1.gap.img) && /linear-gradient/.test(L1.gap.img) && /rgba\(102, 209, 158, 0\.18\)/.test(L1.gap.bg) && L1.gap.anim === 'chgFlow', L1.gap);
 ok('Ladestav: grensemarkør 4 px, 8 px inn, skygge, på 80 %', L1.mk && L1.mk.w === 4 && L1.mk.top === 8 && /0px 0px 0px 3px/.test(L1.mk.sh) && Math.abs(L1.mk.x - 80) <= 1, L1.mk);
 ok('Ladegrense-chips: 30 px, min 38, r15, valgt rosa', L1.chips.length === 5 && L1.chips.every((c) => c.h === 30 && c.w >= 38 && c.r === '15px') && L1.chips.filter((c) => c.on).length === 1 && /gradient/.test(L1.chips.find((c) => c.on).bgi), L1.chips);
 // lader ikke
 await p.evaluate(() => window.__setS({ 'switch.elbillader_charging': 'off', 'sensor.elbillader_charge_power': 0, 'sensor.tesla_model_y_batteri_charge_power': 0, 'select.tesla_model_y_batteri_charging_state': 'stopped' }));
 await wait(p, 300);
 const L2 = await lad();
-ok('Lader ikke: «Tilkoblet · lader ikke», Start #404040, skravert felt står stille', L2.st === 'Tilkoblet · lader ikke' && L2.ss.t === 'Start' && L2.ss.bg === 'rgb(64, 64, 64)' && L2.gap && L2.gap.anim === 'none' && Math.abs(L2.gap.w - 16) <= 1, L2);
+ok('Lader ikke: «Tilkoblet · lader ikke», Start #404040, jevnt felt uten bølge', L2.st === 'Tilkoblet · lader ikke' && L2.ss.t === 'Start' && L2.ss.bg === 'rgb(64, 64, 64)' && L2.gap && L2.gap.anim === 'none' && L2.gap.img === 'none' && Math.abs(L2.gap.w - 16) <= 1, L2);
 // grense < batteri (ferdig)
 await p.evaluate(() => window.__setS({ 'sensor.tesla_model_y_batteri_batteriniva': 85, 'select.tesla_model_y_batteri_charging_state': 'complete' }));
 await wait(p, 300);
 const L3 = await lad();
-ok('Batteri over grensen: «Ferdig ladet», ikke noe skravert felt, markør på 80 %', L3.st === 'Ferdig ladet' && L3.gap && L3.gap.w === 0 && Math.abs(L3.mk.x - 80) <= 1 && Math.abs(L3.fill - 85) <= 1, L3);
+ok('Batteri over grensen: «Ferdig ladet», ikke noe felt, markør på 80 %', L3.st === 'Ferdig ladet' && L3.gap && L3.gap.w === 0 && Math.abs(L3.mk.x - 80) <= 1 && Math.abs(L3.fill - 85) <= 1, L3);
 
 // faner: standard Tekst + Fylt
 const T = await p.evaluate(() => {

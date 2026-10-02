@@ -12,6 +12,8 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Fiks 34 (Del A) · semantiske tokens med dagens mørke verdier som fallback (mørk modus uendret)
+  const K = { card: 'var(--ki-surface, var(--gray200, #3a3a3a))', inner: 'var(--ki-surface-2, var(--gray300, #404040))', ctrl: 'var(--ki-ctrl, var(--gray400, #545454))' };
 
   /* ------------------------------------------------------------ felles hjelpere (kan brukes av andre kort) */
   M.txt = M.txt || function (hass, id) {
@@ -170,6 +172,7 @@
     o.prio = f(['switch', 'input_boolean'], /prio/);
     o.night = f(['switch', 'input_boolean'], /natt|night|senk/);
     o.winter = f(['switch', 'input_boolean'], /vinter|winter/);
+    o.eta = sens.find((id) => /(^|[_ .])eta($|[_ .])|time_to_target|tid_til_(mal|mål)|oppvarmingstid|heat(ing)?_time/.test(T(id))) || null;
     o.heat_loss = sens.find((id) => /varmetap|heat_loss|heatloss/.test(T(id))) || null;
     o.solar = sens.find((id) => dc(id) === 'irradiance' || /(^|[_ .])sol|solar/.test(T(id))) || null;
     o.target = (o.heat && /^(climate|water_heater)\./.test(o.heat)) ? o.heat : f(['number', 'input_number'], /mal|mål|target|settpunkt|setpunkt|setpoint/);
@@ -217,7 +220,7 @@
     ['cover', 'Pooltak', ['cover', 'switch', 'input_boolean', 'binary_sensor']], ['light', 'Lys', ['light', 'switch']], ['spr', 'Spreder', ['switch', 'valve', 'input_boolean']], ['power', 'Effekt · pumpe', 'sensor', 'power'],
     ['heat_power', 'Effekt · varmepumpe', 'sensor', 'power'], ['ph', 'pH', 'sensor'], ['klor', 'Klor (mg/L / ORP)', 'sensor'], ['target', 'Måltemperatur', ['climate', 'water_heater', 'number', 'input_number']],
     ['turnover', 'Omsetninger i dag', 'sensor'], ['pumped', 'Pumpet i dag (timer)', 'sensor'], ['savings', 'Spart i dag', 'sensor'], ['cost', 'Strømkostnad i dag', 'sensor'],
-    ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
+    ['eta', 'Tid til mål (ETA, valgfri)', 'sensor'], ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
     ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'], ['klor_last', 'Siste klortablett (uten kalender)', ['input_datetime', 'counter']],
   ];
   const ovrFields = (keys) => OVR.filter((x) => !keys || keys.includes(x[0])).map(([name, label, domain, device_class]) => ({ name, label, domains: [].concat(domain), device_class, auto: (h, c) => M.poolAuto(h, c)[name] }));
@@ -253,11 +256,11 @@
       const pumpS = this.s(e.pump);
       const status = !pumpS ? ['help', 'Ingen pumpe'] : pump ? ['autorenew', 'Filtrerer'] : ['pause', 'Står'];
       const chips = [['pump', 'water_pump', 'Pumpe', C.pink], ['heat', 'heat_pump', 'Varmepumpe', C.red], ['cover', 'roofing', 'Pooltak', C.blue], ['light', 'lightbulb', 'Lys', C.yellow]]
-        .filter(([k]) => e[k]).map(([k, ic, l, col]) => { const o = on(k); return `<span class="chip" data-key="${k}" title="${esc(l + ': ' + (o ? 'på' : 'av'))}" style="background:${o ? col : 'rgba(0,0,0,0.3)'};color:${o ? '#282828' : '#7f8c90'}">${M.icon(ic, 14)}</span>`; }).join('');
+        .filter(([k]) => e[k]).map(([k, ic, l, col]) => { const o = on(k); return `<span class="chip" data-key="${k}" title="${esc(l + ': ' + (o ? 'på' : 'av'))}" style="background:${o ? col : 'rgba(0,0,0,0.3)'};color:${o ? '#282828' : '#7f8c90'}">${M.icon(ic, 14)}</span>`; }).join(''); /* ki-hex-ok: mørk øy */
       const bubbles = [18, 40, 62, 84, 106].map((x, i) => `<span class="bub" style="left:${x}px;width:${4 + (i % 2) * 2}px;height:${4 + (i % 2) * 2}px;animation:${P ? `bub ${1.6 + (i % 3) * 0.4}s ease-in ${i * 0.35}s infinite` : 'none'}"></span>`).join('');
       const waves = [0, 1, 2].map((i) => `<span class="hw" style="right:${16 + i * 9}px;animation:${H ? `heatw 1.8s ease-out ${i * 0.5}s infinite` : 'none'}"></span>`).join('');
       return `
-        <section class="hero press0" data-ent="${esc(e.water || e.pump || '')}">
+        <section class="hero press0" data-theme="dark" data-ki-island data-ent="${esc(e.water || e.pump || '')}">
           <div class="scene">
             <div class="pool">
               <span class="glow" style="opacity:${light ? 1 : 0};animation:${light && A ? 'glowp 3s ease-in-out infinite' : 'none'}"></span>
@@ -290,13 +293,13 @@
         @keyframes glowp{0%,100%{opacity:.6}50%{opacity:1}}
         @keyframes flow{to{stroke-dashoffset:-24}}
         @keyframes ring{from{transform:scale(.7);opacity:.8}to{transform:scale(1.6);opacity:0}}
-        .hero{position:relative;height:176px;border-radius:30px;overflow:hidden;background:linear-gradient(160deg,#1b2b30,#22383e 60%,#1e3237);width:100%}
+        .hero{position:relative;height:176px;border-radius:30px;overflow:hidden;background:linear-gradient(160deg,#1b2b30,#22383e 60%,#1e3237);width:100%;color:#fafafa} /* mørk øy: lys tekst i begge moduser */ /* ki-hex-ok: mørk øy */
         .scene{position:absolute;inset:0;pointer-events:none}
-        .pool{position:absolute;right:56px;bottom:22px;width:150px;height:58px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#48a3ba,#2b6f84);box-shadow:inset 0 3px 0 rgba(255,255,255,0.22),0 0 0 3px #4d5b60}
+        .pool{position:absolute;right:56px;bottom:22px;width:150px;height:58px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#48a3ba,#2b6f84);box-shadow:inset 0 3px 0 rgba(255,255,255,0.22),0 0 0 3px #4d5b60} /* ki-hex-ok: mørk øy */
         .glow{position:absolute;inset:-20px;background:radial-gradient(60% 70% at 50% 60%,rgb(140 240 255 / 0.9),transparent 70%);transition:opacity .6s}
-        .wave{position:absolute;left:0;top:0;height:10px;width:200%;background:repeating-radial-gradient(circle at 10px -4px,rgba(255,255,255,0.35) 0 6px,transparent 7px 20px);background-size:20px 10px}
-        .bub{position:absolute;bottom:4px;border-radius:50%;background:rgba(255,255,255,0.7);opacity:0}
-        .cov{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,#8e9ba0 0 9px,#76858a 9px 11px);box-shadow:2px 0 6px rgba(0,0,0,0.4);transition:width .9s cubic-bezier(.4,0,.2,1)}
+        .wave{position:absolute;left:0;top:0;height:10px;width:200%;background:repeating-radial-gradient(circle at 10px -4px,rgba(255,255,255,0.35) 0 6px,transparent 7px 20px);background-size:20px 10px} /* ki-hex-ok: mørk øy */
+        .bub{position:absolute;bottom:4px;border-radius:50%;background:rgba(255,255,255,0.7);opacity:0} /* ki-hex-ok: mørk øy */
+        .cov{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,#8e9ba0 0 9px,#76858a 9px 11px);box-shadow:2px 0 6px rgba(0,0,0,0.4);transition:width .9s cubic-bezier(.4,0,.2,1)} /* ki-hex-ok: mørk øy */
         .pipe{position:absolute;right:20px;bottom:30px;width:60px;height:40px;overflow:visible}
         .hp{position:absolute;right:12px;bottom:22px;width:34px;height:58px;border-radius:6px;background:#39464a;display:grid;place-items:center;transition:box-shadow .4s}
         .hw{position:absolute;bottom:84px;width:4px;height:12px;border-radius:2px;background:${M.alpha(C.red, 0.7)};opacity:0}
@@ -304,7 +307,7 @@
         .ring{position:absolute;inset:-2px;border-radius:50%;border:2px solid ${M.alpha(C.pink, 0.7)};opacity:0}
         .tl{position:absolute;left:16px;top:16px;display:flex;flex-direction:column;gap:8px}
         .lbl{font-size:12px;color:#c9d6d9}
-        .st{height:22px;padding:0 9px 0 7px;border-radius:11px;background:rgba(0,0,0,0.3);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;align-self:flex-start;white-space:nowrap}
+        .st{height:22px;padding:0 9px 0 7px;border-radius:11px;background:rgba(0,0,0,0.3);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;align-self:flex-start;white-space:nowrap} /* ki-hex-ok: mørk øy */
         .chips{display:flex;gap:4px}
         .chip{width:26px;height:26px;border-radius:13px;display:grid;place-items:center;transition:background .3s}
         .bl{position:absolute;left:16px;bottom:14px;display:flex;flex-direction:column;gap:3px}
@@ -444,7 +447,7 @@
           { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
           { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
         ] },
-        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
+        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
       ];
     }
     get cardSize() { return 10; }
@@ -518,33 +521,57 @@
       const tl = this._tabs(e), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
       this._tl = tl; this._cur = cur;
       const idx = Math.max(0, tl.indexOf(cur)), n = tl.length || 1;
-      const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
+      const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, #afafaf)'}">${esc(TABS[k])}</span>`).join('');
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
       // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        <div class="prose ptop" data-key="prose">${this._prose(e)}</div>
-        <div class="tabrow">
+        <div class="tabrow" data-section="tabs">
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
           <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
         ${tl.length ? body : M.emptyState('Alle faner er skjult', 'sections')}
       </div>`;
     }
-    // Prosalinjen under toppkortet: «Vannet er 27,5° og 1,5° over målet. Pumpa går nå.»
-    _prose(e) {
-      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
-      let rel = '';
-      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
-      return tw != null
-        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
-        : `Vannet er <span class="pill num">–</span>. <button class="lnk" data-act="customize" data-section="overrides">Velg entitet</button>`;
+    /* Fiks 33.1 · setningen i Oversikt (fasit Basseng v4 popup linje 135, showSent): ÉN flytende <p class="sent"> med
+     * inline-piller – aldri flex/grid, aldri løse tekstnoder. «Vannet når [mål°] om ca [X t Y min]. Pumpa går nå.» /
+     * «Vannet holder [mål°] · [ingen oppvarming]. …». Mål = climate/water_heater.temperature (eller number), vanntemp =
+     * vanntemperatursensoren, ETA = integrasjonens sensor (rollen eta) eller beregnet som i designet (210 min/°,
+     * boost ×0,7, eco ×1,4). Mangler data → pille «–», setningen skjules aldri stille. Av/på: show_sentence. */
+    _etaMin(e, diff) {
+      const s = this.s(e.eta);
+      if (s && s.state != null && !['unknown', 'unavailable', ''].includes(s.state)) {
+        const dc = s.attributes.device_class, u = String(s.attributes.unit_of_measurement || '').toLowerCase();
+        if (dc === 'timestamp') { const t = new Date(s.state).getTime(); if (!isNaN(t)) return Math.max(0, Math.round((t - Date.now()) / 60000)); }
+        else if (M.isNum(s.state)) { const v = Number(s.state); return Math.max(0, Math.round(/^(h|t|timer|hours?)$/.test(u) ? v * 60 : /^(s|sek|sec|seconds?)$/.test(u) ? v / 60 : /^d/.test(u) ? v * 1440 : v)); }
+      }
+      if (diff == null) return null;
+      const md = String((this.s(e.mode) || {}).state || '').toLowerCase();
+      return Math.round(diff * 210 * (/boost|turbo|maks/.test(md) ? 0.7 : /eco|spar/.test(md) ? 1.4 : 1));
+    }
+    _sentParts(e) {
+      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump);
+      const diff = tw != null && tgt != null ? tgt - tw : null;
+      const hold = diff != null && diff <= 0;
+      let eta = '–';
+      if (!hold) { const m = this._etaMin(e, diff); if (m != null) eta = `${Math.floor(m / 60)} t ${m % 60} min`; }
+      return {
+        sentA: hold ? 'Vannet holder' : 'Vannet når', targetTxt: tgt != null ? `${M.nf(tgt, tgt % 1 ? 1 : 0)}°` : '–',
+        sentB: hold ? '·' : 'om ca', eta: hold ? 'ingen oppvarming' : eta, pumpSent: pumpS ? (M.onState(pumpS) ? 'Pumpa går nå.' : 'Pumpa står.') : '',
+      };
+    }
+    _sent(e) {
+      const c = this.config, on = c.show_sentence != null ? c.show_sentence : c.showSent != null ? c.showSent : c.sent; // showSent/sent = designets navn
+      if (on === false) return '';
+      const p = this._sentParts(e), pill = (t) => `<span class="pill">${esc(t)}</span>`;
+      // én linje uten linjeskift/innrykk inni <p>: ingen tomme tekstnoder, punktum rett etter eta-pillen
+      return `<p class="sent num" data-section="sent" data-key="sent">${esc(p.sentA)} ${pill(p.targetTxt)} ${esc(p.sentB)} ${pill(p.eta)}.${p.pumpSent ? ' ' + esc(p.pumpSent) : ''}</p>`;
     }
     // Hurtigknapper (Lys · Pumpe · Varme · Stille · Stikkontakt + ekstra fra include)
     _quick(e) {
       const cl = this._ctls(e);
       const btn = (key, id, ic, l, bg, title) => {
         const st = this.s(id), on = M.onState(st);
-        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
+        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : K.card};color:${on ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
       };
       const L = cl.map((k) => { const [ic, l, bg, t] = CTL[k]; return btn(k, e[k], ic, l, bg, t ? `${l} · ${t}` : l); });
       (e.extra || []).forEach((x) => { const s = this.s(x.entity); L.push(btn('x:' + x.entity, x.entity, x.ikon || (s && s.attributes.icon) || M.domainIcon(x.entity, s), x.navn || M.name(this.hass, x.entity, M.areaName(this.hass, e.area)), C.accent)); });
@@ -569,30 +596,30 @@
       else if (this._pumpedSec != null) pumped = M.nf(this._pumpedSec / 3600, 1);
       const turnT = M.parseNum(this._v('turnovers'), 3.75);
       const today = [
-        ['Pumpet', pumped, 't', 'chevron_right', '#979797', e.pumped || e.pump],
+        ['Pumpet', pumped, 't', 'chevron_right', 'var(--ki-text-mid, #979797)', e.pumped || e.pump],
         ['Omsetninger', val(e.turnover, 2), `av ${M.nf(turnT, 2)}`, 'arrow_forward', C.orange, e.turnover],
         ['Spart', val(e.savings, 0), unit(e.savings, 'kr'), 'expand_more', C.green, e.savings],
       ].map(([l, v, u, ic, col, id], i) => `<div class="tr ${i ? 'bt' : ''}" data-key="${l}" ${id ? `data-act="more" data-id="${esc(id)}"` : ''}><span class="trl">${esc(l)}</span><span class="trv num">${esc(v)}</span><span class="tru">${esc(u)}</span>${M.icon(ic, 18, `color:${col};margin-left:6px;align-self:center`)}</div>`).join('');
       // moduser
       const ms = this.s(e.mode), opts = (ms && ms.attributes.options) || [];
-      const modes = ms ? `<div class="hs noscroll">${opts.map((o) => `<button class="md press" data-key="${esc(o)}" data-act="mode" data-v="${esc(o)}" data-haptic="selection" style="background:${ms.state === o ? C.accent : C.card};color:${ms.state === o ? '#3a3a3a' : '#fafafa'}">${M.icon(modeIcon(o), 24)}<span class="ell" style="max-width:80px">${esc(o)}</span></button>`).join('')}</div>` : M.emptyState('Fant ingen driftsmodus (select) i bassengområdet', 'overrides');
+      const modes = ms ? `<div class="hs noscroll">${opts.map((o) => `<button class="md press" data-key="${esc(o)}" data-act="mode" data-v="${esc(o)}" data-haptic="selection" style="background:${ms.state === o ? C.accent : K.card};color:${ms.state === o ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}">${M.icon(modeIcon(o), 24)}<span class="ell" style="max-width:80px">${esc(o)}</span></button>`).join('')}</div>` : M.emptyState('Fant ingen driftsmodus (select) i bassengområdet', 'overrides');
       // brytere
       const known = { [e.auto]: ['smart_toy', 'Automatikk'], [e.price]: ['price_change', 'Prisstyring'], [e.prio]: ['heat', 'Varmeprioritet'] };
       const flags = e.flags.map((id) => {
         const s = this.s(id), on = M.isOn(s), k = known[id] || [M.domainIcon(id, s), M.name(this.hass, id, M.areaName(this.hass, e.area))];
-        return `<button class="fl press" data-key="${esc(id)}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" style="background:${on ? C.accent : C.card};color:${on ? '#3a3a3a' : '#fafafa'}"><span class="fli" style="background:${on ? 'rgba(42,23,32,0.12)' : C.inner}">${M.icon(k[0], 22)}</span><span class="flt"><span class="fln ell">${esc(k[1])}</span><span class="fls">${s ? (on ? 'På' : 'Av') : '–'}</span></span></button>`;
+        return `<button class="fl press" data-key="${esc(id)}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" style="background:${on ? C.accent : K.card};color:${on ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}"><span class="fli" style="background:${on ? 'rgba(42,23,32,0.12)' : K.inner}">${M.icon(k[0], 22)}</span><span class="flt"><span class="fln ell">${esc(k[1])}</span><span class="fls">${s ? (on ? 'På' : 'Av') : '–'}</span></span></button>`;
       });
       if (this._tl.includes('klor')) {
         const last = this._lastKlor();
-        flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${C.card}"><span class="fli" style="background:${C.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
+        flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${K.card}"><span class="fli" style="background:${K.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
       }
       // temperaturgraf siste døgn med maks og min
       const g = this._chart(e, tw, tgt);
       const graph = `<div class="hc" data-key="ovgraf" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
-          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:var(--ki-text-mid, #979797);text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
           ${g.chart}
         </div>`;
-      return `
+      return `${this._sent(e)}
         ${this._quick(e)}
         <div class="g2">${ovCards}</div>
         <div class="dh">${M.icon('home', 20)}<span class="dht">I dag</span><span class="dhd">${esc(date)}</span></div>
@@ -628,13 +655,13 @@
           const day = new Date(); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + k);
           const a = day.getTime() + ht * 3600000, b = day.getTime() + (hf < ht ? 24 + hf : hf) * 3600000;
           const xa = Math.max(0, X(a)), xb = Math.min(300, X(b));
-          if (xb > xa) rects += `<rect x="${xa.toFixed(1)}" y="0" width="${(xb - xa).toFixed(1)}" height="90" fill="rgba(255,255,255,0.05)"></rect>`;
+          if (xb > xa) rects += `<rect x="${xa.toFixed(1)}" y="0" width="${(xb - xa).toFixed(1)}" height="90" style="fill:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))"></rect>`;
         }
         chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart">${rects}
-          ${tgt != null ? `<line x1="0" x2="300" y1="${Y(tgt).toFixed(1)}" y2="${Y(tgt).toFixed(1)}" stroke="rgba(255,255,255,0.35)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>` : ''}
+          ${tgt != null ? `<line x1="0" x2="300" y1="${Y(tgt).toFixed(1)}" y2="${Y(tgt).toFixed(1)}" style="stroke:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1)))" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>` : ''}
           <path d="${path} L300,90 L0,90 Z" style="fill:${M.alpha(C.green, 0.18)}"></path>
           <path d="${path}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke" style="stroke:${C.green}"></path></svg>`;
-      } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" stroke="rgba(255,255,255,0.2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
+      } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" style="stroke:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.2*var(--ki-wa-k,1)),var(--ki-wa-max,1)))" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
       return { chart, delta, dcol, mx, mn };
     }
     /* ---------------- Varme */
@@ -643,7 +670,7 @@
       const hp = this.n(e.heat_power);
       const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
         .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
+      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
       const cost = this.s(e.cost);
       const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
       let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
@@ -656,14 +683,14 @@
       const outV = outS ? (outS.entity_id.startsWith('weather.') ? outS.attributes.temperature : M.isNum(outS.state) ? Number(outS.state) : null) : null;
       const fmtU = (id, d) => { const s = this.s(id); if (!s || !M.isNum(s.state)) return '–'; const v = Number(s.state), u = s.attributes.unit_of_measurement || ''; return u === 'W' && v >= 1000 && d === 'kw' ? `${M.nf(v / 1000, 1)} kW` : `${M.nf(v, v % 1 && v < 100 ? 1 : 0)} ${u}`.trim(); };
       const stats = [[outV != null ? M.nf(outV, 1) + '°' : '–', 'Ute', e.ute], [fmtU(e.heat_loss, 'kw'), 'Varmetap', e.heat_loss], [fmtU(e.solar), 'Sol inn', e.solar]]
-        .map(([v, l, id]) => `<div class="hsx" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="num" style="font-size:15px">${esc(v)}</span><span style="font-size:11px;color:#979797">${esc(l)}</span></div>`).join('');
-      const sw = (on, col) => `<span class="trk" style="background:${on ? col || '#fafafa' : C.ctrl}"><span class="knb" style="left:${on ? 21 : 3}px;background:${on ? '#282828' : '#c7c7c7'}"></span></span>`;
+        .map(([v, l, id]) => `<div class="hsx" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="num" style="font-size:15px">${esc(v)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(l)}</span></div>`).join('');
+      const sw = (on, col) => `<span class="trk" style="background:${on ? col || M.SWITCH_ON || C.pink : K.ctrl}"><span class="knb" style="left:${on ? 21 : 3}px;background:var(--ki-knob, #fff)"></span></span>`; // brytere er rosa, knott alltid hvit
       const tg = [['night', 'Nattsenking', (on) => (on ? 'Senker' : 'Holder varmen'), 'Gjenoppvarming koster like mye som den sparer'], ['cover', 'Pooltak', (on) => (on ? 'Lukket' : 'Åpent'), 'Sparer varme når det er lukket'], ['winter', 'Vintermodus', (on) => (on ? 'På' : 'Av'), '']]
         .map(([k, l, vf, sub]) => {
           const id = e[k], s = this.s(id), on = M.onState(s);
-          return `<button class="htg press" data-key="${k}" ${id ? `data-act="ctl" data-k="${k}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="overrides"'} style="${k === 'night' ? 'grid-column:span 2;' : ''}${k === 'winter' ? 'background:linear-gradient(180deg,#232a4a,#303a60);' : ''}">
-            <span style="font-size:12px;color:#afafaf;text-align:left">${esc(l)}</span><span class="grow"></span>
-            <span class="htb"><span class="col" style="text-align:left"><span style="font-size:24px">${s ? esc(vf(on)) : '–'}</span><span style="font-size:10px;color:#979797">${esc(s ? sub : 'Velg entitet')}</span></span>${sw(on)}</span></button>`;
+          return `<button class="htg press" data-key="${k}" ${id ? `data-act="ctl" data-k="${k}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="overrides"'} style="${k === 'night' ? 'grid-column:span 2;' : ''}${k === 'winter' ? 'background:linear-gradient(180deg,#232a4a,#303a60);color:#fafafa" data-ki-island="' : ''}">
+            <span style="font-size:12px;color:var(--ki-text-2, #afafaf);text-align:left">${esc(l)}</span><span class="grow"></span>
+            <span class="htb"><span class="col" style="text-align:left"><span style="font-size:24px">${s ? esc(vf(on)) : '–'}</span><span style="font-size:10px;color:var(--ki-text-mid, #979797)">${esc(s ? sub : 'Velg entitet')}</span></span>${sw(on)}</span></button>`;
         }).join('');
       return `
         <div class="g2">${cards}</div>
@@ -671,7 +698,7 @@
         ${/^(number|input_number)\./.test(e.target || '') ? `<div class="stpc">${M.stepperHTML(this.hass, e.target, { label: 'Måltemperatur', key: 'stp-target' })}</div>` : ''}
         <div class="prose">${prose}</div>
         <div class="hc" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
-          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Endring siste døgn</span><span class="num" style="font-size:22px;color:${dcol}">${esc(delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(mx)}<br>${esc(mn)}</span></div>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">Endring siste døgn</span><span class="num" style="font-size:22px;color:${dcol}">${esc(delta)}</span></span><span class="num" style="font-size:11px;color:var(--ki-text-mid, #979797);text-align:right;line-height:1.5">${esc(mx)}<br>${esc(mn)}</span></div>
           ${chart}
           <div class="g3">${stats}</div>
         </div>
@@ -699,14 +726,14 @@
       const qty = this.ui.qty || 1;
       const people = e.people.map((id, i) => {
         const nm = names[i], cnt = monthEv.filter((ev) => (ev.summary || '').toLowerCase().includes(nm.toLowerCase())).reduce((t, ev) => t + this._qtyOf(ev), 0);
-        return `<button class="pp press" data-key="${esc(id)}" data-act="log" data-name="${esc(nm)}" data-haptic="success"><span class="ppa">${M.icon('person', 20)}</span><span class="ppn ell">${esc(nm)}</span><span style="font-size:12px;color:#979797">${cal ? cnt : '–'}</span></button>`;
+        return `<button class="pp press" data-key="${esc(id)}" data-act="log" data-name="${esc(nm)}" data-haptic="success"><span class="ppa">${M.icon('person', 20)}</span><span class="ppn ell">${esc(nm)}</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${cal ? cnt : '–'}</span></button>`;
       }).join('');
-      const qtys = [[1, '1 stk', 'pill'], [2, '2 stk', 'pill'], [3, '3 stk', 'pill'], [0, 'Angre siste', 'undo']].map(([q, l, ic]) => `<button class="qt press" data-key="q${q}" data-act="${q ? 'qty' : 'undo'}" data-q="${q}" data-haptic="selection" style="${qty === q ? `background:${C.accent};color:#3a3a3a` : ''}">${M.icon(ic, 16)}${esc(l)}</button>`).join('');
+      const qtys = [[1, '1 stk', 'pill'], [2, '2 stk', 'pill'], [3, '3 stk', 'pill'], [0, 'Angre siste', 'undo']].map(([q, l, ic]) => `<button class="qt press" data-key="q${q}" data-act="${q ? 'qty' : 'undo'}" data-q="${q}" data-haptic="selection" style="${qty === q ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.icon(ic, 16)}${esc(l)}</button>`).join('');
       const off = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
       const logged = new Set(monthEv.map((ev) => new Date(ev.t0).getDate()));
       const days = Array.from({ length: Math.ceil((off + dim) / 7) * 7 }, (_, i) => {
         const d = i - off + 1, inM = d >= 1 && d <= dim, lg = inM && logged.has(d), td = d === now.getDate();
-        return `<span class="cd" style="background:${lg ? C.green : 'transparent'};color:${lg ? '#3a3a3a' : '#afafaf'};${td && inM ? 'box-shadow:inset 0 0 0 1.5px #fafafa;' : ''}font-weight:${lg || td ? 600 : 400}">${inM ? d : ''}</span>`;
+        return `<span class="cd" style="background:${lg ? C.green : 'transparent'};color:${lg ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, #afafaf)'};${td && inM ? 'box-shadow:inset 0 0 0 1.5px var(--ki-text, #fafafa);' : ''}font-weight:${lg || td ? 600 : 400}">${inM ? d : ''}</span>`;
       }).join('');
       const monthName = now.toLocaleDateString('nb-NO', { month: 'long' });
       const left = next ? Math.ceil((next.getTime() - Date.now()) / 86400000) : null;
@@ -714,17 +741,17 @@
         ['notifications_active', 'Påminnelse', `Hver ${M.nf(every, every % 1 ? 1 : 0)}. dag${left != null ? ` · ${left > 0 ? `om ${left} d` : left === 0 ? 'i dag' : `${-left} d på overtid`}` : ''}`, 'styr'],
         ['event_note', 'Klorloggen', cal ? M.name(this.hass, cal) : 'Velg en kalender under Tilpass', 'overrides'],
         ['groups', 'Navn i klorloggen', names.join(', ') || 'Ingen personer', 'entities'],
-      ].map(([ic, l, sub, sec]) => `<button class="kr press" data-key="${l}" data-act="customize" data-section="${sec}"><span class="kri">${M.icon(ic, 22)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:#979797">${esc(sub)}</span></span>${M.icon('chevron_right', 22, 'color:#979797')}</button>`).join('');
+      ].map(([ic, l, sub, sec]) => `<button class="kr press" data-key="${l}" data-act="customize" data-section="${sec}"><span class="kri">${M.icon(ic, 22)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(sub)}</span></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-mid, #979797)')}</button>`).join('');
       const nextTxt = next ? `Neste klortablett ${next.toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\.(?=\s)/, '')}` : cal ? 'Ingen klortablett logget ennå' : 'Neste klortablett –';
       const lastTxt = last ? `${M.cap(M.relTime(new Date(last.t0).toISOString()))}${lastWho ? ` · ${lastWho} la i sist` : ''}` : cal ? 'Logg første tablett under' : 'Velg klorkalender for å logge';
       return `
-        <div class="kn"><span class="kni">${M.icon('pill', 22)}</span><span class="col" style="gap:1px"><span style="font-size:14px;font-weight:600">${esc(nextTxt)}</span><span style="font-size:11px;color:#979797">${esc(lastTxt)}</span></span></div>
+        <div class="kn"><span class="kni">${M.icon('pill', 22)}</span><span class="col" style="gap:1px"><span style="font-size:14px;font-weight:600">${esc(nextTxt)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(lastTxt)}</span></span></div>
         <span class="hint">Hvem la i? Trykk på navnet.</span>
         ${people ? `<div class="g2">${people}</div>` : ''}
         <button class="la press" data-act="log" data-name="" data-haptic="success"><span class="lai">${M.icon('pill', 22)}</span>Logg klortablett uten navn</button>
         <div class="qts">${qtys}</div>
         <div class="kal">
-          <div class="row" style="gap:10px">${M.icon('calendar_month', 20)}<span class="grow" style="font-size:15px;font-weight:500">Kalender</span><span style="font-size:12px;color:#979797">${cal ? `${monthEv.reduce((t, ev) => t + this._qtyOf(ev), 0)} stk i ${esc(monthName)}` : '–'}</span></div>
+          <div class="row" style="gap:10px">${M.icon('calendar_month', 20)}<span class="grow" style="font-size:15px;font-weight:500">Kalender</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${cal ? `${monthEv.reduce((t, ev) => t + this._qtyOf(ev), 0)} stk i ${esc(monthName)}` : '–'}</span></div>
           <div class="calg">${['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'].map((w) => `<span class="wd">${w}</span>`).join('')}${days}</div>
         </div>
         ${rows}`;
@@ -740,9 +767,9 @@
       this._dur = dur;
       const frost = this._v('spr_frost');
       const rows = [['schedule', 'Start hver', 'Mellom 10 og 20', this._v('spr_every')], ['hourglass_top', 'Maks per døgn', 'Spreder stopper når tiden er brukt', this._v('spr_max')], ['timer', 'Varighet', 'Hvor lenge den går hver gang', `${M.nf(dur, 0)} min`], ['ac_unit', 'Frostvakt', 'Starter ikke når det er under 2 °C ute', frost === true || frost === 'true' ? 'På' : 'Av']]
-        .map(([ic, l, sub, v]) => `<button class="kr sr press" data-key="${l}" data-act="customize" data-section="styr"><span class="kri" style="width:44px;height:44px">${M.icon(ic, 20)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:#979797">${esc(sub)}</span></span><span style="font-size:13px">${esc(String(v))}</span>${M.icon('expand_more', 20, 'color:#979797')}</button>`).join('');
+        .map(([ic, l, sub, v]) => `<button class="kr sr press" data-key="${l}" data-act="customize" data-section="styr"><span class="kri" style="width:44px;height:44px">${M.icon(ic, 20)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(sub)}</span></span><span style="font-size:13px">${esc(String(v))}</span>${M.icon('expand_more', 20, 'color:var(--ki-text-mid, #979797)')}</button>`).join('');
       return `
-        <div class="spx" ${id ? `data-ent="${esc(id)}"` : ''}>
+        <div class="spx" data-theme="dark" data-ki-island ${id ? `data-ent="${esc(id)}"` : ''}>
           <span class="sun"></span>
           <svg viewBox="0 0 300 50" preserveAspectRatio="none" class="spw"><path d="M0,20 C50,5 100,35 150,20 S250,5 300,20 L300,50 L0,50 Z" fill="#3a93bf" opacity="0.7"></path></svg>
           <span class="pole"></span>
@@ -750,7 +777,7 @@
           <span class="sps"><span style="font-size:26px">${s ? (on ? 'Sprer' : 'Står') : '–'}</span><span style="font-size:11px;color:#c9d6e2">${s ? `Klar for ${M.nf(dur, 0)} min` : 'Velg spreder i tilpass'}</span></span>
         </div>
         <button class="sb press" data-act="sprstart" data-haptic="success"><span class="sbi">${M.icon(on ? 'stop' : 'play_arrow', 22)}</span>${s ? (on ? 'Stopp' : `Start i ${M.nf(dur, 0)} min`) : 'Velg spreder'}</button>
-        <div class="g5">${durs.map((d) => `<button class="sq press" data-key="${d}" data-act="dur" data-v="${d}" data-haptic="selection" style="${d === dur ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(d, 0)}</button>`).join('')}</div>
+        <div class="g5">${durs.map((d) => `<button class="sq press" data-key="${d}" data-act="dur" data-v="${d}" data-haptic="selection" style="${d === dur ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.nf(d, 0)}</button>`).join('')}</div>
         ${e.spr_duration ? `<div class="stpc">${M.stepperHTML(this.hass, e.spr_duration, { label: 'Varighet', sub: 'Hvor lenge spreder går hver gang', key: 'stp-spr' })}</div>` : ''}
         ${rows}`;
     }
@@ -817,8 +844,8 @@
         const paint = (x) => {
           const n = this._tl.length, pos = Math.max(0.5 / n, Math.min(1 - 0.5 / n, x)), nr = Math.max(0, Math.min(n - 1, Math.floor(x * n)));
           const ind = gt.querySelector('.ind');
-          Object.assign(ind.style, { left: ((pos - 0.5 / n) * 100) + '%', background: 'linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35)', backdropFilter: 'blur(6px) saturate(200%)', transform: 'scale(1.12, 1.1)', transition: 'transform .25s cubic-bezier(.34,1.8,.64,1), background .2s' });
-          gt.querySelectorAll('.gti').forEach((s, i) => { s.style.color = i === nr ? '#fff' : '#afafaf'; });
+          Object.assign(ind.style, { left: ((pos - 0.5 / n) * 100) + '%', background: 'linear-gradient(180deg, rgb(255 255 255 / .3), rgb(255 255 255 / .1))', boxShadow: 'inset 0 1px 0 rgb(255 255 255 / .6), inset 0 -1px 1px rgb(255 255 255 / .15), inset 0 0 0 0.5px rgb(255 255 255 / .35), 0 8px 20px rgb(0 0 0 / .35)', backdropFilter: 'blur(6px) saturate(200%)', transform: 'scale(1.12, 1.1)', transition: 'transform .25s cubic-bezier(.34,1.8,.64,1), background .2s' });
+          gt.querySelectorAll('.gti').forEach((s, i) => { s.style.color = i === nr ? 'var(--ki-text, #fff)' : 'var(--ki-text-2, #afafaf)'; });
           if (nr !== near) { if (near >= 0) M.haptic('selection'); near = nr; }
         };
         // Dra (≥ 8 px) = glassboblen følger fingeren; vanlig trykk = linse-animasjon (MSH.glassMorph, Fiks 4 · 3)
@@ -849,39 +876,41 @@
     }
     get styles() {
       return (M.STEPPER_CSS || '') + `
-        .stpc{border-radius:24px;background:${C.card}}
+        .stpc{border-radius:24px;background:${K.card}}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px)}
         .ctl{display:grid;gap:8px}
         .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
         .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
-        .ptop{padding:2px 6px 0}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
         .gti{position:relative;z-index:1;height:34px;padding:0 12px;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;transition:color .25s}
-        .cfg{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;background:${C.card};color:#c7c7c7}
+        .cfg{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
         .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-        .kc{height:150px;padding:12px;border-radius:28px;background:${C.card};display:flex;flex-direction:column;min-width:0}
-        .kci{width:48px;height:48px;border-radius:24px;background:${C.inner};display:grid;place-items:center}
-        .kcl{font-size:13px;color:#afafaf;padding-left:6px}
+        .kc{height:150px;padding:12px;border-radius:28px;background:${K.card};display:flex;flex-direction:column;min-width:0}
+        .kci{width:48px;height:48px;border-radius:24px;background:${K.inner};display:grid;place-items:center}
+        .kcl{font-size:13px;color:var(--ki-text-2, #afafaf);padding-left:6px}
         .kcv{font-size:30px;font-weight:300;line-height:1.1;padding-left:6px;white-space:nowrap}
         .kcu{font-size:12px}
+        /* Fiks 33.1 · flytende setning: blokk-avsnitt, inline-piller (ingen flex/grid/gap, ingen width:100%) */
+        p.sent{display:block;margin:6px 4px 2px;padding:0;font-size:19px;line-height:1.75;text-wrap:pretty;color:var(--ki-text, #fafafa);font-weight:400}
+        p.sent .pill{display:inline;height:auto;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #141414);border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap;vertical-align:baseline;line-height:inherit;-webkit-box-decoration-break:clone;box-decoration-break:clone}
         .prose{font-size:19px;line-height:1.9;padding:0 6px}
-        .pill{display:inline-flex;height:30px;padding:0 12px;border-radius:15px;background:#fafafa;color:#282828;font-weight:600;align-items:center;vertical-align:middle;line-height:1}
+        .pill{display:inline-flex;height:30px;padding:0 12px;border-radius:15px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828);font-weight:600;align-items:center;vertical-align:middle;line-height:1}
         .lnk{text-decoration:underline;font-size:inherit}
         .dh{display:flex;align-items:center;gap:8px;padding:4px 8px 0}
         .dht{font-size:15px;font-weight:500}
-        .dhd{font-size:12px;color:#979797}
-        .today{display:flex;flex-direction:column;padding:0 16px;border-radius:26px;background:${C.card}}
+        .dhd{font-size:12px;color:var(--ki-text-mid, #979797)}
+        .today{display:flex;flex-direction:column;padding:0 16px;border-radius:26px;background:${K.card}}
         .tr{display:flex;align-items:baseline;gap:6px;padding:16px 0;cursor:pointer}
-        .bt{border-top:1px solid rgba(255,255,255,0.07)}
-        .trl{flex:1;font-size:14px;color:#afafaf}
+        .bt{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.07*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .trl{flex:1;font-size:14px;color:var(--ki-text-2, #afafaf)}
         .trv{font-size:22px;font-weight:300}
-        .tru{font-size:11px;color:#979797}
+        .tru{font-size:11px;color:var(--ki-text-mid, #979797)}
         .hs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
         .hs::-webkit-scrollbar{display:none}
         .md{flex:none;width:90px;height:84px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500}
@@ -890,40 +919,40 @@
         .flt{display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0}
         .fln{font-size:14px;font-weight:600}
         .fls{font-size:11px;opacity:.75}
-        .sq{height:70px;border-radius:22px;font-size:15px;font-weight:500;background:${C.card};color:#fafafa;box-shadow:inset 0 6px 0 -4px rgba(255,255,255,0.08)}
-        .hc{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:${C.card}}
+        .sq{height:70px;border-radius:22px;font-size:15px;font-weight:500;background:${K.card};color:var(--ki-text, #fafafa);box-shadow:inset 0 6px 0 -4px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .hc{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:${K.card}}
         .hch{display:flex;justify-content:space-between;align-items:flex-start}
         .chart{width:100%;height:110px;display:block}
-        .hsx{padding:10px 12px;border-radius:14px;background:var(--gray100,#2f2f2f);display:flex;flex-direction:column;gap:2px;min-width:0}
-        .htg{height:140px;padding:14px;border-radius:26px;display:flex;flex-direction:column;background:${C.card};min-width:0}
+        .hsx{padding:10px 12px;border-radius:14px;background:var(--ki-surface-3, #2f2f2f);display:flex;flex-direction:column;gap:2px;min-width:0}
+        .htg{height:140px;padding:14px;border-radius:26px;display:flex;flex-direction:column;background:${K.card};min-width:0}
         .htb{display:flex;align-items:flex-end;justify-content:space-between;width:100%;gap:6px}
         .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;transition:background .2s}
         .knb{position:absolute;top:3px;width:20px;height:20px;border-radius:10px;transition:left .2s}
-        .kn{display:flex;align-items:center;gap:12px;height:62px;padding:0 16px 0 6px;border-radius:31px;background:${C.card}}
-        .kni{width:50px;height:50px;border-radius:25px;background:${M.alpha(C.green, 0.25)};color:${C.green};display:grid;place-items:center;flex:none}
-        .hint{font-size:12px;color:#979797;padding:0 8px}
-        .pp{display:flex;align-items:center;gap:10px;height:60px;padding:0 14px 0 8px;border-radius:30px;background:${C.card};min-width:0}
-        .ppa{width:40px;height:40px;border-radius:20px;background:${C.inner};display:grid;place-items:center;flex:none}
+        .kn{display:flex;align-items:center;gap:12px;height:62px;padding:0 16px 0 6px;border-radius:31px;background:${K.card}}
+        .kni{width:50px;height:50px;border-radius:25px;background:${M.alpha(C.green, 0.25)};color:var(--ki-green-text, ${C.green});display:grid;place-items:center;flex:none}
+        .hint{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 8px}
+        .pp{display:flex;align-items:center;gap:10px;height:60px;padding:0 14px 0 8px;border-radius:30px;background:${K.card};min-width:0}
+        .ppa{width:40px;height:40px;border-radius:20px;background:${K.inner};display:grid;place-items:center;flex:none}
         .ppn{flex:1;font-size:15px;font-weight:500;text-align:left}
-        .la{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:${C.green};color:#3a3a3a;font-size:15px;font-weight:600}
+        .la{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:${C.green};color:var(--ki-on-accent, #3a3a3a);font-size:15px;font-weight:600}
         .lai{width:48px;height:48px;border-radius:24px;background:rgba(0,0,0,0.1);display:grid;place-items:center}
         .qts{display:flex;gap:6px;flex-wrap:wrap}
-        .qt{height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none;font-size:13px;font-weight:500;background:${C.card}}
-        .kal{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:26px;background:${C.card}}
-        .calg{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px;border-radius:18px;background:var(--gray100,#2f2f2f)}
-        .wd{text-align:center;font-size:10px;color:#7f7f7f}
+        .qt{height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none;font-size:13px;font-weight:500;background:${K.card}}
+        .kal{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:26px;background:${K.card}}
+        .calg{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px;border-radius:18px;background:var(--ki-surface-3, #2f2f2f)}
+        .wd{text-align:center;font-size:10px;color:var(--ki-text-3, #7f7f7f)}
         .cd{height:38px;border-radius:10px;display:grid;place-items:center;font-size:12px}
-        .kr{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 16px 0 6px;border-radius:31px;background:${C.card};width:100%}
+        .kr{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 16px 0 6px;border-radius:31px;background:${K.card};width:100%}
         .kr.sr{min-height:60px;border-radius:30px}
-        .kri{width:48px;height:48px;border-radius:24px;background:${C.inner};display:grid;place-items:center;flex:none}
-        .spx{position:relative;height:130px;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#1b2a3c,#23405a 60%,#2f6c8f)}
+        .kri{width:48px;height:48px;border-radius:24px;background:${K.inner};display:grid;place-items:center;flex:none}
+        .spx{position:relative;height:130px;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#1b2a3c,#23405a 60%,#2f6c8f);color:#fafafa} /* mørk øy */
         .sun{position:absolute;right:30px;top:12px;width:22px;height:22px;border-radius:11px;background:#e6dfc4}
         .spw{position:absolute;left:0;right:0;bottom:0;width:100%;height:60px}
         .pole{position:absolute;left:50%;top:26px;width:6px;height:44px;margin-left:-3px;border-radius:3px;background:#b8c4cc}
         .spl{position:absolute;left:14px;top:12px;font-size:12px;color:#c9d6e2}
         .sps{position:absolute;left:14px;bottom:12px;display:flex;flex-direction:column}
         .sb{display:flex;align-items:center;gap:12px;height:56px;padding:0 16px 0 6px;border-radius:28px;background:${C.blue};color:#12243a;font-size:15px;font-weight:600}
-        .sbi{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.25);display:grid;place-items:center}
+        .sbi{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.25);display:grid;place-items:center} /* ki-hex-ok: på blå aksentknapp */
       `;
     }
   }

@@ -41,19 +41,19 @@
 
   const CSS = `
     .mtb{display:flex;align-items:center;gap:8px;min-width:0;width:100%;box-sizing:border-box}
-    .mtb-tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;box-sizing:border-box;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none}
+    .mtb-tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;box-sizing:border-box;background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none}
     .mtb-tabs::-webkit-scrollbar{display:none}
     .mtb-pop .mtb-tabs{border-radius:26px}
     .mtb-gear .mtb-tabs{border-radius:28px}
-    .mtb-t{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0;border:0;white-space:nowrap;font-family:inherit;font-weight:500;line-height:1.2;color:var(--gray900,#c7c7c7);background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .2s,color .2s}
-    .mtb-t.on{background:${PINK};color:var(--gray100,#2f2f2f)}
+    .mtb-t{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0;border:0;white-space:nowrap;font-family:inherit;font-weight:500;line-height:1.2;color:var(--ki-text-2, var(--gray900,#c7c7c7));background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .2s,color .2s}
+    .mtb-t.on{background:${PINK};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
     .mtb-gear .mtb-t{flex:1 1 auto;min-width:max-content;height:48px;padding:0 8px;border-radius:24px;font-size:14px}
     .mtb-pop .mtb-t{flex:1 1 0;min-width:44px;height:44px;padding:0 4px;border-radius:22px;gap:6px;font-size:14px;overflow:hidden}
     .mtb-pop .m-b .mtb-t{height:56px;flex-direction:column;gap:2px;font-size:12px}
     .mtb-l{max-width:100%;overflow:hidden;text-overflow:ellipsis}
     .mtb-ic{display:inline-flex;flex:none;line-height:0}
-    .mtb-t.warn:not(.on) .mtb-ic{color:var(--red,#f28073)}
-    .mtb-g{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;margin:0;padding:0;border:0;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);color:var(--white,#fafafa);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .mtb-t.warn:not(.on) .mtb-ic{color:var(--ki-red-text, var(--red,#f28073))}
+    .mtb-g{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;margin:0;padding:0;border:0;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, var(--white,#fafafa));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     .mtb-g:active{transform:scale(.92)}
   `;
 

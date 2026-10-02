@@ -169,7 +169,7 @@
   // Ikon-sirkelen: farge etter r.iconMode, trykk etter r.iconTap (none = ingen knapp, trykket går til kortet).
   const lightBtn = (r, cls, alert) => {
     const on = r.iconMode === 'always' || (r.iconMode !== 'never' && r.lightsOn > 0);
-    const st = `background:${on ? r.col : 'var(--gray300,#404040)'};color:${on ? 'var(--gray000,#232323)' : 'var(--gray800,#afafaf)'}`;
+    const st = `background:${on ? r.col : 'var(--ki-surface-2, var(--gray300,#404040))'};color:${on ? 'var(--ki-on-accent, var(--gray000,#232323))' : 'var(--ki-text-2, var(--gray800,#afafaf))'}`;
     const inner = M.icon(r.icon, 24) + bang(alert);
     if (r.iconTap === 'none') return `<span class="${cls} rk-notap" style="${st}">${inner}</span>`;
     const act = r.iconTap === 'open_popup' ? `data-act="rk-open" data-hash="${esc(r.hash)}" title="Åpne ${esc(r.name)}"` : `data-act="rk-light" data-area="${esc(r.id)}" title="Lys"`;
@@ -199,7 +199,7 @@
       const h = v === 'L' ? 246 : kl ? 210 : 140;
       return `<div class="rk rk-big ${kl ? 'kl' : ''}" style="height:${h}px${pst ? ';' + pst.slice(8, -1) : ''}" ${openAttrs(r, o.key)}>
         <div class="rk-name ell">${esc(r.name)}</div>${lightBtn(r, 'rk-ic', alert)}
-        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--gray700,#979797)">${degI(r.hum)}%</span></div>${kl ? kv(r, v) : ''}</div>`;
+        <div class="rk-tv"><span class="rk-t num" style="font-size:${v === 'L' ? 52 : 44}px">${degI(r.temp)}°</span><span class="rk-h" style="color:var(--ki-text-mid, var(--gray700,#979797))">${degI(r.hum)}%</span></div>${kl ? kv(r, v) : ''}</div>`;
     }
     // graf (Romkort.dc.html)
     const cfg = o.cfg || {}, ui = o.ui || {}, g = o.graph || { t: [], h: [] };
@@ -225,7 +225,7 @@
     const chipText = r.heating ? `Varmer til ${M.nf(r.set, 1)}°` : r.set != null ? `Holder ${M.nf(r.set, 1)}°` : lit ? `${r.lightsOn} lys på` : 'Alt er rolig';
     const glyph = r.heating ? 'heat' : lit ? 'lightbulb' : 'air';
     const motes = o.motes === false ? '' : [[12, 0], [24, 1.4], [36, 0.6], [48, 2.2], [60, 0.9], [70, 1.8], [80, 0.3], [30, 2.8], [54, 3.3], [18, 2]].map(([x, d], i) => `<span class="rk-mote" style="left:${x}%;width:${i % 3 ? 2 : 3}px;height:${i % 3 ? 2 : 3}px;background:${hc};box-shadow:0 0 6px ${hc};animation-duration:${(r.heating ? 3 : 6) + (i % 3) * 0.8}s;animation-delay:${d}s"></span>`).join('');
-    return `<section class="rk rk-graf" ${openAttrs(r, o.key)} style="background:${M.color(cfg.background, 'var(--gray100,#2f2f2f)')}">
+    return `<section class="rk rk-graf" ${openAttrs(r, o.key)} style="background:${M.color(cfg.background, 'var(--ki-surface, var(--gray100,#2f2f2f))')}">
       <div class="rk-motes" aria-hidden="true">${motes}</div>
       <div class="rk-g">
         <svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline points="${area}" style="fill:${M.alpha(gc, 0.2)};stroke:none"></polyline><polyline points="${line}" fill="none" style="stroke:${gc}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline></svg>
@@ -237,8 +237,8 @@
       <div class="rk-top"><span class="rk-gn ell">${esc(r.name)}</span><span class="rk-chip" style="background:${M.alpha(cc, 0.18)};color:${cc}">${M.icon(chipIcon, 14)}${esc(chipText)}</span></div>
       <div class="rk-vals">
         <div class="rk-line">
-          <button class="rk-tb" data-act="rk-gt" data-t="t" style="color:${isT ? 'var(--white,#fafafa)' : 'var(--gray600,#7f7f7f)'}"><span class="rk-gbig num">${deg(tv)}</span><span class="rk-deg">°</span></button>
-          <button class="rk-hb" data-act="rk-gt" data-t="h" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? 'var(--gray800,#afafaf)' : 'var(--white,#fafafa)'}"><span class="rk-hv num">${deg(hv, 0)}</span><span class="rk-pc">%</span></button>
+          <button class="rk-tb" data-act="rk-gt" data-t="t" style="color:${isT ? 'var(--ki-text, var(--white,#fafafa))' : 'var(--ki-text-3, var(--gray600,#7f7f7f))'}"><span class="rk-gbig num">${deg(tv)}</span><span class="rk-deg">°</span></button>
+          <button class="rk-hb" data-act="rk-gt" data-t="h" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? 'var(--ki-text-2, var(--gray800,#afafaf))' : 'var(--ki-text, var(--white,#fafafa))'}"><span class="rk-hv num">${deg(hv, 0)}</span><span class="rk-pc">%</span></button>
         </div>
         <span class="rk-when">${esc(when)}</span>
       </div>
@@ -246,7 +246,7 @@
   };
 
   M.romkortCSS = `
-    .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    .rk{position:relative;cursor:pointer;box-sizing:border-box;border-radius:28px;background:var(--ki-surface, var(--gray100,#2f2f2f));box-shadow:var(--ki-card-sh, inset 0 0 0 1px rgba(255,255,255,0.04));color:var(--ki-text, var(--white,#fafafa));user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
     .rk-car{flex:none;width:100%;height:220px;border-radius:36px}
     .rk-car,.rk-big{container-type:inline-size}
     @container (max-width: 250px){.kl .rk-tv{flex-direction:column;align-items:flex-start;gap:4px}.rk-t{font-size:44px}}
@@ -257,30 +257,30 @@
     .rk-notap{pointer-events:none}
     .rk-notap:active{transform:none}
     .rk-ics{position:relative;right:auto;top:auto;flex:none}
-    .rk-bang{position:absolute;right:-3px;top:-6px;width:24px;height:24px;border-radius:12px;background:var(--red,#f28073);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 0 0 3px var(--gray000,#232323);z-index:2;line-height:1}
+    .rk-bang{position:absolute;right:-3px;top:-6px;width:24px;height:24px;border-radius:12px;background:var(--red,#f28073);color:var(--ki-on-accent, #fff);display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 0 0 3px var(--ki-bg, var(--gray000,#232323));z-index:2;line-height:1}
     .rk-tv{position:absolute;left:18px;bottom:16px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
     .rk-t{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-    .rk-h{font-size:13px;color:var(--gray600,#7f7f7f)}
+    .rk-h{font-size:13px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
     .kl .rk-tv{right:72px}
     /* Termostat-stepper (17.1, Hjem v3 r.hasSet/r.klimaV): vertikal pille forankret under ikon-sirkelen (ikonet slutter
        på 64 px → top 76 = 12 px luft), høyden følger kortet. Gradient #484848→#3f3f3f, lys kant, høylys-linje øverst og
        lett skygge. Pilene øverst/nederst, målet i midten. Trykk: #4a4a4a ~120 ms (16.1). */
-    .rk-kv{position:absolute;right:10px;top:76px;bottom:10px;width:52px;border-radius:26px;background:linear-gradient(180deg,#484848 0%,#3f3f3f 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16),inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(0,0,0,0.28);color:#fafafa;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
+    .rk-kv{position:absolute;right:10px;top:76px;bottom:10px;width:52px;border-radius:26px;background:var(--ki-step-bg, linear-gradient(180deg,#484848 0%,#3f3f3f 100%));box-shadow:var(--ki-step-sh, inset 0 0 0 1px rgba(255,255,255,0.16),inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(0,0,0,0.28));color:var(--ki-text, #fafafa);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;box-sizing:border-box;cursor:default}
     /* 20.12: høyden velges per størrelse (M 96–124, L 96–160 – L gjelder også karusellen). Pillen står alltid nederst,
        bare toppen flyttes: top = max(76px, 100% − 10px − høyde). Uten valg (Fyll) = som før (top 76). Verdien kommer fra
        --ki-rk-pill-M/L på :root (per bruker × enhet, M.rkPillApply) → ellers --rk-pill-cfg-M/L (YAML) → fyll. */
     .rk-kv{transition:top .2s ease}
     .rk-pM{top:max(76px,calc(100% - 10px - max(96px,var(--ki-rk-pill-M,var(--rk-pill-cfg-M,9999px)))))}
     .rk-pL{top:max(76px,calc(100% - 10px - max(96px,var(--ki-rk-pill-L,var(--rk-pill-cfg-L,9999px)))))}
-    .rk-kv .rk-kb{width:52px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:#fafafa;--mdc-icon-size:20px;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
-    .rk-kv .rk-kb:active{transform:scale(.86);background:#4a4a4a;transition:transform .15s,background 0s}
-    .rk-kv .rk-kt{font-size:14px;font-weight:500;flex:none;color:#fafafa;font-variant-numeric:tabular-nums}
+    .rk-kv .rk-kb{width:52px;flex:1 1 0;max-height:52px;min-height:36px;display:grid;place-items:center;color:var(--ki-text, #fafafa);--mdc-icon-size:20px;touch-action:manipulation;transition:transform .15s,background .12s ease-out}
+    .rk-kv .rk-kb:active{transform:scale(.86);background:var(--ki-surface-2, #4a4a4a);transition:transform .15s,background 0s}
+    .rk-kv .rk-kt{font-size:14px;font-weight:500;flex:none;color:var(--ki-text, #fafafa);font-variant-numeric:tabular-nums}
     .rk-s{display:flex;align-items:center;gap:12px;height:66px;padding:0 6px 0 4px;border-radius:33px;box-shadow:none}
     .rk-sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .rk-sn{font-size:15px;font-weight:500}
-    .rk-sl{font-size:12px;color:var(--gray700,#979797);white-space:nowrap}
+    .rk-sl{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap}
     .rk-big{box-shadow:none}
-    .rk-graf{height:184px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);transition:background .8s}
+    .rk-graf{height:184px;overflow:hidden;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));transition:background .8s}
     .rk-motes{position:absolute;inset:0;pointer-events:none;overflow:hidden}
     .rk-mote{position:absolute;bottom:-4px;border-radius:2px;opacity:0;animation-name:rk-drift;animation-timing-function:linear;animation-iteration-count:infinite}
     @keyframes rk-drift{0%{transform:translate(0,0);opacity:0}20%{opacity:.9}100%{transform:translate(18px,-110px);opacity:0}}
@@ -288,13 +288,13 @@
     .rk-g{position:absolute;left:0;right:0;bottom:0;height:84px}
     .rk-g svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
     .rk-cur{position:absolute;top:0;bottom:0;pointer-events:none}
-    .rk-dot{position:absolute;left:-6px;width:10px;height:10px;border-radius:5px;background:var(--white,#fafafa)}
+    .rk-dot{position:absolute;left:-6px;width:10px;height:10px;border-radius:5px;background:var(--ki-knob, var(--white,#fafafa))}
     .rk-scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
     .rk-glyph{position:absolute;right:74px;top:22px;display:inline-flex;pointer-events:none}
-    .rk-gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--white,#fafafa);transition:transform .15s}
+    .rk-gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa));transition:transform .15s}
     .rk-gear:active{transform:scale(.92)}
     .rk-top{position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px;min-width:0}
-    .rk-gn{font-size:13px;color:var(--gray800,#afafaf);min-width:0}
+    .rk-gn{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));min-width:0}
     .rk-chip{height:26px;padding:0 10px 0 8px;border-radius:13px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap;flex:none}
     .rk-vals{position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px}
     .rk-line{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
@@ -303,8 +303,8 @@
     .rk-deg{font-size:24px;font-weight:300}
     .rk-hb{display:flex;align-items:baseline;gap:1px;height:26px;padding:0 9px;border-radius:13px;transition:background .25s,color .25s}
     .rk-hv{font-size:17px;font-weight:400}
-    .rk-pc{font-size:12px;color:var(--gray700,#979797)}
-    .rk-when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+    .rk-pc{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .rk-when{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
   `;
 
   // Felles handlinger for romkort (returnerer true når håndtert).
@@ -387,10 +387,10 @@
   // Tilpass Hjem → Kort → «Klima-knapp på romkort» (27-hjem-editor kaller html/act/input). Lagres straks (per enhet).
   const pillPrev = (k, v) => {
     const P = PILL[k], f = 0.4, H = Math.round(P.h * f), top = v == null ? 30 : Math.max(30, Math.round(H - 4 - v * f));
-    return `<span class="rkpp" data-rkpp="${k}" style="position:relative;flex:none;width:64px;height:${H}px;border-radius:14px;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)">
-      <span style="position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:11px;background:var(--gray300,#404040)"></span>
-      <span style="position:absolute;left:6px;bottom:6px;width:20px;height:9px;border-radius:3px;background:var(--gray400,#545454)"></span>
-      <span class="rkpp-p" style="position:absolute;right:4px;bottom:4px;width:21px;top:${top}px;border-radius:11px;background:linear-gradient(180deg,#484848,#3f3f3f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16);transition:top .2s"></span></span>`;
+    return `<span class="rkpp" data-rkpp="${k}" style="position:relative;flex:none;width:64px;height:${H}px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">
+      <span style="position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:11px;background:var(--ki-surface-2, var(--gray300,#404040))"></span>
+      <span style="position:absolute;left:6px;bottom:6px;width:20px;height:9px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))"></span>
+      <span class="rkpp-p" style="position:absolute;right:4px;bottom:4px;width:21px;top:${top}px;border-radius:11px;background:var(--ki-step-bg, linear-gradient(180deg,#484848,#3f3f3f));box-shadow:var(--ki-step-sh, inset 0 0 0 1px rgba(255,255,255,0.16));transition:top .2s"></span></span>`;
   };
   const pillLab = (k, v) => (v == null ? 'Fyll' : v + ' px');
   M.romkortPillPanel = {

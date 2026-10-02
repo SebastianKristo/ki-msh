@@ -29,7 +29,7 @@
  *   custom_tabs [{ key, name, icon, source }], tab_order/tab_hidden/tab_names, rows.include/include (→ faner[].ekstra)
  *   rows: { exclude: [device_id|entity_id], move: { id: fane }, names, subs, icons, order: { fane: [id] } }  (rowHid/rowOrder)
  *   tab_labels (icon = ikon + tekst (standard) | name = tekst | ikon = ikoner) · start_tab · sok · show_summary (true) ·
- *   av_forst · haptikk · scene (auto | morgen | dag = kun kort | natt) · animasjoner (true) · dashbord (true) · gap · pad_*
+ *   av_forst · haptikk · scene (auto | morgen | dag = kun kort | natt) · animasjoner (true) · (dashbord: utgått, fiks 33.3) · gap · pad_*
  */
 (function () {
   const M = window.MSH;
@@ -312,14 +312,14 @@
   // 4 faner: teksten krymper (ellipsis); > 4: vannrett scroll. P = prefiks (kortet: '', arket: '.pvw ').
   const TAB_CSS = (P) => `
     ${P}.bar{display:flex;align-items:center;gap:8px;min-width:0;margin:4px 0}
-    ${P}.tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:26px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);position:relative;overflow-x:auto;scrollbar-width:none;touch-action:pan-y}
+    ${P}.tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:26px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));position:relative;overflow-x:auto;scrollbar-width:none;touch-action:pan-y}
     ${P}.tabs::-webkit-scrollbar{display:none}
-    ${P}.tb{flex:1 1 0;min-width:0;padding:0 4px;height:44px;border-radius:22px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;color:var(--gray800,#afafaf);box-sizing:border-box}
+    ${P}.tb{flex:1 1 0;min-width:0;padding:0 4px;height:44px;border-radius:22px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;color:var(--ki-text-2, #afafaf);box-sizing:border-box}
     ${P}.tabs.m-b .tb{height:56px;flex-direction:column;gap:3px;font-size:11px}
     ${P}.tb .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis}
-    ${P}.tb.on{background:${C.accent};color:#3a3a3a}
+    ${P}.tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${P}.tabs.many .tb{flex:1 0 auto;min-width:60px;padding:0 10px}
-    ${P}.gear{width:56px;height:56px;border-radius:28px;flex:none;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center}`;
+    ${P}.gear{width:56px;height:56px;border-radius:28px;flex:none;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}`;
 
   /* ============================================================ editoren (Tilpass Innstillinger + GUI) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
@@ -332,111 +332,111 @@
     /* designet: bare «Ferdig» i headeren (lukk/avbryt = bakteppet, Esc) – tittelen får plass; fanene ligger fast under */
     .ttl .hb[data-a="cancel"]{display:none}
     .wrap>.chips.sg.tabs{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) + 47px);z-index:4;box-shadow:0 0 0 10px var(--ki-sheet-bg,#282828)}
-    .chips.sg.tabs{background:#3a3a3a;border-radius:24px;padding:4px;gap:2px}
+    .chips.sg.tabs{background:var(--ki-surface, #3a3a3a);border-radius:24px;padding:4px;gap:2px}
     .chips.sg.tabs .chip{height:40px;border-radius:20px;font-size:12px;font-weight:500}
-    .chips.sg.tsub{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);background:#3a3a3a;border-radius:22px;padding:4px;gap:2px}
-    .chips.sg.tsub .chip{height:36px;border-radius:18px;font-size:12px;font-weight:500;color:#979797;background:transparent}
-    .chips.sg.tsub .chip.on{background:#404040;color:#fafafa}
+    .chips.sg.tsub{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);background:var(--ki-surface, #3a3a3a);border-radius:22px;padding:4px;gap:2px}
+    .chips.sg.tsub .chip{height:36px;border-radius:18px;font-size:12px;font-weight:500;color:var(--ki-text-mid, #979797);background:transparent}
+    .chips.sg.tsub .chip.on{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
     /* designet: én flate (#3a3a3a r24) per seksjon med overskriften INNI, rader flatt med skillelinjer */
-    .fsec{gap:0;border-radius:24px;background:#3a3a3a}
+    .fsec{gap:0;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .fsec>.fsh{padding:14px 16px 6px;font-size:12px;font-weight:500}
     .fsec>.sec{border-radius:24px;background:transparent;box-shadow:none;border:0}
     .fsec>.sec>.in{padding:0 16px}
     .fsec .sec .f{background:transparent;padding:10px 0;border-radius:0}
-    .fsec .sec .f + .f{border-top:1px solid rgba(255,255,255,.06)}
+    .fsec .sec .f + .f{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .fsec .sec .f:has(>.line){display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:64px;box-sizing:border-box}
     .fsec .sec .f:has(>.line)>.line{display:contents}
     .fsec .sec .f:has(>.line) .line>span{grid-column:1;grid-row:1;font-size:15px !important;font-weight:500}
     .fsec .sec .f:has(>.line) .line>.sw{grid-column:2;grid-row:1 / span 2}
-    .fsec .sec .f:has(>.line)>.help{grid-column:1;grid-row:2;font-size:12px;color:#979797}
-    .fsec .f>label{font-size:13px;color:#afafaf}
-    .fsec .f .chips.sg:not(.tabs):not(.tsub){display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:22px;background:#282828}
-    .fsec .f .chips.sg:not(.tabs):not(.tsub) .chip{height:36px;border-radius:18px;justify-content:center;padding:0 4px;background:transparent;color:#afafaf;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden}
-    .fsec .f .chips.sg:not(.tabs):not(.tsub) .chip.on{background:${C.accent};color:#3a3a3a}
+    .fsec .sec .f:has(>.line)>.help{grid-column:1;grid-row:2;font-size:12px;color:var(--ki-text-mid, #979797)}
+    .fsec .f>label{font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .fsec .f .chips.sg:not(.tabs):not(.tsub){display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:22px;background:var(--ki-popup, #282828)}
+    .fsec .f .chips.sg:not(.tabs):not(.tsub) .chip{height:36px;border-radius:18px;justify-content:center;padding:0 4px;background:transparent;color:var(--ki-text-2, #afafaf);font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden}
+    .fsec .f .chips.sg:not(.tabs):not(.tsub) .chip.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     .ilist{display:flex;flex-direction:column}
     .irow{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 0}
-    .irow + .irow,.irow + .isub,.isub + .irow{border-top:1px solid rgba(255,255,255,.06)}
+    .irow + .irow,.irow + .isub,.isub + .irow{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .irow.off .iic,.irow.off .inm{opacity:.45}
-    .iic{width:32px;height:32px;display:grid;place-items:center;flex:none;color:#afafaf;--mdc-icon-size:22px}
+    .iic{width:32px;height:32px;display:grid;place-items:center;flex:none;color:var(--ki-text-2, #afafaf);--mdc-icon-size:22px}
     button.iic{border-radius:16px}
-    .inm{flex:1;min-width:0;height:40px;border-radius:12px;background:#282828;padding:0 12px;font-size:14px;color:#fafafa}
-    .inm::placeholder{color:#979797}
-    .idel{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--red,#f28073)}
-    .irow .sw{width:44px;height:26px;border-radius:13px;background:#545454;flex:none}
+    .inm{flex:1;min-width:0;height:40px;border-radius:12px;background:var(--ki-popup, #282828);padding:0 12px;font-size:14px;color:var(--ki-text, #fafafa)}
+    .inm::placeholder{color:var(--ki-text-mid, #979797)}
+    .idel{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--ki-red-text, var(--red,#f28073))}
+    .irow .sw{width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, #545454);flex:none}
     .irow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
     .irow .sw.on{background:var(--pink,#f285c9)}.irow .sw.on::after{transform:translateX(18px)}
-    .iadd{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 4px;border-top:1px solid rgba(255,255,255,.06);text-align:left;color:rgb(242 133 201);font-size:15px;font-weight:500}
-    .ntp{display:flex;flex-direction:column;gap:10px;margin:0 -4px 8px;padding:12px;border-radius:20px;background:#282828;animation:ntfade .25s ease both}
+    .iadd{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 4px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));text-align:left;color:var(--ki-pink-text, rgb(242 133 201));font-size:15px;font-weight:500}
+    .ntp{display:flex;flex-direction:column;gap:10px;margin:0 -4px 8px;padding:12px;border-radius:20px;background:var(--ki-popup, #282828);animation:ntfade .25s ease both}
     @keyframes ntfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    .ntl{font-size:12px;color:#979797;padding:0 4px}
+    .ntl{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 4px}
     .nts{display:flex;flex-direction:column;gap:2px}
     .ntsrc{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border-radius:16px;text-align:left;width:100%;box-sizing:border-box;background:transparent}
-    .ntsrc.on{background:#545454}
-    .ntsrc .nm{flex:1;min-width:0;display:flex;flex-direction:column}.ntsrc b{font-size:14px;font-weight:500}.ntsrc i{font-style:normal;font-size:11px;color:#979797}
-    .ntn{height:48px;border-radius:16px;padding:0 14px;background:#3a3a3a;color:#fafafa;font-size:15px;width:100%;box-sizing:border-box}
-    .ntn::placeholder{color:#979797}
+    .ntsrc.on{background:var(--ki-ctrl, #545454)}
+    .ntsrc .nm{flex:1;min-width:0;display:flex;flex-direction:column}.ntsrc b{font-size:14px;font-weight:500}.ntsrc i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797)}
+    .ntn{height:48px;border-radius:16px;padding:0 14px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);font-size:15px;width:100%;box-sizing:border-box}
+    .ntn::placeholder{color:var(--ki-text-mid, #979797)}
     .nti{display:flex;flex-wrap:wrap;gap:6px}
-    .nti button{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1}
-    .nti button.on{background:${C.accent};color:#3a3a3a}
-    .ntgo{height:48px;border-radius:24px;font-size:15px;font-weight:600;background:#3a3a3a;color:#7f7f7f;width:100%}
-    .ntgo.on{background:${C.accent};color:#3a3a3a}
+    .nti button{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1)}
+    .nti button.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    .ntgo{height:48px;border-radius:24px;font-size:15px;font-weight:600;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-3, #7f7f7f);width:100%}
+    .ntgo.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     .pvw{display:flex;flex-direction:column;gap:10px;padding:4px 0 14px}
-    .pvw .pvb{padding:10px;border-radius:20px;background:#282828;pointer-events:none}
+    .pvw .pvb{padding:10px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none}
     .pvw .bar{margin:0}
     ${TAB_CSS('.pvw ')}
     .isub{display:flex;flex-direction:column;gap:8px;padding:10px 0 12px 40px}
-    .isub .lb{font-size:12px;color:#afafaf}
+    .isub .lb{font-size:12px;color:var(--ki-text-2, #afafaf)}
     .ichips{display:flex;flex-wrap:wrap;gap:6px}
-    .ichips button{height:32px;padding:0 12px;border-radius:16px;background:#404040;font-size:13px;white-space:nowrap}
+    .ichips button{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-2, #404040);font-size:13px;white-space:nowrap}
     .ichips button.on{background:${C.accent};color:#2a1720;font-weight:500}
     .ifld{display:flex;flex-direction:column;gap:6px;padding:10px 0}
-    .ifld + .ifld{border-top:1px solid rgba(255,255,255,.06)}
-    .ifld .lb{font-size:12px;color:#afafaf}
+    .ifld + .ifld{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ifld .lb{font-size:12px;color:var(--ki-text-2, #afafaf)}
     .inm.full{flex:none;width:100%}
-    .iempty{padding:14px 4px;font-size:13px;color:#979797}
-    .ibtn{height:44px;border-radius:22px;background:#404040;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;width:100%;margin:8px 0}
-    .ireset{height:48px;border-radius:24px;background:#3a3a3a;font-size:14px;font-weight:500;color:var(--red,#f28073);width:100%;margin-top:8px}
-    .imeta{font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iempty{padding:14px 4px;font-size:13px;color:var(--ki-text-mid, #979797)}
+    .ibtn{height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;width:100%;margin:8px 0}
+    .ireset{height:48px;border-radius:24px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;color:var(--ki-red-text, var(--red,#f28073));width:100%;margin-top:8px}
+    .imeta{font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .itx{flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;min-height:44px;justify-content:center}
     .itx b,.ient .nm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .itx i,.ient .nm i.mono,.ihit .nm i{font-style:normal;font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .itx i,.ient .nm i.mono,.ihit .nm i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .irow.off .itx{opacity:.6}
     .ient{display:flex;flex-direction:column;gap:8px;padding:10px 0}
-    .ient + .ient{border-top:1px solid rgba(255,255,255,.06)}
+    .ient + .ient{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ienh{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:44px}
-    .eic{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:#404040;color:#e1e1e1}
+    .eic{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #404040);color:var(--ki-text-1, #e1e1e1)}
     .ient .nm,.ihit .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-    .ient .nm i.pk{font-style:normal;font-size:11px;color:rgb(242 133 201)}
-    .ientp{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828}
-    .ientp .edq{height:40px;border-radius:12px;background:#3a3a3a}
+    .ient .nm i.pk{font-style:normal;font-size:11px;color:var(--ki-pink-text, rgb(242 133 201))}
+    .ientp{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:var(--ki-popup, #282828)}
+    .ientp .edq{height:40px;border-radius:12px;background:var(--ki-surface, #3a3a3a)}
     .ihit{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%;box-sizing:border-box}
-    .ihit.on{background:#3a3a3a}
+    .ihit.on{background:var(--ki-surface, #3a3a3a)}
     .ihit .nm b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 29.3 · per fane: Integrasjoner · Bare/Ikke disse · Ekstra brytere · Visning (arkstil: indre flate #282828, rader med bryter) */
     .ifp{display:flex;flex-direction:column;gap:8px;padding:2px 0 14px}
-    .ifs{display:flex;flex-direction:column;padding:4px 14px 8px;border-radius:18px;background:#282828}
-    .ifs>.lb{font-size:12px;color:#979797;padding:8px 0 6px}
+    .ifs{display:flex;flex-direction:column;padding:4px 14px 8px;border-radius:18px;background:var(--ki-popup, #282828)}
+    .ifs>.lb{font-size:12px;color:var(--ki-text-mid, #979797);padding:8px 0 6px}
     .iprow{display:flex;align-items:center;gap:12px;min-height:52px}
-    .iprow + .iprow{border-top:1px solid rgba(255,255,255,.06)}
+    .iprow + .iprow{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .iprow .ipn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
     .iprow .ipn b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .iprow .ipn i{font-style:normal;font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .iprow .sw{width:44px;height:26px;border-radius:13px;background:#545454;flex:none}
+    .iprow .ipn i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .iprow .sw{width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, #545454);flex:none}
     .iprow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
     .iprow .sw.on{background:var(--pink,#f285c9)}.iprow .sw.on::after{transform:translateX(18px)}
-    .ifs .inm{background:#3a3a3a}
-    .icount{font-size:12px;color:rgb(242 133 201);padding:8px 0 2px}
+    .ifs .inm{background:var(--ki-surface, #3a3a3a)}
+    .icount{font-size:12px;color:var(--ki-pink-text, rgb(242 133 201));padding:8px 0 2px}
     .ixch{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px}
     .ixch:empty{display:none}
-    .ixch button{height:32px;padding:0 6px 0 12px;border-radius:16px;background:#404040;font-size:12px;display:flex;align-items:center;gap:4px;max-width:100%}
+    .ixch button{height:32px;padding:0 6px 0 12px;border-radius:16px;background:var(--ki-surface-2, #404040);font-size:12px;display:flex;align-items:center;gap:4px;max-width:100%}
     .ixch button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .ifs .edq{background:#3a3a3a}
+    .ifs .edq{background:var(--ki-surface, #3a3a3a)}
     .ifs .nts{margin:0 -10px}
     .ifs .nti{padding:2px 0 6px}
     .ntp .ifp{padding:0}
-    .ntp .ifs{background:#3a3a3a}
-    .ntp .ifs .inm,.ntp .ifs .edq{background:#282828}
-    .ntp .ifs .ntsrc.on{background:#545454}`;
+    .ntp .ifs{background:var(--ki-surface, #3a3a3a)}
+    .ntp .ifs .inm,.ntp .ifs .edq{background:var(--ki-popup, #282828)}
+    .ntp .ifs .ntsrc.on{background:var(--ki-ctrl, #545454)}`;
   let innSheet = null;
   const NY = '__ny'; // «Legg til fane»-utkastet (29.3) bruker samme panel som en fane
   const EXPF = new Map(); // åpent fanepanel per kort
@@ -537,7 +537,7 @@
     let enh = '';
     if (ny && hh) {
       const K = enheterOf(hh, t), sel = arr(t.enheter);
-      enh = `<div class="ifs" data-key="ifs-enh"><span class="lb">Regler og enheter fra valgte integrasjoner</span><div class="nts">${K.length ? K.map((x) => { const on = sel.includes(x.enhet); return `<button class="ntsrc ${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nenh" data-v="${NY}" data-x="${esc(x.enhet)}" aria-pressed="${on}">${M.icon(x.ikon, 20, 'color:#afafaf')}<span class="nm"><b>${esc(x.enhet)}</b><i>${x.n} ${x.n === 1 ? 'bryter' : 'brytere'}</i></span>${M.icon('mdi:check', 20, `color:rgb(102 209 158);opacity:${on ? 1 : 0}`)}</button>`; }).join('') : '<div class="iempty">Fant ingen brytere fra valgte integrasjoner</div>'}</div></div>`;
+      enh = `<div class="ifs" data-key="ifs-enh"><span class="lb">Regler og enheter fra valgte integrasjoner</span><div class="nts">${K.length ? K.map((x) => { const on = sel.includes(x.enhet); return `<button class="ntsrc ${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="nenh" data-v="${NY}" data-x="${esc(x.enhet)}" aria-pressed="${on}">${M.icon(x.ikon, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(x.enhet)}</b><i>${x.n} ${x.n === 1 ? 'bryter' : 'brytere'}</i></span>${M.icon('mdi:check', 20, `color:var(--ki-green-text, rgb(102 209 158));opacity:${on ? 1 : 0}`)}</button>`; }).join('') : '<div class="iempty">Fant ingen brytere fra valgte integrasjoner</div>'}</div></div>`;
     }
     const X = arr(t.ekstra), qk = 'inn-x-' + k, q = String(ed.__edQ[qk] || '').trim().toLowerCase(), qs = q.replace(/ /g, '_');
     const hits = q && hh ? Object.keys(hh.states).filter((id) => ['switch', 'input_boolean', 'automation'].includes(id.split('.')[0]) && !X.includes(id) && (id.includes(qs) || String(hh.states[id].attributes.friendly_name || '').toLowerCase().includes(q))).sort().slice(0, 6) : [];
@@ -549,8 +549,8 @@
         <span class="lb">Ikke disse</span><input class="inm full" data-inn="fikke" data-v="${ek}" value="${esc(arr(t.ikke_enheter).join(', '))}" placeholder="Ingen" aria-label="Ikke disse" autocapitalize="off" autocorrect="off" spellcheck="false">
         <span class="icount" data-v="${ek}" data-key="icount-${ek}" aria-live="polite">${esc(visesTxt(hh ? finn(hh, faneCfg(cc, t)).length : 0))}</span></div>
       <div class="ifs" data-key="ifs-ekstra"><span class="lb">Ekstra brytere</span><div class="ixch">${X.map((id) => `<button data-a="fn" data-k="${key}" data-op="xrm" data-v="${ek}" data-x="${esc(id)}" aria-label="Fjern ${esc(id)}"><span>${esc(hh && hh.states[id] ? M.name(hh, id) : id)}</span>${M.icon('mdi:close', 16)}</button>`).join('')}</div>
-        <div class="edq">${M.icon('mdi:magnify', 18, 'color:#979797')}<input data-edq="${esc(qk)}" value="${esc(ed.__edQ[qk] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        ${hits.map((id) => `<button class="ihit" data-a="fn" data-k="${key}" data-op="xadd" data-v="${ek}" data-x="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 18, 'color:#979797')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span></button>`).join('') || (q ? '<div class="iempty">Ingen treff</div>' : '')}</div>
+        <div class="edq">${M.icon('mdi:magnify', 18, 'color:var(--ki-text-mid, #979797)')}<input data-edq="${esc(qk)}" value="${esc(ed.__edQ[qk] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits.map((id) => `<button class="ihit" data-a="fn" data-k="${key}" data-op="xadd" data-v="${ek}" data-x="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 18, 'color:var(--ki-text-mid, #979797)')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span></button>`).join('') || (q ? '<div class="iempty">Ingen treff</div>' : '')}</div>
       <div class="ifs" data-key="ifs-vis"><span class="lb">Visning</span>${vis.map(([p, l, hl]) => `<div class="iprow"><span class="ipn"><b>${esc(l)}</b><i style="font-family:inherit">${esc(hl)}</i></span>${sw(key, 'fvis', k, t[p] !== false, l, p)}</div>`).join('')}</div>
       ${ny ? '' : `<div class="ifs" data-key="ifs-ikon"><span class="lb">Ikon</span>${iconChips(key, 'ticon', k, t.icon)}</div>`}
     </div>`;
@@ -731,8 +731,8 @@
       // «Legg til rad» = fanens Ekstra brytere (switch/input_boolean/automation, som ki-varsling-card)
       const q = (ed.__edQ['inn-q'] || '').trim().toLowerCase(), have = new Set(L.map((r) => r.id));
       const hits = ADD.has(id) ? Object.keys(hh.states).filter((x) => ['input_boolean', 'switch', 'automation'].includes(x.split('.')[0]) && !have.has(x) && (!q || (x + ' ' + (hh.states[x].attributes.friendly_name || '')).toLowerCase().includes(q))).sort().slice(0, 8) : [];
-      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>` : '';
+      const add = ADD.has(id) ? `<div class="isub" style="padding-left:0" data-key="iadd"><div class="edq">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-mid, #979797)')}<input data-edq="inn-q" value="${esc(ed.__edQ['inn-q'] || '')}" placeholder="Søk etter bryter eller automasjon" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits.map((x) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="radd" data-v="${esc(x)}">${M.icon(M.domainIcon(x, hh.states[x]), 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(M.name(hh, x))}</b><i>${esc(x)}</i></span></button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>` : '';
       const none = !rules(hh, cc).length ? 'Fant ingen brytere fra valgte integrasjoner' : 'Ingen rader i denne fanen ennå.';
       return `<div class="ilist">${rows || `<div class="iempty">${esc(none)}</div>`}${add}</div>
         <button class="ibtn" data-a="fn" data-k="${key}" data-op="radd-open" data-v="">${M.icon(ADD.has(id) ? 'mdi:close' : 'mdi:plus', 20)}${ADD.has(id) ? 'Lukk' : 'Legg til rad'}</button>
@@ -767,11 +767,11 @@
           const qs = q.replace(/ /g, '_');
           const hits = Object.keys(hh.states).filter((id) => doms.includes(id.split('.')[0]) && (!q || id.includes(qs) || String(hh.states[id].attributes.friendly_name || '').toLowerCase().includes(q)))
             .sort((a, b) => (b === cur) - (a === cur) || a.localeCompare(b)).slice(0, 8);
-          body = `<div class="ientp" data-key="ientp-${k}"><div class="edq">${M.icon('mdi:magnify', 18, 'color:#7f7f7f')}<input data-edq="inn-ent" value="${esc(ed.__edQ['inn-ent'] || '')}" placeholder="Søk etter entitet …" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-            ${set ? `<button class="ihit" data-a="fn" data-k="${key}" data-op="entauto" data-v="${k}">${M.icon('mdi:auto-fix', 18, 'color:#979797')}<span class="nm"><b>Automatisk</b><i>${esc(au || 'Ingen funnet')}</i></span></button>` : ''}
-            ${hits.map((id) => `<button class="ihit ${id === cur ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="entset" data-v="${k}" data-id="${esc(id)}">${M.icon('mdi:toggle-switch-outline', 18, 'color:#979797')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:check', 18, `color:rgb(102 209 158);opacity:${id === cur ? 1 : 0}`)}</button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>`;
+          body = `<div class="ientp" data-key="ientp-${k}"><div class="edq">${M.icon('mdi:magnify', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-edq="inn-ent" value="${esc(ed.__edQ['inn-ent'] || '')}" placeholder="Søk etter entitet …" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+            ${set ? `<button class="ihit" data-a="fn" data-k="${key}" data-op="entauto" data-v="${k}">${M.icon('mdi:auto-fix', 18, 'color:var(--ki-text-mid, #979797)')}<span class="nm"><b>Automatisk</b><i>${esc(au || 'Ingen funnet')}</i></span></button>` : ''}
+            ${hits.map((id) => `<button class="ihit ${id === cur ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="entset" data-v="${k}" data-id="${esc(id)}">${M.icon('mdi:toggle-switch-outline', 18, 'color:var(--ki-text-mid, #979797)')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:check', 18, `color:var(--ki-green-text, rgb(102 209 158));opacity:${id === cur ? 1 : 0}`)}</button>`).join('') || '<div class="iempty">Ingen treff</div>'}</div>`;
         }
-        return `<div class="ient" data-key="ient-${k}"><button class="ienh" data-a="fn" data-k="${key}" data-op="entopen" data-v="${k}" aria-expanded="${open === k}"><span class="eic">${M.icon(icon, 18)}</span><span class="nm"><b>${esc(label)}</b><i class="${cur ? 'mono' : 'pk'}">${esc(txt)}</i></span>${M.icon(open === k ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:#7f7f7f')}</button>${body}</div>`;
+        return `<div class="ient" data-key="ient-${k}"><button class="ienh" data-a="fn" data-k="${key}" data-op="entopen" data-v="${k}" aria-expanded="${open === k}"><span class="eic">${M.icon(icon, 18)}</span><span class="nm"><b>${esc(label)}</b><i class="${cur ? 'mono' : 'pk'}">${esc(txt)}</i></span>${M.icon(open === k ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>${body}</div>`;
       }).join('')}</div>`;
     }, click: (dd, ed) => {
       const id = cid(ed);
@@ -803,7 +803,6 @@
             { type: 'boolean', name: 'av_forst', label: 'Avslåtte øverst', help: 'Sorter det som er av først', default: false },
             { type: 'boolean', name: 'haptikk', label: 'Haptikk', help: 'Vibrasjon ved trykk', default: true },
             { type: 'boolean', name: 'animasjoner', label: 'Animasjoner', help: 'Toppkort og Privatmodus-kameraet', default: true },
-            { type: 'boolean', name: 'dashbord', label: 'Dashbordinnstillinger nederst', help: 'Tilpass Hjem/navbar/header, Home Assistant, Liquid Glass og Enheter', default: true },
           ] },
           { type: 'section', id: 'scene', label: '', fields: [
             { type: 'select', name: 'scene', label: 'Toppkort-scene', options: [['auto', 'Automatisk'], ['morgen', 'God morgen'], ['dag', 'Kun kort'], ['natt', 'God natt']], default: 'auto' },
@@ -882,7 +881,7 @@
     static get uiPersist() { return ['tab']; }
     get cardSize() { return 9; }
     get hass() { return super.hass; }
-    set hass(h) { super.hass = h; if (this._dashEl && this._dashEl.hass !== h) this._dashEl.hass = h; this._edLive(h); }
+    set hass(h) { super.hass = h; this._edLive(h); }
     // Soloppgangen (28.6) spilles bare én gang per åpning: neste åpning starter den på nytt
     onClose() { this._ui = { ...this._ui, q: '' }; this._riseAt = 0; clearTimeout(this._riseT); const sc = this.shadowRoot && this.shadowRoot.querySelector('.sc.rise'); if (sc) sc.classList.remove('rise'); }
     onOpen() { this._riseAt = 0; this.update(); }
@@ -976,15 +975,17 @@
       const top = scene ? this._scene(E, nS, pS, vS, mode === 'natt' || nOn, morning && mode !== 'natt', nOn, pOn) : this._split(E, nS, pS, nOn, pOn);
       const V = visTabs(c), t = this.tab;
       const tabs = tabBar(c, V, t, { hp: this._hp('selection'), hpGear: this._hp('light') });
-      // Dashbordets egne innstillinger (msh-settings-card) nederst – #settings mister dem ikke (26.15)
-      const dash = c.dashbord !== false ? '<div class="gh" data-key="dash-h">Dashbord</div><div class="dash" data-key="dash" data-nomorph></div>' : '';
-      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${esc(t)}">${this._list(t)}</div>${dash}</div>`;
+      // Fiks 33.3: popupen slutter etter brytersettene – DASHBORD (Tilpass Hjem/navbar/header, HA, Områder), Utseende
+      // (Liquid Glass) og Enheter + fotteksten er fjernet fra visningen. Funksjonene finnes fortsatt: Tilpass-arkene via
+      // navbarens «Mer» → «Tilpass» (24.5), Liquid Glass i «Tilpass navbar», eget oppsett per enhet i Kamera/Person-
+      // arkene (msh-scope-bar). Lagringen (ki-store, enhetsoverstyringer) er urørt. `dashbord` i gammel config ignoreres.
+      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${esc(t)}">${this._list(t)}</div></div>`;
     }
     _pickBtn() { return `<button class="pick press" data-act="customize" data-section="entiteter" ${this._hp('light')}>${M.icon('mdi:plus', 16)}Velg entitet</button>`; }
     // Nattmodus av: to kort side om side (164 px)
     _split(E, nS, pS, nOn, pOn) {
       const nua = !nS || M.unavailable(nS), ua = !pS || M.unavailable(pS), nP = this._pend(E.natt), pP = this._pend(E.privat);
-      const natt = `<div class="mk natt press" data-key="mk-natt" ${E.natt && !nua ? `data-act="night" data-ent="${esc(E.natt)}" role="switch" aria-checked="${nOn}" ${this._hp('medium')}` : ''}>
+      const natt = `<div class="mk natt press" data-key="mk-natt" data-theme="dark" data-ki-island ${E.natt && !nua ? `data-act="night" data-ent="${esc(E.natt)}" role="switch" aria-checked="${nOn}" ${this._hp('medium')}` : ''}>
         ${NIGHT_SVG}
         <div class="mh"><span class="mt">Nattmodus</span><span class="ci">${M.icon('mdi:moon-waning-crescent', 22)}</span></div>
         ${nP ? SYNC : ''}
@@ -992,7 +993,7 @@
       const on = pOn && !ua;
       const cls = ['mk', 'priv', on ? 'on' : '', ua ? 'ua' : '', this._anim ? '' : 'na'].filter(Boolean).join(' ');
       const sub = !pS ? '–' : ua ? 'Utilgjengelig' : on ? 'Kameraene er av' : 'Kameraene er på';
-      const priv = `<div class="${cls} press" data-key="mk-priv" ${E.privat && !ua ? `data-act="priv" data-ent="${esc(E.privat)}" role="switch" aria-checked="${on}" ${this._hp('medium')}` : ''}>
+      const priv = `<div class="${cls} press" data-key="mk-priv" data-theme="dark" data-ki-island ${E.privat && !ua ? `data-act="priv" data-ent="${esc(E.privat)}" role="switch" aria-checked="${on}" ${this._hp('medium')}` : ''}>
         <span class="glw" aria-hidden="true"></span>${CAMERA}
         <div class="mh"><span class="mt">Privatmodus</span><span class="ci">${M.icon(on ? 'mdi:video-off' : 'mdi:video', 22)}</span></div>
         <div class="ml"><span class="lk" data-key="lk-${on ? 'on' : 'off'}">${on ? '<span class="ring"></span>' : ''}${M.icon(on ? 'mdi:lock' : 'mdi:lock-open-variant', 28)}</span>${pP ? SYNC : `<span class="ms">${esc(sub)}</span>`}</div>
@@ -1017,7 +1018,7 @@
         ? `<button class="cp ${kind} ${on ? 'on' : ''}" data-act="${kind === 'n' ? 'night' : 'priv'}" data-ent="${esc(id)}" role="switch" aria-checked="${on}" ${this._hp(hp)}>${M.icon(icon, 18)}${esc(label)}</button>`
         : `<button class="cp miss" data-act="customize" data-section="entiteter" ${this._hp('light')}>${M.icon(icon, 18)}${esc(kind === 'n' ? 'Natt' : 'Privat')} · Velg entitet</button>`);
       const pOk = pOn && !pua;
-      return `<div class="${cls}" data-key="top-scene" ${E.natt && !nua ? `data-act="night" data-ent="${esc(E.natt)}" role="switch" aria-checked="${nOn}" ${this._hp('medium')}` : `data-act="customize" data-section="entiteter" ${this._hp('light')}`}>
+      return `<div class="${cls}" data-key="top-scene" data-theme="dark" data-ki-island ${E.natt && !nua ? `data-act="night" data-ent="${esc(E.natt)}" role="switch" aria-checked="${nOn}" ${this._hp('medium')}` : `data-act="customize" data-section="entiteter" ${this._hp('light')}`}>
         <div class="bgg"></div><div class="nsk"></div><div class="dawn"></div>${SCENE_SVG(pOk)}
         <div class="stx"><span class="k">${esc(kicker)}</span><span class="gt">${night ? 'God natt' : 'God morgen'}</span>${sub ? `<span class="k">${esc(sub)}</span>` : ''}${pend ? SYNC : ''}</div>
         <div class="chips">${chip(E.natt, nS, nua, nOn, 'n', 'mdi:moon-waning-crescent', nOn ? 'Natt på' : 'Natt av', 'medium')}${chip(E.privat, pS, pua, pOk, 'p', pOk ? 'mdi:video-off' : 'mdi:video', pOk ? 'Privat på' : 'Kamera på', 'medium')}</div></div>`;
@@ -1037,7 +1038,7 @@
       let L = q ? all.filter((r) => `${r.name} ${r.sub} ${r.enhet} ${r.id}`.toLowerCase().includes(q)) : all;
       if (c.av_forst) L = [...L.filter((r) => !pa(r)), ...L.filter((r) => pa(r))];
       const on = all.filter(pa).length, allOn = on === all.length;
-      const search = c.sok !== false && d.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
+      const search = c.sok !== false && d.sok !== false ? `<label class="srch" data-key="srch">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-mid, #979797)')}<input data-input="q" data-key="q" value="${esc(this.ui.q || '')}" placeholder="Søk blant ${all.length}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.ui.q ? `<button class="clr" data-act="qclr" ${this._hp('light')} aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>` : '';
       const head = c.show_summary !== false ? `<div class="cnt" data-key="cnt"><span class="num">${on} av ${all.length} på</span><button class="all press" data-act="all" data-v="${allOn ? 'off' : 'on'}" ${this._hp('medium')}>${allOn ? 'Slå alle av' : 'Slå alle på'}</button></div>` : '';
       const rows = L.map((r, k) => {
         const s = h.states[r.id], o = pa(r), un = !s || M.unavailable(s);
@@ -1079,20 +1080,12 @@
       // Fallgruve 2: trykk/hold på radene skal ikke nå Bubble Cards swipe-to-close (scroll i listen virker som før)
       const lst = this.shadowRoot.querySelector('.lst');
       if (lst && !lst.__mshStop) { lst.__mshStop = true; ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => lst.addEventListener(t, (e) => e.stopPropagation(), { passive: true })); }
-      // «Dashbord» nederst: dashbordets innstillinger (msh-settings-card) bygd inn – de forsvinner ikke fra #settings
-      const slot = this.shadowRoot.querySelector('.dash');
-      if (slot) {
-        if (!this._dashEl && customElements.get('msh-settings-card')) { this._dashEl = document.createElement('msh-settings-card'); this._dashEl.setConfig({ type: 'custom:msh-settings-card', embedded: true }); }
-        if (this._dashEl) { if (this._dashEl.parentNode !== slot) slot.appendChild(this._dashEl); if (this._dashEl.hass !== this.hass) this._dashEl.hass = this.hass; }
-      }
     }
     get styles() {
       const T = '1.2s cubic-bezier(.5,0,.2,1)';
       return `
         :host{display:block;width:100%}
         .wrap,.pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .dash{display:block;min-width:0}
-        .gh{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:16px 8px 0}
         @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes smoke{0%{transform:translate(0,0) scale(.6);opacity:0}25%{opacity:.55}100%{transform:translate(-10px,-34px) scale(1.6);opacity:0}}
@@ -1107,29 +1100,29 @@
         @keyframes dawnsky{0%{opacity:1}100%{opacity:0}}
         @keyframes sealring{0%{transform:scale(.4);opacity:.9}100%{transform:scale(2.4);opacity:0}}
         .sync{position:relative;display:flex;align-items:center;gap:6px;font-size:11px;color:#e6e2ee;margin-top:4px;white-space:nowrap}
-        .spin{width:10px;height:10px;box-sizing:content-box;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite;flex:none}
+        .spin{width:10px;height:10px;box-sizing:content-box;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite;flex:none} /* ki-hex-ok: mørk øy */
         /* to kort (nattmodus av) */
         .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--msh-gap,8px)}
-        .mk{position:relative;height:164px;border-radius:28px;overflow:hidden;isolation:isolate;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;cursor:pointer;min-width:0;text-align:left;color:#fafafa}
+        .mk{position:relative;height:164px;border-radius:28px;overflow:hidden;isolation:isolate;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;cursor:pointer;min-width:0;text-align:left;color:#fafafa} /* ki-hex-ok: mørk øy */
         .mk.natt{background:linear-gradient(180deg,#23285a,#2c2d5e)}
         .nsky{position:absolute;right:0;top:0;width:100%;height:calc(100% - 44px);pointer-events:none}
         .mh{position:relative;display:flex;justify-content:space-between;align-items:flex-start}
         .mt{font-size:14px;color:#dcdcf0;white-space:nowrap}
         .mk.priv .mt{color:#e2efe8}
-        .ci{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex:none}
-        .mk.priv .ci{background:rgba(255,255,255,.14)}
+        .ci{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex:none} /* ki-hex-ok: mørk øy */
+        .mk.priv .ci{background:rgba(255,255,255,.14)} /* ki-hex-ok: mørk øy */
         .mb{position:relative;margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:6px}
         .mv{font-size:28px;font-weight:400;line-height:1.2}
-        .bs{position:relative;width:50px;height:28px;border-radius:14px;flex:none;background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);transition:background .25s}
-        .bs::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .3s,background .3s}
+        .bs{position:relative;width:50px;height:28px;border-radius:14px;flex:none;background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);transition:background .25s} /* ki-hex-ok: mørk øy */
+        .bs::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .3s,background .3s} /* ki-hex-ok: mørk øy */
         .bs.on{background:rgb(102 209 158)}.bs.on::after{transform:translateX(22px);background:#1d2a22}
         .mk .pick{height:32px;padding:0 10px;font-size:12px}
-        .mk.priv{background:var(--gray200,#3a3a3a);transition:background .5s}
+        .mk.priv{background:#3a3a3a;transition:background .5s} /* toppkortene er mørke øyer (Del A): samme flate og lys tekst i begge moduser */ /* ki-hex-ok: mørk øy */
         .mk.priv.on{background:linear-gradient(160deg,#173d31,#1f5642)}
         .glw{position:absolute;right:-20px;top:20px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(111,210,154,.35),transparent 70%);opacity:0;transition:opacity .6s;pointer-events:none}
         .mk.priv.on .glw{opacity:1;animation:glow 3s ease-in-out infinite}
         .ml{position:relative;display:flex;flex-direction:column;gap:4px;margin-top:6px;min-width:0}
-        .lk{position:relative;width:28px;height:28px;display:grid;place-items:center;color:#afafaf}
+        .lk{position:relative;width:28px;height:28px;display:grid;place-items:center;color:#afafaf} /* ki-hex-ok: mørk øy */
         .mk.priv.on .lk{color:#cfeadd}
         .lk ha-icon{animation:lockpop .5s cubic-bezier(.34,1.6,.64,1)}
         .lk .ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(207,234,221,.8);animation:sealring .7s ease-out forwards;pointer-events:none}
@@ -1145,7 +1138,7 @@
         .pcone{position:absolute;right:46px;top:-18px;width:96px;height:58px;clip-path:polygon(100% 42%,0 0,0 100%,100% 58%);background:linear-gradient(270deg,rgba(255,236,170,.4),transparent);opacity:1;transition:opacity .35s}
         .mk.priv.on .pcone{opacity:0}
         .pbody{position:absolute;inset:0;border-radius:7px;background:#7a7a7a;transition:background .5s}
-        .mk.priv.on .pbody{background:#cfeadd;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+        .mk.priv.on .pbody{background:#cfeadd;box-shadow:0 4px 14px rgba(0,0,0,.25)} /* ki-hex-ok: mørk øy */
         .plens{position:absolute;left:-6px;top:2px;width:18px;height:18px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 35%,#8494a2,#111 62%);box-shadow:0 0 0 2px #8a8a8a;transition:box-shadow .5s}
         .mk.priv.on .plens{box-shadow:0 0 0 2px #cfeadd}
         .plid{position:absolute;left:0;right:0;top:0;height:100%;background:#1f5642;transform:scaleY(0);transform-origin:50% 0;transition:transform .4s cubic-bezier(.4,0,.2,1) .2s}
@@ -1159,7 +1152,7 @@
         .mk.priv.na .lk .ring{opacity:0}
         .mk.priv.na .ptilt,.mk.priv.na .plid,.mk.priv.na .pcone{transition:none !important}
         /* «God natt» / «God morgen» (184 px) */
-        .sc{position:relative;height:184px;border-radius:28px;overflow:hidden;isolation:isolate;background:#141a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);cursor:pointer;animation:fade .45s ease both;color:#fafafa;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .sc{position:relative;height:184px;border-radius:28px;overflow:hidden;isolation:isolate;background:#141a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);cursor:pointer;animation:fade .45s ease both;color:#fafafa;transition:transform .15s cubic-bezier(.34,1.5,.64,1)} /* ki-hex-ok: mørk øy */
         .sc:active{transform:scale(.985)}
         .sc .bgg,.sc .nsk,.sc .dawn{position:absolute;inset:0;pointer-events:none}
         .sc .bgg{background:linear-gradient(180deg,#3a3d72 0%,#77598e 45%,#d68f86 78%,#f0b88c 100%)}
@@ -1175,46 +1168,46 @@
         .sc .rays{transform-box:fill-box;transform-origin:center;animation:spin 40s linear infinite}
         .sc .smk{transform-box:fill-box;animation:smoke 3.2s ease-out infinite}
         .sc .win{fill:#f5cf78}.sc.night .win{fill:#ffd572;filter:drop-shadow(0 0 4px rgba(255,210,110,.9));animation:glow 3s ease-in-out infinite}
-        .sc .scam{fill:#545454}.sc .scam.rec{fill:rgb(242 128 115);animation:glow 1.4s ease-in-out infinite}
+        .sc .scam{fill:#545454}.sc .scam.rec{fill:rgb(242 128 115);animation:glow 1.4s ease-in-out infinite} /* ki-hex-ok: mørk øy */
         .sc .birds{opacity:1;transition:opacity .8s}.sc.night .birds{opacity:0}
         .sc .f1{animation:fly 7s ease-in-out infinite}.sc .f2{animation:fly 8s ease-in-out 1s infinite}
         .sc .fl1,.sc .fl2{transform-box:fill-box;transform-origin:center;animation:flap .9s ease-in-out infinite}.sc .fl2{animation:flap 1s ease-in-out .3s infinite}
-        .sc .stx{position:absolute;left:18px;top:18px;right:72px;display:flex;flex-direction:column;gap:2px;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+        .sc .stx{position:absolute;left:18px;top:18px;right:72px;display:flex;flex-direction:column;gap:2px;text-shadow:0 1px 6px rgba(0,0,0,.35)} /* ki-hex-ok: mørk øy */
         .sc .k{font-size:13px;color:#e6e2ee}
         .sc .gt{font-size:28px;font-weight:400;line-height:1.2}
         .sc .chips{position:absolute;left:14px;bottom:14px;right:14px;display:flex;gap:6px}
-        .cp{height:36px;padding:0 14px 0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;white-space:nowrap;background:rgba(0,0,0,.32);color:#e1e1e1;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background .25s,color .25s,transform .1s;min-width:0}
+        .cp{height:36px;padding:0 14px 0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;white-space:nowrap;background:rgba(0,0,0,.32);color:#e1e1e1;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background .25s,color .25s,transform .1s;min-width:0} /* ki-hex-ok: mørk øy */
         .cp:active{transform:scale(.96)}
-        .cp.n.on{background:#fafafa;color:#282828}
+        .cp.n.on{background:#fafafa;color:#282828} /* ki-hex-ok: mørk øy */
         .cp.p.on{background:rgb(102 209 158);color:#1d2a22}
         .cp.miss{background:rgba(242,181,115,.3)}
         .sc.na,.sc.na *{animation:none !important;transition:none !important}
         /* fanelinjen + tannhjul */
         ${TAB_CSS('')}
         /* søk, teller, rader */
-        .srch{display:flex;align-items:center;gap:10px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);padding:0 6px 0 16px}
-        .srch input{flex:1;min-width:0;height:100%;font-size:15px;background:transparent;border:0;outline:none;color:#fafafa}
-        .srch input::placeholder{color:#979797}
-        .clr{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--gray300,#404040)}
+        .srch{display:flex;align-items:center;gap:10px;height:48px;border-radius:24px;background:var(--ki-surface, #3a3a3a);padding:0 6px 0 16px}
+        .srch input{flex:1;min-width:0;height:100%;font-size:15px;background:transparent;border:0;outline:none;color:var(--ki-text, #fafafa)}
+        .srch input::placeholder{color:var(--ki-text-mid, #979797)}
+        .clr{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040)}
         .lst{display:flex;flex-direction:column;gap:8px}
-        .cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 0;font-size:13px;color:#afafaf;white-space:nowrap}
-        .all{height:32px;padding:0 12px;border-radius:16px;background:var(--gray300,#404040);color:#fafafa;font-size:12px;font-weight:500;white-space:nowrap;flex:none}
-        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--gray200,#3a3a3a);text-align:left;animation:fade .3s ease backwards}
+        .cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 0;font-size:13px;color:var(--ki-text-2, #afafaf);white-space:nowrap}
+        .all{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa);font-size:12px;font-weight:500;white-space:nowrap;flex:none}
+        .pr{width:100%;display:flex;align-items:center;gap:14px;min-height:66px;padding:4px 18px 4px 4px;box-sizing:border-box;border-radius:34px;background:var(--ki-surface, #3a3a3a);text-align:left;animation:fade .3s ease backwards}
         .pr{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
         .pr.borte{opacity:.45}
-        .pi{width:58px;height:58px;border-radius:29px;flex:none;display:grid;place-items:center;background:#4a4a4a;color:#e1e1e1;transition:background .25s,color .25s}
-        .pr.off .pi{background:rgb(242 128 115 / .16);color:var(--red,#f28073)}
+        .pi{width:58px;height:58px;border-radius:29px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #4a4a4a);color:var(--ki-text-1, #e1e1e1);transition:background .25s,color .25s}
+        .pr.off .pi{background:rgb(242 128 115 / .16);color:var(--ki-red-text, var(--red,#f28073))}
         .pt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .pt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pt i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pr.off .pt i{color:var(--red,#f28073)}
-        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s}
+        .pt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .pr.off .pt i{color:var(--ki-red-text, var(--red,#f28073))}
+        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, #545454);flex:none;transition:background .2s}
+        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:transform .2s}
         .sw.on{background:var(--pink,#f285c9)}.sw.on::after{transform:translateX(18px)}
-        .none{text-align:center;font-size:14px;color:#979797;padding:24px 0}
+        .none{text-align:center;font-size:14px;color:var(--ki-text-mid, #979797);padding:24px 0}
         @media (max-width:380px){.mv{font-size:24px}}
         @media (prefers-reduced-motion: reduce){.sc,.sc *,.pr,.mk *{animation:none !important;transition:none !important}}`;
     }
   }
-  M.define('msh-innstillinger-card', Innstillinger, 'MSH Innstillinger', 'Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi, og dashbordets innstillinger (fiks 27).');
+  M.define('msh-innstillinger-card', Innstillinger, 'MSH Innstillinger', 'Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi (fiks 27; dashbord-delen fjernet i fiks 33.3).');
 })();
