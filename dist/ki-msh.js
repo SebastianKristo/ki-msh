@@ -7812,7 +7812,7 @@ try {
         st.its.forEach((x) => { st.tr0.set(x, x.style.transition); if (x !== b) x.style.transition = E; });
         const cs = getComputedStyle(b), S = b.style;
         st.l0 = { boxShadow: S.boxShadow, position: S.position, zIndex: S.zIndex, touchAction: S.touchAction, background: S.background };
-        S.transition = 'none'; S.transform = 'scale(1.06)'; S.boxShadow = '0 8px 20px ' + (M.theme ? M.theme.blackA(0.4, M.theme.mode()) : 'rgba(0,0,0,.4)'); // konkret (regel 3) – løftet varer bare under draget
+        S.transition = 'none'; S.transform = 'scale(1.06)'; S.boxShadow = '0 8px 20px ' + (M.theme ? M.theme.blackA(0.4, M.theme.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – løftet varer bare under draget
         if (cs.position === 'static') S.position = 'relative';
         S.zIndex = '5'; S.touchAction = 'none';
         if (/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) && !b.classList.contains('on')) S.background = 'var(--ki-surface-2, var(--gray300,#404040))';
@@ -34232,9 +34232,9 @@ try {
       const stop = (e) => e.stopPropagation();
       ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
       host.addEventListener('contextmenu', (e) => e.preventDefault());
-      // Slippet etter holdet gir et klikk på bakteppet under fingeren – menyen «armeres» først 350 ms etter slipp
+      // Slippet etter holdet gir et klikk på bakteppet under fingeren – menyen «armeres» først 200 ms etter slipp
       const st = { armed: false };
-      const arm = () => { window.removeEventListener('pointerup', arm, true); window.removeEventListener('touchend', arm, true); setTimeout(() => { st.armed = true; }, 350); };
+      const arm = () => { window.removeEventListener('pointerup', arm, true); window.removeEventListener('touchend', arm, true); setTimeout(() => { st.armed = true; }, 200); };
       window.addEventListener('pointerup', arm, true); window.addEventListener('touchend', arm, true);
       host.addEventListener('click', (e) => {
         e.stopPropagation();
