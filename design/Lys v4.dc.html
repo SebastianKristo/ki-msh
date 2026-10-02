@@ -23,42 +23,52 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 <script src="./haptic.js"></script>
 <script src="./ha-picker.js"></script>
 </helmet>
-<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#232325;padding:20px 14px 40px;display:flex;flex-direction:column;gap:12px">
+<div ref="{{ rootRef }}" style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 14px 40px;display:flex;flex-direction:column;gap:12px">
   <header style="display:flex;align-items:center;gap:12px;padding:0 4px">
     <span style="width:40px;height:40px;border-radius:20px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">lightbulb</span></span>
     <div style="flex:1;font-size:26px;font-weight:500;letter-spacing:-0.02em">Lys</div>
     <button style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
   </header>
 
-  <div style="display:flex;justify-content:center">
-    <div data-glass-drag="x" style="display:flex;gap:2px;padding:4px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12)">
+  <div style="display:flex;align-items:center;gap:8px;min-width:0">
+    <div data-glass-drag="x" style="flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;display:flex;gap:2px;padding:4px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
       <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onPointerDown="{{ t.odown }}" onPointerMove="{{ t.omove }}" onPointerUp="{{ t.oup }}" onPointerCancel="{{ t.oup }}" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
     </div>
+    <button onClick="{{ openEd }}" title="Tilpass" style="width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)" style-active="transform:scale(0.92)"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">settings</span></button>
   </div>
 
   <sc-if value="{{ isOut }}" hint-placeholder-val="{{ true }}">
     <section style="{{ o.card }}">
-      <div style="display:flex;align-items:flex-start;gap:14px">
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
-          <span style="font-size:13px;color:#afafaf">Utelys · {{ o.count }}</span>
-          <span style="font-size:48px;font-weight:300;letter-spacing:-0.03em;line-height:1">{{ o.label }}</span>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:#afafaf">Utelys</span><span style="{{ o.chip }}">{{ o.count }}</span></div>
+          <span style="font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1">{{ o.label }}</span>
           <span style="font-size:13px;color:#c7c7c7">{{ o.sub }}</span>
         </div>
-        <button onClick="{{ o.toggle }}" title="Av/på" style="{{ o.btn }}" style-active="transform:scale(0.94)"><span class="ms" style="font-size:32px;font-variation-settings:'FILL' 1">{{ o.icon }}</span></button>
+        <button onClick="{{ o.toggle }}" title="Av/på" style="{{ o.btn }}" style-active="transform:scale(0.94)"><span class="ms" style="font-size:30px;font-variation-settings:'FILL' 1">{{ o.icon }}</span></button>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        <div style="position:relative;height:40px;border-radius:14px;background:#545454;overflow:hidden">
-          <span style="{{ o.dark }}"></span>
-          <sc-for list="{{ o.ticks }}" as="t" hint-placeholder-count="2"><span style="{{ t.line }}"></span></sc-for>
-          <span style="{{ o.now }}"></span>
+        <div style="position:relative;height:14px;border-radius:7px;background:#545454;overflow:hidden">
+          <sc-for list="{{ o.night }}" as="b" hint-placeholder-count="1"><span style="{{ b.style }}"></span></sc-for>
+          <sc-for list="{{ o.lit }}" as="b" hint-placeholder-count="1"><span style="{{ b.style }}"></span></sc-for>
         </div>
-        <div style="position:relative;height:30px">
-          <sc-for list="{{ o.marks }}" as="m" hint-placeholder-count="4"><span style="{{ m.style }}"><span class="ms" style="font-size:14px;font-variation-settings:'FILL' 1">{{ m.icon }}</span>{{ m.t }}</span></sc-for>
+        <div style="position:relative;height:14px">
+          <span style="position:absolute;left:0;top:0;font-size:11px;font-weight:600;color:#fafafa">nå</span>
+          <sc-for list="{{ o.hours }}" as="t" hint-placeholder-count="3"><span style="{{ t.style }}">{{ t.t }}</span></sc-for>
         </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <sc-for list="{{ o.events }}" as="e" hint-placeholder-count="2">
+          <div style="{{ e.tile }}">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span class="ms" style="{{ e.iconSt }}">{{ e.icon }}</span>{{ e.k }}</div>
+            <span style="font-size:24px;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1.1">{{ e.t }}</span>
+            <span style="font-size:11px;color:#7f7f7f">{{ e.sub }}</span>
+          </div>
+        </sc-for>
       </div>
     </section>
 
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <section data-lampgrid="1" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <sc-for list="{{ outLamps }}" as="l" hint-placeholder-count="2">
         <div onPointerDown="{{ l.down }}" onPointerMove="{{ l.move }}" onPointerUp="{{ l.up }}" data-ent="{{ l.ent }}" data-ent-domain="light" data-ent-name="{{ l.name }}" data-ent-state="{{ l.val }}" style="{{ l.pill }}">
           <span style="{{ l.fill }}"></span>
@@ -100,45 +110,6 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       </section>
     </sc-for>
 
-    <section style="display:flex;flex-direction:column;border-radius:28px;background:#404040;overflow:hidden">
-      <button onClick="{{ cf.toggle }}" style="display:flex;align-items:center;gap:12px;height:58px;padding:0 18px;text-align:left">
-        <span class="ms" style="font-size:22px">tune</span>
-        <span style="flex:1;font-size:15px;font-weight:500">Innstillinger</span>
-        <span style="font-size:12px;color:#979797;white-space:nowrap">tider og entiteter</span>
-        <span class="ms" style="{{ cf.chev }}">expand_more</span>
-      </button>
-      <sc-if value="{{ cf.open }}" hint-placeholder-val="{{ false }}">
-        <div style="display:flex;flex-direction:column;gap:14px;padding:0 14px 16px">
-          <div style="display:flex;flex-direction:column">
-            <sc-for list="{{ cf.fields }}" as="f" hint-placeholder-count="6">
-              <label style="{{ f.row }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px">{{ f.k }}</span><span style="font-size:11px;color:#7f7f7f">{{ f.hint }}</span></span><input type="{{ f.type }}" value="{{ f.v }}" onChange="{{ f.set }}" step="{{ f.step }}" style="{{ f.inp }}"></input></label>
-            </sc-for>
-          </div>
-          <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Entiteter</span>
-          <sc-for list="{{ cf.ents }}" as="f" hint-placeholder-count="2">
-            <label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#979797;padding-left:4px">{{ f.k }}</span><input value="{{ f.v }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="height:42px;border-radius:14px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:13px"></input></label>
-          </sc-for>
-          <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 4px">Utelamper</span>
-          <sc-for list="{{ cf.lamps }}" as="l" hint-placeholder-count="2">
-            <div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:18px;background:#282828">
-              <div style="display:flex;align-items:center;gap:6px">
-                <span class="ms" style="font-size:20px;width:26px;flex:none;color:#c7c7c7;font-variation-settings:'FILL' 1">{{ l.icon }}</span>
-                <input value="{{ l.name }}" onChange="{{ l.setName }}" placeholder="Navn" style="flex:1;min-width:0;height:36px;border-radius:10px;border:0;outline:none;padding:0 10px;background:#404040;color:#fafafa;font:inherit;font-size:14px;font-weight:500"></input>
-                <button onClick="{{ l.del }}" title="Fjern" style="width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)"><span class="ms" style="font-size:18px">delete</span></button>
-              </div>
-              <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:6px">
-                <input value="{{ l.ent }}" onChange="{{ l.setEnt }}" placeholder="light.…" style="height:34px;border-radius:10px;border:0;outline:none;padding:0 10px;background:#404040;color:#fafafa;font:inherit;font-size:12px;min-width:0"></input>
-                <input value="{{ l.icon }}" onChange="{{ l.setIcon }}" placeholder="Ikon" style="height:34px;border-radius:10px;border:0;outline:none;padding:0 10px;background:#404040;color:#afafaf;font:inherit;font-size:12px;min-width:0"></input>
-              </div>
-            </div>
-          </sc-for>
-          <div style="display:flex;gap:6px">
-            <button onClick="{{ cf.addLamp }}" style="flex:1;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)"><span class="ms" style="font-size:20px">add</span>Legg til lampe</button>
-            <button onClick="{{ cf.reset }}" style="height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:#afafaf;background:#545454">Tilbakestill</button>
-          </div>
-        </div>
-      </sc-if>
-    </section>
   </sc-if>
 
   <sc-if value="{{ isFloor }}" hint-placeholder-val="{{ false }}">
@@ -158,7 +129,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
           <span style="font-size:12px;color:#7f7f7f;white-space:nowrap">{{ g.sum }}</span>
           <button onClick="{{ g.all }}" style="{{ g.allStyle }}">{{ g.allLabel }}</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div data-lampgrid="1" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <sc-for list="{{ g.lights }}" as="l" hint-placeholder-count="2">
             <div onPointerDown="{{ l.down }}" onPointerMove="{{ l.move }}" onPointerUp="{{ l.up }}" data-ent="{{ l.ent }}" data-ent-domain="light" data-ent-name="{{ l.name }}" data-ent-state="{{ l.val }}" style="{{ l.pill }}">
               <span style="{{ l.fill }}"></span>
@@ -190,19 +161,149 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       <sc-if value="{{ noneOn }}" hint-placeholder-val="{{ false }}"><div style="padding:30px;text-align:center;font-size:13px;color:#696969">Alle lys er av</div></sc-if>
     </section>
   </sc-if>
+
+  <sc-if value="{{ ed.open }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:50;display:flex;justify-content:center;align-items:flex-end">
+      <div onClick="{{ ed.cancel }}" style="{{ ed.scrim }}"></div>
+      <div style="{{ ed.sheet }}">
+        <div style="display:flex;justify-content:center;padding:8px 0 0"><span style="width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,0.25)"></span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;padding:6px 12px 10px">
+          <div style="display:flex">
+            <sc-if value="{{ ed.isMain }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ed.cancel }}" style="height:44px;padding:0 8px;font-size:15px;color:#afafaf">Avbryt</button></sc-if>
+            <sc-if value="{{ ed.isSub }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ed.back }}" style="height:44px;padding:0 8px 0 0;display:flex;align-items:center;gap:2px;font-size:15px;color:#afafaf"><span class="ms" style="font-size:24px">chevron_left</span>Tilpass</button></sc-if>
+          </div>
+          <span style="font-size:16px;font-weight:600;white-space:nowrap">{{ ed.title }}</span>
+          <div style="display:flex;justify-content:flex-end">
+            <sc-if value="{{ ed.isMain }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ed.done }}" style="height:36px;padding:0 16px;border-radius:18px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600" style-active="transform:scale(0.95)">Ferdig</button></sc-if>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:22px;padding:4px 14px 28px">
+
+          <sc-if value="{{ ed.isMain }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 6px">Visning</span>
+              <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+                <sc-for list="{{ ed.segs }}" as="r" hint-placeholder-count="3">
+                  <div style="{{ r.row }}">
+                    <span style="width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:#545454;color:#e1e1e1"><span class="ms" style="font-size:18px">{{ r.icon }}</span></span>
+                    <span style="flex:1;min-width:0;font-size:14px;font-weight:500">{{ r.label }}</span>
+                    <div style="display:flex;gap:2px;padding:3px;border-radius:19px;background:#282828;flex:none">
+                      <sc-for list="{{ r.opts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 6px">Innhold</span>
+              <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+                <sc-for list="{{ ed.nav }}" as="r" hint-placeholder-count="4">
+                  <button onClick="{{ r.go }}" style="{{ r.row }}" style-active="background:#404040">
+                    <span style="{{ r.badge }}"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ r.icon }}</span></span>
+                    <span style="flex:1;min-width:0;font-size:14px;font-weight:500;text-align:left">{{ r.label }}</span>
+                    <span style="font-size:13px;color:#979797;white-space:nowrap">{{ r.meta }}</span>
+                    <span class="ms" style="font-size:22px;color:#696969">chevron_right</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <button onClick="{{ ed.reset }}" style="height:48px;border-radius:24px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;color:rgb(242 128 115)" style-active="transform:scale(0.98)"><span class="ms" style="font-size:20px">restart_alt</span>Tilbakestill til standard</button>
+          </sc-if>
+
+          <sc-if value="{{ ed.isList }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+                <sc-for list="{{ ed.list }}" as="r" hint-placeholder-count="4">
+                  <div style="{{ r.row }}">
+                    <span class="ms" style="font-size:22px;width:26px;flex:none;color:#c7c7c7;font-variation-settings:'FILL' 1">{{ r.icon }}</span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">{{ r.name }}</span><span style="font-size:12px;color:#7f7f7f">{{ r.sub }}</span></span>
+                    <button onClick="{{ r.toggle }}" title="Vis/skjul" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#c7c7c7" style-active="transform:scale(0.9)"><span class="ms" style="font-size:22px">{{ r.eye }}</span></button>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size:12px;color:#979797;padding:0 6px;text-wrap:pretty">{{ ed.listHint }}</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ed.isOut }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 6px">Tider og terskler</span>
+              <div style="display:flex;flex-direction:column;padding:0 14px;border-radius:24px;background:#3a3a3a">
+                <sc-for list="{{ cf.fields }}" as="f" hint-placeholder-count="6">
+                  <label style="{{ f.row }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px">{{ f.k }}</span><span style="font-size:11px;color:#7f7f7f">{{ f.hint }}</span></span><input type="{{ f.type }}" value="{{ f.v }}" onChange="{{ f.set }}" step="{{ f.step }}" style="{{ f.inp }}"></input></label>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 6px">Entiteter</span>
+              <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+                <sc-for list="{{ cf.ents }}" as="f" hint-placeholder-count="2">
+                  <label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#979797;padding-left:4px">{{ f.k }}</span><input value="{{ f.v }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="height:42px;border-radius:14px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:13px"></input></label>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:0 6px">Lamper</span>
+              <sc-for list="{{ cf.lamps }}" as="l" hint-placeholder-count="2">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:24px;background:#3a3a3a">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span class="ms" style="font-size:20px;width:30px;flex:none;color:#c7c7c7;font-variation-settings:'FILL' 1">{{ l.icon }}</span>
+                    <input value="{{ l.name }}" onChange="{{ l.setName }}" placeholder="Navn" style="flex:1;min-width:0;height:38px;border-radius:12px;border:0;outline:none;padding:0 10px;background:#282828;color:#fafafa;font:inherit;font-size:14px;font-weight:500"></input>
+                    <button onClick="{{ l.del }}" title="Fjern" style="width:38px;height:38px;border-radius:19px;flex:none;display:grid;place-items:center;color:rgb(242 128 115)"><span class="ms" style="font-size:20px">delete</span></button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:6px">
+                    <input value="{{ l.ent }}" onChange="{{ l.setEnt }}" placeholder="light.…" style="height:36px;border-radius:12px;border:0;outline:none;padding:0 10px;background:#282828;color:#fafafa;font:inherit;font-size:12px;min-width:0"></input>
+                    <input value="{{ l.icon }}" onChange="{{ l.setIcon }}" placeholder="Ikon" style="height:36px;border-radius:12px;border:0;outline:none;padding:0 10px;background:#282828;color:#afafaf;font:inherit;font-size:12px;min-width:0"></input>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:#3a3a3a">
+                <div style="display:flex;flex-direction:column;gap:2px;padding:0 4px"><span style="font-size:14px;font-weight:500">Finner du ikke lampen?</span><span style="font-size:12px;color:#979797;text-wrap:pretty">Søk blant alle lys- og bryter-entiteter i Home Assistant.</span></div>
+                <label style="display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:22px;background:#282828">
+                  <span class="ms" style="font-size:20px;color:#979797">search</span>
+                  <input value="{{ cf.q }}" onInput="{{ cf.setQ }}" placeholder="Søk navn eller entity_id" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:14px"></input>
+                  <sc-if value="{{ cf.hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cf.clearQ }}" title="Tøm" style="width:28px;height:28px;border-radius:14px;flex:none;display:grid;place-items:center;background:#404040;color:#c7c7c7"><span class="ms" style="font-size:16px">close</span></button></sc-if>
+                </label>
+                <sc-if value="{{ cf.hasQ }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;border-radius:18px;background:#282828;overflow:hidden">
+                    <sc-for list="{{ cf.hits }}" as="h" hint-placeholder-count="3">
+                      <button onClick="{{ h.add }}" style="{{ h.row }}" style-active="background:#404040">
+                        <span style="width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:#404040;color:#e1e1e1"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ h.icon }}</span></span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left"><span style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span><span style="font-size:11px;color:#7f7f7f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.id }} · {{ h.area }}</span></span>
+                        <span style="{{ h.tag }}">{{ h.tagT }}</span>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ cf.noHits }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;font-size:13px;color:#979797;text-align:center">Ingen treff på «{{ cf.q }}»</div></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+              <button onClick="{{ cf.addLamp }}" style="height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)"><span class="ms" style="font-size:20px">add</span>Legg til lampe</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1100}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1100},&quot;liquidGlass&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tema&quot;}}">
 const Y = 'rgb(242 210 111)', G = 'rgb(102 209 158)';
 const a = (c, o) => c.replace(')', ` / ${o})`);
+const KEL = k => k <= 2400 ? 'rgb(242 181 115)' : k <= 3000 ? 'rgb(242 210 111)' : k <= 4200 ? 'rgb(242 228 185)' : 'rgb(222 232 245)';
+const LCOL = { 'stue:Grønn sofalampe': 'rgb(102 209 158)', 'stue:Peislampe': KEL(2200), 'stue:Skjenklampe': 'rgb(173 153 230)', 'kjokken:Benk': KEL(4000), 'kjokken:Vindu': KEL(2700), 'seb:LED-list': 'rgb(242 133 201)', 'kontor:Pultlampe': KEL(5000), 'sov:Nattbord venstre': 'rgb(242 128 115)', 'sov:Nattbord høyre': 'rgb(115 185 242)', 'ute:Verandalampe': KEL(2700) };
+const LC = k => LCOL[k] || Y;
 const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
 const h = React.createElement;
 const FLOORS = {
   f1: [['stue', 'Stue', 'weekend', ['Grønn sofalampe', 'Peislampe', 'Skjenklampe', 'Sofabord', 'Spisebord', 'Stålampe']], ['kjokken', 'Kjøkken', 'kitchen', ['Tak', 'Benk', 'Vindu']], ['gang', 'Gang', 'door_front', ['Tak', 'Speil']], ['bad', 'Bad', 'bathtub', ['Tak', 'Speil']]],
   f2: [['sov', 'Soverom', 'bed', ['Tak', 'Nattbord venstre', 'Nattbord høyre']], ['kontor', 'Kontor', 'desk', ['Tak', 'Pultlampe']], ['seb', 'Sebastian', 'person', ['Tak', 'LED-list']], ['cyb', 'Cybele', 'person', ['Tak', 'Leselampe']]],
 };
-const INIT = { 'stue:Peislampe': 60, 'stue:Stålampe': 45, 'kjokken:Benk': 80, 'seb:LED-list': 30, 'gang:Tak': 20 };
+const INIT = { 'stue:Grønn sofalampe': 70, 'stue:Peislampe': 60, 'stue:Stålampe': 45, 'kjokken:Benk': 80, 'seb:LED-list': 30, 'gang:Tak': 20, 'sov:Nattbord venstre': 40 };
 const SC = [['max', 'Maks', 'light_mode', 100], ['kveld', 'Kveld', 'weekend', 45], ['dim', 'Dempet', 'brightness_4', 20], ['natt', 'Natt', 'bedtime', 5], ['av', 'Alt av', 'dark_mode', 0]];
+const ALL_ENTS = [['light.verandalampe', 'Verandalampe', 'Veranda', 'wall_lamp'], ['light.utelys_inngang', 'Utelys inngang', 'Inngang', 'light'], ['light.garasje_ute', 'Garasje ute', 'Garasje', 'garage'], ['switch.hagelys', 'Hagelys', 'Hage', 'park'], ['switch.shelly_plug_terrasse', 'Shelly plugg terrasse', 'Terrasse', 'outlet'], ['light.lyslenke_terrasse', 'Lyslenke terrasse', 'Terrasse', 'string_lights'], ['light.carport', 'Carport', 'Innkjørsel', 'light'], ['light.bod_ute', 'Bod ute', 'Bod', 'light'], ['switch.julelys_ute', 'Julelys ute', 'Hage', 'park'], ['light.innkjorsel_spot', 'Innkjørsel spot', 'Innkjørsel', 'highlight']];
+const LAY0 = { gap: 12, cols: 2, size: 'std', hideTabs: [], hideScenes: [], hideRooms: [] };
+const TABS = [['out', 'Utelys', 'park'], ['f1', '1. etg', 'looks_one'], ['f2', '2. etg', 'looks_two'], ['on', 'Lys på', 'lightbulb']];
 const CF0 = { on: '19:34', off: '06:56', latest: '01:00', morning: '06:00', offset: -15, luxOn: 40, luxOff: 120, luxEnt: 'sensor.ute_lysniva', autoEnt: 'input_boolean.utelys_automatikk', lamps: [['Verandalampe', 'light', 'light.verandalampe'], ['Utelys inngang', 'wall_lamp', 'light.utelys_inngang']] };
 const TABORD = (comp, key, list) => {
   const LK = 'tab-order:' + key; let ord = null; try { ord = JSON.parse(localStorage.getItem(LK) || 'null'); } catch (e) {}
@@ -228,9 +329,18 @@ const TABORD = (comp, key, list) => {
         : mine ? { ...t.style, opacity: 0.65, transition: 'opacity .2s' } : { ...t.style, WebkitTouchCallout: 'none', userSelect: 'none' } }; });
 };
 class Component extends DCLogic {
-  cfg() { if (this._cf === undefined) { try { this._cf = JSON.parse(localStorage.getItem('lys-v4-cfg') || 'null'); } catch (e) { this._cf = null; } } return { ...CF0, ...(this.state.cfS || this._cf || {}) }; }
-  setCfg(p) { const n = { ...this.cfg(), ...p }; try { localStorage.setItem('lys-v4-cfg', JSON.stringify(n)); } catch (e) {} this._cf = n; this.setState({ cfS: n }); }
+  cfg() { if (this._cf === undefined) { try { this._cf = JSON.parse(localStorage.getItem('lys-v4-cfg') || 'null'); } catch (e) { this._cf = null; } } return { ...CF0, ...(this.state.cfS || this._cf || {}), ...((this.state.ed && this.state.ed.cf) || {}) }; }
+  setCfg(p) { const n = { ...this.cfg(), ...p }; if (this.state.ed) { this.setState(st => ({ ed: { ...st.ed, cf: n } })); return; } try { localStorage.setItem('lys-v4-cfg', JSON.stringify(n)); } catch (e) {} this._cf = n; this.setState({ cfS: n }); }
   state = { tab: 'out', mode: 'auto', kveld: true, morgen: true, fold: {}, v: { ...INIT, 'ute:Verandalampe': 80, 'ute:Utelys inngang': 60 }, scene: null };
+  loadLay(sc) { try { return JSON.parse(localStorage.getItem('lys-v4-lay:' + sc) || 'null'); } catch (e) { return null; } }
+  layFor() { return { ...LAY0, ...(this.loadLay('all') || {}) }; }
+  lay() { if (this._lay === undefined) this._lay = this.layFor(); return this._lay; }
+  openEd() { this.setState({ ed: { page: 'main', d: this.layFor(), cf: null } }); }
+  doneEd() { const E = this.state.ed; if (!E) return; try { localStorage.setItem('lys-v4-lay:all', JSON.stringify(E.d)); if (E.cf) localStorage.setItem('lys-v4-cfg', JSON.stringify(E.cf)); } catch (e) {}
+    if (E.cf) this._cf = E.cf; this._lay = undefined; if (navigator.vibrate) navigator.vibrate(10); this.setState(st => ({ ed: null, cfS: E.cf || st.cfS })); }
+  applyLay() { const r = this.root; if (!r) return; const L = this.state.ed ? this.state.ed.d : this.lay(); r.style.gap = L.gap + 'px'; r.querySelectorAll('[data-lampgrid]').forEach(g => { g.style.gridTemplateColumns = L.cols === 1 ? '1fr' : '1fr 1fr'; }); }
+  componentDidMount() { this.applyLay(); }
+  componentDidUpdate() { this.applyLay(); }
   setV(k, v) { this.setState(s => ({ scene: null, v: { ...s.v, [k]: v } })); }
   drag(k, cur) {
     return { down: e => { e.currentTarget.setPointerCapture?.(e.pointerId); this.d = { x: e.clientX, moved: false }; },
@@ -240,12 +350,15 @@ class Component extends DCLogic {
   __tabWrap(v) { if (v && Array.isArray(v.tabs)) v.tabs = TABORD(this, 'lys', v.tabs); return v; }
   renderVals() { return this.__tabWrap(this.__rv()); }
   __rv() {
-    const s = this.state;
+    const s0 = this.state, LY = s0.ed ? s0.ed.d : this.lay();
+    const visT = TABS.map(t => t[0]).filter(k => !LY.hideTabs.includes(k));
+    const s = { ...s0, tab: visT.includes(s0.tab) ? s0.tab : visT[0] };
+    const ZO = LY.size === 'kompakt' ? { h: 56, i: 44 } : { h: 72, i: 60 }, ZF = LY.size === 'kompakt' ? { h: 48, i: 36 } : { h: 56, i: 44 };
     const sw = on => ({ track: { position: 'relative', width: 52, height: 30, borderRadius: 15, flex: 'none', background: on ? G : '#4a4a4d', transition: 'background .2s' }, knob: { position: 'absolute', top: 4, left: on ? 26 : 4, width: 22, height: 22, borderRadius: 11, background: on ? '#2a2a2c' : '#d8d6d1', transition: 'left .2s' } });
     const auto = (k, icon, label, sub) => { const on = s[k]; return { k: label, sub, icon, go: () => this.setState({ [k]: !on }), ...sw(on),
       pill: { display: 'flex', alignItems: 'center', gap: 14, height: 72, padding: '0 18px 0 6px', borderRadius: 36, background: '#404040', width: '100%', boxSizing: 'border-box' },
       iconWrap: { width: 60, height: 60, borderRadius: 30, flex: 'none', display: 'grid', placeItems: 'center', background: '#545454', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.09)' } }; };
-    const tab = (k, l) => ({ label: l, go: () => this.setState({ tab: k }), style: { height: 38, padding: '0 14px', borderRadius: 19, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: s.tab === k ? PINK : 'transparent', color: s.tab === k ? '#3a3a3a' : '#afafaf', transition: 'background .2s' } });
+    const tab = (k, l) => ({ label: l, go: () => this.setState({ tab: k }), style: { flex: '1 1 auto', minWidth: 0, height: 48, padding: '0 8px', borderRadius: 24, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: s.tab === k ? PINK : 'transparent', color: s.tab === k ? '#2f2f2f' : '#c7c7c7', transition: 'background .2s' } });
     const floorKey = s.tab === 'f2' ? 'f2' : 'f1';
     const allLights = Object.entries(FLOORS).flatMap(([, rooms]) => rooms.flatMap(([id, name, , ls]) => ls.map(l => ({ key: id + ':' + l, name: l, room: name }))));
     const on = allLights.filter(l => (s.v[l.key] || 0) > 0);
@@ -253,7 +366,38 @@ class Component extends DCLogic {
       chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
       rows: rows.map(([k2, v], i) => ({ k: k2, v, row: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' } })) }; };
     return {
-      tabs: [tab('out', 'Utelys'), tab('f1', 'Første etg'), tab('f2', 'Andre etg'), tab('on', 'Lys på')],
+      tabs: TABS.filter(([k]) => visT.includes(k)).map(([k, l]) => tab(k, l)),
+      rootRef: el => { this.root = el; },
+      openEd: () => this.openEd(),
+      ed: (() => { const E = s0.ed; if (!E) return { open: false };
+        const D = E.d, up = p => this.setState(st => ({ ed: { ...st.ed, d: { ...st.ed.d, ...p } } })), go = page => this.setState(st => ({ ed: { ...st.ed, page } }));
+        const bt = i => (i ? '1px solid rgba(255,255,255,0.06)' : 'none');
+        const segSt = act => ({ height: 32, padding: '0 12px', borderRadius: 16, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: act ? PINK : 'transparent', color: act ? '#3a3a3a' : '#afafaf', transition: 'background .2s' });
+        const seg = (icon, label, key, opts) => ({ icon, label, opts: opts.map(([v, l]) => ({ label: l, go: () => up({ [key]: v }), style: segSt(D[key] === v) })) });
+        const allRooms = Object.entries(FLOORS).flatMap(([fk, rs]) => rs.map(([id, name, icon, ls]) => [id, name, icon, (fk === 'f1' ? 'Første etg' : 'Andre etg') + ' · ' + ls.length + ' lys']));
+        const LISTS = { tabs: ['Faner', 'hideTabs', TABS.map(([k, n, i]) => [k, n, i, '']), 'Skjulte faner vises ikke i popupen. Hold inne en fane i popupen for å flytte den. Minst én fane må vises.'],
+          scenes: ['Scener', 'hideScenes', SC.map(([k, n, i, l]) => [k, n, i, l + ' %']), 'Scenene vises øverst i etasjefanene.'],
+          rooms: ['Rom og lys', 'hideRooms', allRooms, 'Skjulte rom vises ikke i etasjefanene. Lysene styres fortsatt av scener og «Slå av alle».'] };
+        const L = LISTS[E.page], CFx = this.cfg(), nVis = (key, all) => all - D[key].length;
+        const TT = { main: 'Tilpass lys', out: 'Utelys' };
+        const G = !!this.props.liquidGlass, SH = { position: 'relative', boxSizing: 'border-box', width: '100%', maxWidth: 420, maxHeight: '88vh', display: 'flex', flexDirection: 'column', borderRadius: '28px 28px 0 0' };
+        return { open: true, isMain: E.page === 'main',
+          scrim: G ? { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' },
+          sheet: G ? { ...SH, borderRadius: '32px 32px 0 0', background: 'rgba(34,34,37,0.72)', backdropFilter: 'blur(22px) saturate(190%) brightness(1.1)', WebkitBackdropFilter: 'blur(22px) saturate(190%) brightness(1.1)', boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 -12px 40px rgba(0,0,0,0.5)' }
+            : { ...SH, background: '#282828', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -12px 40px rgba(0,0,0,0.5)' }, isSub: E.page !== 'main', isList: !!L, isOut: E.page === 'out', title: L ? L[0] : TT[E.page],
+          cancel: () => this.setState({ ed: null }), back: () => go('main'), done: () => this.doneEd(),
+          reset: () => this.setState(st => ({ ed: { ...st.ed, d: { ...LAY0 }, cf: { ...CF0 } } })),
+          segs: [seg('height', 'Mellomrom', 'gap', [[8, 'Tett'], [12, 'Standard'], [18, 'Luftig']]), seg('view_column', 'Kolonner', 'cols', [[1, '1'], [2, '2']]), seg('straighten', 'Størrelse', 'size', [['kompakt', 'Kompakt'], ['std', 'Standard']])]
+            .map((r, i) => ({ ...r, row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 10px 0 12px', borderTop: bt(i) } })),
+          nav: [['tabs', 'tab', 'Faner', `${nVis('hideTabs', TABS.length)} av ${TABS.length}`, 'rgb(242 133 201)'], ['scenes', 'palette', 'Scener', `${nVis('hideScenes', SC.length)} av ${SC.length}`, 'rgb(115 185 242)'],
+            ['rooms', 'meeting_room', 'Rom og lys', `${nVis('hideRooms', allRooms.length)} av ${allRooms.length} rom`, Y], ['out', 'light', 'Utelys', `${CFx.lamps.length} lamper`, 'rgb(242 181 115)']]
+            .map(([k, icon, label, meta, c], i) => ({ icon, label, meta, go: () => go(k),
+              badge: { width: 34, height: 34, borderRadius: 17, flex: 'none', display: 'grid', placeItems: 'center', background: a(c, 0.18), color: c },
+              row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 10px 0 12px', borderTop: bt(i), width: '100%', transition: 'background .15s' } })),
+          list: L ? L[2].map(([id, name, icon, sub], i) => { const key = L[1], hid = D[key].includes(id), last = key === 'hideTabs' && !hid && nVis('hideTabs', TABS.length) <= 1;
+            return { name, icon, sub, eye: hid ? 'visibility_off' : 'visibility', toggle: () => { if (!last) up({ [key]: hid ? D[key].filter(x => x !== id) : [...D[key], id] }); },
+              row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 6px 0 14px', borderTop: bt(i), opacity: hid ? 0.45 : 1, transition: 'opacity .2s' } }; }) : [],
+          listHint: L ? L[3] : '' }; })(),
       isOut: s.tab === 'out', isFloor: s.tab === 'f1' || s.tab === 'f2', isOn: s.tab === 'on',
       ...(() => { const CF = this.cfg(), OL = CF.lamps, onN = OL.filter(([n]) => (s.v['ute:' + n] || 0) > 0).length, lit = onN > 0;
         const mins = t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }, P = m => ((m - 720 + 1440) % 1440) / 1440 * 100, nowM = new Date().getHours() * 60 + new Date().getMinutes();
@@ -261,18 +405,30 @@ class Component extends DCLogic {
         const mark = (t, icon, col) => ({ t, icon, style: { position: 'absolute', top: 0, left: `${P(mins(t))}%`, transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 500, color: col, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } });
         const setAll = v => this.setState(st => { const n = { ...st.v }; OL.forEach(([nm]) => { n['ute:' + nm] = v; }); return { v: n }; });
         return {
-          o: { count: `${onN} av ${OL.length} på`, label: lit ? 'På' : 'Av', sub: lit ? `Slukkes ${OFF} · om ${dur}` : `Tennes ${ON} i skumringen`, icon: lit ? 'light' : 'light_off', toggle: () => setAll(lit ? 0 : 80),
-            card: { display: 'flex', flexDirection: 'column', gap: 18, padding: 18, borderRadius: 30, background: lit ? `linear-gradient(160deg, ${a(Y, 0.16)}, #404040 60%)` : '#404040', boxShadow: lit ? `inset 0 0 0 1px ${a(Y, 0.3)}` : 'none', transition: 'background .4s' },
-            btn: { width: 76, height: 76, borderRadius: 38, flex: 'none', display: 'grid', placeItems: 'center', background: lit ? Y : '#545454', color: lit ? '#282828' : '#afafaf', boxShadow: lit ? `0 0 34px ${a(Y, 0.45)}` : 'none', transition: 'all .3s' },
-            dark: { position: 'absolute', top: 0, bottom: 0, left: `${P(mins(ON))}%`, width: `${P(mins(OFF)) - P(mins(ON))}%`, borderRadius: 10, background: s.mode === 'manuell' ? '#545457' : `linear-gradient(90deg, ${a(Y, 0.55)}, ${a(Y, 0.3)})` },
-            ticks: ['19:04', '07:11'].map(t => ({ line: { position: 'absolute', top: 8, bottom: 8, left: `${P(mins(t))}%`, width: 1, background: 'rgba(255,255,255,0.25)' } })),
-            now: { position: 'absolute', top: 4, bottom: 4, left: `calc(${P(nowM)}% - 2px)`, width: 4, borderRadius: 2, background: '#fafafa', boxShadow: '0 0 0 2px #404040' },
-            marks: [mark('19:04', 'wb_twilight', '#979797'), mark(ON, 'light', Y), mark(OFF, 'light_off', Y), mark('07:11', 'wb_sunny', '#979797')].map((m, i) => ({ ...m, style: { ...m.style, top: i % 3 ? 0 : 15 } })) },
+          o: (() => { const man = s.mode === 'manuell', Q = m => ((m - nowM + 1440) % 1440) / 1440 * 100, toOn = (mins(ON) - nowM + 1440) % 1440, durOn = `${Math.floor(toOn / 60)} t ${toOn % 60} min`;
+            const band = (x, y, st) => { const pa = Q(mins(x)), pb = Q(mins(y)); return (pb >= pa ? [[pa, pb]] : [[0, pb], [pa, 100]]).map(([l, r]) => ({ style: { position: 'absolute', top: 0, bottom: 0, left: `${l}%`, width: `${r - l}%`, ...st } })); };
+            const ev = (k, t, sub, icon, next) => ({ k, t: man ? '–' : t, sub: man ? 'Automatikk av' : sub, icon,
+              tile: { display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 20, background: next && !man ? a(Y, 0.1) : 'rgba(0,0,0,0.16)', boxShadow: next && !man ? `inset 0 0 0 1px ${a(Y, 0.3)}` : 'none' },
+              iconSt: { fontSize: 16, color: next && !man ? Y : '#979797', fontVariationSettings: "'FILL' 1" } });
+            const evOn = ev('Tennes', ON, 'Solnedgang 19:04', 'light', !lit), evOff = ev('Slukkes', OFF, 'Soloppgang 07:11', 'light_off', lit);
+            return { count: `${onN} av ${OL.length}`, label: lit ? 'På' : 'Av', sub: man ? 'Styres manuelt' : lit ? `Slukkes om ${dur}` : `Tennes om ${durOn}`, icon: lit ? 'light' : 'light_off', toggle: () => setAll(lit ? 0 : 80),
+              chip: { display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 9px', borderRadius: 11, fontSize: 11, fontWeight: 600, background: lit ? a(Y, 0.18) : '#545454', color: lit ? Y : '#c7c7c7' },
+              card: { display: 'flex', flexDirection: 'column', gap: 16, padding: 18, borderRadius: 30, background: lit ? `linear-gradient(160deg, ${a(Y, 0.16)}, #404040 60%)` : '#404040', boxShadow: lit ? `inset 0 0 0 1px ${a(Y, 0.3)}` : 'none', transition: 'background .4s' },
+              btn: { width: 68, height: 68, borderRadius: 34, flex: 'none', display: 'grid', placeItems: 'center', background: lit ? Y : '#545454', color: lit ? '#282828' : '#afafaf', boxShadow: lit ? `0 0 30px ${a(Y, 0.45)}` : 'none', transition: 'all .3s' },
+              night: band('19:04', '07:11', { background: 'rgba(0,0,0,0.32)' }),
+              lit: (() => { const st = { position: 'absolute', top: 0, bottom: 0, borderRadius: 7, background: man ? '#696969' : `linear-gradient(90deg, ${Y}, ${a(Y, 0.75)})` }, seg = (l, r) => ({ style: { ...st, left: `${l}%`, width: `${r - l}%` } });
+                const pOn = Q(mins(ON)), pOff = Q(mins(OFF)), out = [];
+                if (lit) { out.push(seg(0, pOff)); if (!man && pOn > pOff) out.push(seg(pOn, 100)); }
+                else if (!man) { if (pOff >= pOn) out.push(seg(pOn, pOff)); else out.push(seg(pOn, 100)); }
+                return out; })(),
+              hours: [0, 360, 720, 1080].map(m => ({ t: String(m / 60).padStart(2, '0'), p: Q(m) })).filter(x => x.p > 8 && x.p < 95)
+                .map(x => ({ t: x.t, style: { position: 'absolute', top: 0, left: `${x.p}%`, transform: 'translateX(-50%)', fontSize: 11, color: '#7f7f7f', fontVariantNumeric: 'tabular-nums' } })),
+              events: lit ? [evOff, evOn] : [evOn, evOff] }; })(),
           outLamps: OL.map(([name, icon, ent]) => { const k = 'ute:' + name, v = s.v[k] || 0; return { name, icon, ent, val: v ? `${v} %` : 'Av', ...this.drag(k, v),
-            pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10, height: 72, padding: '0 14px 0 6px', borderRadius: 36, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
-            fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${v}%`, background: `linear-gradient(90deg, ${a(Y, 0.18)}, ${a(Y, 0.42)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
-            iconWrap: { position: 'relative', width: 60, height: 60, borderRadius: 30, flex: 'none', display: 'grid', placeItems: 'center', background: v ? Y : '#545454', color: v ? '#282828' : '#696969', transition: 'background .25s' },
-            valStyle: { fontSize: 12, color: v ? '#c7c7c7' : '#696969' } }; }),
+            pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10, height: ZO.h, padding: '0 14px 0 6px', borderRadius: ZO.h / 2, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
+            fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${v}%`, background: `linear-gradient(90deg, ${a(LC(k), 0.22)}, ${a(LC(k), 0.5)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
+            iconWrap: { position: 'relative', width: ZO.i, height: ZO.i, borderRadius: ZO.i / 2, flex: 'none', display: 'grid', placeItems: 'center', background: v ? LC(k) : '#545454', color: v ? '#282828' : '#e1e169', transition: 'background .25s' },
+            valStyle: { fontSize: 12, color: v ? '#c7c7c7' : '#afafaf' } }; }),
           modes: [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']].map(([k, label]) => ({ label, go: () => this.setState({ mode: k }), style: { height: 32, padding: '0 12px', borderRadius: 16, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: s.mode === k ? PINK : 'transparent', color: s.mode === k ? '#3a3a3a' : '#afafaf' } })),
           modeInfo: s.mode === 'auto' ? `Tennes når ${CF.luxEnt} er under ${CF.luxOn} lx, og slukkes over ${CF.luxOff} lx.` : s.mode === 'tid' ? `Tennes ${ON} (skumring ${CF.offset >= 0 ? '+' : '−'}${Math.abs(CF.offset)} min) og slukkes ${OFF}, senest ${CF.latest}.` : 'Automatikken er av. Utelyset styres bare fra knappene over.',
           autos: s.mode === 'manuell' ? [] : [['kveld', 'wb_twilight', 'Kveld', 'Tenn i skumringen'], ['morgen', 'wb_sunny', 'Morgen', `Tenn før det lysner, fra ${CF.morning}`]].map(([k, icon, label, sub], i) => ({ k: label, sub, icon, go: () => this.setState({ [k]: !s[k] }), ...sw(s[k]),
@@ -280,24 +436,31 @@ class Component extends DCLogic {
       folds: [fold('sol', 'light_mode', 'Sola', '↑ 07:11 ↓ 19:04', [['Soloppgang', '07:11'], ['Solnedgang', '19:04'], ['Borgerlig skumring', '19:41'], ['Dagslengde', '11 t 53 min']])],
       cf: (() => { const CF = this.cfg(), open = !!s.cfOpen, L = CF.lamps, upL = (i, k, v) => this.setCfg({ lamps: L.map((x, j) => { if (j !== i) return x; const b = [...x]; b[k] = v; return b; }) });
         const inp = w => ({ width: w, height: 38, borderRadius: 12, border: 0, outline: 'none', padding: '0 10px', background: '#282828', color: '#fafafa', font: 'inherit', fontSize: 14, fontWeight: 500, textAlign: 'center', fontVariantNumeric: 'tabular-nums', colorScheme: 'dark', flex: 'none' });
-        const f = (k, hint, key, type, w, step) => ({ k, hint, type, v: CF[key], step: step || 1, inp: inp(w), set: e => this.setCfg({ [key]: type === 'number' ? +e.target.value : e.target.value }), row: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderTop: '1px solid rgba(255,255,255,0.05)' } });
+        const f = (k, hint, key, type, w, step) => ({ k, hint, type, v: CF[key], step: step || 1, inp: inp(w), set: e => this.setCfg({ [key]: type === 'number' ? +e.target.value : e.target.value }), row: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 56, padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.05)' } });
         return { open, toggle: () => this.setState({ cfOpen: !open }), chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
           fields: [f('Tennes', 'Tidsplan', 'on', 'time', 104), f('Slukkes', 'Tidsplan', 'off', 'time', 104), f('Slukk senest', 'Uansett modus', 'latest', 'time', 104), f('Morgen fra', 'Morgenlys', 'morning', 'time', 104), f('Forskyvning skumring', 'minutter', 'offset', 'number', 80, 5), f('Tenn under', 'lux', 'luxOn', 'number', 80, 5), f('Slukk over', 'lux', 'luxOff', 'number', 80, 5)].map((x, i) => ({ ...x, row: { ...x.row, borderTop: i ? x.row.borderTop : 'none' } })),
           ents: [['Lysnivåsensor', 'luxEnt', 'sensor.…'], ['Automatikk-bryter', 'autoEnt', 'input_boolean.…']].map(([k, key, ph]) => ({ k, ph, v: CF[key], set: e => this.setCfg({ [key]: e.target.value.trim() }) })),
           lamps: L.map(([name, icon, ent], i) => ({ name, icon, ent, setName: e => upL(i, 0, e.target.value), setIcon: e => upL(i, 1, e.target.value), setEnt: e => upL(i, 2, e.target.value.trim()), del: () => this.setCfg({ lamps: L.filter((_, j) => j !== i) }) })),
+          ...(() => { const q = (s.lq || '').trim().toLowerCase(), have = new Set(L.map(x => x[2]));
+            const hits = q ? ALL_ENTS.filter(([id, n, ar]) => (id + ' ' + n + ' ' + ar).toLowerCase().includes(q)).slice(0, 8) : [];
+            return { q: s.lq || '', hasQ: !!q, noHits: !!q && !hits.length, setQ: e => this.setState({ lq: e.target.value }), clearQ: () => this.setState({ lq: '' }),
+              hits: hits.map(([id, name, area, icon], i) => { const on = have.has(id); return { id, name, area, icon, tagT: on ? 'Lagt til' : 'Legg til',
+                add: () => { if (on) return; this.setCfg({ lamps: [...L, [name, icon, id]] }); window.haptic && window.haptic('light'); },
+                row: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 56, padding: '0 10px', width: '100%', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', opacity: on ? 0.55 : 1 },
+                tag: { flex: 'none', height: 28, padding: '0 10px', borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600, background: on ? 'transparent' : a(Y, 0.18), color: on ? '#979797' : Y } }; }) }; })(),
           addLamp: () => this.setCfg({ lamps: [...L, ['Ny lampe', 'lightbulb', 'light.']] }), reset: () => { try { localStorage.removeItem('lys-v4-cfg'); } catch (e) {} this._cf = null; this.setState({ cfS: null }); } }; })(),
-      scenes: SC.map(([k, label, icon, lvl]) => { const act = s.scene === k; return { label, icon,
+      scenes: SC.filter(x => !LY.hideScenes.includes(x[0])).map(([k, label, icon, lvl]) => { const act = s.scene === k; return { label, icon,
         go: () => this.setState(st => { const v = { ...st.v }; FLOORS[floorKey].forEach(([id, , , ls]) => ls.forEach(l => { v[id + ':' + l] = lvl; })); return { v, scene: k }; }),
         bubble: { width: 58, height: 58, borderRadius: 29, display: 'grid', placeItems: 'center', background: act ? PINK : '#404040', color: act ? '#3a3a3a' : '#afafaf', transform: act ? 'scale(1.06)' : 'scale(1)', transition: 'transform .35s cubic-bezier(.34,1.8,.64,1), background .25s' },
         iconStyle: { fontSize: 24, fontVariationSettings: `'FILL' ${act ? 1 : 0}` }, labelStyle: { fontSize: 11, fontWeight: 500, color: act ? '#fafafa' : '#7f7f7f' } }; }),
-      rooms: FLOORS[floorKey].map(([id, name, icon, ls]) => { const n = ls.filter(l => (s.v[id + ':' + l] || 0) > 0).length; return { name, icon, sum: n ? `${n} på` : 'alle av', allLabel: n ? 'Av' : 'På',
+      rooms: FLOORS[floorKey].filter(r => !LY.hideRooms.includes(r[0])).map(([id, name, icon, ls]) => { const n = ls.filter(l => (s.v[id + ':' + l] || 0) > 0).length; return { name, icon, sum: n ? `${n} på` : 'alle av', allLabel: n ? 'Av' : 'På',
         all: () => this.setState(st => { const v = { ...st.v }; ls.forEach(l => { v[id + ':' + l] = n ? 0 : 70; }); return { v, scene: null }; }),
         allStyle: { height: 30, padding: '0 12px', borderRadius: 15, fontSize: 12, fontWeight: 600, background: n ? '#545454' : a(Y, 0.18), color: n ? '#afafaf' : Y },
         lights: ls.map(l => { const k = id + ':' + l, v = s.v[k] || 0; return { name: l, val: v ? `${v} %` : 'Av', ...this.drag(k, v),
-          pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px 0 6px', borderRadius: 28, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
-          fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${v}%`, background: `linear-gradient(90deg, ${a(Y, 0.18)}, ${a(Y, 0.42)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
-          iconWrap: { position: 'relative', width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: v ? Y : '#545454', color: v ? '#282828' : '#696969', transition: 'background .25s' },
-          valStyle: { fontSize: 11, color: v ? '#c7c7c7' : '#696969' } }; }) }; }),
+          pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, height: ZF.h, padding: '0 12px 0 6px', borderRadius: ZF.h / 2, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
+          fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${v}%`, background: `linear-gradient(90deg, ${a(LC(k), 0.22)}, ${a(LC(k), 0.5)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
+          iconWrap: { position: 'relative', width: ZF.i, height: ZF.i, borderRadius: ZF.i / 2, flex: 'none', display: 'grid', placeItems: 'center', background: v ? LC(k) : '#545454', color: v ? '#282828' : '#e1e169', transition: 'background .25s' },
+          valStyle: { fontSize: 11, color: v ? '#c7c7c7' : '#afafaf' } }; }) }; }),
       onCount: on.length, onWatt: on.reduce((t, l) => t + Math.round((s.v[l.key] || 0) * 0.09), 0), noneOn: !on.length,
       allOff: () => this.setState({ v: {}, scene: 'av' }),
       onList: on.map(l => ({ name: l.name, room: l.room, val: `${s.v[l.key]} %`, off: () => this.setV(l.key, 0) })),

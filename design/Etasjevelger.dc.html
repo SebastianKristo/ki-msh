@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+body{margin:0;background:#161616;font-family:'Space Grotesk',sans-serif;color:#fafafa;-webkit-font-smoothing:antialiased}
+button{border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer}
+a{color:#f285c9}a:hover{color:#f5cdc6}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;font-feature-settings:'liga'}
+</style>
+</helmet>
+<section style="padding:48px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px">
+    <span style="font-size:13px;color:#7f7f7f;letter-spacing:0.08em;text-transform:uppercase">Runde 1</span>
+    <h1 style="margin:0;font-size:30px;font-weight:500;letter-spacing:-0.02em">Etasjevelger på Hjem · seks retninger</h1>
+    <span style="font-size:15px;color:#979797;line-height:1.5;text-wrap:pretty">Samme faner som i dag (Hjem, 1. etg, 2. etg, Ute, Aktuelt, Batterier). Alle kan trykkes på. Dagens velger står først som referanse.</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+    <div id="0" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#545454;color:#fafafa;font-weight:600;font-size:14px">Nå</span><span style="font-size:15px;color:#c7c7c7">Dagens · segmentert pille</span></div>
+      <div style="padding:22px 16px;border-radius:32px;background:#232323">
+        <div style="display:flex;padding:4px;border-radius:30px;box-shadow:inset 0 0 0 1.5px #3a3a3a">
+          <sc-for list="{{ v0 }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="1a" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1a</span><span style="font-size:15px;color:#c7c7c7">Glidende tommel · ikon + tekst</span></div>
+      <div style="padding:22px 16px;border-radius:32px;background:#232323">
+        <div style="position:relative;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:4px;border-radius:26px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <span style="{{ thumbA }}"></span>
+          <sc-for list="{{ va }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="{{ t.iconS }}">{{ t.icon }}</span><span style="font-size:11px;font-weight:500;white-space:nowrap">{{ t.short }}</span></button></sc-for>
+        </div>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Én flate, og tommelen glir til valgt fane (280 ms). Ikonet gjør fanene lettere å skille på mobil, og tekstene kan være kortere.</span>
+    </div>
+
+    <div id="1b" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1b</span><span style="font-size:15px;color:#c7c7c7">Stor typografi · scroll</span></div>
+      <div style="padding:20px 0 18px;border-radius:32px;background:#232323;overflow:hidden">
+        <div data-glass-drag="x" style="display:flex;align-items:baseline;gap:22px;overflow-x:auto;scrollbar-width:none;padding:0 22px;touch-action:pan-x">
+          <sc-for list="{{ vb }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.go }}" style="{{ t.style }}"><span>{{ t.label }}</span><span style="{{ t.dot }}"></span></button></sc-for>
+        </div>
+        <span style="display:block;padding:10px 22px 0;font-size:13px;color:#7f7f7f">{{ metaB }}</span>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Ingen boks. Valgt fane er stor og hvit, resten er grå, og raden scroller sidelengs. Status for valgt fane står under. Rolig, og passer til prosa-headeren.</span>
+    </div>
+
+    <div id="1c" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1c</span><span style="font-size:15px;color:#c7c7c7">Chips med status</span></div>
+      <div style="padding:22px 0;border-radius:32px;background:#232323;overflow:hidden">
+        <div data-glass-drag="x" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 16px;touch-action:pan-x">
+          <sc-for list="{{ vc }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="{{ t.iconS }}">{{ t.icon }}</span><span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px"><span style="font-size:14px;font-weight:500;white-space:nowrap">{{ t.label }}</span><span style="{{ t.metaS }}">{{ t.meta }}</span></span></button></sc-for>
+        </div>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Hver fane er en egen chip, med status under navnet: rom og lys på, eller antall varsler. Batterier blir rød når noe er lavt.</span>
+    </div>
+
+    <div id="1d" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1d</span><span style="font-size:15px;color:#c7c7c7">To nivåer · Etasjer folder ut</span></div>
+      <div style="padding:22px 16px;border-radius:32px;background:#232323;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:26px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+            <sc-for list="{{ vdTop }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">{{ t.icon }}</span>{{ t.label }}</button></sc-for>
+          </div>
+          <button onClick="{{ vdBat.go }}" title="Batterier" style="{{ vdBat.style }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">battery_alert</span><span style="{{ vdBat.badge }}">2</span></button>
+        </div>
+        <sc-if value="{{ vdOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:6px;padding:0 4px">
+            <sc-for list="{{ vdSub }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Tre hovedvalg. Under Etasjer vises 1. etg, 2. etg og Ute. Batterier er en egen knapp med tall og vises bare når noe er lavt. Raden blir kortere og lettere å lese.</span>
+    </div>
+
+    <div id="1e" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1e</span><span style="font-size:15px;color:#c7c7c7">Husvelger · etasjene stablet</span></div>
+      <div style="padding:18px;border-radius:32px;background:#232323;display:flex;gap:12px;align-items:stretch">
+        <div style="flex:none;width:132px;display:flex;flex-direction:column;gap:4px">
+          <sc-for list="{{ veFloors }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}"><span style="font-size:14px;font-weight:600">{{ t.label }}</span><span style="{{ t.metaS }}">{{ t.meta }}</span></button></sc-for>
+        </div>
+        <div style="flex:1;min-width:0;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:4px">
+          <sc-for list="{{ veOther }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ t.icon }}</span><span style="flex:1;text-align:left;font-size:14px;font-weight:500">{{ t.label }}</span><span style="{{ t.metaS }}">{{ t.meta }}</span></button></sc-for>
+        </div>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Etasjene står stablet som i huset: 2. etg øverst og Ute nederst. Til høyre står Hjem, Aktuelt og Batterier. Tar mer plass, men viser hele huset på én gang. Passer best på nettbrett og veggskjerm.</span>
+    </div>
+
+    <div id="1f" style="width:440px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#141414;font-weight:600;font-size:14px">1f</span><span style="font-size:15px;color:#c7c7c7">Kompakt rullehjul</span></div>
+      <div style="padding:22px 16px;border-radius:32px;background:#232323">
+        <div style="display:flex;align-items:center;gap:8px;height:56px;padding:0 6px;border-radius:28px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <button onClick="{{ vf.prev }}" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a"><span class="ms" style="font-size:22px">chevron_left</span></button>
+          <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:14px;overflow:hidden">
+            <span style="font-size:13px;color:#696969;white-space:nowrap">{{ vf.prevL }}</span>
+            <span style="display:flex;flex-direction:column;align-items:center;min-width:0"><span style="font-size:18px;font-weight:600;white-space:nowrap">{{ vf.cur }}</span><span style="font-size:11px;color:#979797;white-space:nowrap">{{ vf.meta }}</span></span>
+            <span style="font-size:13px;color:#696969;white-space:nowrap">{{ vf.nextL }}</span>
+          </div>
+          <button onClick="{{ vf.next }}" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#3a3a3a"><span class="ms" style="font-size:22px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;justify-content:center;gap:6px;padding-top:12px"><sc-for list="{{ vf.dots }}" as="d" hint-placeholder-count="6"><span style="{{ d }}"></span></sc-for></div>
+      </div>
+      <span style="font-size:13px;color:#979797;line-height:1.5;text-wrap:pretty">Viser én fane om gangen, med naboene svakt på hver side. Sveip eller bruk pilene. Tar minst plass og tåler mange egne faner.</span>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', RED = 'rgb(242 128 115)';
+const hp = t => { try { window.haptic && window.haptic(t || 'selection'); } catch (e) {} };
+const T = [
+  { id: 'hjem', label: 'Hjem', short: 'Hjem', icon: 'home', meta: '6 favoritter' },
+  { id: '1', label: '1. etg', short: '1. etg', icon: 'counter_1', meta: '5 rom · 3 lys' },
+  { id: '2', label: '2. etg', short: '2. etg', icon: 'counter_2', meta: '4 rom · 1 lys' },
+  { id: 'ute', label: 'Ute', short: 'Ute', icon: 'yard', meta: '2 lys på' },
+  { id: 'aktuelt', label: 'Aktuelt', short: 'Aktuelt', icon: 'bolt', meta: '3 aktive' },
+  { id: 'bat', label: 'Batterier', short: 'Batteri', icon: 'battery_alert', meta: '2 lave', warn: true }
+];
+class Component extends DCLogic {
+  state = { s0: 'hjem', a: 'hjem', b: 'hjem', c: 'hjem', d: 'hjem', e: '1', f: 0 };
+  renderVals() {
+    const s = this.state, pick = (k, v) => () => { hp(); this.setState({ [k]: v }); };
+    const ia = Math.max(0, T.findIndex(t => t.id === s.a));
+    const tb = T.find(t => t.id === s.b);
+    const floors = ['1', '2', 'ute'], dTop = floors.includes(s.d) ? 'etg' : s.d;
+    const fi = s.f, n = T.length, fc = T[fi];
+    return {
+      v0: T.map(t => ({ label: t.label, go: pick('s0', t.id), style: { flex: '1 1 0', minWidth: 0, height: 50, borderRadius: 25, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: s.s0 === t.id ? PK : 'transparent', color: s.s0 === t.id ? '#2f2f2f' : '#c7c7c7' } })),
+      thumbA: { position: 'absolute', top: 4, bottom: 4, left: `calc(4px + (100% - 8px) / 6 * ${ia})`, width: 'calc((100% - 8px) / 6)', borderRadius: 22, background: PK, boxShadow: '0 6px 16px rgb(242 133 201 / 0.25)', transition: 'left .28s cubic-bezier(.2,.8,.2,1)' },
+      va: T.map(t => { const on = s.a === t.id; return { icon: t.icon, short: t.short, go: pick('a', t.id),
+        style: { position: 'relative', zIndex: 1, height: 56, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? '#2f2f2f' : '#afafaf', transition: 'color .2s' },
+        iconS: { fontSize: 20, fontVariationSettings: `'FILL' ${on ? 1 : 0}`, color: !on && t.warn ? RED : 'inherit' } }; }),
+      vb: T.map(t => { const on = s.b === t.id; return { label: t.label, go: pick('b', t.id),
+        style: { flex: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: on ? 28 : 18, fontWeight: on ? 600 : 400, letterSpacing: on ? '-0.02em' : 0, color: on ? '#fafafa' : '#7f7f7f', whiteSpace: 'nowrap', transition: 'font-size .25s, color .2s' },
+        dot: { width: 6, height: 6, borderRadius: 3, background: RED, display: t.warn ? 'block' : 'none', alignSelf: 'flex-start', marginTop: on ? 6 : 2 } }; }),
+      metaB: tb.meta,
+      vc: T.map(t => { const on = s.c === t.id; return { label: t.label, meta: t.meta, icon: t.icon, go: pick('c', t.id),
+        style: { flex: 'none', height: 56, padding: '0 16px 0 12px', borderRadius: 28, display: 'flex', alignItems: 'center', gap: 10, background: on ? PK : '#2f2f2f', color: on ? '#2f2f2f' : '#fafafa', boxShadow: on ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s' },
+        iconS: { fontSize: 22, fontVariationSettings: "'FILL' 1", color: on ? '#2f2f2f' : t.warn ? RED : '#afafaf' },
+        metaS: { fontSize: 11, whiteSpace: 'nowrap', color: on ? 'rgba(47,47,47,0.75)' : t.warn ? RED : '#979797' } }; }),
+      vdTop: [['hjem', 'Hjem', 'home'], ['etg', 'Etasjer', 'stacks'], ['aktuelt', 'Aktuelt', 'bolt']].map(([k, label, icon]) => { const on = dTop === k; return { label, icon, go: () => { hp(); this.setState({ d: k === 'etg' ? (floors.includes(s.d) ? s.d : '1') : k }); },
+        style: { height: 48, borderRadius: 22, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PK : 'transparent', color: on ? '#2f2f2f' : '#c7c7c7', transition: 'background .2s' } }; }),
+      vdOpen: dTop === 'etg',
+      vdSub: floors.map(k => { const t = T.find(x => x.id === k), on = s.d === k; return { label: t.label, go: pick('d', k), style: { height: 36, padding: '0 16px', borderRadius: 18, fontSize: 13, fontWeight: 500, background: on ? '#404040' : 'transparent', boxShadow: on ? 'inset 0 0 0 1.5px rgb(242 133 201)' : 'inset 0 0 0 1px #3a3a3a', color: on ? '#fafafa' : '#afafaf' } }; }),
+      vdBat: { go: pick('d', 'bat'), style: { position: 'relative', width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: s.d === 'bat' ? RED : '#2f2f2f', color: s.d === 'bat' ? '#2f2f2f' : RED, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        badge: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, padding: '0 5px', boxSizing: 'border-box', borderRadius: 9, background: s.d === 'bat' ? '#2f2f2f' : RED, color: s.d === 'bat' ? RED : '#2f2f2f', fontSize: 11, fontWeight: 600, display: 'grid', placeItems: 'center' } },
+      veFloors: ['2', '1', 'ute'].map((k, i) => { const t = T.find(x => x.id === k), on = s.e === k; return { label: t.label, meta: t.meta, go: pick('e', k),
+        style: { height: 58, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 2, padding: '0 14px', borderRadius: i === 0 ? '30px 30px 10px 10px' : i === 2 ? '10px 10px 20px 20px' : 10, background: on ? PK : k === 'ute' ? '#2a2f2a' : '#2f2f2f', color: on ? '#2f2f2f' : '#fafafa', transition: 'background .2s' },
+        metaS: { fontSize: 11, color: on ? 'rgba(47,47,47,0.75)' : '#979797', whiteSpace: 'nowrap' } }; }),
+      veOther: ['hjem', 'aktuelt', 'bat'].map(k => { const t = T.find(x => x.id === k), on = s.e === k; return { label: t.label, icon: t.icon, meta: t.warn ? '2' : '', go: pick('e', k),
+        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', borderRadius: 18, background: on ? (t.warn ? RED : PK) : '#2f2f2f', color: on ? '#2f2f2f' : t.warn ? RED : '#fafafa', transition: 'background .2s' },
+        metaS: { minWidth: 20, height: 20, borderRadius: 10, fontSize: 11, fontWeight: 600, display: t.warn ? 'grid' : 'none', placeItems: 'center', background: on ? '#2f2f2f' : RED, color: on ? RED : '#2f2f2f' } }; }),
+      vf: { cur: fc.label, meta: fc.meta, prevL: T[(fi - 1 + n) % n].label, nextL: T[(fi + 1) % n].label,
+        prev: () => { hp(); this.setState({ f: (fi - 1 + n) % n }); }, next: () => { hp(); this.setState({ f: (fi + 1) % n }); },
+        dots: T.map((t, i) => ({ width: i === fi ? 16 : 6, height: 6, borderRadius: 3, background: i === fi ? '#fafafa' : t.warn ? RED : '#545454', transition: 'all .25s' })) }
+    };
+  }
+}
+</script>
+</body>
+</html>
