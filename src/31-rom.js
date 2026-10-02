@@ -105,16 +105,6 @@
   // Standard −4 (0 px); forvalg Standard 0 · Litt 10 · Luftig 24 · Ekstra 48. Brukerens egen pad_top overstyrer.
   const PAD_T_OFF = 4;
   const SPACING = { gap: 8, pad_top: -4, pad_bottom: 150 };
-  // Mellomrom-editoren (ki-spacing-editor) viser r.offset, men M.spacingRows sender det ikke videre fra skjemafeltet –
-  // legg det på her (idempotent; gjelder bare felt som har offset).
-  if (M.spacingRows && !M.spacingRows.__offset) {
-    const rows0 = M.spacingRows;
-    M.spacingRows = (fields, cfg) => rows0(fields, cfg).map((r) => {
-      const f = (fields || []).find((x) => x && x.name === r.name);
-      return f && f.offset != null && r.offset == null ? { ...r, offset: f.offset } : r;
-    });
-    M.spacingRows.__offset = true;
-  }
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const obj = (id) => String(id).split('.').slice(1).join('.');
 

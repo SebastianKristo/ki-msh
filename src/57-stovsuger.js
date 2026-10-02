@@ -175,6 +175,9 @@
   const STATUS = { cleaning: 'Rengjør', returning: 'På vei hjem', paused: 'Pauset', docked: 'I dokken', idle: 'Klar', error: 'Feil', unavailable: 'Utilgjengelig', unknown: '–' };
   const ACTIVE = ['cleaning', 'paused', 'returning'];
 
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4) og aksent som tekst/ikon (pkt. 6); mørk = uendret
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // ukjente farger (lime, egne) beholdes
   /* ------------------------------------------------------------ robot-scenen (toppkortet) */
   // Fiks 26.11: gulvet fyller hele kartflaten (viewBox 60 0 184 200), dokken nede til venstre, sonen som lilla ellipse
   const ROUTE = 'M84 158 H228 V132 H84 V106 H228 V80 H84 V54 H228 V28 H84';
@@ -182,7 +185,7 @@
   const DOCK = [84, 184];
   function scene(mode, charging, animOff) {
     const floor = `<defs><pattern id="pl" width="44" height="12" patternUnits="userSpaceOnUse"><rect width="44" height="12" fill="#5a4636"/><path d="M0 11.5H44M26 0V12" stroke="#4a3a2d" stroke-width="1"/><path d="M0 5H18" stroke="#63503f" stroke-width=".6" opacity=".6"/></pattern>
-        <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs>
+        <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs><!-- ki-hex-ok: robot-illustrasjon (mørk øy) -->
       <rect x="60" y="0" width="184" height="200" fill="url(#pl)"/>
       <ellipse class="zone" cx="176" cy="92" rx="40" ry="26"/>
       <g class="dock"><rect x="${DOCK[0] - 12}" y="${DOCK[1] - 6}" width="24" height="20" rx="5" fill="#2a3038"/><rect x="${DOCK[0] - 7}" y="${DOCK[1] - 2}" width="14" height="3.5" rx="1.75" class="dl ${charging ? 'on' : ''}"/></g>`;
@@ -236,10 +239,10 @@
   /* ------------------------------------------------------------ editor (Tilpass + GUI-editoren) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
   const EXP = new Map(), ADD = new Set();
-  const hdl = (list) => `<span data-edrag="${list}" aria-label="Dra for å flytte" style="width:32px;height:40px;display:grid;place-items:center;color:#979797;flex:none;touch-action:none;cursor:grab">${M.icon('mdi:drag-vertical', 22)}</span>`;
-  const eyeB = (key, op, t, v, hidden, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-t="${esc(t || '')}" data-v="${esc(v)}" aria-pressed="${!hidden}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;color:${hidden ? '#696969' : '#fafafa'}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20)}</button>`;
-  const ROW = 'border-radius:26px;background:#404040;display:flex;align-items:center;gap:6px;padding:6px 6px 6px 4px;min-height:56px';
-  const INP = 'min-width:0;height:36px;border-radius:18px;background:#2f2f2f;padding:0 12px;font-size:13px;color:#fafafa';
+  const hdl = (list) => `<span data-edrag="${list}" aria-label="Dra for å flytte" style="width:32px;height:40px;display:grid;place-items:center;color:var(--ki-text-mid, #979797);flex:none;touch-action:none;cursor:grab">${M.icon('mdi:drag-vertical', 22)}</span>`;
+  const eyeB = (key, op, t, v, hidden, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-t="${esc(t || '')}" data-v="${esc(v)}" aria-pressed="${!hidden}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;color:${hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20)}</button>`;
+  const ROW = 'border-radius:26px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:6px;padding:6px 6px 6px 4px;min-height:56px';
+  const INP = 'min-width:0;height:36px;border-radius:18px;background:var(--ki-surface, #2f2f2f);padding:0 12px;font-size:13px;color:var(--ki-text, #fafafa)';
   // Dra-håndtak (touch-action none + stopPropagation, fallgruve 2) for faner, rom og soner. Én gang per editor.
   function installEd(ed) {
     if (!ed || ed.__vacInst || !ed.shadowRoot) return;
@@ -258,7 +261,7 @@
       if (hd.dataset.edrag === 'tab' && EXP.get(cid(ed))) { EXP.delete(cid(ed)); R.querySelectorAll('.vpart').forEach((x) => x.remove()); }
       d = { list: hd.dataset.edrag, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + BA(0.4);
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -300,12 +303,12 @@
       installEd(ed);
       const vac = vacOf(hh, cc), L = roomsOf(hh, cc, vac), add = ADD.has(cid(ed));
       const rows = L.map((r, i) => `<div class="ordrow vroom" data-edk="${esc(r.key)}" data-elist="room" data-key="vr-${esc(r.key)}" style="${ROW};${r.hidden ? 'opacity:.5' : ''}">${hdl('room')}
-          <button data-a="fn" data-k="${key}" data-op="col" data-v="${esc(r.key)}" aria-label="Bytt farge for ${esc(r.name)}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:#2f2f2f"><i style="width:16px;height:16px;border-radius:8px;background:${esc(r.color)}"></i></button>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="rooms.${esc(r.key)}.name" value="${esc(r.name)}" aria-label="Navn på rom ${i + 1}" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:#979797;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i < 2 ? 'Stor · ' : ''}${esc(r.entity || (r.segment != null ? 'Segment ' + r.segment : r.key))}</span></span>
+          <button data-a="fn" data-k="${key}" data-op="col" data-v="${esc(r.key)}" aria-label="Bytt farge for ${esc(r.name)}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-surface, #2f2f2f)"><i style="width:16px;height:16px;border-radius:8px;background:${esc(r.color)}"></i></button>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="rooms.${esc(r.key)}.name" value="${esc(r.name)}" aria-label="Navn på rom ${i + 1}" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:var(--ki-text-mid, #979797);padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i < 2 ? 'Stor · ' : ''}${esc(r.entity || (r.segment != null ? 'Segment ' + r.segment : r.key))}</span></span>
           <input class="inp" type="number" inputmode="decimal" data-name="rooms.${esc(r.key)}.m2" data-num="1" value="${r.m2 != null ? r.m2 : ''}" placeholder="m²" aria-label="Areal i m²" style="${INP};width:62px;padding:0 8px;text-align:center">
-          ${r.manual ? `<button class="ib" data-a="fn" data-k="${key}" data-op="rdel" data-v="${esc(r.key)}" aria-label="Fjern ${esc(r.name)}" style="width:36px;height:40px;display:grid;place-items:center;flex:none;color:#979797">${M.icon('mdi:delete-outline', 20)}</button>` : ''}
+          ${r.manual ? `<button class="ib" data-a="fn" data-k="${key}" data-op="rdel" data-v="${esc(r.key)}" aria-label="Fjern ${esc(r.name)}" style="width:36px;height:40px;display:grid;place-items:center;flex:none;color:var(--ki-text-mid, #979797)">${M.icon('mdi:delete-outline', 20)}</button>` : ''}
           ${eyeB(key, 'reye', '', r.key, r.hidden, r.name)}</div>`).join('');
-      const form = add ? `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:24px;background:#404040">
+      const form = add ? `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:24px;background:var(--ki-surface-2, #404040)">
           <input class="inp" data-radd="name" placeholder="Navn (f.eks. Stue)" autocapitalize="off" spellcheck="false" style="${INP}">
           <input class="inp" data-radd="src" placeholder="input_boolean.… eller segment-ID (tall)" autocapitalize="off" spellcheck="false" style="${INP}">
           <button class="btn" style="height:44px" data-a="fn" data-k="${key}" data-op="radd" data-v="">${M.icon('mdi:check', 18)}Legg til</button></div>` : '';
@@ -334,7 +337,7 @@
       installEd(ed);
       const L = zonesOf(hh, cc);
       return box(L.length ? L.map((z) => `<div class="ordrow vzone" data-edk="${esc(z.key)}" data-elist="zone" data-key="vz-${esc(z.key)}" style="${ROW};${z.hidden ? 'opacity:.5' : ''}">${hdl('zone')}
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="zones.${esc(z.key)}.name" value="${esc(z.name)}" aria-label="Navn på sone" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:#979797;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(z.entity)}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="zones.${esc(z.key)}.name" value="${esc(z.name)}" aria-label="Navn på sone" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:var(--ki-text-mid, #979797);padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(z.entity)}</span></span>
           ${eyeB(key, 'zeye', '', z.key, z.hidden, z.name)}</div>`).join('') : small('Fant ingen sone-skript (script.*_zone_*).'));
     }, click: (dd, ed) => {
       if (dd.op === 'zeye') { const z = ((ed._config || {}).zones || {})[dd.v] || {}; M.haptic('selection'); return ed._set('zones.' + dd.v + '.hidden', z.hidden ? undefined : true); }
@@ -343,15 +346,15 @@
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
       const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels !== 'icon';
-      const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#282828;overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:#2a1720;font-weight:500` : 'color:#afafaf'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a;flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
+      const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, #282828);overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500` : 'color:var(--ki-text-2, #afafaf)'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
       return box(prev + tabOrder(cc).map((k) => {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k;
-        const row = `<div class="ordrow vtab" data-edk="${k}" data-elist="tab" data-key="vt-${k}" style="height:56px;border-radius:28px;background:#404040;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
-          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#2f2f2f;flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:#979797">${P.length - ph.size} av ${P.length} deler</span></span>
+        const row = `<div class="ordrow vtab" data-edk="${k}" data-elist="tab" data-key="vt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
+          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #2f2f2f);flex:none">${M.icon(icon, 20)}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length - ph.size} av ${P.length} deler</span></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Innhold i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
-        const parts = isO ? P.map(([p, pl]) => `<div class="vpart" data-key="vp-${k}-${p}" style="height:48px;border-radius:24px;margin-left:28px;background:#2f2f2f;display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;${ph.has(p) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`).join('') : '';
+        const parts = isO ? P.map(([p, pl]) => `<div class="vpart" data-key="vp-${k}-${p}" style="height:48px;border-radius:24px;margin-left:28px;background:var(--ki-surface-3, #2f2f2f);display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;${ph.has(p) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`).join('') : '';
         return row + parts;
       }).join('') + small('Dra i håndtaket for rekkefølge. Pilen viser innholdet i fanen, øyet skjuler. Minst én fane må være synlig.'));
     }, click: (dd, ed) => {
@@ -517,13 +520,13 @@
         : m.state === 'cleaning' ? ['Rengjør', 'mdi:broom'] : m.state === 'returning' ? ['På vei hjem', 'mdi:home-import-outline'] : m.state === 'paused' ? ['Pauset', 'mdi:pause']
           : m.state === 'error' ? [m.vs.attributes.error ? 'Feil · ' + m.vs.attributes.error : 'Feil', 'mdi:alert-circle-outline'] : [STATUS[m.state] || m.vs.state, 'mdi:robot-vacuum'];
       const name = this.config.name || (m.vs ? M.name(this.hass, m.E.vacuum) : 'Støvsuger');
-      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray900,#c7c7c7)';
+      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--ki-text-1, var(--gray900,#c7c7c7))';
       const animOff = M.animOff ? M.animOff() : false;
       return `<div class="hero ${mode}" data-key="hero">
-        <div class="scw">${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
+        <div class="scw" data-ki-island>${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
         <div class="hl">
           <span class="hn">${esc(name)}</span>
-          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
+          <span class="spill" style="--tc:${tone};--tcx:${/--ki-/.test(tone) ? tone : AT(tone)}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
           ${!m.vs ? `<button class="pick press" data-act="customize" data-section="ent-robot_og_status">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
           <div class="batw" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}>
             <div class="bat"><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span></div>
@@ -566,7 +569,7 @@
           const all = m.sel.length === m.rooms.length, spans = this._roomRows(m.rooms.length);
           const tiles = m.rooms.map((r, i) => {
             const on = this._isSel(r), big = i < 2 && m.rooms.length > 1;
-            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
+            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};--rcx:${esc(AT(r.color))};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
               <span class="ri">${M.icon(r.icon, 18)}</span><span class="rtx"><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}</span></button>`;
           }).join('');
           const lead = allLbl || !n ? 'Alle rom' : `${n} rom`;
@@ -630,8 +633,8 @@
       if (P.includes('totalt')) {
         const as = this.s(m.E.area), a = as && M.isNum(as.state) ? Number(as.state) : null;
         const mins = minutesOf(this.s(m.E.time));
-        out.push(`<div class="stats"><div class="stat" ${m.E.area ? `data-ent="${esc(m.E.area)}"` : ''}>${M.icon('mdi:texture-box', 22, `color:${C.blue}`)}<span class="sl">Vasket totalt</span><b class="num">${a != null ? M.nf(a) + ' m²' : '–'}</b><span class="ss">${a != null ? '≈ ' + M.nf(a / FOTBALL, 1) + ' fotballbaner' : m.E.area ? '' : 'Velg entitet'}</span></div>
-          <div class="stat" ${m.E.time ? `data-ent="${esc(m.E.time)}"` : ''}>${M.icon('mdi:timer-outline', 22, `color:${C.purple}`)}<span class="sl">Tid brukt</span><b class="num">${esc(dagerTimer(mins))}</b><span class="ss">${mins != null ? 'til sammen' : m.E.time ? '' : 'Velg entitet'}</span></div></div>`);
+        out.push(`<div class="stats"><div class="stat" ${m.E.area ? `data-ent="${esc(m.E.area)}"` : ''}>${M.icon('mdi:texture-box', 22, `color:${AT(C.blue)}`)}<span class="sl">Vasket totalt</span><b class="num">${a != null ? M.nf(a) + ' m²' : '–'}</b><span class="ss">${a != null ? '≈ ' + M.nf(a / FOTBALL, 1) + ' fotballbaner' : m.E.area ? '' : 'Velg entitet'}</span></div>
+          <div class="stat" ${m.E.time ? `data-ent="${esc(m.E.time)}"` : ''}>${M.icon('mdi:timer-outline', 22, `color:${AT(C.purple)}`)}<span class="sl">Tid brukt</span><b class="num">${esc(dagerTimer(mins))}</b><span class="ss">${mins != null ? 'til sammen' : m.E.time ? '' : 'Velg entitet'}</span></div></div>`);
       }
       if (P.includes('vedlikehold')) {
         const rows = PARTS_V.map(([k, label, icon]) => {
@@ -661,7 +664,7 @@
           const alt = esc(M.name(this.hass, m.E.map));
           const inner = wh ? `<svg class="mimg" viewBox="0 0 ${wh[0]} ${wh[1]}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${alt}"><image href="${esc(src)}" width="${wh[0]}" height="${wh[1]}"/>${ov.map((o) => `<rect class="mr ${this._isSel(o.room) ? 'on' : ''}" data-mroom data-k="${esc(o.room.key)}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" width="${o.w.toFixed(1)}" height="${o.h.toFixed(1)}" rx="3" style="--rc:${esc(o.room.color)}"><title>${esc(o.room.name)}</title></rect>`).join('')}</svg>`
             : `<img src="${esc(src)}" alt="${alt}" draggable="false">`;
-          out.push(`<div class="map" data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
+          out.push(`<div class="map" data-ki-island data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
             <button class="mreset press ${zoomed ? '' : 'hid'}" data-act="mapreset" aria-label="Tilbakestill visning" title="Tilbakestill visning" data-haptic="medium">${M.icon('mdi:fit-to-screen', 22)}</button></div>`);
         }
       }
@@ -782,64 +785,64 @@
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),#333333;box-shadow:${C.edge}}
-        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),var(--ki-surface, #333333);box-shadow:${C.edge}} /* ki-hex-ok: lysrefleks (hvit i begge moduser) */
+        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .scene{display:block;width:100%;height:100%}
         .zone{fill:${C.purple};fill-opacity:.32;stroke:${C.purple};stroke-opacity:.7;stroke-width:1.2;stroke-dasharray:4 3}
-        .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
+        .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .homep{fill:none;stroke:rgba(242,181,115,.55);stroke-width:2;stroke-dasharray:4 5}
         .led{fill:${C.blue}}
         .bot.cleaning .led{fill:${C.green}}
         .bot.returning .led,.bot.paused .led{fill:${C.orange}}
         .err{fill:none;stroke:${C.red};stroke-width:2.5;animation:vblink 1s steps(2) infinite}
-        .dl{fill:#545454}.dl.on{fill:${C.green};animation:vpulse 1.6s ease-in-out infinite}
+        .dl{fill:#545454}.dl.on{fill:${C.green};animation:vpulse 1.6s ease-in-out infinite} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .bolt{animation:vpulse 1.6s ease-in-out infinite}
         @keyframes vpulse{0%,100%{opacity:1}50%{opacity:.35}}
         @keyframes vblink{0%{opacity:1}100%{opacity:0}}
         @media (prefers-reduced-motion: reduce){.dl.on,.bolt,.err{animation:none}}
         .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:18px 10px 18px 18px;height:100%;width:calc(100% - min(50%,173px) - 6px);box-sizing:border-box;min-width:0}
-        .hn{font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) 16%, rgba(255,255,255,.06));color:var(--tc);font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
+        .hn{font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) calc(16% * var(--ki-tone-k, 1)), ${WA(0.06)});color:var(--tcx, var(--tc));font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
         .spill span{overflow:hidden;text-overflow:ellipsis}
         .batw{margin-top:auto;display:flex;flex-direction:column;gap:4px;width:100%}
         .bat{display:flex;align-items:baseline;gap:2px}
         .bv{font-size:44px;font-weight:300;line-height:1}
-        .bu{font-size:20px;color:var(--gray700,#979797)}
-        .bl{font-size:13px;color:var(--gray700,#979797)}
-        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px}
+        .bu{font-size:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .bl{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:${WA(0.1)};overflow:hidden;margin-top:2px}
         .bbar i{display:block;height:100%;border-radius:2px;background:${C.green}}
         .tank{display:flex;align-items:center;gap:12px;padding:6px 8px 6px 6px;border-radius:32px;background:${C.red};color:#2c1411}
-        .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(0,0,0,.1);flex:none;animation:vdrip 1.4s ease-in-out infinite}
+        .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:${BA(0.1)};flex:none;animation:vdrip 1.4s ease-in-out infinite}
         @keyframes vdrip{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
         .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tt b{font-size:15px;font-weight:600}.tt span{font-size:12px;opacity:.8}
-        .tb{height:40px;padding:0 14px;border-radius:20px;background:rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
+        .tb{height:40px;padding:0 14px;border-radius:20px;background:${BA(0.12)};display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
         .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray200,#3a3a3a))') : ''}}
         .tabs.names{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
-        .tabs .itab{color:var(--gray800,#afafaf);background:transparent}
-        .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .tabs .itab{color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
+        .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
-        .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);flex:none;box-shadow:${C.edge}}
+        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));flex:none;box-shadow:${C.edge}}
         .sh{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
-        .meta{font-size:13px;color:var(--gray700,#979797);margin-left:auto}
-        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--white,#fafafa)}
-        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .meta{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));margin-left:auto}
+        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .rch{display:flex;align-items:center;gap:8px;padding:0 4px;min-height:32px}
-        .rct{flex:1;min-width:0;font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rct{flex:1;min-width:0;font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(84px,auto);gap:8px}
         .rt{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px;border-radius:20px;text-align:left;min-width:0;overflow:hidden;
-          background:color-mix(in srgb, var(--rc) 25%, #3a3a3a);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
+          background:color-mix(in srgb, var(--rc) 25%, var(--ki-surface, #3a3a3a));box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
         .rt.big{min-height:104px}
-        .rt .ri{display:grid;place-items:center;color:var(--rc);height:18px}
+        .rt .ri{display:grid;place-items:center;color:var(--rcx, var(--rc));height:18px}
         .rtx{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
         .rn{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .rm{font-size:12px;color:var(--gray800,#afafaf)}
-        .rt.on{background:color-mix(in srgb, var(--rc) 55%, #3a3a3a);box-shadow:inset 0 0 0 2px #fafafa}
-        .rt.on .ri{color:#fafafa}
-        .rt.on .rm{color:var(--gray900,#c7c7c7)}
-        .sum{padding:0 4px;font-size:13px;color:var(--gray800,#afafaf)}
+        .rm{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .rt.on{background:color-mix(in srgb, var(--rc) 55%, var(--ki-surface, #3a3a3a));box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
+        .rt.on .ri{color:var(--ki-text, #fafafa)}
+        .rt.on .rm{color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .sum{padding:0 4px;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .gobtn{display:flex;align-items:center;gap:12px;height:64px;padding:0 20px 0 8px;border-radius:32px;background:${C.green};color:#12291d;text-align:left}
         .gobtn .gi{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:#1d3a2b;color:${C.green};flex:none}
         .gobtn .gt{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -849,57 +852,57 @@
         .gobtn.armed .gi{background:#3d2a10;color:${C.orange}}
         .gobtn[disabled]{opacity:.4}
         .actrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--gray200,#3a3a3a);font-size:16px;font-weight:600}
+        .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:16px;font-weight:600}
         .ab.pz{background:${C.orange};color:#2d1f0c}.ab.go{background:${C.green};color:#12291d}
         .zones{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:2px}
         .zones::-webkit-scrollbar{display:none}
-        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
-        .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:14px}
-        .miss .mdash{font-size:22px;color:var(--white,#fafafa)}
+        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
+        .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797));font-size:14px}
+        .miss .mdash{font-size:22px;color:var(--ki-text, var(--white,#fafafa))}
         .miss .mt{flex-basis:100%;text-align:center;font-size:12px}
-        .pick{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--white,#fafafa)}
-        .card{border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .pick{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ki-text, var(--white,#fafafa))}
+        .card{border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .prog{padding:16px;display:flex;flex-direction:column;gap:14px}
         .pgt{display:flex;align-items:center;gap:14px}
-        .pv{font-size:44px;font-weight:300;line-height:1}.pv small{font-size:20px;color:var(--gray700,#979797)}
-        .pl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pl b{font-size:15px;font-weight:500}.pl span{font-size:13px;color:var(--gray700,#979797)}
+        .pv{font-size:44px;font-weight:300;line-height:1}.pv small{font-size:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pl b{font-size:15px;font-weight:500}.pl span{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center;background:${C.orange};color:#2d1f0c;flex:none}
         .pp.go{background:${C.green};color:#12291d}
-        .bar{height:8px;border-radius:4px;background:var(--gray300,#404040);overflow:hidden}
+        .bar{height:8px;border-radius:4px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:4px;background:${C.green};transition:width .6s}
         .cbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .cb{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:96px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:left;font-size:14px;font-weight:500;box-shadow:${C.edge}}
-        .cb i{font-style:normal;font-size:11px;color:var(--gray700,#979797);font-weight:400}
-        .segc{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+        .cb{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:96px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;font-size:14px;font-weight:500;box-shadow:${C.edge}}
+        .cb i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-weight:400}
+        .segc{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .sgh{display:flex;align-items:center;gap:8px;padding:0 4px;font-size:14px;font-weight:500}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--gray100,#282828);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray100,#282828)') : ''}}
-        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;text-transform:capitalize}
-        .seg .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
-        .row{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:left}
-        .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.grow b{font-size:14px;font-weight:500}.grow>span{font-size:12px;color:var(--gray700,#979797)}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#282828));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray100,#282828))') : ''}}
+        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;text-transform:capitalize}
+        .seg .sg.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
+        .row{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left}
+        .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.grow b{font-size:14px;font-weight:500}.grow>span{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .stat{display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0;box-shadow:${C.edge}}
-        .stat .sl{font-size:12px;color:var(--gray700,#979797);margin-top:6px}.stat b{font-size:20px;font-weight:500}.stat .ss{font-size:12px;color:var(--gray800,#afafaf)}
+        .stat{display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0;box-shadow:${C.edge}}
+        .stat .sl{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));margin-top:6px}.stat b{font-size:20px;font-weight:500}.stat .ss{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .vlist{padding:4px}
         .vrow{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 12px;border-radius:20px}
-        .vrow+.vrow{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-        .vi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .vb{display:block;height:4px;border-radius:2px;background:var(--gray300,#404040);overflow:hidden;margin-top:4px}.vb i{display:block;height:100%;background:${C.green}}
-        .vrow.low .vi{background:color-mix(in srgb, ${C.orange} 22%, transparent);color:${C.orange}}
-        .vrow.low .grow .num{color:${C.orange}}.vrow.low .vb i{background:${C.orange}}
+        .vrow+.vrow{box-shadow:inset 0 1px 0 ${WA(0.05)}}
+        .vi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .vb{display:block;height:4px;border-radius:2px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden;margin-top:4px}.vb i{display:block;height:100%;background:${C.green}}
+        .vrow.low .vi{background:color-mix(in srgb, ${C.orange} calc(22% * var(--ki-tone-k, 1)), transparent);color:${AT(C.orange)}}
+        .vrow.low .grow .num{color:${AT(C.orange)}}.vrow.low .vb i{background:${C.orange}}
         .rs{height:36px;padding:0 14px;border-radius:18px;background:${C.orange};color:#2d1f0c;font-size:13px;font-weight:600;flex:none}
-        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .map:active{cursor:grabbing}
         .mapin{position:absolute;inset:0;transform-origin:0 0;will-change:transform;display:grid;place-items:center}
         .mapin img,.mapin .mimg{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
         .mapin .mimg .mr{pointer-events:auto;fill:var(--rc);fill-opacity:.18;stroke:var(--rc);stroke-opacity:.6;stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:pointer}
-        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2}
-        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s}
+        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
+        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .mreset.hid{opacity:0;transform:scale(.8);pointer-events:none}
         .legend{display:flex;flex-wrap:wrap;gap:6px}
-        .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px}
+        .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:8px;font-size:13px}
         .legend .lg i{width:12px;height:12px;border-radius:6px;background:var(--rc)}
-        .legend .lg.on{background:var(--rc);color:#232323}.legend .lg.on i{background:#232323}
+        .legend .lg.on{background:var(--rc);color:var(--ki-on-accent, #232323)}.legend .lg.on i{background:var(--ki-on-accent, #232323)}
       `;
     }
   }

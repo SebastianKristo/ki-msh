@@ -122,6 +122,18 @@
   M.KLIMA_TAB_LOOKS = LOOKS;
 
   // Layout (config.layout) med standardverdier. Eldre rotnøkler (tab_order, hidden_tabs, start_tab) leses fortsatt.
+  // 33.4 · fanehøyde (05-tab-bar.js): CSS-variabler + editorfelt med forhåndsvisning av Klima-fanene
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const TH_OPTS = (d) => {
+    const L = (d && d.layout) || {}, st = ['both', 'text', 'icon'].includes(L.tab_style) ? L.tab_style : 'both';
+    return {
+      items: (h, c) => { const L2 = ((c || d || {}).layout) || {}; return M.mshOrder(tabDefs().map((t) => t.id), L2.tab_order, L2.hidden_tabs).slice(0, 4).map((k) => { const t = tabDefs().find((x) => x.id === k) || { id: k, label: k }; return { key: k, label: t.label, icon: t.icon }; }); },
+      mode: (c) => ({ both: 'begge', text: 'tekst', icon: 'ikon' })[(((c || d || {}).layout) || {}).tab_style || st] || 'begge',
+      look: (c) => ((((c || d || {}).layout) || {}).tab_look === 'kontur' ? 'kontur' : 'fylt'),
+      native: (c) => ({ text: 40, icon: 46 })[(((c || d || {}).layout) || {}).tab_style] || 38,
+      gear: true,
+    };
+  };
   const LAY_DEF = { show_hero: true, show_modes: true, tab_style: 'both' };
   function layoutOf(c) {
     c = c || {};
@@ -703,6 +715,7 @@
             { type: 'select', name: 'layout.tab_look', label: 'Fanestil', options: LOOKS, default: 'fylt' },
             { type: 'select', name: 'layout.tab_style', label: 'Faner viser', options: [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], default: 'both' },
           ] },
+          ...(M.tabH ? [{ type: 'section', id: 'fanehoyde', label: 'Fanehøyde', icon: 'mdi:arrow-expand-vertical', fields: [M.tabH.field(TH_OPTS())] }] : []), // 33.4
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             { type: 'select', name: 'layout.default_tab', label: 'Åpne med', options: (() => { const v = visibleTabs(pc, layoutOf(c)); return T.filter((t) => v.includes(t.id)).map((t) => [t.id, t.label]); })(), default: 'oversikt' },
             { type: 'boolean', name: 'layout.remember_tab', label: 'Husk siste fane', help: 'På: åpner med fanen du sist var på (per enhet). Av: alltid «Åpne med».', default: false },
@@ -822,7 +835,7 @@
       return `<div class="wrap">${this._blankHTML(false)}
         ${c.title ? `<div class="ttl">${esc(c.title)}</div>` : ''}
         ${L.show_modes !== false ? this._modes() : ''}
-        <div class="trow s-${st} lk-${lk}" data-look="${lk}">
+        <div class="trow s-${st} lk-${lk}" data-look="${lk}"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>
           <div class="tbox"><div class="tabs msh-tr s-${st}" data-glass-drag="x" role="tablist" aria-label="Klima-faner">${tabs.map((k) => {
             const t = T[k] || { id: k, label: k, icon: 'mdi:tab' }, on = k === tab;
             return `<button class="tab${on ? ' on' : ''}" data-act="ktab" data-key="${esc(k)}" data-haptic="selection" role="tab" aria-selected="${on}"${on ? ' data-active' : ''} aria-label="${esc(t.label)}">${st !== 'text' ? M.icon(t.icon, st === 'icon' ? 22 : 20) : ''}${st !== 'icon' ? `<span class="tl">${esc(t.label)}</span>` : ''}</button>`;
@@ -906,25 +919,28 @@
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
         ${M.TAB_ROW_CSS || ''}
         /* 35.8 · fanelinja: høyde (--kth, 33.4 kan sette den) + innerpadding (--ktp) per stil; tannhjulet = sporets høyde */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0;--kth:54px;--ktx:0px;--ktp:6px}
-        .trow.s-text{--kth:40px} .trow.s-icon{--kth:46px}
+        /* 33.4 · --kth følger fanehøyden (MSH.tabH): Tekst/Ikon = H, Ikon + tekst = H + 16; uten valg = dagens høyder */
+        .trow{display:flex;align-items:center;gap:8px;min-width:0;--kth:${TV('th2', 54)};--ktx:0px;--ktp:6px}
+        .trow.s-text{--kth:${TV('th', 40)}} .trow.s-icon{--kth:${TV('th', 46)}}
         .trow.lk-kontur{--ktp:5px} .trow.lk-linje{--ktp:0px;--ktx:4px}
         /* Fiks 15.2/19.8: fast flate (fanespor --ki-surface-3; Kontur --ki-surface) + tynn ring, ingen glass/backdrop-filter; glass-linsen (tabReorder) virker oppå */
-        .tbox{flex:1;min-width:0;padding:var(--ktp);border-radius:30px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;box-sizing:border-box}
+        .tbox{flex:1;min-width:0;padding:var(--ktp);border-radius:calc(${TV('th', 48)} / 2 + var(--ktp));background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;box-sizing:border-box}
         .lk-kontur .tbox{background:var(--ki-surface, var(--gray200,#3a3a3a));border-radius:calc((var(--kth) + var(--ktx)) / 2 + var(--ktp));box-shadow:inset 0 0 0 1px ${WA(0.14)}}
         .lk-linje .tbox{padding:0 4px;border-radius:0;background:transparent;box-shadow:inset 0 -1px 0 ${WA(0.1)}}
         .tabs{position:relative;gap:4px;border-radius:24px}
         .lk-linje .tabs{gap:2px;border-radius:0}
-        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:calc(var(--kth) + var(--ktx));border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2,var(--gray700,#979797));background:transparent;transition:background .25s,color .25s,box-shadow .2s}
+        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 ${TV('tp', 10)};height:calc(var(--kth) + var(--ktx));border-radius:calc(${TV('th', 48)} / 2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2,var(--gray700,#979797));background:transparent;transition:background .25s,color .25s,box-shadow .2s}
         .tabs>.tab.on{background:${PINK};color:${INK}}
         .lk-linje .tabs>.tab{border-radius:0}
         .lk-linje .tabs>.tab.on{background:transparent;color:var(--ki-text,#fafafa);box-shadow:inset 0 -3px 0 rgb(242 133 201)}
         .lk-linje .tabs>.tab.on ha-icon{color:var(--ki-pink-text, rgb(242 133 201))}
         .lk-linje .tabs>.tab.on .tl{font-weight:600}
-        .tabs.s-text>.tab{padding:0 14px}
-        .tabs.s-text .tl{font-size:13px}
-        .tabs.s-icon>.tab{padding:0 12px}
-        .tl{font-size:10px;font-weight:500;white-space:nowrap}
+        .tabs.s-text>.tab{padding:0 ${TV('tp', 14)}}
+        .tabs.s-text .tl{font-size:${TV('tf', 13)}}
+        .tabs.s-icon>.tab{padding:0 ${TV('tp', 12)}}
+        .tl{font-size:calc(${TV('tf', 12)} - 2px);font-weight:500;white-space:nowrap}
+        .tabs>.tab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
+        .tabs.s-icon>.tab ha-icon{--mdc-icon-size:${TV('ti', 22)} !important;width:${TV('ti', 22)} !important;height:${TV('ti', 22)} !important}
         .gear{--gh:calc(var(--kth) + var(--ktx) + 2 * var(--ktp));width:var(--gh);height:var(--gh);border-radius:50%;flex:none;align-self:center;display:grid;place-items:center;background:var(--ki-surface,#3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--ki-text,#fafafa)}
         .gear:active{transform:scale(.92)}
         .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,${SPACING.gap}px);min-width:0}
@@ -1056,6 +1072,7 @@
         <div class="grp">
           ${segRow('Fanestil', 'mdi:palette-swatch-outline', 'look', LOOKS, look)}
           ${segRow('Faner viser', 'mdi:tab', 'style', [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], style)}
+          ${M.tabH ? `<div class="r col2" data-key="tabh">${M.tabH.editorHTML(d.tab_height, { ...TH_OPTS(d), cfg: d })}</div>` : ''}
           ${openWith}
           ${remRow}
         </div>
@@ -1085,6 +1102,8 @@
     box.className = 'klima-sheet';
     Object.defineProperty(box, '_config', { get: () => st.draft });
     ov.body.appendChild(box);
+    // 33.4: fanehøyde (felles felt) – slider live bak arket, full tegning ved slipp
+    if (M.tabH) M.tabH.bindEditor(box, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = v; preview(); if (commit) draw(); } });
     // 17.28: slider – live mens man drar (ingen ny tegning under drag), full tegning ved slipp
     const spInput = (e, end) => {
       const el = e.target;

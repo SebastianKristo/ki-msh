@@ -646,7 +646,7 @@
   // Skjemafelt (type 'range') + config → rader → <ki-spacing-editor>. Tom liste → ''.
   M.spacingRows = (fields, cfg) => (fields || []).filter((f) => f && f.type === 'range' && f.name).map((f) => {
     const v = get(cfg || {}, f.name);
-    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '' };
+    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '', ...(f.offset != null ? { offset: f.offset } : {}) };
   });
   M.spacingEditorHTML = (fields, cfg, key) => {
     const rows = M.spacingRows(fields, cfg);

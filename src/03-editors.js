@@ -127,6 +127,8 @@
     static get schema() { return [{ type: 'info', label: 'Snarveier til dashbord-editorene og Home Assistant-innstillingene.' }]; }
     get cardSize() { return 4; }
     render() {
+      // Fiks 35 (oppfølging 33.3): view: 'devices' = bare enhetsoversikten – vises i «Enheter»-arket fra Mer → Tilpass
+      if (this.config.view === 'devices') return `<div class="st">${this._devices()}</div>`;
       const u = this.hass.user || {};
       const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
       return `<div class="st">

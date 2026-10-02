@@ -80,14 +80,14 @@
       const body = rows.map((t, i) => {
         const d = t.status === 'completed';
         const who = dueText(t.due) || (multi ? M.name(this.hass, t.list) : '');
-        return `<div class="rw" data-key="${esc(t.list + '|' + t.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
-          <button class="bx press" data-act="check" data-haptic="success" data-list="${esc(t.list)}" data-uid="${esc(t.uid)}" data-s="${d ? 'needs_action' : 'completed'}" aria-label="${d ? 'Merk som ikke ferdig' : 'Merk som ferdig'}" style="background:${d ? C.green : 'transparent'};box-shadow:${d ? 'none' : 'inset 0 0 0 1.5px var(--gray400,#545454)'}">${M.icon('check', 16, `color:#232323;opacity:${d ? 1 : 0};transition:opacity .2s`)}</button>
+        return `<div class="rw" data-key="${esc(t.list + '|' + t.uid)}" style="border-top:${i ? '1px solid ' + M.theme.whiteA(0.05) : 'none'}">
+          <button class="bx press" data-act="check" data-haptic="success" data-list="${esc(t.list)}" data-uid="${esc(t.uid)}" data-s="${d ? 'needs_action' : 'completed'}" aria-label="${d ? 'Merk som ikke ferdig' : 'Merk som ferdig'}" style="background:${d ? C.green : 'transparent'};box-shadow:${d ? 'none' : 'inset 0 0 0 1.5px var(--ki-text-3, var(--gray400,#545454))'}">${M.icon('check', 16, `color:var(--ki-on-accent, #232323);opacity:${d ? 1 : 0};transition:opacity .2s`)}</button>
           <button class="tt" data-act="open" data-ent="${esc(t.list)}"><span class="nm ${d ? 'dn' : ''}">${esc(t.summary || '–')}</span>${who ? `<span class="who">${esc(who)}</span>` : ''}</button>
         </div>`;
       }).join('');
       return `<section class="sec">${head(meta)}
         <div class="lst">${body || `<button class="rw emp" data-act="open">${loaded ? 'Ingen gjøremål' : 'Laster …'}</button>`}
-        ${more > 0 ? `<button class="rw emp" data-act="open" style="border-top:1px solid rgba(255,255,255,0.05)">+ ${more} til</button>` : ''}</div></section>`;
+        ${more > 0 ? `<button class="rw emp" data-act="open" style="border-top:1px solid ${M.theme.whiteA(0.05)}">+ ${more} til</button>` : ''}</div></section>`;
     }
     onAction(name, el, ev) {
       if (name === 'open') return M.openPopup(this.config.popup_hash || '#gjoremal');
@@ -106,17 +106,17 @@
       return `
         .sec{display:flex;flex-direction:column;gap:8px}
         .hd{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px;width:100%;text-align:left;gap:10px}
-        .hd .t{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
-        .hd .m{font-size:12px;color:var(--gray500,#696969);white-space:nowrap}
+        .hd .t{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .hd .m{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969));white-space:nowrap}
         .lst{display:flex;flex-direction:column}
         .rw{display:flex;align-items:center;gap:12px;padding:0 4px;width:100%;text-align:left;min-height:44px}
-        .rw.emp{font-size:14px;color:var(--gray500,#696969);padding:11px 4px}
+        .rw.emp{font-size:14px;color:var(--ki-text-lo, var(--gray500,#696969));padding:11px 4px}
         .bx{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;transition:background .2s,box-shadow .2s;position:relative}
         .bx::after{content:'';position:absolute;inset:-11px}
         .tt{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:11px 0;text-align:left}
-        .nm{flex:1;min-width:0;font-size:14px;color:var(--white,#fafafa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
-        .nm.dn{color:var(--gray500,#696969);text-decoration:line-through}
-        .who{font-size:12px;color:var(--gray500,#696969);white-space:nowrap}
+        .nm{flex:1;min-width:0;font-size:14px;color:var(--ki-text, var(--white,#fafafa));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
+        .nm.dn{color:var(--ki-text-lo, var(--gray500,#696969));text-decoration:line-through}
+        .who{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969));white-space:nowrap}
       `;
     }
   }

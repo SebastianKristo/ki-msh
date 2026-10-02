@@ -169,6 +169,40 @@
   const hmMin = (v) => { const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(String(v == null ? '' : v).trim()); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; };
   const inWin = (from, to, d) => { const f = hmMin(from), t = hmMin(to); if (f == null || t == null || f === t) return false; const n = (d || new Date()).getHours() * 60 + (d || new Date()).getMinutes(); return f < t ? n >= f && n < t : n >= f || n < t; };
   const hhmm = (t) => { const d = new Date(t); return isNaN(d) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  /* Fiks 35.8 · Støvsuger-kortet: rommet roboten er i (ikke gjettet) – attributtet current_room/room/… (eller segment-id slått
+   * opp i attributtet rooms/segments), ellers en sensor på samme enhet (…current_room / …_room / …segment), ellers
+   * områdets navn i registeret. Liten forbokstav («Rengjør stue»). '' når ingenting finnes. */
+  const vacRoom = (hass, id) => {
+    const st = hass && hass.states[id], a = (st && st.attributes) || {};
+    const lc = (x) => { const t = String(x == null ? '' : x).trim(); return !t || /^(unknown|unavailable|none|null|-)$/i.test(t) ? '' : t[0].toLowerCase() + t.slice(1); };
+    for (const k of ['current_room', 'current_room_name', 'room_name', 'room', 'current_segment_name', 'segment_name', 'cleaning_room']) { const v = a[k]; if (typeof v === 'string' && lc(v)) return lc(v); if (v && typeof v === 'object' && v.name) return lc(v.name); }
+    const seg = a.current_segment != null ? a.current_segment : a.segment_id != null ? a.segment_id : a.current_segment_id;
+    if (seg != null && seg !== '' && typeof seg !== 'object') {
+      let hit = '';
+      const walk = (v) => {
+        if (hit || !v || typeof v !== 'object') return;
+        if (Array.isArray(v)) return v.forEach((x) => { if (hit || !x || typeof x !== 'object') return; if (String(x.id != null ? x.id : x.segment_id) === String(seg)) hit = x.name || x.room_name || ''; else walk(x); });
+        Object.keys(v).forEach((k) => { const x = v[k]; if (hit) return; if (k === String(seg)) hit = typeof x === 'string' ? x : (x && x.name) || ''; else if (Array.isArray(x)) walk(x); });
+      };
+      walk(a.rooms || a.segments);
+      if (lc(hit)) return lc(hit);
+    }
+    const e = M.regEntry(hass, id), dev = e && e.device_id, obj = id.split('.')[1];
+    const sib = Object.keys(hass.states).filter((x) => /^(sensor|select)\./.test(x) && (dev ? (M.regEntry(hass, x) || {}).device_id === dev : x.split('.')[1].startsWith(obj + '_')) && /current_room|_room$|current_segment|_segment$/.test(x));
+    for (const x of sib) { const v = lc(hass.states[x].state); if (v && !M.isNum(v)) return v; }
+    const ar = M.areaOf(hass, id);
+    return ar ? lc(M.areaName(hass, ar)) : '';
+  };
+  // Popupen kortet åpner: den (synlige) strategi-popupen med msh-stovsuger-card (helst med samme entitet), ellers
+  // strategiens standardhash for kortet (M.FUNCTION_POPUPS → #rolf), ellers #stovsuger.
+  const vacHash = (id) => {
+    const R = M.popupReport;
+    const hasCard = (cfg) => { let hit = 0; const w = (o, d) => { if (!o || typeof o !== 'object' || d > 8 || hit === 2) return; if (o.type === 'custom:msh-stovsuger-card') hit = Math.max(hit, (o.entities || {}).vacuum === id || o.entity === id ? 2 : 1); Object.keys(o).forEach((k) => w(o[k], d + 1)); }; w(cfg, 0); return hit; };
+    if (R && Array.isArray(R.entries)) { const L = R.entries.filter((x) => !x.hidden && x.config).map((x) => [x.hash, hasCard(x.config)]).filter((x) => x[1]).sort((p, q) => q[1] - p[1]); if (L.length) return L[0][0]; }
+    const F = (M.FUNCTION_POPUPS || []).find((x) => x[3] === 'msh-stovsuger-card');
+    return F ? F[0] : '#stovsuger';
+  };
+  M.hjemVac = { room: vacRoom, hash: vacHash };
   const listOf = (x) => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.keys(x).sort().map((k) => x[k]) : []);
 
   /* Fiks 17.11 · Ruter-flisen: neste avgang fra entur-sensoren (M.enturDepartures fra 47-ruter.js, lastes før render).
@@ -773,7 +807,9 @@
         if (rest.length) tapF.push({ type: 'section', id: 'zone-off', label: 'Ikke på Hjem', icon: 'mdi:eye-off', meta: `${rest.length} kort`, fields: rest.map(tileF) });
         KIND_ORDER.filter((kd) => TILE_DOM[kd]).forEach((kd) => tapF.push({ type: 'button', label: '+ Legg til ' + KINDS[kd][1].toLowerCase(), icon: 'mdi:plus', run: (h, cc, ed) => {
           const id = M.hjemNewTileId(cc, kd);
-          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom' });
+          // 35.8: nytt Støvsuger-kort → første vacuum.* som ikke allerede har et kort (samme regel som «Tilpass Hjem»)
+          const vac = kd === 'vacr' ? (() => { const tk = new Set([tileCfg(cc, 'vacr').entity || tileEnts(h, cc).vacr, ...extraIds(cc).filter((x) => kindOf(cc, x) === 'vacr').map((x) => tileCfg(cc, x).entity)].filter(Boolean)); return M.all(h, 'vacuum').find((x) => !tk.has(x)); })() : null;
+          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom', ...(vac ? { entity: vac } : {}) });
           const hc = get(cc, 'tabs.hjem.cards');
           if (Array.isArray(hc)) ed._set('tabs.hjem.cards', [...hc, id]);
         } }));
@@ -1105,11 +1141,14 @@
             ic: () => { M.call(hass, 'media_player', 'toggle', { entity_id: id }); this._toast(on ? 'TV slått av' : 'TV slått på'); } });
         }
         case 'vacr': {
+          // Fiks 35.8 · Støvsuger-kort (Hjem v3 · kind 'vacr'): tittel = robotnavn, «Rengjør stue · 62 %» (grønn) /
+          // «Pauset i stue» (amber) / øvrige tilstander. Rom fra attributter → søsken-sensor → registeret (vacRoom), aldri gjettet.
+          // Trykk på kortet = Sir Sweeps-popupen (vacHash), ikon = vacuum.start / vacuum.pause.
           const id = E.vacr, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', bat = st && st.attributes.battery_level != null ? ` · ${st.attributes.battery_level} %` : '';
-          const run = v === 'cleaning';
-          const sub = run ? `Rengjør${bat}` : v === 'paused' ? 'Pauset' : v === 'returning' ? 'Kjører hjem' : v === 'error' ? 'Feil' : v === 'idle' ? 'Klar' : v === 'docked' ? 'I laderen' : '–';
-          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked',
+          const v = st ? st.state : '', A = st ? st.attributes : {}, b = A.battery_level != null && M.isNum(A.battery_level) ? Math.round(Number(A.battery_level)) : null;
+          const run = v === 'cleaning', rm = st ? vacRoom(hass, id) : '', bat = b != null ? ` · ${b} %` : '';
+          const sub = !st || M.unavailable(st) ? 'Utilgjengelig' : run ? `Rengjør${rm ? ' ' + rm : ''}${bat}` : v === 'paused' ? (rm ? `Pauset i ${rm}` : 'Pauset') : v === 'returning' ? `Kjører hjem${bat}` : v === 'error' ? ['Feil', A.error || A.status].filter((x) => x && String(x).toLowerCase() !== 'error').join(' · ') : v === 'idle' ? `Klar${bat}` : v === 'docked' ? `I laderen${bat}` : String(A.status || v || '–');
+          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked', cardHash: vacHash(id),
             ic: () => { M.call(hass, 'vacuum', run ? 'pause' : 'start', { entity_id: id }); this._toast(run ? 'Støvsuger pauset' : 'Støvsuger starter'); } });
         }
         case 'dish': case 'wash': case 'dry': {

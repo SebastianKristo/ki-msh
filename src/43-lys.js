@@ -38,7 +38,15 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
+  const PINK = C.accent, INK = 'var(--ki-on-accent, #3a3a3a)', Y = C.yellow, G = C.green;
+  // Fiks 35 (tema): gul som tekst/ikon mørknes i lys modus (YT), tone-bakgrunner .12→.18-regelen (TONE), gjennomsiktig
+  // hvit/svart etter regel 4/3 (WA/KA). Mørk modus = samme farger som før.
+  const TH = M.theme || {};
+  const YT = TH.accentText ? TH.accentText(Y) : Y;
+  // Gul tone med gul tekst beholder .18 (M.alpha) også i lys modus: ×1,5 gir bare 4,45:1 mot den mørknede gule teksten.
+  const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0/max(var(--ki-ka-min,0),calc(${a}*var(--ki-ka-k,1))))`);
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -246,6 +254,7 @@
             { type: 'info', label: 'Standard: Utelys · én fane per etasje · Lys på. Piler = rekkefølge, øye = skjul (minst én fane vises). Du kan også holde inne en fane i popupen og dra den.' },
             { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge og synlighet', options: tabs.map(([k, l]) => [k, l]) },
             { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Første'], ...tabs.map(([k, l]) => [k, l])] },
+            ...(M.tabH ? [M.tabH.field({ items: tabs.map(([, l]) => l), native: 48, variant: 'gear' })] : []), // 33.4: fanehøyde (felles felt)
             { type: 'section', label: 'Navn på fanene', icon: 'mdi:rename-outline', fields: tabs.map(([k, , d]) => ({ type: 'text', name: 'tab_names.' + k, label: d, placeholder: d })) },
             ...(a.floorsHA.length ? [{ type: 'section', label: 'Fane per etasje', icon: 'mdi:home-floor-1', fields: a.floorsHA.map((f) => ({ type: 'boolean', name: 'floor_tabs.' + f.id, label: f.name, default: f.has, help: f.has ? '' : 'Fant ingen lys i etasjen' })) }] : []),
           ] },
@@ -330,7 +339,7 @@
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
       // Fiks 31.5: fanelinjen + tannhjulet = felles MSH.tabBar (variant gear, samme som tab_style gear på Hjem / Innstillinger)
-      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys' }) : '';
+      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys', popup: true, th: M.tabH && M.tabH.own(c) }) : ''; // 33.4: fanehøyde (MSH.tabH)
       return `<div class="wrap" style="${vars}">
         ${bar}
         ${body || ''}
@@ -441,11 +450,11 @@
       const mark = (t, up) => { if (t == null) return ''; const [x, y] = pt(ang(t), R); return `<g class="rm" data-key="rm-${up ? 'u' : 'd'}"><circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="9"/><text x="${x.toFixed(2)}" y="${(y + 4).toFixed(2)}">${up ? '↑' : '↓'}</text></g>`; };
       const [nx, ny] = pt(ang(u.now), R);
       return `<svg class="ring" viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" aria-hidden="true">
-        <circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--gray400,#545454)" stroke-width="${SW}"/>
-        ${night ? `<path class="rn" d="${night}" fill="none" stroke="#262626" stroke-width="${SW}"/>` : ''}
-        ${lamp ? `<path class="rl${u.autoOn ? '' : ' off'}" d="${lamp}" fill="none" stroke="${u.autoOn ? Y : 'var(--gray600,#7f7f7f)'}" stroke-width="${SW - 6}" stroke-linecap="round"/>` : ''}
+        <circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--ki-surface-3, var(--gray400,#545454))" stroke-width="${SW}"/>
+        ${night ? `<path class="rn" d="${night}" fill="none" stroke="var(--ki-ctrl, #262626)" stroke-width="${SW}"/>` : ''}
+        ${lamp ? `<path class="rl${u.autoOn ? '' : ' off'}" d="${lamp}" fill="none" stroke="${u.autoOn ? Y : 'var(--ki-text-3, var(--gray600,#7f7f7f))'}" stroke-width="${SW - 6}" stroke-linecap="round"/>` : ''}
         ${hours}${mark(u.S.rising, true)}${mark(u.S.setting, false)}
-        <circle class="rnow" cx="${nx.toFixed(2)}" cy="${ny.toFixed(2)}" r="6" fill="${u.sunUp ? Y : '#fafafa'}" stroke="#282828" stroke-width="2.5"/>
+        <circle class="rnow" cx="${nx.toFixed(2)}" cy="${ny.toFixed(2)}" r="6" fill="${u.sunUp ? Y : 'var(--ki-text-2, #fafafa)'}" stroke="var(--ki-surface, #282828)" stroke-width="2.5"/>
       </svg>`;
     }
     _outCard(A, u) {
@@ -457,7 +466,7 @@
           <span class="evv num">${this._hm(t)}</span><span class="evs">${esc(t == null ? 'Mangler tid' : this._day(t))}</span></div>`;
       };
       return `<section class="uc${u.lit ? ' lit' : ''}" data-key="uc">
-        <div class="uct"><span class="t13" style="color:var(--gray800,#afafaf)">Utelys</span><span class="chip${u.lit ? ' on' : ''}">${L.length ? `${u.onN} av ${L.length}` : 'ingen lamper'}</span><span class="grow"></span><span class="t12 ust ell">${esc(status)}</span></div>
+        <div class="uct"><span class="t13" style="color:var(--ki-text-2, var(--gray800,#afafaf))">Utelys</span><span class="chip${u.lit ? ' on' : ''}">${L.length ? `${u.onN} av ${L.length}` : 'ingen lamper'}</span><span class="grow"></span><span class="t12 ust ell">${esc(status)}</span></div>
         <div class="ucb">
           <div class="rw">${this._ring(u)}
             <button class="rc${u.lit ? ' on' : ''}" data-act="outall" data-haptic="success" aria-label="${u.lit ? 'Slå av utelys' : 'Slå på utelys'}" ${L.length ? '' : 'disabled'}>
@@ -470,10 +479,10 @@
       const st = this.s(u.U.utelys_status), sv = st && !M.unavailable(st) && String(st.state).trim() && st.state !== 'unknown' ? String(st.state) : null;
       const txt = sv || (!u.autoOn ? 'Av – utelyset styres manuelt' : u.lit ? 'Utelyset er på' : u.next === 'on' ? 'Venter på mørket' : 'Styrer utelyset');
       const c = this.cfg;
-      const sw = (on) => `<span class="sw" style="background:${on ? G : '#4a4a4d'}"><span style="left:${on ? 26 : 4}px;background:${on ? '#2a2a2c' : '#d8d6d1'}"></span></span>`;
-      const fl = (k, ic, l, sub, ent) => { const on = ent ? M.isOn(this.s(ent)) : c[k] !== false; return `<button class="af${on ? ' on' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="af-${k}" data-haptic="success" aria-pressed="${on}"><span class="afi">${M.icon(ic, 20)}</span><span class="col" style="gap:2px;min-width:0;text-align:left"><span class="t14">${l}</span><span class="t12 ell" style="color:var(--gray700,#979797)">${esc(sub)}</span></span></button>`; };
+      const sw = (on) => `<span class="sw" style="background:${on ? G : 'var(--ki-ctrl, #4a4a4d)'}"><span style="left:${on ? 26 : 4}px;background:${on ? 'var(--ki-knob, #2a2a2c)' : 'var(--ki-knob, #d8d6d1)'}"></span></span>`;
+      const fl = (k, ic, l, sub, ent) => { const on = ent ? M.isOn(this.s(ent)) : c[k] !== false; return `<button class="af${on ? ' on' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="af-${k}" data-haptic="success" aria-pressed="${on}"><span class="afi">${M.icon(ic, 20)}</span><span class="col" style="gap:2px;min-width:0;text-align:left"><span class="t14">${l}</span><span class="t12 ell" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(sub)}</span></span></button>`; };
       return `<section class="st" data-key="ut-auto">
-        <button class="ar" data-act="utauto" data-key="ut-ar" data-haptic="success">${M.icon('mdi:robot-outline', 22, 'color:var(--gray900,#c7c7c7);width:26px')}<span class="grow col" style="gap:2px;text-align:left;min-width:0"><span class="t15">Automatikk</span><span class="t12" style="color:var(--gray700,#979797)">${esc(txt)}</span></span>${sw(u.autoOn)}</button>
+        <button class="ar" data-act="utauto" data-key="ut-ar" data-haptic="success">${M.icon('mdi:robot-outline', 22, 'color:var(--ki-text-1, var(--gray900,#c7c7c7));width:26px')}<span class="grow col" style="gap:2px;text-align:left;min-width:0"><span class="t15">Automatikk</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(txt)}</span></span>${sw(u.autoOn)}</button>
         <div class="afs${u.autoOn ? '' : ' dim0'}">${fl('kveld', 'mdi:weather-sunset-down', 'Kveld', 'Tenn i skumringen', A.kveld)}${fl('morgen', 'mdi:weather-sunset-up', 'Morgen', 'Før det lysner', A.morgen)}</div>
       </section>`;
     }
@@ -489,7 +498,7 @@
         const val = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : on ? (dim ? `${pct} %` : 'På') : 'Av';
         return `<div class="lp${on ? ' on' : ''}" data-lp="${esc(l.id)}" data-ent="${esc(l.id)}" data-dim="${dim ? 1 : 0}" data-pct="${pct}" data-key="lp-${esc(l.id)}" role="button" aria-label="${esc(l.name)}">
           <span class="lpf" style="width:${pct}%;${on ? `background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span>
-          <span class="lpi" style="${on ? `background:${lc.css};color:#282828` : ''}">${M.icon(ic, 20)}</span>
+          <span class="lpi" style="${on ? `background:${lc.css};color:var(--ki-on-accent, #282828)` : ''}">${M.icon(ic, 20)}</span>
           <span class="col lpt"><span class="t14 ell">${esc(l.name)}</span><span class="t12 lpv">${esc(val)}</span></span></div>`;
       }).join('')}</section>`;
     }
@@ -499,17 +508,17 @@
       const el = u.elev != null ? `Solhøyde ${u.elev < 0 ? '−' : ''}${M.nf(Math.abs(u.elev), 1)}°` : 'Solhøyde –';
       const dir = u.rising == null ? '' : u.rising ? ' · stiger' : ' · synker';
       return `<section class="sol" data-key="ut-sun">
-        <div class="row" style="gap:10px;padding:0 4px"><span class="grow t15">Sola</span><span class="t12" style="color:var(--gray700,#979797)">${esc(el + dir)}</span>${u.rising == null ? '' : M.icon(u.rising ? 'mdi:arrow-top-right' : 'mdi:arrow-bottom-right', 16, `color:${u.rising ? Y : 'var(--gray700,#979797)'}`)}</div>
-        <div class="sr noscroll">${E.map(([k, l, ic]) => `<div class="stl${fut && fut[0] === k ? ' nx' : ''}" data-key="sun-${k}">${M.icon(ic, 18)}<span class="t12 stn">${l}</span><span class="evv num" style="font-size:20px">${this._hm(u.S[k])}</span><span class="t11" style="color:var(--gray700,#979797)">${esc(this._day(u.S[k]))}</span></div>`).join('')}</div>
+        <div class="row" style="gap:10px;padding:0 4px"><span class="grow t15">Sola</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(el + dir)}</span>${u.rising == null ? '' : M.icon(u.rising ? 'mdi:arrow-top-right' : 'mdi:arrow-bottom-right', 16, `color:${u.rising ? YT : 'var(--ki-text-mid, var(--gray700,#979797))'}`)}</div>
+        <div class="sr noscroll">${E.map(([k, l, ic]) => `<div class="stl${fut && fut[0] === k ? ' nx' : ''}" data-key="sun-${k}">${M.icon(ic, 18)}<span class="t12 stn">${l}</span><span class="evv num" style="font-size:20px">${this._hm(u.S[k])}</span><span class="t11" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(this._day(u.S[k]))}</span></div>`).join('')}</div>
       </section>`;
     }
     _utSettings(u) {
       const open = !!(this.ui.fold || {}).utset, U = u.U;
       const v = (id) => { const n = this.n(id); return n == null ? '–' : M.nf(n, 0); };
       const meta = `${v(U.terskel_paa)} / ${v(U.terskel_av)} lx · ${v(U.minst_morke)} min`;
-      const row = (id, l, unit) => (id ? M.stepperHTML(this.hass, id, { label: l, step: 5, unit, key: 'stp-' + id }) : `<div class="msh-stp-row"><span class="msh-stp-l"><span class="msh-stp-ln">${esc(l)}</span><span class="msh-stp-ls">Velg entitet i Tilpass</span></span><span class="t13" style="color:var(--gray700,#979797)">–</span></div>`);
+      const row = (id, l, unit) => (id ? M.stepperHTML(this.hass, id, { label: l, step: 5, unit, key: 'stp-' + id }) : `<div class="msh-stp-row"><span class="msh-stp-l"><span class="msh-stp-ln">${esc(l)}</span><span class="msh-stp-ls">Velg entitet i Tilpass</span></span><span class="t13" style="color:var(--ki-text-mid, var(--gray700,#979797))">–</span></div>`);
       return `<section class="fd" data-key="fold-utset">
-        <button class="fh" data-act="fold" data-k="utset">${M.icon('mdi:tune-variant', 22)}<span class="grow t15">Innstillinger</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--gray700,#979797);transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
+        <button class="fh" data-act="fold" data-k="utset">${M.icon('mdi:tune-variant', 22)}<span class="grow t15">Innstillinger</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--ki-text-mid, var(--gray700,#979797));transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
         ${open ? `<div class="fb ufb">${row(U.terskel_paa, 'Tenn under', 'lx')}${row(U.terskel_av, 'Slukk over', 'lx')}${row(U.minst_morke, 'Minste mørketid', 'min')}</div>` : ''}
       </section>`;
     }
@@ -531,7 +540,7 @@
     _fold(k, icon, title, meta, rows) {
       const open = !!(this.ui.fold || {})[k];
       return `<section class="fd" data-key="fold-${k}">
-        <button class="fh" data-act="fold" data-k="${k}">${M.icon(icon, 22)}<span class="grow t15">${esc(title)}</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--gray700,#979797);transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
+        <button class="fh" data-act="fold" data-k="${k}">${M.icon(icon, 22)}<span class="grow t15">${esc(title)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--ki-text-mid, var(--gray700,#979797));transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
         ${open ? `<div class="fb">${rows ? rows.map(([a, b], i) => `<div class="frr${i ? ' bt' : ''}"><span class="grow t13">${esc(a)}</span><span class="fv num">${esc(b)}</span></div>`).join('') : M.emptyState('Fant ingen sol-entitet (sun.sun)', null).replace('class="empty"', 'class="empty in"')}</div>` : ''}
       </section>`;
     }
@@ -546,8 +555,8 @@
       out += rooms.map((r) => {
         const n = r.ids.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length;
         return `<section class="col" style="gap:8px" data-key="r-${esc(r.area || '_')}">
-          <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:#fafafa')}<span class="grow t15 ell" style="color:#fafafa">${esc(r.name)}</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
-            <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? '#fafafa' : Y}">${n ? 'Av' : 'På'}</button></div>
+          <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--ki-text, #fafafa)')}<span class="grow t15 ell" style="color:var(--ki-text, #fafafa)">${esc(r.name)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
+            <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--ki-text, #fafafa)' : `var(--ki-text, ${Y})`}">${n ? 'Av' : 'På'}</button></div>
           <div class="lbox">${r.ids.map((id) => this._light(id, lcfg(c, id).name || cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
       }).join('');
       if (!rooms.length) out += M.emptyState('Alle rom i etasjen er skjult', 'rooms');
@@ -579,7 +588,7 @@
       return `<section class="sum"><span class="col grow"><span class="big num">${ids.length}</span><span class="t12 dim">${hasW ? `lys på · ca. ${M.nf(w, 0)} W` : `lys på · av ${total}`}</span></span>
           <button class="offall press" data-act="alloff" data-haptic="success" ${ids.length ? '' : 'disabled style="opacity:.5"'}>${M.icon('dark_mode', 20)}Slå av alle</button></section>
         <section class="col" style="gap:8px">
-          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--gray600,#7f7f7f)')}</button>`; }).join('')}
+          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`; }).join('')}
           ${ids.length ? '' : '<div class="none">Alle lys er av</div>'}
         </section>`;
     }
@@ -739,109 +748,111 @@
         :host,ha-card{background:none!important;box-shadow:none!important;border:none!important}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,12px);background:none}
         .t15{font-size:15px;font-weight:500} .t14{font-size:14px;font-weight:500} .t13{font-size:13px} .t12{font-size:12px} .t11{font-size:11px}
-        .dim{color:var(--gray600,#7f7f7f)}
-        .bt{border-top:1px solid rgba(255,255,255,0.06)}
+        .dim{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .bt{border-top:1px solid ${WA(0.06)}}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
         /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
-        /* lys-rader (felles rad, 12 px mellom) */
-        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        /* lys-rader (felles rad, 12 px mellom). Fiks 35: den innebygde lyskontrollen (vendor) bruker --gray1000/--gray700 direkte
+           → tokens i lys modus (mørk = temaets verdier #e1e1e1/#979797) */
+        mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454)}
+        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         /* Utelys-kortet */
-        .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);transition:background .4s}
-        .uc.lit{background:linear-gradient(160deg, ${M.alpha(Y, 0.12)}, var(--gray200,#3a3a3a) 55%)}
+        .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
+        .uc.lit{background:linear-gradient(160deg, ${TONE(Y, 0.12)}, var(--ki-surface, var(--gray200,#3a3a3a)) 55%)}
         .uct{display:flex;align-items:flex-start;gap:14px}
-        .chip{height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgba(255,255,255,0.08);color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
-        .chip.on{background:${M.alpha(Y, 0.18)};color:${Y}}
+        .chip{height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:${WA(0.08)};color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
+        .chip.on{background:${M.alpha(Y, 0.18)};color:${YT}}
         .us{font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1.1}
-        .ob{width:68px;height:68px;border-radius:34px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7);transition:background .3s,box-shadow .3s,transform .15s}
-        .ob.on{background:${Y};color:#282828;box-shadow:0 0 30px ${M.alpha(Y, 0.5)}}
+        .ob{width:68px;height:68px;border-radius:34px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7));transition:background .3s,box-shadow .3s,transform .15s}
+        .ob.on{background:${Y};color:var(--ki-on-accent, #282828);box-shadow:0 0 30px ${M.alpha(Y, 0.5)}}
         .ob:active{transform:scale(.94)}
         .ob:disabled{opacity:.5}
         .tlw{display:flex;flex-direction:column;gap:6px}
-        .tl{position:relative;height:14px;border-radius:7px;background:var(--gray400,#545454);overflow:hidden}
-        .nt{position:absolute;top:0;bottom:0;background:rgba(0,0,0,0.3)}
+        .tl{position:relative;height:14px;border-radius:7px;background:var(--ki-surface-3, var(--gray400,#545454));overflow:hidden}
+        .nt{position:absolute;top:0;bottom:0;background:${KA(0.3)}}
         .pl{position:absolute;top:0;bottom:0;border-radius:7px}
-        .tlh{position:relative;height:14px;font-size:11px;line-height:14px;color:var(--gray600,#7f7f7f);font-variant-numeric:tabular-nums}
+        .tlh{position:relative;height:14px;font-size:11px;line-height:14px;color:var(--ki-text-3, var(--gray600,#7f7f7f));font-variant-numeric:tabular-nums}
         .tlh>span{position:absolute;top:0;transform:translateX(-50%)}
         .tlh>.tln{left:0;transform:none}
         .ev{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .evt{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:20px;background:var(--gray300,#404040);min-width:0}
+        .evt{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));min-width:0}
         .evt.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)}}
-        .evl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf)}
-        .evt.nx .evl{color:${Y}}
+        .evl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .evt.nx .evl{color:${YT}}
         .evv{font-size:24px;font-weight:400;letter-spacing:-0.01em;line-height:1.15}
-        .evs{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .evs{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         /* 22.10 · Utelys «Døgnring» */
         .ut{display:flex;flex-direction:column;gap:8px}
         .uc{border-radius:30px;padding:16px}
         .uc.lit{box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.35)}}
         .uct{align-items:center;gap:8px;min-width:0}
-        .ust{color:var(--gray800,#afafaf);max-width:50%;text-align:right}
+        .ust{color:var(--ki-text-2, var(--gray800,#afafaf));max-width:50%;text-align:right}
         .ucb{display:flex;align-items:center;gap:10px;min-width:0}
         .rw{position:relative;width:188px;height:188px;flex:none}
         .ring{display:block}
-        .ring .rh{font-size:10px;fill:var(--gray600,#7f7f7f);text-anchor:middle;font-variant-numeric:tabular-nums}
-        .ring .rm circle{fill:#3a3a3a;stroke:rgba(255,255,255,0.18);stroke-width:1}
-        .ring .rm text{font-size:11px;fill:${Y};text-anchor:middle;font-weight:700}
-        .rc{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--gray800,#afafaf);transition:transform .15s,background .3s}
-        .rc.on{color:${Y};background:${M.alpha(Y, 0.08)}}
+        .ring .rh{font-size:10px;fill:var(--ki-text-3, var(--gray600,#7f7f7f));text-anchor:middle;font-variant-numeric:tabular-nums}
+        .ring .rm circle{fill:var(--ki-surface, #3a3a3a);stroke:${WA(0.18)};stroke-width:1}
+        .ring .rm text{font-size:11px;fill:${YT};text-anchor:middle;font-weight:700}
+        .rc{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ki-text-2, var(--gray800,#afafaf));transition:transform .15s,background .3s}
+        .rc.on{color:${YT};background:${M.alpha(Y, 0.08)}}
         .rc:active{transform:scale(.94)}
         .rc:disabled{opacity:.5}
-        .rcv{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1.05;color:var(--white,#fafafa)}
-        .rcs{font-size:11px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;white-space:nowrap}
+        .rcv{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1.05;color:var(--ki-text, var(--white,#fafafa))}
+        .rcs{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums;white-space:nowrap}
         .ucb .ev{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
         .ucb .evv{font-size:22px}
         .afs{display:grid;grid-template-columns:1fr 1fr;gap:8px;transition:opacity .2s}
         .afs.dim0{opacity:.45}
-        .af{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:20px;background:var(--gray300,#404040);min-width:0;transition:transform .15s}
+        .af{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));min-width:0;transition:transform .15s}
         .af:active{transform:scale(.96)}
-        .afi{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7)}
-        .af.on .afi{background:${Y};color:#282828}
+        .afi{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .af.on .afi{background:${Y};color:var(--ki-on-accent, #282828)}
         .lps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .lp{position:relative;display:flex;align-items:center;gap:10px;height:64px;padding:0 12px 0 8px;border-radius:32px;background:var(--gray200,#3a3a3a);overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;min-width:0}
+        .lp{position:relative;display:flex;align-items:center;gap:10px;height:64px;padding:0 12px 0 8px;border-radius:32px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;min-width:0}
         .lpf{position:absolute;left:0;top:0;bottom:0;transition:width .3s ease,background-color .3s ease;pointer-events:none}
         .lp.drag .lpf{transition:none}
-        .lpi{position:relative;width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7);transition:background .3s}
+        .lpi{position:relative;width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7));transition:background .3s}
         .lpt{position:relative;min-width:0;gap:1px}
-        .lpv{color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
-        .sol{display:flex;flex-direction:column;gap:10px;padding:16px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .lpv{color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
+        .sol{display:flex;flex-direction:column;gap:10px;padding:16px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .sr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x pan-y}
         .sr::-webkit-scrollbar{display:none}
-        .stl{flex:none;min-width:96px;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:18px;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
-        .stl.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)};color:${Y}}
+        .stl{flex:none;min-width:96px;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .stl.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)};color:${YT}}
         .stn{white-space:nowrap}
         .ufb{padding:0 6px 10px}
         .ufb .msh-stp-row{padding-left:12px}
         ${M.STEPPER_CSS || ''}
         /* Styring / Sola */
-        .st{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
-        .seg{display:flex;gap:2px;padding:3px;border-radius:19px;background:#282828;user-select:none;-webkit-user-select:none}
+        .st{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .seg{display:flex;gap:2px;padding:3px;border-radius:19px;background:var(--ki-surface-3, #282828);user-select:none;-webkit-user-select:none}
         .seg button{height:32px;padding:0 12px;border-radius:16px;font-size:12px;font-weight:500;white-space:nowrap}
         .ar{display:flex;align-items:center;gap:12px;min-height:60px;width:100%}
         .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;transition:background .2s}
         .sw span{position:absolute;top:4px;width:22px;height:22px;border-radius:11px;transition:left .2s}
-        .fd{display:flex;flex-direction:column;border-radius:28px;background:var(--gray200,#3a3a3a);overflow:hidden}
+        .fd{display:flex;flex-direction:column;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
         .fh{display:flex;align-items:center;gap:12px;height:58px;padding:0 18px;text-align:left;width:100%}
         .fb{display:flex;flex-direction:column;padding:0 18px 10px}
         .frr{display:flex;align-items:center;gap:10px;padding:9px 0}
-        .fv{font-size:12px;font-weight:600;padding:6px 11px;border-radius:12px;background:var(--gray400,#545454)}
+        .fv{font-size:12px;font-weight:600;padding:6px 11px;border-radius:12px;background:var(--ki-ctrl, var(--gray400,#545454))}
         /* etasje */
         .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
         .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
-        .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .scb:active .scbb{transform:scale(.9)}
-        .scl{font-size:11px;font-weight:500;color:var(--gray600,#7f7f7f);max-width:62px}
+        .scl{font-size:11px;font-weight:500;color:var(--ki-text-3, var(--gray600,#7f7f7f));max-width:62px}
         .rh{display:flex;align-items:center;gap:10px;padding:4px 6px 0}
         .all{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;flex:none}
         /* Lys på */
-        .sum{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .sum{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .big{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1}
-        .offall{height:48px;padding:0 20px;border-radius:24px;background:#fafafa;color:#282828;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
-        .onr{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:var(--gray200,#3a3a3a);text-align:left;width:100%}
-        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:#282828;transition:background-color .3s ease}
-        .none{padding:30px;text-align:center;font-size:13px;color:var(--gray500,#696969)}
+        .offall{height:48px;padding:0 20px;border-radius:24px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+        .onr{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%}
+        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:var(--ki-on-accent, #282828);transition:background-color .3s ease}
+        .none{padding:30px;text-align:center;font-size:13px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .empty.in{background:transparent;padding:10px 0 0}
       `;
     }
@@ -907,7 +918,7 @@
         ${main ? `<button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button>` : '<span></span>'}</div>`;
     };
     const seg = (label, key, opts, cur) => `<div class="r"><span class="rl">${esc(label)}</span><div class="seg">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-a="seg" data-k="${key}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
-    const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--gray600,#7f7f7f)')}</button>`;
+    const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`;
     const eyeRow = (label, sub, act, key, hidden, extra) => `<div class="r${hidden ? ' off' : ''}${extra ? ' ' + extra : ''}"><span class="rl col"><span class="ell">${esc(label)}</span>${sub ? `<span class="rs ell">${esc(sub)}</span>` : ''}</span>
       <button class="eye" data-a="${act}" data-k="${esc(key)}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`;
     // Tider/tall i Utelys: stepper med systemets velger (09-pickers, lokal modus → 'change' med data-f/data-t)
@@ -941,7 +952,9 @@
       const d = st.draft, defs = tabDefs(A, d), hid = new Set(d.hidden_tabs || []);
       const keys = M.mshOrder(defs.map((x) => x[0]), d.tab_order, []);
       const name = Object.fromEntries(defs.map(([k, l]) => [k, l]));
-      return `<div class="grp">${keys.map((k) => eyeRow(name[k], k === 'out' ? 'Utelys og tidslinje' : k === 'on' ? 'Alle lys som er på' : 'Etasje', 'tab', k, hid.has(k))).join('')}</div>
+      // 33.4: fanehøyde – felles felt (MSH.tabH), live i kortet bak arket
+      const th = M.tabH ? `<div class="grp" style="padding:14px 16px">${M.tabH.editorHTML(d.tab_height, { items: keys.filter((k) => !hid.has(k)).map((k) => name[k]), native: 48, variant: 'gear' })}</div>` : '';
+      return `${th}<div class="grp">${keys.map((k) => eyeRow(name[k], k === 'out' ? 'Utelys og tidslinje' : k === 'on' ? 'Alle lys som er på' : 'Etasje', 'tab', k, hid.has(k))).join('')}</div>
         <p class="note">Minst én fane må vises. Flytt faner med langt trykk i fane-raden og dra.</p>`;
     };
     const pageScenes = (A) => {
@@ -993,7 +1006,7 @@
           ${lamps.map((l, i) => `<div class="lp" data-key="lp-${i}"><span class="lpi">${M.icon(l.icon || (h.states[l.id] && h.states[l.id].attributes.icon) || 'mdi:lightbulb', 20)}</span>
             <div class="lpf"><div class="lpr"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="name" value="${esc(l.name || '')}" placeholder="${esc(l.id ? M.name(h, l.id) : 'Navn')}" aria-label="Navn"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="icon" value="${esc(l.icon || '')}" placeholder="mdi:lightbulb" aria-label="Ikon"></div>
               ${pick({ key: 'pk-lp-' + i + '-' + l.id, value: l.id || '', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: `data-lamp="${i}" data-lf="entity"` })}
-              ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--red,#f28073)">Finnes ikke</span>' : ''}</div>
+              ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--ki-red-text, var(--red,#f28073))">Finnes ikke</span>' : ''}</div>
             ${i ? `<button class="eye" data-a="lup" data-i="${i}" aria-label="Flytt opp ${esc(l.name || l.id)}">${M.icon('mdi:arrow-up', 18)}</button>` : ''}<button class="del" data-a="ldel" data-i="${i}" aria-label="Slett ${esc(l.name || l.id)}">${M.icon('mdi:trash-can-outline', 18)}</button></div>`).join('') || '<div class="r"><span class="rl rs">Ingen utelamper</span></div>'}
           ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf">${pick({ key: 'pk-lp-new', mode: 'add', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: 'data-new="1"' })}</div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
         </div>
@@ -1033,6 +1046,8 @@
     ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const R = ov.root;
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
+    // 33.4: fanehøyde (segment + slider) – slider live uten ny tegning av arket, lagres i utkastet
+    if (M.tabH) M.tabH.bindEditor(R, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = v; preview(); if (commit) draw(); } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'lys-sheet';
@@ -1192,76 +1207,76 @@
   // aktivt segment = rosa (glassboble med temaet). Ingen hardkodet blur her.
   const SHEET_CSS = `
     .sh{--ki-sh-pt:8px;--ki-sh-px:16px}
-    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
-    .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--gray900,#c7c7c7)}
+    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,var(--ki-popup, #282828));-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
+    .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
     .nav.main{display:flex}
     .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
-    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));font-size:14px}
     .nd:disabled{opacity:.6}
     .pg{display:flex;flex-direction:column}
-    .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
-    .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
-    .grp>*+*{border-top:1px solid rgba(255,255,255,0.06)}
+    .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:16px 8px 8px}
+    .grp{background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
+    .grp>*+*{border-top:1px solid ${WA(0.06)}}
     .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px 6px 16px;width:100%;text-align:left;box-sizing:border-box}
     .r.sub{min-height:48px;padding-left:34px}
     .r.sub .rl{font-size:14px}
     .r.off>:not(.eye){opacity:.45}
-    .rl{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--white,#fafafa)}
-    .rs{font-size:12px;font-weight:400;color:var(--ki-g-t2,var(--gray700,#979797))}
-    .rv{font-size:13px;color:var(--ki-g-t2,var(--gray700,#979797));white-space:nowrap}
+    .rl{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+    .rs{font-size:12px;font-weight:400;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)))}
+    .rv{font-size:13px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)));white-space:nowrap}
     .hv{width:48px;text-align:right}
     .nr{padding-right:12px}
-    .ic{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:#282828}
-    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,#282828);flex:none}
-    .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf));white-space:nowrap;transition:background .2s}
+    .ic{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--ki-on-accent, #282828)}
+    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,var(--ki-popup, #282828));flex:none}
+    .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--ki-text-2, var(--gray800,#afafaf)));white-space:nowrap;transition:background .2s}
     .seg button.on{background:${PINK};color:${INK}}
     :host(.glass) .seg button.on{${M.GLASS_BUBBLE}}
-    .eye{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;color:var(--gray900,#c7c7c7)}
+    .eye{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
     .eye:active,.del:active{transform:scale(.92)}
-    .rst{justify-content:center;color:var(--red,#f28073);font-size:15px;font-weight:500}
-    .note{margin:0;padding:10px 10px 0;font-size:12px;line-height:1.45;color:var(--gray700,#979797)}
+    .rst{justify-content:center;color:var(--ki-red-text, var(--red,#f28073));font-size:15px;font-weight:500}
+    .note{margin:0;padding:10px 10px 0;font-size:12px;line-height:1.45;color:var(--ki-text-mid, var(--gray700,#979797))}
     .fr{cursor:text}
-    .in{height:36px;border-radius:12px;padding:0 10px;background:var(--ki-g-in,#282828);color:#fafafa;font-size:14px;font-weight:500;color-scheme:dark;min-width:0;box-sizing:border-box}
+    .in{height:36px;border-radius:12px;padding:0 10px;background:var(--ki-g-in,var(--ki-popup, #282828));color:var(--ki-text, #fafafa);font-size:14px;font-weight:500;color-scheme:dark;min-width:0;box-sizing:border-box}
     .fr .in{width:108px;flex:none;text-align:center}
     .fr .in.nm{width:84px}
     .fr .in.ent{width:46%;text-align:left}
-    .rg{width:120px;accent-color:#f285c9}
-    .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
-    .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
+    .rg{width:120px;accent-color:var(--pink, #f285c9)}
+    .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #4a4a4d);transition:background .2s}
+    .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #d8d6d1);transition:left .2s}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:var(--ki-knob, #2a2a2c)} /* Fiks 26: rosa */
     .lp{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 14px}
-    .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray1000,#e1e1e1)}
+    .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
     .lpf .in{width:100%}
     .lpr{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:6px}
     .del{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
-    .add{margin-top:10px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
+    .add{margin-top:10px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px ${WA(0.18)};width:100%}
   `;
   // Utelys: entitetsvelgere i raden + «Finner du ikke lampen?» (kort #3a3a3a r24, søkepille 44 #282828, treffliste #282828 r18)
   const FIND_CSS = `
     .r.fp{flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px 12px 16px}
-    .fnd{margin-top:10px;display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    .fnd{margin-top:10px;display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .fndt{font-size:14px;font-weight:500;padding:2px 4px 0}
-    .fnds{font-size:12px;line-height:1.4;color:var(--gray700,#979797);padding:0 4px 4px}
-    .fsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:22px;background:#282828;color:var(--gray700,#979797)}
-    .fsq{flex:1;min-width:0;height:44px;border:0;background:none;outline:none;color:#fafafa;font:inherit;font-size:14px;-webkit-user-select:text;user-select:text}
-    .fsq::placeholder{color:var(--gray600,#7f7f7f)}
-    .fsx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--gray800,#afafaf);background:rgba(255,255,255,0.08)}
+    .fnds{font-size:12px;line-height:1.4;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px 4px}
+    .fsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:22px;background:var(--ki-popup, #282828);color:var(--ki-text-mid, var(--gray700,#979797))}
+    .fsq{flex:1;min-width:0;height:44px;border:0;background:none;outline:none;color:var(--ki-text, #fafafa);font:inherit;font-size:14px;-webkit-user-select:text;user-select:text}
+    .fsq::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .fsx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--ki-text-2, var(--gray800,#afafaf));background:${WA(0.08)}}
     .fsx[hidden]{display:none}
     .fhits:empty{display:none}
-    .fl{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:18px;background:#282828;max-height:336px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+    .fl{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:18px;background:var(--ki-popup, #282828);max-height:336px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
     .fh{display:flex;align-items:center;gap:10px;min-height:50px;padding:4px 6px}
     .fh.added{opacity:.55}
-    .fhi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;background:var(--gray300,#404040);color:var(--gray1000,#e1e1e1)}
+    .fhi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .fhn{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .fhn b{font-size:14px;font-weight:500}
-    .fhn i{font-style:normal;font-size:11px;color:var(--gray600,#7f7f7f)}
-    .fhp{flex:none;height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgb(242 210 111 / 0.18);color:var(--yellow,#f2d26f)}
+    .fhn i{font-style:normal;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .fhp{flex:none;height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgb(242 210 111 / 0.18);color:var(--ki-yellow-text, var(--yellow,#f2d26f))}
     .fhp:active{transform:scale(.95)}
-    .fhp.done{background:rgba(255,255,255,0.08);color:var(--gray800,#afafaf);pointer-events:none}
-    .fnone{padding:12px 8px;font-size:13px;color:var(--gray700,#979797);border-radius:18px;background:#282828}
+    .fhp.done{background:${WA(0.08)};color:var(--ki-text-2, var(--gray800,#afafaf));pointer-events:none}
+    .fnone{padding:12px 8px;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));border-radius:18px;background:var(--ki-popup, #282828)}
     .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   `;
   // Eldre config.lamps [{name, entity, icon}] → include.utelys + order.utelys + lights.<objekt-id>.{name, icon};

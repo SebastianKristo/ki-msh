@@ -428,6 +428,7 @@
   };
   M.bassengLegacyTest = (popup) => cardsDeep(popup && popup.cards).some((c) => LEG_TAGS.includes(tagOfC(c)));
 
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   class Basseng extends M.Card {
     static get cardName() { return 'Basseng'; }
     static get defaults() { return { controls: CTL_STD.slice(), hidden_controls: CTL_HID.slice(), tabs: ['ov', 'heat', 'klor', 'spr'] }; }
@@ -447,7 +448,7 @@
           { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
           { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
         ] },
-        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
+        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }, ...(M.tabH ? [M.tabH.field({ items: (h, c) => (Array.isArray(c.tabs) && c.tabs.length ? c.tabs : Object.keys(TABS)).filter((k) => TABS[k]).map((k) => TABS[k]), native: 34, gear: true })] : [])] }, // 33.4: fanehøyde i Visning (ingen Faner-fane)
       ];
     }
     get cardSize() { return 10; }
@@ -525,7 +526,7 @@
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
       // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        <div class="tabrow" data-section="tabs">
+        <div class="tabrow" data-section="tabs"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
           <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
@@ -882,12 +883,13 @@
         .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
         .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (34), sporet H + 8, tannhjul = sporets høyde */
+        .gt{padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
-        .gti{position:relative;z-index:1;height:34px;padding:0 12px;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;transition:color .25s}
-        .cfg{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
+        .gti{position:relative;z-index:1;height:${TV('th', 34)};padding:0 ${TV('tp', 12)};display:grid;place-items:center;font-size:${TV('tf', 13)};font-weight:500;white-space:nowrap;transition:color .25s}
+        .cfg{width:calc(${TV('th', 34)} + 8px);height:calc(${TV('th', 34)} + 8px);border-radius:calc(${TV('th', 34)} / 2 + 4px);flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
         .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}

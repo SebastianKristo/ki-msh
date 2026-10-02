@@ -929,6 +929,7 @@
       if (!t || !H) return;
       const used = m.en.includes(kd) || !!H.tileCfg(c, kd).entity;
       const id = used ? M.hjemNewTileId(c, kd) : kd;
+      if (used && !ent && kd === 'vacr') ent = this._vacFree(m) || ''; // 35.8: nytt Støvsuger-kort → neste robot som ikke har kort
       const cur = H.tileCfg(c, id);
       const [zs, zp] = (slot || 'R-bottom').split('-');
       let c2 = setIn(c, 'tile_cfg.' + id, { ...cur, ...(id !== kd ? { kind: kd, side: zs, pos: zp } : {}), ...(ent ? { entity: ent } : {}) });
@@ -937,6 +938,13 @@
       if (t.hc) return this._hcAdd(this._model(), id, slot);
       const m2 = this._model();
       return this._moveTile(m2, id, slot || H.defSlot(c2, t.kind, id) || 'R-bottom', null);
+    }
+    // Fiks 35.8 · første vacuum.* som ikke allerede vises av et Støvsuger-kort (null = alle er brukt)
+    _vacFree(m) {
+      const H = HT(), c = m.c, E = m.E || {};
+      const ids = ['vacr', ...((H && H.extraIds(c)) || []).filter((x) => H.kindOf(c, x) === 'vacr')];
+      const taken = new Set(ids.filter((x) => x === 'vacr' ? m.en.includes('vacr') || H.tileCfg(c, 'vacr').entity : true).map((x) => H.tileCfg(c, x).entity || E.vacr).filter(Boolean));
+      return M.all(this.hass, 'vacuum').find((x) => !taken.has(x)) || null;
     }
     _teSet(k, f, v) { this.saveF({ [`tile_cfg.${k}.${f}`]: v === '' || v == null ? undefined : v }); }
     _acc(key, title, icon, meta) {
@@ -1603,6 +1611,7 @@
           }
           if (v === 'jul') { u.zadd = null; u.ted = 'jul'; u.sel = { t: 'tile', id: 'jul', z: true }; if (t.hc) return this._hcAdd(m, 'jul', z); return this._moveTile(m, 'jul', z, null); }
           if (!(m.E && m.E[v])) { u.zadd = z; u.tadd = v; return this.render(); } // fant ingen entitet → velg først
+          if (v === 'vacr' && (m.en.includes(v) || (HT() && HT().tileCfg(c, v).entity)) && !this._vacFree(m)) { u.zadd = z; u.tadd = v; return this.render(); } // 35.8: alle roboter har kort → velg selv
           return this._tileCreate(v, '', z);
         }
         case 'zmove': { const k2 = d.k; return this._moveTile(m, k2, d.v, null); }

@@ -370,12 +370,12 @@ ${tmark(HOUSES.sjo)}`;
     return `<svg class="ehus-ov" viewBox="${HOUSES[s].vb}" preserveAspectRatio="xMidYMid meet"><defs>${g}</defs>${kab}${lines}${dots}${txt}</svg>`;
   }
 
-  const CSS = `.ehus{position:relative;width:100%;height:340px;font-family:inherit;overflow:hidden;background:radial-gradient(120% 70% at 50% 100%,rgba(115,185,242,.06),rgba(0,0,0,0) 70%)}
+  const CSS = `.ehus{position:relative;width:100%;height:340px;font-family:inherit;overflow:hidden;background:radial-gradient(120% 70% at 50% 100%,rgba(115,185,242,.06),rgb(0 0 0 / 0) 70%);color:var(--ki-text, #fafafa)} /* nattscene = mørk øy (data-ki-island) i begge moduser */
 .ehus-img,.ehus-ov{position:absolute;inset:0;width:100%;height:100%;display:block}
 img.ehus-img{object-fit:contain;object-position:50% 50%}
 .ehus-ov{overflow:visible;pointer-events:none}
-.ehus-val{font-size:17px;font-weight:600;fill:var(--gray1000,#e1e1e1);font-variant-numeric:tabular-nums}
-.ehus-name{font-size:12px;font-weight:500;fill:var(--gray800,#afafaf)}
+.ehus-val{font-size:17px;font-weight:600;fill:var(--ki-text-1, #e1e1e1);font-variant-numeric:tabular-nums}
+.ehus-name{font-size:12px;font-weight:500;fill:var(--ki-text-2, #afafaf)}
 .ehus-pulse{animation:ehus-flow linear infinite;filter:drop-shadow(0 0 2.5px rgba(115,185,242,.9))}
 @keyframes ehus-flow{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion: reduce){.ehus-pulse{animation:none;stroke-dasharray:none;stroke-opacity:.5;filter:none}}
@@ -391,7 +391,7 @@ img.ehus-img{object-fit:contain;object-position:50% 50%}
       ? `<img class="ehus-img" src="${esc(bust(custom))}" alt="" draggable="false">`
       : svg(s, o.lightsOn);
     const ov = overlay(s, { ...o, _customCable: custom && o.targets && (o.targets.ev || o.targets.grid) }, T);
-    return `<div class="ehus" data-style="${s}"${custom ? ' data-custom="1"' : ''}>${o.css === false ? '' : `<style>${CSS}</style>`}${img}${ov}</div>`;
+    return `<div class="ehus" data-ki-island data-style="${s}"${custom ? ' data-custom="1"' : ''}>${o.css === false ? '' : `<style>${M.theme ? M.theme.CSS : ''}${CSS}</style>`}${img}${ov}</div>`;
   }
 
   M.energiHus = { STYLES, NAMES, FILES, HOUSES, html, svg, thumb, targetsFor, fmt, CSS };

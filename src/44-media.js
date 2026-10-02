@@ -29,6 +29,7 @@
     [/spotify/i, '#1db954', 'graphic_eq'], [/disney/i, '#113ccf', 'movie'], [/hbo|^max$/i, '#5822b4', 'movie'], [/viaplay/i, '#e3001b', 'movie'], [/prime|amazon/i, '#00a8e1', 'movie'], [/apple ?tv|tv\+/i, null, 'mdi:apple'],
     [/airplay/i, null, 'airplay'], [/hdmi/i, null, 'mdi:video-input-hdmi'], [/radio|tunein/i, null, 'radio'], [/phono|vinyl|turntable/i, null, 'album'], [/bluetooth/i, null, 'mdi:bluetooth'], [/^cd\b|\bcd$/i, null, 'mdi:disc'], [/optical|optisk|coax/i, null, 'mdi:waveform'], [/usb/i, null, 'mdi:usb'], [/antenn|tuner|dvb/i, null, 'mdi:antenna'], [/^tv$|arc|tv audio/i, null, 'tv'], [/aux|line/i, null, 'mdi:audio-input-rca']];
   const appStyle = (name) => { for (const [re, col, icon] of APPS) if (re.test(String(name || ''))) return { col, icon }; return { col: null, icon: null }; };
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const TABS = [['tv', 'TV'], ['musikk', 'Musikk']];
   const obj = (id) => String(id).split('.').slice(1).join('.');
   const pcfgOf = (cfg, id) => ((cfg && cfg.players) || {})[obj(id)] || {};
@@ -720,13 +721,15 @@
       const T = tabOrder(c).vis, dt = c.default_tab && c.default_tab !== 'last' && T.includes(c.default_tab) ? c.default_tab : T[0];
       const i = Math.max(0, T.indexOf(dt)), n = T.length || 1;
       const ring = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
-      const tab = (k) => `<span class="mtp-t${k === dt ? ' on' : ''}" data-t="${k}" style="position:relative;z-index:1;display:grid;place-items:center;height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;color:${k === dt ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc((TABS.find((t) => t[0] === k) || [k, k])[1])}</span>`;
+      // 33.4: forhåndsvisningen følger fanehøyden (kortets egen → global → 38)
+      const S = (M.tabH && M.tabH.scale(M.tabH.height(c, 38))) || { h: 38, f: 13, p: 18 }, th = S.h, tf = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 13 : S.f, tp = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 18 : S.p, mg = th + 8;
+      const tab = (k) => `<span class="mtp-t${k === dt ? ' on' : ''}" data-t="${k}" style="position:relative;z-index:1;display:grid;place-items:center;height:${th}px;padding:0 ${tp}px;border-radius:${th / 2}px;font-size:${tf}px;font-weight:500;white-space:nowrap;color:${k === dt ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc((TABS.find((t) => t[0] === k) || [k, k])[1])}</span>`;
       return `<div class="f" data-key="mtp" style="gap:8px"><span class="hl" style="font-size:12px;color:var(--ki-text-mid, #979797)">Forhåndsvisning</span>
-        <div class="mtp" data-key="mtp-row" aria-hidden="true" style="display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px;padding:10px 8px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none">
+        <div class="mtp" data-key="mtp-row" aria-hidden="true" style="display:grid;grid-template-columns:${mg}px minmax(0,1fr) ${mg}px;align-items:center;gap:8px;padding:10px 8px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none">
           <span></span>
-          <div class="mtp-seg" style="position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:4px;border-radius:22px;box-shadow:${ring};justify-self:center">
-            <span class="mtp-ind" style="position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * ${i} / ${n});width:calc((100% - 6px) / ${n} - 2px);border-radius:19px;background:${PINK};transition:left .3s cubic-bezier(.34,1.25,.64,1)"></span>${T.map(tab).join('')}</div>
-          <span style="width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))">${M.icon('settings', 22)}</span>
+          <div class="mtp-seg" style="position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:4px;border-radius:${th / 2 + 3}px;box-shadow:${ring};justify-self:center">
+            <span class="mtp-ind" style="position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * ${i} / ${n});width:calc((100% - 6px) / ${n} - 2px);border-radius:${th / 2}px;background:${PINK};transition:left .3s cubic-bezier(.34,1.25,.64,1)"></span>${T.map(tab).join('')}</div>
+          <span style="width:${mg}px;height:${mg}px;border-radius:${mg / 2}px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))">${M.icon('settings', 22)}</span>
         </div></div>`;
     },
   });
@@ -734,6 +737,7 @@
       { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
         tabPreview(),
         { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
+        ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen over følger valget)
         ...(common || []),
       ] },
       { type: 'info', label: 'Felles for begge faner' },
@@ -1318,7 +1322,7 @@
       // Fiks 16.10: rosa indikator = eget element med indeks-/prosentbasert posisjon (--i/--n, like brede faner) – aldri
       // piksler fra et gammelt mål, så den lander riktig selv om innholdet under endrer høyde eller popupen scroller.
       const ti = Math.max(0, R.order.indexOf(R.tab));
-      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      const head = `<div class="tabs"${M.tabH && M.tabH.style(cfg) ? ` style="${M.tabH.style(cfg)}"` : ''}><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
@@ -1777,22 +1781,23 @@
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
         ${M.TAB_ROW_CSS || ''}
-        .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, tannhjul = sporets høyde */
+        .tabs{--mg:calc(${TV('th', 38)} + 8px);display:grid;grid-template-columns:var(--mg) minmax(0,1fr) var(--mg);align-items:center;gap:8px}
         /* standard: transparent + ring; glassflate bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2) */
-        .seg{gap:2px;padding:4px;border-radius:22px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}justify-self:center}
-        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
+        .seg{gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 3px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}justify-self:center}
+        .tab{height:${TV('th', 38)};padding:0 ${TV('tp', 18)};border-radius:calc(${TV('th', 38)} / 2);font-size:${TV('tf', 13)};font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
         .tab.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
         /* Fiks 16.10: like brede faner + indikator med indeks-/prosentposisjon (--i/--n) – glir med transition, følger fingeren ved dra */
         .seg.msh-tr{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
         .seg .tab{position:relative;z-index:1;transition:color .25s}
         .seg .tab.on{background:transparent}
-        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:19px;background:${PINK};pointer-events:none;
+        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:calc(${TV('th', 38)} / 2);background:${PINK};pointer-events:none;
           transition:left .34s cubic-bezier(.34,1.25,.64,1),box-shadow .2s,scale .2s cubic-bezier(.34,1.8,.64,1)}
         .seg .ind.off{opacity:0}
         .seg .ind.drag{transition:left .12s cubic-bezier(.34,1.5,.64,1),box-shadow .2s,scale .25s cubic-bezier(.34,1.8,.64,1);scale:1.1;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.65*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 -1px 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.4*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
         .seg.tr-drag .ind{opacity:0}
         .mb{display:flex;flex-direction:column;gap:var(--msh-gap,14px);transition:min-height .3s cubic-bezier(.2,.8,.2,1)}
-        .gear{width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .gear{width:var(--mg,46px);height:var(--mg,46px);border-radius:calc(var(--mg,46px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .gear:active{transform:scale(.92)}
         [data-seek]{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
         .sk[data-noskip]{opacity:.6}

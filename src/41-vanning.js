@@ -1160,12 +1160,17 @@
         <div class="vb"><div class="vch">${chips}</div>${meter}</div>
       </section>`;
     }
+    // 33.4 (oppfølging): fanelinja = felles MSH.tabBar (pop · sticky · Fylt/Kontur · «Ikon + aktiv» · tannhjul i sporets
+    // høyde) med Vanning-variablene i styles (samme utseende som før i mørk modus); fanehøyde = MSH.tabH (tab_height)
     _faneRad(tabs, cur) {
-      const vis = fanevisning(this.config), lk = faneStil(this.config), pos = cogPos(this.config);
-      return `<div class="trow v-${vis} lk-${lk} cp-${pos}" data-key="trow" data-look="${lk}"><div class="tbox" data-key="tbox"><div class="tabs v-${vis}" role="tablist" data-glass-drag="x" aria-label="Vanning-faner">${tabs.map((k) => {
-        const [l, ic] = FANE[k], on = k === cur, lab = vis === 'begge' || vis === 'tekst' || (vis === 'aktiv' && on);
-        return `<button class="tab${on ? ' on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active' : ''} data-act="tab" data-t="${k}" data-haptic="selection" aria-label="${esc(l)}" data-key="t-${k}">${vis !== 'tekst' ? M.icon(ic, vis === 'ikoner' ? 22 : 20) : ''}${lab ? `<span class="tl">${esc(l)}</span>` : ''}</button>`;
-      }).join('')}</div></div>${this._cog('tab')}</div>`;
+      const c = this.config, vis = fanevisning(c), lk = faneStil(c), pos = cogPos(c);
+      const items = tabs.map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] }));
+      return M.tabBar.html(items, cur, {
+        variant: 'pop', mode: vis, look: lk, sticky: true, popup: true, th: M.tabH && M.tabH.own(c), key: 'trow', label: 'Vanning-faner',
+        cls: `trow v-${vis} lk-${lk} cp-${pos}`, rowCls: `tbox tabs v-${vis}`, tabCls: 'tab', labelCls: 'tl', keyPrefix: 't-', trackAttrs: 'data-key="tbox"',
+        attrs: (t) => `data-act="tab" data-t="${esc(t.key)}" data-haptic="selection"`,
+        gear: pos === 'tab', gearCls: 'cog cog-tab press', gearIcon: 'mdi:cog', gearLabel: 'Tilpass Vanning', gearAttrs: 'data-act="customize" data-haptic="light" title="Tilpass Vanning"',
+      });
     }
     _tg(on, act, attrs) { return `<button class="tg ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-act="${act}" data-haptic="selection" ${attrs || ''}><i></i></button>`; }
 
@@ -1681,7 +1686,7 @@
       if ((!running || !this.isOpen) && this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this.isOpen && !this._last) this._load();
       // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner = synlige i rekkefølge), sideveis dra = Liquid Glass-valg
-      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.tbox>.tabs'), {
+      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.trow .mtb-tabs'), {
         idOf: (b) => b.dataset.t, active: () => this.__cur, order: () => faneOrden(this.config),
         save: (full) => { const vis = new Set(fanerCfg(this.config)); return M.mshPatchConfig(this, { faner: full.filter((k) => vis.has(k)) }); },
       });
@@ -1768,19 +1773,14 @@
         .vch{display:flex;gap:6px;flex:1;min-width:0;overflow:hidden}
         .vc{height:30px;padding:0 10px 0 8px;border-radius:15px;background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex:none}
         .vm{font-size:11px;color:var(--ki-text-1, #e1e1e1);white-space:nowrap;flex:none}
-        /* ---- faner (Liquid Glass-pille) ---- 35.8: fanehøyde --vth (33.4 kan sette den), Fylt/Kontur, tannhjul ved fanene */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0;position:sticky;top:8px;z-index:6;--vth:56px;--vtp:4px}
-        .trow.v-tekst{--vth:44px} .trow.v-ikoner,.trow.v-aktiv{--vth:48px}
-        .tbox{flex:1;min-width:0;padding:var(--vtp);border-radius:30px;background:var(--ki-surface-3, ${C.card});box-shadow:${C.edge},0 8px 20px ${KA(0.3)}}
-        .lk-kontur .tbox{background:${C.card};box-shadow:inset 0 0 0 1px ${WA(0.14)},0 8px 20px ${KA(0.3)}}
-        .tabs{display:flex;gap:2px;position:relative;border-radius:26px}
-        .tab{flex:1 1 0;min-width:0;height:var(--vth);padding:0 4px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2, var(--gray700, #979797));font-size:11px;font-weight:500;transition:background .25s,color .25s,flex-grow .25s}
-        .tab .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .tab.on{background:${PINK};color:${INK};font-weight:600}
-        .tabs.v-tekst .tab{font-size:13px}
-        .tabs.v-aktiv .tab{flex-direction:row;gap:6px;font-size:13px}
-        .tabs.v-aktiv .tab.on{flex:2.4 1 auto;padding:0 12px}
-        .cog.cog-tab{position:static;flex:none;--g:calc(var(--vth) + 2 * var(--vtp));width:var(--g);height:var(--g);border-radius:50%;background:${C.card};box-shadow:${C.edge},0 8px 20px ${KA(0.3)};color:${C.text}}
+        /* ---- faner: felles MSH.tabBar (05-tab-bar.js) med Vanning-utseendet – 35.8 Fylt/Kontur, tannhjul ved fanene; 33.4 fanehøyde ---- */
+        ${M.tabBar ? M.tabBar.CSS : ''}
+        .trow.mtb{--mtb-pad:4px;--mtb-r:30px;--mtb-tr:calc(${M.tabH ? M.tabH.v('th', 52) : '52px'} / 2);--mtb-h0:56px;--mtb-fs0:11px;--mtb-fg:var(--ki-text-2, var(--gray700, #979797));--mtb-on-fg:${INK}}
+        .trow.mtb.v-tekst{--mtb-h0:44px;--mtb-fs0:13px} .trow.mtb.v-ikoner,.trow.mtb.v-aktiv{--mtb-h0:48px} .trow.mtb.v-aktiv{--mtb-fs0:13px}
+        .trow .mtb-t{min-width:0;line-height:inherit;transition:background .25s,color .25s,flex-grow .25s}
+        .trow .mtb-t.on{font-weight:600}
+        .trow.mtb-m-b .mtb-t{gap:3px}
+        .cog.cog-tab{position:static;flex:none;--g:calc(var(--mtb-h) + 2 * var(--mtb-pad));width:var(--g);height:var(--g);border-radius:50%;background:${C.card};box-shadow:${C.edge},0 8px 20px ${KA(0.3)};color:${C.text}}
         .lk-kontur .cog.cog-tab{box-shadow:inset 0 0 0 1px ${WA(0.14)},0 8px 20px ${KA(0.3)}}
         /* ---- kort ---- */
         .card{position:relative;overflow:hidden;background:${C.card};box-shadow:${C.edge};border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -2053,6 +2053,8 @@
     const fanevis = { type: 'select', name: 'fanevisning', label: 'Faner viser', options: FANEVIS, default: 'begge' };
     const cogFelt = { type: 'select', name: 'cog_position', label: 'Tannhjul', options: [['top', 'I toppkortet'], ['tab', 'Ved fanene']], default: 'top' };
     const lookFelt = { type: 'select', name: 'tab_look', label: 'Fanestil', options: [['fylt', 'Fylt'], ['kontur', 'Kontur']], default: 'fylt' };
+    // 33.4: fanehøyde – felles felt (forhåndsvisning med Vanning-fanene i valgt visning/stil)
+    const fanehoyde = M.tabH ? M.tabH.field({ items: (hh, cc) => fanerCfg(cc).map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] })), mode: (cc) => fanevisning(cc), look: (cc) => faneStil(cc), gear: (cc) => cogPos(cc) === 'tab', native: (cc) => ({ begge: 40, tekst: 44 }[fanevisning(cc)] || 48) }) : null;
     // Soner · grupper (navn, pil opp, slett, + Ny gruppe)
     const grupper = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
@@ -2141,7 +2143,7 @@
     ];
     return [
       { type: 'tabs', id: 'vanning', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, faner] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, ...(fanehoyde ? [fanehoyde] : []), faner] },
         { key: 'soner', label: 'Soner', icon: 'mdi:sprinkler-variant', focus: ['soner'], fields: [grupper, soner, stdMin] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entiteter', 'overrides', 'reserve'], fields: entiteter },
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'innstillinger', 'spacing'], fields: avansert },

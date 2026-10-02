@@ -42,9 +42,8 @@ const r = await p.evaluate(async () => {
   // meny: Toten = Du er her, Oslo og Strømstad i listen med server=<navn>
   c._serverMenu(c.shadowRoot.querySelector('.ttl') || c); await w(300);
   const sv = deepAll('.sv');
-  out.rows = sv.map((e) => [e.querySelector('.nm b').textContent, e.querySelector('.srv').textContent]);
-  const srv = sv[0] && sv[0].querySelector('.srv'), cs = srv && getComputedStyle(srv);
-  out.srvCss = cs && { fs: cs.fontSize, col: cs.color, ff: cs.fontFamily };
+  out.rows = sv.map((e) => e.querySelector('.nm b').textContent);
+  out.srvLine = sv.some((e) => /server=/.test(e.textContent) || e.querySelector('.srv'));
   out.me = (deepAll('.me')[0] || {}).textContent;
   if (c._srv) c._srv.close(); await w(200);
   // bytte: app → navigation_path; nettleser → url / toast
@@ -55,7 +54,7 @@ const r = await p.evaluate(async () => {
     out.goApp = c._goServer(c._server().list[2]);
     M.hjemIsApp = () => false;
     out.goWeb = c._goServer(c._server().list[0]);
-    out.goUrl = c._goServer({ name: 'Toten', url: 'https://toten.example/lovelace' });
+    out.goUrl = c._goServer({ name: 'Toten', url: 'https://toten.example/lovelace' }); // 34.2: url brukes ikke lenger
     out.goOld = (M.hjemIsApp = () => true, c._goServer({ name: 'X', url_path: 'homeassistant://navigate/lovelace?server=X%20Y' }));
   } finally { M.hjemNavigate = oN; M.toast = oT; M.hjemIsApp = oA; }
   out.nav = nav; out.toasts = toasts;
@@ -73,10 +72,10 @@ const r = await p.evaluate(async () => {
   out.hasReset = !!rb;
   if (rb) { rb.click(); await w(100); }
   const last = chg[chg.length - 1] || {};
-  out.reset = (last.servers || []).map((x) => x.name + '|' + x.icon + '|' + x.color + '|' + x.navigation_path);
+  out.reset = (last.servers || []).map((x) => x.name + '|' + x.icon + '|' + x.color + '|' + (x.path || ''));
   // åpne første rad → felt navn / ikon / farge / navigation_path / url
   const ob = R.querySelector('[data-a="x-ropen"][data-n="servers"][data-i="0"]'); if (ob) { ob.click(); await w(100); }
-  out.fields = ['name', 'icon', 'color', 'navigation_path', 'url'].map((f) => !!R.querySelector(`[data-name="servers.0.${f}"]`));
+  out.fields = ['name', 'icon', 'color', 'path'].map((f) => !!R.querySelector(`[data-name="servers.0.${f}"]`));
   const add = R.querySelector('[data-a="x-radd"][data-n="servers"]'); if (add) { add.click(); await w(100); }
   out.added = ((chg[chg.length - 1] || {}).servers || []).length;
   ed.remove();
@@ -84,18 +83,18 @@ const r = await p.evaluate(async () => {
 });
 console.log(JSON.stringify(r));
 const D = r.defs;
-ok(D.map((x) => [x.name, x.icon, x.color, x.navigation_path].join('|')).join(',') === 'Oslo|mdi:office-building|var(--green)|homeassistant://navigate/lovelace?server=Oslo,Toten|mdi:tractor|var(--yellow)|homeassistant://navigate/lovelace?server=Toten,Strømstad|mdi:sail-boat|var(--blue)|homeassistant://navigate/lovelace?server=Str%C3%B8mstad', 'standard servere ' + JSON.stringify(D));
+ok(D.map((x) => [x.name, x.icon, x.color, x.path || ''].join('|')).join(',') === 'Oslo|mdi:office-building|var(--green)|,Toten|mdi:tractor|var(--yellow)|,Strømstad|mdi:sail-boat|var(--blue)|', 'standard servere ' + JSON.stringify(D));
 ok(r.here1 === 2 && r.here2 === 1, 'Du er her fra location_name ' + JSON.stringify([r.here1, r.here2]));
-ok(JSON.stringify(r.rows) === JSON.stringify([['Oslo', 'server=Oslo'], ['Strømstad', 'server=Strømstad']]), 'rader ' + JSON.stringify(r.rows));
-ok(r.srvCss && r.srvCss.fs === '11px' && r.srvCss.col === 'rgb(127, 127, 127)' && /mono|Menlo|Consolas/i.test(r.srvCss.ff), 'server=-linje stil ' + JSON.stringify(r.srvCss));
-ok(/Toten/.test(r.me || '') && /server=Toten/.test(r.me || ''), 'Du er her-raden ' + r.me);
-ok(r.goApp === 'app' && r.nav[0] === 'homeassistant://navigate/lovelace?server=Str%C3%B8mstad', 'app: navigation_path ' + JSON.stringify([r.goApp, r.nav]));
-ok(r.goWeb === 'toast' && r.toasts.includes('Bytte av server virker bare i Home Assistant-appen'), 'nettleser uten url → toast ' + JSON.stringify([r.goWeb, r.toasts]));
-ok(r.goUrl === 'url' && r.nav[1] === 'https://toten.example/lovelace', 'nettleser med url ' + JSON.stringify([r.goUrl, r.nav]));
-ok(r.goOld === 'app' && r.nav[2] === 'homeassistant://navigate/lovelace?server=X%20Y', 'eldre url_path ' + JSON.stringify(r.nav));
-ok(r.old.icon === 'mdi:office-building' && r.oldUrl === 'homeassistant://navigate/lovelace?server=Oslo', 'gamle seedede steder ' + JSON.stringify([r.old, r.oldUrl]));
+ok(JSON.stringify(r.rows) === JSON.stringify(['Oslo', 'Strømstad']), 'rader ' + JSON.stringify(r.rows));
+ok(!r.srvLine, '34.2: ingen server=-linje i radene');
+ok(/Toten/.test(r.me || '') && /Du er her/.test(r.me || '') && !/server=/.test(r.me || ''), 'Du er her-raden ' + r.me);
+ok(r.goApp === 'app' && /^homeassistant:\/\/navigate\/[^?]+\?server=Str%C3%B8mstad$/.test(r.nav[0]), 'app: lenke ' + JSON.stringify([r.goApp, r.nav]));
+ok(r.goWeb === 'toast' && r.toasts.includes('Bytt server i appen'), 'nettleser → toast ' + JSON.stringify([r.goWeb, r.toasts]));
+ok(r.goUrl === 'toast' && r.nav.length === 2, '34.2: nettleser med url → toast, ingen navigering ' + JSON.stringify([r.goUrl, r.nav]));
+ok(r.goOld === 'app' && /\?server=X$/.test(r.nav[1]), 'eldre url_path (navnet er sannheten) ' + JSON.stringify(r.nav));
+ok(r.old.icon === 'mdi:office-building' && /\?server=Oslo$/.test(r.oldUrl), 'gamle seedede steder ' + JSON.stringify([r.old, r.oldUrl]));
 ok(r.edRows.join() === 'Bergen' && r.hasReset, 'editor: rader / Tilbakestill ' + JSON.stringify([r.edRows, r.hasReset]));
-ok(r.reset.length === 3 && r.reset[2] === 'Strømstad|mdi:sail-boat|var(--blue)|homeassistant://navigate/lovelace?server=Str%C3%B8mstad', 'Tilbakestill ' + JSON.stringify(r.reset));
+ok(r.reset.length === 3 && r.reset[2] === 'Strømstad|mdi:sail-boat|var(--blue)|', 'Tilbakestill ' + JSON.stringify(r.reset));
 ok(r.fields.every(Boolean), 'editor-felt ' + JSON.stringify(r.fields));
 ok(r.added === 4, 'legg til sted ' + r.added);
 ok(!errs.length, 'feil: ' + errs.join(' | '));

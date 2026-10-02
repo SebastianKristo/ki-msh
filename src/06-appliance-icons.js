@@ -157,7 +157,7 @@
 
   /* ------------------------------------------------------------ SVG per type */
   // Alle deler med animasjon har klassen «p» (transform-box: fill-box). Stil: strek 1,7 i currentColor, «f» = fylt.
-  const BADGE = '<g class="p ma-badge"><circle class="f" cx="18.6" cy="18.6" r="4.9"/><path d="M16.5 18.7l1.5 1.5 2.8-3" style="stroke:var(--ma-check,#fafafa)" stroke-width="1.6"/></g>';
+  const BADGE = '<g class="p ma-badge"><circle class="f" cx="18.6" cy="18.6" r="4.9"/><path d="M16.5 18.7l1.5 1.5 2.8-3" style="stroke:var(--ma-check,var(--ki-on-accent, #fafafa))" stroke-width="1.6"/></g>';
   const STEAM2 = (x1, x2, y) => `<path class="p ma-steam ma-s1" d="M${x1} ${y}q-.9-.8 0-1.6t0-1.6"/><path class="p ma-steam ma-s2" d="M${x2} ${y}q-.9-.8 0-1.6t0-1.6"/>`;
   const SVG = {
     washer: () => `<g class="p ma-body"><rect x="3.2" y="2.2" width="17.6" height="19.6" rx="3"/><path d="M3.2 6.6h17.6"/><circle class="f" cx="6.4" cy="4.4" r=".85"/><circle class="f" cx="9.2" cy="4.4" r=".85"/><circle cx="12" cy="14.2" r="5.3"/>

@@ -37,6 +37,10 @@
   if (!M) return;
   const esc = M.esc, C = M.C;
   const HASH = '#soppel';
+  // Fiks 35 (tema): gjennomsiktig hvit/svart etter regel 4/3 (mørk modus = som før). Toppkortet er en mørk øy.
+  const TH = M.theme || {};
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const OA = 'var(--ki-on-accent, #2a1720)';
 
   /* ============================================================ felles for Tilpass-arkene (25.6) – brukes også av 60-innstillinger.js */
   // Rosa brytere 44×26, segmenter på #282828, seksjonskort #3a3a3a r24 – bare i editorer for disse kortene (adoptedStyleSheets,
@@ -45,26 +49,26 @@
     .sw{width:44px;height:26px;border-radius:13px}
     .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
     .sw.on{background:var(--pink,#f285c9)} .sw.on::after{transform:translateX(18px)}
-    .chips.sg.tabs,.chips.sg.tsub{background:#282828}
-    .fsec>.sec{border-radius:24px;background:#3a3a3a}
+    .chips.sg.tabs,.chips.sg.tsub{background:var(--ki-surface-3, #282828)}
+    .fsec>.sec{border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .ordrow{touch-action:pan-y}
-    .edrow{display:flex;align-items:center;gap:8px;min-height:56px;border-radius:28px;background:#404040;padding:4px 6px 4px 8px}
+    .edrow{display:flex;align-items:center;gap:8px;min-height:56px;border-radius:28px;background:var(--ki-surface-2, #404040);padding:4px 6px 4px 8px}
     .edrow.off{opacity:.5}
     .edrow .nm{flex:1;min-width:0;display:flex;flex-direction:column}
     .edrow .nm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edrow .nm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edh{touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 2px;flex:none}
-    .edic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:#3a3a3a}
-    .edsub{display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px;margin:-4px 0 4px 28px;border-radius:22px;background:#353535}
+    .edrow .nm i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edh{touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 2px;flex:none}
+    .edic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-surface, #3a3a3a)}
+    .edsub{display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px;margin:-4px 0 4px 28px;border-radius:22px;background:var(--ki-surface-3, #353535)}
     .edsw{display:flex;flex-wrap:wrap;gap:6px}
-    .edsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
-    .edsw button.on{box-shadow:0 0 0 2px #282828,0 0 0 4px #fafafa}
-    .edq{display:flex;align-items:center;gap:8px;height:44px;border-radius:22px;background:#2f2f2f;padding:0 6px 0 14px}
-    .edq input{flex:1;min-width:0;height:100%;background:none;border:0;color:#fafafa;font-size:14px}
-    .edhit{min-height:48px;border-radius:24px;background:#404040;display:flex;align-items:center;gap:10px;padding:6px 14px;text-align:left;width:100%}
+    .edsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px ${WA(0.12)}}
+    .edsw button.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
+    .edq{display:flex;align-items:center;gap:8px;height:44px;border-radius:22px;background:var(--ki-surface-3, #2f2f2f);padding:0 6px 0 14px}
+    .edq input{flex:1;min-width:0;height:100%;background:none;border:0;color:var(--ki-text, #fafafa);font-size:14px}
+    .edhit{min-height:48px;border-radius:24px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:10px;padding:6px 14px;text-align:left;width:100%}
     .edhit .nm{flex:1;min-width:0;display:flex;flex-direction:column}
     .edhit .nm b{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edhit .nm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edhit .nm i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .edlist{display:flex;flex-direction:column;gap:8px}`;
   let edSheet = null;
   // Installer i en editor (én gang): ekstra CSS, dra-for-rekkefølge og søkefelt.
@@ -90,7 +94,7 @@
       e.stopPropagation(); e.preventDefault(); // fallgruve 2: popupen/arket skal ikke dras eller lukkes
       d = { list: item.dataset.elist, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + (TH.blackA ? TH.blackA(0.4, TH.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – bare under draget
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -123,7 +127,7 @@
     R.addEventListener('pointercancel', end);
   };
   M.edHandle = () => `<span class="edh" data-edrag title="Dra for rekkefølge">${M.icon('mdi:drag', 20)}</span>`;
-  M.edEye = (key, op, v, hid, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : '#fafafa'}`)}</button>`;
+  M.edEye = (key, op, v, hid, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>`;
   // Rekkefølge: lagret rekkefølge først (bare kjente nøkler), resten i standardrekkefølge
   M.edOrder = (keys, saved) => { const o = (Array.isArray(saved) ? saved : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
 
@@ -286,11 +290,11 @@
   // Én bøtte (48×58) i fraksjonsfargen: kropp, riller og lokk (lokket rister på tømmedagen)
   const bin = (farge, i) => `<svg class="bin" style="--i:${i}" viewBox="0 0 48 58" aria-hidden="true">
       <rect x="6" y="14" width="36" height="40" rx="6" fill="${farge}"/>
-      <path d="M16 22v24M24 22v24M32 22v24" stroke="rgba(0,0,0,.22)" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M16 22v24M24 22v24M32 22v24" stroke="rgba(0,0,0,.22)" stroke-width="2.4" stroke-linecap="round"/><!-- ki-hex-ok: illustrasjon i mørk øy -->
       <circle cx="13" cy="54" r="4" fill="#1b1d22"/><circle cx="35" cy="54" r="4" fill="#1b1d22"/>
       <g class="lid"><rect x="2" y="7" width="44" height="8" rx="4" fill="${farge}"/><rect x="18" y="3" width="12" height="5" rx="2.5" fill="${farge}"/></g></svg>`;
   const truck = () => `<svg class="truck" viewBox="0 0 150 60" aria-hidden="true">
-      <rect x="4" y="10" width="92" height="34" rx="6" fill="#e1e1e1"/><rect x="10" y="16" width="80" height="10" rx="3" fill="rgba(0,0,0,.12)"/>
+      <rect x="4" y="10" width="92" height="34" rx="6" fill="#e1e1e1"/><rect x="10" y="16" width="80" height="10" rx="3" fill="rgba(0,0,0,.12)"/><!-- ki-hex-ok: illustrasjon i mørk øy -->
       <path d="M96 20h28l16 16v8H96z" fill="#c7c7c7"/><rect x="102" y="24" width="18" height="11" rx="2" fill="#73b9f2" opacity=".8"/>
       <circle class="wh" cx="28" cy="48" r="8" fill="#1b1d22"/><circle class="wh" cx="72" cy="48" r="8" fill="#1b1d22"/><circle class="wh" cx="120" cy="48" r="8" fill="#1b1d22"/>
       <circle cx="28" cy="48" r="3" fill="#696969"/><circle cx="72" cy="48" r="3" fill="#696969"/><circle cx="120" cy="48" r="3" fill="#696969"/></svg>`;
@@ -306,7 +310,7 @@
       ed.__edDrop['sop-tab'] = (o) => ed._set('tab_order', o);
       const hid = tabHidden(cc);
       return `<div class="edlist">${tabOrder(cc).map((k) => { const [, label, icon] = TABL[k]; return `<div class="edrow ${hid.has(k) ? 'off' : ''}" data-edk="${k}" data-elist="sop-tab" data-key="st-${k}">${M.edHandle()}<span class="edic">${M.icon(icon, 20)}</span><span class="nm"><b>${esc(label)}</b><i>${k === (cc.start_tab || visTabs(cc)[0]) ? 'Startfane' : ''}</i></span>${M.edEye(key, 'teye', k, hid.has(k), label)}</div>`; }).join('')}
-        <span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
+        <span class="help" style="font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 6px">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {};
       if (dd.op === 'teye') {
@@ -329,13 +333,13 @@
           <span class="nm"><b>${esc(f.navn)}</b><i>${esc(f.id)}</i></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="fexp" data-v="${esc(f.id)}" aria-expanded="${isO}" aria-label="Rediger ${esc(f.navn)}">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:pencil-outline', 20)}</button>
           ${M.edEye(key, 'feye', f.id, f.hidden, f.navn)}</div>`;
-        const sub = isO ? `<div class="edsub" data-key="sfs-${esc(f.id)}"><span style="font-size:12px;color:#afafaf">Navn</span>
+        const sub = isO ? `<div class="edsub" data-key="sfs-${esc(f.id)}"><span style="font-size:12px;color:var(--ki-text-2, #afafaf)">Navn</span>
           <div class="edq"><input data-sopname="${esc(f.id)}" value="${esc(o.name || '')}" placeholder="${esc((hh.states[f.id] && hh.states[f.id].attributes.friendly_name) || f.navn)}" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-          <span style="font-size:12px;color:#afafaf">Farge</span>
+          <span style="font-size:12px;color:var(--ki-text-2, #afafaf)">Farge</span>
           <div class="edsw">${PALETTE.map((p) => { const v = `var(--${p})`, on = (o.color || '') === v; return `<button class="${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="${esc(v)}" aria-label="${esc(p)}" style="background:${M.color(v)}"></button>`; }).join('')}
-          <button data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="" aria-label="Automatisk" title="Automatisk" style="display:grid;place-items:center;background:#2f2f2f">${M.icon('mdi:auto-fix', 16)}</button></div></div>` : '';
+          <button data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="" aria-label="Automatisk" title="Automatisk" style="display:grid;place-items:center;background:var(--ki-surface-3, #2f2f2f)">${M.icon('mdi:auto-fix', 16)}</button></div></div>` : '';
         return row + sub;
-      }).join('')}<span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra for rekkefølge i Oversikt. Blyanten gir navn og farge fra temaet, øyet skjuler fraksjonen.</span></div>`;
+      }).join('')}<span class="help" style="font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 6px">Dra for rekkefølge i Oversikt. Blyanten gir navn og farge fra temaet, øyet skjuler fraksjonen.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, id = cid(ed), F = { ...(cc.fraksjoner || {}) };
       const put = (fid, patch) => { const o = { ...(F[fid] || {}), ...patch }; Object.keys(o).forEach((k) => { if (o[k] === undefined || o[k] === '' || o[k] === false) delete o[k]; }); if (Object.keys(o).length) F[fid] = o; else delete F[fid]; ed._set('fraksjoner', Object.keys(F).length ? F : undefined); };
@@ -358,8 +362,8 @@
         const f = q ? all.filter((id) => (id + ' ' + (hh.states[id].attributes.friendly_name || '')).toLowerCase().includes(q)) : all.filter((id) => hh.states[id].attributes[attr] != null || /avfall|s(o|ø)ppel|renovasjon|papir|plast|glass|rest/i.test(id));
         return f.sort().slice(0, 8);
       };
-      const search = (target) => `<div class="edsub" data-key="sq-${esc(target)}" style="margin-left:0"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="sop-q" value="${esc(ed.__edQ['sop-q'] || '')}" placeholder="Søk etter sensor" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        ${hits().map((id) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="epick" data-v="${esc(target)}" data-id="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}${hh.states[id].attributes[attr] != null ? ' · ' + esc(attr) + ' = ' + esc(hh.states[id].attributes[attr]) : ''}</i></span></button>`).join('') || '<div class="small" style="padding:4px 6px">Ingen treff</div>'}</div>`;
+      const search = (target) => `<div class="edsub" data-key="sq-${esc(target)}" style="margin-left:0"><div class="edq">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-mid, #979797)')}<input data-edq="sop-q" value="${esc(ed.__edQ['sop-q'] || '')}" placeholder="Søk etter sensor" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits().map((id) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="epick" data-v="${esc(target)}" data-id="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}${hh.states[id].attributes[attr] != null ? ' · ' + esc(attr) + ' = ' + esc(hh.states[id].attributes[attr]) : ''}</i></span></button>`).join('') || '<div class="small" style="padding:4px 6px">Ingen treff</div>'}</div>`;
       return `<div class="edlist"><div class="small" style="padding:0 6px">${auto ? `Automatisk: alle sensorer med attributtet «${esc(attr)}» (${ids.length} funnet).` : `${ids.length} valgte sensorer.`}</div>
         ${ids.map((id) => { const s = hh.states[id]; return `<div class="edrow" data-key="se-${esc(id)}"><span class="edic">${M.icon(s ? M.domainIcon(id, s) : 'mdi:help-circle-outline', 20)}</span><span class="nm"><b>${esc(s ? M.name(hh, id) : id)}</b><i>${esc(id)}${s ? '' : ' · finnes ikke'}</i></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="eswap" data-v="${esc(id)}" aria-label="Bytt entitet">${M.icon(sw === id ? 'mdi:close' : 'mdi:swap-horizontal', 20)}</button>
@@ -451,7 +455,7 @@
       const bins = (same.length ? same : [{ farge: C.gray500 }]).slice(0, 4).map((f, i) => bin(f.farge, i)).join('');
       const names = top ? og(same.map((f) => f.navn)) : '';
       const car = idag && c.soppelbil !== false ? `<div class="road" aria-hidden="true">${truck()}</div>` : '';
-      return `<div class="hero ${idag ? 'idag' : ''} ${snart ? 'snart' : ''}" style="--f:${farge}" data-key="hero">
+      return `<div class="hero ${idag ? 'idag' : ''} ${snart ? 'snart' : ''}" style="--f:${farge}" data-key="hero" data-ki-island>
         <div class="glow" aria-hidden="true"></div>
         <div class="hl">
           <span class="pill ${idag ? 'on' : ''}"><i class="blink"></i>${idag ? 'Tømmes i dag' : 'Neste tømming'}</span>
@@ -545,20 +549,20 @@
         :host{display:block;width:100%}
         .wrap,.pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
         /* toppkort */
-        .hero{position:relative;height:184px;border-radius:28px;background:#2b3039;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;isolation:isolate}
+        .hero{position:relative;height:184px;border-radius:28px;background:#2b3039;color:var(--ki-text, var(--white,#fafafa));box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;isolation:isolate} /* mørk øy (data-ki-island) */
         .glow{position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 90% at 88% 100%, color-mix(in srgb, var(--f) 42%, transparent), transparent 62%),radial-gradient(70% 60% at 0% 0%, color-mix(in srgb, var(--f) 14%, transparent), transparent 70%);transition:background .5s}
         .hero.idag .glow{background:radial-gradient(130% 100% at 85% 100%, color-mix(in srgb, var(--f) 62%, transparent), transparent 66%),radial-gradient(80% 70% at 0% 0%, color-mix(in srgb, var(--f) 24%, transparent), transparent 70%)}
         .hl{position:absolute;left:18px;top:16px;right:120px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
-        .pill{height:26px;padding:0 11px 0 9px;border-radius:13px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;background:rgba(255,255,255,0.1);color:#e1e1e1;white-space:nowrap}
+        .pill{height:26px;padding:0 11px 0 9px;border-radius:13px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;background:${WA(0.1)};color:var(--ki-text-1, #e1e1e1);white-space:nowrap}
         .pill i{width:8px;height:8px;border-radius:4px;background:var(--f)}
-        .pill.on{background:color-mix(in srgb, var(--f) 30%, rgba(255,255,255,0.08))}
+        .pill.on{background:color-mix(in srgb, var(--f) 30%, ${WA(0.08)})}
         .pill.on i{animation:blink 1.1s ease-in-out infinite}
         @keyframes blink{50%{opacity:.15}}
         .big{font-size:36px;font-weight:500;line-height:1.1;letter-spacing:-.02em;margin-top:8px;white-space:nowrap}
-        .nm{font-size:15px;font-weight:500;color:#fafafa;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+        .nm{font-size:15px;font-weight:500;color:var(--ki-text, #fafafa);max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
         .nm.miss{display:block;margin-top:4px}
-        .dt{font-size:13px;color:#afafaf;white-space:nowrap}
-        .gear{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center;z-index:3}
+        .dt{font-size:13px;color:var(--ki-text-2, #afafaf);white-space:nowrap}
+        .gear{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;background:${WA(0.1)};display:grid;place-items:center;z-index:3}
         .bins{position:absolute;right:14px;bottom:10px;display:flex;align-items:flex-end;gap:2px;z-index:2}
         .bin{width:38px;height:46px;overflow:visible}
         .bins.hop .bin{animation:hop 1.6s cubic-bezier(.3,.7,.4,1) infinite;animation-delay:calc(var(--i) * .18s)}
@@ -571,54 +575,54 @@
         @keyframes drive{0%{transform:translateX(-110px)}100%{transform:translateX(calc(100cqw + 20px))}}
         .road{container-type:inline-size}
         /* faner */
-        .tabs{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y}
-        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:14px;white-space:nowrap;color:var(--gray800,#afafaf)}
-        .tb.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .tabs{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y}
+        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:14px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .tb.on{background:${C.accent};color:${OA};font-weight:500}
         /* Oversikt */
         .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--msh-gap,8px)}
-        .fk{position:relative;min-width:0;min-height:128px;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);padding:14px 14px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;overflow:hidden}
+        .fk{position:relative;min-width:0;min-height:128px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};padding:14px 14px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;overflow:hidden}
         .fk.on{box-shadow:inset 0 0 0 2px var(--f)}
         .fk .fi,.vr .fi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:color-mix(in srgb, var(--f) 22%, transparent);color:var(--f);margin-bottom:8px;flex:none}
         .fk .fn{font-size:14px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .fk .fd{font-size:20px;font-weight:500}
         .fk.idag .fd{color:var(--f)}
-        .fk .fdt{font-size:12px;color:#979797;white-space:nowrap}
-        .bar{position:absolute;left:14px;right:14px;bottom:10px;height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden}
+        .fk .fdt{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap}
+        .bar{position:absolute;left:14px;right:14px;bottom:10px;height:4px;border-radius:2px;background:var(--ki-surface-3, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1))));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:2px;background:var(--f)}
-        .sec{border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
-        .sh{font-size:13px;font-weight:500;color:#afafaf}
+        .sec{border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+        .sh{font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf)}
         .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-        .dc,.mc{min-width:0;height:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--gray300,#404040)}
-        .dc .wd{font-size:11px;color:#979797}
+        .dc,.mc{min-width:0;height:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .dc .wd{font-size:11px;color:var(--ki-text-mid, #979797)}
         .dc .dn,.mc .dn{font-size:15px;font-weight:500}
-        .dc.td,.mc.td{background:${C.accent};color:#2a1720}.dc.td .wd{color:#2a1720}
-        .dc.on,.mc.on{box-shadow:inset 0 0 0 2px #fafafa}
+        .dc.td,.mc.td{background:${C.accent};color:${OA}}.dc.td .wd{color:${OA}}
+        .dc.on,.mc.on{box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
         .dots{display:flex;gap:3px;height:7px}
         .dots i{width:7px;height:7px;border-radius:4px}
         .dots i.est{background:transparent}
-        .dp{border-radius:18px;background:var(--gray300,#404040);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+        .dp{border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));padding:10px 12px;display:flex;flex-direction:column;gap:6px}
         .dph{font-size:13px;font-weight:500}
         .dpr{display:flex;align-items:center;gap:8px;font-size:13px}.dpr i{width:10px;height:10px;border-radius:5px;flex:none}
-        .dpr em{font-style:normal;font-size:11px;color:#979797;margin-left:auto}.dpr.none{color:#979797}
+        .dpr em{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);margin-left:auto}.dpr.none{color:var(--ki-text-mid, #979797)}
         /* Kalender */
         .mh{display:flex;align-items:center;gap:8px}.mh .mt{flex:1;text-align:center;font-size:15px;font-weight:500}
-        .nb{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center}
-        .wdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:11px;color:#979797;text-align:center}
+        .nb{width:40px;height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center}
+        .wdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:11px;color:var(--ki-text-mid, #979797);text-align:center}
         .mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
         .mc{height:48px;background:transparent}.mc.oth{opacity:.35}
-        .lgs{display:flex;flex-wrap:wrap;gap:6px 12px}.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#afafaf}.lg i{width:9px;height:9px;border-radius:5px}
-        .note{font-size:12px;color:#979797;line-height:1.4}
+        .lgs{display:flex;flex-wrap:wrap;gap:6px 12px}.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-2, #afafaf)}.lg i{width:9px;height:9px;border-radius:5px}
+        .note{font-size:12px;color:var(--ki-text-mid, #979797);line-height:1.4}
         /* Varsler */
         .vl{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .vr{display:flex;align-items:center;gap:12px;min-height:66px;border-radius:33px;background:var(--gray200,#3a3a3a);padding:8px 16px 8px 10px;text-align:left}
+        .vr{display:flex;align-items:center;gap:12px;min-height:66px;border-radius:33px;background:var(--ki-surface, var(--gray200,#3a3a3a));padding:8px 16px 8px 10px;text-align:left}
         .vr .fi{margin:0}
-        .vt{flex:1;min-width:0;display:flex;flex-direction:column}.vt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vt i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .vt{flex:1;min-width:0;display:flex;flex-direction:column}.vt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
+        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
         .sw.on{background:var(--pink,#f285c9)}.sw.on::after{transform:translateX(18px)}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:#282828;touch-action:pan-y}
-        .sg{flex:1 1 0;min-width:0;height:38px;border-radius:19px;font-size:13px;white-space:nowrap;color:#afafaf;padding:0 4px}
-        .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, #282828);touch-action:pan-y}
+        .sg{flex:1 1 0;min-width:0;height:38px;border-radius:19px;font-size:13px;white-space:nowrap;color:var(--ki-text-2, #afafaf);padding:0 4px}
+        .sg.on{background:${C.accent};color:${OA};font-weight:500}
         @media (max-width:380px){.sg{font-size:12px}.big{font-size:32px}}
         @media (prefers-reduced-motion: reduce){.bins .bin,.bins .lid,.truck,.pill.on i{animation:none !important}}`;
     }

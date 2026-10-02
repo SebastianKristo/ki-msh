@@ -4716,7 +4716,7 @@ try {
   // Skjemafelt (type 'range') + config → rader → <ki-spacing-editor>. Tom liste → ''.
   M.spacingRows = (fields, cfg) => (fields || []).filter((f) => f && f.type === 'range' && f.name).map((f) => {
     const v = get(cfg || {}, f.name);
-    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '' };
+    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '', ...(f.offset != null ? { offset: f.offset } : {}) };
   });
   M.spacingEditorHTML = (fields, cfg, key) => {
     const rows = M.spacingRows(fields, cfg);
@@ -6441,6 +6441,8 @@ try {
     static get schema() { return [{ type: 'info', label: 'Snarveier til dashbord-editorene og Home Assistant-innstillingene.' }]; }
     get cardSize() { return 4; }
     render() {
+      // Fiks 35 (oppfølging 33.3): view: 'devices' = bare enhetsoversikten – vises i «Enheter»-arket fra Mer → Tilpass
+      if (this.config.view === 'devices') return `<div class="st">${this._devices()}</div>`;
       const u = this.hass.user || {};
       const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
       return `<div class="st">
@@ -7411,62 +7413,176 @@ try {
 
 /* ---- 05-tab-bar.js ---- */
 try {
-/* KI MSH · felles fanelinje («Som popups» og «Tekst + tannhjul») – Fiks 31.4 / 31.5.
- * Én komponent for fanelinjene som ser ut som popupenes (Vanning / Innstillinger): Hjem (tab_style popup | gear,
- * 24-hjem-faner.js), forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil (27-hjem-editor.js) og Lys-popupen (43-lys.js).
+/* KI MSH · felles fanelinje («Som popups» og «Tekst + tannhjul») – Fiks 31.4 / 31.5, utvidet i Fiks 33.4.
+ * Én komponent for fanelinjene som ser ut som popupenes: Hjem (tab_style popup | gear, 24-hjem-faner.js),
+ * forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil (27-hjem-editor.js), Lys-popupen (43-lys.js) og Vanning (41-vanning.js).
  *   MSH.tabBar.html(items, cur, o) → '<div class="mtb mtb-pop|mtb-gear">…</div>'
  *     items: [{ key, label, icon?, warn? }]  (warn = rødt ikon når fanen ikke er aktiv, f.eks. Batterier med lave)
  *     o.variant: 'pop'  – flate #3a3a3a r26 pad 4 gap 2, like brede faner, aktiv rosa pille r22.
- *                         o.mode ikon|tekst|begge (standard begge): begge = 56 px (ikon 20 over tekst 12), ellers 44 px.
+ *                         o.mode ikon|tekst|begge|aktiv (standard begge): begge = 56 px (ikon 20 over tekst 12), ellers 44 px;
+ *                         aktiv = «Ikon + aktiv» (alle har ikon, bare den aktive viser navnet ved siden av, bredere).
  *                'gear' – tekstfaner på flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24 tekst 14/500 #c7c7c7, bredde
  *                         etter teksten (flex 1 1 auto, padding 0 8px – aldri kuttet; for mange → vannrett scroll),
- *                         + rund knapp 56 × 56 (#3a3a3a + innerkant) med settings 24 px.
+ *                         + rund knapp (#3a3a3a + innerkant) med settings 24 px.
+ *     o.look: 'fylt' (standard) | 'kontur' (sporet = kortflate + innerkant .14, Vanning/Tesla/Klima «Kontur»)
+ *     o.sticky: true → raden står fast øverst (sticky top 8px) med skygge 0 8px 20px under sporet og tannhjulet
+ *     o.popup: true → fanehøyden følger 33.4 (MSH.tabH: kortets tab_height, ellers global «Fanehøyde i popups», ellers
+ *              komponentens egen høyde). o.th = kortets egen høyde (px) → inline variabler på raden.
  *     o.attrs(item, i, on) → attributter per fane (standard: data-act="tab" data-v data-i data-haptic="selection")
- *     o.gear: false = ingen tannhjul (standard: med for 'gear'); o.gearAttrs, o.gearLabel; o.preview: spans uten roller.
- *     o.rowCls / o.tabCls: ekstra klasser på raden / fanene (f.eks. 'tabs' / 'tab'); o.keyPrefix (data-key, standard 'mtb-').
+ *     o.gear: false = ingen tannhjul (standard: med for 'gear'); o.gearAttrs, o.gearLabel, o.gearCls, o.gearIcon;
+ *       tannhjulet er alltid like høyt som sporet (fanehøyde + 2 × innerpadding) og sentrert mot det.
+ *     o.preview: spans uten roller. o.rowCls / o.tabCls / o.cls / o.trackCls: ekstra klasser (rad / faner / ytre / spor);
+ *     o.keyPrefix (data-key, standard 'mtb-'); o.labelCls (ekstra klasse på navnet); o.trackAttrs (attributter på sporet).
+ *   Utseendet kan justeres per kort med variabler på .mtb (standardverdiene = dagens utseende):
+ *     --mtb-h0 (fanehøyde) --mtb-fs0 (tekst) --mtb-ic0 (ikon) --mtb-px0 (sidepadding) --mtb-pad (innerpadding) --mtb-gap
+ *     --mtb-r (sporets radius) --mtb-tr (fanens radius) --mtb-bg / --mtb-sh (spor) --mtb-fg (inaktiv tekst) --mtb-g-bg (tannhjul)
  *   MSH.tabBar.CSS   – legg i kortets/arkets styles (klassene har prefiks mtb-, kolliderer ikke).
  *   MSH.tabBar.bind(card, el, opts) → MSH.tabRow på fanene (hold 400 ms + dra = flytt, Esc avbryter, glass-valg,
  *     haptic, touch-action pan-y + stopPropagation – fallgruve 2). opts som MSH.tabRow (active, order, field | save …).
+ *
+ * ===== Fiks 33.4 · fanehøyde i alle popups (MSH.tabH) – ÉN felles mekanisme for alle fanelinjer =====
+ *   Trinn (som Hjem, TAB_H): Lav 32 · Standard 38 · Middels 44 · Høy 50 · Ekstra 56 px, egen verdi 28–64 px.
+ *   Lagring: kortets config `tab_height` (tall = egen høyde; mangler/'auto' = «Følg global»). Global standard i ki-store
+ *   `ui.popup_tab_height` («Tilpass Hjem» → Faner → «Fanehøyde i popups»; standardtrinnet er 38). Er den ikke satt,
+ *   beholder hver popup sin egen høyde (mørk modus piksel-lik som før).
+ *   Skalering (H = høyden): pille H, radius H/2, tekst 12 → 15 px (32 → 56), ikon 16 → 22 px, sidepadding 10 → 18 px,
+ *   to-linjers faner (ikon over tekst) H + 16. Sporet følger med (H + 2 × innerpadding), tannhjulet = sporets høyde.
+ *   CSS-variabler: global på <html>: --ki-ptab-th/-th2/-tf/-ti/-tp (arver inn i alle shadow roots, byttes live uten
+ *   ny tegning); kortets egen verdi som inline variabler --msh-th/-th2/-tf/-ti/-tp på fanelinja (MSH.tabH.style(cfg)).
+ *   Kortenes CSS bruker MSH.tabH.v('th', 44) → var(--msh-th,var(--ki-ptab-th,44px)) med sin egen høyde som reserve.
+ *     MSH.tabH.own(cfg) → px | null       MSH.tabH.global() → px | null     MSH.tabH.height(cfg|card, native) → px
+ *     MSH.tabH.style(cfg) → 'inline-variabler' ('' = følg global)          MSH.tabH.vars(px) → variabel-streng
+ *     MSH.tabH.setGlobal(px|null)         MSH.tabH.sync()  (global → <html>)
+ *     Editor (samme felt i alle Tilpass-ark og i GUI-editoren):
+ *     MSH.tabH.field({ items, native, label }) → skjemafelt (type html) for msh-editor (kortets ark + getConfigElement)
+ *     MSH.tabH.editorHTML(val, o) + MSH.tabH.bindEditor(root, { set(v, commit) }) → for egne ark (Klima, Lys, Varmepumpe …)
+ *     Forhåndsvisning av fanelinja øverst i feltet (live), segment Følg global · Lav · Standard · Middels · Høy · Ekstra
+ *     + slider 28–64 px. I HAs GUI-editor er slideren ha-selector number (28–64).
  */
 (function () {
   const M = window.MSH;
   if (!M || M.tabBar) return;
   const esc = (s) => (M.esc ? M.esc(s) : String(s == null ? '' : s));
   const PINK = (M.C && M.C.accent) || 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
-  const mode = (v) => (v === 'ikon' || v === 'i' ? 'i' : v === 'tekst' || v === 't' ? 't' : 'b');
+  const TH = M.theme || {};
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(255 255 255 / ${a})`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
+  const mode = (v) => (v === 'ikon' || v === 'i' || v === 'ikoner' ? 'i' : v === 'tekst' || v === 't' ? 't' : v === 'aktiv' || v === 'a' ? 'a' : 'b');
 
+  /* ================================================================ 33.4 · fanehøyde */
+  const MIN = 28, MAX = 64, STEPS = [[32, 'Lav'], [38, 'Standard'], [44, 'Middels'], [50, 'Høy'], [56, 'Ekstra']], STD = 38;
+  const GKEY = 'ui.popup_tab_height', LS = 'ki:popup_tab_height';
+  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+  const num = (v) => {
+    if (v == null || v === '' || v === 'auto' || v === true || v === false) return null;
+    const n = Number(v);
+    return isFinite(n) && n > 0 ? clampN(Math.round(n), MIN, MAX) : null;
+  };
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const scale = (px) => {
+    const h = num(px);
+    if (h == null) return null;
+    const t = (h - 32) / 24;
+    return { h, h2: h + 16, f: r1(clampN(12 + 3 * t, 11, 16.5)), i: Math.round(clampN(16 + 6 * t, 14, 24)), p: Math.round(clampN(10 + 8 * t, 8, 20)) };
+  };
+  const vars = (px, pre) => {
+    const s = scale(px);
+    if (!s) return '';
+    pre = pre || '--msh-';
+    return `${pre}th:${s.h}px;${pre}th2:${s.h2}px;${pre}tf:${s.f}px;${pre}ti:${s.i}px;${pre}tp:${s.p}px;`;
+  };
+  const cfgOf = (x) => (x && x.nodeType === 1 ? (x.config || x._config || {}) : x || {});
+  const own = (x) => num(cfgOf(x).tab_height);
+  const global = () => {
+    const S = M.store;
+    let v;
+    try { v = S && S.get ? S.get(GKEY) : undefined; } catch (e) { v = undefined; }
+    if (v != null || (S && S.loaded)) {
+      const n = num(v);
+      try { const o = localStorage.getItem(LS); if (n == null) { if (o != null) localStorage.removeItem(LS); } else if (o !== String(n)) localStorage.setItem(LS, String(n)); } catch (e) { /* */ }
+      return n;
+    }
+    try { return num(localStorage.getItem(LS)); } catch (e) { return null; }
+  };
+  const height = (x, native) => { const o = own(x); if (o != null) return o; const g = global(); return g != null ? g : (native != null ? num(native) || native : null); };
+  const style = (x) => vars(own(x));
+  // CSS-hjelper: v('th', 44) → var(--msh-th,var(--ki-ptab-th,44px)); n kan også være en CSS-verdi ('var(--x)')
+  const v = (k, n) => `var(--msh-${k},var(--ki-ptab-${k},${typeof n === 'number' ? n + 'px' : n}))`;
+  const sync = () => {
+    const s = document.documentElement && document.documentElement.style;
+    if (!s) return;
+    const sc = scale(global());
+    ['th', 'th2', 'tf', 'ti', 'tp'].forEach((k) => {
+      const nv = sc ? { th: sc.h, th2: sc.h2, tf: sc.f, ti: sc.i, tp: sc.p }[k] + 'px' : null;
+      if (nv) { if (s.getPropertyValue('--ki-ptab-' + k) !== nv) s.setProperty('--ki-ptab-' + k, nv); } else s.removeProperty('--ki-ptab-' + k);
+    });
+  };
+  // Global verdi: følger utkastet i «Tilpass Hjem» (Ferdig lagrer, Avbryt ruller tilbake – ki-store-transaksjonen)
+  const setGlobal = (px, opts) => {
+    const n = num(px);
+    try { if (n == null) localStorage.removeItem(LS); else localStorage.setItem(LS, String(n)); } catch (e) { /* */ }
+    const r = M.store && M.store.set ? M.store.set(GKEY, n == null ? undefined : n, opts) : null;
+    sync();
+    try { window.dispatchEvent(new CustomEvent('ki-tabh-change', { detail: { px: n } })); } catch (e) { /* */ }
+    return r;
+  };
+  sync();
+  (function sub(n) {
+    if (M.store && M.store.subscribe) { M.store.subscribe((d, p) => { if (!p || p === 'ui' || p.startsWith(GKEY) || GKEY.startsWith(p + '.')) sync(); }); sync(); return; }
+    if (n < 40) setTimeout(() => sub(n + 1), 250);
+  })(0);
+
+  /* ---------------------------------------------------------------- fanelinja */
   function html(items, cur, o) {
     o = o || {};
     const kp = o.keyPrefix != null ? o.keyPrefix : 'mtb-';
-    const v = o.variant === 'gear' ? 'gear' : 'pop', m = v === 'gear' ? 't' : mode(o.mode), pv = !!o.preview, tag = pv ? 'span' : 'button';
+    const vr = o.variant === 'gear' ? 'gear' : 'pop', m = vr === 'gear' ? 't' : mode(o.mode), pv = !!o.preview, tag = pv ? 'span' : 'button';
+    const icS = m === 'i' ? 22 : 20;
     const btn = (t, i) => {
       const on = t.key === cur;
       const a = o.attrs ? o.attrs(t, i, on) : `data-act="${o.act || 'tab'}" data-v="${esc(t.key)}" data-i="${i}" data-haptic="selection"`;
-      const ic = m !== 't' ? `<span class="mtb-ic">${M.icon(t.icon || 'mdi:tab', m === 'i' ? 22 : 20)}</span>` : '';
-      const lb = m !== 'i' ? `<span class="mtb-l">${esc(t.label)}</span>` : '';
-      return `<${tag} class="mtb-t${o.tabCls ? ' ' + o.tabCls : ''}${on ? ' on' : ''}${t.warn ? ' warn' : ''}" ${pv ? '' : `role="tab" aria-selected="${on}"`} aria-label="${esc(t.label)}" data-key="${esc(kp)}${esc(t.key)}" ${a}>${ic}${lb}</${tag}>`;
+      const ic = m !== 't' ? `<span class="mtb-ic">${M.icon(t.icon || 'mdi:tab', icS)}</span>` : '';
+      const lb = m !== 'i' && (m !== 'a' || on) ? `<span class="mtb-l${o.labelCls ? ' ' + o.labelCls : ''}">${esc(t.label)}</span>` : '';
+      return `<${tag} class="mtb-t${o.tabCls ? ' ' + o.tabCls : ''}${on ? ' on' : ''}${t.warn ? ' warn' : ''}" ${pv ? '' : `role="tab" aria-selected="${on}"`} ${on && !pv ? 'data-active' : ''} aria-label="${esc(t.label)}" data-key="${esc(kp)}${esc(t.key)}" ${a}>${ic}${lb}</${tag}>`;
     };
-    const withGear = o.gear != null ? !!o.gear : v === 'gear';
+    const withGear = o.gear != null ? !!o.gear : vr === 'gear';
     const gt = pv ? 'span' : 'button';
-    const gear = withGear ? `<${gt} class="gear mtb-g" data-key="mtb-gear" ${o.gearAttrs || 'data-act="customize" data-haptic="light"'} aria-label="${esc(o.gearLabel || 'Tilpass')}">${M.icon('settings', 24)}</${gt}>` : '';
-    return `<div class="mtb mtb-${v}" data-key="${esc(o.key || 'mtb')}"><div class="mtb-tabs m-${m}${o.rowCls ? ' ' + o.rowCls : ''}" ${pv ? 'aria-hidden="true"' : 'role="tablist"'} data-gd-skip>${(items || []).map(btn).join('')}</div>${gear}</div>`;
+    const gear = withGear ? `<${gt} class="gear mtb-g${o.gearCls ? ' ' + o.gearCls : ''}" data-key="mtb-gear" ${pv ? '' : o.gearAttrs || 'data-act="customize" data-haptic="light"'} aria-label="${esc(o.gearLabel || 'Tilpass')}">${M.icon(o.gearIcon || 'settings', 24)}</${gt}>` : '';
+    const cls = `mtb mtb-${vr} mtb-m-${m}${o.look === 'kontur' ? ' mtb-kontur' : ''}${o.sticky ? ' mtb-sticky' : ''}${o.popup ? ' mtb-ph' : ''}${o.cls ? ' ' + o.cls : ''}`;
+    const st = (o.popup && o.th != null ? vars(o.th) : '') + (o.style || '');
+    const rowA = pv ? 'aria-hidden="true"' : `role="tablist" data-gd-skip${o.label ? ` aria-label="${esc(o.label)}"` : ''}`;
+    return `<div class="${cls}" data-key="${esc(o.key || 'mtb')}"${o.look ? ` data-look="${esc(o.look)}"` : ''}${st ? ` style="${st}"` : ''}${o.outerAttrs ? ' ' + o.outerAttrs : ''}><div class="mtb-tabs m-${m}${o.rowCls ? ' ' + o.rowCls : ''}" ${rowA}${o.trackAttrs ? ' ' + o.trackAttrs : ''}>${(items || []).map(btn).join('')}</div>${gear}</div>`;
   }
 
+  // Høyden: --mtb-h0 = komponentens egen; med o.popup følger den 33.4-variablene (kortets egen → global → egen).
   const CSS = `
-    .mtb{display:flex;align-items:center;gap:8px;min-width:0;width:100%;box-sizing:border-box}
-    .mtb-tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;box-sizing:border-box;background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none}
+    .mtb{--mtb-pad:4px;--mtb-gap:2px;--mtb-h0:44px;--mtb-fs0:14px;--mtb-ic0:20px;--mtb-px0:4px;--mtb-r:26px;--mtb-tr:calc(var(--mtb-h) / 2);
+      --mtb-h:var(--mtb-h0);--mtb-fs:var(--mtb-fs0);--mtb-ic:var(--mtb-ic0);--mtb-px:var(--mtb-px0);
+      display:flex;align-items:center;gap:8px;min-width:0;width:100%;box-sizing:border-box}
+    .mtb-pop.mtb-m-b{--mtb-h0:56px;--mtb-fs0:12px;--mtb-tr:22px}
+    .mtb-pop.mtb-m-i{--mtb-ic0:22px}
+    .mtb-gear{--mtb-h0:48px;--mtb-px0:8px;--mtb-r:28px}
+    .mtb-ph{--mtb-h:${v('th', 'var(--mtb-h0)')};--mtb-fs:${v('tf', 'var(--mtb-fs0)')};--mtb-ic:${v('ti', 'var(--mtb-ic0)')};--mtb-px:${v('tp', 'var(--mtb-px0)')}}
+    .mtb-ph.mtb-m-b{--mtb-h:${v('th2', 'var(--mtb-h0)')};--mtb-tr:calc(${v('th', 44)} / 2)}
+    .mtb-tabs{position:relative;flex:1;min-width:0;display:flex;gap:var(--mtb-gap);padding:var(--mtb-pad);box-sizing:border-box;border-radius:var(--mtb-r);background:var(--mtb-bg,var(--ki-surface-3, var(--gray200,#3a3a3a)));box-shadow:var(--mtb-sh,inset 0 0 0 1px ${WA(0.05)});overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none}
     .mtb-tabs::-webkit-scrollbar{display:none}
-    .mtb-pop .mtb-tabs{border-radius:26px}
-    .mtb-gear .mtb-tabs{border-radius:28px}
-    .mtb-t{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0;border:0;white-space:nowrap;font-family:inherit;font-weight:500;line-height:1.2;color:var(--ki-text-2, var(--gray900,#c7c7c7));background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .2s,color .2s}
-    .mtb-t.on{background:${PINK};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
-    .mtb-gear .mtb-t{flex:1 1 auto;min-width:max-content;height:48px;padding:0 8px;border-radius:24px;font-size:14px}
-    .mtb-pop .mtb-t{flex:1 1 0;min-width:44px;height:44px;padding:0 4px;border-radius:22px;gap:6px;font-size:14px;overflow:hidden}
-    .mtb-pop .m-b .mtb-t{height:56px;flex-direction:column;gap:2px;font-size:12px}
+    .mtb-kontur{--mtb-bg:var(--mtb-k-bg,var(--ki-surface, var(--gray200,#3a3a3a)));--mtb-sh:inset 0 0 0 1px ${WA(0.14)}}
+    .mtb-sticky{position:sticky;top:8px;z-index:6}
+    .mtb-sticky .mtb-tabs{box-shadow:var(--mtb-sh,inset 0 0 0 1px ${WA(0.05)}),0 8px 20px ${KA(0.3)}}
+    .mtb-t{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0;border:0;white-space:nowrap;font-family:inherit;font-weight:500;line-height:1.2;color:var(--mtb-fg,var(--ki-text-2, var(--gray900,#c7c7c7)));background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .2s,color .2s}
+    .mtb-t.on{background:${PINK};color:var(--mtb-on-fg,var(--ki-on-accent, var(--gray100,#2f2f2f)))}
+    .mtb-gear .mtb-t{flex:1 1 auto;min-width:max-content;height:var(--mtb-h);padding:0 var(--mtb-px);border-radius:var(--mtb-tr);font-size:var(--mtb-fs)}
+    .mtb-pop .mtb-t{flex:1 1 0;min-width:44px;height:var(--mtb-h);padding:0 var(--mtb-px);border-radius:var(--mtb-tr);gap:6px;font-size:var(--mtb-fs);overflow:hidden}
+    .mtb-pop.mtb-m-b .mtb-t{flex-direction:column;gap:2px}
+    .mtb-pop.mtb-m-a .mtb-t{flex-direction:row;gap:6px;transition:background .25s,color .25s,flex-grow .25s}
+    .mtb-pop.mtb-m-a .mtb-t.on{flex:2.4 1 auto;padding:0 12px}
+    .mtb-ph .mtb-ic ha-icon{--mdc-icon-size:var(--mtb-ic) !important;width:var(--mtb-ic) !important;height:var(--mtb-ic) !important}
     .mtb-l{max-width:100%;overflow:hidden;text-overflow:ellipsis}
     .mtb-ic{display:inline-flex;flex:none;line-height:0}
     .mtb-t.warn:not(.on) .mtb-ic{color:var(--ki-red-text, var(--red,#f28073))}
-    .mtb-g{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;margin:0;padding:0;border:0;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, var(--white,#fafafa));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .mtb-g{--g:calc(var(--mtb-h) + 2 * var(--mtb-pad));width:var(--g);height:var(--g);border-radius:calc(var(--g) / 2);flex:none;align-self:center;display:grid;place-items:center;margin:0;padding:0;border:0;background:var(--mtb-g-bg,var(--ki-surface, var(--gray200,#3a3a3a)));box-shadow:var(--mtb-g-sh,inset 0 0 0 1px ${WA(0.05)});color:var(--ki-text, var(--white,#fafafa));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .mtb-kontur .mtb-g{--mtb-g-sh:inset 0 0 0 1px ${WA(0.14)}}
+    .mtb-sticky .mtb-g{box-shadow:var(--mtb-g-sh,inset 0 0 0 1px ${WA(0.05)}),0 8px 20px ${KA(0.3)}}
     .mtb-g:active{transform:scale(.92)}
   `;
 
@@ -7478,6 +7594,109 @@ try {
   }
 
   M.tabBar = { html, CSS, bind, mode };
+
+  /* ---------------------------------------------------------------- 33.4 · editorfeltet (felles) */
+  const ED_CSS = `
+    .mth{display:flex;flex-direction:column;gap:10px;min-width:0}
+    .mth-hd{display:flex;align-items:baseline;gap:8px;padding:0 2px}
+    .mth-l{flex:1;font-size:13px;font-weight:500;color:var(--ki-text, #fafafa)}
+    .mth-v{font-size:13px;color:var(--ki-text-2, #afafaf);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .mth-pv{padding:10px;border-radius:20px;background:var(--ki-popup, #282828);box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;pointer-events:none}
+    .mth-pv .mtb-t{min-width:0}
+    .mth-ch{display:flex;flex-wrap:wrap;gap:6px}
+    .mth-c{height:34px;padding:0 12px;border:0;border-radius:17px;font:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, #e1e1e1);-webkit-tap-highlight-color:transparent}
+    .mth-c.on{background:${PINK};color:var(--ki-on-accent, #2a1720)}
+    .mth-c small{font-size:11px;font-weight:400;opacity:.8;margin-left:4px}
+    .mth-sl{display:flex;align-items:center;gap:10px;min-width:0}
+    .mth-sl span{font-size:12px;color:var(--ki-text-3, #7f7f7f);font-variant-numeric:tabular-nums}
+    .mth-r{flex:1;min-width:0;height:28px;margin:0;accent-color:var(--pink,#f285c9);touch-action:pan-y;cursor:pointer}
+    .mth-h{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 2px;line-height:1.4}
+  `;
+  const STYLE = `<style>${CSS}${ED_CSS}</style>`;
+  const DEF_ITEMS = ['Oversikt', 'Detaljer', 'Logg'];
+  // Forhåndsvisning: fanelinja i valgt høyde (felles MSH.tabBar, kortets egne fanenavn)
+  const preview = (px, o) => {
+    const labs = (o.items && o.items.length ? o.items : DEF_ITEMS).slice(0, 4).map((l, i) => (typeof l === 'string' ? { key: 'p' + i, label: l } : { key: l.key || 'p' + i, label: l.label, icon: l.icon }));
+    return html(labs, labs[0].key, { variant: o.variant || 'pop', mode: o.mode || (labs.some((x) => x.icon) ? 'aktiv' : 'tekst'), preview: true, popup: true, th: px, gear: o.gear !== false, key: 'mth-bar', look: o.look });
+  };
+  // val: kortets tab_height (eller den globale verdien med o.global). o: { items, native, global, gui, name, label, help }
+  // Valg kan være funksjoner av configen (o.cfg): native/mode/look/gear/variant(cfg), items(hass, cfg)
+  const resolve = (o) => {
+    const c = o.cfg || {}, out = { ...o };
+    ['native', 'mode', 'look', 'gear', 'variant'].forEach((k) => { if (typeof o[k] === 'function') { try { out[k] = o[k](c); } catch (e) { out[k] = undefined; } } });
+    if (typeof o.items === 'function') { try { out.items = o.items(o.hass || M.lastHass || null, c); } catch (e) { out.items = null; } }
+    return out;
+  };
+  function editorHTML(val, o) {
+    o = resolve(o || {});
+    const cur = num(val), g = global(), isG = !!o.global;
+    const base = isG ? (o.native != null ? o.native : STD) : (g != null ? g : (o.native != null ? num(o.native) : STD));
+    const eff = cur != null ? cur : base;
+    const name = o.name || (isG ? 'popup_tab_height' : 'tab_height');
+    const chip = (vv, l, on, extra) => `<button type="button" class="mth-c${on ? ' on' : ''}" data-mth="${vv}" aria-pressed="${on}" data-haptic="off">${esc(l)}${extra ? `<small>${esc(extra)}</small>` : ''}</button>`;
+    const first = isG ? chip('auto', 'Popupens egen', cur == null) : chip('auto', 'Følg global', cur == null, `${base} px`);
+    const chips = first + STEPS.map(([px, l]) => chip(px, l, cur === px, `${px}`)).join('');
+    const label = o.label || (isG ? 'Fanehøyde i popups' : 'Fanehøyde');
+    const help = o.help != null ? o.help : isG ? (cur == null ? 'Hver popup bruker sin egen fanehøyde til du velger en standard her. Popups på «Følg global» følger denne.' : 'Gjelder alle popups med faner som står på «Følg global».') : (cur == null ? (g != null ? `Følger «Fanehøyde i popups» i Tilpass Hjem (${g} px).` : 'Følger «Fanehøyde i popups» i Tilpass Hjem (ikke satt – popupens egen høyde).') : 'Egen høyde for denne popupen.');
+    const slider = o.gui && !isG && customElements.get('ha-selector')
+      ? `<ha-selector data-name="${esc(name)}" data-nomorph data-def="${eff}" data-selector="${esc(JSON.stringify({ number: { min: MIN, max: MAX, step: 1, mode: 'slider', unit_of_measurement: 'px' } }))}" data-label="Egen fanehøyde" data-helper="28–64 px · Følg global = ta bort egen verdi"></ha-selector>`
+      : `<div class="mth-sl"><span>${MIN}</span><input class="mth-r" type="range" min="${MIN}" max="${MAX}" step="1" value="${eff}" data-mth-r="1" aria-label="${esc(label)} i px"><span>${MAX}</span></div>`;
+    return `${STYLE}<div class="mth" data-key="mth-${esc(name)}" data-mth-field="${esc(name)}">
+      <div class="mth-hd"><span class="mth-l">${esc(label)}</span><span class="mth-v" data-mth-val>${eff} px</span></div>
+      ${o.preview === false ? '' : `<div class="mth-pv" data-mth-pv aria-hidden="true">${preview(eff, o)}</div>`}
+      <div class="mth-ch" role="group" aria-label="${esc(label)}">${chips}</div>
+      ${slider}
+      ${help ? `<div class="mth-h">${esc(help)}</div>` : ''}
+    </div>`;
+  }
+  // Kobler segment + slider i roten (delegert, idempotent). api.set(v, commit): v = px eller undefined (= følg global)
+  function bindEditor(root, api) {
+    if (!root) return;
+    root.__mthApi = api;
+    if (root.__mthBound) return;
+    root.__mthBound = true;
+    const A = () => root.__mthApi || {};
+    const field = (el) => el && el.closest && el.closest('[data-mth-field]');
+    root.addEventListener('click', (e) => {
+      const b = e.target && e.target.closest && e.target.closest('[data-mth]');
+      if (!b || !field(b)) return;
+      e.stopPropagation();
+      const vv = b.dataset.mth === 'auto' ? undefined : num(b.dataset.mth);
+      if (M.haptic) M.haptic('selection');
+      if (A().set) A().set(vv, true);
+    });
+    const live = (el, commit) => {
+      const f = field(el), px = num(el.value);
+      if (!f || px == null) return;
+      const lab = f.querySelector('[data-mth-val]');
+      if (lab) lab.textContent = px + ' px';
+      // forhåndsvisningen følger slideren straks (også før arket tegnes på nytt)
+      const bar = f.querySelector('[data-mth-pv] .mtb');
+      if (bar) { const s = scale(px); ['th', 'th2', 'tf', 'ti', 'tp'].forEach((k) => bar.style.setProperty('--msh-' + k, { th: s.h, th2: s.h2, tf: s.f, ti: s.i, tp: s.p }[k] + 'px')); }
+      f.querySelectorAll('[data-mth]').forEach((c) => { const on = num(c.dataset.mth) === px; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+      if (A().set) A().set(px, commit);
+    };
+    root.addEventListener('input', (e) => { const t = e.target; if (t && t.dataset && t.dataset.mthR) { e.stopPropagation(); live(t, false); } }, true);
+    root.addEventListener('change', (e) => { const t = e.target; if (t && t.dataset && t.dataset.mthR) { e.stopPropagation(); live(t, true); } }, true);
+    // fallgruve 2: slideren eier vannrett dra – arket/Bubble-popupen får ikke gesten
+    ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => root.addEventListener(t, (e) => { const x = e.target; if (x && x.dataset && x.dataset.mthR) e.stopPropagation(); }, { passive: true }));
+  }
+  // Skjemafelt for msh-editor (kortets eget Tilpass-ark og HAs GUI-editor bruker samme skjema)
+  function field(o) {
+    o = o || {};
+    const name = o.name || 'tab_height';
+    return {
+      type: 'html', id: 'tab_height', name: undefined, label: o.label || 'Fanehøyde',
+      html(h, c, key, ed) {
+        if (ed && ed.shadowRoot) {
+          bindEditor(ed.shadowRoot, { set: (vv, commit) => { if (ed._set) ed._set(name, vv, commit !== false); } });
+          if (!ed.__mthSub) { ed.__mthSub = true; window.addEventListener('ki-tabh-change', () => { if (ed.isConnected && ed._render) ed._render(); }); }
+        }
+        return `<div class="f" style="padding:6px 2px">${editorHTML(c && c[name], { ...o, cfg: c || {}, hass: h, gui: !(ed && ed._inline) })}</div>`;
+      },
+    };
+  }
+  M.tabH = { MIN, MAX, STEPS, STD, KEY: GKEY, num, scale, vars, own, global, height, style, v, sync, setGlobal, editorHTML, bindEditor, field, preview };
 })();
 
 } catch (e) { console.error('[ki-msh] 05-tab-bar.js', e); }
@@ -8160,7 +8379,7 @@ try {
 
   /* ------------------------------------------------------------ SVG per type */
   // Alle deler med animasjon har klassen «p» (transform-box: fill-box). Stil: strek 1,7 i currentColor, «f» = fylt.
-  const BADGE = '<g class="p ma-badge"><circle class="f" cx="18.6" cy="18.6" r="4.9"/><path d="M16.5 18.7l1.5 1.5 2.8-3" style="stroke:var(--ma-check,#fafafa)" stroke-width="1.6"/></g>';
+  const BADGE = '<g class="p ma-badge"><circle class="f" cx="18.6" cy="18.6" r="4.9"/><path d="M16.5 18.7l1.5 1.5 2.8-3" style="stroke:var(--ma-check,var(--ki-on-accent, #fafafa))" stroke-width="1.6"/></g>';
   const STEAM2 = (x1, x2, y) => `<path class="p ma-steam ma-s1" d="M${x1} ${y}q-.9-.8 0-1.6t0-1.6"/><path class="p ma-steam ma-s2" d="M${x2} ${y}q-.9-.8 0-1.6t0-1.6"/>`;
   const SVG = {
     washer: () => `<g class="p ma-body"><rect x="3.2" y="2.2" width="17.6" height="19.6" rx="3"/><path d="M3.2 6.6h17.6"/><circle class="f" cx="6.4" cy="4.4" r=".85"/><circle class="f" cx="9.2" cy="4.4" r=".85"/><circle cx="12" cy="14.2" r="5.3"/>
@@ -9528,12 +9747,12 @@ try {
   };
   M.LIGHT_ROW_CSS = `
     .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,40px) + 28px)}
-    .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--gray1000,#e1e1e1);--secondary-text-color:var(--gray700,#979797)}
+    .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
     .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
-    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--gray1000,#e1e1e1)}
-    .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--gray700,#979797)}
-    .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--gray400,#545454);overflow:hidden}
+    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+    .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--ki-ctrl, var(--gray400,#545454));overflow:hidden}
     .lrf-f{position:absolute;left:0;top:0;bottom:0;background-color:transparent;transition:background-color .3s ease}
   `;
 })();
@@ -10145,19 +10364,19 @@ try {
 
   M.STEPPER_CSS = `
     .msh-stp{display:inline-flex;align-items:center;gap:6px;flex:none}
-    .msh-stp-b{width:32px;height:32px;border-radius:50%;border:0;padding:0;margin:0;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer;-webkit-tap-highlight-color:transparent;--mdc-icon-size:18px;transition:transform .12s ease,opacity .15s}
+    .msh-stp-b{width:32px;height:32px;border-radius:50%;border:0;padding:0;margin:0;background:var(--ki-surface-3, var(--gray100,#2f2f2f));color:var(--ki-text, var(--white,#fafafa));display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer;-webkit-tap-highlight-color:transparent;--mdc-icon-size:18px;transition:transform .12s ease,opacity .15s}
     .msh-stp-b:active{transform:scale(.9)}
     .msh-stp-b:disabled{opacity:.35;cursor:default}
     .msh-stp-v{position:relative;min-width:56px;height:32px;padding:0 4px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:10px}
-    .msh-stp-v:focus-within{background:rgba(255,255,255,.08)}
-    .msh-stp-t{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--white,#fafafa);pointer-events:none}
-    .msh-stp-t.ph,.msh-stp.dis .msh-stp-t{color:var(--gray700,#979797);font-weight:500}
-    .msh-stp-n{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;padding:0;border:0;opacity:0;font-size:16px;color-scheme:dark;background:transparent;color:#fafafa;cursor:pointer;-webkit-appearance:none;appearance:none;z-index:1}
+    .msh-stp-v:focus-within{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .msh-stp-t{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ki-text, var(--white,#fafafa));pointer-events:none}
+    .msh-stp-t.ph,.msh-stp.dis .msh-stp-t{color:var(--ki-text-mid, var(--gray700,#979797));font-weight:500}
+    .msh-stp-n{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;padding:0;border:0;opacity:0;font-size:16px;color-scheme:dark;background:transparent;color:var(--ki-text, #fafafa);cursor:pointer;-webkit-appearance:none;appearance:none;z-index:1}
     .msh-stp-n:disabled{cursor:default}
     .msh-stp-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px 8px 16px;box-sizing:border-box;width:100%}
     .msh-stp-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-    .msh-stp-ln{font-size:14px;font-weight:500;color:var(--gray1000,#e1e1e1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .msh-stp-ls{font-size:12px;color:var(--gray600,#7f7f7f);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .msh-stp-ln{font-size:14px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .msh-stp-ls{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .msh-pick-in{font:inherit;font-size:16px;color-scheme:dark}
   `;
 })();
@@ -11185,6 +11404,17 @@ try {
     .mdots button{width:13px;height:9px;display:grid;place-items:center}
     .mdots button span{width:5px;height:5px;border-radius:3px;background:currentColor;opacity:.3;transition:opacity .2s}
     .mdots button.on span{opacity:.9}
+    /* Fiks 35.3 · sveip: ned skjuler, venstre→høyre (første spiller) avdekker rødt «Fjern»-felt bak spilleren (1/3) */
+    .mini.drag{transition:opacity .25s ease,height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
+    .msw.st{touch-action:none}
+    .mrmf{position:fixed;z-index:22;height:64px;border-radius:40px;overflow:hidden;display:flex;align-items:stretch;background:var(--red, #f28073);color:var(--ki-on-accent, #232323);font-family:${M.FONT};opacity:0;pointer-events:none;transition:opacity .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .mrmf.on{opacity:1;pointer-events:auto}
+    .mrmb{width:33.34%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;color:inherit;border-radius:40px 0 0 40px}
+    .mrmb:active{background:rgb(0 0 0/0.08)}
+    .mundo{position:fixed;z-index:23;height:64px;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:${M.FONT}}
+    .mundo button{pointer-events:auto;height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));animation:mshMiniFade .2s ease-out}
+    .mundo.glass button{background:var(--ki-glass, rgba(40,40,44,0.5));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%);-webkit-backdrop-filter:blur(22px) saturate(190%)}
+    .mundo b{font-weight:600;color:var(--ki-pink-text, var(--pink, #f285c9))}
     @keyframes mshMiniFade{from{opacity:0}}
     @media (prefers-reduced-motion: reduce){.mini{transition:opacity .25s ease}.mini.off{--mo:0px}}
     @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:var(--ki-surface-3, #2f2f2f)}}
@@ -11490,6 +11720,8 @@ try {
         ['navbar', 'tune', 'Tilpass navbar', 'Knapper, plassering og stil', true],
         ['header', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, vær og personer', true],
         ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
+        // Fiks 35 (oppfølging 33.3): enhetsoversikten (gi nytt navn / nullstill / slett) lå før nederst i Innstillinger
+        ['devices', 'mdi:devices', 'Enheter', () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; }, !!(M.store && customElements.get('msh-settings-card'))],
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
@@ -11517,9 +11749,36 @@ try {
         const k = el.dataset.v;
         if (k === 'alt') return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } }));
         if (k === 'kiosk') return M.kioskSheet && M.kioskSheet(this);
+        if (k === 'devices') return this._devicesSheet();
         return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k } }));
       });
       this._tpSheet = ov;
+      return ov;
+    }
+    // Fiks 35 · «Enheter»-arket (Mer → Tilpass → Enheter): samme enhetsoversikt som før lå nederst i Innstillinger
+    // (msh-settings-card med view: 'devices' – gi nytt navn, nullstill, slett; lagres i ki-store devices.<id>).
+    _devicesSheet() {
+      if (this._dvSheet && !this._dvSheet.closed) return this._dvSheet;
+      const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
+        .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
+        .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+        .tpd{${M.DONE_PILL}}
+        .dvh{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 6px 10px;line-height:1.4}`;
+      const html = `<div class="tph"><span class="tpt">Enheter</span><button class="tpd" data-a="done">Ferdig</button></div>
+        <div class="dvh">Kamera og Person kan ha eget oppsett per enhet. Alt annet er felles for alle enhetene dine.</div><div class="dvw" data-dv></div>`;
+      const ov = M.overlay({ html, css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { this._dvSheet = null; } });
+      ov.host.setAttribute('data-enheter', '');
+      const card = document.createElement('msh-settings-card');
+      try { card.setConfig({ type: 'custom:msh-settings-card', card_id: 'tilpass-enheter', view: 'devices' }); } catch (e) { /* */ }
+      card.hass = this._hass || this.hass || M.lastHass;
+      const w = ov.root.querySelector('[data-dv]'); if (w) w.appendChild(card);
+      ov.root.addEventListener('click', (e) => {
+        const el = e.target.closest && e.target.closest('[data-a="done"]');
+        if (!el) return;
+        M.haptic('light');
+        ov.close();
+      });
+      this._dvSheet = ov;
       return ov;
     }
 
@@ -11875,7 +12134,7 @@ try {
       const popHide = mHidePopOn(m) && mPopOpen(); // Fiks 20.16: dekker også Media
       // Bubble setter .is-popup-opened litt etter hash-byttet: én ny sjekk per hash (ingen polling)
       if (mHidePopOn(m) && !popHide && location.hash && this._mPopT !== location.hash) { this._mPopT = location.hash; setTimeout(() => this._schedule(true), 450); }
-      const show = L.length > 0 && !popHide && !(m.hide_in_media !== false && location.hash === '#media');
+      const show = L.length > 0 && !popHide && !this._mGone && !(m.hide_in_media !== false && location.hash === '#media');
       if (L.length) this._mLast = L; else L = (this._mLast || []).filter((id) => h.states[id]); // behold innholdet mens den glir ut
       this._mShow = show;
       if (!L.length) return '';
@@ -11898,13 +12157,13 @@ try {
       if (geo.rail) {
         // Fiks 18.4/18.8: nederst til høyre, nøyaktig over høyre fliskolonne i Hjem (målt av msh-hjem-faner-card → M.hjemTCol)
         const T = this._tCol(geo);
-        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px))`;
+        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px)) translate(var(--mx,0px),var(--my,0px))`;
       }
       else {
         // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
         const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
         const dy = compact ? nh * 0.2 + 6.4 : 0;
-        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) scale(${compact ? 0.8 : 1})`;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) translate(var(--mx,0px),var(--my,0px)) scale(${compact ? 0.8 : 1})`;
       }
       const vo = this._mVolV;
       const rows = L.map((id) => {
@@ -11934,7 +12193,15 @@ try {
         </div>`;
       }).join('');
       const dots = L.length > 1 && !this._mExp ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
-      return `<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}" data-mini style="${pos}" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>`;
+      // Fiks 35.3: avdekket «Fjern»-felt (this._mRm) / pågående sveip (this._mDrag) → --mx/--my; angre-pille etter sveip-skjul
+      if (this._mRm && (!show || this._mExp || this._mRm.id !== this._mCur)) this._mRm = null;
+      const dr = this._mDrag, mx = dr ? dr.mx : this._mRm ? this._mRm.px : 0, my = dr ? dr.my : 0;
+      const rmOn = !!(this._mRm || (dr && dr.mx > 0));
+      const U = this._mUndo && Date.now() < this._mUndo.until && !show ? this._mUndo : null;
+      if (!U) this._mUndo = null;
+      const field = `<div class="mrmf${rmOn ? ' on' : ''}" data-mrmf style="${pos}" aria-hidden="${rmOn ? 'false' : 'true'}"><button class="mrmb" data-act="mrm" data-id="${esc(this._mCur || '')}" data-haptic="off" aria-label="Fjern mini-spilleren">${M.icon('mdi:trash-can-outline', 22)}<span>Fjern</span></button></div>`;
+      const undo = U ? `<div class="mundo${glass ? ' glass' : ''}" data-mundo style="${pos}"><button data-act="mundo" data-haptic="light">Mini-spilleren er skjult<b>Angre</b></button></div>` : '';
+      return `${field}<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}${dr ? ' drag' : ''}" data-mini style="${pos};--mx:${mx.toFixed(1)}px;--my:${my.toFixed(1)}px" aria-hidden="${show ? 'false' : 'true'}"><div class="msw${ci === 0 ? ' st' : ''}">${rows}</div>${dots}</div>${undo}`;
     }
     // Fiks 22.8 · utvidet mini-spiller (172 px): omslag/tekst (trykk → #media) + ⌄ · spole-slider (nåtid / −gjenstår) ·
     // ⏮ · −10 s · play/pause · +10 s · ⏭. Uten varighet/posisjon eller SEEK → slider deaktivert med «–» og uten ±10 s;
@@ -12015,18 +12282,24 @@ try {
       // Albumbildet feiler → ikon på farge (huskes, så det ikke prøves igjen ved neste render)
       sr.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('mimg')) { (this._mBad || (this._mBad = new Set())).add(t.getAttribute('src')); t.remove(); } }, true);
       // Et hold teller ikke som trykk
-      sr.addEventListener('click', (e) => { if (this._mSwallow && inMini(e)) { this._mSwallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+      sr.addEventListener('click', (e) => {
+        if (this._mSwallow && inMini(e)) { this._mSwallow = false; e.stopPropagation(); e.preventDefault(); return; }
+        if (this._mRm && inMini(e)) { e.stopPropagation(); e.preventDefault(); M.haptic('light'); this._miniRmClose(); } // 35.3: trykk lukker «Fjern»
+      }, true);
       sr.addEventListener('scroll', (e) => {
         const sw = e.target;
         if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
         const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
         if (row && row.dataset.mid) this._mCur = row.dataset.mid;
+        sw.classList.toggle('st', sw.scrollLeft <= 2); // 35.3: touch-action none ved scroll-start (sveip høyre = fjern), ellers pan-x
         if (this._mExp && this._mCur !== this._mExp) { this._mExp = null; this._schedule(true); } // 22.8: bytt spiller lukker
         sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
       }, true);
       sr.addEventListener('pointerdown', (e) => {
         if (e.button || !inMini(e)) return;
         e.stopPropagation();
+        const mini = hit(e, '[data-mini]');
+        if (this._mRm) return this._miniSwipe(e, mini); // 35.3: «Fjern» avdekket → bare sveip / trykk lukker
         const sk = hit(e, '.mseek[data-set="1"]');
         if (sk) return this._miniSeekDrag(sk, e); // Fiks 22.8
         if (hit(e, '.mseek')) return undefined;
@@ -12050,6 +12323,7 @@ try {
         }
         const pp = hit(e, '.mpp[data-act="mplay"]');
         if (pp) return this._miniSkipDrag(pp, e); // Fiks 20.20: trykk / hold 550 ms / dra
+        this._miniSwipe(e, mini); // 35.3: sveip ned / høyre / venstre (holdet under avbrytes av bevegelse > 8 px)
         const el = hit(e, '[data-mhold]');
         if (!el) return;
         const x0 = e.clientX, y0 = e.clientY, kind = el.dataset.mhold, id = el.dataset.id;
@@ -12111,6 +12385,8 @@ try {
             if (Math.abs(dy) > Math.abs(dx)) vert = true;
           }
           if (vert) {
+            // 35.3: sveip ned på play (ikke utvidet) = samme som sveip ned ellers → skjul / fjær tilbake
+            if (!vdone && dy > 0 && this._mExp !== id && mini) { vdone = true; end(); this._miniSwipe({ clientX: x0, clientY: y0, pointerId: pid, pointerType: ev.pointerType }, mini, 'v', ev); return; }
             if (vdone || Math.abs(dy) < 20) return;
             const exp = this._mExp === id;
             if (dy < 0 ? exp : !exp) return;
@@ -12137,7 +12413,7 @@ try {
       const up = (ev) => {
         ev.stopPropagation();
         end();
-        if (vert) { this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400); return; } // 22.8: sveip gir ikke spill/pause
+        if (vert) { if (this._mSwipeOn) return; this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400); return; } // 22.8: sveip gir ikke spill/pause
         if (!sk) return; // vanlig trykk → klikket gir spill/pause
         this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400); // klikket etter slipp spises
         if (ev.type === 'pointerup' && sel) {
@@ -12156,6 +12432,151 @@ try {
         M.haptic('medium');
         this._miniHold('hide', id);
       }, 550);
+    }
+    // Fiks 35.3 · sveip i mini-spilleren (i tillegg til hold på play + kryss):
+    //  · ned > 56 px eller rask fling → glir ut og skjules (alle spillere, som hold); kortere → fjærer tilbake
+    //  · venstre → høyre bare når første spiller vises (sporet har touch-action:none ved scroll-start, ellers pan-x):
+    //    > 40 px → spilleren legger seg 1/3 ut og avdekker rødt felt (søppel + «Fjern») + toast; nytt sveip > 24 px eller
+    //    «Fjern» → glir helt ut; trykk eller sveip tilbake → lukker; > 60 % av bredden → fjernes direkte
+    //  · venstre = neste spiller som før (manuell rulling når sporet har touch-action:none / mus) · utvidet: ned lukker utvidelsen
+    //  setPointerCapture først når retningen er bestemt (trykk på knapper virker som før), stopPropagation, haptic
+    //  selection ved terskler og medium ved fjern. pre = retning bestemt av kalleren (play-knappen), ev0 = første flytt.
+    _miniSwipe(e, mini, pre, ev0) {
+      const sr = this._portal && this._portal.shadowRoot;
+      if (!mini || !sr) return;
+      const sw = mini.querySelector('.msw'), x0 = e.clientX, y0 = e.clientY, pid = e.pointerId;
+      const W = mini.offsetWidth || 1, cw = (sw && sw.clientWidth) || W, id = this._mCur, exp = !!this._mExp;
+      const rm0 = this._mRm ? this._mRm.px : 0, sl0 = sw ? sw.scrollLeft : 0, atStart = sl0 <= 2;
+      const manual = e.pointerType !== 'touch' || !!(sw && sw.classList.contains('st')); // pan-x → nettleseren ruller selv
+      let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0;
+      const pts = [[e.timeStamp || performance.now(), x0, y0]];
+      const field = () => sr.querySelector('[data-mrmf]');
+      const put = (x, y) => { mx = x; my = y; this._mDrag = { mx, my }; mini.style.setProperty('--mx', x.toFixed(1) + 'px'); mini.style.setProperty('--my', y.toFixed(1) + 'px'); };
+      const thr = {};
+      const cross = (k, on) => { if (!!thr[k] !== on) { thr[k] = on; M.haptic('selection'); } };
+      const start = () => {
+        if (cap) return;
+        cap = true; this._mSwipeOn = true;
+        clearTimeout(this._mHold);
+        try { mini.setPointerCapture(pid); } catch (x) { /* */ }
+        if (mode === 'v' || mode === 'rm') { mini.classList.add('drag'); put(mx, my); }
+        if (mode === 'rm') { const f = field(); if (f) f.classList.add('on'); }
+        if (mode === 'sc' && sw) sw.style.scrollSnapType = 'none';
+      };
+      const mv = (ev) => {
+        if (ev.pointerId !== pid) return;
+        ev.stopPropagation();
+        dx = ev.clientX - x0; dy = ev.clientY - y0;
+        pts.push([ev.timeStamp || performance.now(), ev.clientX, ev.clientY]); if (pts.length > 6) pts.shift();
+        if (!mode) {
+          if (Math.hypot(dx, dy) < 8) return;
+          if (Math.abs(dy) > Math.abs(dx)) mode = exp ? (dy > 0 ? 'xv' : 'no') : dy > 0 ? 'v' : 'no';
+          else mode = exp ? 'sc' : rm0 || (dx > 0 && atStart) ? 'rm' : 'sc';
+          if (mode === 'no' || (mode === 'sc' && !manual)) { stop(); return; }
+        }
+        if (ev.cancelable) ev.preventDefault();
+        start();
+        if (mode === 'v') { put(0, dy > 0 ? dy : dy * 0.15); cross('d', dy > 56); }
+        else if (mode === 'xv') { if (dy > 40) { mode = 'done'; this._mSwallow = true; M.haptic('light'); this._mExp = null; this._mVolId = null; this._schedule(true); } }
+        else if (mode === 'rm') { const x = rm0 + dx; put(x > 0 ? x : x * 0.15, 0); if (!rm0) cross('r', x > 40); cross('f', x > W * 0.6); }
+        else if (mode === 'sc' && sw) sw.scrollLeft = sl0 - dx;
+      };
+      const stop = () => {
+        mini.removeEventListener('pointermove', mv); mini.removeEventListener('pointerup', up); mini.removeEventListener('pointercancel', up);
+        try { if (cap) mini.releasePointerCapture(pid); } catch (x) { /* */ }
+        setTimeout(() => { this._mSwipeOn = false; }, 0);
+      };
+      const up = (ev) => {
+        if (ev.pointerId !== pid) return;
+        ev.stopPropagation();
+        stop();
+        if (!cap) return; // trykk → klikket gjør jobben (i «Fjern»-tilstand: lukker)
+        this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400);
+        const cancel = ev.type === 'pointercancel';
+        let vy = 0;
+        if (pts.length > 1) { const a = pts[0], b = pts[pts.length - 1], dt = Math.max(1, b[0] - a[0]); vy = (b[2] - a[2]) / dt; }
+        if (mode === 'v') {
+          if (!cancel && (my > 56 || (vy > 0.5 && my > 16))) return this._miniRmGo('down', mini);
+          return this._miniRmClose(mini);
+        }
+        if (mode === 'rm') {
+          if (!cancel && mx > W * 0.6) return this._miniRmGo('right', mini);
+          if (rm0) {
+            if (!cancel && dx > 24) return this._miniRmGo('right', mini);
+            if (dx < -12 || cancel) return this._miniRmClose(mini);
+            return this._miniRmOpen(mini, rm0, id);
+          }
+          if (!cancel && mx > 40) {
+            this._miniRmOpen(mini, W / 3, id);
+            if (this.config.toasts !== false) M.toast('Vil du fjerne? Sveip igjen eller trykk Fjern', { icon: 'mdi:trash-can-outline' });
+            return undefined;
+          }
+          return this._miniRmClose(mini);
+        }
+        if (mode === 'sc' && sw) {
+          sw.style.scrollSnapType = '';
+          const n = sw.children.length, i0 = Math.round(sl0 / cw);
+          const i = Math.max(0, Math.min(n - 1, Math.abs(dx) > 40 ? i0 + (dx < 0 ? 1 : -1) : i0));
+          if (i !== i0) M.haptic('selection');
+          sw.scrollTo({ left: i * cw, behavior: 'smooth' });
+        }
+        return undefined;
+      };
+      mini.addEventListener('pointermove', mv); mini.addEventListener('pointerup', up); mini.addEventListener('pointercancel', up);
+      if (pre) { start(); if (ev0) mv(ev0); }
+    }
+    // «Fjern»-feltet avdekket: spilleren står 1/3 ut (px), haptic selection
+    _miniRmOpen(mini, px, id) {
+      this._mDrag = null; this._mRm = { id, px };
+      if (mini) { mini.classList.remove('drag'); mini.style.setProperty('--mx', px.toFixed(1) + 'px'); mini.style.setProperty('--my', '0px'); }
+      const f = this._portal && this._portal.shadowRoot.querySelector('[data-mrmf]'); if (f) f.classList.add('on');
+      M.haptic('selection');
+      this._schedule(true);
+    }
+    // Lukk «Fjern» / fjær tilbake etter et kort sveip
+    _miniRmClose(mini) {
+      mini = mini || (this._portal && this._portal.shadowRoot.querySelector('[data-mini]'));
+      this._mDrag = null; this._mRm = null;
+      if (mini) { mini.classList.remove('drag'); mini.style.setProperty('--mx', '0px'); mini.style.setProperty('--my', '0px'); }
+      const f = this._portal && this._portal.shadowRoot.querySelector('[data-mrmf]');
+      clearTimeout(this._mRmT);
+      this._mRmT = setTimeout(() => { if (f && !this._mRm && !this._mDrag) f.classList.remove('on'); }, 220);
+      this._schedule(true);
+    }
+    // Glir helt ut (ned / høyre) og skjules til neste avspilling (som hold på play) – med «Angre»
+    _miniRmGo(dir, mini) {
+      mini = mini || (this._portal && this._portal.shadowRoot.querySelector('[data-mini]'));
+      const id = this._mCur;
+      M.haptic('medium');
+      this._mGone = true;
+      if (mini) {
+        mini.classList.remove('drag');
+        const W = mini.offsetWidth || 400, H = mini.offsetHeight || 64;
+        this._mDrag = dir === 'down' ? { mx: 0, my: H + 120 } : { mx: W + 40, my: 0 };
+        mini.style.setProperty('--mx', this._mDrag.mx + 'px'); mini.style.setProperty('--my', this._mDrag.my + 'px');
+        mini.classList.add('off');
+      }
+      const f = this._portal && this._portal.shadowRoot.querySelector('[data-mrmf]'); if (f) f.classList.remove('on');
+      clearTimeout(this._mGoT);
+      this._mGoT = setTimeout(() => {
+        this._mDrag = null; this._mRm = null; this._mGone = false;
+        const prev = mStore.get();
+        this._miniHide(id);
+        this._mUndo = { prev, until: Date.now() + 5000 };
+        clearTimeout(this._mUndoT);
+        this._mUndoT = setTimeout(() => { this._mUndo = null; this._schedule(true); }, 5100);
+        this._schedule(true);
+      }, 260);
+    }
+    // Skjul mini-spilleren til neste avspilling (19.7: avspillingen fortsetter)
+    _miniHide() {
+      const h = this.hass;
+      if (!h) return;
+      const snap = {};
+      (this._mLast || []).concat(M.all(h, 'media_player')).forEach((x) => { const t = h.states[x]; if (t) snap[x] = { st: t.state, sig: mSig(t) }; });
+      mStore.set({ s: snap, t: Date.now() });
+      this._mVolId = null; this._mExp = null;
+      this._schedule(true);
     }
     // Dra på volum-pillen → volume_set (throttlet 150 ms), pillen lukkes 3 s etter siste justering
     _miniVolDrag(vp, e) {
@@ -12214,12 +12635,8 @@ try {
         return toast(mute ? 'Dempet' : 'Lyd på');
       }
       if (kind === 'hide') {
-        const snap = {};
-        (this._mLast || []).concat(M.all(h, 'media_player')).forEach((x) => { const t = h.states[x]; if (t) snap[x] = { st: t.state, sig: mSig(t) }; });
-        mStore.set({ s: snap, t: Date.now() });
         // Fiks 19.7: skjuler BARE mini-spilleren – ingen media_pause/media_play_pause, avspillingen fortsetter uendret
-        this._mVolId = null;
-        this._schedule(true);
+        this._miniHide(id);
         return toast('Mini-spilleren er skjult');
       }
       return undefined;
@@ -12230,6 +12647,8 @@ try {
       if (name === 'mvol') { this._mVolId = this._mVolId === id ? null : id; if (this._mVolId) this._miniVolTimer(); return this._schedule(true); }
       if (name === 'mvstep') return this._miniStep(id, Number(el.dataset.d));
       if (name === 'mexp') { this._mExp = null; return this._schedule(true); } // 22.8: ⌄ lukker
+      if (name === 'mrm') return this._miniRmGo('right'); // 35.3: «Fjern» i det røde feltet
+      if (name === 'mundo') { mStore.set(this._mUndo ? this._mUndo.prev : null); this._mUndo = null; this._mFresh = true; return this._schedule(true); }
       if (name === 'mxtrk') return M.call(h, 'media_player', Number(el.dataset.d) < 0 ? 'media_previous_track' : 'media_next_track', { entity_id: id });
       if (name === 'mx10') {
         const P = mPos(h.states[id]), sv = this._mSeekV, cur = sv && sv.id === id && Date.now() - sv.t < 2500 ? sv.v : P.pos;
@@ -12298,7 +12717,7 @@ try {
         else if (M.tap) M.tap.run(this, tapOf(N, id)); // dashbord-sti / URL
         return;
       }
-      if (name[0] === 'm' && /^m(play|vol|vstep|dot|row|exp|x10|xtrk)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
+      if (name[0] === 'm' && /^m(play|vol|vstep|dot|row|exp|x10|xtrk|rm|undo)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
         this.setUI({ menu: false });
@@ -12937,7 +13356,7 @@ try {
       const shown = items.filter((x) => filter === 'all' || (filter === 'open' ? !x.done : filter === 'done' ? x.done : x.prio === 'h' && !x.done))
         .sort((p, q) => (p.done - q.done) || (c.priority !== false ? ORD[p.prio] - ORD[q.prio] : 0) || p.i - q.i);
       const prio = ui.prio || 'm';
-      const tag = (p) => `font-size:11px;font-weight:600;padding:3px 8px;border-radius:8px;background:${M.alpha(PR[p][1], 0.18)};color:${PR[p][1]};white-space:nowrap`;
+      const tag = (p) => `font-size:11px;font-weight:600;padding:3px 8px;border-radius:8px;background:${M.alpha(PR[p][1], 0.18)};color:${M.theme.accentText(PR[p][1])};white-space:nowrap`;
       const headline = !loaded ? '–' : open ? `${open} gjenstår` : 'Alt er gjort';
       const subline = !loaded ? (this.isOpen ? 'Henter oppgaver …' : '–') : `${items.length} oppgaver · ${done} fullført`;
       const pct = loaded && items.length ? (done / items.length) * 100 : 0;
@@ -12952,8 +13371,8 @@ try {
       const rows = shown.map((x, i) => {
         if (E && E.uid === x.uid) return this._redRad(x, i, E, canDesc, feat, tag);
         const meta = [x.done ? 'Fullført' : '', c.show_who !== false ? x.who : '', c.show_who !== false ? dueTxt(x.due) : ''].filter(Boolean).join(' · ');
-        return `<div class="it ${x.done ? 'done' : ''}" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
-          <button class="box" data-act="check" data-uid="${esc(x.uid)}" data-haptic="success" title="${x.done ? 'Marker som ikke fullført' : 'Fullfør'}">${M.icon('check', 18, 'color:#282828')}</button>
+        return `<div class="it ${x.done ? 'done' : ''}" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'none'}">
+          <button class="box" data-act="check" data-uid="${esc(x.uid)}" data-haptic="success" title="${x.done ? 'Marker som ikke fullført' : 'Fullfør'}">${M.icon('check', 18, 'color:var(--ki-on-accent, #282828)')}</button>
           <div class="tx">
             <span class="t" ${canEdit && x.uid.indexOf('__new') !== 0 ? `data-act="edit" data-uid="${esc(x.uid)}" data-haptic="light" title="Trykk for å redigere"` : ''}>${esc(x.summary)}</span>
             ${c.priority !== false || meta ? `<div class="mt">${c.priority !== false ? `<button class="pt" ${canDesc ? `data-act="cycle" data-uid="${esc(x.uid)}" data-haptic="selection" title="Bytt prioritet"` : 'disabled'} style="${tag(x.prio)}">${PR[x.prio][0]}</button>` : ''}${meta ? `<span class="who">${esc(meta)}</span>` : ''}</div>` : ''}
@@ -12970,7 +13389,7 @@ try {
         </section>
         <div class="tabs noscroll" style="${cols}">${tabs}</div>
         ${feat & F_CREATE || !st ? `<form class="add" data-act="add" data-haptic="off">
-          ${M.icon('add', 20, 'color:var(--gray500,#696969)')}
+          ${M.icon('add', 20, 'color:var(--ki-text-lo, var(--gray500,#696969))')}
           <input data-input="draft" placeholder="Ny oppgave" enterkeyhint="done" autocomplete="off">
           ${canDesc ? `<button type="button" class="dp press" data-act="prio" data-haptic="selection" style="${tag(prio)};height:32px;padding:0 12px;border-radius:16px;font-size:12px">${PR[prio][0]}</button>` : ''}
         </form>` : ''}
@@ -12986,7 +13405,7 @@ try {
     // Rad i redigeringsmodus: tekstfelt med rosa kant + prioritet · Kopier · Slett · Avbryt · Lagre (26.19)
     _redRad(x, i, E, canDesc, feat, tag) {
       const pr = E.prio || x.prio;
-      return `<div class="it red" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
+      return `<div class="it red" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'none'}">
         <div class="tx">
           <textarea class="ed" data-input="edtext" data-key="ed-${esc(x.uid)}" rows="1" enterkeyhint="done" autocapitalize="sentences" aria-label="Rediger oppgave">${esc(E.text)}</textarea>
           <div class="ea">
@@ -13113,44 +13532,44 @@ try {
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,20px)}
         .head{display:flex;flex-direction:column;gap:6px;padding:0 4px}
         .hl{font-size:24px;font-weight:500;letter-spacing:-0.015em}
-        .sl{font-size:14px;color:var(--gray600,#7f7f7f)}
-        .prog{height:6px;border-radius:3px;background:var(--gray200,#3a3a3a);overflow:hidden;margin-top:8px}
+        .sl{font-size:14px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .prog{height:6px;border-radius:3px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;margin-top:8px}
         .prog>div{height:100%;border-radius:3px;background:${C.green};transition:width .4s}
-        .tabs{display:grid;gap:2px;padding:4px;border-radius:20px;background:var(--gray200,#3a3a3a)}
-        .tab{height:40px;min-width:0;padding:0 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;background:transparent;color:var(--gray700,#979797);transition:background .25s,color .25s}
-        .tab.on{background:${C.accent};color:var(--gray200,#3a3a3a)}
-        .cnt{min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--gray300,#404040);flex:none}
+        .tabs{display:grid;gap:2px;padding:4px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .tab{height:40px;min-width:0;padding:0 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;background:transparent;color:var(--ki-text-mid, var(--gray700,#979797));transition:background .25s,color .25s}
+        .tab.on{background:${C.accent};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+        .cnt{min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
         .tab.on .cnt{background:rgba(42,23,32,0.14)}
-        .add{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;border-radius:26px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+        .add{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .add input{flex:1;min-width:0;height:100%;font-size:14px}
         .dp{flex:none}
         .flt{display:flex;gap:6px;flex-wrap:wrap}
-        .f{height:32px;padding:0 13px;border-radius:16px;font-size:12px;font-weight:500;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .f.on{background:var(--white,#fafafa);color:#282828}
+        .f{height:32px;padding:0 13px;border-radius:16px;font-size:12px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .f.on{background:var(--ki-pill-bg, var(--white,#fafafa));color:var(--ki-pill-fg, #282828)}
         .list{display:flex;flex-direction:column}
         .it{display:flex;align-items:flex-start;gap:12px;padding:12px 4px;transition:opacity .2s}
         .it.done{opacity:.55}
-        .box{width:26px;height:26px;border-radius:9px;flex:none;margin-top:1px;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1.5px var(--gray400,#545454);transition:background .2s}
+        .box{width:26px;height:26px;border-radius:9px;flex:none;margin-top:1px;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1.5px var(--ki-text-3, var(--gray400,#545454));transition:background .2s}
         .box ha-icon{opacity:0;transition:opacity .2s}
         .it.done .box{background:${C.green};box-shadow:none}
         .it.done .box ha-icon{opacity:1}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
         .t{font-size:14px;line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere;white-space:pre-wrap;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;cursor:text}
-        .ed{width:100%;box-sizing:border-box;min-height:44px;resize:none;overflow:hidden;font:inherit;font-size:14px;line-height:1.4;color:#fafafa;background:var(--gray300,#404040);border:0;outline:none;border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px ${C.pink};user-select:text;-webkit-user-select:text;touch-action:auto}
+        .ed{width:100%;box-sizing:border-box;min-height:44px;resize:none;overflow:hidden;font:inherit;font-size:14px;line-height:1.4;color:var(--ki-text, #fafafa);background:var(--ki-surface-2, var(--gray300,#404040));border:0;outline:none;border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px ${C.pink};user-select:text;-webkit-user-select:text;touch-action:auto}
         .ea{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
         .ea .sp{flex:1}
-        .eb{height:30px;padding:0 10px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--gray300,#404040);color:var(--gray900,#c7c7c7);--mdc-icon-size:16px}
-        .eb.del{color:${C.red}}
-        .eb.lagre{background:${C.pink};color:#282828}
-        .eb.ok,.rm.ok,.cpa.ok{color:${C.green}}
+        .eb{height:30px;padding:0 10px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray900,#c7c7c7));--mdc-icon-size:16px}
+        .eb.del{color:${M.theme.accentText(C.red)}}
+        .eb.lagre{background:${C.pink};color:var(--ki-on-accent, #282828)}
+        .eb.ok,.rm.ok,.cpa.ok{color:${M.theme.accentText(C.green)}}
         .cpa{margin-left:auto;display:inline-flex;align-items:center;gap:5px;--mdc-icon-size:16px}
         .cpa[disabled]{opacity:.4}
         .it.done .t{text-decoration:line-through}
         .mt{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
         .pt[disabled]{cursor:default}
-        .who{font-size:11px;color:var(--gray500,#696969)}
-        .rm{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--gray500,#696969);flex:none}
-        .none{padding:30px 0;text-align:center;font-size:14px;color:var(--gray500,#696969)}
+        .who{font-size:11px;color:var(--ki-text-lo, var(--gray500,#696969))}
+        .rm{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-lo, var(--gray500,#696969));flex:none}
+        .none{padding:30px 0;text-align:center;font-size:14px;color:var(--ki-text-lo, var(--gray500,#696969))}
       `;
     }
   }
@@ -13172,7 +13591,7 @@ try {
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const GRAY = 'var(--gray600,#7f7f7f)';
+  const GRAY = 'var(--ki-text-3, var(--gray600,#7f7f7f))';
   const AV_COLS = [C.orange, C.pink, C.blue, C.green, C.purple, C.yellow];
 
   /* ------------------------------------------------------------ oppslag */
@@ -13303,7 +13722,7 @@ try {
         <div class="av press" ${p ? `data-act="more" data-id="${esc(pid)}" data-ent="${esc(pid)}"` : 'data-act="customize"'} title="${esc(name)}">
           <div class="halo" style="box-shadow:0 0 0 2px ${M.alpha(zc, 0.55)},0 0 40px ${M.alpha(zc, 0.25)}"></div>
           <div class="img" style="background:${pic ? `center/cover no-repeat url('${esc(pic)}'), ${bg}` : bg};opacity:${away ? 0.75 : 1}">${pic ? '' : esc(p ? (name.trim()[0] || '?').toUpperCase() : '?')}</div>
-          <span class="zb" style="color:${zc}">${M.icon(zi, 18)}</span>
+          <span class="zb" style="color:${M.theme.accentText(zc)}">${M.icon(zi, 18)}</span>
         </div>
         <div class="txt">
           <div class="nm">${esc(name)}</div>
@@ -13318,13 +13737,13 @@ try {
         .hero{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 0}
         .av{position:relative;width:132px;height:132px;flex:none}
         .halo{position:absolute;inset:-8px;border-radius:50%;transition:box-shadow .4s}
-        .img{position:relative;width:132px;height:132px;border-radius:66px;display:grid;place-items:center;font-size:48px;font-weight:600;color:var(--white,#fafafa);overflow:hidden}
-        .zb{position:absolute;right:0;bottom:4px;width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--gray300,#404040);box-shadow:0 0 0 3px #282828}
+        .img{position:relative;width:132px;height:132px;border-radius:66px;display:grid;place-items:center;font-size:48px;font-weight:600;color:var(--ki-text, var(--white,#fafafa));overflow:hidden}
+        .zb{position:absolute;right:0;bottom:4px;width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:0 0 0 3px var(--ki-popup, #282828)}
         .txt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
         .nm{font-size:26px;font-weight:500;letter-spacing:-0.015em}
-        .zl{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--gray900,#c7c7c7)}
+        .zl{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .zd{width:8px;height:8px;border-radius:4px;flex:none}
-        .since{font-size:13px;color:var(--gray600,#7f7f7f)}
+        .since{font-size:13px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .pick{margin-top:6px}
       `;
     }
@@ -13332,7 +13751,7 @@ try {
   M.define('msh-person-hero-card', PersonHero, 'MSH Person · toppkort', 'Avatar (entity_picture), sone-glorie, sted og «siden». Første kort i #person-<id>.');
 
   /* ------------------------------------------------------------ hovedkort */
-  const STAGES = [['awake', 'Våken', 'var(--gray600,#7f7f7f)', 35], ['light', 'Lett', C.blue, 60], ['deep', 'Dyp', C.purple, 100], ['rem', 'REM', C.purple, 80]];
+  const STAGES = [['awake', 'Våken', 'var(--ki-text-3, var(--gray600,#7f7f7f))', 35], ['light', 'Lett', C.blue, 60], ['deep', 'Dyp', C.purple, 100], ['rem', 'REM', C.purple, 80]];
   const SECS = [['stats', 'Nøkkeltall'], ['sleep', 'Søvn i natt'], ['mobil', 'Mobil'], ['zones', 'Soner i dag']];
   const ZCACHE = new Map();
 
@@ -13409,7 +13828,7 @@ try {
       let dist = '–';
       if (ds && M.isNum(ds.state)) { const v = Number(ds.state), u = String(ds.attributes.unit_of_measurement || 'm'); const km = u === 'km' ? v : u === 'mi' ? v * 1.609 : v / 1000; dist = `${M.nf(km, km < 10 ? 1 : 0)} km`; }
       const tiles = [['directions_walk', st != null ? M.nf(st, 0) : '–', 'skritt', C.green, e.steps], ['mdi:map-marker-distance', dist, 'reist i dag', C.blue, e.distance], ['bedtime', sc != null ? M.nf(sc, 0) : '–', 'søvnscore', C.purple, e.sleep_score]];
-      return `<section class="stats">${tiles.map(([ic, v, l, col, id]) => `<div class="tile" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 20, `color:${col}`)}<div class="tv"><span class="v num">${esc(v)}</span><span class="l">${esc(l)}</span></div></div>`).join('')}</section>`;
+      return `<section class="stats">${tiles.map(([ic, v, l, col, id]) => `<div class="tile" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 20, `color:${M.theme.accentText(col)}`)}<div class="tv"><span class="v num">${esc(v)}</span><span class="l">${esc(l)}</span></div></div>`).join('')}</section>`;
     }
     _sleep(h, e) {
       const dur = mins(this.s(e.sleep_duration)), sc = this.n(e.sleep_score), s0 = this.s(e.sleep_start);
@@ -13418,10 +13837,10 @@ try {
       const stage = { awake: mins(this.s(e.sleep_awake)), light: mins(this.s(e.sleep_light)), deep: mins(this.s(e.sleep_deep)), rem: mins(this.s(e.sleep_rem)) };
       const hasSt = Object.values(stage).some((v) => v != null && v > 0);
       const good = sc != null && sc >= 80, col = good ? C.green : C.orange;
-      const chip = sc != null ? `<div class="sc" style="background:${M.alpha(col, 0.16)};color:${col}">${sc >= 80 ? 'God natt' : sc >= 70 ? 'Grei natt' : 'Urolig natt'}</div>` : '';
+      const chip = sc != null ? `<div class="sc" style="background:${M.alpha(col, 0.16)};color:${M.theme.accentText(col)}">${sc >= 80 ? 'God natt' : sc >= 70 ? 'Grei natt' : 'Urolig natt'}</div>` : '';
       const blocks = hasSt
         ? STAGES.filter(([k]) => stage[k] > 0).map(([k, , col2, ht]) => `<span style="flex:${stage[k].toFixed(1)};background:${col2};opacity:${k === 'awake' ? 0.5 : 1};height:${ht}%"></span>`).join('')
-        : '<span style="flex:1;background:var(--gray200,#3a3a3a);height:100%"></span>';
+        : '<span style="flex:1;background:var(--ki-surface, var(--gray200,#3a3a3a));height:100%"></span>';
       const legend = STAGES.map(([k, l, col2]) => `<span class="lg"><span class="ld" style="background:${col2}"></span>${l}<span class="lv num">${stage[k] != null ? M.nf(stage[k], 0) + ' min' : '–'}</span></span>`).join('');
       // 7 netter fra historikk (siste verdi per døgn), i natt uthevet
       const days = [];
@@ -13434,7 +13853,7 @@ try {
         days.push({ v, d: i === 0 ? 'i n' : d0.toLocaleDateString('nb-NO', { weekday: 'short' }).slice(0, 2) });
       }
       const wmax = Math.max(1, ...days.map((x) => x.v || 0));
-      const week = days.map((x, i) => `<div class="wd"><div class="wb" style="height:${x.v ? Math.max(4, (x.v / wmax) * 100) : 4}%;background:${x.v ? (i === 6 ? C.purple : M.alpha(C.purple, 0.35)) : 'var(--gray200,#3a3a3a)'}"></div><span>${esc(x.d)}</span></div>`).join('');
+      const week = days.map((x, i) => `<div class="wd"><div class="wb" style="height:${x.v ? Math.max(4, (x.v / wmax) * 100) : 4}%;background:${x.v ? (i === 6 ? C.purple : M.alpha(C.purple, 0.35)) : 'var(--ki-surface-3, var(--gray200,#3a3a3a))'}"></div><span>${esc(x.d)}</span></div>`).join('');
       const hh = dur != null ? Math.floor(dur / 60) : null, mm = dur != null ? Math.round(dur % 60) : null;
       return `<section class="sleep" ${e.sleep_duration ? `data-ent="${esc(e.sleep_duration)}"` : ''}>
         ${this._title('Søvn i natt', win)}
@@ -13455,7 +13874,7 @@ try {
       const net = cn && !M.unavailable(cn) ? (wifi ? 'Wi-Fi' : cell ? 'Mobildata' : cs) : '';
       const [zl] = M.zoneInfo(h, p.state);
       const sub = [charging ? 'Lader' : '', net, zl].filter(Boolean).join(' · ');
-      const barCol = bat != null && bat < 20 ? C.red : charging ? C.green : 'var(--white,#fafafa)';
+      const barCol = bat != null && bat < 20 ? C.red : charging ? C.green : 'var(--ki-text, var(--white,#fafafa))';
       const chips = [];
       if (bs || ch) chips.push([charging ? 'battery_charging_full' : 'battery_5_bar', charging ? 'Lader' : 'På batteri', e.charging || e.battery_state]);
       if (net) chips.push([wifi ? 'wifi' : 'signal_cellular_alt', net, e.connection]);
@@ -13471,13 +13890,13 @@ try {
             <span class="ps">${esc(sub || '–')}</span>
           </div>
         </div>
-        ${chips.length ? `<div class="chips">${chips.map(([ic, l, id]) => `<span class="chip" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 16, 'color:var(--gray600,#7f7f7f)')}${esc(l)}</span>`).join('')}</div>` : ''}
+        ${chips.length ? `<div class="chips">${chips.map(([ic, l, id]) => `<span class="chip" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 16, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}${esc(l)}</span>`).join('')}</div>` : ''}
       </section>`;
     }
     _zones(h, e) {
       const log = this._zoneLog(h, e.pid);
       const rows = log.map(([t, sub, time, col], i) => `<div class="zr" data-key="z${i}">
-          <div class="zc"><span class="zdot" style="background:${col}"></span><span class="zline" style="background:${i < log.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
+          <div class="zc"><span class="zdot" style="background:${col}"></span><span class="zline" style="background:${i < log.length - 1 ? 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'transparent'}"></span></div>
           <div class="zt"><div class="zx"><div class="z1">${esc(t)}</div>${sub ? `<div class="z2">${esc(sub)}</div>` : ''}</div><div class="z3 num">${esc(hm(time))}</div></div>
         </div>`).join('');
       return `<section class="zones">${this._title('Soner i dag')}<div class="zl">${rows || `<div class="none">${this._zlog == null ? '–' : 'Ingen soneendringer i dag'}</div>`}</div></section>`;
@@ -13487,40 +13906,40 @@ try {
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,22px)}
         section{display:flex;flex-direction:column;gap:8px}
         .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
-        .st{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
-        .sr{font-size:12px;color:var(--gray500,#696969)}
+        .st{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .sr{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-        .tile{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:18px;background:var(--gray200,#3a3a3a);min-width:0}
+        .tile{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .tv{display:flex;flex-direction:column;gap:1px;min-width:0}
         .tv .v{font-size:17px;font-weight:500;white-space:nowrap}
-        .tv .l{font-size:11px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .tv .l{font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
         .sleep{gap:12px}
         .sb{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 4px}
         .big{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;white-space:nowrap}
-        .big .u{font-size:15px;color:var(--gray600,#7f7f7f);letter-spacing:0}
+        .big .u{font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f));letter-spacing:0}
         .sc{font-size:12px;font-weight:600;padding:5px 10px;border-radius:10px;white-space:nowrap}
         .blocks{display:flex;height:40px;border-radius:12px;overflow:hidden;gap:2px;align-items:flex-end}
         .blocks span{border-radius:4px;min-width:3px}
         .legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 4px}
-        .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray700,#979797);white-space:nowrap}
+        .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap}
         .ld{width:8px;height:8px;border-radius:4px}
-        .lv{color:var(--gray500,#696969)}
+        .lv{color:var(--ki-text-lo, var(--gray500,#696969))}
         .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:64px;align-items:end;padding-top:6px}
         .wd{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
         .wb{width:100%;max-width:26px;border-radius:6px}
-        .wd span{font-size:10px;color:var(--gray500,#696969)}
+        .wd span{font-size:10px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .sleep .pick{align-self:flex-start}
-        .phone{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--gray200,#3a3a3a)}
-        .pi{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
+        .phone{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .pi{width:40px;height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
         .pc{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
         .pr{display:flex;justify-content:space-between;gap:10px}
         .pm{font-size:14px;font-weight:500}
         .pb{font-size:13px;font-weight:500;flex:none}
-        .bar{height:5px;border-radius:3px;background:var(--gray300,#404040);overflow:hidden}
+        .bar{height:5px;border-radius:3px;background:var(--ki-surface-2, var(--gray300,#404040));overflow:hidden}
         .bar>div{height:100%;border-radius:3px;transition:width .4s}
-        .ps{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .ps{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .chips{display:flex;gap:6px;flex-wrap:wrap}
-        .chip{height:30px;padding:0 11px 0 8px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);white-space:nowrap}
+        .chip{height:30px;padding:0 11px 0 8px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap}
         .zl{display:flex;flex-direction:column;padding-left:4px}
         .zr{display:flex;gap:14px;align-items:stretch}
         .zc{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}
@@ -13529,9 +13948,9 @@ try {
         .zt{flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px;min-width:0}
         .zx{display:flex;flex-direction:column;gap:2px;min-width:0}
         .z1{font-size:14px}
-        .z2,.z3{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .z2,.z3{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .z3{flex:none}
-        .none{padding:6px 0 4px;font-size:13px;color:var(--gray500,#696969)}
+        .none{padding:6px 0 4px;font-size:13px;color:var(--ki-text-lo, var(--gray500,#696969))}
       `;
     }
   }
@@ -13929,45 +14348,43 @@ try {
     return v === '' || v == null || !isFinite(n) ? G.def : Math.max(G.min, Math.min(G.max, n));
   };
 
-  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3 / 31.7) */
-  // servers: [{ name, icon, color, navigation_path, url }] (31.7, som HA-handlingene: navigation_path = lenken appen åpner,
-  // url = valgfri adresse i nettleser). Eldre nøkler leses fortsatt: url_path → navigation_path, fallback_url → url,
-  // url: 'homeassistant://…' → navigation_path.
+  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3 / 31.7 / 34.2) */
+  // servers: [{ name, icon, color, path? }] (34.2). Trykk i HA Companion-appen → window.location.href =
+  // homeassistant://navigate/<path>?server=<navn URL-kodet> (path = serverens egen, ellers location.pathname uten ledende /).
+  // I nettleser: toast «Bytt server i appen», ingen navigering. Eldre nøkler (31.7: navigation_path/url, eldre url_path/
+  // fallback_url) leses: en homeassistant://navigate/<p>?server=…-lenke gir path = p (ikke standarden «lovelace»); url ignoreres.
   const OLD_ICON = { oslo: 'mdi:city', toten: 'mdi:barn' };
+  const trimPath = (v) => String(v == null ? '' : v).trim().replace(/^\/+/, '');
   M.hjemServerNorm = function (r) {
     if (!r || typeof r !== 'object') return r;
-    const { url_path: up, fallback_url: fb, url, ...o } = r;
-    if (!o.navigation_path && up) o.navigation_path = up;
-    if (url && /^homeassistant:\/\//i.test(url)) { if (!o.navigation_path) o.navigation_path = url; }
-    else if (url) o.url = url;
-    if (!o.url && fb) o.url = fb;
+    const { url_path: up, fallback_url: fb, url, navigation_path: np, encode, ...o } = r; // eslint-disable-line no-unused-vars
+    const deep = [np, up, url].map((x) => String(x || '').trim()).find((x) => /^homeassistant:\/\//i.test(x));
+    if (o.path == null && deep) {
+      const m = /^homeassistant:\/\/navigate\/([^?#]*)/i.exec(deep);
+      if (m && m[1] && m[1] !== 'lovelace') o.path = m[1];
+    }
+    if (o.path != null) { o.path = trimPath(o.path); if (!o.path) delete o.path; }
     // 31.7: standardstedene fra 21.4 (seedet med gamle ikoner) får de nye ikonene
     const k = M.hjemPlaceKey ? M.hjemPlaceKey(o.name) : '';
     if (OLD_ICON[k] && o.icon === OLD_ICON[k]) o.icon = (DEFAULT_SERVERS.find((x) => M.hjemPlaceKey(x.name) === k) || {}).icon || o.icon;
     return o;
   };
-  // Lenken HA-appen åpner: navigation_path, ellers homeassistant://navigate/lovelace?server=<navn> (URL-kodet: Strømstad → Str%C3%B8mstad)
-  M.hjemServerNav = (n, enc) => 'homeassistant://navigate/lovelace?server=' + (enc === false ? n : encodeURIComponent(n));
+  // Nåværende dashbord-path (location.pathname uten ledende /), f.eks. «ki-dashboard/hjem»
+  M.hjemCurPath = () => { try { return trimPath(decodeURI(location.pathname || '')) || 'lovelace'; } catch (e) { return trimPath(location.pathname) || 'lovelace'; } };
+  M.hjemServerNav = (n, path) => 'homeassistant://navigate/' + (trimPath(path) || M.hjemCurPath()) + '?server=' + encodeURIComponent(String(n || '').trim());
+  // Lenken HA-appen åpner for et sted ('' uten navn)
   M.hjemServerUrl = function (r) {
     r = M.hjemServerNorm(r) || {};
-    if (r.navigation_path) return String(r.navigation_path).trim();
     const n = String(r.name || '').trim();
-    return n ? M.hjemServerNav(n, r.encode) : '';
-  };
-  // «server=<navn>» som vises under navnet (fra lenken, dekodet; ellers navnet)
-  M.hjemServerParam = function (r) {
-    const u = M.hjemServerUrl(r), m = /[?&]server=([^&#]*)/.exec(u);
-    let v = m ? m[1] : String((r && r.name) || '');
-    try { v = decodeURIComponent(v); } catch (e) { /* */ }
-    return 'server=' + v;
+    return n ? M.hjemServerNav(n, r.path) : '';
   };
   // 31.7 · standard steder (Oslo, Toten, Strømstad – samme navn som i HA Companion-appens serverliste). Virker uten oppsett:
-  // navigation_path bytter server i appen og åpner samme dashbord. Skrives til config ÉN gang (servers + servers_init) ved
+  // trykk bytter server i appen og åpner samme dashbord. Skrives til config ÉN gang (servers + servers_init) ved
   // første lasting – etter det er config sannheten (slettede kommer ikke tilbake); «Tilbakestill» gir de tre igjen.
   const DEFAULT_SERVERS = [
-    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)', navigation_path: M.hjemServerNav('Oslo') },
-    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', navigation_path: M.hjemServerNav('Toten') },
-    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)', navigation_path: M.hjemServerNav('Strømstad') },
+    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' },
+    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)' },
+    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)' },
   ];
   M.HJEM_DEFAULT_SERVERS = DEFAULT_SERVERS;
   M.hjemDefaultServers = () => DEFAULT_SERVERS.map((x) => ({ ...x }));
@@ -13985,10 +14402,10 @@ try {
   // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
   M.hjemIsApp = function () {
     try {
-      if (/Home ?Assistant/i.test(navigator.userAgent || '')) return true;
       if (window.externalApp) return true;
       const mh = window.webkit && window.webkit.messageHandlers;
-      return !!(mh && (mh.getExternalAuth || mh.externalBus));
+      if (mh && mh.externalBus) return true;
+      return /Home ?Assistant/i.test(navigator.userAgent || '');
     } catch (e) { return false; }
   };
 
@@ -15243,17 +15660,16 @@ try {
             { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
             { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
             { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
-              help: 'Trykk bytter server i Home Assistant-appen (navigation_path, standard homeassistant://navigate/lovelace?server=<navn> – samme navn som i appens serverliste, URL-kodet). I nettleser brukes «Adresse i nettleser» (url) hvis den er satt, ellers vises en melding. Stedet som matcher Home Assistant-navnet (location_name) vises øverst som «Du er her».',
+              help: 'Trykk i Home Assistant-appen bytter server: homeassistant://navigate/<dashbord>?server=<navn>. Navnet må være NØYAKTIG som i appens Innstillinger → Servere (det URL-kodes: Strømstad → Str%C3%B8mstad). Dashbordet er det du står på, eller stedets egen sti. I nettleser vises «Bytt server i appen». Stedet som matcher Home Assistant-navnet (location_name) vises øverst som «Du er her».',
               norm: (list, cc) => (list.length ? list : M.hjemServers(cc)).map((r) => M.hjemServerNorm(r)),
-              title: (r) => r.name || 'Nytt sted', sub: (r) => (r.name ? M.hjemServerParam(r) : 'Mangler navn'),
+              title: (r) => r.name || 'Nytt sted', sub: (r) => (!r.name ? 'Mangler navn' : r.path ? '/' + r.path : 'Samme dashbord'),
               chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.theme ? M.theme.accentText(M.color(r.color, C.blue)) : M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
               newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
               fields: [
-                { type: 'text', name: 'name', label: 'Navn (som i appens serverliste)' },
+                { type: 'text', name: 'name', label: 'Navn (nøyaktig som i appens serverliste)' },
                 { type: 'icon', name: 'icon', label: 'Ikon' },
                 { type: 'color', name: 'color', label: 'Farge' },
-                { type: 'text', name: 'navigation_path', label: 'Lenke i appen (navigation_path)', auto: (r) => (r.name ? M.hjemServerNav(String(r.name).trim(), r.encode) : 'homeassistant://navigate/lovelace?server=…'), help: 'Tom = homeassistant://navigate/lovelace?server=<navn> (navnet URL-kodes: Strømstad → Str%C3%B8mstad).' },
-                { type: 'text', name: 'url', label: 'Adresse i nettleser (valgfri)', placeholder: 'https://toten.duckdns.org/lovelace', help: 'Brukes utenfor Home Assistant-appen, der homeassistant://-lenker ikke virker.' },
+                { type: 'text', name: 'path', label: 'Dashbord-sti (valgfri)', auto: () => M.hjemCurPath(), help: 'Tom = samme dashbord som du står på nå. Eks. «ki-dashboard/hjem» (uten ledende /).' },
               ] },
             { type: 'button', icon: 'mdi:restore', label: 'Tilbakestill steder (Oslo, Toten, Strømstad)', run: (h, cc, ed) => { if (ed && ed._set) { M.haptic('light'); ed._set('servers', M.hjemDefaultServers()); } } },
           ] },
@@ -15286,7 +15702,7 @@ try {
       const hu = h && h.auth && h.auth.data && h.auth.data.hassUrl;
       const mine = [location.origin, org(hu)].filter(Boolean);
       const same = (x, y) => M.hjemPlaceKey(x) === M.hjemPlaceKey(y);
-      let name = String(ts.name || c.place_name || '').trim();
+      let name = String(this._hereName || ts.name || c.place_name || '').trim();
       let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
       // 31.7: «Du er her» automatisk – hass.config.location_name (uten case, æ/ø/å normalisert), ellers URL-en
       // (url-origin = location.origin / hassUrl, eller ?server=<navn> i adressen); ingen treff → ingen markering
@@ -15512,13 +15928,12 @@ try {
       const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
       const hc = M.color(S.color, C.green);
-      const herePar = S.cur >= 0 ? M.hjemServerParam(S.list[S.cur]) : 'server=' + S.name;
-      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${M.theme ? M.theme.accentText(hc) : hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i class="srv">Du er her · ${esc(herePar)}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:var(--ki-on-accent, #232323)')}</span></div>`;
-      // 31.7: hver rad = navn + «server=<navn>» under (monospace 11 px #7f7f7f, som Hjem v3)
+      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${M.theme ? M.theme.accentText(hc) : hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i class="srv">Du er her${S.host && S.host !== S.name ? ' · ' + esc(S.host) : ''}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:var(--ki-on-accent, #232323)')}</span></div>`;
+      // 34.2: hver rad = ikon + navn + chevron (ingen «server=…»-linje)
       const rows = S.list.map((v, i) => {
         if (i === S.cur) return '';
         const col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${M.theme ? M.theme.accentText(col) : col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm"><b>${esc(v.name)}</b><i class="srv">${esc(M.hjemServerParam(v))}</i></span>${M.icon('chevron_right', 20, 'color:var(--ki-text-mid, #979797)')}</button>`;
+        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${M.theme ? M.theme.accentText(col) : col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm"><b>${esc(v.name)}</b></span>${M.icon('chevron_right', 20, 'color:var(--ki-text-mid, #979797)')}</button>`;
       }).join('');
       const css = `.bg{background:transparent}
         .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));
@@ -15538,7 +15953,6 @@ try {
         .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
         .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .srv{font-style:normal;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sv{height:58px}
         .none{padding:8px 10px 6px;font-size:12px;color:var(--ki-text-3, #7f7f7f)}`;
       const html = `<span class="hd">Bytt sted</span>${top}${rows ? `<span class="sep"></span>${rows}` : '<span class="none">Legg til steder i Tilpass header → Steder</span>'}`;
@@ -15553,15 +15967,16 @@ try {
         if (v) this._goServer(v);
       });
     }
-    // 31.7 · Bytt server: i HA-appen window.location.href = navigation_path (appen bytter server og åpner samme dashbord).
-    // I nettleser (ikke appen): serverens url hvis den er satt, ellers toast. En vanlig http(s)-lenke i navigation_path virker overalt.
+    // 34.2 · Bytt server: bare i HA Companion-appen → window.location.href = homeassistant://navigate/<path>?server=<navn>
+    // («Du er her» flyttes til stedet). I nettleser: toast «Bytt server i appen», ingen navigering.
     _goServer(v) {
-      const n = M.hjemServerNorm(v) || {}, nav = M.hjemServerUrl(n), web = String(n.url || '').trim();
-      const deep = /^homeassistant:\/\//i.test(nav);
-      if (nav && (M.hjemIsApp() || !deep)) { M.hjemNavigate(nav); return 'app'; }
-      if (web) { M.hjemNavigate(web); return 'url'; }
-      M.hjemToast(this, 'Bytte av server virker bare i Home Assistant-appen');
-      return 'toast';
+      const n = M.hjemServerNorm(v) || {}, nav = M.hjemServerUrl(n);
+      if (!nav) return 'none';
+      if (!M.hjemIsApp()) { M.hjemToast(this, 'Bytt server i appen'); return 'toast'; }
+      this._hereName = String(n.name).trim();
+      M.hjemNavigate(nav);
+      this.update();
+      return 'app';
     }
     // Person-hurtigarket (fiks 16.14): Hjemme/Borte styrer people[].home, Våken/Sover styrer people[].sleep (toveis).
     // Aktivt segment = entitetens faktiske tilstand (live). Trykk/dra → optimistisk bytte + tjenestekall; har entiteten
@@ -16809,7 +17224,7 @@ try {
     type: 'html',
     render(h, c) {
       const a = M.hjemTrashAct(c, kind), A = ACTS.find((x) => x[0] === a.action) || ACTS[0], k = kind;
-      const inp = (f, v, ph, extra) => `<input class="inp" style="height:44px;border-radius:14px;background:#282828;padding:0 14px" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${k}.${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${extra || ''}>`;
+      const inp = (f, v, ph, extra) => `<input class="inp" style="height:44px;border-radius:14px;background:var(--ki-surface-3, #282828);padding:0 14px" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${k}.${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${extra || ''}>`;
       let sub = '';
       if (a.action === 'popup') sub = M.popupPicker ? M.popupPicker.html({ key: 'tr-ph-' + k, name: k + '.hash', value: a.hash || '', placeholder: '#soppel', label: 'Popup' }) : inp('hash', a.hash, '#soppel');
       else if (a.action === 'navigate') sub = inp('navigation_path', a.navigation_path, '/dashboard-hjem/avfall');
@@ -16819,7 +17234,7 @@ try {
         sub = inp('service', a.service, 'script.hent_soppel', `list="tr-sv-${k}"`) + `<datalist id="tr-sv-${k}">${sv.slice(0, 400).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>`;
       } else if (a.action === 'url') sub = inp('url_path', a.url_path, 'https://…', 'type="url" inputmode="url"');
       return `<div class="f" data-key="tract-${k}"><label>${esc(label)}</label>
-        <label class="tract" style="position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:14px;background:#282828;color:#fafafa;font-size:14px;font-weight:500;cursor:pointer">${M.icon(A[2], 20, 'color:#afafaf;flex:none')}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(A[1])}</span>${M.icon('mdi:unfold-more-horizontal', 18, 'color:#979797;flex:none')}
+        <label class="tract" style="position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:14px;background:var(--ki-surface-3, #282828);color:var(--ki-text, #fafafa);font-size:14px;font-weight:500;cursor:pointer">${M.icon(A[2], 20, 'color:var(--ki-text-2, #afafaf);flex:none')}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(A[1])}</span>${M.icon('mdi:unfold-more-horizontal', 18, 'color:var(--ki-text-mid, #979797);flex:none')}
           <select data-name="${k}.action" aria-label="${esc(label)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none">${ACTS.map(([v, l]) => `<option value="${v}" ${v === a.action ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         ${sub}<span class="help">${esc(A[3])}</span></div>`;
     },
@@ -16895,12 +17310,12 @@ try {
       return `
         .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
         /* Fiks 19.10 · tømmedagen (Hjem v3 trashToday): rosa kort, radius 30, padding 24/20, høyden følger innholdet (ca. 120 px) */
-        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:#2a1720;border:0}
+        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:var(--ki-on-accent, #2a1720);border:0}
         .pink .nw{height:auto}
-        .pink .n{font-size:60px;font-weight:600;color:#2a1720;letter-spacing:-0.04em}
+        .pink .n{font-size:60px;font-weight:600;color:var(--ki-on-accent, #2a1720);letter-spacing:-0.04em}
         .pink .tx{gap:6px;min-width:0}
-        .pink .l1{font-size:19px;font-weight:500;line-height:1.25;color:#2a1720;text-wrap:balance;overflow-wrap:anywhere;white-space:normal;max-width:100%}
-        .pink .l2{font-size:13px;font-weight:500;line-height:1.3;color:#2a1720;overflow-wrap:anywhere;max-width:100%}
+        .pink .l1{font-size:19px;font-weight:500;line-height:1.25;color:var(--ki-on-accent, #2a1720);text-wrap:balance;overflow-wrap:anywhere;white-space:normal;max-width:100%}
+        .pink .l2{font-size:13px;font-weight:500;line-height:1.3;color:var(--ki-on-accent, #2a1720);overflow-wrap:anywhere;max-width:100%}
         .an.due.pink .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both}
         .tr.press:active{transform:scale(.97)}
         .nw{position:relative;display:grid;place-items:center;height:72px;overflow:visible}
@@ -17005,14 +17420,14 @@ try {
       const body = rows.map((t, i) => {
         const d = t.status === 'completed';
         const who = dueText(t.due) || (multi ? M.name(this.hass, t.list) : '');
-        return `<div class="rw" data-key="${esc(t.list + '|' + t.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
-          <button class="bx press" data-act="check" data-haptic="success" data-list="${esc(t.list)}" data-uid="${esc(t.uid)}" data-s="${d ? 'needs_action' : 'completed'}" aria-label="${d ? 'Merk som ikke ferdig' : 'Merk som ferdig'}" style="background:${d ? C.green : 'transparent'};box-shadow:${d ? 'none' : 'inset 0 0 0 1.5px var(--gray400,#545454)'}">${M.icon('check', 16, `color:#232323;opacity:${d ? 1 : 0};transition:opacity .2s`)}</button>
+        return `<div class="rw" data-key="${esc(t.list + '|' + t.uid)}" style="border-top:${i ? '1px solid ' + M.theme.whiteA(0.05) : 'none'}">
+          <button class="bx press" data-act="check" data-haptic="success" data-list="${esc(t.list)}" data-uid="${esc(t.uid)}" data-s="${d ? 'needs_action' : 'completed'}" aria-label="${d ? 'Merk som ikke ferdig' : 'Merk som ferdig'}" style="background:${d ? C.green : 'transparent'};box-shadow:${d ? 'none' : 'inset 0 0 0 1.5px var(--ki-text-3, var(--gray400,#545454))'}">${M.icon('check', 16, `color:var(--ki-on-accent, #232323);opacity:${d ? 1 : 0};transition:opacity .2s`)}</button>
           <button class="tt" data-act="open" data-ent="${esc(t.list)}"><span class="nm ${d ? 'dn' : ''}">${esc(t.summary || '–')}</span>${who ? `<span class="who">${esc(who)}</span>` : ''}</button>
         </div>`;
       }).join('');
       return `<section class="sec">${head(meta)}
         <div class="lst">${body || `<button class="rw emp" data-act="open">${loaded ? 'Ingen gjøremål' : 'Laster …'}</button>`}
-        ${more > 0 ? `<button class="rw emp" data-act="open" style="border-top:1px solid rgba(255,255,255,0.05)">+ ${more} til</button>` : ''}</div></section>`;
+        ${more > 0 ? `<button class="rw emp" data-act="open" style="border-top:1px solid ${M.theme.whiteA(0.05)}">+ ${more} til</button>` : ''}</div></section>`;
     }
     onAction(name, el, ev) {
       if (name === 'open') return M.openPopup(this.config.popup_hash || '#gjoremal');
@@ -17031,17 +17446,17 @@ try {
       return `
         .sec{display:flex;flex-direction:column;gap:8px}
         .hd{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px;width:100%;text-align:left;gap:10px}
-        .hd .t{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
-        .hd .m{font-size:12px;color:var(--gray500,#696969);white-space:nowrap}
+        .hd .t{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .hd .m{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969));white-space:nowrap}
         .lst{display:flex;flex-direction:column}
         .rw{display:flex;align-items:center;gap:12px;padding:0 4px;width:100%;text-align:left;min-height:44px}
-        .rw.emp{font-size:14px;color:var(--gray500,#696969);padding:11px 4px}
+        .rw.emp{font-size:14px;color:var(--ki-text-lo, var(--gray500,#696969));padding:11px 4px}
         .bx{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;transition:background .2s,box-shadow .2s;position:relative}
         .bx::after{content:'';position:absolute;inset:-11px}
         .tt{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:11px 0;text-align:left}
-        .nm{flex:1;min-width:0;font-size:14px;color:var(--white,#fafafa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
-        .nm.dn{color:var(--gray500,#696969);text-decoration:line-through}
-        .who{font-size:12px;color:var(--gray500,#696969);white-space:nowrap}
+        .nm{flex:1;min-width:0;font-size:14px;color:var(--ki-text, var(--white,#fafafa));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
+        .nm.dn{color:var(--ki-text-lo, var(--gray500,#696969));text-decoration:line-through}
+        .who{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969));white-space:nowrap}
       `;
     }
   }
@@ -17223,6 +17638,40 @@ try {
   const hmMin = (v) => { const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(String(v == null ? '' : v).trim()); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; };
   const inWin = (from, to, d) => { const f = hmMin(from), t = hmMin(to); if (f == null || t == null || f === t) return false; const n = (d || new Date()).getHours() * 60 + (d || new Date()).getMinutes(); return f < t ? n >= f && n < t : n >= f || n < t; };
   const hhmm = (t) => { const d = new Date(t); return isNaN(d) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  /* Fiks 35.8 · Støvsuger-kortet: rommet roboten er i (ikke gjettet) – attributtet current_room/room/… (eller segment-id slått
+   * opp i attributtet rooms/segments), ellers en sensor på samme enhet (…current_room / …_room / …segment), ellers
+   * områdets navn i registeret. Liten forbokstav («Rengjør stue»). '' når ingenting finnes. */
+  const vacRoom = (hass, id) => {
+    const st = hass && hass.states[id], a = (st && st.attributes) || {};
+    const lc = (x) => { const t = String(x == null ? '' : x).trim(); return !t || /^(unknown|unavailable|none|null|-)$/i.test(t) ? '' : t[0].toLowerCase() + t.slice(1); };
+    for (const k of ['current_room', 'current_room_name', 'room_name', 'room', 'current_segment_name', 'segment_name', 'cleaning_room']) { const v = a[k]; if (typeof v === 'string' && lc(v)) return lc(v); if (v && typeof v === 'object' && v.name) return lc(v.name); }
+    const seg = a.current_segment != null ? a.current_segment : a.segment_id != null ? a.segment_id : a.current_segment_id;
+    if (seg != null && seg !== '' && typeof seg !== 'object') {
+      let hit = '';
+      const walk = (v) => {
+        if (hit || !v || typeof v !== 'object') return;
+        if (Array.isArray(v)) return v.forEach((x) => { if (hit || !x || typeof x !== 'object') return; if (String(x.id != null ? x.id : x.segment_id) === String(seg)) hit = x.name || x.room_name || ''; else walk(x); });
+        Object.keys(v).forEach((k) => { const x = v[k]; if (hit) return; if (k === String(seg)) hit = typeof x === 'string' ? x : (x && x.name) || ''; else if (Array.isArray(x)) walk(x); });
+      };
+      walk(a.rooms || a.segments);
+      if (lc(hit)) return lc(hit);
+    }
+    const e = M.regEntry(hass, id), dev = e && e.device_id, obj = id.split('.')[1];
+    const sib = Object.keys(hass.states).filter((x) => /^(sensor|select)\./.test(x) && (dev ? (M.regEntry(hass, x) || {}).device_id === dev : x.split('.')[1].startsWith(obj + '_')) && /current_room|_room$|current_segment|_segment$/.test(x));
+    for (const x of sib) { const v = lc(hass.states[x].state); if (v && !M.isNum(v)) return v; }
+    const ar = M.areaOf(hass, id);
+    return ar ? lc(M.areaName(hass, ar)) : '';
+  };
+  // Popupen kortet åpner: den (synlige) strategi-popupen med msh-stovsuger-card (helst med samme entitet), ellers
+  // strategiens standardhash for kortet (M.FUNCTION_POPUPS → #rolf), ellers #stovsuger.
+  const vacHash = (id) => {
+    const R = M.popupReport;
+    const hasCard = (cfg) => { let hit = 0; const w = (o, d) => { if (!o || typeof o !== 'object' || d > 8 || hit === 2) return; if (o.type === 'custom:msh-stovsuger-card') hit = Math.max(hit, (o.entities || {}).vacuum === id || o.entity === id ? 2 : 1); Object.keys(o).forEach((k) => w(o[k], d + 1)); }; w(cfg, 0); return hit; };
+    if (R && Array.isArray(R.entries)) { const L = R.entries.filter((x) => !x.hidden && x.config).map((x) => [x.hash, hasCard(x.config)]).filter((x) => x[1]).sort((p, q) => q[1] - p[1]); if (L.length) return L[0][0]; }
+    const F = (M.FUNCTION_POPUPS || []).find((x) => x[3] === 'msh-stovsuger-card');
+    return F ? F[0] : '#stovsuger';
+  };
+  M.hjemVac = { room: vacRoom, hash: vacHash };
   const listOf = (x) => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.keys(x).sort().map((k) => x[k]) : []);
 
   /* Fiks 17.11 · Ruter-flisen: neste avgang fra entur-sensoren (M.enturDepartures fra 47-ruter.js, lastes før render).
@@ -17827,7 +18276,9 @@ try {
         if (rest.length) tapF.push({ type: 'section', id: 'zone-off', label: 'Ikke på Hjem', icon: 'mdi:eye-off', meta: `${rest.length} kort`, fields: rest.map(tileF) });
         KIND_ORDER.filter((kd) => TILE_DOM[kd]).forEach((kd) => tapF.push({ type: 'button', label: '+ Legg til ' + KINDS[kd][1].toLowerCase(), icon: 'mdi:plus', run: (h, cc, ed) => {
           const id = M.hjemNewTileId(cc, kd);
-          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom' });
+          // 35.8: nytt Støvsuger-kort → første vacuum.* som ikke allerede har et kort (samme regel som «Tilpass Hjem»)
+          const vac = kd === 'vacr' ? (() => { const tk = new Set([tileCfg(cc, 'vacr').entity || tileEnts(h, cc).vacr, ...extraIds(cc).filter((x) => kindOf(cc, x) === 'vacr').map((x) => tileCfg(cc, x).entity)].filter(Boolean)); return M.all(h, 'vacuum').find((x) => !tk.has(x)); })() : null;
+          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom', ...(vac ? { entity: vac } : {}) });
           const hc = get(cc, 'tabs.hjem.cards');
           if (Array.isArray(hc)) ed._set('tabs.hjem.cards', [...hc, id]);
         } }));
@@ -18159,11 +18610,14 @@ try {
             ic: () => { M.call(hass, 'media_player', 'toggle', { entity_id: id }); this._toast(on ? 'TV slått av' : 'TV slått på'); } });
         }
         case 'vacr': {
+          // Fiks 35.8 · Støvsuger-kort (Hjem v3 · kind 'vacr'): tittel = robotnavn, «Rengjør stue · 62 %» (grønn) /
+          // «Pauset i stue» (amber) / øvrige tilstander. Rom fra attributter → søsken-sensor → registeret (vacRoom), aldri gjettet.
+          // Trykk på kortet = Sir Sweeps-popupen (vacHash), ikon = vacuum.start / vacuum.pause.
           const id = E.vacr, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', bat = st && st.attributes.battery_level != null ? ` · ${st.attributes.battery_level} %` : '';
-          const run = v === 'cleaning';
-          const sub = run ? `Rengjør${bat}` : v === 'paused' ? 'Pauset' : v === 'returning' ? 'Kjører hjem' : v === 'error' ? 'Feil' : v === 'idle' ? 'Klar' : v === 'docked' ? 'I laderen' : '–';
-          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked',
+          const v = st ? st.state : '', A = st ? st.attributes : {}, b = A.battery_level != null && M.isNum(A.battery_level) ? Math.round(Number(A.battery_level)) : null;
+          const run = v === 'cleaning', rm = st ? vacRoom(hass, id) : '', bat = b != null ? ` · ${b} %` : '';
+          const sub = !st || M.unavailable(st) ? 'Utilgjengelig' : run ? `Rengjør${rm ? ' ' + rm : ''}${bat}` : v === 'paused' ? (rm ? `Pauset i ${rm}` : 'Pauset') : v === 'returning' ? `Kjører hjem${bat}` : v === 'error' ? ['Feil', A.error || A.status].filter((x) => x && String(x).toLowerCase() !== 'error').join(' · ') : v === 'idle' ? `Klar${bat}` : v === 'docked' ? `I laderen${bat}` : String(A.status || v || '–');
+          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked', cardHash: vacHash(id),
             ic: () => { M.call(hass, 'vacuum', run ? 'pause' : 'start', { entity_id: id }); this._toast(run ? 'Støvsuger pauset' : 'Støvsuger starter'); } });
         }
         case 'dish': case 'wash': case 'dry': {
@@ -19207,7 +19661,7 @@ try {
     const d = g.diff, up = d > 0.005, dn = d < -0.005;
     const sign = up ? '+' : dn ? '−' : '±';
     const abs = Math.abs(d), txt = P.unit === 'øre/kWh' ? `${sign}${M.nf(abs * 100, 1)} øre/kWh` : `${sign}${M.nf(abs, 2)} kr/kWh`;
-    return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? RED : dn ? GREEN : '#979797', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
+    return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? 'var(--ki-red-text, ' + RED + ')' : dn ? 'var(--ki-green-text, ' + GREEN + ')' : 'var(--ki-text-mid, #979797)', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
   };
   // Fanen «I dag / I morgen» (kortet og forhåndsvisningen i editoren): { style, font, height, padding }
   // Fiks 15.2: standard utseende (spor #2f2f2f, rosa aktiv pille, ingen blur/glasskant) uavhengig av temaet.
@@ -19222,10 +19676,10 @@ try {
   };
   M.powerTabCSS = (t) => {
     const h = t.height, f = t.font, p = t.padding;
-    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y;background:var(--gray100,#2f2f2f);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
-      .seg.glass{${M.tabSurface ? M.tabSurface('var(--gray100,#2f2f2f)', 'none') : ''}}
-      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s,opacity .25s}
-      .sg.on{background:${M.C.accent};color:var(--gray100,#2f2f2f)}
+    return `.seg{display:flex;gap:2px;padding:4px;border-radius:${h / 2 + 4}px;flex:none;position:relative;touch-action:pan-y;background:var(--ki-surface-3, var(--gray100,#2f2f2f));backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+      .seg.glass{${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray100,#2f2f2f))', 'none') : ''}}
+      .sg{height:${h}px;padding:0 ${p}px;border-radius:${h / 2}px;font-size:${f}px;font-weight:400;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent;transition:background .25s,color .25s,opacity .25s}
+      .sg.on{background:${M.C.accent};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
       .sg:disabled{opacity:.4;cursor:default}`;
   };
 
@@ -19453,39 +19907,39 @@ try {
         .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
         .ttl{min-width:0;font-size:18px;font-weight:500}
         ${M.powerTabCSS(t)}
-        .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030}
+        .srf{display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:var(--ki-surface, #303030);box-shadow:var(--ki-card-sh, none)}
         .vr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
         .vc{display:flex;flex-direction:column;gap:4px;min-width:0}
         .vc.r{align-items:flex-end;text-align:right}
-        .lb{font-size:12px;color:#8e8d89;white-space:nowrap}
+        .lb{font-size:12px;color:var(--ki-text-mid, #8e8d89);white-space:nowrap}
         .v{font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1.05;white-space:nowrap}
-        .v small{font-size:13px;letter-spacing:0;color:#8e8d89}
-        .v.np{color:${PINK}}
-        .gt{display:flex;align-items:baseline;gap:6px;min-width:0;padding:8px 12px;border-radius:14px;background:rgba(255,255,255,0.04);white-space:nowrap}
+        .v small{font-size:13px;letter-spacing:0;color:var(--ki-text-mid, #8e8d89)}
+        .v.np{color:var(--ki-pink-text, ${PINK})}
+        .gt{display:flex;align-items:baseline;gap:6px;min-width:0;padding:8px 12px;border-radius:14px;background:${M.theme.whiteA(0.04)};white-space:nowrap}
         .gt .ar{font-size:15px;font-weight:600;line-height:1}
         .gt .gd{font-size:13px;font-weight:500}
-        .gt .gs{margin-left:auto;font-size:11px;color:#6d6c69;overflow:hidden;text-overflow:ellipsis}
-        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:#8e8d89;white-space:nowrap;min-width:0}
+        .gt .gs{margin-left:auto;font-size:11px;color:var(--ki-text-lo, #6d6c69);overflow:hidden;text-overflow:ellipsis}
+        .lg{display:flex;align-items:center;gap:14px;padding-left:26px;font-size:11px;color:var(--ki-text-mid, #8e8d89);white-space:nowrap;min-width:0}
         .li{display:inline-flex;align-items:center;gap:6px;min-width:0}
         .li i{display:block;width:14px;height:2.5px;border-radius:2px;flex:none}
         .li i.dash{background:repeating-linear-gradient(90deg, ${PINK} 0 5px, transparent 5px 8px)}
-        .unit{margin-left:auto;color:#6d6c69}
+        .unit{margin-left:auto;color:var(--ki-text-lo, #6d6c69)}
         .gr{display:flex;gap:6px;height:150px}
-        .ya{position:relative;flex:none;width:20px;font-size:9px;color:#6d6c69}
+        .ya{position:relative;flex:none;width:20px;font-size:9px;color:var(--ki-text-lo, #6d6c69)}
         .ya span{position:absolute;right:0;transform:translateY(-50%);line-height:1;white-space:nowrap}
         .plot{position:relative;flex:1;min-width:0;height:150px;cursor:crosshair;touch-action:pan-y;user-select:none;-webkit-user-select:none}
         .plot svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
         .plot svg *{vector-effect:non-scaling-stroke}
-        .gl{stroke:rgba(255,255,255,0.07);stroke-width:1}
+        .gl{stroke:${M.theme.whiteA(0.07)};stroke-width:1}
         .spot{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
         .np{fill:none;stroke:${PINK};stroke-width:2;stroke-dasharray:5 4}
-        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:rgba(255,255,255,0.12);pointer-events:none;transition:left .15s}
+        .band{position:absolute;top:0;bottom:0;width:calc(100% / 24);border-radius:4px;background:${M.theme.whiteA(0.12)};pointer-events:none;transition:left .15s}
         .halo,.dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;transition:left .15s,top .15s,background .15s}
         .halo{width:34px;height:34px}
-        .dot{width:14px;height:14px;box-shadow:0 0 0 3px #303030}
+        .dot{width:14px;height:14px;box-shadow:0 0 0 3px var(--ki-surface, #303030)}
         .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
-        .tmr-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:90%;text-align:center;font-size:13px;color:#8e8d89;pointer-events:none}
-        .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:#6d6c69}
+        .tmr-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:90%;text-align:center;font-size:13px;color:var(--ki-text-mid, #8e8d89);pointer-events:none}
+        .xa{position:relative;height:11px;margin-left:26px;font-size:9px;color:var(--ki-text-lo, #6d6c69)}
         .xa span{position:absolute;top:0;transform:translateX(-50%);line-height:11px}
         .xa span:first-child{transform:none}
         .xa span:last-child{transform:translateX(-100%)}
@@ -20473,6 +20927,7 @@ try {
       if (!t || !H) return;
       const used = m.en.includes(kd) || !!H.tileCfg(c, kd).entity;
       const id = used ? M.hjemNewTileId(c, kd) : kd;
+      if (used && !ent && kd === 'vacr') ent = this._vacFree(m) || ''; // 35.8: nytt Støvsuger-kort → neste robot som ikke har kort
       const cur = H.tileCfg(c, id);
       const [zs, zp] = (slot || 'R-bottom').split('-');
       let c2 = setIn(c, 'tile_cfg.' + id, { ...cur, ...(id !== kd ? { kind: kd, side: zs, pos: zp } : {}), ...(ent ? { entity: ent } : {}) });
@@ -20481,6 +20936,13 @@ try {
       if (t.hc) return this._hcAdd(this._model(), id, slot);
       const m2 = this._model();
       return this._moveTile(m2, id, slot || H.defSlot(c2, t.kind, id) || 'R-bottom', null);
+    }
+    // Fiks 35.8 · første vacuum.* som ikke allerede vises av et Støvsuger-kort (null = alle er brukt)
+    _vacFree(m) {
+      const H = HT(), c = m.c, E = m.E || {};
+      const ids = ['vacr', ...((H && H.extraIds(c)) || []).filter((x) => H.kindOf(c, x) === 'vacr')];
+      const taken = new Set(ids.filter((x) => x === 'vacr' ? m.en.includes('vacr') || H.tileCfg(c, 'vacr').entity : true).map((x) => H.tileCfg(c, x).entity || E.vacr).filter(Boolean));
+      return M.all(this.hass, 'vacuum').find((x) => !taken.has(x)) || null;
     }
     _teSet(k, f, v) { this.saveF({ [`tile_cfg.${k}.${f}`]: v === '' || v == null ? undefined : v }); }
     _acc(key, title, icon, meta) {
@@ -21147,6 +21609,7 @@ try {
           }
           if (v === 'jul') { u.zadd = null; u.ted = 'jul'; u.sel = { t: 'tile', id: 'jul', z: true }; if (t.hc) return this._hcAdd(m, 'jul', z); return this._moveTile(m, 'jul', z, null); }
           if (!(m.E && m.E[v])) { u.zadd = z; u.tadd = v; return this.render(); } // fant ingen entitet → velg først
+          if (v === 'vacr' && (m.en.includes(v) || (HT() && HT().tileCfg(c, v).entity)) && !this._vacFree(m)) { u.zadd = z; u.tadd = v; return this.render(); } // 35.8: alle roboter har kort → velg selv
           return this._tileCreate(v, '', z);
         }
         case 'zmove': { const k2 = d.k; return this._moveTile(m, k2, d.v, null); }
@@ -21635,7 +22098,7 @@ try {
   const GROUPS = [['alle', 'mdi:layers-outline', 'Alle'], ['rom', 'mdi:texture-box', 'Rom'], ['fn', 'mdi:apps', 'Funksjoner'], ['egne', 'mdi:star-outline', 'Egne']];
   const SRCL = { auto: 'Auto', yaml: 'YAML', custom: 'Egen' };
   const SRCLONG = { auto: 'generert', yaml: 'strategi-YAML', custom: 'Egen (ki-store)' };
-  const CHIP = { Auto: ['#afafaf', 'rgba(255,255,255,0.08)'], YAML: [C.blue, 'rgb(115 185 242 / 0.16)'], Egen: [C.green, 'rgb(102 209 158 / 0.16)'], Overstyrt: [C.orange, 'rgb(242 181 115 / 0.16)'], Skjult: ['#979797', 'rgba(255,255,255,0.06)'] };
+  const CHIP = { Auto: ['var(--ki-text-2, #afafaf)', 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'], YAML: ['var(--ki-blue-text, ' + C.blue + ')', 'rgb(115 185 242 / 0.16)'], Egen: ['var(--ki-green-text, ' + C.green + ')', 'rgb(102 209 158 / 0.16)'], Overstyrt: ['var(--ki-orange-text, ' + C.orange + ')', 'rgb(242 181 115 / 0.16)'], Skjult: ['var(--ki-text-mid, #979797)', 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'] };
   const chip = (l) => { const [c, b] = CHIP[l] || CHIP.Auto; return `<span class="ppchip" style="color:${c};background:${b}">${esc(l)}</span>`; };
   const Yp = (t) => M.yaml.parse(t), Yd = (v) => M.yaml.dump(v);
   const store = () => (M.store && M.store.get()) || {};
@@ -21855,7 +22318,7 @@ try {
       const pill = document.createElement('button');
       pill.textContent = 'Tilbake til Tilpass Hjem';
       const R = M.dashRect();
-      Object.assign(pill.style, { position: 'fixed', left: R.left + R.width / 2 + 'px', transform: 'translateX(-50%)', bottom: 'calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 16px)', zIndex: '20', height: '44px', padding: '0 20px', borderRadius: '22px', border: '0', background: PINK, color: '#2f2f2f', font: `600 14px ${M.FONT}`, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', cursor: 'pointer', pointerEvents: 'auto' });
+      Object.assign(pill.style, { position: 'fixed', left: R.left + R.width / 2 + 'px', transform: 'translateX(-50%)', bottom: 'calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 16px)', zIndex: '20', height: '44px', padding: '0 20px', borderRadius: '22px', border: '0', background: PINK, color: 'var(--ki-on-accent, #2f2f2f)', font: `600 14px ${M.FONT}`, boxShadow: '0 8px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))', cursor: 'pointer', pointerEvents: 'auto' });
       pill.addEventListener('click', (e) => { e.stopPropagation(); M.haptic('light'); endPreview(); });
       ['pointerdown', 'mousedown', 'touchstart'].forEach((t) => pill.addEventListener(t, (e) => e.stopPropagation()));
       M.overlayRoot().appendChild(pill);
@@ -21898,64 +22361,64 @@ try {
     .pphd .done[disabled]{opacity:.35;pointer-events:none}
     .ppbar{display:flex;align-items:center;gap:6px}
     .ppbar .pgs{flex:1;min-width:0}
-    .ppnew{height:40px;padding:0 14px 0 10px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:#2f2f2f;flex:none}
+    .ppnew{height:40px;padding:0 14px 0 10px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:var(--ki-on-accent, #2f2f2f);flex:none}
     .ppmn{position:relative;flex:none}
-    .ppmenu{position:absolute;right:0;top:44px;z-index:5;min-width:230px;padding:6px;border-radius:18px;background:var(--gray300,#404040);box-shadow:0 12px 30px rgba(0,0,0,.45);display:flex;flex-direction:column}
+    .ppmenu{position:absolute;right:0;top:44px;z-index:5;min-width:230px;padding:6px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:0 12px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.45*var(--ki-ka-k,1))));display:flex;flex-direction:column}
     .ppmenu button{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;font-size:14px;text-align:left}
-    .ppmenu button:hover{background:rgba(255,255,255,.06)}
-    .ppgh{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:6px 6px 0}
+    .ppmenu button:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ppgh{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);padding:6px 6px 0}
     .pr.ppr{gap:8px;padding:8px 6px 8px 10px}
     .ppr .ppm{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left}
-    .ppr .pph{width:22px;height:40px;flex:none;display:grid;place-items:center;color:#7f7f7f;cursor:grab;touch-action:none}
+    .ppr .pph{width:22px;height:40px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f);cursor:grab;touch-action:none}
     .ppchip{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap}
     .ppr .sq.no{opacity:.3;pointer-events:none}
     .ppr.hov-t{box-shadow:inset 0 3px 0 ${PINK}} .ppr.hov-b{box-shadow:inset 0 -3px 0 ${PINK}}
-    .ppwarn{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:rgb(242 181 115 / 0.14);color:${C.orange};font-size:13px;line-height:1.4}
-    .ppwarn.err{background:rgb(242 128 115 / 0.14);color:${C.red}}
+    .ppwarn{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:rgb(242 181 115 / 0.14);color:var(--ki-orange-text, ${C.orange});font-size:13px;line-height:1.4}
+    .ppwarn.err{background:rgb(242 128 115 / 0.14);color:var(--ki-red-text, ${C.red})}
     .ppwarn b{font-weight:600}
-    .ppnote{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:var(--gray200,#3a3a3a);color:#c7c7c7;font-size:13px;line-height:1.4}
-    .ppmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;font-size:12px;color:#979797}
+    .ppnote{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-1, #c7c7c7);font-size:13px;line-height:1.4}
+    .ppmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;font-size:12px;color:var(--ki-text-mid, #979797)}
     .ppcode{min-height:200px}
-    .ppta{display:flex;height:380px;border-radius:18px;background:var(--gray000,#232323);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+    .ppta{display:flex;height:380px;border-radius:18px;background:var(--ki-bg, var(--gray000,#232323));overflow:hidden;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ppta.ro{opacity:.85}
-    .ppgut{flex:none;min-width:30px;padding:12px 8px 12px 10px;text-align:right;color:#696969;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;white-space:pre;background:rgba(255,255,255,0.03);-webkit-user-select:none;user-select:none}
-    .ppgut .bad{color:${C.red};font-weight:700}
-    .ppta textarea{flex:1;min-width:0;height:100%;box-sizing:border-box;resize:none;border:0;outline:0;margin:0;background:transparent;color:#fafafa;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px 12px 12px 8px;white-space:pre;overflow:auto;tab-size:2;-webkit-user-select:text;user-select:text}
+    .ppgut{flex:none;min-width:30px;padding:12px 8px 12px 10px;text-align:right;color:var(--ki-text-lo, #696969);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;white-space:pre;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.03*var(--ki-wa-k,1)),var(--ki-wa-max,1)));-webkit-user-select:none;user-select:none}
+    .ppgut .bad{color:var(--ki-red-text, ${C.red});font-weight:700}
+    .ppta textarea{flex:1;min-width:0;height:100%;box-sizing:border-box;resize:none;border:0;outline:0;margin:0;background:transparent;color:var(--ki-text, #fafafa);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px 12px 12px 8px;white-space:pre;overflow:auto;tab-size:2;-webkit-user-select:text;user-select:text}
     .ppcode ha-code-editor{display:block;border-radius:18px;overflow:hidden;max-height:420px;overflow-y:auto}
     .ppacts{display:flex;flex-wrap:wrap;gap:8px}
-    .ppb{height:40px;padding:0 14px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--gray200,#3a3a3a);color:#fafafa}
-    .ppb.red{background:rgb(242 128 115 / 0.18);color:${C.red}}
-    .ppb.redf{background:${C.red};color:#232323}
-    .ppf{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-    .ppf .in{background:var(--gray000,#232323)}
+    .ppb{height:40px;padding:0 14px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa)}
+    .ppb.red{background:rgb(242 128 115 / 0.18);color:var(--ki-red-text, ${C.red})}
+    .ppb.redf{background:${C.red};color:var(--ki-on-accent, #232323)}
+    .ppf{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .ppf .in{background:var(--ki-bg, var(--gray000,#232323))}
     .ppf .rw{display:flex;gap:8px;align-items:center}
-    .ppf .rv{min-width:44px;text-align:right;font-size:13px;color:#c7c7c7;font-variant-numeric:tabular-nums}
+    .ppf .rv{min-width:44px;text-align:right;font-size:13px;color:var(--ki-text-1, #c7c7c7);font-variant-numeric:tabular-nums}
     .ppsw{display:flex;flex-wrap:wrap;gap:6px}
-    .ppsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
-    .ppsw button.on{box-shadow:0 0 0 2px #fafafa}
+    .ppsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.15*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ppsw button.on{box-shadow:0 0 0 2px var(--ki-text, #fafafa)}
     .ppt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .ppt button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:13px;font-weight:500;text-align:center}
-    .ppt button i{font-style:normal;font-size:11px;color:#979797;font-weight:400}
-    .ppt button.on{background:#545454;box-shadow:inset 0 0 0 2px ${PINK}}
+    .ppt button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:13px;font-weight:500;text-align:center}
+    .ppt button i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);font-weight:400}
+    .ppt button.on{background:var(--ki-ctrl, #545454);box-shadow:inset 0 0 0 2px ${PINK}}
     .ppbar .pg{height:36px;padding:0 12px 0 10px;font-size:13px}
-    .ppmiss{color:${C.red};font-style:normal}
+    .ppmiss{color:var(--ki-red-text, ${C.red});font-style:normal}
     .ppwarn .ppb{height:32px;margin-top:6px}
     .ppimp{display:flex;flex-direction:column;gap:8px}
-    .ppimp textarea{width:100%;box-sizing:border-box;height:160px;resize:vertical;border:0;outline:0;border-radius:18px;padding:12px;background:var(--gray000,#232323);color:#fafafa;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+    .ppimp textarea{width:100%;box-sizing:border-box;height:160px;resize:vertical;border:0;outline:0;border-radius:18px;padding:12px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ppfile{position:relative;overflow:hidden}
     .ppfile input{position:absolute;inset:0;opacity:0;cursor:pointer}
-    .ppchk{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:20px;background:var(--gray200,#3a3a3a);text-align:left;width:100%;box-sizing:border-box}
-    .ppchk .bx{width:24px;height:24px;border-radius:8px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px #7f7f7f}
-    .ppchk.on .bx{background:${PINK};box-shadow:none;color:#2f2f2f}
+    .ppchk{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%;box-sizing:border-box}
+    .ppchk .bx{width:24px;height:24px;border-radius:8px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px var(--ki-text-3, #7f7f7f)}
+    .ppchk.on .bx{background:${PINK};box-shadow:none;color:var(--ki-on-accent, #2f2f2f)}
     .ppchk.bad{opacity:.75}
     .ppchk .pn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .ppchk .pn b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ppchk .pn i{font-style:normal;font-size:12px;color:#979797}
+    .ppchk .pn i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     .ppicf{display:flex;gap:8px;align-items:center}
-    .ppconv{max-height:320px;overflow:auto;border-radius:16px;background:var(--gray000,#232323);padding:8px 0;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--gray900,#c7c7c7);-webkit-user-select:text;user-select:text}
+    .ppconv{max-height:320px;overflow:auto;border-radius:16px;background:var(--ki-bg, var(--gray000,#232323));padding:8px 0;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ki-text-1, var(--gray900,#c7c7c7));-webkit-user-select:text;user-select:text}
     .ppconv>div{display:flex;gap:10px;padding:0 10px;white-space:pre}
     .ppconv>div.bad{background:rgb(242 128 115 / 0.18)}
-    .ppconv i{font-style:normal;color:var(--gray600,#7f7f7f);min-width:36px;text-align:right;flex:none}
+    .ppconv i{font-style:normal;color:var(--ki-text-3, var(--gray600,#7f7f7f));min-width:36px;text-align:right;flex:none}
     .ppicf ha-icon-picker{flex:1}
   `;
 
@@ -21967,7 +22430,7 @@ try {
         <div class="pgs">${GROUPS.map(([id, icn, l]) => `<button class="pg ${g === id ? 'on' : ''}" data-a="popg" data-v="${id}" data-h="selection">${ic(icn, 18)}${l}</button>`).join('')}</div>
       </div>
       <div class="ppbar"><button class="ppnew press" data-a="ppnew" data-key="ppnew">${ic('mdi:plus', 18)}Ny popup</button><button class="b40 press" style="display:flex;align-items:center;gap:6px;flex:none" data-a="ppimport" data-key="ppimport">${ic('mdi:import', 18)}Importer</button>${M.powerPricePanel ? `<button class="b40 press" style="display:flex;align-items:center;gap:6px;flex:none" data-a="ppstrom" data-key="ppstrom">${ic('mdi:lightning-bolt', 18)}Strømpris</button>` : ''}<span style="flex:1"></span>
-        <div class="ppmn"><button class="sq" style="width:40px;height:40px;border-radius:20px;background:var(--gray200,#3a3a3a)" data-a="ppmenu" title="Mer">${ic('mdi:dots-vertical', 20)}</button>
+        <div class="ppmn"><button class="sq" style="width:40px;height:40px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a))" data-a="ppmenu" title="Mer">${ic('mdi:dots-vertical', 20)}</button>
         ${u.ppMenu ? `<div class="ppmenu"><button data-a="ppexport">${ic('mdi:export-variant', 20)}Eksporter alle som YAML</button>${customList().length ? `<button data-a="ppexportown">${ic('mdi:file-export-outline', 20)}Eksporter egne popups (fil)</button>` : ''}<button data-a="ppglobals">${ic('mdi:file-code-outline', 20)}Maler og globale innstillinger</button></div>` : ''}</div>
       </div>`;
     const own = customList(), ownCfg = own.map(cfgOf);
@@ -21990,7 +22453,7 @@ try {
         ${e.source === 'custom' ? `<span class="pph" title="Dra for rekkefølge">${ic('mdi:drag', 20)}</span>` : ''}
         <button class="ppm" data-a="ppopen" data-v="${esc(e.hash)}"><span class="pi" style="background:${col}">${ic(e.icon, 22)}</span><span class="pn"><b>${esc(e.name)}</b><i>${esc(e.hash)}${e.source === 'custom' ? ' · ' + kortN(nCards(e.base)) : ''}${e.hidden ? ' · skjult' : ''}${e.replacesAuto ? ' · erstatter generert' : ''}${miss(e)}</i></span></button>
         ${chip(chipOf(e))}
-        <button class="sq ${lockHide ? 'no' : ''}" data-a="ppeye" data-v="${esc(e.hash)}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? '#696969' : '#fafafa'}`)}</button>
+        <button class="sq ${lockHide ? 'no' : ''}" data-a="ppeye" data-v="${esc(e.hash)}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
         <button class="sq" data-a="ppopen" data-v="${esc(e.hash)}" title="Åpne">${ic('mdi:chevron-right', 20)}</button>
       </div>`;
     };
@@ -22002,12 +22465,12 @@ try {
     }
     // Generert popup som er erstattet av en egen (samme hash)
     const repRow = (x) => `<div class="pr ppr hid" data-key="pprep-${esc(x.hash)}">
-        <span class="ppm"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · Erstattet av egen popup</i></span></span>
+        <span class="ppm"><span class="pi" style="background:var(--ki-ctrl, var(--gray400,#545454))">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · Erstattet av egen popup</i></span></span>
         <button class="ppb" data-a="ppprefer" data-v="${esc(x.hash)}" data-p="auto" data-h="selection">Bruk autogenerert</button>
       </div>`;
     // Egen popup som er slått av fordi brukeren valgte den genererte
     const inaRow = (x) => `<div class="pr ppr hid" data-key="ppina-${esc(x.hash)}">
-        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · ${x.by ? 'Erstattet av ' + esc(x.by) : 'av – autogenerert brukes'}</i></span></button>
+        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--ki-ctrl, var(--gray400,#545454))">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · ${x.by ? 'Erstattet av ' + esc(x.by) : 'av – autogenerert brukes'}</i></span></button>
         <button class="ppb" data-a="ppprefer" data-v="${esc(x.hash)}" data-p="custom" data-h="selection">Bruk egen</button>
       </div>`;
     // Egen popup med ugyldig YAML (hoppes over i dashbordet) – kan åpnes og rettes
@@ -22016,7 +22479,7 @@ try {
         <button class="sq" data-a="ppopenraw" data-v="${x.index}" title="Rett">${ic('mdi:chevron-right', 20)}</button></div>`; };
     const G = globalsObj(), gn = (k) => Object.keys(isObj(G[k]) ? G[k] : {}).length;
     const gSum = globalsText() ? [gn('button_card_templates') && `${gn('button_card_templates')} button-card`, gn('decluttering_templates') && `${gn('decluttering_templates')} decluttering`, isObj(G.paper_buttons_row) && 'paper-buttons-row', ...Object.keys(G).filter((k) => !GLOBAL_KEYS.includes(k))].filter(Boolean).join(' · ') || 'tom' : 'Ikke importert';
-    const gRow = `<div class="pr ppr" data-key="ppglob"><button class="ppm" data-a="ppglobals"><span class="pi" style="background:var(--gray300,#404040)">${ic('mdi:file-code-outline', 22)}</span><span class="pn"><b>Maler og globale innstillinger</b><i>${esc(gSum)}</i></span></button><button class="sq" data-a="ppglobals" title="Åpne">${ic('mdi:chevron-right', 20)}</button></div>`;
+    const gRow = `<div class="pr ppr" data-key="ppglob"><button class="ppm" data-a="ppglobals"><span class="pi" style="background:var(--ki-surface-2, var(--gray300,#404040))">${ic('mdi:file-code-outline', 22)}</span><span class="pn"><b>Maler og globale innstillinger</b><i>${esc(gSum)}</i></span></button><button class="sq" data-a="ppglobals" title="Åpne">${ic('mdi:chevron-right', 20)}</button></div>`;
     const extra = (id) => [
       ...(R.replaced || []).filter((x) => x.group === id).map(repRow),
       ...(id === 'egne' ? [...(R.inactive || []).map(inaRow), ...(R.invalid || []).filter((x) => x.source === 'custom').map(badRow)] : []),
@@ -22066,7 +22529,7 @@ try {
     const rd = store().room_defaults, l = rd && Array.isArray(rd.open_on_start) ? rd.open_on_start : null;
     const on = (k) => (l ? l.includes(k) : k === 'lys');
     return `<div class="ppf" data-key="pprd"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">Rom-popups · åpen ved start</b><span class="hint">Seksjonene som er utvidet hver gang en rom-popup åpnes. Rommets egen «Tilpass rom» → Seksjoner overstyrer.</span></span>
-      <div class="ppacts">${F.map(([k, lbl]) => `<button class="ppb" aria-pressed="${on(k)}" data-a="pprdopen" data-v="${esc(k)}" data-h="selection" style="${on(k) ? `background:rgb(242 210 111 / 0.18);color:${C.yellow || '#f2d26f'}` : ''}">${ic(on(k) ? 'mdi:chevron-down-circle' : 'mdi:chevron-right-circle-outline', 18)}${esc(lbl)}</button>`).join('')}
+      <div class="ppacts">${F.map(([k, lbl]) => `<button class="ppb" aria-pressed="${on(k)}" data-a="pprdopen" data-v="${esc(k)}" data-h="selection" style="${on(k) ? `background:rgb(242 210 111 / 0.18);color:var(--ki-yellow-text, ${C.yellow || '#f2d26f'})` : ''}">${ic(on(k) ? 'mdi:chevron-down-circle' : 'mdi:chevron-right-circle-outline', 18)}${esc(lbl)}</button>`).join('')}
       ${l ? `<button class="ppb" data-a="pprdreset">${ic('mdi:restore', 18)}Standard</button>` : ''}</div></div>`;
   }
 
@@ -22107,7 +22570,7 @@ try {
   }
   function colRow(f, label, cur) {
     return `<div class="fld"><span class="fl">${label}</span><div class="ppsw">${COLS.map((x) => `<button class="${cur === x ? 'on' : ''}" data-a="ppfcol" data-f="${f}" data-v="${esc(x)}" style="background:${M.color(x, x)}" title="${esc(x)}"></button>`).join('')}</div>
-      <input class="in" data-in="ppf" data-f="${f}" value="${esc(cur || '')}" placeholder="var(--gray200) / #3a3a3a"></div>`;
+      <input class="in" data-in="ppf" data-f="${f}" value="${esc(cur || '')}" placeholder="var(--gray200) / #3a3a3a"></div>`; // ki-hex-ok: eksempeltekst i plassholderen
   }
   function renderForm(ed, d) {
     if (d.src === 'auto') {
@@ -22191,7 +22654,7 @@ try {
    * ellers tekstfelt med forhåndsvisning. */
   function iconField(d, obj) {
     const v = (obj && obj.icon) || '';
-    const pv = `<span class="pv2" style="background:var(--gray000,#232323)">${ic(v || 'mdi:card-outline', 22)}</span>`;
+    const pv = `<span class="pv2" style="background:var(--ki-bg, var(--gray000,#232323))">${ic(v || 'mdi:card-outline', 22)}</span>`;
     let f;
     if (M.iconPicker && (typeof M.iconPicker === 'function' || typeof M.iconPicker.open === 'function')) f = `${pv}<button class="in" style="flex:1;text-align:left" data-a="ppiconpick">${esc(v || 'Velg ikon')}</button>${v ? `<button class="std" data-a="ppiconclr">×</button>` : ''}`;
     else if (customElements.get('ha-icon-picker')) f = `<ha-icon-picker data-in="ppiconha" data-val="${esc(v)}" data-nomorph data-key="ppiconha-${d.id}"></ha-icon-picker>`;
@@ -22271,7 +22734,7 @@ try {
       return esc(bits.join(' · ')) + (m.length ? `<br><span class="ppmiss">Mangler kort: ${esc(m.join(', '))}</span>` : '');
     };
     const sel = I.sel || {};
-    const chk = (k, on, bad, icon, name, sub) => `<button class="ppchk ${on ? 'on' : ''} ${bad ? 'bad' : ''}" data-a="ppimpchk" data-v="${k}" data-h="selection" ${bad ? 'disabled' : ''}><span class="bx">${on ? ic('mdi:check', 18) : ''}</span><span class="pi" style="background:var(--gray300,#404040)">${ic(icon, 22)}</span><span class="pn"><b>${esc(name)}</b><i>${sub}</i></span></button>`;
+    const chk = (k, on, bad, icon, name, sub) => `<button class="ppchk ${on ? 'on' : ''} ${bad ? 'bad' : ''}" data-a="ppimpchk" data-v="${k}" data-h="selection" ${bad ? 'disabled' : ''}><span class="bx">${on ? ic('mdi:check', 18) : ''}</span><span class="pi" style="background:var(--ki-surface-2, var(--gray300,#404040))">${ic(icon, 22)}</span><span class="pn"><b>${esc(name)}</b><i>${sub}</i></span></button>`;
     let list = '';
     if (A) {
       const G = A.globals && A.globals.obj, cnt = (k) => Object.keys((G && isObj(G[k]) && G[k]) || {}).length;
@@ -22702,40 +23165,40 @@ try {
     .pw{display:flex;flex-direction:column;gap:12px}
     .pw .pphd{display:flex;align-items:center;gap:8px}
     .pw .pphd .t{flex:1;min-width:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pwc{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-    .pwh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fafafa}
-    .pwh i{margin-left:auto;font-style:normal;font-size:11px;font-weight:400;color:#7f7f7f}
-    .pwl{font-size:12px;color:#979797}
-    .pwseg{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--gray000,#232323);touch-action:pan-y;position:relative;overflow:hidden}
-    .pwseg>button{flex:1;min-width:0;height:34px;padding:0 8px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#afafaf;transition:background .2s,color .2s}
-    .pwseg>button.on{background:${C.accent};color:#2f2f2f}
-    .pwseg.gl{background:rgba(0,0,0,0.25);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.1)}
-    .pwseg.gl>button{color:rgba(255,255,255,0.62)}
-    .pwseg.gl>button.on{${M.GLASS_BUBBLE || 'background:rgba(255,255,255,.2);color:#fafafa;'}}
+    .pwc{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .pwh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ki-text, #fafafa)}
+    .pwh i{margin-left:auto;font-style:normal;font-size:11px;font-weight:400;color:var(--ki-text-3, #7f7f7f)}
+    .pwl{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .pwseg{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--ki-bg, var(--gray000,#232323));touch-action:pan-y;position:relative;overflow:hidden}
+    .pwseg>button{flex:1;min-width:0;height:34px;padding:0 8px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #afafaf);transition:background .2s,color .2s}
+    .pwseg>button.on{background:${C.accent};color:var(--ki-on-accent, #2f2f2f)}
+    .pwseg.gl{background:${M.theme.blackA(0.25)};box-shadow:inset 0 0 0 .5px ${M.theme.whiteA(0.1)}}
+    .pwseg.gl>button{color:var(--ki-text-2, rgba(255,255,255,0.62))}
+    .pwseg.gl>button.on{${M.GLASS_BUBBLE || `background:${M.theme.whiteA(0.2)};color:var(--ki-text, #fafafa);`}}
     .pwchips{display:flex;flex-wrap:wrap;gap:6px}
-    .pwchips>button{height:30px;padding:0 12px;border-radius:15px;background:var(--gray000,#232323);font-size:12px;font-weight:500;color:#c7c7c7;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .pwchips>button.on{background:#fafafa;color:#282828}
+    .pwchips>button{height:30px;padding:0 12px;border-radius:15px;background:var(--ki-bg, var(--gray000,#232323));font-size:12px;font-weight:500;color:var(--ki-text-1, #c7c7c7);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pwchips>button.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .pwsug{display:flex;flex-direction:column;gap:4px}
-    .pwsug>button{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 10px;border-radius:12px;background:var(--gray000,#232323);text-align:left;width:100%}
+    .pwsug>button{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 10px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));text-align:left;width:100%}
     .pwsug>button b{flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pwsug>button span{font-size:11px;color:#979797;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .pwsug>button span{font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;font-variant-numeric:tabular-nums}
     .pwsug>button.on{box-shadow:inset 0 0 0 1.5px ${C.accent}}
-    .pwin{height:40px;border-radius:12px;padding:0 12px;background:var(--gray000,#232323);color:#fafafa;font-size:15px;width:100%;min-width:0}
+    .pwin{height:40px;border-radius:12px;padding:0 12px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);font-size:15px;width:100%;min-width:0}
     .pwrow{display:flex;align-items:center;gap:10px}
     .pwrow .pwl{flex:1}
     .pwrg{display:flex;flex-direction:column;gap:4px}
     .pwrg .pwrow b{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
     .pwrg input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;touch-action:pan-y;cursor:pointer}
-    .pwrg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#545454}
-    .pwrg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#545454}
-    .pwrg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    .pwrg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
-    .pwprev{display:flex;justify-content:flex-end;padding:14px;border-radius:18px;background:#282828;min-height:40px}
-    .pwtr{display:flex;align-items:baseline;gap:6px;padding:8px 12px;border-radius:12px;background:var(--gray000,#232323);font-size:12px;color:#979797}
+    .pwrg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--ki-ctrl, #545454)}
+    .pwrg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--ki-ctrl, #545454)}
+    .pwrg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px ${M.theme.blackA(0.4)}}
+    .pwrg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:var(--ki-knob, #fafafa)}
+    .pwprev{display:flex;justify-content:flex-end;padding:14px;border-radius:18px;background:var(--ki-bg, #282828);min-height:40px}
+    .pwtr{display:flex;align-items:baseline;gap:6px;padding:8px 12px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));font-size:12px;color:var(--ki-text-mid, #979797)}
     .pwtr b{font-size:15px}
-    .pwst{font-size:12px;line-height:1.4;padding:10px 12px;border-radius:14px;background:var(--gray000,#232323);color:${C.green};word-break:break-word}
-    .pwst.warn{color:${C.yellow}}
-    .pwst.err{color:${C.red}}
+    .pwst{font-size:12px;line-height:1.4;padding:10px 12px;border-radius:14px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-green-text, ${C.green});word-break:break-word}
+    .pwst.warn{color:var(--ki-yellow-text, ${C.yellow})}
+    .pwst.err{color:var(--ki-red-text, ${C.red})}
     msh-entity-picker{display:block}
   `;
   // Segmenter (Fiks 15.2): Liquid Glass-drag alltid; glass-utseendet (.gl) bare med Liquid Glass-temaet (MSH.glassOn()).
@@ -22755,7 +23218,7 @@ try {
     const gridSug = M.gridCandidates(hass).filter((id) => id !== raw.grid_entity).slice(0, 3);
     const tr = M.gridTrend ? M.gridTrend(P) : null;
     const t = c.tab;
-    const sug = (f, ids) => (ids.length ? `<div class="pwsug" data-key="pwsug-${f}">${ids.map((id) => `<button class="${raw[f] === id ? 'on' : ''}" data-a="pwset" data-f="${f}" data-v="${esc(id)}" data-h="selection">${ic(M.domainIcon ? M.domainIcon(id, hass.states[id]) : 'mdi:flash', 18, 'color:#afafaf')}<b>${esc(M.name ? M.name(hass, id) : id)}<br><span>${esc(id)}</span></b><span>${esc(fmtNow(hass, id))}</span></button>`).join('')}</div>` : '');
+    const sug = (f, ids) => (ids.length ? `<div class="pwsug" data-key="pwsug-${f}">${ids.map((id) => `<button class="${raw[f] === id ? 'on' : ''}" data-a="pwset" data-f="${f}" data-v="${esc(id)}" data-h="selection">${ic(M.domainIcon ? M.domainIcon(id, hass.states[id]) : 'mdi:flash', 18, 'color:var(--ki-text-2, #afafaf)')}<b>${esc(M.name ? M.name(hass, id) : id)}<br><span>${esc(id)}</span></b><span>${esc(fmtNow(hass, id))}</span></button>`).join('')}</div>` : '');
     const rng = (f, l, min, max) => `<div class="pwrg"><div class="pwrow"><span class="pwl">${l}</span><b class="pwrv-${f}">${t[f]} px</b></div><input type="range" data-in="pwtab" data-f="${f}" min="${min}" max="${max}" step="1" value="${t[f]}"></div>`;
     return `<div class="pw" data-key="pw"><style>${CSS}</style>
       <div class="pphd"><button class="b40" data-a="pwback" title="Tilbake">${ic('mdi:chevron-left', 18)}</button><span class="t">Strømpris</span></div>
@@ -23068,15 +23531,15 @@ try {
             <div class="cursor" style="left:${(sel / 24) * 100}%;border-left:1px dashed ${M.alpha(gc, 0.6)}"></div>
             <div class="scrub"></div>
           </div>
-          <button class="gear press" data-act="customize" title="Tilpass">${M.icon('settings', 22, 'color:#fafafa')}</button>
+          <button class="gear press" data-act="customize" title="Tilpass">${M.icon('settings', 22, 'color:var(--ki-text, #fafafa)')}</button>
           <div class="top">
             <span class="nm ell">${esc(name)}</span>
-            <span class="chip" style="background:${M.alpha(hc, 0.18)};color:${hc}">${M.icon(chipIcon, 14)}${esc(chipText)}</span>
+            <span class="chip" style="background:${M.alpha(hc, 0.18)};color:${M.theme.accentText(hc)}">${M.icon(chipIcon, 14)}${esc(chipText)}</span>
           </div>
           <div class="vals">
             <div class="line">
-              <button class="t" data-act="tab" data-t="t" style="color:${isT ? '#fafafa' : '#7f7f7f'}"><span class="big num">${tv != null ? M.nf(tv, Math.round(tv * 10) % 10 === 0 ? 0 : 1) : '–'}</span><span class="deg">°</span></button>
-              <button class="h" data-act="tab" data-t="h" data-haptic="selection" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? '#afafaf' : '#fafafa'}"><span class="hv num">${hv != null ? M.nf(hv, 0) : '–'}</span><span class="pc">%</span></button>
+              <button class="t" data-act="tab" data-t="t" style="color:${isT ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-3, #7f7f7f)'}"><span class="big num">${tv != null ? M.nf(tv, Math.round(tv * 10) % 10 === 0 ? 0 : 1) : '–'}</span><span class="deg">°</span></button>
+              <button class="h" data-act="tab" data-t="h" data-haptic="selection" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? 'var(--ki-text-2, #afafaf)' : 'var(--ki-text, #fafafa)'}"><span class="hv num">${hv != null ? M.nf(hv, 0) : '–'}</span><span class="pc">%</span></button>
             </div>
             <span class="when">${esc(when)}</span>
           </div>
@@ -23104,15 +23567,15 @@ try {
     }
     get styles() {
       return `
-        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);width:100%}
+        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
         .graph{position:absolute;left:0;right:0;bottom:0;height:84px}
         .graph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
         .cursor{position:absolute;top:0;bottom:0;pointer-events:none}
         .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
-        .gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center}
+        .gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
         .gear:active{transform:scale(.92)}
         .top{position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px}
-        .nm{font-size:13px;color:var(--gray800,#afafaf)}
+        .nm{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .chip{height:26px;padding:0 10px 0 8px;border-radius:13px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap;flex:none}
         .vals{position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px}
         .line{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
@@ -23121,8 +23584,8 @@ try {
         .deg{font-size:24px;font-weight:300}
         .h{display:flex;align-items:baseline;gap:1px;height:26px;padding:0 9px;border-radius:13px;transition:background .25s,color .25s}
         .hv{font-size:17px;font-weight:400}
-        .pc{font-size:12px;color:var(--gray700,#979797)}
-        .when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .pc{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .when{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
       `;
     }
   }
@@ -23240,16 +23703,6 @@ try {
   // Standard −4 (0 px); forvalg Standard 0 · Litt 10 · Luftig 24 · Ekstra 48. Brukerens egen pad_top overstyrer.
   const PAD_T_OFF = 4;
   const SPACING = { gap: 8, pad_top: -4, pad_bottom: 150 };
-  // Mellomrom-editoren (ki-spacing-editor) viser r.offset, men M.spacingRows sender det ikke videre fra skjemafeltet –
-  // legg det på her (idempotent; gjelder bare felt som har offset).
-  if (M.spacingRows && !M.spacingRows.__offset) {
-    const rows0 = M.spacingRows;
-    M.spacingRows = (fields, cfg) => rows0(fields, cfg).map((r) => {
-      const f = (fields || []).find((x) => x && x.name === r.name);
-      return f && f.offset != null && r.offset == null ? { ...r, offset: f.offset } : r;
-    });
-    M.spacingRows.__offset = true;
-  }
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const obj = (id) => String(id).split('.').slice(1).join('.');
 
@@ -25371,6 +25824,7 @@ try {
   };
   M.bassengLegacyTest = (popup) => cardsDeep(popup && popup.cards).some((c) => LEG_TAGS.includes(tagOfC(c)));
 
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   class Basseng extends M.Card {
     static get cardName() { return 'Basseng'; }
     static get defaults() { return { controls: CTL_STD.slice(), hidden_controls: CTL_HID.slice(), tabs: ['ov', 'heat', 'klor', 'spr'] }; }
@@ -25390,7 +25844,7 @@ try {
           { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
           { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
         ] },
-        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
+        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }, ...(M.tabH ? [M.tabH.field({ items: (h, c) => (Array.isArray(c.tabs) && c.tabs.length ? c.tabs : Object.keys(TABS)).filter((k) => TABS[k]).map((k) => TABS[k]), native: 34, gear: true })] : [])] }, // 33.4: fanehøyde i Visning (ingen Faner-fane)
       ];
     }
     get cardSize() { return 10; }
@@ -25468,7 +25922,7 @@ try {
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
       // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        <div class="tabrow" data-section="tabs">
+        <div class="tabrow" data-section="tabs"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
           <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
@@ -25825,12 +26279,13 @@ try {
         .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
         .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (34), sporet H + 8, tannhjul = sporets høyde */
+        .gt{padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
-        .gti{position:relative;z-index:1;height:34px;padding:0 12px;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;transition:color .25s}
-        .cfg{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
+        .gti{position:relative;z-index:1;height:${TV('th', 34)};padding:0 ${TV('tp', 12)};display:grid;place-items:center;font-size:${TV('tf', 13)};font-weight:500;white-space:nowrap;transition:color .25s}
+        .cfg{width:calc(${TV('th', 34)} + 8px);height:calc(${TV('th', 34)} + 8px);border-radius:calc(${TV('th', 34)} / 2 + 4px);flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
         .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -27258,12 +27713,17 @@ try {
         <div class="vb"><div class="vch">${chips}</div>${meter}</div>
       </section>`;
     }
+    // 33.4 (oppfølging): fanelinja = felles MSH.tabBar (pop · sticky · Fylt/Kontur · «Ikon + aktiv» · tannhjul i sporets
+    // høyde) med Vanning-variablene i styles (samme utseende som før i mørk modus); fanehøyde = MSH.tabH (tab_height)
     _faneRad(tabs, cur) {
-      const vis = fanevisning(this.config), lk = faneStil(this.config), pos = cogPos(this.config);
-      return `<div class="trow v-${vis} lk-${lk} cp-${pos}" data-key="trow" data-look="${lk}"><div class="tbox" data-key="tbox"><div class="tabs v-${vis}" role="tablist" data-glass-drag="x" aria-label="Vanning-faner">${tabs.map((k) => {
-        const [l, ic] = FANE[k], on = k === cur, lab = vis === 'begge' || vis === 'tekst' || (vis === 'aktiv' && on);
-        return `<button class="tab${on ? ' on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active' : ''} data-act="tab" data-t="${k}" data-haptic="selection" aria-label="${esc(l)}" data-key="t-${k}">${vis !== 'tekst' ? M.icon(ic, vis === 'ikoner' ? 22 : 20) : ''}${lab ? `<span class="tl">${esc(l)}</span>` : ''}</button>`;
-      }).join('')}</div></div>${this._cog('tab')}</div>`;
+      const c = this.config, vis = fanevisning(c), lk = faneStil(c), pos = cogPos(c);
+      const items = tabs.map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] }));
+      return M.tabBar.html(items, cur, {
+        variant: 'pop', mode: vis, look: lk, sticky: true, popup: true, th: M.tabH && M.tabH.own(c), key: 'trow', label: 'Vanning-faner',
+        cls: `trow v-${vis} lk-${lk} cp-${pos}`, rowCls: `tbox tabs v-${vis}`, tabCls: 'tab', labelCls: 'tl', keyPrefix: 't-', trackAttrs: 'data-key="tbox"',
+        attrs: (t) => `data-act="tab" data-t="${esc(t.key)}" data-haptic="selection"`,
+        gear: pos === 'tab', gearCls: 'cog cog-tab press', gearIcon: 'mdi:cog', gearLabel: 'Tilpass Vanning', gearAttrs: 'data-act="customize" data-haptic="light" title="Tilpass Vanning"',
+      });
     }
     _tg(on, act, attrs) { return `<button class="tg ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-act="${act}" data-haptic="selection" ${attrs || ''}><i></i></button>`; }
 
@@ -27779,7 +28239,7 @@ try {
       if ((!running || !this.isOpen) && this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this.isOpen && !this._last) this._load();
       // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner = synlige i rekkefølge), sideveis dra = Liquid Glass-valg
-      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.tbox>.tabs'), {
+      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.trow .mtb-tabs'), {
         idOf: (b) => b.dataset.t, active: () => this.__cur, order: () => faneOrden(this.config),
         save: (full) => { const vis = new Set(fanerCfg(this.config)); return M.mshPatchConfig(this, { faner: full.filter((k) => vis.has(k)) }); },
       });
@@ -27866,19 +28326,14 @@ try {
         .vch{display:flex;gap:6px;flex:1;min-width:0;overflow:hidden}
         .vc{height:30px;padding:0 10px 0 8px;border-radius:15px;background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex:none}
         .vm{font-size:11px;color:var(--ki-text-1, #e1e1e1);white-space:nowrap;flex:none}
-        /* ---- faner (Liquid Glass-pille) ---- 35.8: fanehøyde --vth (33.4 kan sette den), Fylt/Kontur, tannhjul ved fanene */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0;position:sticky;top:8px;z-index:6;--vth:56px;--vtp:4px}
-        .trow.v-tekst{--vth:44px} .trow.v-ikoner,.trow.v-aktiv{--vth:48px}
-        .tbox{flex:1;min-width:0;padding:var(--vtp);border-radius:30px;background:var(--ki-surface-3, ${C.card});box-shadow:${C.edge},0 8px 20px ${KA(0.3)}}
-        .lk-kontur .tbox{background:${C.card};box-shadow:inset 0 0 0 1px ${WA(0.14)},0 8px 20px ${KA(0.3)}}
-        .tabs{display:flex;gap:2px;position:relative;border-radius:26px}
-        .tab{flex:1 1 0;min-width:0;height:var(--vth);padding:0 4px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2, var(--gray700, #979797));font-size:11px;font-weight:500;transition:background .25s,color .25s,flex-grow .25s}
-        .tab .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .tab.on{background:${PINK};color:${INK};font-weight:600}
-        .tabs.v-tekst .tab{font-size:13px}
-        .tabs.v-aktiv .tab{flex-direction:row;gap:6px;font-size:13px}
-        .tabs.v-aktiv .tab.on{flex:2.4 1 auto;padding:0 12px}
-        .cog.cog-tab{position:static;flex:none;--g:calc(var(--vth) + 2 * var(--vtp));width:var(--g);height:var(--g);border-radius:50%;background:${C.card};box-shadow:${C.edge},0 8px 20px ${KA(0.3)};color:${C.text}}
+        /* ---- faner: felles MSH.tabBar (05-tab-bar.js) med Vanning-utseendet – 35.8 Fylt/Kontur, tannhjul ved fanene; 33.4 fanehøyde ---- */
+        ${M.tabBar ? M.tabBar.CSS : ''}
+        .trow.mtb{--mtb-pad:4px;--mtb-r:30px;--mtb-tr:calc(${M.tabH ? M.tabH.v('th', 52) : '52px'} / 2);--mtb-h0:56px;--mtb-fs0:11px;--mtb-fg:var(--ki-text-2, var(--gray700, #979797));--mtb-on-fg:${INK}}
+        .trow.mtb.v-tekst{--mtb-h0:44px;--mtb-fs0:13px} .trow.mtb.v-ikoner,.trow.mtb.v-aktiv{--mtb-h0:48px} .trow.mtb.v-aktiv{--mtb-fs0:13px}
+        .trow .mtb-t{min-width:0;line-height:inherit;transition:background .25s,color .25s,flex-grow .25s}
+        .trow .mtb-t.on{font-weight:600}
+        .trow.mtb-m-b .mtb-t{gap:3px}
+        .cog.cog-tab{position:static;flex:none;--g:calc(var(--mtb-h) + 2 * var(--mtb-pad));width:var(--g);height:var(--g);border-radius:50%;background:${C.card};box-shadow:${C.edge},0 8px 20px ${KA(0.3)};color:${C.text}}
         .lk-kontur .cog.cog-tab{box-shadow:inset 0 0 0 1px ${WA(0.14)},0 8px 20px ${KA(0.3)}}
         /* ---- kort ---- */
         .card{position:relative;overflow:hidden;background:${C.card};box-shadow:${C.edge};border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -28151,6 +28606,8 @@ try {
     const fanevis = { type: 'select', name: 'fanevisning', label: 'Faner viser', options: FANEVIS, default: 'begge' };
     const cogFelt = { type: 'select', name: 'cog_position', label: 'Tannhjul', options: [['top', 'I toppkortet'], ['tab', 'Ved fanene']], default: 'top' };
     const lookFelt = { type: 'select', name: 'tab_look', label: 'Fanestil', options: [['fylt', 'Fylt'], ['kontur', 'Kontur']], default: 'fylt' };
+    // 33.4: fanehøyde – felles felt (forhåndsvisning med Vanning-fanene i valgt visning/stil)
+    const fanehoyde = M.tabH ? M.tabH.field({ items: (hh, cc) => fanerCfg(cc).map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] })), mode: (cc) => fanevisning(cc), look: (cc) => faneStil(cc), gear: (cc) => cogPos(cc) === 'tab', native: (cc) => ({ begge: 40, tekst: 44 }[fanevisning(cc)] || 48) }) : null;
     // Soner · grupper (navn, pil opp, slett, + Ny gruppe)
     const grupper = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
@@ -28239,7 +28696,7 @@ try {
     ];
     return [
       { type: 'tabs', id: 'vanning', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, faner] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, ...(fanehoyde ? [fanehoyde] : []), faner] },
         { key: 'soner', label: 'Soner', icon: 'mdi:sprinkler-variant', focus: ['soner'], fields: [grupper, soner, stdMin] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entiteter', 'overrides', 'reserve'], fields: entiteter },
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'innstillinger', 'spacing'], fields: avansert },
@@ -30346,6 +30803,18 @@ try {
   M.KLIMA_TAB_LOOKS = LOOKS;
 
   // Layout (config.layout) med standardverdier. Eldre rotnøkler (tab_order, hidden_tabs, start_tab) leses fortsatt.
+  // 33.4 · fanehøyde (05-tab-bar.js): CSS-variabler + editorfelt med forhåndsvisning av Klima-fanene
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const TH_OPTS = (d) => {
+    const L = (d && d.layout) || {}, st = ['both', 'text', 'icon'].includes(L.tab_style) ? L.tab_style : 'both';
+    return {
+      items: (h, c) => { const L2 = ((c || d || {}).layout) || {}; return M.mshOrder(tabDefs().map((t) => t.id), L2.tab_order, L2.hidden_tabs).slice(0, 4).map((k) => { const t = tabDefs().find((x) => x.id === k) || { id: k, label: k }; return { key: k, label: t.label, icon: t.icon }; }); },
+      mode: (c) => ({ both: 'begge', text: 'tekst', icon: 'ikon' })[(((c || d || {}).layout) || {}).tab_style || st] || 'begge',
+      look: (c) => ((((c || d || {}).layout) || {}).tab_look === 'kontur' ? 'kontur' : 'fylt'),
+      native: (c) => ({ text: 40, icon: 46 })[(((c || d || {}).layout) || {}).tab_style] || 38,
+      gear: true,
+    };
+  };
   const LAY_DEF = { show_hero: true, show_modes: true, tab_style: 'both' };
   function layoutOf(c) {
     c = c || {};
@@ -30927,6 +31396,7 @@ try {
             { type: 'select', name: 'layout.tab_look', label: 'Fanestil', options: LOOKS, default: 'fylt' },
             { type: 'select', name: 'layout.tab_style', label: 'Faner viser', options: [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], default: 'both' },
           ] },
+          ...(M.tabH ? [{ type: 'section', id: 'fanehoyde', label: 'Fanehøyde', icon: 'mdi:arrow-expand-vertical', fields: [M.tabH.field(TH_OPTS())] }] : []), // 33.4
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             { type: 'select', name: 'layout.default_tab', label: 'Åpne med', options: (() => { const v = visibleTabs(pc, layoutOf(c)); return T.filter((t) => v.includes(t.id)).map((t) => [t.id, t.label]); })(), default: 'oversikt' },
             { type: 'boolean', name: 'layout.remember_tab', label: 'Husk siste fane', help: 'På: åpner med fanen du sist var på (per enhet). Av: alltid «Åpne med».', default: false },
@@ -31046,7 +31516,7 @@ try {
       return `<div class="wrap">${this._blankHTML(false)}
         ${c.title ? `<div class="ttl">${esc(c.title)}</div>` : ''}
         ${L.show_modes !== false ? this._modes() : ''}
-        <div class="trow s-${st} lk-${lk}" data-look="${lk}">
+        <div class="trow s-${st} lk-${lk}" data-look="${lk}"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>
           <div class="tbox"><div class="tabs msh-tr s-${st}" data-glass-drag="x" role="tablist" aria-label="Klima-faner">${tabs.map((k) => {
             const t = T[k] || { id: k, label: k, icon: 'mdi:tab' }, on = k === tab;
             return `<button class="tab${on ? ' on' : ''}" data-act="ktab" data-key="${esc(k)}" data-haptic="selection" role="tab" aria-selected="${on}"${on ? ' data-active' : ''} aria-label="${esc(t.label)}">${st !== 'text' ? M.icon(t.icon, st === 'icon' ? 22 : 20) : ''}${st !== 'icon' ? `<span class="tl">${esc(t.label)}</span>` : ''}</button>`;
@@ -31130,25 +31600,28 @@ try {
         .ml{font-size:11px;font-weight:500;white-space:nowrap;max-width:66px}
         ${M.TAB_ROW_CSS || ''}
         /* 35.8 · fanelinja: høyde (--kth, 33.4 kan sette den) + innerpadding (--ktp) per stil; tannhjulet = sporets høyde */
-        .trow{display:flex;align-items:center;gap:8px;min-width:0;--kth:54px;--ktx:0px;--ktp:6px}
-        .trow.s-text{--kth:40px} .trow.s-icon{--kth:46px}
+        /* 33.4 · --kth følger fanehøyden (MSH.tabH): Tekst/Ikon = H, Ikon + tekst = H + 16; uten valg = dagens høyder */
+        .trow{display:flex;align-items:center;gap:8px;min-width:0;--kth:${TV('th2', 54)};--ktx:0px;--ktp:6px}
+        .trow.s-text{--kth:${TV('th', 40)}} .trow.s-icon{--kth:${TV('th', 46)}}
         .trow.lk-kontur{--ktp:5px} .trow.lk-linje{--ktp:0px;--ktx:4px}
         /* Fiks 15.2/19.8: fast flate (fanespor --ki-surface-3; Kontur --ki-surface) + tynn ring, ingen glass/backdrop-filter; glass-linsen (tabReorder) virker oppå */
-        .tbox{flex:1;min-width:0;padding:var(--ktp);border-radius:30px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;box-sizing:border-box}
+        .tbox{flex:1;min-width:0;padding:var(--ktp);border-radius:calc(${TV('th', 48)} / 2 + var(--ktp));background:var(--ki-surface-3, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;box-sizing:border-box}
         .lk-kontur .tbox{background:var(--ki-surface, var(--gray200,#3a3a3a));border-radius:calc((var(--kth) + var(--ktx)) / 2 + var(--ktp));box-shadow:inset 0 0 0 1px ${WA(0.14)}}
         .lk-linje .tbox{padding:0 4px;border-radius:0;background:transparent;box-shadow:inset 0 -1px 0 ${WA(0.1)}}
         .tabs{position:relative;gap:4px;border-radius:24px}
         .lk-linje .tabs{gap:2px;border-radius:0}
-        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 10px;height:calc(var(--kth) + var(--ktx));border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2,var(--gray700,#979797));background:transparent;transition:background .25s,color .25s,box-shadow .2s}
+        .tabs>.tab{flex:1 0 auto;min-width:58px;padding:0 ${TV('tp', 10)};height:calc(var(--kth) + var(--ktx));border-radius:calc(${TV('th', 48)} / 2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ki-text-2,var(--gray700,#979797));background:transparent;transition:background .25s,color .25s,box-shadow .2s}
         .tabs>.tab.on{background:${PINK};color:${INK}}
         .lk-linje .tabs>.tab{border-radius:0}
         .lk-linje .tabs>.tab.on{background:transparent;color:var(--ki-text,#fafafa);box-shadow:inset 0 -3px 0 rgb(242 133 201)}
         .lk-linje .tabs>.tab.on ha-icon{color:var(--ki-pink-text, rgb(242 133 201))}
         .lk-linje .tabs>.tab.on .tl{font-weight:600}
-        .tabs.s-text>.tab{padding:0 14px}
-        .tabs.s-text .tl{font-size:13px}
-        .tabs.s-icon>.tab{padding:0 12px}
-        .tl{font-size:10px;font-weight:500;white-space:nowrap}
+        .tabs.s-text>.tab{padding:0 ${TV('tp', 14)}}
+        .tabs.s-text .tl{font-size:${TV('tf', 13)}}
+        .tabs.s-icon>.tab{padding:0 ${TV('tp', 12)}}
+        .tl{font-size:calc(${TV('tf', 12)} - 2px);font-weight:500;white-space:nowrap}
+        .tabs>.tab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
+        .tabs.s-icon>.tab ha-icon{--mdc-icon-size:${TV('ti', 22)} !important;width:${TV('ti', 22)} !important;height:${TV('ti', 22)} !important}
         .gear{--gh:calc(var(--kth) + var(--ktx) + 2 * var(--ktp));width:var(--gh);height:var(--gh);border-radius:50%;flex:none;align-self:center;display:grid;place-items:center;background:var(--ki-surface,#3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--ki-text,#fafafa)}
         .gear:active{transform:scale(.92)}
         .kbody{display:flex;flex-direction:column;gap:var(--msh-gap,${SPACING.gap}px);min-width:0}
@@ -31280,6 +31753,7 @@ try {
         <div class="grp">
           ${segRow('Fanestil', 'mdi:palette-swatch-outline', 'look', LOOKS, look)}
           ${segRow('Faner viser', 'mdi:tab', 'style', [['both', 'Ikon + tekst'], ['text', 'Tekst'], ['icon', 'Ikon']], style)}
+          ${M.tabH ? `<div class="r col2" data-key="tabh">${M.tabH.editorHTML(d.tab_height, { ...TH_OPTS(d), cfg: d })}</div>` : ''}
           ${openWith}
           ${remRow}
         </div>
@@ -31309,6 +31783,8 @@ try {
     box.className = 'klima-sheet';
     Object.defineProperty(box, '_config', { get: () => st.draft });
     ov.body.appendChild(box);
+    // 33.4: fanehøyde (felles felt) – slider live bak arket, full tegning ved slipp
+    if (M.tabH) M.tabH.bindEditor(box, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = v; preview(); if (commit) draw(); } });
     // 17.28: slider – live mens man drar (ingen ny tegning under drag), full tegning ved slipp
     const spInput = (e, end) => {
       const el = e.target;
@@ -31497,7 +31973,15 @@ try {
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const PINK = C.accent, INK = '#3a3a3a', Y = C.yellow, G = C.green;
+  const PINK = C.accent, INK = 'var(--ki-on-accent, #3a3a3a)', Y = C.yellow, G = C.green;
+  // Fiks 35 (tema): gul som tekst/ikon mørknes i lys modus (YT), tone-bakgrunner .12→.18-regelen (TONE), gjennomsiktig
+  // hvit/svart etter regel 4/3 (WA/KA). Mørk modus = samme farger som før.
+  const TH = M.theme || {};
+  const YT = TH.accentText ? TH.accentText(Y) : Y;
+  // Gul tone med gul tekst beholder .18 (M.alpha) også i lys modus: ×1,5 gir bare 4,45:1 mot den mørknede gule teksten.
+  const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0/max(var(--ki-ka-min,0),calc(${a}*var(--ki-ka-k,1))))`);
   const OUT_RX = /(^|[_\s.])(ute\w*|utendors\w*|utvendig\w*|hage\w*|terrasse\w*|veranda\w*|fasade\w*|inngang\w*|garasje\w*|carport|balkong\w*|uteplass\w*|outdoor\w*|outside|garden|patio|porch|yard)($|[_\s.])/;
   const OUT_FLOOR_RX = /(ute|utendors|utvendig|outdoor|outside|garden|hage|yard)/;
   const OUT_DOMS = ['light', 'switch', 'input_boolean', 'group', 'script'];
@@ -31705,6 +32189,7 @@ try {
             { type: 'info', label: 'Standard: Utelys · én fane per etasje · Lys på. Piler = rekkefølge, øye = skjul (minst én fane vises). Du kan også holde inne en fane i popupen og dra den.' },
             { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge og synlighet', options: tabs.map(([k, l]) => [k, l]) },
             { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Første'], ...tabs.map(([k, l]) => [k, l])] },
+            ...(M.tabH ? [M.tabH.field({ items: tabs.map(([, l]) => l), native: 48, variant: 'gear' })] : []), // 33.4: fanehøyde (felles felt)
             { type: 'section', label: 'Navn på fanene', icon: 'mdi:rename-outline', fields: tabs.map(([k, , d]) => ({ type: 'text', name: 'tab_names.' + k, label: d, placeholder: d })) },
             ...(a.floorsHA.length ? [{ type: 'section', label: 'Fane per etasje', icon: 'mdi:home-floor-1', fields: a.floorsHA.map((f) => ({ type: 'boolean', name: 'floor_tabs.' + f.id, label: f.name, default: f.has, help: f.has ? '' : 'Fant ingen lys i etasjen' })) }] : []),
           ] },
@@ -31789,7 +32274,7 @@ try {
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
       const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
       // Fiks 31.5: fanelinjen + tannhjulet = felles MSH.tabBar (variant gear, samme som tab_style gear på Hjem / Innstillinger)
-      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys' }) : '';
+      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys', popup: true, th: M.tabH && M.tabH.own(c) }) : ''; // 33.4: fanehøyde (MSH.tabH)
       return `<div class="wrap" style="${vars}">
         ${bar}
         ${body || ''}
@@ -31900,11 +32385,11 @@ try {
       const mark = (t, up) => { if (t == null) return ''; const [x, y] = pt(ang(t), R); return `<g class="rm" data-key="rm-${up ? 'u' : 'd'}"><circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="9"/><text x="${x.toFixed(2)}" y="${(y + 4).toFixed(2)}">${up ? '↑' : '↓'}</text></g>`; };
       const [nx, ny] = pt(ang(u.now), R);
       return `<svg class="ring" viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" aria-hidden="true">
-        <circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--gray400,#545454)" stroke-width="${SW}"/>
-        ${night ? `<path class="rn" d="${night}" fill="none" stroke="#262626" stroke-width="${SW}"/>` : ''}
-        ${lamp ? `<path class="rl${u.autoOn ? '' : ' off'}" d="${lamp}" fill="none" stroke="${u.autoOn ? Y : 'var(--gray600,#7f7f7f)'}" stroke-width="${SW - 6}" stroke-linecap="round"/>` : ''}
+        <circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--ki-surface-3, var(--gray400,#545454))" stroke-width="${SW}"/>
+        ${night ? `<path class="rn" d="${night}" fill="none" stroke="var(--ki-ctrl, #262626)" stroke-width="${SW}"/>` : ''}
+        ${lamp ? `<path class="rl${u.autoOn ? '' : ' off'}" d="${lamp}" fill="none" stroke="${u.autoOn ? Y : 'var(--ki-text-3, var(--gray600,#7f7f7f))'}" stroke-width="${SW - 6}" stroke-linecap="round"/>` : ''}
         ${hours}${mark(u.S.rising, true)}${mark(u.S.setting, false)}
-        <circle class="rnow" cx="${nx.toFixed(2)}" cy="${ny.toFixed(2)}" r="6" fill="${u.sunUp ? Y : '#fafafa'}" stroke="#282828" stroke-width="2.5"/>
+        <circle class="rnow" cx="${nx.toFixed(2)}" cy="${ny.toFixed(2)}" r="6" fill="${u.sunUp ? Y : 'var(--ki-text-2, #fafafa)'}" stroke="var(--ki-surface, #282828)" stroke-width="2.5"/>
       </svg>`;
     }
     _outCard(A, u) {
@@ -31916,7 +32401,7 @@ try {
           <span class="evv num">${this._hm(t)}</span><span class="evs">${esc(t == null ? 'Mangler tid' : this._day(t))}</span></div>`;
       };
       return `<section class="uc${u.lit ? ' lit' : ''}" data-key="uc">
-        <div class="uct"><span class="t13" style="color:var(--gray800,#afafaf)">Utelys</span><span class="chip${u.lit ? ' on' : ''}">${L.length ? `${u.onN} av ${L.length}` : 'ingen lamper'}</span><span class="grow"></span><span class="t12 ust ell">${esc(status)}</span></div>
+        <div class="uct"><span class="t13" style="color:var(--ki-text-2, var(--gray800,#afafaf))">Utelys</span><span class="chip${u.lit ? ' on' : ''}">${L.length ? `${u.onN} av ${L.length}` : 'ingen lamper'}</span><span class="grow"></span><span class="t12 ust ell">${esc(status)}</span></div>
         <div class="ucb">
           <div class="rw">${this._ring(u)}
             <button class="rc${u.lit ? ' on' : ''}" data-act="outall" data-haptic="success" aria-label="${u.lit ? 'Slå av utelys' : 'Slå på utelys'}" ${L.length ? '' : 'disabled'}>
@@ -31929,10 +32414,10 @@ try {
       const st = this.s(u.U.utelys_status), sv = st && !M.unavailable(st) && String(st.state).trim() && st.state !== 'unknown' ? String(st.state) : null;
       const txt = sv || (!u.autoOn ? 'Av – utelyset styres manuelt' : u.lit ? 'Utelyset er på' : u.next === 'on' ? 'Venter på mørket' : 'Styrer utelyset');
       const c = this.cfg;
-      const sw = (on) => `<span class="sw" style="background:${on ? G : '#4a4a4d'}"><span style="left:${on ? 26 : 4}px;background:${on ? '#2a2a2c' : '#d8d6d1'}"></span></span>`;
-      const fl = (k, ic, l, sub, ent) => { const on = ent ? M.isOn(this.s(ent)) : c[k] !== false; return `<button class="af${on ? ' on' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="af-${k}" data-haptic="success" aria-pressed="${on}"><span class="afi">${M.icon(ic, 20)}</span><span class="col" style="gap:2px;min-width:0;text-align:left"><span class="t14">${l}</span><span class="t12 ell" style="color:var(--gray700,#979797)">${esc(sub)}</span></span></button>`; };
+      const sw = (on) => `<span class="sw" style="background:${on ? G : 'var(--ki-ctrl, #4a4a4d)'}"><span style="left:${on ? 26 : 4}px;background:${on ? 'var(--ki-knob, #2a2a2c)' : 'var(--ki-knob, #d8d6d1)'}"></span></span>`;
+      const fl = (k, ic, l, sub, ent) => { const on = ent ? M.isOn(this.s(ent)) : c[k] !== false; return `<button class="af${on ? ' on' : ''}" data-act="auto" data-k="${k}" data-id="${esc(ent || '')}" data-key="af-${k}" data-haptic="success" aria-pressed="${on}"><span class="afi">${M.icon(ic, 20)}</span><span class="col" style="gap:2px;min-width:0;text-align:left"><span class="t14">${l}</span><span class="t12 ell" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(sub)}</span></span></button>`; };
       return `<section class="st" data-key="ut-auto">
-        <button class="ar" data-act="utauto" data-key="ut-ar" data-haptic="success">${M.icon('mdi:robot-outline', 22, 'color:var(--gray900,#c7c7c7);width:26px')}<span class="grow col" style="gap:2px;text-align:left;min-width:0"><span class="t15">Automatikk</span><span class="t12" style="color:var(--gray700,#979797)">${esc(txt)}</span></span>${sw(u.autoOn)}</button>
+        <button class="ar" data-act="utauto" data-key="ut-ar" data-haptic="success">${M.icon('mdi:robot-outline', 22, 'color:var(--ki-text-1, var(--gray900,#c7c7c7));width:26px')}<span class="grow col" style="gap:2px;text-align:left;min-width:0"><span class="t15">Automatikk</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(txt)}</span></span>${sw(u.autoOn)}</button>
         <div class="afs${u.autoOn ? '' : ' dim0'}">${fl('kveld', 'mdi:weather-sunset-down', 'Kveld', 'Tenn i skumringen', A.kveld)}${fl('morgen', 'mdi:weather-sunset-up', 'Morgen', 'Før det lysner', A.morgen)}</div>
       </section>`;
     }
@@ -31948,7 +32433,7 @@ try {
         const val = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : on ? (dim ? `${pct} %` : 'På') : 'Av';
         return `<div class="lp${on ? ' on' : ''}" data-lp="${esc(l.id)}" data-ent="${esc(l.id)}" data-dim="${dim ? 1 : 0}" data-pct="${pct}" data-key="lp-${esc(l.id)}" role="button" aria-label="${esc(l.name)}">
           <span class="lpf" style="width:${pct}%;${on ? `background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span>
-          <span class="lpi" style="${on ? `background:${lc.css};color:#282828` : ''}">${M.icon(ic, 20)}</span>
+          <span class="lpi" style="${on ? `background:${lc.css};color:var(--ki-on-accent, #282828)` : ''}">${M.icon(ic, 20)}</span>
           <span class="col lpt"><span class="t14 ell">${esc(l.name)}</span><span class="t12 lpv">${esc(val)}</span></span></div>`;
       }).join('')}</section>`;
     }
@@ -31958,17 +32443,17 @@ try {
       const el = u.elev != null ? `Solhøyde ${u.elev < 0 ? '−' : ''}${M.nf(Math.abs(u.elev), 1)}°` : 'Solhøyde –';
       const dir = u.rising == null ? '' : u.rising ? ' · stiger' : ' · synker';
       return `<section class="sol" data-key="ut-sun">
-        <div class="row" style="gap:10px;padding:0 4px"><span class="grow t15">Sola</span><span class="t12" style="color:var(--gray700,#979797)">${esc(el + dir)}</span>${u.rising == null ? '' : M.icon(u.rising ? 'mdi:arrow-top-right' : 'mdi:arrow-bottom-right', 16, `color:${u.rising ? Y : 'var(--gray700,#979797)'}`)}</div>
-        <div class="sr noscroll">${E.map(([k, l, ic]) => `<div class="stl${fut && fut[0] === k ? ' nx' : ''}" data-key="sun-${k}">${M.icon(ic, 18)}<span class="t12 stn">${l}</span><span class="evv num" style="font-size:20px">${this._hm(u.S[k])}</span><span class="t11" style="color:var(--gray700,#979797)">${esc(this._day(u.S[k]))}</span></div>`).join('')}</div>
+        <div class="row" style="gap:10px;padding:0 4px"><span class="grow t15">Sola</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(el + dir)}</span>${u.rising == null ? '' : M.icon(u.rising ? 'mdi:arrow-top-right' : 'mdi:arrow-bottom-right', 16, `color:${u.rising ? YT : 'var(--ki-text-mid, var(--gray700,#979797))'}`)}</div>
+        <div class="sr noscroll">${E.map(([k, l, ic]) => `<div class="stl${fut && fut[0] === k ? ' nx' : ''}" data-key="sun-${k}">${M.icon(ic, 18)}<span class="t12 stn">${l}</span><span class="evv num" style="font-size:20px">${this._hm(u.S[k])}</span><span class="t11" style="color:var(--ki-text-mid, var(--gray700,#979797))">${esc(this._day(u.S[k]))}</span></div>`).join('')}</div>
       </section>`;
     }
     _utSettings(u) {
       const open = !!(this.ui.fold || {}).utset, U = u.U;
       const v = (id) => { const n = this.n(id); return n == null ? '–' : M.nf(n, 0); };
       const meta = `${v(U.terskel_paa)} / ${v(U.terskel_av)} lx · ${v(U.minst_morke)} min`;
-      const row = (id, l, unit) => (id ? M.stepperHTML(this.hass, id, { label: l, step: 5, unit, key: 'stp-' + id }) : `<div class="msh-stp-row"><span class="msh-stp-l"><span class="msh-stp-ln">${esc(l)}</span><span class="msh-stp-ls">Velg entitet i Tilpass</span></span><span class="t13" style="color:var(--gray700,#979797)">–</span></div>`);
+      const row = (id, l, unit) => (id ? M.stepperHTML(this.hass, id, { label: l, step: 5, unit, key: 'stp-' + id }) : `<div class="msh-stp-row"><span class="msh-stp-l"><span class="msh-stp-ln">${esc(l)}</span><span class="msh-stp-ls">Velg entitet i Tilpass</span></span><span class="t13" style="color:var(--ki-text-mid, var(--gray700,#979797))">–</span></div>`);
       return `<section class="fd" data-key="fold-utset">
-        <button class="fh" data-act="fold" data-k="utset">${M.icon('mdi:tune-variant', 22)}<span class="grow t15">Innstillinger</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--gray700,#979797);transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
+        <button class="fh" data-act="fold" data-k="utset">${M.icon('mdi:tune-variant', 22)}<span class="grow t15">Innstillinger</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--ki-text-mid, var(--gray700,#979797));transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
         ${open ? `<div class="fb ufb">${row(U.terskel_paa, 'Tenn under', 'lx')}${row(U.terskel_av, 'Slukk over', 'lx')}${row(U.minst_morke, 'Minste mørketid', 'min')}</div>` : ''}
       </section>`;
     }
@@ -31990,7 +32475,7 @@ try {
     _fold(k, icon, title, meta, rows) {
       const open = !!(this.ui.fold || {})[k];
       return `<section class="fd" data-key="fold-${k}">
-        <button class="fh" data-act="fold" data-k="${k}">${M.icon(icon, 22)}<span class="grow t15">${esc(title)}</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--gray700,#979797);transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
+        <button class="fh" data-act="fold" data-k="${k}">${M.icon(icon, 22)}<span class="grow t15">${esc(title)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${esc(meta)}</span>${M.icon('expand_more', 22, `color:var(--ki-text-mid, var(--gray700,#979797));transform:${open ? 'rotate(180deg)' : 'none'};transition:transform .25s`)}</button>
         ${open ? `<div class="fb">${rows ? rows.map(([a, b], i) => `<div class="frr${i ? ' bt' : ''}"><span class="grow t13">${esc(a)}</span><span class="fv num">${esc(b)}</span></div>`).join('') : M.emptyState('Fant ingen sol-entitet (sun.sun)', null).replace('class="empty"', 'class="empty in"')}</div>` : ''}
       </section>`;
     }
@@ -32005,8 +32490,8 @@ try {
       out += rooms.map((r) => {
         const n = r.ids.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length;
         return `<section class="col" style="gap:8px" data-key="r-${esc(r.area || '_')}">
-          <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:#fafafa')}<span class="grow t15 ell" style="color:#fafafa">${esc(r.name)}</span><span class="t12" style="color:var(--gray700,#979797);white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
-            <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? '#fafafa' : Y}">${n ? 'Av' : 'På'}</button></div>
+          <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--ki-text, #fafafa)')}<span class="grow t15 ell" style="color:var(--ki-text, #fafafa)">${esc(r.name)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
+            <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--ki-text, #fafafa)' : `var(--ki-text, ${Y})`}">${n ? 'Av' : 'På'}</button></div>
           <div class="lbox">${r.ids.map((id) => this._light(id, lcfg(c, id).name || cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
       }).join('');
       if (!rooms.length) out += M.emptyState('Alle rom i etasjen er skjult', 'rooms');
@@ -32038,7 +32523,7 @@ try {
       return `<section class="sum"><span class="col grow"><span class="big num">${ids.length}</span><span class="t12 dim">${hasW ? `lys på · ca. ${M.nf(w, 0)} W` : `lys på · av ${total}`}</span></span>
           <button class="offall press" data-act="alloff" data-haptic="success" ${ids.length ? '' : 'disabled style="opacity:.5"'}>${M.icon('dark_mode', 20)}Slå av alle</button></section>
         <section class="col" style="gap:8px">
-          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--gray600,#7f7f7f)')}</button>`; }).join('')}
+          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`; }).join('')}
           ${ids.length ? '' : '<div class="none">Alle lys er av</div>'}
         </section>`;
     }
@@ -32198,109 +32683,111 @@ try {
         :host,ha-card{background:none!important;box-shadow:none!important;border:none!important}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,12px);background:none}
         .t15{font-size:15px;font-weight:500} .t14{font-size:14px;font-weight:500} .t13{font-size:13px} .t12{font-size:12px} .t11{font-size:11px}
-        .dim{color:var(--gray600,#7f7f7f)}
-        .bt{border-top:1px solid rgba(255,255,255,0.06)}
+        .dim{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .bt{border-top:1px solid ${WA(0.06)}}
         ${M.TAB_ROW_CSS || ''}
         ${M.LIGHT_ROW_CSS || ''}
         /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
-        /* lys-rader (felles rad, 12 px mellom) */
-        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        /* lys-rader (felles rad, 12 px mellom). Fiks 35: den innebygde lyskontrollen (vendor) bruker --gray1000/--gray700 direkte
+           → tokens i lys modus (mørk = temaets verdier #e1e1e1/#979797) */
+        mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454)}
+        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         /* Utelys-kortet */
-        .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);transition:background .4s}
-        .uc.lit{background:linear-gradient(160deg, ${M.alpha(Y, 0.12)}, var(--gray200,#3a3a3a) 55%)}
+        .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
+        .uc.lit{background:linear-gradient(160deg, ${TONE(Y, 0.12)}, var(--ki-surface, var(--gray200,#3a3a3a)) 55%)}
         .uct{display:flex;align-items:flex-start;gap:14px}
-        .chip{height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgba(255,255,255,0.08);color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
-        .chip.on{background:${M.alpha(Y, 0.18)};color:${Y}}
+        .chip{height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:${WA(0.08)};color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
+        .chip.on{background:${M.alpha(Y, 0.18)};color:${YT}}
         .us{font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1.1}
-        .ob{width:68px;height:68px;border-radius:34px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7);transition:background .3s,box-shadow .3s,transform .15s}
-        .ob.on{background:${Y};color:#282828;box-shadow:0 0 30px ${M.alpha(Y, 0.5)}}
+        .ob{width:68px;height:68px;border-radius:34px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7));transition:background .3s,box-shadow .3s,transform .15s}
+        .ob.on{background:${Y};color:var(--ki-on-accent, #282828);box-shadow:0 0 30px ${M.alpha(Y, 0.5)}}
         .ob:active{transform:scale(.94)}
         .ob:disabled{opacity:.5}
         .tlw{display:flex;flex-direction:column;gap:6px}
-        .tl{position:relative;height:14px;border-radius:7px;background:var(--gray400,#545454);overflow:hidden}
-        .nt{position:absolute;top:0;bottom:0;background:rgba(0,0,0,0.3)}
+        .tl{position:relative;height:14px;border-radius:7px;background:var(--ki-surface-3, var(--gray400,#545454));overflow:hidden}
+        .nt{position:absolute;top:0;bottom:0;background:${KA(0.3)}}
         .pl{position:absolute;top:0;bottom:0;border-radius:7px}
-        .tlh{position:relative;height:14px;font-size:11px;line-height:14px;color:var(--gray600,#7f7f7f);font-variant-numeric:tabular-nums}
+        .tlh{position:relative;height:14px;font-size:11px;line-height:14px;color:var(--ki-text-3, var(--gray600,#7f7f7f));font-variant-numeric:tabular-nums}
         .tlh>span{position:absolute;top:0;transform:translateX(-50%)}
         .tlh>.tln{left:0;transform:none}
         .ev{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .evt{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:20px;background:var(--gray300,#404040);min-width:0}
+        .evt{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));min-width:0}
         .evt.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)}}
-        .evl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--gray800,#afafaf)}
-        .evt.nx .evl{color:${Y}}
+        .evl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .evt.nx .evl{color:${YT}}
         .evv{font-size:24px;font-weight:400;letter-spacing:-0.01em;line-height:1.15}
-        .evs{font-size:12px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .evs{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         /* 22.10 · Utelys «Døgnring» */
         .ut{display:flex;flex-direction:column;gap:8px}
         .uc{border-radius:30px;padding:16px}
         .uc.lit{box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.35)}}
         .uct{align-items:center;gap:8px;min-width:0}
-        .ust{color:var(--gray800,#afafaf);max-width:50%;text-align:right}
+        .ust{color:var(--ki-text-2, var(--gray800,#afafaf));max-width:50%;text-align:right}
         .ucb{display:flex;align-items:center;gap:10px;min-width:0}
         .rw{position:relative;width:188px;height:188px;flex:none}
         .ring{display:block}
-        .ring .rh{font-size:10px;fill:var(--gray600,#7f7f7f);text-anchor:middle;font-variant-numeric:tabular-nums}
-        .ring .rm circle{fill:#3a3a3a;stroke:rgba(255,255,255,0.18);stroke-width:1}
-        .ring .rm text{font-size:11px;fill:${Y};text-anchor:middle;font-weight:700}
-        .rc{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--gray800,#afafaf);transition:transform .15s,background .3s}
-        .rc.on{color:${Y};background:${M.alpha(Y, 0.08)}}
+        .ring .rh{font-size:10px;fill:var(--ki-text-3, var(--gray600,#7f7f7f));text-anchor:middle;font-variant-numeric:tabular-nums}
+        .ring .rm circle{fill:var(--ki-surface, #3a3a3a);stroke:${WA(0.18)};stroke-width:1}
+        .ring .rm text{font-size:11px;fill:${YT};text-anchor:middle;font-weight:700}
+        .rc{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ki-text-2, var(--gray800,#afafaf));transition:transform .15s,background .3s}
+        .rc.on{color:${YT};background:${M.alpha(Y, 0.08)}}
         .rc:active{transform:scale(.94)}
         .rc:disabled{opacity:.5}
-        .rcv{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1.05;color:var(--white,#fafafa)}
-        .rcs{font-size:11px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;white-space:nowrap}
+        .rcv{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1.05;color:var(--ki-text, var(--white,#fafafa))}
+        .rcs{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums;white-space:nowrap}
         .ucb .ev{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
         .ucb .evv{font-size:22px}
         .afs{display:grid;grid-template-columns:1fr 1fr;gap:8px;transition:opacity .2s}
         .afs.dim0{opacity:.45}
-        .af{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:20px;background:var(--gray300,#404040);min-width:0;transition:transform .15s}
+        .af{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));min-width:0;transition:transform .15s}
         .af:active{transform:scale(.96)}
-        .afi{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7)}
-        .af.on .afi{background:${Y};color:#282828}
+        .afi{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .af.on .afi{background:${Y};color:var(--ki-on-accent, #282828)}
         .lps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .lp{position:relative;display:flex;align-items:center;gap:10px;height:64px;padding:0 12px 0 8px;border-radius:32px;background:var(--gray200,#3a3a3a);overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;min-width:0}
+        .lp{position:relative;display:flex;align-items:center;gap:10px;height:64px;padding:0 12px 0 8px;border-radius:32px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;min-width:0}
         .lpf{position:absolute;left:0;top:0;bottom:0;transition:width .3s ease,background-color .3s ease;pointer-events:none}
         .lp.drag .lpf{transition:none}
-        .lpi{position:relative;width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray400,#545454);color:var(--gray900,#c7c7c7);transition:background .3s}
+        .lpi{position:relative;width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray900,#c7c7c7));transition:background .3s}
         .lpt{position:relative;min-width:0;gap:1px}
-        .lpv{color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
-        .sol{display:flex;flex-direction:column;gap:10px;padding:16px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .lpv{color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
+        .sol{display:flex;flex-direction:column;gap:10px;padding:16px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .sr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x pan-y}
         .sr::-webkit-scrollbar{display:none}
-        .stl{flex:none;min-width:96px;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:18px;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
-        .stl.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)};color:${Y}}
+        .stl{flex:none;min-width:96px;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .stl.nx{background:${M.alpha(Y, 0.14)};box-shadow:inset 0 0 0 1.5px ${M.alpha(Y, 0.5)};color:${YT}}
         .stn{white-space:nowrap}
         .ufb{padding:0 6px 10px}
         .ufb .msh-stp-row{padding-left:12px}
         ${M.STEPPER_CSS || ''}
         /* Styring / Sola */
-        .st{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--gray200,#3a3a3a)}
-        .seg{display:flex;gap:2px;padding:3px;border-radius:19px;background:#282828;user-select:none;-webkit-user-select:none}
+        .st{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .seg{display:flex;gap:2px;padding:3px;border-radius:19px;background:var(--ki-surface-3, #282828);user-select:none;-webkit-user-select:none}
         .seg button{height:32px;padding:0 12px;border-radius:16px;font-size:12px;font-weight:500;white-space:nowrap}
         .ar{display:flex;align-items:center;gap:12px;min-height:60px;width:100%}
         .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;transition:background .2s}
         .sw span{position:absolute;top:4px;width:22px;height:22px;border-radius:11px;transition:left .2s}
-        .fd{display:flex;flex-direction:column;border-radius:28px;background:var(--gray200,#3a3a3a);overflow:hidden}
+        .fd{display:flex;flex-direction:column;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
         .fh{display:flex;align-items:center;gap:12px;height:58px;padding:0 18px;text-align:left;width:100%}
         .fb{display:flex;flex-direction:column;padding:0 18px 10px}
         .frr{display:flex;align-items:center;gap:10px;padding:9px 0}
-        .fv{font-size:12px;font-weight:600;padding:6px 11px;border-radius:12px;background:var(--gray400,#545454)}
+        .fv{font-size:12px;font-weight:600;padding:6px 11px;border-radius:12px;background:var(--ki-ctrl, var(--gray400,#545454))}
         /* etasje */
         .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
         .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
-        .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .scb:active .scbb{transform:scale(.9)}
-        .scl{font-size:11px;font-weight:500;color:var(--gray600,#7f7f7f);max-width:62px}
+        .scl{font-size:11px;font-weight:500;color:var(--ki-text-3, var(--gray600,#7f7f7f));max-width:62px}
         .rh{display:flex;align-items:center;gap:10px;padding:4px 6px 0}
         .all{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;flex:none}
         /* Lys på */
-        .sum{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+        .sum{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .big{font-size:34px;font-weight:300;letter-spacing:-0.03em;line-height:1}
-        .offall{height:48px;padding:0 20px;border-radius:24px;background:#fafafa;color:#282828;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
-        .onr{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:var(--gray200,#3a3a3a);text-align:left;width:100%}
-        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:#282828;transition:background-color .3s ease}
-        .none{padding:30px;text-align:center;font-size:13px;color:var(--gray500,#696969)}
+        .offall{height:48px;padding:0 20px;border-radius:24px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+        .onr{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%}
+        .oni{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:${Y};color:var(--ki-on-accent, #282828);transition:background-color .3s ease}
+        .none{padding:30px;text-align:center;font-size:13px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .empty.in{background:transparent;padding:10px 0 0}
       `;
     }
@@ -32366,7 +32853,7 @@ try {
         ${main ? `<button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button>` : '<span></span>'}</div>`;
     };
     const seg = (label, key, opts, cur) => `<div class="r"><span class="rl">${esc(label)}</span><div class="seg">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-a="seg" data-k="${key}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
-    const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--gray600,#7f7f7f)')}</button>`;
+    const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`;
     const eyeRow = (label, sub, act, key, hidden, extra) => `<div class="r${hidden ? ' off' : ''}${extra ? ' ' + extra : ''}"><span class="rl col"><span class="ell">${esc(label)}</span>${sub ? `<span class="rs ell">${esc(sub)}</span>` : ''}</span>
       <button class="eye" data-a="${act}" data-k="${esc(key)}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`;
     // Tider/tall i Utelys: stepper med systemets velger (09-pickers, lokal modus → 'change' med data-f/data-t)
@@ -32400,7 +32887,9 @@ try {
       const d = st.draft, defs = tabDefs(A, d), hid = new Set(d.hidden_tabs || []);
       const keys = M.mshOrder(defs.map((x) => x[0]), d.tab_order, []);
       const name = Object.fromEntries(defs.map(([k, l]) => [k, l]));
-      return `<div class="grp">${keys.map((k) => eyeRow(name[k], k === 'out' ? 'Utelys og tidslinje' : k === 'on' ? 'Alle lys som er på' : 'Etasje', 'tab', k, hid.has(k))).join('')}</div>
+      // 33.4: fanehøyde – felles felt (MSH.tabH), live i kortet bak arket
+      const th = M.tabH ? `<div class="grp" style="padding:14px 16px">${M.tabH.editorHTML(d.tab_height, { items: keys.filter((k) => !hid.has(k)).map((k) => name[k]), native: 48, variant: 'gear' })}</div>` : '';
+      return `${th}<div class="grp">${keys.map((k) => eyeRow(name[k], k === 'out' ? 'Utelys og tidslinje' : k === 'on' ? 'Alle lys som er på' : 'Etasje', 'tab', k, hid.has(k))).join('')}</div>
         <p class="note">Minst én fane må vises. Flytt faner med langt trykk i fane-raden og dra.</p>`;
     };
     const pageScenes = (A) => {
@@ -32452,7 +32941,7 @@ try {
           ${lamps.map((l, i) => `<div class="lp" data-key="lp-${i}"><span class="lpi">${M.icon(l.icon || (h.states[l.id] && h.states[l.id].attributes.icon) || 'mdi:lightbulb', 20)}</span>
             <div class="lpf"><div class="lpr"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="name" value="${esc(l.name || '')}" placeholder="${esc(l.id ? M.name(h, l.id) : 'Navn')}" aria-label="Navn"><input autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" class="in" data-lamp="${i}" data-lf="icon" value="${esc(l.icon || '')}" placeholder="mdi:lightbulb" aria-label="Ikon"></div>
               ${pick({ key: 'pk-lp-' + i + '-' + l.id, value: l.id || '', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: `data-lamp="${i}" data-lf="entity"` })}
-              ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--red,#f28073)">Finnes ikke</span>' : ''}</div>
+              ${l.id && !h.states[l.id] ? '<span class="rs" style="color:var(--ki-red-text, var(--red,#f28073))">Finnes ikke</span>' : ''}</div>
             ${i ? `<button class="eye" data-a="lup" data-i="${i}" aria-label="Flytt opp ${esc(l.name || l.id)}">${M.icon('mdi:arrow-up', 18)}</button>` : ''}<button class="del" data-a="ldel" data-i="${i}" aria-label="Slett ${esc(l.name || l.id)}">${M.icon('mdi:trash-can-outline', 18)}</button></div>`).join('') || '<div class="r"><span class="rl rs">Ingen utelamper</span></div>'}
           ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf">${pick({ key: 'pk-lp-new', mode: 'add', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: 'data-new="1"' })}</div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
         </div>
@@ -32492,6 +32981,8 @@ try {
     ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
     const R = ov.root;
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
+    // 33.4: fanehøyde (segment + slider) – slider live uten ny tegning av arket, lagres i utkastet
+    if (M.tabH) M.tabH.bindEditor(R, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = v; preview(); if (commit) draw(); } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
     const box = document.createElement('div');
     box.className = 'lys-sheet';
@@ -32651,76 +33142,76 @@ try {
   // aktivt segment = rosa (glassboble med temaet). Ingen hardkodet blur her.
   const SHEET_CSS = `
     .sh{--ki-sh-pt:8px;--ki-sh-px:16px}
-    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
-    .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--gray900,#c7c7c7)}
+    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,var(--ki-popup, #282828));-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
+    .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
     .nav.main{display:flex}
     .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
-    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
+    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));font-size:14px}
     .nd:disabled{opacity:.6}
     .pg{display:flex;flex-direction:column}
-    .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:16px 8px 8px}
-    .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
-    .grp>*+*{border-top:1px solid rgba(255,255,255,0.06)}
+    .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:16px 8px 8px}
+    .grp{background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
+    .grp>*+*{border-top:1px solid ${WA(0.06)}}
     .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px 6px 16px;width:100%;text-align:left;box-sizing:border-box}
     .r.sub{min-height:48px;padding-left:34px}
     .r.sub .rl{font-size:14px}
     .r.off>:not(.eye){opacity:.45}
-    .rl{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--white,#fafafa)}
-    .rs{font-size:12px;font-weight:400;color:var(--ki-g-t2,var(--gray700,#979797))}
-    .rv{font-size:13px;color:var(--ki-g-t2,var(--gray700,#979797));white-space:nowrap}
+    .rl{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+    .rs{font-size:12px;font-weight:400;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)))}
+    .rv{font-size:13px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)));white-space:nowrap}
     .hv{width:48px;text-align:right}
     .nr{padding-right:12px}
-    .ic{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:#282828}
-    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,#282828);flex:none}
-    .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--gray800,#afafaf));white-space:nowrap;transition:background .2s}
+    .ic{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--ki-on-accent, #282828)}
+    .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-sheet-seg,var(--ki-popup, #282828));flex:none}
+    .seg button{height:30px;padding:0 11px;border-radius:15px;font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--ki-text-2, var(--gray800,#afafaf)));white-space:nowrap;transition:background .2s}
     .seg button.on{background:${PINK};color:${INK}}
     :host(.glass) .seg button.on{${M.GLASS_BUBBLE}}
-    .eye{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;color:var(--gray900,#c7c7c7)}
+    .eye{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
     .eye:active,.del:active{transform:scale(.92)}
-    .rst{justify-content:center;color:var(--red,#f28073);font-size:15px;font-weight:500}
-    .note{margin:0;padding:10px 10px 0;font-size:12px;line-height:1.45;color:var(--gray700,#979797)}
+    .rst{justify-content:center;color:var(--ki-red-text, var(--red,#f28073));font-size:15px;font-weight:500}
+    .note{margin:0;padding:10px 10px 0;font-size:12px;line-height:1.45;color:var(--ki-text-mid, var(--gray700,#979797))}
     .fr{cursor:text}
-    .in{height:36px;border-radius:12px;padding:0 10px;background:var(--ki-g-in,#282828);color:#fafafa;font-size:14px;font-weight:500;color-scheme:dark;min-width:0;box-sizing:border-box}
+    .in{height:36px;border-radius:12px;padding:0 10px;background:var(--ki-g-in,var(--ki-popup, #282828));color:var(--ki-text, #fafafa);font-size:14px;font-weight:500;color-scheme:dark;min-width:0;box-sizing:border-box}
     .fr .in{width:108px;flex:none;text-align:center}
     .fr .in.nm{width:84px}
     .fr .in.ent{width:46%;text-align:left}
-    .rg{width:120px;accent-color:#f285c9}
-    .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:#4a4a4d;transition:background .2s}
-    .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:#d8d6d1;transition:left .2s}
-    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
+    .rg{width:120px;accent-color:var(--pink, #f285c9)}
+    .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #4a4a4d);transition:background .2s}
+    .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #d8d6d1);transition:left .2s}
+    .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:var(--ki-knob, #2a2a2c)} /* Fiks 26: rosa */
     .lp{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 14px}
-    .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray1000,#e1e1e1)}
+    .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
     .lpf .in{width:100%}
     .lpr{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:6px}
     .del{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:${M.alpha(C.red, 0.2)};color:${C.red}}
-    .add{margin-top:10px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);width:100%}
+    .add{margin-top:10px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px ${WA(0.18)};width:100%}
   `;
   // Utelys: entitetsvelgere i raden + «Finner du ikke lampen?» (kort #3a3a3a r24, søkepille 44 #282828, treffliste #282828 r18)
   const FIND_CSS = `
     .r.fp{flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px 12px 16px}
-    .fnd{margin-top:10px;display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+    .fnd{margin-top:10px;display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .fndt{font-size:14px;font-weight:500;padding:2px 4px 0}
-    .fnds{font-size:12px;line-height:1.4;color:var(--gray700,#979797);padding:0 4px 4px}
-    .fsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:22px;background:#282828;color:var(--gray700,#979797)}
-    .fsq{flex:1;min-width:0;height:44px;border:0;background:none;outline:none;color:#fafafa;font:inherit;font-size:14px;-webkit-user-select:text;user-select:text}
-    .fsq::placeholder{color:var(--gray600,#7f7f7f)}
-    .fsx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--gray800,#afafaf);background:rgba(255,255,255,0.08)}
+    .fnds{font-size:12px;line-height:1.4;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px 4px}
+    .fsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:22px;background:var(--ki-popup, #282828);color:var(--ki-text-mid, var(--gray700,#979797))}
+    .fsq{flex:1;min-width:0;height:44px;border:0;background:none;outline:none;color:var(--ki-text, #fafafa);font:inherit;font-size:14px;-webkit-user-select:text;user-select:text}
+    .fsq::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .fsx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;color:var(--ki-text-2, var(--gray800,#afafaf));background:${WA(0.08)}}
     .fsx[hidden]{display:none}
     .fhits:empty{display:none}
-    .fl{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:18px;background:#282828;max-height:336px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+    .fl{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:18px;background:var(--ki-popup, #282828);max-height:336px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
     .fh{display:flex;align-items:center;gap:10px;min-height:50px;padding:4px 6px}
     .fh.added{opacity:.55}
-    .fhi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;background:var(--gray300,#404040);color:var(--gray1000,#e1e1e1)}
+    .fhi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .fhn{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .fhn b{font-size:14px;font-weight:500}
-    .fhn i{font-style:normal;font-size:11px;color:var(--gray600,#7f7f7f)}
-    .fhp{flex:none;height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgb(242 210 111 / 0.18);color:var(--yellow,#f2d26f)}
+    .fhn i{font-style:normal;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .fhp{flex:none;height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:rgb(242 210 111 / 0.18);color:var(--ki-yellow-text, var(--yellow,#f2d26f))}
     .fhp:active{transform:scale(.95)}
-    .fhp.done{background:rgba(255,255,255,0.08);color:var(--gray800,#afafaf);pointer-events:none}
-    .fnone{padding:12px 8px;font-size:13px;color:var(--gray700,#979797);border-radius:18px;background:#282828}
+    .fhp.done{background:${WA(0.08)};color:var(--ki-text-2, var(--gray800,#afafaf));pointer-events:none}
+    .fnone{padding:12px 8px;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));border-radius:18px;background:var(--ki-popup, #282828)}
     .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   `;
   // Eldre config.lamps [{name, entity, icon}] → include.utelys + order.utelys + lights.<objekt-id>.{name, icon};
@@ -32785,6 +33276,7 @@ try {
     [/spotify/i, '#1db954', 'graphic_eq'], [/disney/i, '#113ccf', 'movie'], [/hbo|^max$/i, '#5822b4', 'movie'], [/viaplay/i, '#e3001b', 'movie'], [/prime|amazon/i, '#00a8e1', 'movie'], [/apple ?tv|tv\+/i, null, 'mdi:apple'],
     [/airplay/i, null, 'airplay'], [/hdmi/i, null, 'mdi:video-input-hdmi'], [/radio|tunein/i, null, 'radio'], [/phono|vinyl|turntable/i, null, 'album'], [/bluetooth/i, null, 'mdi:bluetooth'], [/^cd\b|\bcd$/i, null, 'mdi:disc'], [/optical|optisk|coax/i, null, 'mdi:waveform'], [/usb/i, null, 'mdi:usb'], [/antenn|tuner|dvb/i, null, 'mdi:antenna'], [/^tv$|arc|tv audio/i, null, 'tv'], [/aux|line/i, null, 'mdi:audio-input-rca']];
   const appStyle = (name) => { for (const [re, col, icon] of APPS) if (re.test(String(name || ''))) return { col, icon }; return { col: null, icon: null }; };
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   const TABS = [['tv', 'TV'], ['musikk', 'Musikk']];
   const obj = (id) => String(id).split('.').slice(1).join('.');
   const pcfgOf = (cfg, id) => ((cfg && cfg.players) || {})[obj(id)] || {};
@@ -33476,13 +33968,15 @@ try {
       const T = tabOrder(c).vis, dt = c.default_tab && c.default_tab !== 'last' && T.includes(c.default_tab) ? c.default_tab : T[0];
       const i = Math.max(0, T.indexOf(dt)), n = T.length || 1;
       const ring = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
-      const tab = (k) => `<span class="mtp-t${k === dt ? ' on' : ''}" data-t="${k}" style="position:relative;z-index:1;display:grid;place-items:center;height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;white-space:nowrap;color:${k === dt ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc((TABS.find((t) => t[0] === k) || [k, k])[1])}</span>`;
+      // 33.4: forhåndsvisningen følger fanehøyden (kortets egen → global → 38)
+      const S = (M.tabH && M.tabH.scale(M.tabH.height(c, 38))) || { h: 38, f: 13, p: 18 }, th = S.h, tf = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 13 : S.f, tp = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 18 : S.p, mg = th + 8;
+      const tab = (k) => `<span class="mtp-t${k === dt ? ' on' : ''}" data-t="${k}" style="position:relative;z-index:1;display:grid;place-items:center;height:${th}px;padding:0 ${tp}px;border-radius:${th / 2}px;font-size:${tf}px;font-weight:500;white-space:nowrap;color:${k === dt ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc((TABS.find((t) => t[0] === k) || [k, k])[1])}</span>`;
       return `<div class="f" data-key="mtp" style="gap:8px"><span class="hl" style="font-size:12px;color:var(--ki-text-mid, #979797)">Forhåndsvisning</span>
-        <div class="mtp" data-key="mtp-row" aria-hidden="true" style="display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px;padding:10px 8px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none">
+        <div class="mtp" data-key="mtp-row" aria-hidden="true" style="display:grid;grid-template-columns:${mg}px minmax(0,1fr) ${mg}px;align-items:center;gap:8px;padding:10px 8px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none">
           <span></span>
-          <div class="mtp-seg" style="position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:4px;border-radius:22px;box-shadow:${ring};justify-self:center">
-            <span class="mtp-ind" style="position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * ${i} / ${n});width:calc((100% - 6px) / ${n} - 2px);border-radius:19px;background:${PINK};transition:left .3s cubic-bezier(.34,1.25,.64,1)"></span>${T.map(tab).join('')}</div>
-          <span style="width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))">${M.icon('settings', 22)}</span>
+          <div class="mtp-seg" style="position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:4px;border-radius:${th / 2 + 3}px;box-shadow:${ring};justify-self:center">
+            <span class="mtp-ind" style="position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * ${i} / ${n});width:calc((100% - 6px) / ${n} - 2px);border-radius:${th / 2}px;background:${PINK};transition:left .3s cubic-bezier(.34,1.25,.64,1)"></span>${T.map(tab).join('')}</div>
+          <span style="width:${mg}px;height:${mg}px;border-radius:${mg / 2}px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))">${M.icon('settings', 22)}</span>
         </div></div>`;
     },
   });
@@ -33490,6 +33984,7 @@ try {
       { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
         tabPreview(),
         { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
+        ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen over følger valget)
         ...(common || []),
       ] },
       { type: 'info', label: 'Felles for begge faner' },
@@ -34074,7 +34569,7 @@ try {
       // Fiks 16.10: rosa indikator = eget element med indeks-/prosentbasert posisjon (--i/--n, like brede faner) – aldri
       // piksler fra et gammelt mål, så den lander riktig selv om innholdet under endrer høyde eller popupen scroller.
       const ti = Math.max(0, R.order.indexOf(R.tab));
-      const head = `<div class="tabs"><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      const head = `<div class="tabs"${M.tabH && M.tabH.style(cfg) ? ` style="${M.tabH.style(cfg)}"` : ''}><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
@@ -34533,22 +35028,23 @@ try {
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
         ${M.TAB_ROW_CSS || ''}
-        .tabs{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:8px}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, tannhjul = sporets høyde */
+        .tabs{--mg:calc(${TV('th', 38)} + 8px);display:grid;grid-template-columns:var(--mg) minmax(0,1fr) var(--mg);align-items:center;gap:8px}
         /* standard: transparent + ring; glassflate bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2) */
-        .seg{gap:2px;padding:4px;border-radius:22px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}justify-self:center}
-        .tab{height:38px;padding:0 18px;border-radius:19px;font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
+        .seg{gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 3px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}justify-self:center}
+        .tab{height:${TV('th', 38)};padding:0 ${TV('tp', 18)};border-radius:calc(${TV('th', 38)} / 2);font-size:${TV('tf', 13)};font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
         .tab.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
         /* Fiks 16.10: like brede faner + indikator med indeks-/prosentposisjon (--i/--n) – glir med transition, følger fingeren ved dra */
         .seg.msh-tr{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
         .seg .tab{position:relative;z-index:1;transition:color .25s}
         .seg .tab.on{background:transparent}
-        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:19px;background:${PINK};pointer-events:none;
+        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:calc(${TV('th', 38)} / 2);background:${PINK};pointer-events:none;
           transition:left .34s cubic-bezier(.34,1.25,.64,1),box-shadow .2s,scale .2s cubic-bezier(.34,1.8,.64,1)}
         .seg .ind.off{opacity:0}
         .seg .ind.drag{transition:left .12s cubic-bezier(.34,1.5,.64,1),box-shadow .2s,scale .25s cubic-bezier(.34,1.8,.64,1);scale:1.1;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.65*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 -1px 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.4*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
         .seg.tr-drag .ind{opacity:0}
         .mb{display:flex;flex-direction:column;gap:var(--msh-gap,14px);transition:min-height .3s cubic-bezier(.2,.8,.2,1)}
-        .gear{width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .gear{width:var(--mg,46px);height:var(--mg,46px);border-radius:calc(var(--mg,46px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .gear:active{transform:scale(.92)}
         [data-seek]{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
         .sk[data-noskip]{opacity:.6}
@@ -34640,6 +35136,9 @@ try {
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent;
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4) og aksent som tekst/ikon (pkt. 6); mørk = uendret
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // Del A pkt. 6: aksent som tekst/ikon (ukjente farger beholdes)
   const LAYOUTS = [['mosaic', 'Mosaikk', 'dashboard'], ['main', 'Hovedkamera', 'space_dashboard'], ['grid', 'Rutenett', 'grid_view'], ['list', 'Liste', 'view_agenda'], ['masonry', 'Masonry', 'view_quilt'], ['overview', 'Oversikt', 'view_compact'], ['focus', 'Fokus', 'fullscreen'], ['2x2', '2×2', 'border_all'], ['3col', '3 kolonner', 'view_week']];
   // ki-kamera-card: grid_layout → visning
   const GL = { mosaikk: 'mosaic', hovedkamera: 'main', rutenett: 'grid', liste: 'list', masonry: 'masonry', oversikt: 'overview', fokus: 'focus', '2x2': '2x2', '3kol': '3col' };
@@ -34968,7 +35467,7 @@ try {
     }
     _badge(s, solid, compact, cam) {
       const st = s ? s.state : 'unavailable', priv = cam && cam.privacy && M.isOn(this.s(cam.privacy));
-      const B = priv ? ['PRIVAT', 'var(--gray700,#979797)'] : st === 'recording' ? ['OPPTAK', C.red] : st === 'streaming' ? ['DIREKTE', C.green] : M.unavailable(s) ? ['FRAKOBLET', 'var(--gray600,#7f7f7f)'] : null;
+      const B = priv ? ['PRIVAT', 'var(--gray700,#979797)'] : st === 'recording' ? ['OPPTAK', C.red] : st === 'streaming' ? ['DIREKTE', C.green] : M.unavailable(s) ? ['FRAKOBLET', 'var(--gray600,#7f7f7f)'] : null; // ki-hex-ok: merket ligger på kamerabildet (mørk øy)
       if (!B) return '';
       if (compact) return `<span class="bdg cp" title="${B[0]}"><i style="background:${B[1]}"></i></span>`;
       return solid ? `<span class="bdg solid" style="background:${B[1]}"><i></i>${B[0]}</span>` : `<span class="bdg"><i style="background:${B[1]}"></i>${B[0]}</span>`;
@@ -35024,7 +35523,7 @@ try {
       const modes = [['live', 'Direkte', 'videocam'], ['frigate', 'Frigate', 'history']].sort((a, b) => tIx(a[0]) - tIx(b[0])).filter((m, i, A) => !(cfg.tab_hidden || []).includes(m[0]) || A.every((x) => (cfg.tab_hidden || []).includes(x[0]))).map(([k, l, i]) => `<button class="md ${mode === k ? 'on' : ''}" data-act="mode" data-v="${k}" data-haptic="selection">${M.icon(i, 18)}${l}</button>`).join('');
       // Visning-meny (▾): i popup til høyre for Direkte/Frigate, i dashbord i headeren
       const top = `<div class="top" style="margin-top:${dash ? 0 : padTOf(cfg)}px"><div class="seg">${modes}</div>${dash ? '' : `<button class="tune ${this._drop ? 'on' : ''}" data-act="drop" title="Visning">${M.icon('tune', 22)}</button>`}</div>`;
-      const head = dash ? `<div class="hd"><button class="hb ${this._drop ? 'on' : ''}" data-act="drop" title="Visning"><span class="hi">${M.icon(cfg.icon || 'videocam', 22)}</span>${M.icon('mdi:chevron-down', 18, 'color:var(--gray700,#979797)')}</button><span class="ht ell">${esc(cfg.title || 'Kamera')}</span><span class="hc">${vis.length} ${vis.length === 1 ? 'kamera' : 'kameraer'}</span></div>` : '';
+      const head = dash ? `<div class="hd"><button class="hb ${this._drop ? 'on' : ''}" data-act="drop" title="Visning"><span class="hi">${M.icon(cfg.icon || 'videocam', 22)}</span>${M.icon('mdi:chevron-down', 18, 'color:var(--ki-text-mid, var(--gray700,#979797))')}</button><span class="ht ell">${esc(cfg.title || 'Kamera')}</span><span class="hc">${vis.length} ${vis.length === 1 ? 'kamera' : 'kameraer'}</span></div>` : '';
       const back = dash && cfg.back_path ? `<button class="back" data-act="back" data-haptic="light">${M.icon('mdi:chevron-left', 22)}<span>Tilbake</span></button>` : '';
       const wrap = (inner) => `<div class="k ${dash ? 'dash' : 'pop'} ${back ? 'hasback' : ''}" style="--cg:${gapOf(cfg)}px;--tfs:${textOf(cfg)}px">${head}${top}${inner}</div>${back}`;
       if (!all.length) return wrap(M.emptyState('Fant ingen kameraer', 'entities'));
@@ -35054,7 +35553,7 @@ try {
       const showName = cfg.show_name !== false, showBadge = cfg.show_badge !== false;
       const tiles = list.map((id, i) => {
         const [cs, rs] = span(i), s = this.s(id), model = showName && (cs > 1 || cols === 1) ? camModel(h, id) : '';
-        return `<div class="tile" data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
+        return `<div class="tile" data-ki-island data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
           <span class="ph">${M.icon(camIcon(h, cfg, id), 26)}</span>${this._media(id, 'image')}
           <span class="shade"></span>${showBadge ? this._badge(s, false, cols > 2, this._cams.get(id)) : ''}
           <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 16)}</button>
@@ -35074,13 +35573,13 @@ try {
       if (priv) acts.push(['privacy', pOn ? 'mdi:eye-off' : 'mdi:eye', 'Privat', priv, pOn ? C.pink : null]);
       acts.push(['snap', 'photo_camera', 'Bilde', !M.unavailable(s) ? id : null, null]);
       const ev = this._events(cam);
-      return `<div class="one" data-ent="${esc(id)}" data-key="one-${esc(id)}">
+      return `<div class="one" data-ki-island data-ent="${esc(id)}" data-key="one-${esc(id)}">
           <span class="ph">${M.icon(camIcon(h, cfg, id), 40)}</span>${this._media(id, 'stream')}
           <span class="shade1"></span>${cfg.show_badge !== false ? this._badge(s, true, false, cam) : ''}
           <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 16)}</button>
           ${cfg.show_name !== false ? `<span class="on1 ell">${esc(camName(h, cfg, id))}</span><span class="om">${esc(camModel(h, id))}</span>` : ''}
         </div>
-        <div class="acts" style="grid-template-columns:repeat(${acts.length},minmax(0,1fr))">${acts.map(([k, ic, l, ent, col]) => `<button class="ac press" data-act="ca" data-k="${k}" data-v="${esc(ent || '')}" ${ent ? '' : 'disabled'} style="color:${ent ? 'var(--white,#fafafa)' : 'var(--gray500,#696969)'}">${M.icon(ic, 24, col ? 'color:' + col : '')}<span>${l}</span></button>`).join('')}</div>
+        <div class="acts" style="grid-template-columns:repeat(${acts.length},minmax(0,1fr))">${acts.map(([k, ic, l, ent, col]) => `<button class="ac press" data-act="ca" data-k="${k}" data-v="${esc(ent || '')}" ${ent ? '' : 'disabled'} style="color:${ent ? 'var(--ki-text, var(--white,#fafafa))' : 'var(--ki-text-lo, var(--gray500,#696969))'}">${M.icon(ic, 24, col ? 'color:' + AT(col) : '')}<span>${l}</span></button>`).join('')}</div>
         <span class="sec">Siste hendelser</span>
         ${ev.length ? ev.slice(0, this._evLimit()).map((e) => `<div class="er" data-ent="${esc(e.id)}" data-key="${esc(e.id)}"><span class="ei">${M.icon(e.icon, 22)}</span><span class="el ell">${esc(e.label)}</span><span class="et">${e.now ? 'nå' : hhmm(e.ts)}</span></div>`).join('') : '<div class="none">Ingen hendelser</div>'}`;
     }
@@ -35096,9 +35595,9 @@ try {
       const ev = vis.flatMap((id) => this._events(this._cams.get(id) || { id })).filter((e) => !seen.has(e.id) && seen.add(e.id)).sort((a, b) => b.ts - a.ts).slice(0, this._evLimit());
       if (!ev.length) return '<div class="none">Ingen hendelser siste døgn</div>';
       return this._evWrap(ev.map((e) => `<button class="evr" data-act="view" data-v="${esc(e.cam)}" data-ent="${esc(e.id)}" data-key="${esc(e.id)}">
-        <span class="th"><span class="ph">${M.icon(e.icon, 22)}</span>${this._imgTag('t:' + e.cam, this._img(e.cam))}</span>
+        <span class="th" data-ki-island><span class="ph">${M.icon(e.icon, 22)}</span>${this._imgTag('t:' + e.cam, this._img(e.cam))}</span>
         <span class="tx"><span class="t1">${esc(e.label)}</span><span class="t2 ell">${esc(camName(h, cfg, e.cam))} · ${e.now ? 'nå' : hhmm(e.ts)}</span></span>
-        ${M.icon('play_circle', 22, 'color:var(--gray700,#979797)')}</button>`).join(''));
+        ${M.icon('play_circle', 22, 'color:var(--ki-text-mid, var(--gray700,#979797))')}</button>`).join(''));
     }
     _frigate() {
       const h = this.hass, cfg = this.config, fr = this._fr || { ok: false, list: [] };
@@ -35117,7 +35616,7 @@ try {
         const f = FLABEL[e.label] || ['sensors', e.label ? e.label[0].toUpperCase() + e.label.slice(1) : 'Hendelse'];
         const sc = e.top_score != null ? e.top_score : e.data && e.data.top_score != null ? e.data.top_score : e.score;
         const thumb = `/api/frigate/${encodeURIComponent(inst)}/notifications/${encodeURIComponent(e.id)}/thumbnail.jpg`;
-        return `<div class="evr" data-key="${esc(e.id)}"><span class="th"><span class="ph">${M.icon(f[0], 22)}</span>${this._imgTag('f:' + e.id, h.hassUrl ? h.hassUrl(thumb) : thumb)}</span>
+        return `<div class="evr" data-key="${esc(e.id)}"><span class="th" data-ki-island><span class="ph">${M.icon(f[0], 22)}</span>${this._imgTag('f:' + e.id, h.hassUrl ? h.hassUrl(thumb) : thumb)}</span>
           <span class="tx"><span class="t1 fl">${M.icon(f[0], 18)}${esc(f[1])}</span><span class="t2 ell">${esc(byCam(e.camera))} · ${hhmm((e.start_time || 0) * 1000)}${sc != null ? ' · ' + Math.round(sc * 100) + ' %' : ''}</span></span></div>`;
       }).join('');
       return `<div class="fs">${stats.map(([v, l]) => `<div class="fst"><span class="fv num">${esc(v)}</span><span class="fl2">${esc(l)}</span></div>`).join('')}</div>
@@ -35176,14 +35675,14 @@ try {
       const html = `<span class="dt">Visning</span>${LAYOUTS.map(([k, l, i]) => `<button class="di ${L === k ? 'on' : ''}" data-l="${k}">${M.icon(i, 20)}<span class="dl">${esc(l)}</span>${M.icon('check', 18, `color:${C.pink};opacity:${L === k ? 1 : 0}`)}</button>`).join('')}
         <div class="sep"></div><button class="di mu" data-l="_edit">${M.icon('tune', 20)}<span class="dl">Tilpass kameraer…</span></button>`;
       const css = `.bg{background:transparent!important}
-        .sh{${pos};top:${top}px!important;bottom:auto!important;width:230px;max-width:230px!important;margin:0!important;padding:8px!important;border-radius:22px!important;background:var(--gray300,#404040)!important;box-shadow:0 18px 40px rgba(0,0,0,0.5)!important;transform:scale(.96)!important;transform-origin:${dash ? 'top left' : 'top right'};max-height:calc(100% - ${top + 16}px)!important}
+        .sh{${pos};top:${top}px!important;bottom:auto!important;width:230px;max-width:230px!important;margin:0!important;padding:8px!important;border-radius:22px!important;background:var(--ki-surface, var(--gray300,#404040))!important;box-shadow:0 18px 40px ${BA(0.5)}!important;transform:scale(.96)!important;transform-origin:${dash ? 'top left' : 'top right'};max-height:calc(100% - ${top + 16}px)!important}
         :host(.on) .sh{transform:none!important}
         .body{display:flex;flex-direction:column;gap:2px}
-        .dt{font-size:12px;color:var(--gray700,#979797);padding:4px 10px 6px}
-        .di{height:42px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;color:var(--white,#fafafa);background:transparent;width:100%}
-        .di.on{background:rgba(255,255,255,0.08)} .dl{flex:1;text-align:left}
-        .di.mu{height:44px;color:var(--gray800,#afafaf)}
-        .sep{height:1px;background:rgba(255,255,255,0.1);margin:4px 8px}`;
+        .dt{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));padding:4px 10px 6px}
+        .di{height:42px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));background:transparent;width:100%}
+        .di.on{background:${WA(0.08)}} .dl{flex:1;text-align:left}
+        .di.mu{height:44px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .sep{height:1px;background:${WA(0.1)};margin:4px 8px}`;
       const ov = M.overlay({ html, css, sheet: false, onClose: () => { this._drop = null; this.update(); } });
       this._drop = ov;
       this.update();
@@ -35203,17 +35702,17 @@ try {
       const h = this.hass, cfg = this.config, s = h.states[id];
       if (!s) return;
       const html = `<div class="fh"><span class="fn ell">${esc(camName(h, cfg, id))}</span><span class="fm">${esc(camModel(h, id))}</span><button class="x" data-x="close" title="Lukk">${M.icon('close', 22)}</button></div>
-        <div class="fv"><span class="fph">${M.icon(camIcon(h, cfg, id), 40)}</span></div>
+        <div class="fv" data-ki-island><span class="fph">${M.icon(camIcon(h, cfg, id), 40)}</span></div>
         <div class="fa"><button data-x="snap">${M.icon('photo_camera', 20)}Bilde</button><button data-x="more">${M.icon('open_in_new', 20)}Mer info</button></div>`;
-      const css = `.sh{padding:14px!important;background:var(--gray000,#232323)!important}
+      const css = `.sh{padding:14px!important;background:var(--ki-bg, var(--gray000,#232323))!important}
         .fh{display:flex;align-items:center;gap:10px;padding:0 2px 12px}
-        .fn{flex:1;min-width:0;font-size:18px;font-weight:600} .fm{font-size:12px;color:var(--gray700,#979797)}
-        .x{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
-        .fv{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:var(--gray200,#3a3a3a);display:grid;place-items:center}
+        .fn{flex:1;min-width:0;font-size:18px;font-weight:600} .fm{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .x{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
+        .fv{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa;display:grid;place-items:center} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .fv img,.fv ha-camera-stream{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
-        .fph{color:var(--gray600,#7f7f7f)}
+        .fph{color:var(--gray600,#7f7f7f)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .fa{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:12px}
-        .fa button{height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}`;
+        .fa button{height:52px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}`;
       let t = null;
       const ov = M.overlay({ html, css, center: true, maxWidth: 1100, onClose: () => clearInterval(t) });
       const fv = ov.body.querySelector('.fv');
@@ -35302,64 +35801,64 @@ try {
         .k.hasback{padding-bottom:calc(var(--cg,6px) + 80px + env(safe-area-inset-bottom))}
         .hd{display:flex;align-items:center;gap:10px;padding:0 6px 0 0;min-height:48px}
         .hb{display:flex;align-items:center;gap:2px;height:48px;padding:0 6px 0 4px;border-radius:24px;flex:none;transition:background .2s}
-        .hb.on{background:rgba(255,255,255,0.08)}
-        .hi{width:40px;height:40px;border-radius:20px;background:var(--gray1000,#e1e1e1);color:#282828;display:grid;place-items:center}
+        .hb.on{background:${WA(0.08)}}
+        .hi{width:40px;height:40px;border-radius:20px;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, #282828);display:grid;place-items:center}
         .ht{flex:1;min-width:0;font-size:28px;font-weight:500}
-        .hc{flex:none;font-size:14px;color:var(--gray700,#979797)}
+        .hc{flex:none;font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .top{position:relative;display:flex;gap:8px;align-items:center}
-        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:23px;background:var(--gray200,#3a3a3a)}
-        .md{height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .md.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tune{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none;transition:background .2s}
-        .tune.on{background:var(--gray300,#404040)}
+        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:23px;background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
+        .md{height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .md.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+        .tune{width:46px;height:46px;border-radius:23px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none;transition:background .2s}
+        .tune.on{background:var(--ki-surface-2, var(--gray300,#404040))}
         .chips{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0;padding:0;min-width:0}
-        .ch{flex:none;height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .ch.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+        .ch{flex:none;height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .ch.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
         .grid{display:grid;grid-auto-flow:dense;gap:var(--cg,6px)}
-        .tile{position:relative;border-radius:20px;overflow:hidden;background:var(--gray200,#3a3a3a);cursor:pointer;min-width:0;-webkit-touch-callout:none}
-        .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969);pointer-events:none}
+        .tile{position:relative;border-radius:20px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa;cursor:pointer;min-width:0;-webkit-touch-callout:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         img.im{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-select:none;user-select:none}
         img.im.bad{visibility:hidden}
         .strm{position:absolute;inset:0;overflow:hidden;pointer-events:none}
         .strm>*{position:absolute;inset:0;width:100%;height:100%;display:block;--video-max-height:100%}
-        .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none}
-        .bdg{position:absolute;left:8px;top:8px;height:20px;padding:0 7px 0 6px;border-radius:10px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0.04em;text-transform:uppercase;pointer-events:none}
+        .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .bdg{position:absolute;left:8px;top:8px;height:20px;padding:0 7px 0 6px;border-radius:10px;background:rgba(20,20,20,0.6);color:#fafafa;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0.04em;text-transform:uppercase;pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .bdg i{width:6px;height:6px;border-radius:3px;flex:none}
         .bdg.cp{padding:0;width:20px;justify-content:center}
         .bdg.solid{left:14px;top:14px;height:28px;padding:0 12px 0 10px;border-radius:14px;font-size:12px;font-weight:700;letter-spacing:0}
-        .bdg.solid i{width:8px;height:8px;border-radius:4px;background:#fff}
-        .full{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:14px;background:rgba(20,20,20,0.55);display:grid;place-items:center}
+        .bdg.solid i{width:8px;height:8px;border-radius:4px;background:#fff} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .full{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:14px;background:rgba(20,20,20,0.55);color:#fafafa;display:grid;place-items:center} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .full:active{transform:scale(.92)}
-        .tn{position:absolute;left:10px;bottom:8px;right:10px;font-size:var(--tfs,14px);line-height:calc(var(--tfs,14px) + 4px);font-weight:500;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.5)}
-        .tm{position:absolute;right:10px;bottom:8px;max-width:40%;font-size:11px;line-height:calc(var(--tfs,14px) + 4px);color:rgba(255,255,255,0.8);pointer-events:none}
+        .tn{position:absolute;left:10px;bottom:8px;right:10px;font-size:var(--tfs,14px);line-height:calc(var(--tfs,14px) + 4px);font-weight:500;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.5)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .tm{position:absolute;right:10px;bottom:8px;max-width:40%;font-size:11px;line-height:calc(var(--tfs,14px) + 4px);color:rgba(255,255,255,0.8);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .tile:has(.tm) .tn{right:auto;max-width:calc(60% - 16px)}
-        .one{position:relative;height:300px;border-radius:30px;overflow:hidden;background:var(--gray200,#3a3a3a)}
+        .one{position:relative;height:300px;border-radius:30px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .one .full{right:14px;top:14px}
-        .shade1{position:absolute;inset:0;background:linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55));pointer-events:none}
+        .shade1{position:absolute;inset:0;background:linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55));pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .on1{position:absolute;left:16px;bottom:14px;max-width:60%;font-size:18px;font-weight:600;pointer-events:none}
-        .om{position:absolute;right:16px;bottom:14px;font-size:12px;color:rgba(255,255,255,0.7);pointer-events:none}
+        .om{position:absolute;right:16px;bottom:14px;font-size:12px;color:rgba(255,255,255,0.7);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-        .ac{height:96px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray200,#3a3a3a);min-width:0}
+        .ac{height:96px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .ac[disabled]{cursor:default}
         .ac[disabled]:active{transform:none}
-        .sec{font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray700,#979797);padding:8px 8px 0}
-        .er{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 8px;border-radius:30px;background:var(--gray200,#3a3a3a)}
-        .ei{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
+        .sec{font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-mid, var(--gray700,#979797));padding:8px 8px 0}
+        .er{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 8px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .ei{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
         .el{flex:1;min-width:0;font-size:15px;font-weight:500}
-        .et{font-size:13px;color:var(--gray700,#979797);flex:none}
-        .none{padding:30px 0;text-align:center;font-size:15px;color:var(--gray600,#7f7f7f)}
+        .et{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));flex:none}
+        .none{padding:30px 0;text-align:center;font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .evl{display:grid;gap:8px;min-width:0}
-        .evr{display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:var(--gray200,#3a3a3a);text-align:left;width:100%;min-width:0}
-        .th{position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:var(--gray300,#404040)}
+        .evr{display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%;min-width:0}
+        .th{position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:var(--gray300,#404040)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .t1{font-size:15px;font-weight:500}
         .t1.fl{display:flex;align-items:center;gap:6px}
-        .t2{font-size:12px;color:var(--gray700,#979797)}
+        .t2{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .fs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-        .fst{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0}
+        .fst{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .fv{font-size:24px;font-weight:300}
-        .fl2{font-size:12px;color:var(--gray700,#979797)}
-        .back{position:fixed;left:var(--kbx,50%);bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;height:56px;padding:0 24px 0 16px;border-radius:28px;background:var(--gray100,#2f2f2f);border:1px solid var(--gray400,#545454);display:flex;align-items:center;gap:6px;font-size:15px;font-weight:500;color:var(--white,#fafafa);box-shadow:0 12px 30px rgba(0,0,0,0.4);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .fl2{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .back{position:fixed;left:var(--kbx,50%);bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;height:56px;padding:0 24px 0 16px;border-radius:28px;background:var(--ki-surface, var(--gray100,#2f2f2f));border:1px solid var(--ki-line, var(--gray400,#545454));display:flex;align-items:center;gap:6px;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));box-shadow:0 12px 30px ${BA(0.4)};transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .back:active{transform:translateX(-50%) scale(.96)}
       `;
     }
@@ -35378,81 +35877,81 @@ try {
   ];
   const RESET_KEYS = ['layout', 'grid_layout', 'order', 'hidden', 'cam_gap', 'gap', 'luft', 'show_name', 'show_badge', 'text_size', 'padT', 'pad_top']; // egne kameranavn (names) beholdes
   const ED_CSS = `
-    :host{display:block;color:var(--white,#fafafa);font-family:${M.FONT}}
+    :host{display:block;color:var(--ki-text, var(--white,#fafafa));font-family:${M.FONT}}
     .w{display:flex;flex-direction:column;gap:10px}
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
-    .hic{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
+    .hic{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
     .hd .done{flex:none;${M.DONE_PILL}} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
-    .htx i{font-style:normal;font-size:13px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .x{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
+    .htx i{font-style:normal;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .x{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .scope:empty{display:none} .scope{padding:0 4px}
-    .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+    .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .st{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px}
     .st>span:first-child{font-size:16px;font-weight:500}
-    .sm{font-size:14px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--gray300,#404040)}
-    .sg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;transition:background .2s,color .2s}
-    .sg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .sm{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .sg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;transition:background .2s,color .2s}
+    .sg button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     .lg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .lg button{height:88px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040);color:var(--white,#fafafa);min-width:0}
-    .lg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .lg button{height:88px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));min-width:0}
+    .lg button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     .rw{display:flex;flex-direction:column;gap:8px;min-height:44px;justify-content:center;padding:0 4px}
     .rl{display:flex;align-items:center;gap:12px;min-height:44px}
-    .rl>ha-icon{color:var(--gray700,#979797)}
+    .rl>ha-icon{color:var(--ki-text-mid, var(--gray700,#979797))}
     .lb{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rv{font-size:14px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;flex:none}
-    .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-    .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .rv{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums;flex:none}
+    .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
+    .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: rosa brytere */
-    .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--gray300,#404040);flex:none}
-    .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--gray800,#afafaf)}
-    .ts button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+    .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .ts button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:0;background:transparent;touch-action:pan-y;cursor:pointer}
-    input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--gray400,#545454)}
-    input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--gray400,#545454)}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
+    input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
+    input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px ${BA(0.4)}}
+    input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:var(--ki-knob, #fafafa)}
     .pills{display:flex;gap:6px;flex-wrap:wrap}
-    .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--gray300,#404040)}
+    .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
     .spr{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
     .spt{display:flex;justify-content:space-between;align-items:center;gap:10px;min-width:0}
-    .spt>ha-icon{color:var(--gray800,#afafaf);flex:none}
+    .spt>ha-icon{color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
     .spl{flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .spv{flex:none;font-size:13px;color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
+    .spv{flex:none;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
     .spr input[type=range]{accent-color:rgb(242 133 201)}
     .spc-ch{display:flex;flex-wrap:wrap;gap:6px}
-    .spp{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--gray400,#545454);color:var(--white,#fafafa)}
-    .spp.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-    .nm{position:relative;display:flex;align-items:center;height:30px;border-radius:10px;background:#282828;min-width:0;cursor:text}
-    .nm input{flex:1;min-width:0;height:30px;padding:0 28px 0 10px;border:0;outline:none;background:transparent;color:var(--white,#fafafa);font:inherit;font-size:15px;font-weight:500;text-overflow:ellipsis}
-    .nm input::placeholder{color:var(--white,#fafafa);opacity:1}
-    .nm input:focus::placeholder{color:var(--gray600,#7f7f7f)}
-    .nm>ha-icon{position:absolute;right:8px;color:var(--gray600,#7f7f7f);pointer-events:none}
-    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--gray400,#545454);color:var(--white,#fafafa)}
-    .pill.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-    .cr{display:flex;align-items:center;gap:10px;padding:8px;border-radius:24px;background:#2c2c2c;transition:opacity .2s}
+    .spp{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
+    .spp.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    .nm{position:relative;display:flex;align-items:center;height:30px;border-radius:10px;background:var(--ki-surface, #282828);min-width:0;cursor:text}
+    .nm input{flex:1;min-width:0;height:30px;padding:0 28px 0 10px;border:0;outline:none;background:transparent;color:var(--ki-text, var(--white,#fafafa));font:inherit;font-size:15px;font-weight:500;text-overflow:ellipsis}
+    .nm input::placeholder{color:var(--ki-text, var(--white,#fafafa));opacity:1}
+    .nm input:focus::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .nm>ha-icon{position:absolute;right:8px;color:var(--ki-text-3, var(--gray600,#7f7f7f));pointer-events:none}
+    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
+    .pill.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    .cr{display:flex;align-items:center;gap:10px;padding:8px;border-radius:24px;background:var(--ki-surface-2, #2c2c2c);transition:opacity .2s}
     .cr.off{opacity:.55}
-    .cth{position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray500,#696969)}
+    .cth{position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray500,#696969)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
     .cth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .cn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .cn b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cn i{font-style:normal;font-size:11px;color:var(--gray700,#979797);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa)}
-    .cb[disabled]{background:#2c2c2c;color:var(--gray400,#545454);pointer-events:none}
-    .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040)}
-    .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--gray300,#404040);font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
+    .cn i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa))}
+    .cb[disabled]{background:var(--ki-surface-2, #2c2c2c);color:var(--ki-text-lo, var(--gray400,#545454));pointer-events:none}
+    .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
     .res{display:flex;flex-direction:column;gap:2px;max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .rr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
-    .rr:hover{background:rgba(255,255,255,0.06)}
-    .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
-    .more{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--gray800,#afafaf)}
-    .stat{font-size:12px;color:var(--gray700,#979797);text-align:center}.stat.ok{color:rgb(102 209 158)}.stat.err{color:var(--red,#f28073)}
+    .rr:hover{background:${WA(0.06)}}
+    .note{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:4px 6px 0}
+    .more{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .stat{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));text-align:center}.stat.ok{color:var(--ki-green-text, rgb(102 209 158))}.stat.err{color:var(--ki-red-text, var(--red,#f28073))}
     .act{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .act button{height:54px;border-radius:27px;background:var(--gray200,#3a3a3a);font-size:15px;color:var(--gray700,#979797)}
-    .act button.pri{background:${PINK};color:var(--gray200,#3a3a3a);font-weight:600}
+    .act button{height:54px;border-radius:27px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:15px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .act button.pri{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a));font-weight:600}
   `;
   class KameraEditor extends HTMLElement {
     constructor() {
@@ -35537,9 +36036,9 @@ try {
         <div class="s"><div class="st"><span>Kameraer som vises</span><span class="sm">${shown} av ${ord.length}</span></div>
           ${ord.map((id, i) => {
             const off = hid.has(id), src = camImg(h, id, this._t || (this._t = Date.now()));
-            return `<div class="cr ${off ? 'off' : ''}" data-key="${esc(id)}"><span class="cth">${M.icon(camIcon(h, c, id), 20)}${src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : ''}</span>
+            return `<div class="cr ${off ? 'off' : ''}" data-key="${esc(id)}"><span class="cth" data-ki-island>${M.icon(camIcon(h, c, id), 20)}${src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : ''}</span>
               <span class="cn"><label class="nm"><input data-a="nm" data-v="${esc(id)}" value="${esc(ownName(c, id))}" placeholder="${esc(ccfg(c, id).name || defaultName(h, id))}" aria-label="Navn på ${esc(id)}" autocomplete="off" spellcheck="false" enterkeyhint="done">${M.icon('mdi:pencil-outline', 16)}</label><i>${esc(id)}</i></span>
-              <button class="cb" data-a="eye" data-v="${esc(id)}" title="${off ? 'Vis' : 'Skjul'}">${M.icon(off ? 'visibility_off' : 'visibility', 22, off ? 'color:var(--gray500,#696969)' : '')}</button>
+              <button class="cb" data-a="eye" data-v="${esc(id)}" title="${off ? 'Vis' : 'Skjul'}">${M.icon(off ? 'visibility_off' : 'visibility', 22, off ? 'color:var(--ki-text-lo, var(--gray500,#696969))' : '')}</button>
               <button class="cb" data-a="mv" data-i="${i}" data-d="-1" ${i > 0 ? '' : 'disabled'} title="Flytt opp">${M.icon('arrow_upward', 20)}</button>
               <button class="cb" data-a="mv" data-i="${i}" data-d="1" ${i < ord.length - 1 ? '' : 'disabled'} title="Flytt ned">${M.icon('arrow_downward', 20)}</button></div>`;
           }).join('') || '<span class="note">Fant ingen kameraer.</span>'}
@@ -35558,7 +36057,7 @@ try {
       const h = this._hass, q = slug(this._q || '');
       const ids = Object.keys(h.states).filter((id) => id.startsWith('camera.') && !ord.includes(id)).filter((id) => !q || slug(id + ' ' + M.name(h, id)).includes(q)).sort().slice(0, 50);
       return `<input class="srch" data-a="q" placeholder="Søk etter kamera …" value="${esc(this._q)}" autocomplete="off">
-        <div class="res">${ids.map((id) => `<button class="rr" data-a="add" data-v="${esc(id)}">${M.icon(M.domainIcon(id, h.states[id]), 20, 'color:var(--gray700,#979797)')}<span class="cn"><b>${esc(defaultName(h, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:plus', 20)}</button>`).join('') || '<span class="note">Ingen flere kameraer</span>'}</div>`;
+        <div class="res">${ids.map((id) => `<button class="rr" data-a="add" data-v="${esc(id)}">${M.icon(M.domainIcon(id, h.states[id]), 20, 'color:var(--ki-text-mid, var(--gray700,#979797))')}<span class="cn"><b>${esc(defaultName(h, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:plus', 20)}</button>`).join('') || '<span class="note">Ingen flere kameraer</span>'}</div>`;
     }
     _input(e) {
       const t = e.target;
@@ -36468,6 +36967,13 @@ try {
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Fiks 35 (tema): aksent som tekst/ikon mørknes i lys modus (AT), tone-bakgrunner .12→.18 (TONE), gjennomsiktig
+  // hvit/svart etter regel 4/3 (WA/KA). Linjefargene (badger) beholdes. Mørk modus = som før.
+  const TH = M.theme || {};
+  const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0/max(var(--ki-ka-min,0),calc(${a}*var(--ki-ka-k,1))))`);
   // Transportmiddel → [ikon, linjefarge] (Ruters linjefarger, ikke temafarger).
   const MODE = { metro: ['subway', 'oklch(0.66 0.16 45)'], tram: ['tram', 'oklch(0.62 0.13 245)'], bus: ['directions_bus', 'oklch(0.6 0.17 25)'], coach: ['directions_bus', 'oklch(0.6 0.17 25)'], rail: ['train', 'oklch(0.55 0.12 260)'], water: ['directions_boat', 'oklch(0.6 0.1 220)'], air: ['flight', 'oklch(0.55 0.12 260)'] };
   const modeOf = (k) => MODE[String(k || '').toLowerCase()] || null;
@@ -36808,12 +37314,12 @@ try {
       return `<div class="f"><label>${esc(dk === 'school' ? 'Retning før byttetidspunktet' : 'Retning etter byttetidspunktet')}</label>${inp(dk + '.name', D.name, STD_TRIPS[dk].name)}
         ${D.alts.map((alt, i) => {
           const id = `${dk}.${i}`, on = alt.enabled !== false, isOpen = open === id, A = `data-dir="${dk}" data-i="${i}"`;
-          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:rgba(255,255,255,0.04)">
+          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:${WA(0.04)}">
             <div class="line" style="gap:6px">${b('toggle', A, '', `sw ${on ? 'on' : ''}`)}
               ${b('edit', A, `<span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(altTitle(alt))}</span>`, '', 'flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer')}
               ${b('up', A, M.icon('mdi:chevron-up', 20))}${b('down', A, M.icon('mdi:chevron-down', 20))}${b('del', A, M.icon('mdi:delete-outline', 20))}</div>
             ${isOpen ? `${lab('Gangtid til første stopp (min) · tomt = stoppets gangtid', inp(`${dk}.alts.${i}.walk_min`, alt.walk_min, 'f.eks. 4', true))}
-              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:rgba(0,0,0,0.15)">
+              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:${KA(0.15)}">
                 <span class="small" style="grid-column:1/-1;display:flex;align-items:center;gap:6px">Etappe ${j + 1}<span style="flex:1"></span>${b('rmleg', `${A} data-j="${j}"`, M.icon('mdi:close', 18))}</span>
                 ${lab('Fra (stopp / sensor / NSR · «A / B» = begge)', inp(`${dk}.alts.${i}.legs.${j}.from`, l.from, 'Majorstuen'))}${lab('Til', inp(`${dk}.alts.${i}.legs.${j}.to`, l.to, 'Holbergs plass'))}
                 ${lab('Linje(r) · tomt = alle som går', inp(`${dk}.alts.${i}.legs.${j}.lines`, l.lines, 'f.eks. 45', false, true))}
@@ -36929,13 +37435,13 @@ try {
     _chip(ledig, cls = 'go') {
       if (this.config.go_now === false || ledig == null) return '';
       const [t, col] = goOf(ledig);
-      return `<span class="${cls}" style="color:${col};background:${M.alpha(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
+      return `<span class="${cls}" style="color:${AT(col)};background:${TONE(col, 0.16)}">${M.icon('mdi:walk', 14)}${esc(t)}</span>`;
     }
     _occ(occ) {
       const l = OCC[occ];
       if (!l || this.config.occupancy === false) return '';
       const col = l === 1 ? C.green : l === 2 ? C.orange : C.red;
-      return `<span class="occ" title="${OCC_L[l]}">${[6, 9, 12].map((hh, i) => `<i style="height:${hh}px;background:${i < l ? col : 'rgba(255,255,255,0.15)'}"></i>`).join('')}</span>`;
+      return `<span class="occ" title="${OCC_L[l]}">${[6, 9, 12].map((hh, i) => `<i style="height:${hh}px;background:${i < l ? col : 'var(--ki-surface-3, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.15*var(--ki-wa-k,1)),var(--ki-wa-max,1))))'}"></i>`).join('')}</span>`;
     }
     // Tid i radene: ≤ 1 min «Nå», under 20 min «18 min», ellers klokkeslett
     _tf(d) { const m = minTo(d.t); return m <= 1 ? 'Nå' : m < 20 ? `${m} min` : hm(d.t); }
@@ -36951,7 +37457,7 @@ try {
     _row(d, all, withNext) {
       const c = this.config, m = minTo(d.t), sub = this._sub(d, all, withNext);
       return `<div class="dep" data-key="${esc(depKey(d))}">
-        <div class="d1">${this._badge(d.line, d.mode || 'bus')}<span class="dest grow ell">${esc(d.dest)}</span>${this._occ(d.occ)}${c.realtime !== false && d.rt ? M.icon('sensors', 14, `color:${C.green}`) : ''}<span class="tm num" style="color:${m <= 2 ? C.orange : 'var(--white, #fafafa)'}">${esc(this._tf(d))}</span></div>
+        <div class="d1">${this._badge(d.line, d.mode || 'bus')}<span class="dest grow ell">${esc(d.dest)}</span>${this._occ(d.occ)}${c.realtime !== false && d.rt ? M.icon('sensors', 14, `color:${AT(C.green)}`) : ''}<span class="tm num" style="color:${m <= 2 ? AT(C.orange) : 'var(--ki-text, var(--white, #fafafa))'}">${esc(this._tf(d))}</span></div>
         ${sub || this._delay(d) ? `<div class="d2"><span class="grow ell num">${esc(sub)}</span>${this._delay(d)}</div>` : ''}
       </div>`;
     }
@@ -37003,21 +37509,21 @@ try {
       if (c.show_disruptions !== false && !(c.hide_zero && !cnt && a.sum)) {
         if (!a.sum && !lineCount) {
           dis = `<section class="dis"><button class="dh" data-act="customize" data-section="overrides">
-            <span class="diw" style="background:var(--gray300, #404040);color:var(--gray700, #979797)">${M.icon('mdi:help-circle-outline', 24)}</span>
+            <span class="diw" style="background:var(--ki-surface-2, var(--gray300, #404040));color:var(--ki-text-mid, var(--gray700, #979797))">${M.icon('mdi:help-circle-outline', 24)}</span>
             <span class="grow col" style="gap:2px"><span class="dt">Avvik</span><span class="ds ell">Fant ingen avvikssensor (entur_sx) – trykk for å velge</span></span>
           </button></section>`;
         } else {
           const open = !!ui.disOpen && shownItems.length > 0;
-          dis = `<section class="dis" style="background:${cnt ? M.alpha(C.orange, 0.12) : 'var(--gray200, #3a3a3a)'};box-shadow:${cnt ? `inset 0 0 0 1px ${M.alpha(C.orange, 0.35)}` : 'none'}">
+          dis = `<section class="dis" style="background:${cnt ? TONE(C.orange, 0.12) : 'var(--ki-surface, var(--gray200, #3a3a3a))'};box-shadow:${cnt ? `inset 0 0 0 1px ${M.alpha(C.orange, 0.35)}` : 'none'}">
             <button class="dh" data-act="dis" ${a.sum ? `data-ent="${esc(a.sum)}"` : ''} data-haptic="selection">
-              <span class="diw" style="background:${cnt ? M.alpha(C.orange, 0.25) : M.alpha(C.green, 0.2)};color:${cnt ? C.orange : C.green}">${M.icon(cnt ? 'warning' : 'check_circle', 24)}</span>
+              <span class="diw" style="background:${cnt ? M.alpha(C.orange, 0.25) : M.alpha(C.green, 0.2)};color:${cnt ? AT(C.orange) : AT(C.green)}">${M.icon(cnt ? 'warning' : 'check_circle', 24)}</span>
               <span class="grow col" style="gap:2px"><span class="dt">${cnt ? `${cnt} avvik på dine linjer` : 'Ingen avvik'}</span><span class="ds ell">${esc(cnt ? `${active.length} aktive${c.planned !== false ? ` · ${planned.length} planlagte` : ''}${sumName ? ' · ' + sumName : ''}` : lineCount ? `Alle ${lineCount} linjer går som normalt` : sumName ? `${sumName} · alt går som normalt` : 'Alt går som normalt')}</span></span>
-              ${shownItems.length ? M.icon('expand_more', 22, `color:var(--gray800, #afafaf);transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`) : ''}
+              ${shownItems.length ? M.icon('expand_more', 22, `color:var(--ki-text-2, var(--gray800, #afafaf));transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`) : ''}
             </button>
             ${open ? `<div class="dl">${shownItems.map((x) => {
               const xo = ui.xOpen === x.key, act = x.st === 'open';
               return `<button class="dx" data-act="dx" data-k="${esc(x.key)}" data-ent="${esc(x.ent)}" data-key="${esc(x.key)}" data-haptic="selection">
-                <span class="row" style="gap:10px;width:100%">${this._badge(x.line, x.kind, true, true)}<span class="grow ell" style="font-size:13px;font-weight:500">${esc(x.sum)}</span><span class="stc" style="background:${act ? M.alpha(C.red, 0.2) : M.alpha(C.blue, 0.2)};color:${act ? C.red : C.blue}">${act ? 'Aktiv' : 'Planlagt'}</span></span>
+                <span class="row" style="gap:10px;width:100%">${this._badge(x.line, x.kind, true, true)}<span class="grow ell" style="font-size:13px;font-weight:500">${esc(x.sum)}</span><span class="stc" style="background:${act ? M.alpha(C.red, 0.2) : M.alpha(C.blue, 0.2)};color:${act ? AT(C.red) : AT(C.blue)}">${act ? 'Aktiv' : 'Planlagt'}</span></span>
                 ${xo ? `${x.desc ? `<span class="dd">${esc(x.desc)}</span>` : ''}${x.from || x.to ? `<span class="dw">${esc(`Fra: ${fmtWhen(x.from)}${x.to ? ` · Til: ${fmtWhen(x.to)}` : ''}`)}</span>` : ''}` : ''}
               </button>`;
             }).join('')}</div>` : ''}
@@ -37080,7 +37586,7 @@ try {
           <span class="hbig num">${m == null ? '–' : m <= 1 ? 'Nå' : `${m}<small>min</small>`}</span>
           ${d ? `<span class="hinfo"><span class="row" style="gap:8px;min-width:0">${this._badge(d.line, d.mode || 'bus')}<span class="hdest ell">${esc(d.dest)}</span>${this._delay(d)}</span>${info ? `<span class="hsub ell num">${esc(info)}</span>` : ''}</span>` : `<span class="hinfo"><span class="hsub">${esc(name ? 'Ingen avganger funnet' : 'Velg stopp i Rediger')}</span></span>`}
         </div>
-        <button class="hlab" data-act="herosel" data-haptic="light">${M.icon('sensors', 14, `color:${d && d.rt ? C.green : 'inherit'}`)}<span class="ell">${esc(`${selD ? 'Valgt avgang' : 'Neste du rekker'}${upd ? ` · oppdatert ${hm(upd.t)}` : ''}`)}</span></button>
+        <button class="hlab" data-act="herosel" data-haptic="light">${M.icon('sensors', 14, `color:${d && d.rt ? AT(C.green) : 'inherit'}`)}<span class="ell">${esc(`${selD ? 'Valgt avgang' : 'Neste du rekker'}${upd ? ` · oppdatert ${hm(upd.t)}` : ''}`)}</span></button>
         ${tl}
       </section>`;
     }
@@ -37099,7 +37605,7 @@ try {
         return `<div class="alt${fast ? ' fast' : ''}" role="button" tabindex="0" aria-expanded="${open}" data-act="trip" data-k="${esc(k)}" data-haptic="light" data-key="alt-${esc(k)}">
           <div class="row" style="gap:8px"><span class="row grow" style="gap:4px;min-width:0;flex-wrap:wrap">${badges}${fast ? '<span class="rk">Raskest</span>' : ''}</span>
             <span class="col" style="align-items:flex-end;flex:none"><span class="atot num">${p.total != null ? `${p.total} min` : '–'}</span><span class="aarr num">${p.arrive != null ? `fremme ${hm(p.arrive)}` : p.first ? `går ${hm(p.first.t)}` : 'Ingen avgang funnet'}</span></span>
-            ${M.icon('expand_more', 22, `color:var(--gray800, #afafaf);flex:none;transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</div>
+            ${M.icon('expand_more', 22, `color:var(--ki-text-2, var(--gray800, #afafaf));flex:none;transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</div>
           <div class="row" style="gap:8px"><span class="atxt grow ell num">${esc(p.first ? txt.join(' · ') : txt.slice(-1).join(''))}</span>${ledig != null ? this._chip(ledig, 'go') : ''}</div>
           ${open ? this._planHTML(p, T, k) : ''}
         </div>`;
@@ -37117,7 +37623,7 @@ try {
       };
       // node: ['dot', farge] | ['ic', ikon, farge] ; rail: null | [farge, stiplet]
       const step = (time, node, rail, title, sub, cls) => rows.push(`<div class="ps${cls ? ' ' + cls : ''}"><span class="pt num">${esc(time || '')}</span>
-        <span class="pr">${rail ? `<b class="pl${rail[1] ? ' dash' : ''}" style="${rail[1] ? `border-color:${rail[0]}` : `background:${rail[0]}`}"></b>` : ''}${node[0] === 'dot' ? `<i class="pn" style="background:${node[1]}"></i>` : `<i class="pn ic" style="background:${node[2] || 'var(--gray300, #404040)'};color:${node[3] || 'var(--gray900, #c7c7c7)'}">${M.icon(node[1], 13)}</i>`}</span>
+        <span class="pr">${rail ? `<b class="pl${rail[1] ? ' dash' : ''}" style="${rail[1] ? `border-color:${rail[0]}` : `background:${rail[0]}`}"></b>` : ''}${node[0] === 'dot' ? `<i class="pn" style="background:${node[1]}"></i>` : `<i class="pn ic" style="background:${node[2] || 'var(--ki-surface-2, var(--gray300, #404040))'};color:${node[3] || 'var(--ki-text-1, var(--gray900, #c7c7c7))'}">${M.icon(node[1], 13)}</i>`}</span>
         <span class="pb"><span class="ptl">${title}</span>${sub ? `<span class="psb num">${sub}</span>` : ''}</span></div>`);
       const nm = (L, fb) => esc((L && L.name) || fb || '');
       if (p.first) {
@@ -37135,10 +37641,10 @@ try {
         if (N) {
           const nx = fill(N, N.c), w = nx && x.arr != null ? Math.round((nx.t - x.arr) / 60000) : null, kort = w != null && w < T.transfer_min;
           const s2 = [w != null ? `${kort ? 'Kort bytte · ' : ''}${w} min til neste` : '', c.platform !== false && nx && nx.plat ? platL(nx.plat) : ''].filter(Boolean).join(' · ');
-          step(x.arr != null ? hm(x.arr) : '', ['ic', 'mdi:transit-transfer'], [GR, true], `Bytte på ${nm(N.from, N.leg.from)}`, s2 ? `<span style="${kort ? `color:${C.orange}` : ''}">${esc(s2)}</span>` : '', 'swap');
+          step(x.arr != null ? hm(x.arr) : '', ['ic', 'mdi:transit-transfer'], [GR, true], `Bytte på ${nm(N.from, N.leg.from)}`, s2 ? `<span style="${kort ? `color:${AT(C.orange)}` : ''}">${esc(s2)}</span>` : '', 'swap');
         }
       }
-      if (p.arrive != null) step(hm(p.arrive), ['ic', 'flag', C.green, 'var(--gray200, #3a3a3a)'], null, esc(p.alt.legs[p.alt.legs.length - 1].to || 'Fremme'), esc(`Fremme${p.total != null ? ` · ${p.total} min totalt` : ''}`), 'end');
+      if (p.arrive != null) step(hm(p.arrive), ['ic', 'flag', C.green, 'var(--ki-on-accent, var(--gray200, #3a3a3a))'], null, esc(p.alt.legs[p.alt.legs.length - 1].to || 'Fremme'), esc(`Fremme${p.total != null ? ` · ${p.total} min totalt` : ''}`), 'end');
       // Neste mulighet: neste avganger på første etappe etter den valgte
       const L0 = p.legs[0], nxt = p.first && L0 && L0.all ? L0.all.filter((x) => x.t > p.first.t + 30000).slice(0, 2) : [];
       const more = nxt.length ? `Neste mulighet: ${nxt[0].line} kl ${hm(nxt[0].t)}${nxt[1] ? ` · deretter ${hm(nxt[1].t)}` : ''}` : '';
@@ -37155,7 +37661,7 @@ try {
       else if (!open) {
         const so = c.next !== false && later.length ? `så ${later.slice(0, 3).map((x) => this._tf(x)).join(', ')}` : '';
         const sub = [c.platform !== false && nx.plat ? platL(nx.plat) : '', hm(nx.t), so].filter(Boolean).join(' · ');
-        inner = `<div class="d1">${this._badge(nx.line, nx.mode || 'bus')}<span class="dest grow ell">${esc(nx.dest)}</span>${this._occ(nx.occ)}${c.realtime !== false && nx.rt ? M.icon('sensors', 14, `color:${C.green}`) : ''}<span class="tm num" style="color:${nm <= 2 ? C.orange : 'var(--white, #fafafa)'}">${esc(this._tf(nx))}</span></div>
+        inner = `<div class="d1">${this._badge(nx.line, nx.mode || 'bus')}<span class="dest grow ell">${esc(nx.dest)}</span>${this._occ(nx.occ)}${c.realtime !== false && nx.rt ? M.icon('sensors', 14, `color:${AT(C.green)}`) : ''}<span class="tm num" style="color:${nm <= 2 ? AT(C.orange) : 'var(--ki-text, var(--white, #fafafa))'}">${esc(this._tf(nx))}</span></div>
           <span class="csub ell num">${esc(sub)}</span>`;
       } else {
         const base = Math.max(3, s.n), hour = later.filter((x) => minTo(x.t) <= 60).slice(0, 14);
@@ -37163,15 +37669,15 @@ try {
         inner = `<div class="nx">
             <div class="row" style="gap:8px">${this._badge(nx.line, nx.mode || 'bus')}<span class="nxk">NESTE AVGANG</span></div>
             <div class="row" style="gap:10px;align-items:flex-end"><span class="col grow" style="gap:3px;min-width:0"><span class="nxd ell">${esc(nx.dest)}</span><span class="nxs ell num">${esc(this._sub(nx, s.all, true))}</span></span>
-              <span class="col" style="align-items:flex-end;flex:none;gap:2px"><span class="nxm num" style="color:${nm <= 2 ? C.orange : 'var(--white, #fafafa)'}">${nm <= 1 ? 'Nå' : nm >= 60 ? hm(nx.t) : `${nm}<small>min</small>`}</span>
-              <span class="row" style="gap:6px">${c.realtime !== false && nx.rt ? M.icon('sensors', 14, `color:${C.green}`) : ''}${this._occ(nx.occ)}${this._delay(nx)}</span></span></div>
+              <span class="col" style="align-items:flex-end;flex:none;gap:2px"><span class="nxm num" style="color:${nm <= 2 ? AT(C.orange) : 'var(--ki-text, var(--white, #fafafa))'}">${nm <= 1 ? 'Nå' : nm >= 60 ? hm(nx.t) : `${nm}<small>min</small>`}</span>
+              <span class="row" style="gap:6px">${c.realtime !== false && nx.rt ? M.icon('sensors', 14, `color:${AT(C.green)}`) : ''}${this._occ(nx.occ)}${this._delay(nx)}</span></span></div>
           </div>
           ${shown.length ? `<span class="lk">${more ? 'Senere · neste time' : 'Senere'}</span>${shown.map((x) => this._row(x, s.all, false)).join('')}` : ''}
           ${extra > 0 || more ? `<button class="vm press" data-act="more" data-k="${esc(s.id)}">${esc(more ? 'Vis færre' : `Vis ${extra} flere`)}</button>` : ''}`;
       }
       const ledig = nx ? nm - s.walk : null;
       return `<div class="stop" role="button" tabindex="0" aria-expanded="${open}" data-act="stop" data-k="${esc(s.id)}" data-key="${esc(s.id)}" data-haptic="light">
-          <div class="sh" data-ent="${esc(s.id)}">${M.icon(s.icon, 20, 'color:var(--gray800, #afafaf)')}<span class="sn grow ell">${esc(s.name)}</span>${s.walkTxt ? `<span class="sw">${esc(s.walkTxt)}</span>` : ''}${nx ? this._chip(ledig, 'go') : ''}${M.icon('expand_more', 22, `color:var(--gray800, #afafaf);transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</div>
+          <div class="sh" data-ent="${esc(s.id)}">${M.icon(s.icon, 20, 'color:var(--ki-text-2, var(--gray800, #afafaf))')}<span class="sn grow ell">${esc(s.name)}</span>${s.walkTxt ? `<span class="sw">${esc(s.walkTxt)}</span>` : ''}${nx ? this._chip(ledig, 'go') : ''}${M.icon('expand_more', 22, `color:var(--ki-text-2, var(--gray800, #afafaf));transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</div>
           ${inner}
         </div>`;
     }
@@ -37228,55 +37734,55 @@ try {
     get styles() {
       return `
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap, 14px)}
-        .hero{position:relative;height:184px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;width:100%;flex:none}
+        .hero{position:relative;height:184px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;width:100%;flex:none}
         .htop{position:absolute;left:18px;top:18px;right:78px;display:flex;align-items:center;gap:8px;min-width:0}
-        .hname{font-size:13px;color:var(--gray800,#afafaf);min-width:0}
+        .hname{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));min-width:0}
         .go{flex:none;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 8px 0 6px;border-radius:11px;font-size:11px;font-weight:600;white-space:nowrap}
-        .hset{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--white,#fafafa)}
+        .hset{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:${WA(0.1)};display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa))}
         .hval{position:absolute;left:18px;right:18px;top:50px;display:flex;align-items:flex-start;gap:14px;min-width:0}
         .hbig{flex:none;font-size:44px;font-weight:300;line-height:1;letter-spacing:-0.02em}
-        .hbig small{font-size:22px;margin-left:3px;color:var(--gray900,#c7c7c7)}
+        .hbig small{font-size:22px;margin-left:3px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .hinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-top:3px}
         .hdest{font-size:15px;font-weight:500;min-width:0}
-        .hsub{font-size:12px;color:var(--gray700,#979797)}
-        .hlab{position:absolute;left:18px;right:18px;top:104px;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray600,#7f7f7f);text-align:left;min-width:0}
+        .hsub{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .hlab{position:absolute;left:18px;right:18px;top:104px;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));text-align:left;min-width:0}
         .tl{position:absolute;left:0;right:0;bottom:0;height:62px;touch-action:pan-y}
         .tli{position:absolute;left:18px;right:18px;top:0;bottom:0}
-        .tax{position:absolute;left:0;right:0;top:30px;height:2px;border-radius:1px;background:rgba(255,255,255,0.1)}
+        .tax{position:absolute;left:0;right:0;top:30px;height:2px;border-radius:1px;background:var(--ki-surface-3, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1))))}
         .twalk{position:absolute;left:0;top:28px;height:6px;border-radius:3px;background:${M.alpha(C.green, 0.45)}}
-        .tgo{position:absolute;top:6px;height:34px;width:0;border-left:1.5px dashed rgba(255,255,255,0.55);transform:translateX(-0.75px)}
+        .tgo{position:absolute;top:6px;height:34px;width:0;border-left:1.5px dashed var(--ki-text-2, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.55*var(--ki-wa-k,1)),var(--ki-wa-max,1))));transform:translateX(-0.75px)}
         .tdot{position:absolute;top:8px;width:28px;height:34px;margin-left:-14px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 3px;-webkit-tap-highlight-color:transparent}
         .tdot i{display:block;width:10px;height:10px;border-radius:50%;flex:none}
-        .tdot.on i{width:14px;height:14px;box-shadow:0 0 0 2px var(--white,#fafafa);margin-bottom:-2px}
-        .tn{position:absolute;top:0;font-size:10px;font-weight:600;color:var(--gray900,#c7c7c7);white-space:nowrap}
-        .ttk{position:absolute;bottom:6px;transform:translateX(-50%);font-size:10px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .tdot.on i{width:14px;height:14px;box-shadow:0 0 0 2px var(--ki-text, var(--white,#fafafa));margin-bottom:-2px}
+        .tn{position:absolute;top:0;font-size:10px;font-weight:600;color:var(--ki-text-1, var(--gray900,#c7c7c7));white-space:nowrap}
+        .ttk{position:absolute;bottom:6px;transform:translateX(-50%);font-size:10px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
         .ttk:first-of-type{transform:none}
         .ttk:last-child{transform:translateX(-100%)}
-        .dis{display:flex;flex-direction:column;gap:10px;padding:10px 12px 10px 10px;border-radius:30px;background:var(--gray200,#3a3a3a)}
+        .dis{display:flex;flex-direction:column;gap:10px;padding:10px 12px 10px 10px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .dh{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
         .diw{width:52px;height:52px;border-radius:26px;flex:none;display:grid;place-items:center}
         .dt{font-size:15px;font-weight:600}
-        .ds{font-size:12px;color:var(--gray800,#afafaf)}
+        .ds{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .dl{display:flex;flex-direction:column;gap:6px}
-        .dx{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:rgba(0,0,0,0.18);text-align:left;width:100%}
+        .dx{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:18px;background:${KA(0.18)};text-align:left;width:100%}
         .stc{flex:none;font-size:11px;font-weight:600;padding:4px 9px;border-radius:10px}
-        .dd{font-size:13px;color:var(--gray900,#c7c7c7);line-height:1.45;text-wrap:pretty}
-        .dw{font-size:11px;color:var(--gray700,#979797)}
-        .badge{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:30px;padding:0 8px;font-size:13px;font-weight:700;color:#fff;flex:none;white-space:nowrap}
+        .dd{font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7));line-height:1.45;text-wrap:pretty}
+        .dw{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .badge{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:30px;padding:0 8px;font-size:13px;font-weight:700;color:var(--ki-text, #fff);flex:none;white-space:nowrap}
         .trip{display:flex;flex-direction:column;gap:8px}
         .thd{display:flex;align-items:center;gap:10px;padding:4px 4px 0}
-        .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--gray200,#3a3a3a)}
-        .sg{height:30px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--gray800,#afafaf)}
-        .sg.on{background:${C.accent};color:var(--gray200,#3a3a3a)}
-        .alt{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:22px;background:var(--gray200,#3a3a3a)}
+        .seg{display:flex;gap:2px;padding:3px;border-radius:17px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .sg{height:30px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .sg.on{background:${C.accent};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+        .alt{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .alt.fast{box-shadow:inset 0 0 0 1.5px ${M.alpha(C.green, 0.7)}}
         .alt{cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
-        .alt:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
-        .plan{display:flex;flex-direction:column;gap:10px;margin-top:4px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);cursor:default}
+        .alt:focus-visible{box-shadow:0 0 0 2px var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .plan{display:flex;flex-direction:column;gap:10px;margin-top:4px;padding-top:12px;border-top:1px solid ${WA(0.08)};cursor:default}
         .pgrid{display:flex;flex-direction:column}
         .ps{display:grid;grid-template-columns:44px 22px minmax(0,1fr);column-gap:8px;min-height:46px}
         .ps.end{min-height:0}
-        .pt{font-size:13px;font-weight:500;padding-top:2px;font-variant-numeric:tabular-nums;color:var(--gray900,#c7c7c7)}
+        .pt{font-size:13px;font-weight:500;padding-top:2px;font-variant-numeric:tabular-nums;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pr{position:relative}
         .pn{position:absolute;left:5px;top:4px;width:12px;height:12px;border-radius:50%;z-index:1}
         .pn.ic{left:1px;top:0;width:20px;height:20px;display:grid;place-items:center}
@@ -37284,48 +37790,48 @@ try {
         .pl.dash{width:0;background:none;border-left:2px dashed}
         .pb{display:flex;flex-direction:column;gap:3px;min-width:0;padding:1px 0 12px}
         .ptl{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;font-weight:500}
-        .psb{font-size:12px;color:var(--gray700,#979797);display:flex;flex-wrap:wrap;gap:0 8px}
-        .ps.walk .ptl,.ps.swap .ptl{font-weight:400;color:var(--gray900,#c7c7c7)}
+        .psb{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));display:flex;flex-wrap:wrap;gap:0 8px}
+        .ps.walk .ptl,.ps.swap .ptl{font-weight:400;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pft{display:flex;align-items:center;gap:8px;min-width:0}
-        .pnx{font-size:12px;color:var(--gray700,#979797)}
-        .pv{flex:none;height:34px;padding:0 12px 0 10px;border-radius:17px;background:var(--gray300,#404040);display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--gray1000,#e1e1e1)}
-        .sep{color:var(--gray600,#7f7f7f);font-size:14px}
-        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${C.green};background:${M.alpha(C.green, 0.16)}}
+        .pnx{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pv{flex:none;height:34px;padding:0 12px 0 10px;border-radius:17px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+        .sep{color:var(--ki-text-3, var(--gray600,#7f7f7f));font-size:14px}
+        .rk{margin-left:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;color:${AT(C.green)};background:${TONE(C.green, 0.16)}}
         .atot{font-size:17px;font-weight:600}
-        .aarr{font-size:11px;color:var(--gray700,#979797)}
-        .atxt{font-size:12px;color:var(--gray700,#979797)}
+        .aarr{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .atxt{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .hdr{display:flex;align-items:center;gap:10px;padding:4px 4px 0}
-        .cap{flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
-        .ed{height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gray900,#c7c7c7)}
-        .stop{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
-        .stop:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
+        .cap{flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .ed{height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .stop{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
+        .stop:focus-visible{box-shadow:0 0 0 2px var(--ki-text-3, var(--gray600,#7f7f7f))}
         .sh{display:flex;align-items:center;gap:8px;min-width:0}
         .sn{font-size:15px;font-weight:600}
-        .sw{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap;flex:none}
+        .sw{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap;flex:none}
         .dep{display:flex;flex-direction:column;gap:3px}
         .d1{display:flex;align-items:center;gap:10px;min-width:0}
-        .d2{display:flex;align-items:center;gap:8px;padding-left:40px;font-size:11px;color:var(--gray600,#7f7f7f);min-width:0}
-        .csub{font-size:11px;color:var(--gray600,#7f7f7f);margin-top:-6px}
-        .dly{flex:none;font-size:11px;font-weight:600;color:${C.orange};white-space:nowrap}
+        .d2{display:flex;align-items:center;gap:8px;padding-left:40px;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));min-width:0}
+        .csub{font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));margin-top:-6px}
+        .dly{flex:none;font-size:11px;font-weight:600;color:${AT(C.orange)};white-space:nowrap}
         .occ{display:inline-flex;align-items:flex-end;gap:2px;height:12px;flex:none}
         .occ i{display:block;width:3px;border-radius:1px}
         .dest{font-size:14px}
         .tm{font-size:14px;font-weight:600;white-space:nowrap;min-width:48px;text-align:right}
-        .nx{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:18px;background:var(--gray300,#404040)}
-        .nxk{font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--gray700,#979797)}
+        .nx{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .nxk{font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--ki-text-mid, var(--gray700,#979797))}
         .nxd{font-size:15px;font-weight:500}
-        .nxs{font-size:11px;color:var(--gray700,#979797)}
+        .nxs{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .nxm{font-size:26px;font-weight:500;line-height:1}
-        .nxm small{font-size:13px;margin-left:2px;color:var(--gray800,#afafaf)}
-        .lk{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding-top:2px}
-        .vm{align-self:center;height:36px;padding:0 16px;border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);font-size:13px;color:var(--gray900,#c7c7c7)}
-        .upd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--gray600,#7f7f7f);padding:2px 4px}
+        .nxm small{font-size:13px;margin-left:2px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .lk{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding-top:2px}
+        .vm{align-self:center;height:36px;padding:0 16px;border-radius:18px;box-shadow:inset 0 0 0 1px ${WA(0.18)};font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .upd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:2px 4px}
         .upd i{width:8px;height:8px;border-radius:4px;flex:none}
-        .none{font-size:12px;color:var(--gray600,#7f7f7f)}
-        .nostop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 16px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:center}
-        .nsi{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray800,#afafaf)}
+        .none{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .nostop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 16px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:center}
+        .nsi{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-2, var(--gray800,#afafaf))}
         .nst{font-size:15px;font-weight:600}
-        .nss{font-size:12px;color:var(--gray700,#979797);line-height:1.45;max-width:320px;text-wrap:pretty}
+        .nss{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));line-height:1.45;max-width:320px;text-wrap:pretty}
         .nsp{align-self:stretch;margin-top:6px;text-align:left}
       `;
     }
@@ -39797,6 +40303,10 @@ try {
   const esc = M.esc, C = M.C;
   const HASH = '#ringeklokke', CID = 'pop-ringeklokke';
   const PINK = C.accent, PINKC = 'rgb(242 133 201)', GREEN = C.green, RED = C.red;
+  // Fiks 35 (tema): aksent som tekst mørknes i lys modus, gjennomsiktig hvit følger regel 4 (mørk = som før)
+  const TH = M.theme || {};
+  const GREEN_T = TH.accentText ? TH.accentText(GREEN) : GREEN, PINK_T = 'var(--ki-pink-text, rgb(242 133 201))';
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   // [nøkkel, etikett, ikon, regex mot objekt-id]
   const DET = [
     ['person', 'Person', 'mdi:account', /person|people|face/],
@@ -39936,9 +40446,9 @@ try {
   // data-f = feltet, data-v = verdien → MSH.setDoorbell(f, v).
   M.doorbellModeHTML = function (act, attr) {
     const D = M.doorbellCfg(), who = M.deviceClassName && M.deviceClass ? M.deviceClassName(M.deviceClass()) : 'denne enheten';
-    const cap = (t) => `<div style="font-size:13px;color:var(--gray700,#979797);padding:0 4px">${t}</div>`;
-    const sub = (t, key) => `<div data-key="${key}" style="font-size:12px;color:var(--gray600,#7f7f7f);padding:0 4px">${esc(t)}</div>`;
-    const seg = (k) => `<div role="tablist" data-f="${k}" style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray100,#2f2f2f)">${DB_OPTS[k].map(([v, l]) => { const on = String(v) === String(D[k]); return `<button role="tab" aria-selected="${on}" data-a="${act}" ${attr || ''} data-f="${k}" data-v="${v}" style="flex:1;min-width:0;height:38px;padding:0 4px;border:0;border-radius:19px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:${on ? PINK : 'transparent'};color:${on ? '#2f2f2f' : 'var(--gray800,#afafaf)'}">${esc(l)}</button>`; }).join('')}</div>`;
+    const cap = (t) => `<div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px">${t}</div>`;
+    const sub = (t, key) => `<div data-key="${key}" style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${esc(t)}</div>`;
+    const seg = (k) => `<div role="tablist" data-f="${k}" style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${DB_OPTS[k].map(([v, l]) => { const on = String(v) === String(D[k]); return `<button role="tab" aria-selected="${on}" data-a="${act}" ${attr || ''} data-f="${k}" data-v="${v}" style="flex:1;min-width:0;height:38px;padding:0 4px;border:0;border-radius:19px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc(l)}</button>`; }).join('')}</div>`;
     const grp = (k, label, extra) => `<div class="msh-dbf" data-key="dbf-${k}" style="display:flex;flex-direction:column;gap:6px">${cap(esc(label))}${seg(k)}${extra || ''}</div>`;
     const card = D.mode === 'card' || D.mode === 'both', pop = D.mode === 'popup' || D.mode === 'both';
     return `<div class="msh-dbm" data-key="dbm" style="display:flex;flex-direction:column;gap:12px">
@@ -40061,7 +40571,7 @@ try {
   };
   // Egen tekst: lite ark (portalt ut av popupen, fallgruve 1)
   M.ringCustom = function (h, A, c) {
-    const ov = M.overlay({ center: true, maxWidth: 380, css: `.w{display:flex;flex-direction:column;gap:12px}.t{font-size:18px;font-weight:600}.in{height:48px;border-radius:24px;border:0;padding:0 18px;background:var(--gray300,#404040);color:#fafafa;font:inherit;font-size:15px;outline:none}.r{display:flex;gap:8px}.b{flex:1;height:46px;border-radius:23px;border:0;font:inherit;font-weight:600;cursor:pointer;background:var(--gray300,#404040);color:#fafafa}.b.p{background:${PINK};color:#2f2f2f}`,
+    const ov = M.overlay({ center: true, maxWidth: 380, css: `.w{display:flex;flex-direction:column;gap:12px}.t{font-size:18px;font-weight:600}.in{height:48px;border-radius:24px;border:0;padding:0 18px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa);font:inherit;font-size:15px;outline:none}.r{display:flex;gap:8px}.b{flex:1;height:46px;border-radius:23px;border:0;font:inherit;font-weight:600;cursor:pointer;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}.b.p{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}`,
       html: `<form class="w"><span class="t">Si noe i høyttaleren</span><input class="in" name="t" placeholder="Egen tekst …" autocomplete="off" enterkeyhint="send"><div class="r"><button type="button" class="b" data-x>Avbryt</button><button class="b p">Spill av</button></div></form>` });
     const f = ov.body.querySelector('form'), inp = f.querySelector('input');
     setTimeout(() => inp.focus(), 60);
@@ -40259,7 +40769,7 @@ try {
       const t = lastRingT(h, A), chips = chipsOf(h, A, c);
       const media = camId ? (customElements.get('ha-camera-stream') ? `<div class="strm" data-nomorph data-cam="${esc(camId)}" data-key="strm-${esc(camId)}"></div>` : camImg(h, camId) ? `<img class="im" src="${esc(camImg(h, camId))}" alt="" draggable="false" data-key="img-${esc(camId)}">` : '') : '';
       const seg = A.pkg && A.camera ? `<div class="seg" role="tablist">${[['main', 'Kamera'], ['pkg', 'Pakkekamera']].map(([k, l]) => `<button class="sg ${k === cam ? 'on' : ''}" role="tab" aria-selected="${k === cam}" data-act="cam" data-v="${k}" data-haptic="selection">${esc(l)}</button>`).join('')}</div>` : '<span></span>';
-      const vid = `<section class="vid" data-key="vid">
+      const vid = `<section class="vid" data-key="vid" data-ki-island>
         <div class="ph">${M.icon(A.ring ? 'mdi:doorbell-video' : 'mdi:help-circle-outline', 44)}</div>${media}
         <div class="top"><span class="live">${camId && h.states[camId] && !M.unavailable(h.states[camId]) ? '<i></i>LIVE' : '–'}</span>${seg}<span class="grow"></span>
           ${camId ? `<button class="rb" data-act="sound" data-haptic="selection" aria-pressed="${sound}" title="${sound ? 'Lyd av' : 'Lyd på'}">${M.icon(sound ? 'mdi:volume-high' : 'mdi:volume-off', 20)}</button>` : ''}
@@ -40295,7 +40805,7 @@ try {
       };
       const rows = ev.map((e) => {
         const src = e.s.attributes.entity_picture ? (h.hassUrl ? h.hassUrl(e.s.attributes.entity_picture) : e.s.attributes.entity_picture) : camImg(h, cam);
-        return `<button class="hr" data-act="more" data-id="${esc(e.id)}" data-key="hr-${esc(e.id)}"><span class="hi">${src ? `<img src="${esc(src)}" alt="" draggable="false">` : M.icon('mdi:image-off-outline', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="ell" style="font-size:14px">${esc(lab(e))}</span><span class="dim" style="font-size:12px">${esc(hm(e.t))}</span></span>${M.icon('mdi:chevron-right', 20, 'color:var(--gray600,#7f7f7f)')}</button>`;
+        return `<button class="hr" data-act="more" data-id="${esc(e.id)}" data-key="hr-${esc(e.id)}"><span class="hi" data-ki-island>${src ? `<img src="${esc(src)}" alt="" draggable="false">` : M.icon('mdi:image-off-outline', 20)}</span><span class="col grow" style="gap:2px;min-width:0"><span class="ell" style="font-size:14px">${esc(lab(e))}</span><span class="dim" style="font-size:12px">${esc(hm(e.t))}</span></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`;
       }).join('');
       return `<section class="sec" data-key="hist"><div class="cap">Tidligere i dag</div><div class="hbox">${rows || '<div class="dim" style="font-size:13px;padding:14px 4px">Ingen hendelser i dag</div>'}</div></section>`;
     }
@@ -40348,41 +40858,41 @@ try {
       return `
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap, 14px)}
         button{touch-action:manipulation}
-        .vid{position:relative;height:300px;border-radius:28px;overflow:hidden;background:#1d1d1d;box-shadow:${C.edge}}
-        .vid .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969)}
+        .vid{position:relative;height:300px;border-radius:28px;overflow:hidden;background:#1d1d1d;color:var(--ki-text, var(--white,#fafafa));box-shadow:${C.edge}} /* kamerabilde = mørk øy (data-ki-island) */
+        .vid .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--ki-text-lo, var(--gray500,#696969))}
         .strm,.im{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
         .strm>*{width:100%;height:100%;display:block;--video-max-height:300px}
         .top{position:absolute;left:12px;right:12px;top:12px;display:flex;align-items:center;gap:8px;z-index:2}
-        .live{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:14px;background:rgba(0,0,0,0.45);font-size:12px;font-weight:600;letter-spacing:.06em;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+        .live{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:14px;background:rgba(0,0,0,0.45);font-size:12px;font-weight:600;letter-spacing:.06em;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)} /* ki-hex-ok: slør over kamerabildet */
         .live i{width:7px;height:7px;border-radius:4px;background:${RED}}
-        .seg{display:flex;gap:2px;padding:3px;border-radius:18px;background:rgba(0,0,0,0.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-        .sg{height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;color:#e1e1e1;white-space:nowrap}
-        .sg.on{background:#fafafa;color:#232323}
-        .rb{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgba(0,0,0,0.45);color:#fafafa;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);flex:none}
-        .bot{position:absolute;left:0;right:0;bottom:0;padding:40px 18px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.75));z-index:2;display:flex;flex-direction:column;gap:2px}
+        .seg{display:flex;gap:2px;padding:3px;border-radius:18px;background:rgba(0,0,0,0.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)} /* ki-hex-ok: slør over kamerabildet */
+        .sg{height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;color:var(--ki-text-1, #e1e1e1);white-space:nowrap}
+        .sg.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323)}
+        .rb{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgba(0,0,0,0.45);color:var(--ki-text, #fafafa);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);flex:none} /* ki-hex-ok: slør over kamerabildet */
+        .bot{position:absolute;left:0;right:0;bottom:0;padding:40px 18px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.75));z-index:2; /* ki-hex-ok: slør over kamerabildet */ display:flex;flex-direction:column;gap:2px}
         .bot .tt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
-        .bot .st{font-size:13px;color:#d0d0d0}
+        .bot .st{font-size:13px;color:var(--ki-text-1, #d0d0d0)}
         .dcs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-        .dc{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-        .dc.red{background:rgb(242 128 115 / .85);color:#2f2f2f}
+        .dc{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 8px;border-radius:13px;background:${WA(0.18)};font-size:12px;font-weight:500;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+        .dc.red{background:rgb(242 128 115 / .85);color:var(--ki-on-accent, #2f2f2f)}
         .acts{display:grid;gap:8px}
-        .ac{position:relative;overflow:hidden;height:96px;border-radius:24px;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:${C.edge};transition:transform .12s}
+        .ac{position:relative;overflow:hidden;height:96px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:${C.edge};transition:transform .12s}
         .ac:active{transform:scale(.97)}
         .ac>*{position:relative;z-index:1}
         .ac i{font-style:normal;font-size:11px;opacity:.7;margin-top:-4px}
-        .ac.un{background:${PINK};color:#2f2f2f;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+        .ac.un{background:${PINK};color:var(--ki-on-accent, #2f2f2f);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
         .ac.un .fill{position:absolute;inset:0;z-index:0;background:${GREEN};transform:scaleY(0);transform-origin:bottom}
-        .ac.un.done{background:var(--gray300,#404040);color:${GREEN}}
+        .ac.un.done{background:var(--ki-surface-2, var(--gray300,#404040));color:${GREEN_T}}
         .sec{display:flex;flex-direction:column;gap:8px}
-        .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:0 4px}
+        .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px}
         .rps{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;margin:0 -2px;padding:0 2px}
-        .rp{flex:none;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px 0 12px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
+        .rp{flex:none;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px 0 12px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
         .rp:active{transform:scale(.96)}
-        .rp.own{background:var(--gray300,#404040);color:var(--gray900,#c7c7c7)}
-        .hbox{display:flex;flex-direction:column;padding:4px 10px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+        .rp.own{background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .hbox{display:flex;flex-direction:column;padding:4px 10px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .hr{display:flex;align-items:center;gap:12px;min-height:64px;text-align:left;width:100%}
-        .hr + .hr{border-top:1px solid rgba(255,255,255,0.05)}
-        .hi{width:64px;height:44px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--gray600,#7f7f7f)}
+        .hr + .hr{border-top:1px solid ${WA(0.05)}}
+        .hi{width:64px;height:44px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-3, var(--gray600,#7f7f7f))} /* bilde-plassholder = mørk øy */
         .hi img{width:100%;height:100%;object-fit:cover;display:block}
       `;
     }
@@ -40537,41 +41047,41 @@ try {
     .hd{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 4px 4px}
     .hd>.col{flex:1 1 170px}
     .tt{font-size:22px;font-weight:600;white-space:nowrap}
-    .st,.rs{font-size:12px;color:var(--ki-g-t2,var(--gray700,#979797))}
-    .nb{height:40px;padding:0 14px;border-radius:20px;background:var(--ki-g-row,var(--gray300,#404040));font-size:14px;font-weight:500;flex:none;display:inline-flex;align-items:center;gap:6px}
-    .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#5a3a48;font-size:14px;font-weight:600;flex:none}
+    .st,.rs{font-size:12px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)))}
+    .nb{height:40px;padding:0 14px;border-radius:20px;background:var(--ki-g-row,var(--ki-surface-2, var(--gray300,#404040)));font-size:14px;font-weight:500;flex:none;display:inline-flex;align-items:center;gap:6px}
+    .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:var(--ki-on-accent, #5a3a48);font-size:14px;font-weight:600;flex:none}
     .nb:active,.ok:active,.chip:active,.more:active,.tab:active{transform:scale(.96)}
-    .tabs{position:relative;display:flex;gap:2px;padding:4px;border-radius:26px;background:var(--ki-g-seg,var(--gray200,#3a3a3a));touch-action:pan-y}
-    .tab{flex:1;min-width:0;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
+    .tabs{position:relative;display:flex;gap:2px;padding:4px;border-radius:26px;background:var(--ki-g-seg,var(--ki-surface, var(--gray200,#3a3a3a)));touch-action:pan-y}
+    .tab{flex:1;min-width:0;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
     .tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tab.on{background:${PINK};color:#2f2f2f}
+    .tab.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .pane{display:flex;flex-direction:column;gap:12px;padding-top:4px}
     .fl{display:flex;flex-direction:column;gap:6px}
-    .cap{font-size:13px;color:var(--ki-g-t2,var(--gray700,#979797));padding:0 6px}
-    .sel{height:48px;border-radius:24px;border:0;padding:0 16px;background:var(--ki-g-row,var(--gray200,#3a3a3a));color:#fafafa;font:inherit;font-size:14px;width:100%;min-width:0;outline:none}
-    .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-g-seg,var(--gray100,#2f2f2f))}
-    .seg button{flex:1;height:38px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf)}
-    .seg button.on{background:${PINK};color:#2f2f2f}
+    .cap{font-size:13px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)));padding:0 6px}
+    .sel{height:48px;border-radius:24px;border:0;padding:0 16px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)));color:var(--ki-text, #fafafa);font:inherit;font-size:14px;width:100%;min-width:0;outline:none}
+    .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-g-seg,var(--ki-surface-3, var(--gray100,#2f2f2f)))}
+    .seg button{flex:1;height:38px;border-radius:19px;font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .seg button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .rows{display:flex;flex-direction:column;gap:8px}
-    .r{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 12px 0 16px;border-radius:28px;background:var(--ki-g-row,var(--gray200,#3a3a3a))}
+    .r{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 12px 0 16px;border-radius:28px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)))}
     .r.dim{opacity:.55}
     .r.rp{padding-left:10px}
     .rl{font-size:15px;font-weight:500}
-    .ri{width:24px;flex:none;display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
-    .in{height:40px;border-radius:20px;border:0;padding:0 12px;background:var(--ki-g-seg,#282828);color:#fafafa;font:inherit;font-size:14px;min-width:0;outline:none}
-    .ud{display:flex;flex:none;border-radius:18px;background:var(--ki-g-seg,#282828);padding:2px}
-    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--white,#fafafa)}
+    .ri{width:24px;flex:none;display:grid;place-items:center;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+    .in{height:40px;border-radius:20px;border:0;padding:0 12px;background:var(--ki-g-seg,var(--ki-popup, #282828));color:var(--ki-text, #fafafa);font:inherit;font-size:14px;min-width:0;outline:none}
+    .ud{display:flex;flex:none;border-radius:18px;background:var(--ki-g-seg,var(--ki-popup, #282828));padding:2px}
+    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa))}
     .ud button:disabled{opacity:.2;pointer-events:none}
-    .eye{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--gray800,#afafaf)}
-    .tsw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
-    .tsw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .eye{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .tsw{position:relative;width:46px;height:28px;border-radius:14px;background:var(--ki-ctrl, #545454);flex:none;transition:background .2s}
+    .tsw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .tsw.on{background:${PINK}}
     .tsw.on::after{transform:translateX(18px)}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
-    .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:13px;font-weight:500;color:var(--gray800,#afafaf)}
-    .chip.on{background:var(--gray1000,#e1e1e1);color:#282828}
-    .lk{font-size:13px;color:var(--gray900,#c7c7c7)}
-    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:22px;background:var(--ki-g-row,var(--gray200,#3a3a3a));font-size:14px;font-weight:500;color:var(--gray900,#c7c7c7)}
+    .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)));font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .chip.on{background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, #282828)}
+    .lk{font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+    .more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:22px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)));font-size:14px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
   `;
 
   /* ============================================================ ringe-kortet på Hjem (19.18) */
@@ -40616,7 +41126,7 @@ try {
       const img = cam && !customElements.get('hui-image') ? camImg(h, cam) : '';
       const html = `<style>${BANNER_CSS}</style><div class="rc" data-key="rc-${R.n}">
         <div class="r1">
-          <button class="th" data-a="open" aria-label="Åpne ringeklokke"><span class="thm" data-nomorph></span>${img ? `<img src="${esc(img)}" alt="">` : ''}<span class="live"><i></i>LIVE</span><span class="ex">${M.icon('mdi:arrow-expand', 14)}</span></button>
+          <button class="th" data-ki-island data-a="open" aria-label="Åpne ringeklokke"><span class="thm" data-nomorph></span>${img ? `<img src="${esc(img)}" alt="">` : ''}<span class="live"><i></i>LIVE</span><span class="ex">${M.icon('mdi:arrow-expand', 14)}</span></button>
           <div class="tx"><div class="when ${el < 8000 || (R.shakeFrom && now - R.shakeFrom < 8000) ? 'shk' : ''}">${M.icon('mdi:bell-ring', 16)}<span>${esc(el < 5000 ? 'Nå' : agoTxt(R.t).replace(/^for /, ''))}</span></div>
             <div class="ttl ell">Det ringer på · ${esc(areaLabel(h, A))}</div>
             ${chips.length ? `<div class="dcs">${chips.map(chipHTML).join('')}</div>` : ''}</div>
@@ -40644,41 +41154,42 @@ try {
     }
   }
   const BANNER_CSS = `
+    ${M.theme ? M.theme.CSS : ''}
     :host{display:block}
     *{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     ha-icon{--mdc-icon-size:inherit;display:inline-flex}
     .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rc{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:30px;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);font-family:${M.FONT};box-shadow:inset 0 0 0 1.5px rgb(242 133 201 / .55),0 0 26px rgb(242 133 201 / .16);animation:rkIn .35s cubic-bezier(.34,1.4,.64,1)}
+    .rc{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:30px;background:var(--ki-surface, var(--gray100,#2f2f2f));color:var(--ki-text, var(--white,#fafafa));font-family:${M.FONT};box-shadow:inset 0 0 0 1.5px rgb(242 133 201 / .55),0 0 26px rgb(242 133 201 / .16);animation:rkIn .35s cubic-bezier(.34,1.4,.64,1)}
     .r1{display:flex;align-items:flex-start;gap:12px}
-    .th{position:relative;width:88px;height:66px;border-radius:18px;overflow:hidden;flex:none;background:#1d1d1d}
+    .th{position:relative;width:88px;height:66px;border-radius:18px;overflow:hidden;flex:none;background:#1d1d1d;color:var(--ki-text, #fafafa)} /* kamerabilde = mørk øy */
     .thm,.th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
     .thm>*{width:100%;height:100%;display:block}
-    .live{position:absolute;left:6px;top:6px;display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;border-radius:9px;background:rgba(0,0,0,0.55);font-size:9px;font-weight:700;letter-spacing:.06em}
+    .live{position:absolute;left:6px;top:6px;display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;border-radius:9px;background:rgba(0,0,0,0.55);font-size:9px;font-weight:700;letter-spacing:.06em} /* ki-hex-ok: slør over kamerabildet */
     .live i{width:5px;height:5px;border-radius:3px;background:${RED}}
-    .ex{position:absolute;right:5px;bottom:5px;width:20px;height:20px;border-radius:10px;display:grid;place-items:center;background:rgba(0,0,0,0.55);font-size:14px}
+    .ex{position:absolute;right:5px;bottom:5px;width:20px;height:20px;border-radius:10px;display:grid;place-items:center;background:rgba(0,0,0,0.55);font-size:14px} /* ki-hex-ok: slør over kamerabildet */
     .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding-top:2px}
-    .when{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:${PINKC};font-size:13px}
+    .when{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:${PINK_T};font-size:13px}
     .when ha-icon{font-size:16px}
     .when.shk ha-icon{animation:rkShake .9s ease-in-out infinite;transform-origin:50% 10%}
     .ttl{font-size:16px;font-weight:500}
     .dcs{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
-    .dc{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:12px;background:var(--gray300,#404040);font-size:12px;font-weight:500;--mdc-icon-size:14px}
-    .dc.red{background:rgb(242 128 115 / .85);color:#2f2f2f}
-    .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--gray300,#404040);flex:none;font-size:20px}
+    .dc{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:12px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:12px;font-weight:500;--mdc-icon-size:14px}
+    .dc.red{background:rgb(242 128 115 / .85);color:var(--ki-on-accent, #2f2f2f)}
+    .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none;font-size:20px}
     .r2{display:flex;gap:8px}
-    .hold{position:relative;overflow:hidden;flex:1;height:48px;border-radius:24px;background:${PINK};color:#2f2f2f;font-size:14px;font-weight:600;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+    .hold{position:relative;overflow:hidden;flex:1;height:48px;border-radius:24px;background:${PINK};color:var(--ki-on-accent, #2f2f2f);font-size:14px;font-weight:600;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
     .hold .fill{position:absolute;inset:0;background:${GREEN};transform:scaleX(0);transform-origin:left}
     .hold .lb{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px}
     .hold .lb ha-icon{font-size:18px}
-    .hold.done{background:var(--gray300,#404040);color:${GREEN}}
-    .sv{flex:none;height:48px;padding:0 14px 0 18px;border-radius:24px;background:var(--gray300,#404040);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:2px}
+    .hold.done{background:var(--ki-surface-2, var(--gray300,#404040));color:${GREEN_T}}
+    .sv{flex:none;height:48px;padding:0 14px 0 18px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:2px}
     .sv ha-icon{font-size:18px}
-    .sv.on{background:var(--gray400,#545454)}
+    .sv.on{background:var(--ki-ctrl, var(--gray400,#545454))}
     .rps{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
     .rps::-webkit-scrollbar{display:none}
-    .rp{flex:none;height:38px;padding:0 14px;border-radius:19px;background:var(--gray300,#404040);font-size:13px;font-weight:500;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
-    .rp.own{color:var(--gray900,#c7c7c7)}
+    .rp{flex:none;height:38px;padding:0 14px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:13px;font-weight:500;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+    .rp.own{color:var(--ki-text-1, var(--gray900,#c7c7c7))}
     .rp:active,.sv:active,.x:active{transform:scale(.96)}
     .tl{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgb(242 133 201 / .15)}
     .tl span{display:block;height:100%;background:${PINKC};transform-origin:left;animation:rkTl linear forwards}
@@ -40756,6 +41267,10 @@ try {
   const esc = M.esc, C = M.C;
   const HASH = '#kart';
   const PINK = C.accent;
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart etter regel 3/4 (mørk = uendret)
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // Del A pkt. 6: aksent som tekst/ikon (ukjente farger beholdes)
+  const isLight = () => !!(M.theme && M.theme.isLight && M.theme.isLight());
   const DEF = { persons: [], cars: [], zones: 'all', transit: true, lines: [], start: 'fit', style: 'dark' };
   const LAYERS = [['persons', 'Personer', 'mdi:account-multiple'], ['cars', 'Biler', 'mdi:car'], ['zones', 'Soner', 'mdi:map-marker-radius'], ['transit', 'Kollektiv', 'mdi:bus']];
   const LEAF_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
@@ -40763,7 +41278,7 @@ try {
   // Fiks 23.3: kjernen av leaflet.css (1.9.4) ligger ALLTID i kortets shadow root (dokumentets <link> når ikke inn hit, og
   //   CDN-en kan svikte). Uten den mangler .leaflet-container touch-action: none, og nettleseren tar pan/knip-gestene.
   const LEAF_BASE = `.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
-    .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0;background:#1d1d1d;font-family:inherit}
+    .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0;background:var(--ki-surface-3, #1d1d1d);font-family:inherit}
     .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
     .leaflet-marker-icon,.leaflet-marker-shadow{display:block}
     .leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
@@ -40788,7 +41303,8 @@ try {
     light: ['https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', CARTO_ATT],
     satellite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Bilder © Esri'],
   };
-  const styleOf = (c) => (c.tile_url ? 'custom' : c.style === 'standard' ? 'light' : TILES[c.style] ? c.style : 'dark'); // «standard» (fiks 20) = light
+  const styleOf = (c) => (c && c.__autoStyle && isLight() && !c.tile_url ? 'light' : styleOf0(c));
+  const styleOf0 = (c) => (c.tile_url ? 'custom' : c.style === 'standard' ? 'light' : TILES[c.style] ? c.style : 'dark'); // «standard» (fiks 20) = light
   const tileDef = (c) => { const st = styleOf(c); return st === 'custom' ? [String(c.tile_url), c.tile_attribution || '© OpenStreetMap contributors'] : TILES[st]; };
   // Transportmiddel → linjefarge (samme som Ruter-kortet) når Entur ikke gir presentation.colour
   const MODE_COL = { metro: 'oklch(0.66 0.16 45)', tram: 'oklch(0.62 0.13 245)', bus: 'oklch(0.6 0.17 25)', coach: 'oklch(0.6 0.17 25)', rail: 'oklch(0.55 0.12 260)', water: 'oklch(0.6 0.1 220)', ferry: 'oklch(0.6 0.1 220)' };
@@ -40862,7 +41378,7 @@ try {
       const kmh = spd != null && spd >= 0 ? Math.round(spd * 3.6) : null;
       const moving = (kmh != null && kmh >= 7) || (act && MOVE_RX.test(String(h.states[act].state)));
       const pic = a.entity_picture ? (M.hjemPicUrl ? M.hjemPicUrl(h, a.entity_picture) : a.entity_picture) : null;
-      return { id, kind: 'p', name: M.name(h, id), first: String(M.name(h, id)).split(/\s+/)[0], pos, st, moving, kmh, bat, acc: num(a.gps_accuracy != null ? a.gps_accuracy : pa.gps_accuracy), since: s.last_changed, upd: (ph && h.states[ph].last_updated) || s.last_updated, pic, user: a.user_id || null, col: moving ? C.orange : st.color || (st.kind === 'away' ? C.purple : 'var(--gray600,#7f7f7f)') };
+      return { id, kind: 'p', name: M.name(h, id), first: String(M.name(h, id)).split(/\s+/)[0], pos, st, moving, kmh, bat, acc: num(a.gps_accuracy != null ? a.gps_accuracy : pa.gps_accuracy), since: s.last_changed, upd: (ph && h.states[ph].last_updated) || s.last_updated, pic, user: a.user_id || null, col: moving ? C.orange : st.color || (st.kind === 'away' ? C.purple : 'var(--ki-text-3, var(--gray600,#7f7f7f))') };
     });
   };
   M.kartCarsAuto = function (h) {
@@ -41003,20 +41519,21 @@ try {
   /* ------------------------------------------------------------ markører (divIcon, bare inline-stil) */
   const PULSE_CSS = '<style>@keyframes mshKartPulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.9);opacity:0}}</style>';
   const BAD = new Set(); // bilder som feilet → forbokstav
-  const avatar = (p, sz) => (p.pic && !BAD.has(p.pic) ? `<img src="${esc(p.pic)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">` : `<span style="font:600 ${Math.round(sz * 0.36)}px/1 inherit;color:#fafafa">${esc((p.first || '?').slice(0, 1).toUpperCase())}</span>`);
+  const avatar = (p, sz, fg = 'var(--ki-text, #fafafa)') => (p.pic && !BAD.has(p.pic) ? `<img src="${esc(p.pic)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">` : `<span style="font:600 ${Math.round(sz * 0.36)}px/1 inherit;color:${fg}">${esc((p.first || '?').slice(0, 1).toUpperCase())}</span>`);
   function personIcon(p, sel) {
     const sz = 52, ring = p.col;
-    return `<div style="position:relative;width:${sz}px;display:flex;flex-direction:column;align-items:center;font-family:${M.FONT || 'inherit'}">
+    // Markørene ligger på kartflisene (eget bilde): faste farger i begge moduser – mørke øyer (data-ki-island)
+    return `<div data-ki-island style="position:relative;width:${sz}px;display:flex;flex-direction:column;align-items:center;font-family:${M.FONT || 'inherit'}">
       ${p.moving ? `${PULSE_CSS}<span style="position:absolute;left:0;top:0;width:${sz}px;height:${sz}px;border-radius:50%;background:${ring};animation:mshKartPulse 1.6s ease-out infinite"></span>` : ''}
-      <span style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;box-sizing:border-box;border:3px solid ${ring};background:var(--gray300,#404040);display:grid;place-items:center;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45)${sel ? ',0 0 0 3px #fafafa' : ''}">${avatar(p, sz)}</span>
-      <span style="margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(35,35,35,.88);color:#fafafa;font-size:12px;font-weight:600;white-space:nowrap">${esc(p.first)}</span></div>`;
+      <span style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;box-sizing:border-box;border:3px solid ${ring};background:var(--gray300,#404040);display:grid;place-items:center;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45)${sel ? ',0 0 0 3px #fafafa' : ''}">${avatar(p, sz, '#fafafa')}</span><!-- ki-hex-ok: kartmarkør (mørk øy) -->
+      <span style="margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(35,35,35,.88);color:#fafafa;font-size:12px;font-weight:600;white-space:nowrap">${esc(p.first)}</span></div>`; // ki-hex-ok: kartmarkør (mørk øy)
   }
-  const carIcon = (c, sel) => `<div style="width:34px;height:34px;border-radius:50%;background:#fafafa;color:#232323;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.45)${sel ? ',0 0 0 3px ' + C.pink : ''}">${M.icon('mdi:car', 20)}</div>`;
-  const zoneLabel = (z, sel) => `<div style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:rgba(35,35,35,.88);color:#fafafa;font:500 12px/1 ${M.FONT || 'inherit'};white-space:nowrap;box-shadow:inset 0 0 0 1px ${sel ? '#fafafa' : 'rgba(255,255,255,.08)'};transform:translate(-50%,-50%)"><span style="color:${z.col};display:grid">${M.icon(z.icon, 16)}</span>${esc(z.name)}</div>`;
+  const carIcon = (c, sel) => `<div data-ki-island style="width:34px;height:34px;border-radius:50%;background:#fafafa;color:#232323;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.45)${sel ? ',0 0 0 3px ' + C.pink : ''}">${M.icon('mdi:car', 20)}</div>`; // ki-hex-ok: kartmarkør (fast farge)
+  const zoneLabel = (z, sel) => `<div data-ki-island style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:rgba(35,35,35,.88);color:#fafafa;font:500 12px/1 ${M.FONT || 'inherit'};white-space:nowrap;box-shadow:inset 0 0 0 1px ${sel ? '#fafafa' : 'rgba(255,255,255,.08)'};transform:translate(-50%,-50%)"><span style="color:${z.col};display:grid">${M.icon(z.icon, 16)}</span>${esc(z.name)}</div>`; // ki-hex-ok: kartmarkør (mørk øy)
   const lineCol = (v) => (v.line && v.line.col) || MODE_COL[v.mode] || MODE_COL.bus;
   const vehIcon = (v, sel) => {
     const round = v.mode !== 'bus' && v.mode !== 'coach';
-    return `<div style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''};position:relative">${v.bearing != null ? `<span data-bearing="${Math.round(v.bearing)}" style="position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(${Math.round(v.bearing)}deg);pointer-events:none"><span style="position:absolute;left:-5px;top:-24px;border:5px solid transparent;border-bottom:7px solid ${lineCol(v)}"></span></span>` : ''}${esc(v.code || '?')}</div>`;
+    return `<div data-ki-island style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''};position:relative">${v.bearing != null ? `<span data-bearing="${Math.round(v.bearing)}" style="position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(${Math.round(v.bearing)}deg);pointer-events:none"><span style="position:absolute;left:-5px;top:-24px;border:5px solid transparent;border-bottom:7px solid ${lineCol(v)}"></span></span>` : ''}${esc(v.code || '?')}</div>`; // ki-hex-ok: linjefarge (Entur) på kartet
   };
 
   /* ============================================================ kortet */
@@ -41064,6 +41581,7 @@ try {
       this._mk = new Map(); // nøkkel → { m, html, pos }
       this._key = (e) => { if (e.key === 'Escape' && this.isOpen && location.hash === HASH && !document.querySelector('.msh-overlay-root, ki-overlay-root')) { M.closePopup(); } };
       this._tr = () => { if (this.isOpen) this.update(); };
+      this._th = () => this.update(); // Fiks 35: lys/mørk → kartstil og :host([data-ki-light])
       this._rs = () => { this._fitHeight(); clearTimeout(this._rsT); this._rsT = setTimeout(() => this._fitHeight(), 350); };
       // 23.3: navbaren melder ledig flate ('ki-nav-rect') → padding til fitBounds/flyTo og ny måling av headeren
       this._nr = (e) => { if (e && e.detail) this._occ = { ...e.detail }; if (this.isOpen) this._fitHeight(); };
@@ -41077,6 +41595,7 @@ try {
       super.connectedCallback();
       window.addEventListener('keydown', this._key);
       window.addEventListener('msh-kart-transit', this._tr);
+      window.addEventListener('ki-theme-change', this._th);
       window.addEventListener('resize', this._rs);
       window.addEventListener('msh-kart-focus', this._fc);
       window.addEventListener('ki-nav-rect', this._nr);
@@ -41094,6 +41613,7 @@ try {
       window.removeEventListener('hashchange', this._hc);
       window.removeEventListener('keydown', this._key);
       window.removeEventListener('msh-kart-transit', this._tr);
+      window.removeEventListener('ki-theme-change', this._th);
       window.removeEventListener('resize', this._rs);
       window.removeEventListener('msh-kart-focus', this._fc);
     }
@@ -41232,8 +41752,11 @@ try {
       return { P, K, Z, V };
     }
     _find(D, sel) { if (!sel) return null; const L = sel.k === 'p' ? D.P : sel.k === 'c' ? D.K : sel.k === 'z' ? D.Z : D.V; return L.find((x) => x.id === sel.id) || null; }
+    // Fiks 35: config med __autoStyle når kortet ikke har egen kartstil (da følger kartflisene lys/mørk modus)
+    get _tc() { const c = this.config, r = this._rawConfig || {}; return r.style == null && !c.tile_url ? { ...c, __autoStyle: true } : c; }
     render() {
       const h = this.hass, c = this.config, D = this._data(), Ly = this.layers;
+      this.toggleAttribute('data-ki-light', isLight()); // lys-regler (gradient/tekstskygge) uten å røre mørk modus
       this._D = D;
       const home = D.P.filter((p) => p.st.kind === 'home').length, away = D.P.length - home;
       const hp = homePos(h), near = hp ? D.V.filter((v) => dist(v.pos, hp) < 5000).length : D.V.length;
@@ -41245,7 +41768,7 @@ try {
         const on = cur && cur.id === x.id;
         if (x.kind === 'p') {
           const sub = x.moving ? `${x.kmh != null && x.kmh > 0 ? 'Kjører · ' + x.kmh + ' km/t' : 'I bevegelse'}` : `${esc(x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}`;
-          return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="p" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 40)}</span><span class="pt"><b>${esc(x.name)}</b><i><span style="color:${x.col}">●</span> ${sub}</i></span></button>`;
+          return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="p" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 40)}</span><span class="pt"><b>${esc(x.name)}</b><i><span style="color:${AT(x.col)}">●</span> ${sub}</i></span></button>`;
         }
         const sub = [x.moving ? `Kjører${x.kmh != null ? ' · ' + Math.round(x.kmh) + ' km/t' : ''}` : 'Parkert', x.bat != null ? Math.round(x.bat) + ' %' : null].filter(Boolean).join(' · ');
         return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="c" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa car">${x.pic && !BAD.has(x.pic) ? `<img src="${esc(x.pic)}" alt="" draggable="false">` : M.icon('mdi:car', 22)}</span><span class="pt"><b>${esc(x.name)}</b><i>${esc(sub)}</i></span></button>`;
@@ -41272,7 +41795,7 @@ try {
         <div class="bot" data-key="bot">
           ${cur ? this._detail(cur) : ''}
           ${row ? `<div class="row noscroll" data-key="row">${row}</div>` : ''}
-          <div class="att" data-key="att">${esc(tileDef(c)[1])}</div>
+          <div class="att" data-key="att">${esc(tileDef(this._tc)[1])}</div>
         </div>
       </div>`;
     }
@@ -41280,7 +41803,7 @@ try {
       const h = this.hass, st = (l, v) => `<div class="kv"><span>${esc(l)}</span><b>${v == null || v === '' ? '–' : esc(v)}</b></div>`;
       let head = '', body = '', acts = '';
       if (x.kind === 'p') {
-        head = `<span class="da" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 44)}</span><div class="dt"><b>${esc(x.name)}</b><i><span style="color:${x.col}">●</span> ${esc(x.moving ? 'I bevegelse' : x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}</i></div>`;
+        head = `<span class="da" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 44)}</span><div class="dt"><b>${esc(x.name)}</b><i><span style="color:${AT(x.col)}">●</span> ${esc(x.moving ? 'I bevegelse' : x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}</i></div>`;
         body = st('Batteri', x.bat != null ? Math.round(x.bat) + ' %' : null) + st('Fart', x.kmh != null ? x.kmh + ' km/t' : null) + st('Nøyaktighet', x.acc != null ? '± ' + Math.round(x.acc) + ' m' : null) + st('Oppdatert', x.upd ? M.relTime(x.upd) : null);
         if (x.pos) acts = `<button class="db" data-act="route" data-id="${esc(x.id)}">${M.icon('mdi:directions', 20)}Veibeskrivelse</button>`;
       } else if (x.kind === 'c') {
@@ -41289,7 +41812,7 @@ try {
         if (x.pos) acts = `<button class="db" data-act="route" data-id="${esc(x.id)}">${M.icon('mdi:directions', 20)}Veibeskrivelse</button>`;
       } else if (x.kind === 'z') {
         const who = (this._D ? this._D.P : []).filter((p) => p.st.zone === x.id || (x.id === 'zone.home' && p.st.kind === 'home'));
-        head = `<span class="da" style="background:${M.alpha(x.col, 0.25)};color:${x.col}">${M.icon(x.icon, 24)}</span><div class="dt"><b>${esc(x.name)}</b><i>Sone · ${Math.round(x.r)} m</i></div>`;
+        head = `<span class="da" style="background:${M.theme ? M.theme.tone(x.col, undefined, 0.25).bg : M.alpha(x.col, 0.25)};color:${AT(x.col)}">${M.icon(x.icon, 24)}</span><div class="dt"><b>${esc(x.name)}</b><i>Sone · ${Math.round(x.r)} m</i></div>`;
         body = `<div class="who">${who.length ? who.map((p) => `<span class="wp"><span class="wa" style="box-shadow:0 0 0 2px ${p.col}">${avatar(p, 28)}</span>${esc(p.first)}</span>`).join('') : '<span class="dim">Ingen er her nå</span>'}</div>`;
       } else {
         const q = this._qi && this._qi.stop === x.stop ? this._qi.r : null;
@@ -41364,7 +41887,7 @@ try {
         if (customElements.get('ha-map') && c.engine !== 'leaflet') {
           const hm2 = document.createElement('ha-map');
           hm2.style.cssText = 'display:block;width:100%;height:100%';
-          hm2.hass = this.hass; hm2.darkMode = styleOf(c) !== 'light'; hm2.themeMode = styleOf(c) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
+          hm2.hass = this.hass; hm2.darkMode = styleOf(this._tc) !== 'light'; hm2.themeMode = styleOf(this._tc) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
           box.appendChild(hm2);
           for (let i = 0; i < 100 && !(hm2.leafletMap && hm2.Leaflet); i++) await new Promise((r) => setTimeout(r, 50));
           if (hm2.leafletMap && hm2.Leaflet) {
@@ -41400,7 +41923,7 @@ try {
       this._focus();
     }
     _setStyle() {
-      const L = this._L, map = this._map, st = styleOf(this.config), T = tileDef(this.config), key = st + '|' + T[0];
+      const L = this._L, map = this._map, st = styleOf(this._tc), T = tileDef(this._tc), key = st + '|' + T[0];
       if (!L || !map || this._styleNow === key) return;
       this._styleNow = key;
       if (this._tiles) { map.removeLayer(this._tiles); this._tiles = null; }
@@ -41478,57 +42001,59 @@ try {
         :host{display:block;width:100%;height:var(--kart-h,100vh);position:relative}
         :host([data-pop]){position:absolute;left:0;right:0;top:0;bottom:0;inset:0;width:auto;height:var(--kart-h,100%)} /* 23.3: fyller popupens flate */
         ha-card{height:100%}
-        .kart{position:relative;height:100%;overflow:hidden;background:#1d1d1d;font-family:${M.FONT || 'inherit'}}
+        .kart{position:relative;height:100%;overflow:hidden;background:var(--ki-surface-3, #1d1d1d);font-family:${M.FONT || 'inherit'}}
         .map,.map .lf{position:absolute;inset:0;touch-action:none}
         #map,#map .leaflet-container,#map ha-map{touch-action:none!important}
-        .map .lf{background:#1d1d1d}
+        .map .lf{background:var(--ki-surface-3, #1d1d1d)}
         .msh-mk{background:none;border:0}
         ${LEAF_BASE}
-        .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--gray700,#979797);font-size:13px;text-align:center;padding:0 40px}
+        .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center;padding:0 40px}
         /* 23.3: én gradient (mørk øverst, gjennomsiktig fra ca. 160 px). Overleggene slipper trykk gjennom til kartet;
            bare knapper, chips og kort tar imot (pointer-events: auto). */
         .grad{position:absolute;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 160px);z-index:999;pointer-events:none;background:linear-gradient(180deg,rgba(35,35,35,.94) 0%,rgba(35,35,35,.7) 45%,rgba(35,35,35,0) 100%)}
+        :host([data-ki-light]) .grad{background:linear-gradient(180deg,color-mix(in srgb,var(--ki-popup, #f0f0f0) 94%,transparent) 0%,color-mix(in srgb,var(--ki-popup, #f0f0f0) 70%,transparent) 45%,transparent 100%)}
+        :host([data-ki-light]) .sm{text-shadow:none}
         .acts{position:absolute;z-index:1001;top:var(--kart-act-top,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 8px));right:var(--kart-act-right,calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 16px));display:flex;gap:8px;pointer-events:none}
         .acts>*{pointer-events:auto}
         :host([data-bh]) .acts .x{display:none} /* Bubble-headeren har × */
         .top{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));top:var(--kart-hd,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 64px));z-index:1000;padding:0 16px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
         .top .chips{pointer-events:none}
         .top .chip{pointer-events:auto}
-        .rb{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-        .rb.sm{width:36px;height:36px;background:var(--gray300,#404040)}
+        .rb{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text, #fafafa);box-shadow:var(--ki-pill-sh, none);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+        .rb.sm{width:36px;height:36px;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:none}
         .rb:active,.sb:active,.chip:active,.pl:active,.db:active{transform:scale(.95)}
-        .sm{font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
+        .sm{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px ${BA(0.6)};pointer-events:none}
         .chips{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;margin:0 -16px;padding:0 16px}
-        .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:rgba(58,58,58,.9);color:#e1e1e1;font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
+        .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text-1, #e1e1e1);box-shadow:var(--ki-pill-sh, none);font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
         .chip b{font-weight:600;opacity:.7}
-        .chip.on{background:${PINK};color:#2f2f2f}
+        .chip.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
         .side{position:absolute;right:calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 12px);top:calc(50% + (var(--kart-occ-top,var(--ki-nav-occ-top,0px)) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px))) / 2);transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
         .side>*{pointer-events:auto}
-        .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px rgba(0,0,0,.35)}
+        .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text, #fafafa);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px ${BA(0.35)}}
         .bot{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));bottom:calc(var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) + 12px);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
         .bot .det,.bot .pl{pointer-events:auto}
         .row{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;padding:0 12px;pointer-events:none}
-        .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:rgba(58,58,58,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.35);max-width:260px}
-        .pl.on{box-shadow:0 0 0 2px #fafafa,0 4px 14px rgba(0,0,0,.35)}
-        .pa,.da,.wa{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--gray300,#404040);color:#fafafa}
+        .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:var(--ki-surface, rgba(58,58,58,.92));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px ${BA(0.35)};max-width:260px}
+        .pl.on{box-shadow:0 0 0 2px var(--ki-text, #fafafa),0 4px 14px ${BA(0.35)}}
+        .pa,.da,.wa{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}
         .pa img,.da img,.wa img{width:100%;height:100%;object-fit:cover}
-        .pa.car,.da.car{background:#fafafa;color:#232323}
+        .pa.car,.da.car{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323)}
         .pt{display:flex;flex-direction:column;min-width:0}
         .pt b,.dt b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pt i,.dt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:rgba(35,35,35,.6);color:var(--gray700,#979797);font-size:10px;pointer-events:none}
-        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--kart-hd,64px) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) - 140px);overflow-y:auto;overscroll-behavior:contain}
+        .pt i,.dt i{font-style:normal;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:var(--ki-surface, rgba(35,35,35,.6));color:var(--ki-text-mid, var(--gray700,#979797));font-size:10px;pointer-events:none}
+        .det{margin:0 12px;padding:14px;border-radius:24px;background:var(--ki-popup, rgba(40,40,40,.96));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px ${BA(0.45)},${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--kart-hd,64px) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) - 140px);overflow-y:auto;overscroll-behavior:contain}
         .dh{display:flex;align-items:center;gap:12px}
         .da{width:44px;height:44px;background:none}
         .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
-        .kv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:var(--gray200,#3a3a3a)}
-        .kv span{font-size:11px;color:var(--gray700,#979797)}
+        .kv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .kv span{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .kv b{font-size:14px;font-weight:600}
         .who{display:flex;flex-wrap:wrap;gap:10px;grid-column:1/-1}
         .wp{display:inline-flex;align-items:center;gap:6px;font-size:13px}
         .wa{width:28px;height:28px}
-        .db{height:44px;border-radius:22px;background:#fafafa;color:#232323;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600}
+        .db{height:44px;border-radius:22px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600}
       `;
     }
   }
@@ -41550,8 +42075,9 @@ try {
 .bubble-pop-up.bubble-pop-up > .bubble-header-container *{pointer-events:none}
 .bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button,.bubble-pop-up.bubble-pop-up > .bubble-header-container .close-pop-up,.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button *{pointer-events:auto!important}
 .bubble-pop-up #header-container > div > div,.bubble-pop-up.bubble-pop-up .bubble-header{background:transparent!important;box-shadow:none!important}
-.bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgba(0,0,0,.5)}
-.bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:rgba(58,58,58,.9)!important;border-radius:50%}
+.bubble-pop-up.bubble-pop-up[data-ki-theme=light] #header-container > div > div{background:transparent!important}
+.bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px ${BA(0.5)}}
+.bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:var(--ki-surface-2, rgba(58,58,58,.9))!important;border-radius:50%}
 .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{position:absolute!important;inset:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;border-radius:0!important;clip-path:none!important;-webkit-clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;z-index:1;gap:0!important;--vertical-stack-card-gap:0px!important}
 ${KE}`;
   const KART_ICON = '.icon-container {background-color:var(--gray1000)!important;}\n.icon-container > ha-icon {color:var(--black)!important;opacity:1!important}';
@@ -41996,12 +42522,12 @@ ${tmark(HOUSES.sjo)}`;
     return `<svg class="ehus-ov" viewBox="${HOUSES[s].vb}" preserveAspectRatio="xMidYMid meet"><defs>${g}</defs>${kab}${lines}${dots}${txt}</svg>`;
   }
 
-  const CSS = `.ehus{position:relative;width:100%;height:340px;font-family:inherit;overflow:hidden;background:radial-gradient(120% 70% at 50% 100%,rgba(115,185,242,.06),rgba(0,0,0,0) 70%)}
+  const CSS = `.ehus{position:relative;width:100%;height:340px;font-family:inherit;overflow:hidden;background:radial-gradient(120% 70% at 50% 100%,rgba(115,185,242,.06),rgb(0 0 0 / 0) 70%);color:var(--ki-text, #fafafa)} /* nattscene = mørk øy (data-ki-island) i begge moduser */
 .ehus-img,.ehus-ov{position:absolute;inset:0;width:100%;height:100%;display:block}
 img.ehus-img{object-fit:contain;object-position:50% 50%}
 .ehus-ov{overflow:visible;pointer-events:none}
-.ehus-val{font-size:17px;font-weight:600;fill:var(--gray1000,#e1e1e1);font-variant-numeric:tabular-nums}
-.ehus-name{font-size:12px;font-weight:500;fill:var(--gray800,#afafaf)}
+.ehus-val{font-size:17px;font-weight:600;fill:var(--ki-text-1, #e1e1e1);font-variant-numeric:tabular-nums}
+.ehus-name{font-size:12px;font-weight:500;fill:var(--ki-text-2, #afafaf)}
 .ehus-pulse{animation:ehus-flow linear infinite;filter:drop-shadow(0 0 2.5px rgba(115,185,242,.9))}
 @keyframes ehus-flow{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion: reduce){.ehus-pulse{animation:none;stroke-dasharray:none;stroke-opacity:.5;filter:none}}
@@ -42017,7 +42543,7 @@ img.ehus-img{object-fit:contain;object-position:50% 50%}
       ? `<img class="ehus-img" src="${esc(bust(custom))}" alt="" draggable="false">`
       : svg(s, o.lightsOn);
     const ov = overlay(s, { ...o, _customCable: custom && o.targets && (o.targets.ev || o.targets.grid) }, T);
-    return `<div class="ehus" data-style="${s}"${custom ? ' data-custom="1"' : ''}>${o.css === false ? '' : `<style>${CSS}</style>`}${img}${ov}</div>`;
+    return `<div class="ehus" data-ki-island data-style="${s}"${custom ? ' data-custom="1"' : ''}>${o.css === false ? '' : `<style>${M.theme ? M.theme.CSS : ''}${CSS}</style>`}${img}${ov}</div>`;
   }
 
   M.energiHus = { STYLES, NAMES, FILES, HOUSES, html, svg, thumb, targetsFor, fmt, CSS };
@@ -42052,6 +42578,12 @@ try {
   const esc = M.esc, C = M.C;
   const HASH = '#energi';
   const CYAN = 'var(--cyan-color, #4dd0e1)';
+  // Fiks 35 (tema): aksent som tekst mørknes i lys modus (AT), tone-bakgrunner .12→.18 (TONE), gjennomsiktig hvit/svart
+  // etter regel 4/3 (WA/KA). Grafer: linje/fyll i aksent, markør --ki-text-2, tomme spor --ki-surface-3. Mørk = som før.
+  const TH = M.theme || {};
+  const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const SECS = [['house', 'Huset'], ['tiles', 'Snarveier'], ['power', 'Strøm'], ['price', 'Strømpriser'], ['top', 'Toppforbrukere'], ['water', 'Vann']];
   const SECL = Object.fromEntries(SECS);
   const PERIODS = [['dag', 'I dag'], ['uke', 'Uke'], ['mnd', 'Måned'], ['aar', 'År']];
@@ -42362,9 +42894,9 @@ try {
     let hl = '', marks = '';
     const mark = o.sel != null ? o.sel : o.now;
     if (mark != null && vals[mark] != null) {
-      hl = `<rect x="${x(mark).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="#fff" fill-opacity=".08"/>`;
+      hl = `<rect x="${x(mark).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="var(--ki-text-2, #fff)" fill-opacity=".08"/>`;
       const L = ((mark + 0.5) / n) * 100, T = (y(vals[mark]) / H) * 100, lv = levelOf(vals[mark], a);
-      marks = `<i class="dot" style="left:${L.toFixed(2)}%;top:${T.toFixed(2)}%;background:${lv != null ? LEVELS[lv][1] : '#fafafa'}"></i>`;
+      marks = `<i class="dot" style="left:${L.toFixed(2)}%;top:${T.toFixed(2)}%;background:${lv != null ? LEVELS[lv][1] : 'var(--ki-text-2, #fafafa)'}"></i>`;
     }
     const yl = [top, (top + mn) / 2, mn].map((v) => `<span style="top:${((y(v) / H) * 100).toFixed(2)}%">${M.nf(v, v >= 10 ? 0 : 2)}</span>`).join('');
     const xt = [[0, '00'], [6, '06'], [12, '12'], [18, '18'], [24, '00']].map(([i, t]) => `<span style="left:${((i / 24) * 100).toFixed(2)}%">${t}</span>`).join('');
@@ -42373,8 +42905,8 @@ try {
 
   /* ------------------------------------------------------------ editor (Tilpass energi, 21.5) */
   const EXP = new Map(); // utvidet snarvei per kort (card_id → tile-id), felles for arket og GUI-editoren
-  const BADGE = { energi: ['Energi', C.green], auto: ['Auto', C.purple], overstyrt: ['Overstyrt', C.blue], mangler: ['Mangler', C.orange], henter: ['Henter …', 'var(--gray600, #7f7f7f)'] };
-  const badge = (k) => { const [t, col] = BADGE[k] || BADGE.mangler; return `<span style="flex:none;height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#232323;background:${col}">${t}</span>`; };
+  const BADGE = { energi: ['Energi', C.green], auto: ['Auto', C.purple], overstyrt: ['Overstyrt', C.blue], mangler: ['Mangler', C.orange], henter: ['Henter …', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] };
+  const badge = (k) => { const [t, col] = BADGE[k] || BADGE.mangler; return `<span style="flex:none;height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:var(--ki-on-accent, #232323);background:${col}">${t}</span>`; };
   const orderOf = (c) => { const keys = SECS.map((s) => s[0]); const o = (Array.isArray(c.order) ? c.order : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
   // Dra-håndtak i editoren (touch-action none + stopPropagation, fallgruve 2). Én gang per editor-element.
   function installEd(ed) {
@@ -42394,7 +42926,7 @@ try {
       e.stopPropagation(); e.preventDefault();
       d = { list: hd.dataset.edrag, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + (TH.blackA ? TH.blackA(0.4, TH.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – bare under draget
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -42426,7 +42958,7 @@ try {
     R.addEventListener('pointercancel', end);
   }
   const rowCss = 'height:48px;gap:10px';
-  const hdl = (list) => `<span data-edrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:6px 0">${M.icon('mdi:drag', 20)}</span>`;
+  const hdl = (list) => `<span data-edrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:6px 0">${M.icon('mdi:drag', 20)}</span>`;
 
   function editorSchema(h, c) {
     c = c || {};
@@ -42440,9 +42972,9 @@ try {
         const RR = hh ? sourcesOf(hh, cc) : null, ov = (cc.sources || {})[k];
         const kind = ov ? 'overstyrt' : !RR || !RR.loaded ? 'henter' : RR.from[k];
         const cur = RR ? (k === 'ev' || k === 'price' || k === 'power' ? RR[k] : (RR[k] || []).join(', ')) : null;
-        return `<div class="f" style="gap:4px"><div class="line">${M.icon(icon, 20, 'color:#afafaf')}<span style="flex:1;font-size:14px;font-weight:500">${esc(label)}</span>${badge(kind)}</div>
+        return `<div class="f" style="gap:4px"><div class="line">${M.icon(icon, 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;font-size:14px;font-weight:500">${esc(label)}</span>${badge(kind)}</div>
           <span class="help">${esc(cur || (kind === 'henter' ? 'Leser Energi-oppsettet …' : 'Ikke satt opp i Energi'))}</span>
-          ${ov ? `<button class="btn" style="height:36px;border-radius:18px;font-size:13px;background:#2f2f2f" data-a="fn" data-k="${key}" data-v="${k}">${M.icon('mdi:restore', 18)}Fra Energi-oppsettet</button>` : ''}</div>`;
+          ${ov ? `<button class="btn" style="height:36px;border-radius:18px;font-size:13px;background:var(--ki-surface-3, #2f2f2f)" data-a="fn" data-k="${key}" data-v="${k}">${M.icon('mdi:restore', 18)}Fra Energi-oppsettet</button>` : ''}</div>`;
       }, click: (dd, ed) => { M.haptic('selection'); ed._set('sources.' + dd.v, undefined); } },
       { type: 'entity', name: 'sources.' + k, label: k === 'power' ? 'Effektsensor (overstyr)' : 'Overstyr med annen entitet', domains: doms, domain: doms.length === 1 ? doms[0] : undefined, device_class: k === 'power' ? 'power' : undefined,
         auto: (hh, cc) => { const RR = hh ? sourcesOf(hh, cc) : null; return RR ? (RR.auto[k] || null) : null; } },
@@ -42479,8 +43011,8 @@ try {
         installEd(ed);
         const RR = hh ? sourcesOf(hh, cc) : null, ent = t.entity || tileAuto(hh, RR, t.id), open = EXP.get(cc.card_id || '_') === t.id;
         return `<div class="ordrow" data-edk="${esc(t.id)}" data-elist="tile" style="${rowCss};${t.hidden ? 'opacity:.5' : ''}">${hdl('tile')}
-          <span style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;flex:none;background:${esc(M.color(t.color, C.blue))};color:#232323">${M.icon(t.icon || 'mdi:flash', 18)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name || 'Snarvei')}</span><span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ent || 'Velg entitet')}</span></span>
+          <span style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;flex:none;background:${esc(M.color(t.color, C.blue))};color:var(--ki-on-accent, #232323)">${M.icon(t.icon || 'mdi:flash', 18)}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name || 'Snarvei')}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ent || 'Velg entitet')}</span></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="eye" data-v="${esc(t.id)}" aria-label="${t.hidden ? 'Vis' : 'Skjul'}">${M.icon(t.hidden ? 'mdi:eye-off' : 'mdi:eye', 18)}</button>
           <button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${esc(t.id)}" aria-expanded="${open}" aria-label="Rediger">${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20)}</button></div>`;
       }, click: tClick });
@@ -42491,7 +43023,7 @@ try {
           { type: 'entity', name: p + 'entity', label: 'Entitet', auto: (hh, cc) => tileAuto(hh, hh ? sourcesOf(hh, cc) : null, t.id) },
           { type: 'icon', name: p + 'icon', label: 'Ikon' },
           { type: 'color', name: p + 'color', label: 'Farge' },
-          { type: 'html', html: (hh, cc, key) => `<button class="btn" style="height:44px;color:var(--red,#f28073)" data-a="fn" data-k="${key}" data-op="rm" data-v="${esc(t.id)}">${M.icon('mdi:delete-outline', 20)}Fjern snarvei</button>`, click: tClick },
+          { type: 'html', html: (hh, cc, key) => `<button class="btn" style="height:44px;color:var(--ki-red-text, var(--red,#f28073))" data-a="fn" data-k="${key}" data-op="rm" data-v="${esc(t.id)}">${M.icon('mdi:delete-outline', 20)}Fjern snarvei</button>`, click: tClick },
         );
       }
     });
@@ -42504,7 +43036,7 @@ try {
         const H = M.energiHus, cur = cc.house_style || 'enebolig';
         return `<div class="f"><label>Hustype</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${STYLES.map(([k, l]) => {
           let th = ''; try { th = H && H.thumb ? H.thumb(k) : ''; } catch (e) { th = ''; }
-          return `<button data-a="fn" data-k="${key}" data-v="${k}" aria-pressed="${k === cur}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:16px;background:#2f2f2f;box-shadow:${k === cur ? 'inset 0 0 0 2px #f285c9' : 'none'};font-size:12px;color:${k === cur ? '#fafafa' : '#afafaf'}"><span style="width:100%;aspect-ratio:16/10;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:#232323">${th || M.icon('mdi:home-lightning-bolt', 28, 'color:#7f7f7f')}</span>${esc(l)}</button>`;
+          return `<button data-a="fn" data-k="${key}" data-v="${k}" aria-pressed="${k === cur}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f);box-shadow:${k === cur ? 'inset 0 0 0 2px var(--pink, #f285c9)' : 'none'};font-size:12px;color:${k === cur ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-2, #afafaf)'}"><span style="width:100%;aspect-ratio:16/10;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:var(--ki-bg, #232323)">${th || M.icon('mdi:home-lightning-bolt', 28, 'color:var(--ki-text-3, #7f7f7f)')}</span>${esc(l)}</button>`;
         }).join('')}</div></div>`;
       }, click: (dd, ed) => { M.haptic('selection'); ed._set('house_style', dd.v); } },
       { type: 'boolean', name: 'labels.ev', label: 'Etikett: Elbillader', default: true },
@@ -42623,7 +43155,7 @@ try {
         return `<div class="house">${inner}</div>`;
       }
       const L = [['ev', 'Elbillader', C.orange], ['grid', 'Nett', C.blue], ['home', 'Hjem', C.yellow]].filter(([k]) => lab[k] !== false && values[k] != null);
-      return `<div class="house ph"><div class="phl">${L.map(([k, l, col]) => `<div class="hl"><b class="num">${esc(values[k])}</b><span><i style="background:${col}"></i>${l}</span></div>`).join('')}</div>${M.icon('mdi:home-lightning-bolt-outline', 96, 'color:#545454')}<span class="phs">${w != null ? fW(w) + ' nå' : ''}</span></div>`;
+      return `<div class="house ph"><div class="phl">${L.map(([k, l, col]) => `<div class="hl"><b class="num">${esc(values[k])}</b><span><i style="background:${col}"></i>${l}</span></div>`).join('')}</div>${M.icon('mdi:home-lightning-bolt-outline', 96, 'color:var(--ki-ctrl, #545454)')}<span class="phs">${w != null ? fW(w) + ' nå' : ''}</span></div>`;
     }
     // Snarveier / status-fliser (21.1, 21.9)
     _s_tiles(R) {
@@ -42672,7 +43204,7 @@ try {
       }
       const busy = !D && R.loaded && (R.grid_in.length || R.power);
       return `<section class="sec">
-        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:rgba(115,185,242,.16);color:${C.blue}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${AT(C.blue)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
           <div class="ph2"><div class="big">${M.icon('mdi:flash', 22, `color:${C.blue}`)}<span class="num"><b>${fKwh(imp)}</b> kWh</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Importert${busy ? ' · henter …' : ''}</span>
@@ -42694,7 +43226,7 @@ try {
       const showI = sel != null ? sel : day === 'today' ? hr : null;
       const v = showI != null ? vals[showI] : avg;
       const lv = levelOf(v, avgOf(pr.P.today), sel == null && day === 'today' ? (h.states[ent].attributes.price_level || null) : null);
-      const col = lv != null ? LEVELS[lv][1] : '#fafafa';
+      const col = lv != null ? AT(LEVELS[lv][1]) : 'var(--ki-text, #fafafa)'; // tekst/ikon: aksent mørknet i lys modus
       const sub = sel != null ? `kl ${M.pad(sel)}–${M.pad((sel + 1) % 24)} · snitt ${M.nf(avg, 2)} kr` : day === 'today' ? `${60 - now.getMinutes()} minutter igjen · snitt ${M.nf(avg, 2)} kr` : `Snitt i morgen · ${M.nf(avg, 2)} kr`;
       const L = vals.map((x, i) => [x, i]).filter(([x]) => x != null);
       const lo = L.length ? L.reduce((a, b) => (b[0] < a[0] ? b : a)) : null, hi = L.length ? L.reduce((a, b) => (b[0] > a[0] ? b : a)) : null;
@@ -42704,7 +43236,7 @@ try {
           <div class="ptop" data-ent="${esc(ent)}">
             <span class="pic" style="color:${col}">${M.icon('mdi:cash', 22)}</span>
             <div class="grow"><div class="pv num"><b style="color:${col}">${v != null ? M.nf(v, 2) : '–'}</b> kr/kWh</div><span class="lb num">${esc(sub)}</span></div>
-            ${lv != null ? `<span class="lvl" style="color:${LEVELS[lv][1]};background:color-mix(in srgb, ${LEVELS[lv][1]} 16%, transparent)">${LEVELS[lv][0]}</span>` : ''}
+            ${lv != null ? `<span class="lvl" style="color:${AT(LEVELS[lv][1])};background:color-mix(in srgb, ${LEVELS[lv][1]} 16%, transparent)">${LEVELS[lv][0]}</span>` : ''}
           </div>
           ${priceChartHTML(vals, avgOf(pr.P.today), { now: day === 'today' ? hr : null, sel })}
           <div class="pchips">${chip(C.green, 'Lavest', lo)}${chip(C.red, 'Høyest', hi)}</div>
@@ -42721,7 +43253,7 @@ try {
       const n = Number(c.top_n != null ? c.top_n : 3), all = n === 0 || this.ui.all;
       const show = all ? devs : devs.slice(0, n);
       const mx = devs.length ? devs[0].kwh || 1 : 1;
-      const RANK = ['#b8e674', '#d5dc72', '#f2d26f'];
+      const RANK = ['#b8e674', '#d5dc72', '#f2d26f']; // ki-hex-ok: medaljefarger (fyll), tekst = --ki-on-accent
       const meta = devs.length ? `${devs.length} målt${pct != null ? ` · ${M.clamp(pct, 0, 100)} % av forbruket` : ''}` : '';
       const row = (d, i) => {
         const s = this.s(d.id), ic = (s && s.attributes.icon) || (EV_RX.test(d.id + ' ' + (d.name || '')) ? 'mdi:ev-station' : VVB_RX.test(d.id) ? 'mdi:water-boiler' : 'mdi:power-plug');
@@ -42748,9 +43280,9 @@ try {
       const sel = this._sel('water');
       const read = sel != null && vals[sel] != null ? `${rg.lab(sel)} · ${fL(vals[sel])} L${cost && D.wcost && D.wcost[sel] != null ? ' · ' + fKr(D.wcost[sel]) : ''}` : '';
       return `<section class="sec">
-        <div class="sh"><span class="st">Vann</span>${cost && kr != null ? `<span class="cp" style="background:rgba(77,208,225,.16);color:${CYAN}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Vann</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(CYAN, 0.16)};color:${AT(CYAN)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
-          <div class="ph2"><div class="big">${M.icon('mdi:water', 22, `color:${CYAN}`)}<span class="num"><b>${fL(tot)}</b> L</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
+          <div class="ph2"><div class="big">${M.icon('mdi:water', 22, `color:${AT(CYAN)}`)}<span class="num"><b>${fL(tot)}</b> L</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Forbrukt</span>
           ${plotHTML('water', vals, { kind: 'bars', color: CYAN, h: 96, sel, now: rg.cur && rg.p === 'hour' ? new Date().getHours() : null, ticks: ticksOf(rg, rg.n) })}
         </div></section>`;
@@ -42790,78 +43322,78 @@ try {
       return `
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:rgba(242,181,115,.14);color:${C.orange};font-size:14px;font-weight:500;text-align:left}
+        .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:${TONE(C.orange, 0.14)};color:${AT(C.orange)};font-size:14px;font-weight:500;text-align:left}
         .house{position:relative;width:100%;min-height:340px;border-radius:28px;overflow:hidden}
-        .house.ph{height:340px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .house.ph{height:340px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .phl{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:8px}
         .hl{display:flex;flex-direction:column;gap:2px}
         .hl b{font-size:17px;font-weight:600}
-        .hl span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray800,#afafaf)}
+        .hl span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .hl i{width:8px;height:8px;border-radius:50%}
-        .phs{position:absolute;bottom:14px;font-size:12px;color:var(--gray700,#979797)}
+        .phs{position:absolute;bottom:14px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .prow{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:calc(14px - var(--msh-gap,8px))}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;flex:1;min-width:0;position:relative;touch-action:pan-y;background:var(--gray200,#3a3a3a)}
-        .seg .sg{flex:1 1 0;min-width:0;height:36px;padding:0 4px;border-radius:18px;font-size:13px;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s}
-        .seg .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;flex:1;min-width:0;position:relative;touch-action:pan-y;background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
+        .seg .sg{flex:1 1 0;min-width:0;height:36px;padding:0 4px;border-radius:18px;font-size:13px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent;transition:background .25s,color .25s}
+        .seg .sg.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         .seg .sg:disabled{opacity:.4;cursor:default}
         .seg.sm{flex:none}
         .seg.sm .sg{height:30px;padding:0 12px;flex:none}
-        .nb{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--white,#fafafa);flex:none}
+        .nb{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa));flex:none}
         .nb:disabled{opacity:.3;cursor:default}
-        .gear{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);flex:none}
+        .gear{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, var(--white,#fafafa));flex:none}
         .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .tile{display:flex;align-items:center;gap:8px;height:66px;padding:0 10px 0 5px;border-radius:33px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};text-align:left;min-width:0}
-        .ti{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;flex:none;color:#232323}
+        .tile{display:flex;align-items:center;gap:8px;height:66px;padding:0 10px 0 5px;border-radius:33px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge};text-align:left;min-width:0}
+        .ti{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--ki-on-accent, #232323)}
         .tt{display:flex;flex-direction:column;gap:2px;min-width:0}
         .tt b{font-size:14px;font-weight:600}
-        .tt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf)}
+        .tt i{font-style:normal;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .sec{display:flex;flex-direction:column;gap:8px}
         .sh{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
-        .meta{font-size:12px;color:var(--gray700,#979797)}
+        .meta{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .cp{height:26px;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;flex:none}
-        .cp.sm{height:22px;padding:0 8px;font-size:11px;background:rgba(255,255,255,.08);color:var(--gray900,#c7c7c7)}
+        .cp.sm{height:22px;padding:0 8px;font-size:11px;background:${WA(0.08)};color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .card.pc,.card.pr,.card.tops{padding:16px;display:flex;flex-direction:column;gap:6px}
         .ph2{display:flex;align-items:center;gap:8px}
-        .big{flex:1;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--gray800,#afafaf)}
-        .big b{font-size:26px;font-weight:500;color:var(--white,#fafafa)}
-        .rd{font-size:12px;color:var(--gray800,#afafaf);text-align:right}
-        .lb{font-size:12px;color:var(--gray700,#979797)}
+        .big{flex:1;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .big b{font-size:26px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+        .rd{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));text-align:right}
+        .lb{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .plot{position:relative;width:100%;margin-top:6px;touch-action:pan-y;cursor:crosshair}
         .plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-        .plot .vl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid rgba(255,255,255,.55);transform:translateX(-.5px);pointer-events:none}
-        .plot .vl.dash{border-left:1px dashed rgba(255,255,255,.45)}
-        .plot .dot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(40,40,40,.9)}
-        .plot .dot.ring{background:#282828;border:2px solid;box-sizing:border-box}
-        .empty-plot{display:grid;place-items:center;color:var(--gray600,#7f7f7f)}
+        .plot .vl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--ki-text-2, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.55*var(--ki-wa-k,1)),var(--ki-wa-max,1))));transform:translateX(-.5px);pointer-events:none}
+        .plot .vl.dash{border-left:1px dashed var(--ki-text-2, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.45*var(--ki-wa-k,1)),var(--ki-wa-max,1))))}
+        .plot .dot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px var(--ki-surface, rgba(40,40,40,.9))}
+        .plot .dot.ring{background:var(--ki-surface, #282828);border:2px solid;box-sizing:border-box}
+        .empty-plot{display:grid;place-items:center;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .xax{position:relative;height:16px;margin-top:4px}
-        .xax span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .xax span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
         .xax span:first-child{transform:none}
         .xax span:last-child:not(:first-child){transform:translateX(-100%)}
         .ptop{display:flex;align-items:center;gap:12px}
-        .pic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .pv{font-size:13px;color:var(--gray800,#afafaf)}
+        .pic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .pv{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .pv b{font-size:24px;font-weight:500}
         .lvl{height:28px;padding:0 12px;border-radius:14px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;flex:none}
         .pwrap{display:flex;gap:6px;margin-top:4px}
         .yax{position:relative;width:30px;flex:none;height:180px;margin-top:6px}
-        .yax span{position:absolute;right:0;transform:translateY(-50%);font-size:10px;color:var(--gray600,#7f7f7f)}
+        .yax span{position:absolute;right:0;transform:translateY(-50%);font-size:10px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .pcol{flex:1;min-width:0}
         .pchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-        .pchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;background:var(--gray300,#404040);font-size:12px;color:var(--gray900,#c7c7c7)}
+        .pchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:12px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pchip i{width:8px;height:8px;border-radius:50%}
-        .empty0{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px 8px;color:var(--gray700,#979797);font-size:13px;text-align:center}
+        .empty0{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px 8px;color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center}
         .tops{gap:4px}
         .trow{display:flex;align-items:center;gap:12px;padding:6px 0;text-align:left;width:100%}
-        .tic{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .rk{position:absolute;top:-2px;right:-4px;width:18px;height:18px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#232323}
+        .tic{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .rk{position:absolute;top:-2px;right:-4px;width:18px;height:18px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:var(--ki-on-accent, #232323)}
         .tcol{display:flex;flex-direction:column;gap:6px}
         .tl{display:flex;align-items:center;gap:8px;min-width:0}
         .tl b{flex:1;min-width:0;font-size:14px;font-weight:500}
-        .tk{font-size:13px;color:var(--gray800,#afafaf);flex:none}
-        .bar{height:6px;border-radius:3px;background:var(--gray300,#404040);overflow:hidden}
+        .tk{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
+        .bar{height:6px;border-radius:3px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:3px;background:${C.lime}}
-        .more{height:40px;border-radius:20px;background:var(--gray300,#404040);font-size:13px;font-weight:500;margin-top:6px}
+        .more{height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:13px;font-weight:500;margin-top:6px}
       `;
     }
   }
@@ -42986,36 +43518,36 @@ try {
     .hd{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;display:flex;align-items:center;gap:10px;min-height:52px;margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 4px;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .hd .t{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hd .done{flex:none;${M.DONE_PILL}}
-    .h{display:flex;align-items:center;gap:8px;min-height:32px;padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
+    .h{display:flex;align-items:center;gap:8px;min-height:32px;padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
     .h .sp{flex:1}
-    .h .cp{height:28px;padding:0 12px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:5px}
+    .h .cp{height:28px;padding:0 12px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:5px}
     .grp{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);overflow:hidden}
-    .grp>*+*{border-top:1px solid var(--ki-sheet-line,rgba(255,255,255,0.06))}
+    .grp>*+*{border-top:1px solid var(--ki-sheet-line,rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))))}
     .top{display:flex;align-items:center;gap:12px;padding:14px 16px}
-    .ic{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-sheet-in,#404040);color:#afafaf;flex:none;transition:background .2s,color .2s}
-    .ic.on{background:rgba(242,133,201,0.18);color:var(--pink,#f285c9)}
-    .tt{flex:1;min-width:0}.tt b{display:block;font-size:16px;font-weight:600}.tt span{font-size:12px;color:#979797}
+    .ic{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-sheet-in,#404040);color:var(--ki-text-2, #afafaf);flex:none;transition:background .2s,color .2s}
+    .ic.on{background:rgba(242,133,201,0.18);color:var(--ki-pink-text, var(--pink,#f285c9))}
+    .tt{flex:1;min-width:0}.tt b{display:block;font-size:16px;font-weight:600}.tt span{font-size:12px;color:var(--ki-text-mid, #979797)}
     .entf{display:flex;flex-direction:column;gap:6px;padding:12px 16px 14px}
     .entf ha-selector,.entf msh-entity-picker{display:block}
     .row{overflow:hidden}
     .rh{display:flex;align-items:center;gap:10px;padding:12px 14px 12px 16px;width:100%;text-align:left}
     .rh .tt{display:flex;gap:12px;align-items:center;text-align:left}
     .rh .tt b{font-size:15px;font-weight:500}
-    .rh .chv{margin-left:auto;color:#979797;flex:none;transition:transform .2s}
+    .rh .chv{margin-left:auto;color:var(--ki-text-mid, #979797);flex:none;transition:transform .2s}
     .row.open .rh .chv{transform:rotate(180deg)}
     .ex{display:flex;flex-direction:column;gap:8px;padding:2px 16px 16px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:#c7c7c7;font-size:13px}
-    .chip.on{background:var(--pink,#f285c9);color:#232323}
-    .lab{font-size:12px;color:#7f7f7f}
-    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-    .trk.on{background:${M.SWITCH_ON}}.trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}.trk.on i{left:21px}
+    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:var(--ki-text-1, #c7c7c7);font-size:13px}
+    .chip.on{background:var(--pink,#f285c9);color:var(--ki-on-accent, #232323)}
+    .lab{font-size:12px;color:var(--ki-text-3, #7f7f7f)}
+    .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));transition:background .2s}
+    .trk.on{background:${M.SWITCH_ON}}.trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}.trk.on i{left:21px}
     .stp{display:flex;align-items:center;gap:8px}.stp button{width:36px;height:32px;border-radius:16px;background:var(--ki-sheet-in,#404040);font-size:18px}.stp span{min-width:70px;text-align:center;font-size:13px}
-    .me{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(242,133,201,0.2);color:#f285c9;margin-left:6px}
+    .me{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(242,133,201,0.2);color:var(--ki-pink-text, #f285c9);margin-left:6px}
     input.ent{height:44px;border-radius:14px;border:0;padding:0 12px;background:var(--ki-sheet-in,#404040);color:inherit;font:inherit;font-size:14px;width:100%;box-sizing:border-box}
-    pre{margin:0;padding:14px 16px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;color:#e1e1e1}
-    .btn{height:36px;padding:0 16px;border-radius:18px;background:var(--pink,#f285c9);color:#232323;font-size:13px;font-weight:600;flex:none}
-    .note{display:block;font-size:12px;color:#979797;padding:12px 16px}
+    pre{margin:0;padding:14px 16px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;color:var(--ki-text-1, #e1e1e1)}
+    .btn{height:36px;padding:0 16px;border-radius:18px;background:var(--pink,#f285c9);color:var(--ki-on-accent, #232323);font-size:13px;font-weight:600;flex:none}
+    .note{display:block;font-size:12px;color:var(--ki-text-mid, #979797);padding:12px 16px}
     .rl{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:22px;background:rgba(242,133,201,0.12);font-size:13px;margin-top:4px}
   `;
   const sw = (on, a, extra = '') => `<button class="trk ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-a="${a}" ${extra}><i></i></button>`;
@@ -43029,7 +43561,7 @@ try {
       const myId = ls.get(BID_KEY);
       const hideChips = (r, scope) => `<span class="lab">Skjul</span><div class="chips">${HIDE.map(([k, l]) => `<button class="chip ${hideOf(r).includes(k) ? 'on' : ''}" data-a="hide" data-s="${esc(scope)}" data-v="${k}">${esc(l)}</button>`).join('')}</div>
         <span class="lab">Når</span><div class="chips"><button class="chip ${r.when !== 'always' ? 'on' : ''}" data-a="when" data-s="${esc(scope)}" data-v="switch">Når bryteren er på</button><button class="chip ${r.when === 'always' ? 'on' : ''}" data-a="when" data-s="${esc(scope)}" data-v="always">Alltid</button></div>`;
-      const row = (scope, title, icon, r, extra, badge) => `<div class="row${st.open[scope] ? ' open' : ''}" data-key="r-${esc(scope)}"><div class="rh"><button class="tt" data-a="exp" data-s="${esc(scope)}" aria-expanded="${!!st.open[scope]}">${M.icon(icon, 22, 'color:#afafaf;flex:none')}<span style="min-width:0;flex:1"><b>${esc(title)}${badge || ''}</b><span style="display:block;font-size:12px;color:#979797">${esc(r.on ? summary(r, scope) : 'Av')}</span></span>${M.icon('mdi:chevron-down', 20, '')}</button>${sw(r.on, 'row', `data-s="${esc(scope)}"`)}</div>${st.open[scope] ? `<div class="ex">${extra || ''}${hideChips(r, scope)}</div>` : ''}</div>`;
+      const row = (scope, title, icon, r, extra, badge) => `<div class="row${st.open[scope] ? ' open' : ''}" data-key="r-${esc(scope)}"><div class="rh"><button class="tt" data-a="exp" data-s="${esc(scope)}" aria-expanded="${!!st.open[scope]}">${M.icon(icon, 22, 'color:var(--ki-text-2, #afafaf);flex:none')}<span style="min-width:0;flex:1"><b>${esc(title)}${badge || ''}</b><span style="display:block;font-size:12px;color:var(--ki-text-mid, #979797)">${esc(r.on ? summary(r, scope) : 'Av')}</span></span>${M.icon('mdi:chevron-down', 20, '')}</button>${sw(r.on, 'row', `data-s="${esc(scope)}"`)}</div>${st.open[scope] ? `<div class="ex">${extra || ''}${hideChips(r, scope)}</div>` : ''}</div>`;
       const m = rowOf('mobile'), u = rowOf('users');
       const userChips = st.users ? `<span class="lab">Brukere</span><div class="chips">${st.users.map((x) => `<button class="chip ${(u.users || []).includes(x) ? 'on' : ''}" data-a="user" data-v="${esc(x)}">${esc(x)}</button>`).join('') || '<span class="note">Fant ingen brukere</span>'}</div>` : '<span class="note">Henter brukere …</span>';
       let devHtml;
@@ -43272,70 +43804,70 @@ try {
     .body{display:flex;flex-direction:column;min-height:100%}
     button{border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
     input{font:inherit}
-    .ob{flex:1;display:flex;flex-direction:column;box-sizing:border-box;min-height:100%;padding:calc(12px + env(safe-area-inset-top, 0px)) 18px 0;color:#fafafa;font-family:${M.FONT}}
+    .ob{flex:1;display:flex;flex-direction:column;box-sizing:border-box;min-height:100%;padding:calc(12px + env(safe-area-inset-top, 0px)) 18px 0;color:var(--ki-text, #fafafa);font-family:${M.FONT}}
     .top{display:flex;align-items:center;gap:12px;min-height:44px}
     .b44{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);flex:none}
     .prog{flex:1;display:flex;gap:4px;min-width:0}
-    .prog i{flex:1;height:4px;border-radius:2px;background:var(--gray300,#404040)}
-    .prog i.done{background:#e1e1e1}.prog i.cur{background:${PINK}}
-    .skip{height:44px;padding:0 6px;font-size:15px;font-weight:500;color:#afafaf;flex:none}
+    .prog i{flex:1;height:4px;border-radius:2px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .prog i.done{background:var(--ki-text-1, #e1e1e1)}.prog i.cur{background:${PINK}}
+    .skip{height:44px;padding:0 6px;font-size:15px;font-weight:500;color:var(--ki-text-2, #afafaf);flex:none}
     h1{font-size:30px;line-height:1.1;font-weight:500;margin:22px 0 8px;letter-spacing:-0.01em}
     h2{font-size:26px;line-height:1.15;font-weight:500;margin:20px 0 6px}
-    .lead{font-size:15px;line-height:1.4;color:#afafaf;margin:0 0 18px}
+    .lead{font-size:15px;line-height:1.4;color:var(--ki-text-2, #afafaf);margin:0 0 18px}
     .list{display:flex;flex-direction:column;gap:8px}
     .row{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);box-sizing:border-box;width:100%;text-align:left}
     .row .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .row .tt b{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .row .tt i{font-style:normal;font-size:13px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .row .tt i.red{color:var(--red,#f28073)}
+    .row .tt i{font-style:normal;font-size:13px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .row .tt i.red{color:var(--ki-red-text, var(--red,#f28073))}
     .row.off{opacity:.55}
     .ti{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none}
-    .av{width:44px;height:44px;border-radius:22px;flex:none;overflow:hidden;background:#545454;display:grid;place-items:center;color:#232323;font-weight:600}
+    .av{width:44px;height:44px;border-radius:22px;flex:none;overflow:hidden;background:var(--ki-ctrl, #545454);display:grid;place-items:center;color:var(--ki-text, #232323);font-weight:600}
     .av img{width:100%;height:100%;object-fit:cover}
-    .sw{position:relative;width:51px;height:31px;border-radius:16px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-    .sw.on{background:${M.SWITCH_ON}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fafafa;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.25)}.sw.on i{left:22px}
+    .sw{position:relative;width:51px;height:31px;border-radius:16px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
+    .sw.on{background:${M.SWITCH_ON}}.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:var(--ki-knob, #fafafa);transition:left .2s;box-shadow:0 2px 4px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.25*var(--ki-ka-k,1))))}.sw.on i{left:22px}
     .sw[disabled]{opacity:.4}
-    .me{height:28px;padding:0 10px;border-radius:14px;background:var(--gray300,#404040);color:#afafaf;font-size:12px;font-weight:600;flex:none}
-    .me.on{background:${PINK};color:#2a1720}
+    .me{height:28px;padding:0 10px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-2, #afafaf);font-size:12px;font-weight:600;flex:none}
+    .me.on{background:${PINK};color:var(--ki-on-accent, #2a1720)}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .rc{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);min-height:124px;box-sizing:border-box;cursor:pointer;text-align:left}
     .rc.off{opacity:.5}
-    .rc .ci{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;color:#232323}
+    .rc .ci{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;color:var(--ki-on-accent, #232323)}
     .rc b{font-size:15px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rc i{font-style:normal;font-size:12px;color:#979797;margin-top:-6px}
-    .rc .ck{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:13px;display:grid;place-items:center;background:var(--gray300,#404040);color:#afafaf}
-    .rc .ck.on{background:${GREEN};color:#232323}
+    .rc i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);margin-top:-6px}
+    .rc .ck{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:13px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-2, #afafaf)}
+    .rc .ck.on{background:${GREEN};color:var(--ki-on-accent, #232323)}
     .chips{display:flex;flex-wrap:wrap;gap:8px}
     .chip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px 0 12px;border-radius:22px;background:var(--ki-sheet-grp,#3a3a3a);font-size:15px;font-weight:500}
-    .chip.on{background:#e1e1e1;color:#232323}
-    .chip .num{min-width:22px;height:22px;border-radius:11px;background:#232323;color:#fafafa;font-size:12px;display:grid;place-items:center;font-weight:600}
-    .pv{margin:22px 0 4px;padding:26px 16px;border-radius:28px;background:#232323;display:flex;justify-content:center}
-    .pill{display:flex;align-items:center;justify-content:space-around;gap:4px;height:64px;width:min(100%,392px);padding:0 14px;box-sizing:border-box;border-radius:32px;background:#fafafa;color:#232323;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    .lbl{font-size:13px;color:#979797;margin:18px 4px 8px}
+    .chip.on{background:var(--ki-pill-bg, #e1e1e1);color:var(--ki-pill-fg, #232323)}
+    .chip .num{min-width:22px;height:22px;border-radius:11px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:12px;display:grid;place-items:center;font-weight:600}
+    .pv{margin:22px 0 4px;padding:26px 16px;border-radius:28px;background:var(--ki-bg, #232323);display:flex;justify-content:center}
+    .pill{display:flex;align-items:center;justify-content:space-around;gap:4px;height:64px;width:min(100%,392px);padding:0 14px;box-sizing:border-box;border-radius:32px;background:var(--ki-surface, #fafafa);color:var(--ki-text, #232323);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.35*var(--ki-ka-k,1))))}
+    .lbl{font-size:13px;color:var(--ki-text-mid, #979797);margin:18px 4px 8px}
     .seg{display:flex;padding:4px;gap:4px;border-radius:24px;background:var(--ki-sheet-seg,#232323)}
-    .seg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:#afafaf}
-    .seg button.on{background:#e1e1e1;color:#232323}
-    .hp{border-radius:28px;background:#232323;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+    .seg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:var(--ki-text-2, #afafaf)}
+    .seg button.on{background:var(--ki-pill-bg, #e1e1e1);color:var(--ki-pill-fg, #232323)}
+    .hp{border-radius:28px;background:var(--ki-bg, #232323);padding:20px 18px;display:flex;flex-direction:column;gap:14px}
     .hp .t{font-size:28px;font-weight:500;line-height:1.1}
     .hp .ps{display:flex;gap:10px;flex-wrap:wrap}
-    .hp .p{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#afafaf}
-    .hp .p .av{background:#696969}
-    .in{height:52px;border-radius:18px;border:0;padding:0 16px;background:var(--ki-sheet-in,#404040);color:#fafafa;font-size:16px;width:100%;box-sizing:border-box;outline:none}
-    .note{font-size:13px;color:#979797;padding:0 4px;margin-top:8px}
+    .hp .p{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--ki-text-2, #afafaf)}
+    .hp .p .av{background:var(--ki-ctrl, #696969)}
+    .in{height:52px;border-radius:18px;border:0;padding:0 16px;background:var(--ki-sheet-in,#404040);color:var(--ki-text, #fafafa);font-size:16px;width:100%;box-sizing:border-box;outline:none}
+    .note{font-size:13px;color:var(--ki-text-mid, #979797);padding:0 4px;margin-top:8px}
     .foot{position:sticky;bottom:0;margin:auto -18px 0;padding:14px 18px calc(16px + env(safe-area-inset-bottom, 0px));background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur);backdrop-filter:var(--ki-sheet-blur);display:flex;flex-direction:column;gap:10px;z-index:3}
     .spacer{height:24px;flex:none}
-    .main{height:56px;border-radius:28px;background:${PINK};color:#2a1720;font-size:17px;font-weight:600;width:100%}
+    .main{height:56px;border-radius:28px;background:${PINK};color:var(--ki-on-accent, #2a1720);font-size:17px;font-weight:600;width:100%}
     .main[disabled]{opacity:.5}
-    .ghost{height:48px;border-radius:24px;font-size:15px;font-weight:500;color:#afafaf;width:100%}
+    .ghost{height:48px;border-radius:24px;font-size:15px;font-weight:500;color:var(--ki-text-2, #afafaf);width:100%}
     .scan .row{min-height:56px}
-    .scan .st{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--gray300,#404040);color:#7f7f7f}
-    .scan .st.ok{background:${GREEN};color:#232323}
-    .scan .n{font-size:15px;font-weight:500;color:#afafaf}
-    .spin{width:14px;height:14px;border-radius:7px;border:2px solid #7f7f7f;border-top-color:transparent;animation:sp 0.8s linear infinite}
+    .scan .st{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-3, #7f7f7f)}
+    .scan .st.ok{background:${GREEN};color:var(--ki-on-accent, #232323)}
+    .scan .n{font-size:15px;font-weight:500;color:var(--ki-text-2, #afafaf)}
+    .spin{width:14px;height:14px;border-radius:7px;border:2px solid var(--ki-text-3, #7f7f7f);border-top-color:transparent;animation:sp 0.8s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
-    .big{width:88px;height:88px;border-radius:44px;display:grid;place-items:center;margin:40px auto 8px;background:${GREEN};color:#232323}
+    .big{width:88px;height:88px;border-radius:44px;display:grid;place-items:center;margin:40px auto 8px;background:${GREEN};color:var(--ki-on-accent, #232323)}
     .ctr{text-align:center}
-    .chg{font-size:14px;font-weight:500;color:#f285c9;flex:none;height:36px;padding:0 4px}
+    .chg{font-size:14px;font-weight:500;color:var(--ki-pink-text, #f285c9);flex:none;height:36px;padding:0 4px}
     .toastx{display:none}
   `;
   const sw = (on, a, extra) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-a="${a}" ${extra || ''}><i></i></button>`;
@@ -43396,7 +43928,7 @@ try {
       const rows = SCAN.map(([l, icn, f], i) => {
         const done = i < o.scan, n = done ? f(h) : null;
         const val = !done ? '' : i === SCAN.length - 1 ? (n ? pl(n, 'rom', 'rom') : 'Ikke funnet') : String(n);
-        return `<div class="row" data-key="sc-${i}"><span class="ti" style="background:rgba(255,255,255,0.06)">${ic(icn, 22, 'color:#afafaf')}</span><span class="tt"><b>${esc(l)}</b></span><span class="n">${esc(val)}</span><span class="st ${done ? 'ok' : ''}">${done ? ic('mdi:check', 18) : i === o.scan ? '<span class="spin"></span>' : ''}</span></div>`;
+        return `<div class="row" data-key="sc-${i}"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic(icn, 22, 'color:var(--ki-text-2, #afafaf)')}</span><span class="tt"><b>${esc(l)}</b></span><span class="n">${esc(val)}</span><span class="st ${done ? 'ok' : ''}">${done ? ic('mdi:check', 18) : i === o.scan ? '<span class="spin"></span>' : ''}</span></div>`;
       }).join('');
       const ready = o.scan >= SCAN.length;
       return `<div class="ob" data-key="ob-0">
@@ -43430,7 +43962,7 @@ try {
     const step3 = (h) => {
       const rows = o.fns.map((f) => {
         const [k, l, icn, fd] = fnOf(f.k), [n, sub] = fd(h);
-        return `<button class="row ${f.on ? '' : 'off'}" data-a="ftog" data-v="${k}" data-key="f-${k}"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic(icn, 22)}</span>
+        return `<button class="row ${f.on ? '' : 'off'}" data-a="ftog" data-v="${k}" data-key="f-${k}"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic(icn, 22)}</span>
           <span class="tt"><b>${esc(l)}</b>${n ? `<i>${esc(sub)}</i>` : '<i class="red">Ingen entiteter funnet · velg senere</i>'}</span>${sw(f.on, 'ftog', `data-v="${k}" tabindex="-1"`)}</button>`;
       }).join('');
       return `<h2>Funksjoner</h2><p class="lead">Popupene som lages. Av betyr at dashbordet ikke lager popupen.</p><div class="list">${rows}</div>`;
@@ -43466,9 +43998,9 @@ try {
         <div class="lbl">Enhetsnavn</div><input class="in" data-in="dname" data-key="dname" value="${esc(o.dev.name)}" placeholder="${esc(bmName || M.deviceInfo().label)}">
         <div class="lbl"></div>
         <div class="list">
-          <div class="row"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic('mdi:vibrate', 22)}</span><span class="tt"><b>Haptikk</b><i>Vibrasjon ved trykk</i></span>${sw(o.dev.haptic, 'dhap')}</div>
-          <div class="row"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic('mdi:fullscreen', 22)}</span><span class="tt"><b>Kiosk-modus</b><i>${id ? 'Skjuler HA-grensesnittet på denne enheten' : 'Krever Browser Mod'}</i></span>${sw(o.dev.kiosk, 'dkiosk', id ? '' : 'disabled')}</div>
-          <div class="row"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic('mdi:dock-left', 22)}</span><span class="tt"><b>Skjul HA-sidebaren</b><i>${id ? (o.dev.kiosk ? 'Skjult av kiosk-modus' : 'Bare sidemenyen') : 'Krever Browser Mod'}</i></span>${sw(o.dev.sidebar || o.dev.kiosk, 'dside', id && !o.dev.kiosk ? '' : 'disabled')}</div>
+          <div class="row"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('mdi:vibrate', 22)}</span><span class="tt"><b>Haptikk</b><i>Vibrasjon ved trykk</i></span>${sw(o.dev.haptic, 'dhap')}</div>
+          <div class="row"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('mdi:fullscreen', 22)}</span><span class="tt"><b>Kiosk-modus</b><i>${id ? 'Skjuler HA-grensesnittet på denne enheten' : 'Krever Browser Mod'}</i></span>${sw(o.dev.kiosk, 'dkiosk', id ? '' : 'disabled')}</div>
+          <div class="row"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('mdi:dock-left', 22)}</span><span class="tt"><b>Skjul HA-sidebaren</b><i>${id ? (o.dev.kiosk ? 'Skjult av kiosk-modus' : 'Bare sidemenyen') : 'Krever Browser Mod'}</i></span>${sw(o.dev.sidebar || o.dev.kiosk, 'dside', id && !o.dev.kiosk ? '' : 'disabled')}</div>
         </div>`;
     };
     const step7 = (h) => {
@@ -43481,7 +44013,7 @@ try {
         [3, 'mdi:apps', 'Funksjoner', `${F.length} på · ${F.map((f) => fnOf(f.k)[1]).slice(0, 4).join(', ')}${F.length > 4 ? ' …' : ''}`],
         [4, 'mdi:dock-bottom', 'Navbar', navL.length ? navL.join(' · ') + ' + Mer' : 'Bare «Mer»'],
         [6, 'mdi:cellphone', 'Enhet', `${o.dev.name || 'Denne enheten'} · haptikk ${o.dev.haptic ? 'på' : 'av'}${o.dev.kiosk ? ' · kiosk' : ''}`],
-      ].map(([st, icn, l, sub]) => `<div class="row" data-key="sum-${st}"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic(icn, 22)}</span><span class="tt"><b>${esc(l)}</b><i>${esc(sub)}</i></span><button class="chg" data-a="goto" data-v="${st}">Endre ›</button></div>`).join('');
+      ].map(([st, icn, l, sub]) => `<div class="row" data-key="sum-${st}"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic(icn, 22)}</span><span class="tt"><b>${esc(l)}</b><i>${esc(sub)}</i></span><button class="chg" data-a="goto" data-v="${st}">Endre ›</button></div>`).join('');
       return `<div class="ob" data-key="ob-7">
         <div class="big">${ic('mdi:check', 48)}</div>
         <h1 class="ctr" style="margin-top:12px">Dashbordet er klart.</h1>
@@ -43743,7 +44275,7 @@ try {
       return { hit: s(it.sub) || s(GL[it.g]) || s(it.desc) };
     };
     const rowHtml = (it, R, qm) => `<button class="row" data-a="sel" data-v="${esc(it.id)}" data-key="it-${esc(it.id)}"><span class="ti" style="background:color-mix(in srgb, ${col(it.color)} 22%, transparent);color:${col(it.color)}">${ic(it.icon, 22)}</span>
-        <span class="tt"><b>${esc(it.title)}</b><i>${esc(qm && qm.quick ? 'Hurtigvalg · ' + qm.quick : it.sub)}</i></span>${R[it.id] ? `<span class="okc">${ic('mdi:check', 16)}</span>` : ''}${ic('mdi:chevron-right', 22, 'color:#7f7f7f')}</button>`;
+        <span class="tt"><b>${esc(it.title)}</b><i>${esc(qm && qm.quick ? 'Hurtigvalg · ' + qm.quick : it.sub)}</i></span>${R[it.id] ? `<span class="okc">${ic('mdi:check', 16)}</span>` : ''}${ic('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
     const listView = (h) => {
       const L = items(h), R = reviewed(), q = u.q.trim().toLowerCase(), RV = reviewable(L), done = RV.filter((x) => R[x.id]).length;
       const lbl = done === 0 ? 'Start' : done >= RV.length ? 'På nytt' : 'Fortsett';
@@ -43754,7 +44286,7 @@ try {
       }).join('');
       return `<div class="ob" data-key="ta-list">
         <div class="hd"><span class="h ta">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
-        <div class="sr" data-key="sr">${ic('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" data-in="q" data-key="q" placeholder="Søk i innstillinger og hurtigvalg" value="${esc(u.q)}" autocomplete="off">${u.q ? `<button data-a="qx" aria-label="Tøm">${ic('mdi:close-circle', 18, 'color:#7f7f7f')}</button>` : ''}</div>
+        <div class="sr" data-key="sr">${ic('mdi:magnify', 20, 'color:var(--ki-text-3, #7f7f7f)')}<input class="q" data-in="q" data-key="q" placeholder="Søk i innstillinger og hurtigvalg" value="${esc(u.q)}" autocomplete="off">${u.q ? `<button data-a="qx" aria-label="Tøm">${ic('mdi:close-circle', 18, 'color:var(--ki-text-3, #7f7f7f)')}</button>` : ''}</div>
         ${q ? '' : `<div class="rv" data-key="rv"><div class="rvt"><b>Gå gjennom alt</b><i>${done} av ${RV.length} sjekket</i><div class="bar"><span style="width:${RV.length ? Math.round((done / RV.length) * 100) : 0}%"></span></div></div><button class="rvb" data-a="review">${lbl}</button></div>`}
         ${groups || '<p class="lead" style="margin-top:20px">Ingen treff.</p>'}
         <div class="spacer"></div>
@@ -43771,10 +44303,10 @@ try {
     const extraHtml = (it) => {
       if (it.kind === 'ent') {
         const E = entStats();
-        return `<div class="list">${E.length ? E.map((x) => `<button class="row" data-a="entopen" data-v="${esc(x.grp + '.' + x.id)}"><span class="tt"><b>${esc(x.grp === 'rooms' ? 'Rom · ' + M.areaName(hassNow(), x.id) : x.id)}</b><i>${x.o} byttet · ${x.ex} fjernet · ${x.inc} lagt til</i></span>${ic('mdi:chevron-right', 22, 'color:#7f7f7f')}</button>`).join('') : '<p class="note">Ingen overstyringer – alt kommer fra autokonfigurasjonen.</p>'}</div>`;
+        return `<div class="list">${E.length ? E.map((x) => `<button class="row" data-a="entopen" data-v="${esc(x.grp + '.' + x.id)}"><span class="tt"><b>${esc(x.grp === 'rooms' ? 'Rom · ' + M.areaName(hassNow(), x.id) : x.id)}</b><i>${x.o} byttet · ${x.ex} fjernet · ${x.inc} lagt til</i></span>${ic('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`).join('') : '<p class="note">Ingen overstyringer – alt kommer fra autokonfigurasjonen.</p>'}</div>`;
       }
-      if (it.kind === 'backup') return `<div class="list"><button class="row" data-a="export"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic('mdi:download', 22)}</span><span class="tt"><b>Eksporter</b><i>Last ned som JSON (kopieres også)</i></span></button>
-        <label class="row" style="cursor:pointer"><span class="ti" style="background:rgba(255,255,255,0.08)">${ic('mdi:upload', 22)}</span><span class="tt"><b>Importer</b><i>Erstatter oppsettet med filen</i></span><input type="file" accept="application/json,.json" data-in="import" style="display:none"></label></div>`;
+      if (it.kind === 'backup') return `<div class="list"><button class="row" data-a="export"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('mdi:download', 22)}</span><span class="tt"><b>Eksporter</b><i>Last ned som JSON (kopieres også)</i></span></button>
+        <label class="row" style="cursor:pointer"><span class="ti" style="background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))">${ic('mdi:upload', 22)}</span><span class="tt"><b>Importer</b><i>Erstatter oppsettet med filen</i></span><input type="file" accept="application/json,.json" data-in="import" style="display:none"></label></div>`;
       if (it.kind === 'rerun') return `<button class="main" data-a="rerun">Kjør oppsettet</button>`;
       return '';
     };
@@ -43907,27 +44439,27 @@ try {
   const TA_CSS = `
     .hd{display:flex;align-items:center;gap:12px;min-height:44px}
     .hd .h{flex:1;min-width:0;font-size:28px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .hd .h.sm{font-size:14px;color:#979797;font-weight:500}
+    .hd .h.sm{font-size:14px;color:var(--ki-text-mid, #979797);font-weight:500}
     .done{${M.DONE_PILL}flex:none} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
     .hd .h.ta{font-size:22px;font-weight:600;letter-spacing:-0.01em}
     .sr{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;margin:16px 0 12px;border-radius:24px;background:var(--ki-sheet-in,#404040)}
-    .sr .q{flex:1;min-width:0;height:100%;border:0;background:none;color:#fafafa;font-size:16px;outline:none}
+    .sr .q{flex:1;min-width:0;height:100%;border:0;background:none;color:var(--ki-text, #fafafa);font-size:16px;outline:none}
     .rv{display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}
     .rvt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-    .rvt b{font-size:16px;font-weight:500}.rvt i{font-style:normal;font-size:13px;color:#979797}
-    .bar{height:4px;border-radius:2px;background:var(--gray300,#404040);overflow:hidden;margin-top:4px}
+    .rvt b{font-size:16px;font-weight:500}.rvt i{font-style:normal;font-size:13px;color:var(--ki-text-mid, #979797)}
+    .bar{height:4px;border-radius:2px;background:var(--ki-surface-2, var(--gray300,#404040));overflow:hidden;margin-top:4px}
     .bar span{display:block;height:100%;border-radius:2px;background:${PINK};transition:width .3s}
     .bar.big{margin:10px 0 0}
-    .rvb{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:#2a1720;font-size:15px;font-weight:600;flex:none}
-    .gh{font-size:13px;color:#979797;margin:22px 4px 8px}
-    .okc{width:24px;height:24px;border-radius:12px;display:grid;place-items:center;background:${GREEN};color:#232323;flex:none}
+    .rvb{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:var(--ki-on-accent, #2a1720);font-size:15px;font-weight:600;flex:none}
+    .gh{font-size:13px;color:var(--ki-text-mid, #979797);margin:22px 4px 8px}
+    .okc{width:24px;height:24px;border-radius:12px;display:grid;place-items:center;background:${GREEN};color:var(--ki-on-accent, #232323);flex:none}
     .dic{width:80px;height:80px;border-radius:28px;display:grid;place-items:center;margin-top:20px}
     .qb{padding:12px 14px 14px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}
     .qb .lbl{margin:0 2px 8px}
     .hi{box-shadow:inset 0 0 0 2px #f285c9}
     .cols{display:flex;flex-wrap:wrap;gap:10px}
     .cl{width:36px;height:36px;border-radius:18px}
-    .cl.on{box-shadow:0 0 0 2px #282828,0 0 0 4px #fafafa}
+    .cl.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
     .opn{height:52px;border-radius:26px;background:var(--ki-sheet-grp,#3a3a3a);font-size:15px;font-weight:500;width:100%;margin-top:18px}
   `;
 
@@ -46941,6 +47473,9 @@ try {
   const STATUS = { cleaning: 'Rengjør', returning: 'På vei hjem', paused: 'Pauset', docked: 'I dokken', idle: 'Klar', error: 'Feil', unavailable: 'Utilgjengelig', unknown: '–' };
   const ACTIVE = ['cleaning', 'paused', 'returning'];
 
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4) og aksent som tekst/ikon (pkt. 6); mørk = uendret
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // ukjente farger (lime, egne) beholdes
   /* ------------------------------------------------------------ robot-scenen (toppkortet) */
   // Fiks 26.11: gulvet fyller hele kartflaten (viewBox 60 0 184 200), dokken nede til venstre, sonen som lilla ellipse
   const ROUTE = 'M84 158 H228 V132 H84 V106 H228 V80 H84 V54 H228 V28 H84';
@@ -46948,7 +47483,7 @@ try {
   const DOCK = [84, 184];
   function scene(mode, charging, animOff) {
     const floor = `<defs><pattern id="pl" width="44" height="12" patternUnits="userSpaceOnUse"><rect width="44" height="12" fill="#5a4636"/><path d="M0 11.5H44M26 0V12" stroke="#4a3a2d" stroke-width="1"/><path d="M0 5H18" stroke="#63503f" stroke-width=".6" opacity=".6"/></pattern>
-        <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs>
+        <radialGradient id="rg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd4da"/></radialGradient></defs><!-- ki-hex-ok: robot-illustrasjon (mørk øy) -->
       <rect x="60" y="0" width="184" height="200" fill="url(#pl)"/>
       <ellipse class="zone" cx="176" cy="92" rx="40" ry="26"/>
       <g class="dock"><rect x="${DOCK[0] - 12}" y="${DOCK[1] - 6}" width="24" height="20" rx="5" fill="#2a3038"/><rect x="${DOCK[0] - 7}" y="${DOCK[1] - 2}" width="14" height="3.5" rx="1.75" class="dl ${charging ? 'on' : ''}"/></g>`;
@@ -47002,10 +47537,10 @@ try {
   /* ------------------------------------------------------------ editor (Tilpass + GUI-editoren) */
   const cid = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
   const EXP = new Map(), ADD = new Set();
-  const hdl = (list) => `<span data-edrag="${list}" aria-label="Dra for å flytte" style="width:32px;height:40px;display:grid;place-items:center;color:#979797;flex:none;touch-action:none;cursor:grab">${M.icon('mdi:drag-vertical', 22)}</span>`;
-  const eyeB = (key, op, t, v, hidden, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-t="${esc(t || '')}" data-v="${esc(v)}" aria-pressed="${!hidden}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;color:${hidden ? '#696969' : '#fafafa'}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20)}</button>`;
-  const ROW = 'border-radius:26px;background:#404040;display:flex;align-items:center;gap:6px;padding:6px 6px 6px 4px;min-height:56px';
-  const INP = 'min-width:0;height:36px;border-radius:18px;background:#2f2f2f;padding:0 12px;font-size:13px;color:#fafafa';
+  const hdl = (list) => `<span data-edrag="${list}" aria-label="Dra for å flytte" style="width:32px;height:40px;display:grid;place-items:center;color:var(--ki-text-mid, #979797);flex:none;touch-action:none;cursor:grab">${M.icon('mdi:drag-vertical', 22)}</span>`;
+  const eyeB = (key, op, t, v, hidden, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-t="${esc(t || '')}" data-v="${esc(v)}" aria-pressed="${!hidden}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;color:${hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20)}</button>`;
+  const ROW = 'border-radius:26px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:6px;padding:6px 6px 6px 4px;min-height:56px';
+  const INP = 'min-width:0;height:36px;border-radius:18px;background:var(--ki-surface, #2f2f2f);padding:0 12px;font-size:13px;color:var(--ki-text, #fafafa)';
   // Dra-håndtak (touch-action none + stopPropagation, fallgruve 2) for faner, rom og soner. Én gang per editor.
   function installEd(ed) {
     if (!ed || ed.__vacInst || !ed.shadowRoot) return;
@@ -47024,7 +47559,7 @@ try {
       if (hd.dataset.edrag === 'tab' && EXP.get(cid(ed))) { EXP.delete(cid(ed)); R.querySelectorAll('.vpart').forEach((x) => x.remove()); }
       d = { list: hd.dataset.edrag, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + BA(0.4);
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -47066,12 +47601,12 @@ try {
       installEd(ed);
       const vac = vacOf(hh, cc), L = roomsOf(hh, cc, vac), add = ADD.has(cid(ed));
       const rows = L.map((r, i) => `<div class="ordrow vroom" data-edk="${esc(r.key)}" data-elist="room" data-key="vr-${esc(r.key)}" style="${ROW};${r.hidden ? 'opacity:.5' : ''}">${hdl('room')}
-          <button data-a="fn" data-k="${key}" data-op="col" data-v="${esc(r.key)}" aria-label="Bytt farge for ${esc(r.name)}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:#2f2f2f"><i style="width:16px;height:16px;border-radius:8px;background:${esc(r.color)}"></i></button>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="rooms.${esc(r.key)}.name" value="${esc(r.name)}" aria-label="Navn på rom ${i + 1}" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:#979797;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i < 2 ? 'Stor · ' : ''}${esc(r.entity || (r.segment != null ? 'Segment ' + r.segment : r.key))}</span></span>
+          <button data-a="fn" data-k="${key}" data-op="col" data-v="${esc(r.key)}" aria-label="Bytt farge for ${esc(r.name)}" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-surface, #2f2f2f)"><i style="width:16px;height:16px;border-radius:8px;background:${esc(r.color)}"></i></button>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="rooms.${esc(r.key)}.name" value="${esc(r.name)}" aria-label="Navn på rom ${i + 1}" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:var(--ki-text-mid, #979797);padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i < 2 ? 'Stor · ' : ''}${esc(r.entity || (r.segment != null ? 'Segment ' + r.segment : r.key))}</span></span>
           <input class="inp" type="number" inputmode="decimal" data-name="rooms.${esc(r.key)}.m2" data-num="1" value="${r.m2 != null ? r.m2 : ''}" placeholder="m²" aria-label="Areal i m²" style="${INP};width:62px;padding:0 8px;text-align:center">
-          ${r.manual ? `<button class="ib" data-a="fn" data-k="${key}" data-op="rdel" data-v="${esc(r.key)}" aria-label="Fjern ${esc(r.name)}" style="width:36px;height:40px;display:grid;place-items:center;flex:none;color:#979797">${M.icon('mdi:delete-outline', 20)}</button>` : ''}
+          ${r.manual ? `<button class="ib" data-a="fn" data-k="${key}" data-op="rdel" data-v="${esc(r.key)}" aria-label="Fjern ${esc(r.name)}" style="width:36px;height:40px;display:grid;place-items:center;flex:none;color:var(--ki-text-mid, #979797)">${M.icon('mdi:delete-outline', 20)}</button>` : ''}
           ${eyeB(key, 'reye', '', r.key, r.hidden, r.name)}</div>`).join('');
-      const form = add ? `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:24px;background:#404040">
+      const form = add ? `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:24px;background:var(--ki-surface-2, #404040)">
           <input class="inp" data-radd="name" placeholder="Navn (f.eks. Stue)" autocapitalize="off" spellcheck="false" style="${INP}">
           <input class="inp" data-radd="src" placeholder="input_boolean.… eller segment-ID (tall)" autocapitalize="off" spellcheck="false" style="${INP}">
           <button class="btn" style="height:44px" data-a="fn" data-k="${key}" data-op="radd" data-v="">${M.icon('mdi:check', 18)}Legg til</button></div>` : '';
@@ -47100,7 +47635,7 @@ try {
       installEd(ed);
       const L = zonesOf(hh, cc);
       return box(L.length ? L.map((z) => `<div class="ordrow vzone" data-edk="${esc(z.key)}" data-elist="zone" data-key="vz-${esc(z.key)}" style="${ROW};${z.hidden ? 'opacity:.5' : ''}">${hdl('zone')}
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="zones.${esc(z.key)}.name" value="${esc(z.name)}" aria-label="Navn på sone" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:#979797;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(z.entity)}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" data-name="zones.${esc(z.key)}.name" value="${esc(z.name)}" aria-label="Navn på sone" autocapitalize="off" spellcheck="false" style="${INP}"><span style="font-size:11px;color:var(--ki-text-mid, #979797);padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(z.entity)}</span></span>
           ${eyeB(key, 'zeye', '', z.key, z.hidden, z.name)}</div>`).join('') : small('Fant ingen sone-skript (script.*_zone_*).'));
     }, click: (dd, ed) => {
       if (dd.op === 'zeye') { const z = ((ed._config || {}).zones || {})[dd.v] || {}; M.haptic('selection'); return ed._set('zones.' + dd.v + '.hidden', z.hidden ? undefined : true); }
@@ -47109,15 +47644,15 @@ try {
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
       const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels !== 'icon';
-      const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#282828;overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:#2a1720;font-weight:500` : 'color:#afafaf'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a;flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
+      const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, #282828);overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500` : 'color:var(--ki-text-2, #afafaf)'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
       return box(prev + tabOrder(cc).map((k) => {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k;
-        const row = `<div class="ordrow vtab" data-edk="${k}" data-elist="tab" data-key="vt-${k}" style="height:56px;border-radius:28px;background:#404040;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
-          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#2f2f2f;flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:#979797">${P.length - ph.size} av ${P.length} deler</span></span>
+        const row = `<div class="ordrow vtab" data-edk="${k}" data-elist="tab" data-key="vt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
+          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #2f2f2f);flex:none">${M.icon(icon, 20)}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length - ph.size} av ${P.length} deler</span></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Innhold i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
-        const parts = isO ? P.map(([p, pl]) => `<div class="vpart" data-key="vp-${k}-${p}" style="height:48px;border-radius:24px;margin-left:28px;background:#2f2f2f;display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;${ph.has(p) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`).join('') : '';
+        const parts = isO ? P.map(([p, pl]) => `<div class="vpart" data-key="vp-${k}-${p}" style="height:48px;border-radius:24px;margin-left:28px;background:var(--ki-surface-3, #2f2f2f);display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;${ph.has(p) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`).join('') : '';
         return row + parts;
       }).join('') + small('Dra i håndtaket for rekkefølge. Pilen viser innholdet i fanen, øyet skjuler. Minst én fane må være synlig.'));
     }, click: (dd, ed) => {
@@ -47283,13 +47818,13 @@ try {
         : m.state === 'cleaning' ? ['Rengjør', 'mdi:broom'] : m.state === 'returning' ? ['På vei hjem', 'mdi:home-import-outline'] : m.state === 'paused' ? ['Pauset', 'mdi:pause']
           : m.state === 'error' ? [m.vs.attributes.error ? 'Feil · ' + m.vs.attributes.error : 'Feil', 'mdi:alert-circle-outline'] : [STATUS[m.state] || m.vs.state, 'mdi:robot-vacuum'];
       const name = this.config.name || (m.vs ? M.name(this.hass, m.E.vacuum) : 'Støvsuger');
-      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--gray900,#c7c7c7)';
+      const tone = mode === 'cleaning' ? C.green : mode === 'returning' || mode === 'paused' ? C.orange : mode === 'error' ? C.red : m.charging ? C.green : 'var(--ki-text-1, var(--gray900,#c7c7c7))';
       const animOff = M.animOff ? M.animOff() : false;
       return `<div class="hero ${mode}" data-key="hero">
-        <div class="scw">${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
+        <div class="scw" data-ki-island>${scene(mode === 'none' ? 'docked' : mode, m.charging && mode === 'docked', animOff)}</div>
         <div class="hl">
           <span class="hn">${esc(name)}</span>
-          <span class="spill" style="--tc:${tone}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
+          <span class="spill" style="--tc:${tone};--tcx:${/--ki-/.test(tone) ? tone : AT(tone)}" ${m.E.vacuum ? `data-ent="${esc(m.E.vacuum)}"` : ''}>${M.icon(ic, 16)}<span>${esc(label)}</span></span>
           ${!m.vs ? `<button class="pick press" data-act="customize" data-section="ent-robot_og_status">${M.icon('mdi:plus', 18)}Velg entitet</button>` : ''}
           <div class="batw" ${m.E.battery || m.E.vacuum ? `data-ent="${esc(m.E.battery || m.E.vacuum)}"` : ''}>
             <div class="bat"><span class="bv num">${m.bat != null ? m.bat : '–'}</span><span class="bu">%</span></div>
@@ -47332,7 +47867,7 @@ try {
           const all = m.sel.length === m.rooms.length, spans = this._roomRows(m.rooms.length);
           const tiles = m.rooms.map((r, i) => {
             const on = this._isSel(r), big = i < 2 && m.rooms.length > 1;
-            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
+            return `<button class="rt press ${big ? 'big' : ''} ${on ? 'on' : ''}" style="--rc:${esc(r.color)};--rcx:${esc(AT(r.color))};grid-column:span ${spans[i]}" data-act="room" data-k="${esc(r.key)}" ${r.entity ? `data-ent="${esc(r.entity)}"` : ''} role="checkbox" aria-checked="${on}" data-haptic="selection">
               <span class="ri">${M.icon(r.icon, 18)}</span><span class="rtx"><span class="rn">${esc(r.name)}</span>${r.m2 ? `<span class="rm num">${M.nf(r.m2)} m²</span>` : ''}</span></button>`;
           }).join('');
           const lead = allLbl || !n ? 'Alle rom' : `${n} rom`;
@@ -47396,8 +47931,8 @@ try {
       if (P.includes('totalt')) {
         const as = this.s(m.E.area), a = as && M.isNum(as.state) ? Number(as.state) : null;
         const mins = minutesOf(this.s(m.E.time));
-        out.push(`<div class="stats"><div class="stat" ${m.E.area ? `data-ent="${esc(m.E.area)}"` : ''}>${M.icon('mdi:texture-box', 22, `color:${C.blue}`)}<span class="sl">Vasket totalt</span><b class="num">${a != null ? M.nf(a) + ' m²' : '–'}</b><span class="ss">${a != null ? '≈ ' + M.nf(a / FOTBALL, 1) + ' fotballbaner' : m.E.area ? '' : 'Velg entitet'}</span></div>
-          <div class="stat" ${m.E.time ? `data-ent="${esc(m.E.time)}"` : ''}>${M.icon('mdi:timer-outline', 22, `color:${C.purple}`)}<span class="sl">Tid brukt</span><b class="num">${esc(dagerTimer(mins))}</b><span class="ss">${mins != null ? 'til sammen' : m.E.time ? '' : 'Velg entitet'}</span></div></div>`);
+        out.push(`<div class="stats"><div class="stat" ${m.E.area ? `data-ent="${esc(m.E.area)}"` : ''}>${M.icon('mdi:texture-box', 22, `color:${AT(C.blue)}`)}<span class="sl">Vasket totalt</span><b class="num">${a != null ? M.nf(a) + ' m²' : '–'}</b><span class="ss">${a != null ? '≈ ' + M.nf(a / FOTBALL, 1) + ' fotballbaner' : m.E.area ? '' : 'Velg entitet'}</span></div>
+          <div class="stat" ${m.E.time ? `data-ent="${esc(m.E.time)}"` : ''}>${M.icon('mdi:timer-outline', 22, `color:${AT(C.purple)}`)}<span class="sl">Tid brukt</span><b class="num">${esc(dagerTimer(mins))}</b><span class="ss">${mins != null ? 'til sammen' : m.E.time ? '' : 'Velg entitet'}</span></div></div>`);
       }
       if (P.includes('vedlikehold')) {
         const rows = PARTS_V.map(([k, label, icon]) => {
@@ -47427,7 +47962,7 @@ try {
           const alt = esc(M.name(this.hass, m.E.map));
           const inner = wh ? `<svg class="mimg" viewBox="0 0 ${wh[0]} ${wh[1]}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${alt}"><image href="${esc(src)}" width="${wh[0]}" height="${wh[1]}"/>${ov.map((o) => `<rect class="mr ${this._isSel(o.room) ? 'on' : ''}" data-mroom data-k="${esc(o.room.key)}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" width="${o.w.toFixed(1)}" height="${o.h.toFixed(1)}" rx="3" style="--rc:${esc(o.room.color)}"><title>${esc(o.room.name)}</title></rect>`).join('')}</svg>`
             : `<img src="${esc(src)}" alt="${alt}" draggable="false">`;
-          out.push(`<div class="map" data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
+          out.push(`<div class="map" data-ki-island data-key="map" data-ent-map="${esc(m.E.map)}"><div class="mapin" style="transform:translate(${T.x}px, ${T.y}px) scale(${T.s})">${inner}</div>
             <button class="mreset press ${zoomed ? '' : 'hid'}" data-act="mapreset" aria-label="Tilbakestill visning" title="Tilbakestill visning" data-haptic="medium">${M.icon('mdi:fit-to-screen', 22)}</button></div>`);
         }
       }
@@ -47548,64 +48083,64 @@ try {
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),#333333;box-shadow:${C.edge}}
-        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+        .hero{position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 60%),var(--ki-surface, #333333);box-shadow:${C.edge}} /* ki-hex-ok: lysrefleks (hvit i begge moduser) */
+        .scw{position:absolute;right:6px;top:6px;bottom:6px;width:min(50%,173px);border-radius:22px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .scene{display:block;width:100%;height:100%}
         .zone{fill:${C.purple};fill-opacity:.32;stroke:${C.purple};stroke-opacity:.7;stroke-width:1.2;stroke-dasharray:4 3}
-        .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
+        .trail{fill:none;stroke:rgba(255,255,255,.16);stroke-width:20;stroke-linecap:round;stroke-linejoin:round} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .homep{fill:none;stroke:rgba(242,181,115,.55);stroke-width:2;stroke-dasharray:4 5}
         .led{fill:${C.blue}}
         .bot.cleaning .led{fill:${C.green}}
         .bot.returning .led,.bot.paused .led{fill:${C.orange}}
         .err{fill:none;stroke:${C.red};stroke-width:2.5;animation:vblink 1s steps(2) infinite}
-        .dl{fill:#545454}.dl.on{fill:${C.green};animation:vpulse 1.6s ease-in-out infinite}
+        .dl{fill:#545454}.dl.on{fill:${C.green};animation:vpulse 1.6s ease-in-out infinite} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .bolt{animation:vpulse 1.6s ease-in-out infinite}
         @keyframes vpulse{0%,100%{opacity:1}50%{opacity:.35}}
         @keyframes vblink{0%{opacity:1}100%{opacity:0}}
         @media (prefers-reduced-motion: reduce){.dl.on,.bolt,.err{animation:none}}
         .hl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:18px 10px 18px 18px;height:100%;width:calc(100% - min(50%,173px) - 6px);box-sizing:border-box;min-width:0}
-        .hn{font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) 16%, rgba(255,255,255,.06));color:var(--tc);font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
+        .hn{font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .spill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px 0 8px;border-radius:14px;background:color-mix(in srgb, var(--tc) calc(16% * var(--ki-tone-k, 1)), ${WA(0.06)});color:var(--tcx, var(--tc));font-size:13px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden}
         .spill span{overflow:hidden;text-overflow:ellipsis}
         .batw{margin-top:auto;display:flex;flex-direction:column;gap:4px;width:100%}
         .bat{display:flex;align-items:baseline;gap:2px}
         .bv{font-size:44px;font-weight:300;line-height:1}
-        .bu{font-size:20px;color:var(--gray700,#979797)}
-        .bl{font-size:13px;color:var(--gray700,#979797)}
-        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px}
+        .bu{font-size:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .bl{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .bbar{display:block;width:100%;max-width:120px;height:4px;border-radius:2px;background:${WA(0.1)};overflow:hidden;margin-top:2px}
         .bbar i{display:block;height:100%;border-radius:2px;background:${C.green}}
         .tank{display:flex;align-items:center;gap:12px;padding:6px 8px 6px 6px;border-radius:32px;background:${C.red};color:#2c1411}
-        .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:rgba(0,0,0,.1);flex:none;animation:vdrip 1.4s ease-in-out infinite}
+        .ti{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:${BA(0.1)};flex:none;animation:vdrip 1.4s ease-in-out infinite}
         @keyframes vdrip{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
         .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tt b{font-size:15px;font-weight:600}.tt span{font-size:12px;opacity:.8}
-        .tb{height:40px;padding:0 14px;border-radius:20px;background:rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
+        .tb{height:40px;padding:0 14px;border-radius:20px;background:${BA(0.12)};display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex:none}
         .top{display:flex;align-items:center;gap:8px;min-width:0}
-        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray200,#3a3a3a)') : ''}}
+        .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;height:48px;box-sizing:border-box;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray200,#3a3a3a))') : ''}}
         .tabs.names{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
-        .tabs .itab{color:var(--gray800,#afafaf);background:transparent}
-        .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .tabs .itab{color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
+        .tabs .itab.on,.tabs .ntab.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         ${M.iconTabs.css('.tabs.itabs')}
-        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray800,#afafaf)}
-        .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);flex:none;box-shadow:${C.edge}}
+        .ntab{min-width:0;width:100%;height:40px;padding:0 6px;border-radius:20px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .gear{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));flex:none;box-shadow:${C.edge}}
         .sh{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
-        .meta{font-size:13px;color:var(--gray700,#979797);margin-left:auto}
-        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--white,#fafafa)}
-        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .meta{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));margin-left:auto}
+        .lnk{height:32px;padding:0 4px;background:none;font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+        .rcard{display:flex;flex-direction:column;gap:12px;padding:14px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .rch{display:flex;align-items:center;gap:8px;padding:0 4px;min-height:32px}
-        .rct{flex:1;min-width:0;font-size:15px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rct{flex:1;min-width:0;font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(84px,auto);gap:8px}
         .rt{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px;border-radius:20px;text-align:left;min-width:0;overflow:hidden;
-          background:color-mix(in srgb, var(--rc) 25%, #3a3a3a);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
+          background:color-mix(in srgb, var(--rc) 25%, var(--ki-surface, #3a3a3a));box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rc) 35%, transparent);transition:background .2s,box-shadow .2s}
         .rt.big{min-height:104px}
-        .rt .ri{display:grid;place-items:center;color:var(--rc);height:18px}
+        .rt .ri{display:grid;place-items:center;color:var(--rcx, var(--rc));height:18px}
         .rtx{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
         .rn{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-        .rm{font-size:12px;color:var(--gray800,#afafaf)}
-        .rt.on{background:color-mix(in srgb, var(--rc) 55%, #3a3a3a);box-shadow:inset 0 0 0 2px #fafafa}
-        .rt.on .ri{color:#fafafa}
-        .rt.on .rm{color:var(--gray900,#c7c7c7)}
-        .sum{padding:0 4px;font-size:13px;color:var(--gray800,#afafaf)}
+        .rm{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .rt.on{background:color-mix(in srgb, var(--rc) 55%, var(--ki-surface, #3a3a3a));box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
+        .rt.on .ri{color:var(--ki-text, #fafafa)}
+        .rt.on .rm{color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .sum{padding:0 4px;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .gobtn{display:flex;align-items:center;gap:12px;height:64px;padding:0 20px 0 8px;border-radius:32px;background:${C.green};color:#12291d;text-align:left}
         .gobtn .gi{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;background:#1d3a2b;color:${C.green};flex:none}
         .gobtn .gt{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -47615,57 +48150,57 @@ try {
         .gobtn.armed .gi{background:#3d2a10;color:${C.orange}}
         .gobtn[disabled]{opacity:.4}
         .actrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--gray200,#3a3a3a);font-size:16px;font-weight:600}
+        .ab{display:flex;align-items:center;justify-content:center;gap:8px;height:64px;border-radius:32px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:16px;font-weight:600}
         .ab.pz{background:${C.orange};color:#2d1f0c}.ab.go{background:${C.green};color:#12291d}
         .zones{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:2px}
         .zones::-webkit-scrollbar{display:none}
-        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
-        .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:14px}
-        .miss .mdash{font-size:22px;color:var(--white,#fafafa)}
+        .zc{flex:none;height:52px;padding:0 18px 0 14px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:${C.edge}}
+        .miss{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:22px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797));font-size:14px}
+        .miss .mdash{font-size:22px;color:var(--ki-text, var(--white,#fafafa))}
         .miss .mt{flex-basis:100%;text-align:center;font-size:12px}
-        .pick{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray300,#404040);display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--white,#fafafa)}
-        .card{border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        .pick{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ki-text, var(--white,#fafafa))}
+        .card{border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .prog{padding:16px;display:flex;flex-direction:column;gap:14px}
         .pgt{display:flex;align-items:center;gap:14px}
-        .pv{font-size:44px;font-weight:300;line-height:1}.pv small{font-size:20px;color:var(--gray700,#979797)}
-        .pl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pl b{font-size:15px;font-weight:500}.pl span{font-size:13px;color:var(--gray700,#979797)}
+        .pv{font-size:44px;font-weight:300;line-height:1}.pv small{font-size:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pl b{font-size:15px;font-weight:500}.pl span{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center;background:${C.orange};color:#2d1f0c;flex:none}
         .pp.go{background:${C.green};color:#12291d}
-        .bar{height:8px;border-radius:4px;background:var(--gray300,#404040);overflow:hidden}
+        .bar{height:8px;border-radius:4px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:4px;background:${C.green};transition:width .6s}
         .cbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .cb{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:96px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:left;font-size:14px;font-weight:500;box-shadow:${C.edge}}
-        .cb i{font-style:normal;font-size:11px;color:var(--gray700,#979797);font-weight:400}
-        .segc{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--gray200,#3a3a3a)}
+        .cb{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:96px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;font-size:14px;font-weight:500;box-shadow:${C.edge}}
+        .cb i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-weight:400}
+        .segc{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .sgh{display:flex;align-items:center;gap:8px;padding:0 4px;font-size:14px;font-weight:500}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--gray100,#282828);position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--gray100,#282828)') : ''}}
-        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;text-transform:capitalize}
-        .seg .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
-        .row{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);text-align:left}
-        .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.grow b{font-size:14px;font-weight:500}.grow>span{font-size:12px;color:var(--gray700,#979797)}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#282828));position:relative;touch-action:pan-y;overflow:hidden;${M.tabSurface ? M.tabSurface('var(--ki-surface-3, var(--gray100,#282828))') : ''}}
+        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:18px;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;text-transform:capitalize}
+        .seg .sg.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
+        .row{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left}
+        .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.grow b{font-size:14px;font-weight:500}.grow>span{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .stat{display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0;box-shadow:${C.edge}}
-        .stat .sl{font-size:12px;color:var(--gray700,#979797);margin-top:6px}.stat b{font-size:20px;font-weight:500}.stat .ss{font-size:12px;color:var(--gray800,#afafaf)}
+        .stat{display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0;box-shadow:${C.edge}}
+        .stat .sl{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));margin-top:6px}.stat b{font-size:20px;font-weight:500}.stat .ss{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .vlist{padding:4px}
         .vrow{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 12px;border-radius:20px}
-        .vrow+.vrow{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-        .vi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .vb{display:block;height:4px;border-radius:2px;background:var(--gray300,#404040);overflow:hidden;margin-top:4px}.vb i{display:block;height:100%;background:${C.green}}
-        .vrow.low .vi{background:color-mix(in srgb, ${C.orange} 22%, transparent);color:${C.orange}}
-        .vrow.low .grow .num{color:${C.orange}}.vrow.low .vb i{background:${C.orange}}
+        .vrow+.vrow{box-shadow:inset 0 1px 0 ${WA(0.05)}}
+        .vi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .vb{display:block;height:4px;border-radius:2px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden;margin-top:4px}.vb i{display:block;height:100%;background:${C.green}}
+        .vrow.low .vi{background:color-mix(in srgb, ${C.orange} calc(22% * var(--ki-tone-k, 1)), transparent);color:${AT(C.orange)}}
+        .vrow.low .grow .num{color:${AT(C.orange)}}.vrow.low .vb i{background:${C.orange}}
         .rs{height:36px;padding:0 14px;border-radius:18px;background:${C.orange};color:#2d1f0c;font-size:13px;font-weight:600;flex:none}
-        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+        .map{position:relative;border-radius:24px;overflow:hidden;background:var(--gray200,#3a3a3a);aspect-ratio:3/4;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .map:active{cursor:grabbing}
         .mapin{position:absolute;inset:0;transform-origin:0 0;will-change:transform;display:grid;place-items:center}
         .mapin img,.mapin .mimg{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
         .mapin .mimg .mr{pointer-events:auto;fill:var(--rc);fill-opacity:.18;stroke:var(--rc);stroke-opacity:.6;stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:pointer}
-        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2}
-        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s}
+        .mapin .mimg .mr.on{fill-opacity:.45;stroke:#fafafa;stroke-opacity:1;stroke-width:2} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
+        .mreset{position:absolute;top:10px;right:10px;z-index:2;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(40,40,40,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fafafa;box-shadow:${C.edge};transition:opacity .2s,transform .2s} /* ki-hex-ok: robot-scene/kartbilde (mørk øy) */
         .mreset.hid{opacity:0;transform:scale(.8);pointer-events:none}
         .legend{display:flex;flex-wrap:wrap;gap:6px}
-        .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:8px;font-size:13px}
+        .legend .lg{height:36px;padding:0 14px 0 10px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:8px;font-size:13px}
         .legend .lg i{width:12px;height:12px;border-radius:6px;background:var(--rc)}
-        .legend .lg.on{background:var(--rc);color:#232323}.legend .lg.on i{background:#232323}
+        .legend .lg.on{background:var(--rc);color:var(--ki-on-accent, #232323)}.legend .lg.on i{background:var(--ki-on-accent, #232323)}
       `;
     }
   }
@@ -49322,6 +49857,10 @@ try {
   if (!M) return;
   const esc = M.esc, C = M.C;
   const HASH = '#soppel';
+  // Fiks 35 (tema): gjennomsiktig hvit/svart etter regel 4/3 (mørk modus = som før). Toppkortet er en mørk øy.
+  const TH = M.theme || {};
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const OA = 'var(--ki-on-accent, #2a1720)';
 
   /* ============================================================ felles for Tilpass-arkene (25.6) – brukes også av 60-innstillinger.js */
   // Rosa brytere 44×26, segmenter på #282828, seksjonskort #3a3a3a r24 – bare i editorer for disse kortene (adoptedStyleSheets,
@@ -49330,26 +49869,26 @@ try {
     .sw{width:44px;height:26px;border-radius:13px}
     .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
     .sw.on{background:var(--pink,#f285c9)} .sw.on::after{transform:translateX(18px)}
-    .chips.sg.tabs,.chips.sg.tsub{background:#282828}
-    .fsec>.sec{border-radius:24px;background:#3a3a3a}
+    .chips.sg.tabs,.chips.sg.tsub{background:var(--ki-surface-3, #282828)}
+    .fsec>.sec{border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .ordrow{touch-action:pan-y}
-    .edrow{display:flex;align-items:center;gap:8px;min-height:56px;border-radius:28px;background:#404040;padding:4px 6px 4px 8px}
+    .edrow{display:flex;align-items:center;gap:8px;min-height:56px;border-radius:28px;background:var(--ki-surface-2, #404040);padding:4px 6px 4px 8px}
     .edrow.off{opacity:.5}
     .edrow .nm{flex:1;min-width:0;display:flex;flex-direction:column}
     .edrow .nm b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edrow .nm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edh{touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 2px;flex:none}
-    .edic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:#3a3a3a}
-    .edsub{display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px;margin:-4px 0 4px 28px;border-radius:22px;background:#353535}
+    .edrow .nm i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edh{touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 2px;flex:none}
+    .edic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-surface, #3a3a3a)}
+    .edsub{display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px;margin:-4px 0 4px 28px;border-radius:22px;background:var(--ki-surface-3, #353535)}
     .edsw{display:flex;flex-wrap:wrap;gap:6px}
-    .edsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
-    .edsw button.on{box-shadow:0 0 0 2px #282828,0 0 0 4px #fafafa}
-    .edq{display:flex;align-items:center;gap:8px;height:44px;border-radius:22px;background:#2f2f2f;padding:0 6px 0 14px}
-    .edq input{flex:1;min-width:0;height:100%;background:none;border:0;color:#fafafa;font-size:14px}
-    .edhit{min-height:48px;border-radius:24px;background:#404040;display:flex;align-items:center;gap:10px;padding:6px 14px;text-align:left;width:100%}
+    .edsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px ${WA(0.12)}}
+    .edsw button.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
+    .edq{display:flex;align-items:center;gap:8px;height:44px;border-radius:22px;background:var(--ki-surface-3, #2f2f2f);padding:0 6px 0 14px}
+    .edq input{flex:1;min-width:0;height:100%;background:none;border:0;color:var(--ki-text, #fafafa);font-size:14px}
+    .edhit{min-height:48px;border-radius:24px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:10px;padding:6px 14px;text-align:left;width:100%}
     .edhit .nm{flex:1;min-width:0;display:flex;flex-direction:column}
     .edhit .nm b{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .edhit .nm i{font-style:normal;font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edhit .nm i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .edlist{display:flex;flex-direction:column;gap:8px}`;
   let edSheet = null;
   // Installer i en editor (én gang): ekstra CSS, dra-for-rekkefølge og søkefelt.
@@ -49375,7 +49914,7 @@ try {
       e.stopPropagation(); e.preventDefault(); // fallgruve 2: popupen/arket skal ikke dras eller lukkes
       d = { list: item.dataset.elist, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + (TH.blackA ? TH.blackA(0.4, TH.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – bare under draget
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -49408,7 +49947,7 @@ try {
     R.addEventListener('pointercancel', end);
   };
   M.edHandle = () => `<span class="edh" data-edrag title="Dra for rekkefølge">${M.icon('mdi:drag', 20)}</span>`;
-  M.edEye = (key, op, v, hid, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : '#fafafa'}`)}</button>`;
+  M.edEye = (key, op, v, hid, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>`;
   // Rekkefølge: lagret rekkefølge først (bare kjente nøkler), resten i standardrekkefølge
   M.edOrder = (keys, saved) => { const o = (Array.isArray(saved) ? saved : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
 
@@ -49571,11 +50110,11 @@ try {
   // Én bøtte (48×58) i fraksjonsfargen: kropp, riller og lokk (lokket rister på tømmedagen)
   const bin = (farge, i) => `<svg class="bin" style="--i:${i}" viewBox="0 0 48 58" aria-hidden="true">
       <rect x="6" y="14" width="36" height="40" rx="6" fill="${farge}"/>
-      <path d="M16 22v24M24 22v24M32 22v24" stroke="rgba(0,0,0,.22)" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M16 22v24M24 22v24M32 22v24" stroke="rgba(0,0,0,.22)" stroke-width="2.4" stroke-linecap="round"/><!-- ki-hex-ok: illustrasjon i mørk øy -->
       <circle cx="13" cy="54" r="4" fill="#1b1d22"/><circle cx="35" cy="54" r="4" fill="#1b1d22"/>
       <g class="lid"><rect x="2" y="7" width="44" height="8" rx="4" fill="${farge}"/><rect x="18" y="3" width="12" height="5" rx="2.5" fill="${farge}"/></g></svg>`;
   const truck = () => `<svg class="truck" viewBox="0 0 150 60" aria-hidden="true">
-      <rect x="4" y="10" width="92" height="34" rx="6" fill="#e1e1e1"/><rect x="10" y="16" width="80" height="10" rx="3" fill="rgba(0,0,0,.12)"/>
+      <rect x="4" y="10" width="92" height="34" rx="6" fill="#e1e1e1"/><rect x="10" y="16" width="80" height="10" rx="3" fill="rgba(0,0,0,.12)"/><!-- ki-hex-ok: illustrasjon i mørk øy -->
       <path d="M96 20h28l16 16v8H96z" fill="#c7c7c7"/><rect x="102" y="24" width="18" height="11" rx="2" fill="#73b9f2" opacity=".8"/>
       <circle class="wh" cx="28" cy="48" r="8" fill="#1b1d22"/><circle class="wh" cx="72" cy="48" r="8" fill="#1b1d22"/><circle class="wh" cx="120" cy="48" r="8" fill="#1b1d22"/>
       <circle cx="28" cy="48" r="3" fill="#696969"/><circle cx="72" cy="48" r="3" fill="#696969"/><circle cx="120" cy="48" r="3" fill="#696969"/></svg>`;
@@ -49591,7 +50130,7 @@ try {
       ed.__edDrop['sop-tab'] = (o) => ed._set('tab_order', o);
       const hid = tabHidden(cc);
       return `<div class="edlist">${tabOrder(cc).map((k) => { const [, label, icon] = TABL[k]; return `<div class="edrow ${hid.has(k) ? 'off' : ''}" data-edk="${k}" data-elist="sop-tab" data-key="st-${k}">${M.edHandle()}<span class="edic">${M.icon(icon, 20)}</span><span class="nm"><b>${esc(label)}</b><i>${k === (cc.start_tab || visTabs(cc)[0]) ? 'Startfane' : ''}</i></span>${M.edEye(key, 'teye', k, hid.has(k), label)}</div>`; }).join('')}
-        <span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
+        <span class="help" style="font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 6px">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {};
       if (dd.op === 'teye') {
@@ -49614,13 +50153,13 @@ try {
           <span class="nm"><b>${esc(f.navn)}</b><i>${esc(f.id)}</i></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="fexp" data-v="${esc(f.id)}" aria-expanded="${isO}" aria-label="Rediger ${esc(f.navn)}">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:pencil-outline', 20)}</button>
           ${M.edEye(key, 'feye', f.id, f.hidden, f.navn)}</div>`;
-        const sub = isO ? `<div class="edsub" data-key="sfs-${esc(f.id)}"><span style="font-size:12px;color:#afafaf">Navn</span>
+        const sub = isO ? `<div class="edsub" data-key="sfs-${esc(f.id)}"><span style="font-size:12px;color:var(--ki-text-2, #afafaf)">Navn</span>
           <div class="edq"><input data-sopname="${esc(f.id)}" value="${esc(o.name || '')}" placeholder="${esc((hh.states[f.id] && hh.states[f.id].attributes.friendly_name) || f.navn)}" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-          <span style="font-size:12px;color:#afafaf">Farge</span>
+          <span style="font-size:12px;color:var(--ki-text-2, #afafaf)">Farge</span>
           <div class="edsw">${PALETTE.map((p) => { const v = `var(--${p})`, on = (o.color || '') === v; return `<button class="${on ? 'on' : ''}" data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="${esc(v)}" aria-label="${esc(p)}" style="background:${M.color(v)}"></button>`; }).join('')}
-          <button data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="" aria-label="Automatisk" title="Automatisk" style="display:grid;place-items:center;background:#2f2f2f">${M.icon('mdi:auto-fix', 16)}</button></div></div>` : '';
+          <button data-a="fn" data-k="${key}" data-op="fcol" data-v="${esc(f.id)}" data-c="" aria-label="Automatisk" title="Automatisk" style="display:grid;place-items:center;background:var(--ki-surface-3, #2f2f2f)">${M.icon('mdi:auto-fix', 16)}</button></div></div>` : '';
         return row + sub;
-      }).join('')}<span class="help" style="font-size:11px;color:#7f7f7f;padding:0 6px">Dra for rekkefølge i Oversikt. Blyanten gir navn og farge fra temaet, øyet skjuler fraksjonen.</span></div>`;
+      }).join('')}<span class="help" style="font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 6px">Dra for rekkefølge i Oversikt. Blyanten gir navn og farge fra temaet, øyet skjuler fraksjonen.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, id = cid(ed), F = { ...(cc.fraksjoner || {}) };
       const put = (fid, patch) => { const o = { ...(F[fid] || {}), ...patch }; Object.keys(o).forEach((k) => { if (o[k] === undefined || o[k] === '' || o[k] === false) delete o[k]; }); if (Object.keys(o).length) F[fid] = o; else delete F[fid]; ed._set('fraksjoner', Object.keys(F).length ? F : undefined); };
@@ -49643,8 +50182,8 @@ try {
         const f = q ? all.filter((id) => (id + ' ' + (hh.states[id].attributes.friendly_name || '')).toLowerCase().includes(q)) : all.filter((id) => hh.states[id].attributes[attr] != null || /avfall|s(o|ø)ppel|renovasjon|papir|plast|glass|rest/i.test(id));
         return f.sort().slice(0, 8);
       };
-      const search = (target) => `<div class="edsub" data-key="sq-${esc(target)}" style="margin-left:0"><div class="edq">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-edq="sop-q" value="${esc(ed.__edQ['sop-q'] || '')}" placeholder="Søk etter sensor" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-        ${hits().map((id) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="epick" data-v="${esc(target)}" data-id="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}${hh.states[id].attributes[attr] != null ? ' · ' + esc(attr) + ' = ' + esc(hh.states[id].attributes[attr]) : ''}</i></span></button>`).join('') || '<div class="small" style="padding:4px 6px">Ingen treff</div>'}</div>`;
+      const search = (target) => `<div class="edsub" data-key="sq-${esc(target)}" style="margin-left:0"><div class="edq">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-mid, #979797)')}<input data-edq="sop-q" value="${esc(ed.__edQ['sop-q'] || '')}" placeholder="Søk etter sensor" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        ${hits().map((id) => `<button class="edhit" data-a="fn" data-k="${key}" data-op="epick" data-v="${esc(target)}" data-id="${esc(id)}">${M.icon(M.domainIcon(id, hh.states[id]), 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(M.name(hh, id))}</b><i>${esc(id)}${hh.states[id].attributes[attr] != null ? ' · ' + esc(attr) + ' = ' + esc(hh.states[id].attributes[attr]) : ''}</i></span></button>`).join('') || '<div class="small" style="padding:4px 6px">Ingen treff</div>'}</div>`;
       return `<div class="edlist"><div class="small" style="padding:0 6px">${auto ? `Automatisk: alle sensorer med attributtet «${esc(attr)}» (${ids.length} funnet).` : `${ids.length} valgte sensorer.`}</div>
         ${ids.map((id) => { const s = hh.states[id]; return `<div class="edrow" data-key="se-${esc(id)}"><span class="edic">${M.icon(s ? M.domainIcon(id, s) : 'mdi:help-circle-outline', 20)}</span><span class="nm"><b>${esc(s ? M.name(hh, id) : id)}</b><i>${esc(id)}${s ? '' : ' · finnes ikke'}</i></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="eswap" data-v="${esc(id)}" aria-label="Bytt entitet">${M.icon(sw === id ? 'mdi:close' : 'mdi:swap-horizontal', 20)}</button>
@@ -49736,7 +50275,7 @@ try {
       const bins = (same.length ? same : [{ farge: C.gray500 }]).slice(0, 4).map((f, i) => bin(f.farge, i)).join('');
       const names = top ? og(same.map((f) => f.navn)) : '';
       const car = idag && c.soppelbil !== false ? `<div class="road" aria-hidden="true">${truck()}</div>` : '';
-      return `<div class="hero ${idag ? 'idag' : ''} ${snart ? 'snart' : ''}" style="--f:${farge}" data-key="hero">
+      return `<div class="hero ${idag ? 'idag' : ''} ${snart ? 'snart' : ''}" style="--f:${farge}" data-key="hero" data-ki-island>
         <div class="glow" aria-hidden="true"></div>
         <div class="hl">
           <span class="pill ${idag ? 'on' : ''}"><i class="blink"></i>${idag ? 'Tømmes i dag' : 'Neste tømming'}</span>
@@ -49830,20 +50369,20 @@ try {
         :host{display:block;width:100%}
         .wrap,.pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
         /* toppkort */
-        .hero{position:relative;height:184px;border-radius:28px;background:#2b3039;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;isolation:isolate}
+        .hero{position:relative;height:184px;border-radius:28px;background:#2b3039;color:var(--ki-text, var(--white,#fafafa));box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;isolation:isolate} /* mørk øy (data-ki-island) */
         .glow{position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 90% at 88% 100%, color-mix(in srgb, var(--f) 42%, transparent), transparent 62%),radial-gradient(70% 60% at 0% 0%, color-mix(in srgb, var(--f) 14%, transparent), transparent 70%);transition:background .5s}
         .hero.idag .glow{background:radial-gradient(130% 100% at 85% 100%, color-mix(in srgb, var(--f) 62%, transparent), transparent 66%),radial-gradient(80% 70% at 0% 0%, color-mix(in srgb, var(--f) 24%, transparent), transparent 70%)}
         .hl{position:absolute;left:18px;top:16px;right:120px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
-        .pill{height:26px;padding:0 11px 0 9px;border-radius:13px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;background:rgba(255,255,255,0.1);color:#e1e1e1;white-space:nowrap}
+        .pill{height:26px;padding:0 11px 0 9px;border-radius:13px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;background:${WA(0.1)};color:var(--ki-text-1, #e1e1e1);white-space:nowrap}
         .pill i{width:8px;height:8px;border-radius:4px;background:var(--f)}
-        .pill.on{background:color-mix(in srgb, var(--f) 30%, rgba(255,255,255,0.08))}
+        .pill.on{background:color-mix(in srgb, var(--f) 30%, ${WA(0.08)})}
         .pill.on i{animation:blink 1.1s ease-in-out infinite}
         @keyframes blink{50%{opacity:.15}}
         .big{font-size:36px;font-weight:500;line-height:1.1;letter-spacing:-.02em;margin-top:8px;white-space:nowrap}
-        .nm{font-size:15px;font-weight:500;color:#fafafa;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+        .nm{font-size:15px;font-weight:500;color:var(--ki-text, #fafafa);max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
         .nm.miss{display:block;margin-top:4px}
-        .dt{font-size:13px;color:#afafaf;white-space:nowrap}
-        .gear{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center;z-index:3}
+        .dt{font-size:13px;color:var(--ki-text-2, #afafaf);white-space:nowrap}
+        .gear{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;background:${WA(0.1)};display:grid;place-items:center;z-index:3}
         .bins{position:absolute;right:14px;bottom:10px;display:flex;align-items:flex-end;gap:2px;z-index:2}
         .bin{width:38px;height:46px;overflow:visible}
         .bins.hop .bin{animation:hop 1.6s cubic-bezier(.3,.7,.4,1) infinite;animation-delay:calc(var(--i) * .18s)}
@@ -49856,54 +50395,54 @@ try {
         @keyframes drive{0%{transform:translateX(-110px)}100%{transform:translateX(calc(100cqw + 20px))}}
         .road{container-type:inline-size}
         /* faner */
-        .tabs{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y}
-        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:14px;white-space:nowrap;color:var(--gray800,#afafaf)}
-        .tb.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .tabs{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray200,#3a3a3a));position:relative;touch-action:pan-y}
+        .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;font-size:14px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .tb.on{background:${C.accent};color:${OA};font-weight:500}
         /* Oversikt */
         .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--msh-gap,8px)}
-        .fk{position:relative;min-width:0;min-height:128px;border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);padding:14px 14px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;overflow:hidden}
+        .fk{position:relative;min-width:0;min-height:128px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};padding:14px 14px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;overflow:hidden}
         .fk.on{box-shadow:inset 0 0 0 2px var(--f)}
         .fk .fi,.vr .fi{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:color-mix(in srgb, var(--f) 22%, transparent);color:var(--f);margin-bottom:8px;flex:none}
         .fk .fn{font-size:14px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .fk .fd{font-size:20px;font-weight:500}
         .fk.idag .fd{color:var(--f)}
-        .fk .fdt{font-size:12px;color:#979797;white-space:nowrap}
-        .bar{position:absolute;left:14px;right:14px;bottom:10px;height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden}
+        .fk .fdt{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap}
+        .bar{position:absolute;left:14px;right:14px;bottom:10px;height:4px;border-radius:2px;background:var(--ki-surface-3, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1))));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:2px;background:var(--f)}
-        .sec{border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
-        .sh{font-size:13px;font-weight:500;color:#afafaf}
+        .sec{border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+        .sh{font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf)}
         .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-        .dc,.mc{min-width:0;height:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--gray300,#404040)}
-        .dc .wd{font-size:11px;color:#979797}
+        .dc,.mc{min-width:0;height:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .dc .wd{font-size:11px;color:var(--ki-text-mid, #979797)}
         .dc .dn,.mc .dn{font-size:15px;font-weight:500}
-        .dc.td,.mc.td{background:${C.accent};color:#2a1720}.dc.td .wd{color:#2a1720}
-        .dc.on,.mc.on{box-shadow:inset 0 0 0 2px #fafafa}
+        .dc.td,.mc.td{background:${C.accent};color:${OA}}.dc.td .wd{color:${OA}}
+        .dc.on,.mc.on{box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
         .dots{display:flex;gap:3px;height:7px}
         .dots i{width:7px;height:7px;border-radius:4px}
         .dots i.est{background:transparent}
-        .dp{border-radius:18px;background:var(--gray300,#404040);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+        .dp{border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));padding:10px 12px;display:flex;flex-direction:column;gap:6px}
         .dph{font-size:13px;font-weight:500}
         .dpr{display:flex;align-items:center;gap:8px;font-size:13px}.dpr i{width:10px;height:10px;border-radius:5px;flex:none}
-        .dpr em{font-style:normal;font-size:11px;color:#979797;margin-left:auto}.dpr.none{color:#979797}
+        .dpr em{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);margin-left:auto}.dpr.none{color:var(--ki-text-mid, #979797)}
         /* Kalender */
         .mh{display:flex;align-items:center;gap:8px}.mh .mt{flex:1;text-align:center;font-size:15px;font-weight:500}
-        .nb{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center}
-        .wdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:11px;color:#979797;text-align:center}
+        .nb{width:40px;height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center}
+        .wdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:11px;color:var(--ki-text-mid, #979797);text-align:center}
         .mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
         .mc{height:48px;background:transparent}.mc.oth{opacity:.35}
-        .lgs{display:flex;flex-wrap:wrap;gap:6px 12px}.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#afafaf}.lg i{width:9px;height:9px;border-radius:5px}
-        .note{font-size:12px;color:#979797;line-height:1.4}
+        .lgs{display:flex;flex-wrap:wrap;gap:6px 12px}.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-2, #afafaf)}.lg i{width:9px;height:9px;border-radius:5px}
+        .note{font-size:12px;color:var(--ki-text-mid, #979797);line-height:1.4}
         /* Varsler */
         .vl{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .vr{display:flex;align-items:center;gap:12px;min-height:66px;border-radius:33px;background:var(--gray200,#3a3a3a);padding:8px 16px 8px 10px;text-align:left}
+        .vr{display:flex;align-items:center;gap:12px;min-height:66px;border-radius:33px;background:var(--ki-surface, var(--gray200,#3a3a3a));padding:8px 16px 8px 10px;text-align:left}
         .vr .fi{margin:0}
-        .vt{flex:1;min-width:0;display:flex;flex-direction:column}.vt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vt i{font-style:normal;font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+        .vt{flex:1;min-width:0;display:flex;flex-direction:column}.vt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
+        .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
         .sw.on{background:var(--pink,#f285c9)}.sw.on::after{transform:translateX(18px)}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:#282828;touch-action:pan-y}
-        .sg{flex:1 1 0;min-width:0;height:38px;border-radius:19px;font-size:13px;white-space:nowrap;color:#afafaf;padding:0 4px}
-        .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, #282828);touch-action:pan-y}
+        .sg{flex:1 1 0;min-width:0;height:38px;border-radius:19px;font-size:13px;white-space:nowrap;color:var(--ki-text-2, #afafaf);padding:0 4px}
+        .sg.on{background:${C.accent};color:${OA};font-weight:500}
         @media (max-width:380px){.sg{font-size:12px}.big{font-size:32px}}
         @media (prefers-reduced-motion: reduce){.bins .bin,.bins .lid,.truck,.pill.on i{animation:none !important}}`;
     }
