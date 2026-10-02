@@ -71,7 +71,8 @@ async function open(tag, hash, extra, userData) {
     await wait(400);
     location.hash = hash;
     await wait(1300);
-    window.card = () => deepAll(tag).find((e) => e.getClientRects().length) || deepAll(tag)[0];
+    window.card = () => { const c = deepAll(tag).find((e) => e.getClientRects().length) || deepAll(tag)[0] || window.__c; if (c) window.__c = c; return c; };
+    card();
     window.T = () => { const c = card(); if (!c || !c.shadowRoot) return null; const row = [c.shadowRoot, ...deepAll('*', c.shadowRoot).filter((e) => e.shadowRoot).map((e) => e.shadowRoot)].flatMap((r) => [...r.querySelectorAll('*')]).find((e) => e.__tabReorder && e.getClientRects().length); return row ? row.__tabReorder : null; };
     window.popOpen = () => location.hash === hash && deepAll('.bubble-pop-up').some((p) => p.classList.contains('is-popup-opened'));
     window.bgOf = (el) => { for (let n = el; n; n = n.parentElement || (n.getRootNode && n.getRootNode().host)) { if (n.nodeType !== 1) continue; const P = window.MSH.theme.parse(getComputedStyle(n).backgroundColor); if (P && P[3] > 0.5) return getComputedStyle(n).backgroundColor; } return 'rgb(240, 240, 240)'; };

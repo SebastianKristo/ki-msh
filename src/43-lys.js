@@ -755,9 +755,7 @@
         /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
-        /* lys-rader (felles rad, 12 px mellom). Fiks 35: den innebygde lyskontrollen (vendor) bruker --gray1000/--gray700 direkte
-           → tokens i lys modus (mørk = temaets verdier #e1e1e1/#979797) */
-        mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454)}
+        /* lys-rader (felles rad, 12 px mellom); vendor-lyskontrollens --gray1000/700/400 → tokens i M.LIGHT_ROW_CSS (08) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         /* Utelys-kortet */
         .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}

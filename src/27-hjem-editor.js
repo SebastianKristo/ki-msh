@@ -1149,7 +1149,7 @@
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
       // Fiks 33.4: «Fanehøyde i popups» – global standard (ki-store ui.popup_tab_height) for alle popups på «Følg global»
-      const ptRow = M.tabH ? `<div class="tset" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
+      const ptRow = M.tabH ? `<div class="fld" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
       // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
       const hOn = M.hapticOff ? !M.hapticOff() : true;
       const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
@@ -1167,8 +1167,9 @@
           ${pvBox}${stRow}${visRow}
           <div class="fld"><span class="fl">Høyde${pl}</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
           <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
+          ${ptRow}
         </div>
-        ${ptRow}${gaRow}${hapRow}${rows}
+        ${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <span class="hint">Dra fanene for å endre rekkefølgen. Etasjer fra Home Assistant dukker opp automatisk.</span>`;
     }

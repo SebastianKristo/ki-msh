@@ -9747,7 +9747,7 @@ try {
   };
   M.LIGHT_ROW_CSS = `
     .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,40px) + 28px)}
-    .lsl mysmart-light-control{display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
+    .lsl mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454);display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
     .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
     .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
@@ -21147,7 +21147,7 @@ try {
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
       // Fiks 33.4: «Fanehøyde i popups» – global standard (ki-store ui.popup_tab_height) for alle popups på «Følg global»
-      const ptRow = M.tabH ? `<div class="tset" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
+      const ptRow = M.tabH ? `<div class="fld" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
       // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
       const hOn = M.hapticOff ? !M.hapticOff() : true;
       const hapRow = M.setHapticOff ? `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="hapticdev" data-h="selection" role="switch" aria-checked="${hOn}" data-key="hapticdev"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:vibrate', 20, `color:${hOn ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Haptisk feedback</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Gjelder bare denne enheten</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)">Denne enheten: ${esc(M.deviceInfo().label)}</span></span></span>${this._sw(hOn)}</button>` : '';
@@ -21165,8 +21165,9 @@ try {
           ${pvBox}${stRow}${visRow}
           <div class="fld"><span class="fl">Høyde${pl}</span><div class="chs">${[['std', 'Standard'], ['lav', 'Lav'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_height', v, l, hC)).join('')}</div>${hC === 'custom' ? custom('tab_height', 'tab_height_px', 24, 80, 38) : ''}</div>
           <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
+          ${ptRow}
         </div>
-        ${ptRow}${gaRow}${hapRow}${rows}
+        ${gaRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <span class="hint">Dra fanene for å endre rekkefølgen. Etasjer fra Home Assistant dukker opp automatisk.</span>`;
     }
@@ -32694,9 +32695,7 @@ try {
         /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
-        /* lys-rader (felles rad, 12 px mellom). Fiks 35: den innebygde lyskontrollen (vendor) bruker --gray1000/--gray700 direkte
-           → tokens i lys modus (mørk = temaets verdier #e1e1e1/#979797) */
-        mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454)}
+        /* lys-rader (felles rad, 12 px mellom); vendor-lyskontrollens --gray1000/700/400 → tokens i M.LIGHT_ROW_CSS (08) */
         .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
         /* Utelys-kortet */
         .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
@@ -43352,6 +43351,9 @@ try {
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:${TONE(C.orange, 0.14)};color:${AT(C.orange)};font-size:14px;font-weight:500;text-align:left}
         .house{position:relative;width:100%;min-height:340px;border-radius:28px;overflow:hidden}
+        /* Fiks 35: husscenen er en mørk øy (52-energi-hus) – i lys modus får den egen mørk flate med kortenes radius, så
+           etikettene (lys tekst) står på mørk bakgrunn. --ki-pill-bg finnes bare i lys modus → mørk = gjennomsiktig som før. */
+        .house:not(.ph){background-color:var(--ki-pill-bg, transparent)}
         .house.ph{height:340px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .phl{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:8px}
         .hl{display:flex;flex-direction:column;gap:2px}

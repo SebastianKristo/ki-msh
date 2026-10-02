@@ -771,6 +771,9 @@
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:${TONE(C.orange, 0.14)};color:${AT(C.orange)};font-size:14px;font-weight:500;text-align:left}
         .house{position:relative;width:100%;min-height:340px;border-radius:28px;overflow:hidden}
+        /* Fiks 35: husscenen er en mørk øy (52-energi-hus) – i lys modus får den egen mørk flate med kortenes radius, så
+           etikettene (lys tekst) står på mørk bakgrunn. --ki-pill-bg finnes bare i lys modus → mørk = gjennomsiktig som før. */
+        .house:not(.ph){background-color:var(--ki-pill-bg, transparent)}
         .house.ph{height:340px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .phl{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:8px}
         .hl{display:flex;flex-direction:column;gap:2px}
