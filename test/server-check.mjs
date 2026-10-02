@@ -142,7 +142,7 @@ await click(p, '.trow .gear', 900);
 let E = await p.evaluate(() => {
   const o = window.MSH.portals().pop(), r = o.shadowRoot, er = r.querySelector('msh-editor').shadowRoot;
   return { tp: o.dataset.tpSheet, tabs: [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].map((x) => x.getAttribute('aria-label') || x.textContent.trim()), prev: [...er.querySelectorAll('.svp .tb')].map((x) => x.textContent.trim()),
-    velger: [...er.querySelectorAll('[data-name="velger"]')].map((x) => x.textContent.trim()), th: !!er.querySelector('[data-name="tab_height"], ki-spacing-editor[rows*="tab_height"]'), prose: !!er.querySelector('[data-name="show_prose"]') };
+    velger: [...er.querySelectorAll('[data-name="velger"]')].map((x) => x.textContent.trim()), th: !!er.querySelector('[data-name="tab_height"], ki-spacing-editor[rows*="tab_height"], [data-mth-field="tab_height"]') /* 33.4: felles fanehøyde-felt */, prose: !!er.querySelector('[data-name="show_prose"]') };
 });
 ok('«Tilpass Server» (tilpass-ark): Visning · Faner · Toppkort · Integrasjoner · Avansert, forhåndsvisning av vertvelgeren', E.tp === '1' && E.tabs.join() === 'Visning,Faner,Toppkort,Integrasjoner,Avansert' && E.prev.join() === 'Nettverk,Proxmox,Unraid,HA', E);
 ok('Visning: «Vertvelger» Faner/Kort, «Fanehøyde» (tab_height), «Setning under toppkortet» (show_prose)', E.velger.join() === 'Faner,Kort' && E.th && E.prose, E);
